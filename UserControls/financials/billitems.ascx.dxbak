@@ -1,0 +1,131 @@
+﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="billitems.ascx.cs" Inherits="UserControls_financials_billitems" %>
+<style type="text/css">
+        .style1
+        {
+            width: 100%;
+        }
+    </style>
+<dx:ASPxRoundPanel ID="ASPxRoundPanel1" runat="server" 
+            HeaderText="Accounts: Academic Billing Items" Width="100%">
+            <PanelCollection>
+<dx:PanelContent ID="PanelContent1" runat="server" SupportsDisabledAttribute="True">
+    <table class="style1">
+        <tr>
+            <td>
+                &nbsp;</td>
+        </tr>
+        <tr>
+            <td>
+                <dx:ASPxGridView ID="gvBillItems" runat="server" AutoGenerateColumns="False" 
+                    DataSourceID="dsBillItems" KeyFieldName="ItemCode" Width="100%">
+                    <GroupSummary>
+                        <dx:ASPxSummaryItem FieldName="ItemCode" ShowInColumn="Item Code" 
+                            ShowInGroupFooterColumn="Item Code" SummaryType="Sum" />
+                    </GroupSummary>
+                    <Columns>
+                        <dx:GridViewCommandColumn ShowInCustomizationForm="True" VisibleIndex="0" 
+                            Width="30px">
+                            <NewButton Visible="True">
+                            </NewButton>
+                            <ClearFilterButton Visible="True">
+                            </ClearFilterButton>
+                        </dx:GridViewCommandColumn>
+                        <dx:GridViewDataTextColumn FieldName="ItemCode" ReadOnly="True" 
+                            ShowInCustomizationForm="True" VisibleIndex="1" Width="40px" 
+                            Visible="False">
+                            <EditFormSettings Visible="True" />
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="ItemName" ShowInCustomizationForm="True" 
+                            VisibleIndex="2">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="AccountCode" 
+                            ShowInCustomizationForm="True" Visible="False" VisibleIndex="5">
+                            <EditFormSettings Visible="True" />
+                            <EditItemTemplate>
+                                <dx:ASPxComboBox ID="txtData" runat="server" DataSourceID="dsAccounts" 
+                                    IncrementalFilteringMode="Contains" TextField="AccountName" 
+                                    TextFormatString="{1}" Value='<%# Bind("AccountCode") %>' 
+                                    ValueField="AccountCode" ValueType="System.String" Width="100%">
+                                    <Columns>
+                                        <dx:ListBoxColumn FieldName="AccountCode" />
+                                        <dx:ListBoxColumn FieldName="AccountName" />
+                                    </Columns>
+                                </dx:ASPxComboBox>
+                            </EditItemTemplate>
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn Caption="Priority" FieldName="PriorityCode" 
+                            ShowInCustomizationForm="True" VisibleIndex="3" Width="30px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewCommandColumn ShowInCustomizationForm="True" VisibleIndex="4" 
+                            Width="40px">
+                            <EditButton Visible="True">
+                            </EditButton>
+                            <DeleteButton Visible="True">
+                            </DeleteButton>
+                            <ClearFilterButton Visible="True">
+                            </ClearFilterButton>
+                        </dx:GridViewCommandColumn>
+                    </Columns>
+                    <SettingsEditing EditFormColumnCount="1" />
+                    <Settings ShowGroupFooter="VisibleIfExpanded" />
+                </dx:ASPxGridView>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <asp:ObjectDataSource ID="dsBillItems" runat="server" 
+                    DeleteMethod="DeleteAcademicBillItem" InsertMethod="AddAcademicBillItem" 
+                    OldValuesParameterFormatString="original_{0}" SelectMethod="GetBillItems" 
+                    TypeName="StudentACCBLL" UpdateMethod="EditAcademicBillItem">
+                    <DeleteParameters>
+                        <asp:Parameter Name="ItemCode" Type="Int32" />
+                        <asp:Parameter Name="original_ItemCode" Type="Int32" />
+                    </DeleteParameters>
+                    <InsertParameters>
+                        <asp:Parameter Name="ItemCode" Type="Int32" />
+                        <asp:Parameter Name="ItemName" Type="String" />
+                        <asp:Parameter Name="AccountCode" Type="String" />
+                        <asp:Parameter Name="PriorityCode" Type="Int32" />
+                    </InsertParameters>
+                    <UpdateParameters>
+                        <asp:Parameter Name="ItemName" Type="String" />
+                        <asp:Parameter Name="AccountCode" Type="String" />
+                        <asp:Parameter Name="PriorityCode" Type="Int32" />
+                        <asp:Parameter Name="ItemCode" Type="Int32" />
+                        <asp:Parameter Name="original_ItemCode" Type="Int32" />
+                    </UpdateParameters>
+                </asp:ObjectDataSource>
+                <asp:ObjectDataSource ID="dsAccounts" runat="server" 
+                    DeleteMethod="DeleteAccount" InsertMethod="AddAccount" 
+                    OldValuesParameterFormatString="original_{0}" 
+                    SelectMethod="GetAccountsByCategory" TypeName="AccountsBLL" 
+                    UpdateMethod="UpdateAccount">
+                    <DeleteParameters>
+                        <asp:Parameter Name="AccountCode" Type="String" />
+                        <asp:Parameter Name="original_AccountCode" Type="String" />
+                    </DeleteParameters>
+                    <InsertParameters>
+                        <asp:Parameter Name="AccountCode" Type="String" />
+                        <asp:Parameter Name="MainAccountCode" Type="String" />
+                        <asp:Parameter Name="AccountName" Type="String" />
+                        <asp:Parameter Name="Details" Type="String" />
+                        <asp:Parameter Name="JournalCode" Type="String" />
+                    </InsertParameters>
+                    <SelectParameters>
+                        <asp:Parameter DefaultValue="IU1000" Name="CategoryCode" Type="String" />
+                    </SelectParameters>
+                    <UpdateParameters>
+                        <asp:Parameter Name="MainAccountCode" Type="String" />
+                        <asp:Parameter Name="AccountName" Type="String" />
+                        <asp:Parameter Name="Details" Type="String" />
+                        <asp:Parameter Name="JournalCode" Type="String" />
+                        <asp:Parameter Name="AccountCode" Type="String" />
+                        <asp:Parameter Name="original_AccountCode" Type="String" />
+                    </UpdateParameters>
+                </asp:ObjectDataSource>
+            </td>
+        </tr>
+    </table>
+                </dx:PanelContent>
+</PanelCollection>
+        </dx:ASPxRoundPanel>

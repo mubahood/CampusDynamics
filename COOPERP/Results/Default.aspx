@@ -1,0 +1,8 @@
+﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Results/MasterPage.master" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="COOPERP_Results_Default" %>
+
+<%@ Register src="../../UserControls/Results/BestPerformersAnnual.ascx" tagname="BestPerformersAnnual" tagprefix="uc1" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+    <uc1:BestPerformersAnnual ID="BestPerformersAnnual1" runat="server" />
+</asp:Content>
+

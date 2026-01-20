@@ -1,0 +1,192 @@
+<%@ Master Language="C#" AutoEventWireup="true" CodeFile="MasterPage.master.cs" Inherits="OPAC_MasterPage" %>
+
+<%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
+
+<%@ Register src="../../UserControls/financials/StudentLedgerCentre.ascx" tagname="StudentLedgerCentre" tagprefix="uc1" %>
+
+<%@ Register src="../../UserControls/PasswordChanger.ascx" tagname="passwordchanger" tagprefix="uc1" %>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head id="Head1" runat="server">
+  <title>Campus Dynamics ERP :: Higher Education Management Solution</title>
+  <meta name="description" content="website description" />
+  <meta name="keywords" content="Academica ERP OPAC, IUIU Library" />
+  <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
+  <link rel="stylesheet" type="text/css" href="~/COOPERP/css/style.css" />
+  <link rel="shortcut icon" href="~/COOPERP/images/tinylogo.gif" />
+    <style type="text/css">
+        .style1
+        {
+            width: 100%;
+        }
+        .style2
+        {
+             width: 300px;
+            background-image: url('../images/header_1_backgrimg.png');
+        }
+        .backImg
+        {
+            background-image: url('../images/header_1_backgrimg.png');
+        }
+
+    .options
+    {
+        height: 20px;
+        width: 150px;
+    }
+      
+
+
+        .style3
+        {
+            height: 21px;
+        }
+      
+
+
+        </style>
+</head>
+<body>
+    <form id="form1" runat="server">
+    <div id="main">
+    <header>
+	    <!--close banner-->	
+	</header>
+	
+	<nav>
+	  <div id="menubar">
+        
+      </div><!--close menubar-->	
+    </nav>	
+    
+	<div id="site_content">			
+	
+	    <table class="style1">
+            <tr>
+                <td align="right" class="style3">
+                <table cellspacing="0" class="style1" cellpadding="0">
+                    <tr class="backImg">
+                        <td class="style2">
+                            <img src="../images/header_1_leftimg.png" 
+                                alt="Academica ERP Library Module" width="300" height="110"/></td>
+                        <td class="backImg">
+                           </td>
+                        <td align="right" class="style2">
+                            <img src="../images/header_1_rightimg.png" alt="" /></td>
+                    </tr>
+                </table>
+                </td>
+            </tr>
+            <tr>
+                <td align="right" class="style3">
+        
+          <dx:ASPxMenu ID="ASPxMenu1" runat="server" Width="100%" ItemImagePosition="Top">
+              <Items>
+                  <dx:MenuItem Name="Dashboard" Text="Dashboard" 
+                      NavigateUrl="~/MyApplications.aspx">
+                      <Image Url="~/COOPERP/images/application-icon.png">
+                      </Image>
+                  </dx:MenuItem>
+                  <dx:MenuItem Text="Hall  Allocations" NavigateUrl="~/COOPERP/Residence/ResidenceInfo.aspx">
+                      <Image IconID="sort_sortgroupheader_16x16">
+                      </Image>
+                  </dx:MenuItem>
+                  <dx:MenuItem Text="Hall Management">
+                      <Image IconID="actions_insert_16x16">
+                      </Image>
+                     
+                  </dx:MenuItem>
+                  <dx:MenuItem 
+                      Text="Student Profiles" NavigateUrl="~/COOPERP/StudentInfo/StudentInfo.aspx">
+                      <Image IconID="businessobjects_bodetails_16x16">
+                      </Image>
+                  </dx:MenuItem>
+                  <dx:MenuItem 
+                      Text="Documents Centre">
+                      <Image IconID="actions_reading_16x16">
+                      </Image>
+                  </dx:MenuItem>
+              </Items>
+              <ItemStyle>
+              <Paddings Padding="10px" />
+              </ItemStyle>
+              <SubMenuItemStyle>
+                  <Paddings Padding="10px" />
+              </SubMenuItemStyle>
+          </dx:ASPxMenu>
+        
+                </td>
+            </tr>
+            <tr>
+                <td align="right" class="style3">
+	      <asp:ScriptManager ID="ScriptManager1" runat="server">
+          </asp:ScriptManager>
+                                                            <table cellspacing="1" class="style1">
+                        <tr>
+                            <td style="text-align: left">
+                                                            <dx:ASPxLabel ID="lbl_date" runat="server" ForeColor="Red">
+                                                            </dx:ASPxLabel>
+                            </td>
+                            <td align="right"><dx:ASPxImage ID="ASPxImage2" runat="server" ImageAlign="AbsBottom" ImageUrl="~/COOPERP/images/user.png">
+                                                            </dx:ASPxImage>
+&nbsp;<dx:ASPxLabel ID="ASPxLabel1" runat="server" Text="Current User:">
+                                                            </dx:ASPxLabel>
+&nbsp;<asp:LoginName ID="LoginName1" runat="server" />
+&nbsp;<asp:LoginStatus ID="LoginStatus1" runat="server" Font-Underline="False" ForeColor="Blue" LoginText=" | Login |" 
+                                                                LogoutAction="RedirectToLoginPage" LogoutText=" | Logout |" />
+                                <dx:ASPxHyperLink ID="cmdPasschange" runat="server" Text="Change Password |" />
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
+                        <asp:UpdatePanel ID="UpdatePanel1" runat="server">
+                        </asp:UpdatePanel>
+                    </asp:ContentPlaceHolder>
+                </td>
+            </tr>
+            <tr>
+                <td align="center">
+                    <br />
+                    <dx:ASPxImage ID="ASPxImage1" runat="server" Height="1px" 
+                        ImageUrl="~/COOPERP/images/hor_line.png" Width="100%">
+                    </dx:ASPxImage>
+                    <br />
+                    <br />
+                    <dx:ASPxLabel ID="lbl_footer" runat="server" ForeColor="Blue">
+                    </dx:ASPxLabel>
+                </td>
+            </tr>
+            <tr>
+                <td align="center">
+                    <dx:ASPxPopupControl ID="pop_OTP" runat="server" CloseAction="CloseButton" ContentUrl="~/COOPERP/OTP_panel.aspx" HeaderText="Instant Passcode Check" Modal="True" PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter">
+                    </dx:ASPxPopupControl>
+                    <dx:ASPxPopupControl ID="pop_passwordchange" runat="server" 
+                        CloseAction="CloseButton" HeaderText="" Modal="True" 
+                        PopupElementID="cmdPasschange" PopupHorizontalAlign="WindowCenter" 
+                        PopupVerticalAlign="WindowCenter">
+                        <ContentCollection>
+<dx:PopupControlContentControl runat="server">
+    <uc1:PasswordChanger ID="PasswordChanger1" runat="server" />
+                            </dx:PopupControlContentControl>
+</ContentCollection>
+                    </dx:ASPxPopupControl>
+                </td>
+            </tr>
+        </table>
+        <!--close sidebar_container-->	
+	
+	    <!--close content-->   
+	
+	</div><!--close site_content-->  	
+  
+  </div><!--close main-->
+  
+    </form>
+</body>
+</html>

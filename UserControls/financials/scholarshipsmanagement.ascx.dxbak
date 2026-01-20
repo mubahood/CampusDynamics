@@ -1,0 +1,263 @@
+﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="scholarshipsmanagement.ascx.cs" Inherits="UserControls_financials_scholarshipsmanagement" %>
+<style type="text/css">
+.style1
+{
+width:100%;
+}
+
+
+
+    *
+{ 
+    /*padding: 0;*/
+    margin-left: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+        
+    }
+
+
+    </style>
+<dx:ASPxRoundPanel ID="ASPxRoundPanel2" runat="server" 
+        HeaderText="Scholarship &amp; Bursary Management Centre" Width="100%">
+        <PanelCollection>
+<dx:PanelContent ID="PanelContent1" runat="server" SupportsDisabledAttribute="True">
+    <asp:UpdatePanel ID="UpdatePanel3" runat="server">
+        <ContentTemplate>
+            <table class="style1">
+                <tr>
+                    <td>
+                        <table class="style1">
+                            <tr>
+                                <td style="width: 77px">
+                                    Scholarship:</td>
+                                <td style="width: 202px">
+                                    <dx:ASPxComboBox ID="txtScholarships" runat="server" AutoPostBack="True" 
+                                        DataSourceID="dsScholarships" TextField="scholarshipName" 
+                                        TextFormatString="{1}" ValueField="scholarshipID" ValueType="System.UInt32" 
+                                        Width="200px">
+                                        <Columns>
+                                            <dx:ListBoxColumn Caption="SNo" FieldName="scholarshipID" Width="25px" />
+                                            <dx:ListBoxColumn Caption="Scholarship" FieldName="scholarshipName" 
+                                                Width="200px" />
+                                        </Columns>
+                                    </dx:ASPxComboBox>
+                                </td>
+                                <td style="width: 37px">
+                                    <dx:ASPxButton ID="cmdScholarships" runat="server" AutoPostBack="False" 
+                                        Text="..." Width="25px">
+                                    </dx:ASPxButton>
+                                </td>
+                                <td style="width: 150px">
+                                    <dx:ASPxTextBox ID="txtAccountSearch" runat="server" NullText="Eg 02512" 
+                                        OnTextChanged="txtAccountSearch_TextChanged" Width="200px">
+                                    </dx:ASPxTextBox>
+                                </td>
+                                <td>
+                                    <dx:ASPxButton ID="cmdSearch" runat="server" 
+                                        OnClick="txtAccountSearch_TextChanged" Text="Search" Width="170px">
+                                        <Image Url="~/COOPERP/images/magnifier.png">
+                                        </Image>
+                                    </dx:ASPxButton>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="width: 77px">
+                                    Term:</td>
+                                <td style="width: 202px">
+                                    <dx:ASPxComboBox ID="txtTerm" runat="server" AutoPostBack="True" 
+                                        onselectedindexchanged="txtClass_NumberChanged" SelectedIndex="0" 
+                                        ValueType="System.String" Width="200px">
+                                        <Items>
+                                            <dx:ListEditItem Selected="True" Text="1" Value="1" />
+                                            <dx:ListEditItem Text="2" Value="2" />
+                                            <dx:ListEditItem Text="3" Value="3" />
+                                            <dx:ListEditItem Text="4" Value="4" />
+                                            <dx:ListEditItem Text="5" Value="5" />
+                                            <dx:ListEditItem Text="6" Value="6" />
+                                        </Items>
+                                    </dx:ASPxComboBox>
+                                </td>
+                                <td style="width: 37px">
+                                    &nbsp;</td>
+                                <td style="width: 150px">
+                                    <dx:ASPxComboBox ID="txtRegNo" runat="server" AutoPostBack="True" 
+                                        DataSourceID="dsPayeeAccounts" IncrementalFilteringMode="Contains" 
+                                        TextField="AccountName" TextFormatString="{1}" ValueField="AccountCode" 
+                                        ValueType="System.String" Width="200px">
+                                        <Columns>
+                                            <dx:ListBoxColumn FieldName="accountCode" Caption="Adm No" Width="150px" />
+                                            <dx:ListBoxColumn FieldName="accountName" Caption="Name" Width="200px" />
+                                            <dx:ListBoxColumn Caption="Details" FieldName="details" Width="250px" />
+                                        </Columns>
+                                    </dx:ASPxComboBox>
+                                </td>
+                                <td>
+                                    &nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="width: 77px">
+                                    Year:</td>
+                                <td style="width: 202px">
+                                    <dx:ASPxSpinEdit ID="txtYear" runat="server" AutoPostBack="True" Height="21px" 
+                                        MaxValue="3000" MinValue="2008" Number="2008" style="margin-bottom: 0px" 
+                                        Width="200px">
+                                    </dx:ASPxSpinEdit>
+                                </td>
+                                <td style="width: 37px">
+                                    &nbsp;</td>
+                                <td style="width: 150px">
+                                    <dx:ASPxButton ID="cmdAdd" runat="server" onclick="cmdAdd_Click" 
+                                        Text="Add Student" Width="200px">
+                                        <Image Url="~/COOPERP/images/clipboard--plus.png">
+                                        </Image>
+                                    </dx:ASPxButton>
+                                </td>
+                                <td>
+                                    <dx:ASPxLabel ID="lbl_comments" runat="server" ForeColor="Red">
+                                    </dx:ASPxLabel>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="width: 77px">
+                                    &nbsp;</td>
+                                <td style="width: 202px">
+                                    &nbsp;</td>
+                                <td style="width: 37px">
+                                    &nbsp;</td>
+                                <td style="width: 150px">
+                                    <dx:ASPxButton ID="cmdPrint" runat="server" Text="Print List" Width="200px" 
+                                        onclick="cmdPrint_Click">
+                                        <Image Url="~/COOPERP/images/printer.png">
+                                        </Image>
+                                    </dx:ASPxButton>
+                                </td>
+                                <td>
+                                    &nbsp;</td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <dx:ASPxGridView ID="gvStudents" runat="server" AutoGenerateColumns="False" 
+                            DataSourceID="dsScholarshipStudents" KeyFieldName="stid" Width="100%">
+                            <Columns>
+                                <dx:GridViewCommandColumn ShowSelectCheckbox="True" VisibleIndex="0" 
+                                    Width="25px">
+                                    <ClearFilterButton Visible="True">
+                                    </ClearFilterButton>
+                                </dx:GridViewCommandColumn>
+                                <dx:GridViewDataTextColumn FieldName="stid" ReadOnly="True" Visible="False" 
+                                    VisibleIndex="1">
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewDataTextColumn Caption="Admission No" FieldName="adm_no" 
+                                    VisibleIndex="2" Width="150px">
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewDataTextColumn Caption="Scholarship No" FieldName="scholarshipID" 
+                                    Visible="False" VisibleIndex="4">
+                                    <EditFormSettings Visible="True" />
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewDataTextColumn Caption="Term" FieldName="scholarhipTerm" 
+                                    Visible="False" VisibleIndex="5">
+                                    <EditFormSettings Visible="True" />
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewDataTextColumn Caption="Year" FieldName="scholarhipYear" 
+                                    Visible="False" VisibleIndex="6">
+                                    <EditFormSettings Visible="True" />
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewDataTextColumn Caption="Amount Due" FieldName="amountDue" 
+                                    VisibleIndex="7" Width="100px">
+                                    <PropertiesTextEdit DisplayFormatString="{0:0,0}">
+                                    </PropertiesTextEdit>
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewDataTextColumn Caption="Name" FieldName="stud_name" 
+                                    VisibleIndex="3">
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewCommandColumn ButtonType="Image" VisibleIndex="8" Width="45px">
+                                    <ClearFilterButton Visible="True">
+                                    </ClearFilterButton>
+                                    <EditButton Visible="True">
+                                        <Image Url="~/COOPERP/images/clipboard--pencil.png" ToolTip="Edit">
+                                        </Image>
+                                    </EditButton>
+                                    <DeleteButton Visible="True">
+                                        <Image Url="~/COOPERP/images/minus-button.png" ToolTip="Delete">
+                                        </Image>
+                                    </DeleteButton>
+                                </dx:GridViewCommandColumn>
+                            </Columns>
+                            <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" />
+                        </dx:ASPxGridView>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <asp:ObjectDataSource ID="dsPayeeAccounts" runat="server" 
+                            OldValuesParameterFormatString="original_{0}" SelectMethod="GetStudentPayee" 
+                            TypeName="CoopERPDataTableAdapters.fin_GetPayeeAccountsTableAdapter">
+                            <SelectParameters>
+                                <asp:ControlParameter ControlID="txtAccountSearch" DefaultValue="---" 
+                                    Name="txt" PropertyName="Text" Type="String" />
+                                <asp:ControlParameter ControlID="txtTerm" DefaultValue="" Name="trm" 
+                                    PropertyName="Value" Type="Int32" />
+                                <asp:ControlParameter ControlID="txtYear" Name="yr" PropertyName="Number" 
+                                    Type="Int32" />
+                            </SelectParameters>
+                        </asp:ObjectDataSource>
+                        <asp:ObjectDataSource ID="dsScholarships" runat="server" 
+                            OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" 
+                            TypeName="StudentAccountingDataTableAdapters.scholarshipsTableAdapter">
+                        </asp:ObjectDataSource>
+                        <asp:ObjectDataSource ID="dsScholarshipStudents" runat="server" 
+                            DeleteMethod="Delete" InsertMethod="Insert" 
+                            OldValuesParameterFormatString="original_{0}" 
+                            SelectMethod="GetScholarshipStudent" 
+                            TypeName="StudentAccountingDataTableAdapters.scholarshipstudentsTableAdapter" 
+                            UpdateMethod="Update">
+                            <DeleteParameters>
+                                <asp:Parameter Name="Original_stid" Type="UInt32" />
+                            </DeleteParameters>
+                            <InsertParameters>
+                                <asp:Parameter Name="adm_no" Type="String" />
+                                <asp:Parameter Name="scholarshipID" Type="UInt32" />
+                                <asp:Parameter Name="scholarhipTerm" Type="UInt32" />
+                                <asp:Parameter Name="scholarhipYear" Type="String" />
+                                <asp:Parameter Name="amountDue" Type="UInt64" />
+                            </InsertParameters>
+                            <SelectParameters>
+                                <asp:ControlParameter ControlID="txtScholarships" DefaultValue="0" Name="sid" 
+                                    PropertyName="Value" Type="Int32" />
+                                <asp:ControlParameter ControlID="txtYear" Name="yr" PropertyName="Number" 
+                                    Type="Int32" />
+                                <asp:ControlParameter ControlID="txtTerm" Name="trm" PropertyName="Value" 
+                                    Type="Int32" />
+                            </SelectParameters>
+                            <UpdateParameters>
+                                <asp:Parameter Name="adm_no" Type="String" />
+                                <asp:Parameter Name="scholarshipID" Type="UInt32" />
+                                <asp:Parameter Name="scholarhipTerm" Type="UInt32" />
+                                <asp:Parameter Name="scholarhipYear" Type="String" />
+                                <asp:Parameter Name="amountDue" Type="UInt64" />
+                                <asp:Parameter Name="Original_stid" Type="UInt32" />
+                            </UpdateParameters>
+                        </asp:ObjectDataSource>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <dx:ASPxPopupControl ID="pop_scholarships" runat="server" HeaderText="" 
+                            PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="Middle">
+                            <ContentCollection>
+                                <dx:PopupControlContentControl ID="PopupControlContentControl3" runat="server" SupportsDisabledAttribute="True">
+                                </dx:PopupControlContentControl>
+                            </ContentCollection>
+                        </dx:ASPxPopupControl>
+                    </td>
+                </tr>
+            </table>
+        </ContentTemplate>
+    </asp:UpdatePanel>
+            </dx:PanelContent>
+</PanelCollection>
+    </dx:ASPxRoundPanel>

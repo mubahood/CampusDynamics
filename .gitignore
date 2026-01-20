@@ -1,0 +1,73 @@
+# User uploaded files and generated content
+Files/*
+!Files/.gitkeep
+Thumb/*
+!Thumb/.gitkeep
+
+# Temporary and cache folders
+App_Data/UploadTemp/
+App_Data/WorkDirectory/
+DXTempFolder/
+
+# Build outputs and compiled binaries
+Bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+
+# Visual Studio files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ASP.NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Backup files
+*.bak
+*.backup
+
+# Logs
+*.log
+log/
+logs/
+
+# OS generated files
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Package files
+*.nupkg
+*.snupkg
+
+# NuGet packages folder
+packages/
+
+# Keep important folders but ignore their contents
+App_Data/XtraReports/*.repx
+!App_Data/XtraReports/.gitkeep
+
+# Ignore user-generated reports
+App_Data/XtraReports/*
+!App_Data/XtraReports/.gitkeep
+
+# IDE settings
+.idea/
+*.swp
+*.swo
+*~
+
+# Sensitive config (if needed, create example configs)
+# web.config (commented out - tracking this file)

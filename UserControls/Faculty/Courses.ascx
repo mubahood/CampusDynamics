@@ -1,0 +1,187 @@
+﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="Courses.ascx.cs" Inherits="UserControls_Faculty_Courses" %>
+<style type="text/css">
+    .style1
+    {
+        width: 100%;
+    }
+
+*
+{ 
+    /*padding: 0;*/
+    margin-left: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    
+}
+
+
+    .style2_apps
+    {
+        width: 80px;
+    }
+    .style3
+    {
+        width: 218px;
+    }
+    .style4
+    {
+        width:40px;
+    }
+    .style5
+    {
+        width: 1052px;
+    }
+</style>
+
+<dx:ASPxRoundPanel ID="ASPxRoundPanel1" runat="server" 
+    HeaderText="System Applications" ShowHeader="False" Width="100%" DefaultButton="txtSearch">
+    <PanelCollection>
+<dx:PanelContent ID="PanelContent1" runat="server" SupportsDisabledAttribute="True">
+    <table class="style1">
+        <tr>
+            <td>
+                <table cellpadding="0" cellspacing="0" class="style1">
+                    <tr>
+                        <td style="text-align: center">
+                            <dx:ASPxImage ID="ASPxImage1" runat="server" ImageAlign="AbsBottom" 
+                                ImageUrl="~/COOPERP/images/header_course_info.png">
+                            </dx:ASPxImage>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <dx:ASPxImage ID="ASPxImage2" runat="server" Height="1px" 
+                                ImageUrl="~/COOPERP/images/hor_line.png" Width="100%">
+                            </dx:ASPxImage>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                &nbsp;</td>
+        </tr>
+        <tr>
+            <td>
+                <table class="style1">
+                    <tr>
+                        <td>
+                            <dx:ASPxButton ID="cmdAddNew" runat="server" OnClick="cmdAddNew_Click" Text="Add New" Width="170px">
+                                <Image Url="~/COOPERP/images/clipboard--plus.png">
+                                </Image>
+                            </dx:ASPxButton>
+                        </td>
+                        <td style="text-align: right" width="170px">
+                            <dx:ASPxTextBox ID="txtSearch" runat="server" AutoCompleteType="Search" Height="27px" NullText="Enter Search Text" Width="170px">
+                                <ClientSideEvents TextChanged="function(s, e) {
+	gvCourseInfo.Refresh();
+}" />
+                                <Paddings PaddingLeft="5px" />
+                            </dx:ASPxTextBox>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <dx:ASPxGridView ID="gvCourseInfo" runat="server" AutoGenerateColumns="False" DataSourceID="dsCourseInfo" KeyFieldName="courseID" Width="100%" ClientInstanceName="gvCourseInfo">
+                    <SettingsSearchPanel Visible="True" />
+                    <Columns>
+                        <dx:GridViewDataTextColumn FieldName="courseID" ShowInCustomizationForm="True" VisibleIndex="1" Caption="Code">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="courseName" ShowInCustomizationForm="True" VisibleIndex="2" Caption="Course Name">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="CreditUnit" ShowInCustomizationForm="True" VisibleIndex="3" Width="60px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="ContactHr" ShowInCustomizationForm="True" VisibleIndex="4" Width="60px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="LectureHr" ShowInCustomizationForm="True" VisibleIndex="5" Width="60px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="PracticalHr" ShowInCustomizationForm="True" VisibleIndex="6" Width="60px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="courseDescription" ShowInCustomizationForm="True" VisibleIndex="7" Caption="Description" Visible="False">
+                            <EditFormSettings Visible="False" />
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewCommandColumn ShowInCustomizationForm="True" ShowSelectCheckbox="True" VisibleIndex="0" Width="25px" ShowClearFilterButton="True">
+                        </dx:GridViewCommandColumn>
+                        <dx:GridViewCommandColumn ShowDeleteButton="True" ShowEditButton="True" ShowInCustomizationForm="True" VisibleIndex="12" Width="40px" ButtonType="Image"/>
+                        <dx:GridViewDataComboBoxColumn Caption="Status" FieldName="stat" ShowInCustomizationForm="True" VisibleIndex="9">
+                            <PropertiesComboBox IncrementalFilteringMode="Contains">
+                                <Items>
+                                    <dx:ListEditItem Text="Active" Value="Active" />
+                                    <dx:ListEditItem Text="InActive" Value="InActive" />
+                                </Items>
+                            </PropertiesComboBox>
+                        </dx:GridViewDataComboBoxColumn>
+                        <dx:GridViewDataComboBoxColumn Caption="Core Status" FieldName="CoreStatus" ShowInCustomizationForm="True" VisibleIndex="11" Width="60px">
+                            <PropertiesComboBox IncrementalFilteringMode="Contains">
+                                <Items>
+                                    <dx:ListEditItem Text="Core" Value="Core" />
+                                    <dx:ListEditItem Text="Elective" Value="Optional" />
+                                </Items>
+                            </PropertiesComboBox>
+                        </dx:GridViewDataComboBoxColumn>
+                    </Columns>
+                    <Settings ShowFilterRow="True" ShowFilterRowMenu="True" />
+                    <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" />
+                   <SettingsCommandButton><UpdateButton RenderMode="Link"></UpdateButton><CancelButton RenderMode="Link"></CancelButton><UpdateButton RenderMode="Link"></UpdateButton><CancelButton RenderMode="Link"></CancelButton>
+                        <EditButton>
+                            <Image Url="~/COOPERP/images/clipboard--pencil.png">
+                            </Image>
+                        </EditButton>
+                        <DeleteButton>
+                            <Image Url="~/COOPERP/images/minus-button.png">
+                            </Image>
+                        </DeleteButton>
+                    </SettingsCommandButton>
+                </dx:ASPxGridView>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                &nbsp;</td>
+        </tr>
+        <tr>
+            <td>
+                <asp:ObjectDataSource ID="dsCourseInfo" runat="server" 
+                    OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" 
+                    TypeName="FacultyDataTableAdapters.acad_courseTableAdapter" 
+                    DeleteMethod="Delete" InsertMethod="Insert" UpdateMethod="Update">
+                    <DeleteParameters>
+                        <asp:Parameter Name="Original_courseID" Type="String" />
+                    </DeleteParameters>
+                    <InsertParameters>
+                        <asp:Parameter Name="courseID" Type="String" />
+                        <asp:Parameter Name="courseName" Type="String" />
+                        <asp:Parameter Name="CreditUnit" Type="Double" />
+                        <asp:Parameter Name="ContactHr" Type="Double" />
+                        <asp:Parameter Name="LectureHr" Type="Double" />
+                        <asp:Parameter Name="PracticalHr" Type="Double" />
+                        <asp:Parameter Name="courseDescription" Type="String" />
+                        <asp:Parameter Name="stat" Type="String" />
+                        <asp:Parameter Name="CoreStatus" Type="String" />
+                    </InsertParameters>
+                    <SelectParameters>
+                        <asp:ControlParameter ControlID="txtSearch" DefaultValue="%" Name="txt" PropertyName="Text" Type="String" />
+                    </SelectParameters>
+                    <UpdateParameters>
+                        <asp:Parameter Name="courseName" Type="String" />
+                        <asp:Parameter Name="CreditUnit" Type="Double" />
+                        <asp:Parameter Name="ContactHr" Type="Double" />
+                        <asp:Parameter Name="LectureHr" Type="Double" />
+                        <asp:Parameter Name="PracticalHr" Type="Double" />
+                        <asp:Parameter Name="courseDescription" Type="String" />
+                        <asp:Parameter Name="stat" Type="String" />
+                        <asp:Parameter Name="CoreStatus" Type="String" />
+                        <asp:Parameter Name="Original_courseID" Type="String" />
+                    </UpdateParameters>
+                </asp:ObjectDataSource>
+                <asp:ObjectDataSource ID="dsFaculties" runat="server" OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" TypeName="FacultyDataTableAdapters.acad_facultyTableAdapter"></asp:ObjectDataSource>
+            </td>
+        </tr>
+    </table>
+        </dx:PanelContent>
+</PanelCollection>
+</dx:ASPxRoundPanel>

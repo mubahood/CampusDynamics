@@ -1,0 +1,181 @@
+﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="GradingSystem.ascx.cs" Inherits="UserControls_Faculty_GradingSystem" %>
+<style type="text/css">
+    .style1
+    {
+        width: 100%;
+    }
+
+*
+{ 
+    /*padding: 0;*/
+    margin-left: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    
+}
+
+
+    .style2_apps
+    {
+        width: 80px;
+    }
+    .style3
+    {
+        width: 218px;
+    }
+    .style4
+    {
+        width:40px;
+    }
+    .style5
+    {
+        width: 1052px;
+    }
+</style>
+
+<dx:ASPxRoundPanel ID="ASPxRoundPanel1" runat="server" 
+    HeaderText="System Applications" ShowHeader="False" Width="100%" DefaultButton="txtSearch">
+    <PanelCollection>
+<dx:PanelContent ID="PanelContent1" runat="server" SupportsDisabledAttribute="True">
+    <asp:UpdatePanel ID="UpdatePanel1" runat="server">
+        <ContentTemplate>
+            <table class="style1">
+                <tr>
+                    <td>
+                        <table cellpadding="0" cellspacing="0" class="style1">
+                            <tr>
+                                <td style="text-align: center">
+                                    <dx:ASPxImage ID="ASPxImage1" runat="server" ImageAlign="AbsBottom" ImageUrl="~/COOPERP/images/header_gradingsys_info.png">
+                                    </dx:ASPxImage>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <dx:ASPxImage ID="ASPxImage2" runat="server" Height="1px" ImageUrl="~/COOPERP/images/hor_line.png" Width="100%">
+                                    </dx:ASPxImage>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td>&nbsp;</td>
+                </tr>
+                <tr>
+                    <td>
+                        <table class="style1">
+                            <tr>
+                                <td>
+                                    <dx:ASPxButton ID="cmdAddNew" runat="server" OnClick="cmdAddNew_Click" Text="Add New" Width="170px">
+                                        <Image Url="~/COOPERP/images/clipboard--plus.png">
+                                        </Image>
+                                    </dx:ASPxButton>
+                                </td>
+                                <td style="text-align: right" width="170px">
+                                    <dx:ASPxTextBox ID="txtSearch" runat="server" AutoCompleteType="Search" Height="27px" NullText="Enter Search Text" Width="170px">
+                                        <ClientSideEvents TextChanged="function(s, e) {
+	gvCourseInfo.Refresh();
+}" />
+                                        <Paddings PaddingLeft="5px" />
+                                    </dx:ASPxTextBox>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <dx:ASPxGridView ID="gvCourseInfo" runat="server" AutoGenerateColumns="False" ClientInstanceName="gvCourseInfo" DataSourceID="dsGradingSysInfo" KeyFieldName="ID" Width="100%">
+                            <Columns>
+                                <dx:GridViewDataTextColumn Caption="SNo" FieldName="ID" ReadOnly="True" ShowInCustomizationForm="True" VisibleIndex="1" Width="25px">
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewDataTextColumn Caption="Grading System Name" FieldName="gs_name" ShowInCustomizationForm="True" VisibleIndex="2">
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewDataDateColumn Caption="Start Date" FieldName="gs_startDate" ShowInCustomizationForm="True" VisibleIndex="3">
+                                </dx:GridViewDataDateColumn>
+                                <dx:GridViewDataTextColumn Caption="Decimal Places" FieldName="gs_decimals" ShowInCustomizationForm="True" VisibleIndex="4">
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewDataTextColumn Caption="Comments" FieldName="gs_comments" ShowInCustomizationForm="True" VisibleIndex="5">
+                                </dx:GridViewDataTextColumn>
+                                <dx:GridViewCommandColumn ButtonType="Image" ShowDeleteButton="True" ShowEditButton="True" ShowInCustomizationForm="True" VisibleIndex="7" Width="40px">
+                                    <EditButton Visible="True">
+                                        <Image Url="~/COOPERP/images/clipboard--pencil.png">
+                                        </Image>
+                                    </EditButton>
+                                    <DeleteButton Visible="True">
+                                        <Image Url="~/COOPERP/images/minus-button.png">
+                                        </Image>
+                                    </DeleteButton>
+                                </dx:GridViewCommandColumn>
+                                <dx:GridViewCommandColumn ShowSelectCheckbox="True" VisibleIndex="0" Width="25px">
+                                </dx:GridViewCommandColumn>
+                                <dx:GridViewDataTextColumn Caption="Details" VisibleIndex="6" Width="40px">
+                                    <DataItemTemplate>
+                                        <asp:ImageButton ID="cmdDetails" runat="server" ImageUrl="~/COOPERP/images/clipboard-list.png" OnClick="cmdDetails_Click" />
+                                    </DataItemTemplate>
+                                    <CellStyle HorizontalAlign="Center">
+                                    </CellStyle>
+                                </dx:GridViewDataTextColumn>
+                            </Columns>
+                            <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" />
+                        </dx:ASPxGridView>
+                    </td>
+                </tr>
+                <tr>
+                    <td>&nbsp;</td>
+                </tr>
+                <tr>
+                    <td>
+                        <asp:ObjectDataSource ID="dsGradingSysInfo" runat="server" DeleteMethod="Delete" InsertMethod="Insert" OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" TypeName="ResultsDataTableAdapters.acad_gradingsystemTableAdapter" UpdateMethod="Update">
+                            <DeleteParameters>
+                                <asp:Parameter Name="Original_ID" Type="UInt32" />
+                            </DeleteParameters>
+                            <InsertParameters>
+                                <asp:Parameter Name="gs_name" Type="String" />
+                                <asp:Parameter Name="gs_startDate" Type="DateTime" />
+                                <asp:Parameter Name="gs_decimals" Type="Double" />
+                                <asp:Parameter Name="gs_comments" Type="String" />
+                            </InsertParameters>
+                            <SelectParameters>
+                                <asp:ControlParameter ControlID="txtSearch" DefaultValue="%" Name="txt" PropertyName="Text" Type="String" />
+                            </SelectParameters>
+                            <UpdateParameters>
+                                <asp:Parameter Name="gs_name" Type="String" />
+                                <asp:Parameter Name="gs_startDate" Type="DateTime" />
+                                <asp:Parameter Name="gs_decimals" Type="Double" />
+                                <asp:Parameter Name="gs_comments" Type="String" />
+                                <asp:Parameter Name="Original_ID" Type="UInt32" />
+                            </UpdateParameters>
+                        </asp:ObjectDataSource>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <dx:ASPxPopupControl ID="pop_messagebox" runat="server" DisappearAfter="10" HeaderText="Campus Dynamics Version 1.0" Height="100px" Modal="True" PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter" Width="300px">
+                            <HeaderStyle HorizontalAlign="Center" />
+                            <ContentCollection>
+                                <dx:PopupControlContentControl runat="server">
+                                    <table align="center" class="style1">
+                                        <tr>
+                                            <td align="center">
+                                                <br />
+                                                <br />
+                                                <dx:ASPxLabel ID="lbl_comment" runat="server" ForeColor="Red" style="font-weight: 700">
+                                                </dx:ASPxLabel>
+                                                <br />
+                                                <br />
+                                                <br />
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </dx:PopupControlContentControl>
+                            </ContentCollection>
+                        </dx:ASPxPopupControl>
+                    </td>
+                </tr>
+            </table>
+        </ContentTemplate>
+    </asp:UpdatePanel>
+        </dx:PanelContent>
+</PanelCollection>
+</dx:ASPxRoundPanel>

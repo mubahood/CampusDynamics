@@ -1,0 +1,229 @@
+﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="feespaymenttracking.ascx.cs" Inherits="UserControls_financials_feespaymenttracking" %>
+
+<style type="text/css">
+.style1
+{
+width:100%;
+}
+</style>
+<dx:ASPxRoundPanel ID="ASPxRoundPanel2" runat="server" 
+        HeaderText="Finance: Fees Payment Tracking" Width="100%">
+        <PanelCollection>
+<dx:PanelContent ID="PanelContent1" runat="server" SupportsDisabledAttribute="True">
+    <table class="style1">
+        <tr>
+            <td>
+                <table class="style1">
+                    <tr>
+                        <td style="width: 60px">
+                            Class:</td>
+                        <td style="width: 224px">
+                            <dx:ASPxComboBox ID="txtClass" runat="server" AutoPostBack="True" 
+                                EnableIncrementalFiltering="True" IncrementalFilteringMode="StartsWith" 
+                                SelectedIndex="0" ValueType="System.String" Width="200px">
+                                <Items>
+                                    <dx:ListEditItem Selected="True" Text="1" Value="1" />
+                                    <dx:ListEditItem Text="2" Value="2" />
+                                    <dx:ListEditItem Text="3" Value="3" />
+                                    <dx:ListEditItem Text="4" Value="4" />
+                                    <dx:ListEditItem Text="5" Value="5" />
+                                    <dx:ListEditItem Text="6" Value="6" />
+                                </Items>
+                            </dx:ASPxComboBox>
+                        </td>
+                        <td style="width: 60px">
+                            Year:</td>
+                        <td class="style7" style="width: 194px">
+                            <dx:ASPxComboBox ID="txtYear" runat="server" AutoPostBack="True" 
+                                ValueType="System.String" Width="170px">
+                            </dx:ASPxComboBox>
+                        </td>
+                        <td>
+                            <dx:ASPxButton ID="cmdViewLists" runat="server" OnClick="cmdViewLists_Click" 
+                                Text="Display List" Width="170px">
+                                <Image Url="~/COOPERP/images/arrow-circle.png">
+                                </Image>
+                            </dx:ASPxButton>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="width: 60px">
+                            Stream:</td>
+                        <td style="width: 224px">
+                            <dx:ASPxComboBox ID="txtStream" runat="server" AutoPostBack="True" 
+                                DataSourceID="dsStreams" IncrementalFilteringMode="Contains" TextField="stream" 
+                                ValueField="stream" ValueType="System.String" Width="200px">
+                                <Columns>
+                                    <dx:ListBoxColumn Caption="Stream" FieldName="stream" Name="Stream" />
+                                </Columns>
+                            </dx:ASPxComboBox>
+                        </td>
+                        <td style="width: 60px">
+                            Term:</td>
+                        <td class="style7" style="width: 194px">
+                            <dx:ASPxComboBox ID="txtTerm" runat="server" AutoPostBack="True" 
+                                EnableIncrementalFiltering="True" IncrementalFilteringMode="StartsWith" 
+                                SelectedIndex="0" ValueType="System.String" Width="170px">
+                                <Items>
+                                    <dx:ListEditItem Selected="True" Text="1" Value="1" />
+                                    <dx:ListEditItem Text="2" Value="2" />
+                                    <dx:ListEditItem Text="3" Value="3" />
+                                    <dx:ListEditItem Text="4" Value="4" />
+                                    <dx:ListEditItem Text="5" Value="5" />
+                                    <dx:ListEditItem Text="6" Value="6" />
+                                </Items>
+                            </dx:ASPxComboBox>
+                        </td>
+                        <td>
+                            <dx:ASPxButton ID="cmdPrintLists" runat="server" Text="Print List" 
+                                Width="170px" AutoPostBack="False">
+                                <Image Url="~/COOPERP/images/printer.png">
+                                </Image>
+                            </dx:ASPxButton>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="width: 60px">
+                            Status:</td>
+                        <td style="width: 224px">
+                            <dx:ASPxComboBox ID="txtStatus" runat="server" AutoPostBack="True" 
+                                EnableIncrementalFiltering="True" IncrementalFilteringMode="StartsWith" 
+                                SelectedIndex="2" ValueType="System.String" Width="200px" 
+                                OnSelectedIndexChanged="txtStatus_SelectedIndexChanged">
+                                <Items>
+                                    <dx:ListEditItem Text="All Students" Value="ALL" />
+                                    <dx:ListEditItem Text="Completed Fees" Value="Complete" />
+                                    <dx:ListEditItem Selected="True" Text="Incomplete Fees" Value="Incomplete" />
+                                </Items>
+                            </dx:ASPxComboBox>
+                        </td>
+                        <td style="width: 60px">
+                            SMS Text:</td>
+                        <td class="style7" style="width: 194px">
+                            <dx:ASPxMemo ID="txtSMS" runat="server" Text="Please come with the balance" 
+                                Width="170px" Height="40px">
+                            </dx:ASPxMemo>
+                        </td>
+                        <td>
+                            <dx:ASPxButton ID="cmdSMS" runat="server" OnClick="cmdSMS_Click" 
+                                Text="Send SMS" Width="170px">
+                                <Image Url="~/COOPERP/images/arrow-000-medium.png">
+                                </Image>
+                            </dx:ASPxButton>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="width: 60px">
+                            &nbsp;</td>
+                        <td style="width: 224px">
+                            &nbsp;</td>
+                        <td style="width: 60px">
+                            &nbsp;</td>
+                        <td class="style7" style="width: 194px">
+                            <dx:ASPxLabel ID="lbl_comments" runat="server" ForeColor="Red">
+                            </dx:ASPxLabel>
+                        </td>
+                        <td>
+                            &nbsp;</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                &nbsp;</td>
+        </tr>
+        <tr>
+            <td>
+                <dx:ASPxGridView ID="gvFeesLists" runat="server" AutoGenerateColumns="False" 
+                    DataSourceID="dsStudentLists" KeyFieldName="adm_no" Width="100%">
+                    <Columns>
+                        <dx:GridViewDataTextColumn Caption="Student Name" FieldName="studentName" 
+                            ShowInCustomizationForm="True" VisibleIndex="2">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewCommandColumn ShowInCustomizationForm="True" ShowSelectCheckbox="True" VisibleIndex="0" Width="30px" ShowClearFilterButton="True"/>
+                        <dx:GridViewDataTextColumn Caption="Admission No" FieldName="adm_no" 
+                            ShowInCustomizationForm="True" VisibleIndex="1">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="CurrentBalance" 
+                            ShowInCustomizationForm="True" VisibleIndex="6">
+                            <HeaderStyle HorizontalAlign="Right" />
+                            <CellStyle HorizontalAlign="Right">
+                            </CellStyle>
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn Caption="Total Bill" FieldName="totalBill" 
+                            ShowInCustomizationForm="True" VisibleIndex="4">
+                            <HeaderStyle HorizontalAlign="Right" />
+                            <CellStyle HorizontalAlign="Right">
+                            </CellStyle>
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn Caption="Total Payments" FieldName="totalPayments" 
+                            ShowInCustomizationForm="True" VisibleIndex="5">
+                            <HeaderStyle HorizontalAlign="Right" />
+                            <CellStyle HorizontalAlign="Right">
+                            </CellStyle>
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="OpeningBalance" 
+                            ShowInCustomizationForm="True" VisibleIndex="3">
+                            <HeaderStyle HorizontalAlign="Right" />
+                            <CellStyle HorizontalAlign="Right">
+                            </CellStyle>
+                        </dx:GridViewDataTextColumn>
+                    </Columns>
+                    <SettingsBehavior AllowFocusedRow="True" />
+                    <SettingsPager PageSize="150">
+                    </SettingsPager>
+                    <Settings ShowFilterRow="True" ShowFilterRowMenu="True" />
+                </dx:ASPxGridView>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <asp:ObjectDataSource ID="dsStreams" runat="server" OldValuesParameterFormatString="original_{0}" 
+                    SelectMethod="GetData" 
+                    TypeName="admissions_and_classesTableAdapters.streamsTableAdapter">
+                </asp:ObjectDataSource>
+                <asp:ObjectDataSource ID="dsStudentLists" runat="server" 
+                    OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" 
+                    TypeName="StudentAccountingDataTableAdapters.fin_FeesPaymentTrackingTableAdapter">
+                    <SelectParameters>
+                        <asp:ControlParameter ControlID="txtYear" Name="yr" PropertyName="Value" 
+                            Type="String" />
+                        <asp:ControlParameter ControlID="txtTerm" Name="trm" PropertyName="Value" 
+                            Type="Int32" />
+                        <asp:ControlParameter ControlID="txtClass" Name="cls" PropertyName="Value" 
+                            Type="Int32" />
+                        <asp:ControlParameter ControlID="txtStream" Name="strm" PropertyName="Value" 
+                            Type="String" />
+                        <asp:ControlParameter ControlID="txtStatus" Name="BalStat" PropertyName="Value" 
+                            Type="String" />
+                    </SelectParameters>
+                </asp:ObjectDataSource>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <dx:ASPxPopupControl ID="pop_print" runat="server" 
+                    PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter" 
+                    HeaderText="">
+                    <Windows>
+                        <dx:PopupWindow ContentUrl="~/COOPERP/financials/Reports/Default.aspx" 
+                            PopupElementID="cmdPrintLists" CloseAction="CloseButton" Modal="True" 
+                            ShowPageScrollbarWhenModal="True">
+                            <ContentCollection>
+                                <dx:PopupControlContentControl ID="PopupControlContentControl1" runat="server" SupportsDisabledAttribute="True">
+                                </dx:PopupControlContentControl>
+                            </ContentCollection>
+                        </dx:PopupWindow>
+                    </Windows>
+                    <ContentCollection>
+                        <dx:PopupControlContentControl ID="PopupControlContentControl2" runat="server" SupportsDisabledAttribute="True">
+                        </dx:PopupControlContentControl>
+                    </ContentCollection>
+                </dx:ASPxPopupControl>
+            </td>
+        </tr>
+    </table>
+            </dx:PanelContent>
+</PanelCollection>
+    </dx:ASPxRoundPanel>

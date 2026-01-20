@@ -1,0 +1,72 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeFile="Site.master.cs" Inherits="SiteMaster" %>
+
+<%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
+
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head id="Head1" runat="server">
+    <title></title>
+    <link href="~/Styles/Site.css" rel="stylesheet" type="text/css" />
+    <asp:ContentPlaceHolder ID="HeadContent" runat="server">
+    </asp:ContentPlaceHolder>
+    <style type="text/css">
+        .style1
+        {
+            width: 100%;
+        }
+    </style>
+    <link rel="shortcut icon" href="~/icons/tinyLogo.gif" />
+</head>
+<body>
+    <form id="Form1" runat="server">
+    <%--<div class="footer">--%>
+        
+        <table cellpadding="0" cellspacing="0" class="style1" border="0" 
+        frame="void">
+            <tr>
+                <td align="left" valign="bottom">
+                    <dx:ASPxImage ID="ASPxImage1" runat="server" ImageUrl="~/icons/new_header.png" 
+                        ImageAlign="AbsBottom">
+                    </dx:ASPxImage>
+                </td>
+                <td align="right" valign="bottom">
+                    <dx:ASPxImage ID="ASPxImage2" runat="server" 
+                        ImageUrl="~/icons/new_header_right.png" ImageAlign="AbsBottom">
+                    </dx:ASPxImage>
+                </td>
+            </tr>
+            <tr>
+                <td align="left" valign="top" colspan="2">
+                    <dx:ASPxRoundPanel ID="ASPxRoundPanel1" runat="server" 
+                        
+        HeaderText="Customer Service Management System Version 1.0" Width="100%">
+                        <HeaderStyle HorizontalAlign="Center" />
+                        <PanelCollection>
+<dx:PanelContent ID="PanelContent1" runat="server" SupportsDisabledAttribute="True">
+    <table class="style1">
+        <tr>
+            <td align="left">
+                <asp:ContentPlaceHolder ID="MainContent" runat="server">
+                </asp:ContentPlaceHolder>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                &nbsp;</td>
+        </tr>
+    </table>
+                            </dx:PanelContent>
+</PanelCollection>
+                    </dx:ASPxRoundPanel>
+                </td>
+            </tr>
+            </table>
+        
+   <%-- </div>--%>
+    </form>
+</body>
+</html>
