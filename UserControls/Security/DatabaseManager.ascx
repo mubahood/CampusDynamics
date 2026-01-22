@@ -1,4 +1,4 @@
-﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="DatabaseManager.ascx.cs" Inherits="UserControls_Security_DatabaseManager" %>
+<%@ Control Language="C#" AutoEventWireup="true" CodeFile="DatabaseManager.ascx.cs" Inherits="UserControls_Security_DatabaseManager" %>
 <%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
 
 <style type="text/css">
@@ -68,9 +68,9 @@
         </tr>
         <tr>
             <td>
-                <dx:ASPxMemo ID="txtCommand" runat="server" Height="120px" Width="100%" 
-                    Font-Size="Medium" HorizontalAlign="Left" NullText="Type command and click &quot;Execute Command&quot;" Theme="Office2010Blue" style="text-align: left">
-                    <RootStyle VerticalAlign="Middle">
+                <dx:ASPxMemo ID="txtCommand" runat="server" Height="150px" Width="100%" 
+                    Font-Size="Medium" HorizontalAlign="Left" NullText="Enter any SQL command (SELECT, INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, TRUNCATE, etc.) and click &quot;Execute Command&quot;" Theme="Office2010Blue" style="text-align: left">
+                    <RootStyle VerticalAlign="Top">
                     </RootStyle>
                 </dx:ASPxMemo>
             </td>
@@ -112,22 +112,24 @@
         <tr>
             <td>
                 <dx:ASPxGridView ID="gvDataset" runat="server" 
-                    Width="100%" ViewStateMode="Disabled" Theme="Office2010Blue">
-                    <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" AllowSort="False" 
+                    Width="100%" ViewStateMode="Disabled" Theme="Office2010Blue" AutoGenerateColumns="True">
+                    <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" AllowSort="True" 
                         ColumnResizeMode="Control" />
-                    <SettingsPager Mode="ShowAllRecords">
+                    <SettingsPager Mode="ShowAllRecords" PageSize="1000">
                     </SettingsPager>
                     <Settings ShowHorizontalScrollBar="True" ShowStatusBar="Visible" 
-                        ShowVerticalScrollBar="True" UseFixedTableLayout="True" />
+                        ShowVerticalScrollBar="True" UseFixedTableLayout="False" 
+                        ShowGroupPanel="False" ShowFilterRow="False" />
+                    <SettingsExport EnableClientSideExportAPI="True" />
                 </dx:ASPxGridView>
             </td>
         </tr>
         <tr>
             <td>
                 <dx:ASPxPopupControl ID="pop_messagebox" runat="server" 
-                    HeaderText="MEDMIS" Height="150px" 
+                    HeaderText="Database Manager" Height="150px" 
                     PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter" 
-                    Width="300px" CloseAction="CloseButton" Modal="True" Theme="Office2010Blue">
+                    Width="400px" CloseAction="CloseButton" Modal="True" Theme="Office2010Blue" ClientInstanceName="pop_messagebox">
                     <HeaderStyle HorizontalAlign="Center" />
                     <ContentCollection>
                         <dx:PopupControlContentControl runat="server" SupportsDisabledAttribute="True">

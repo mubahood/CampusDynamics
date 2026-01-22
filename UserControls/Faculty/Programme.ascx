@@ -64,6 +64,48 @@
         </tr>
         <tr>
             <td>
+                <!-- Filter Panel -->
+                <dx:ASPxRoundPanel ID="pnlFilter" runat="server" HeaderText="Filter Options" Width="100%" 
+                    Collapsible="true" Collapsed="true" EnableAnimation="true">
+                    <HeaderStyle BackColor="#F5F5F5" />
+                    <PanelCollection>
+                        <dx:PanelContent runat="server">
+                            <table style="width: 100%; padding: 10px;">
+                                <tr>
+                                    <td style="width: 100px; vertical-align: middle;">
+                                        <dx:ASPxLabel ID="lblFaculty" runat="server" Text="Faculty:" />
+                                    </td>
+                                    <td style="width: 300px;">
+                                        <dx:ASPxComboBox ID="cboFacultyFilter" runat="server" 
+                                            DataSourceID="dsFaculties" 
+                                            TextField="faculty_name" 
+                                            ValueField="faculty_code"
+                                            IncrementalFilteringMode="Contains"
+                                            Width="280px"
+                                            NullText="-- All Faculties --"
+                                            ClientInstanceName="cboFacultyFilter">
+                                            <ClientSideEvents SelectedIndexChanged="function(s, e) { gvProgrammeInfo.Refresh(); }" />
+                                        </dx:ASPxComboBox>
+                                    </td>
+                                    <td>
+                                        <dx:ASPxButton ID="cmdClearFilter" runat="server" Text="Clear Filter" 
+                                            AutoPostBack="false" UseSubmitBehavior="false">
+                                            <ClientSideEvents Click="function(s, e) { cboFacultyFilter.SetValue(null); gvProgrammeInfo.Refresh(); }" />
+                                            <Image Url="~/COOPERP/images/cross-button.png" />
+                                        </dx:ASPxButton>
+                                    </td>
+                                </tr>
+                            </table>
+                        </dx:PanelContent>
+                    </PanelCollection>
+                </dx:ASPxRoundPanel>
+            </td>
+        </tr>
+        <tr>
+            <td style="height: 5px;">&nbsp;</td>
+        </tr>
+        <tr>
+            <td>
                 <table class="style1">
                     <tr>
                         <td>
