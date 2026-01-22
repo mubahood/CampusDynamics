@@ -5,6 +5,7 @@ using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using FacultyDataTableAdapters;
+using System.Data;
 
 public partial class UserControls_Faculty_Programme : System.Web.UI.UserControl
 {
@@ -12,6 +13,13 @@ public partial class UserControls_Faculty_Programme : System.Web.UI.UserControl
     {
        
     }
+    
+    protected void dsProgrammeInfo_Selecting(object sender, ObjectDataSourceSelectingEventArgs e)
+    {
+        // Set the search text parameter
+        e.InputParameters["txt"] = txtSearch.Text ?? "%";
+    }
+    
     protected void cmdAddNew_Click(object sender, EventArgs e)
     {
         gvProgrammeInfo.AddNewRow();

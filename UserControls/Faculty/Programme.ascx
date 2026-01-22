@@ -64,15 +64,15 @@
         </tr>
         <tr>
             <td>
-                <!-- Filter Panel -->
+                <!-- Filter Panel - Toggle to show/hide -->
                 <dx:ASPxRoundPanel ID="pnlFilter" runat="server" HeaderText="Filter Options" Width="100%" 
                     Collapsible="true" Collapsed="true" EnableAnimation="true">
-                    <HeaderStyle BackColor="#F5F5F5" />
+                    <HeaderStyle BackColor="#F5F5F5" Font-Bold="true" />
                     <PanelCollection>
                         <dx:PanelContent runat="server">
-                            <table style="width: 100%; padding: 10px;">
+                            <table style="width: 100%; padding: 8px;">
                                 <tr>
-                                    <td style="width: 100px; vertical-align: middle;">
+                                    <td style="width: 80px; vertical-align: middle;">
                                         <dx:ASPxLabel ID="lblFaculty" runat="server" Text="Faculty:" />
                                     </td>
                                     <td style="width: 300px;">
@@ -84,16 +84,27 @@
                                             Width="280px"
                                             NullText="-- All Faculties --"
                                             ClientInstanceName="cboFacultyFilter">
-                                            <ClientSideEvents SelectedIndexChanged="function(s, e) { gvProgrammeInfo.Refresh(); }" />
+                                            <ClientSideEvents SelectedIndexChanged="function(s, e) { 
+                                                var value = s.GetValue();
+                                                if (value != null &amp;&amp; value != '') {
+                                                    gvProgrammeInfo.AutoFilterByColumn('faculty_code', value);
+                                                } else {
+                                                    gvProgrammeInfo.ClearFilter();
+                                                }
+                                            }" />
                                         </dx:ASPxComboBox>
                                     </td>
-                                    <td>
-                                        <dx:ASPxButton ID="cmdClearFilter" runat="server" Text="Clear Filter" 
+                                    <td style="width: 100px;">
+                                        <dx:ASPxButton ID="cmdClearFilter" runat="server" Text="Clear" 
                                             AutoPostBack="false" UseSubmitBehavior="false">
-                                            <ClientSideEvents Click="function(s, e) { cboFacultyFilter.SetValue(null); gvProgrammeInfo.Refresh(); }" />
+                                            <ClientSideEvents Click="function(s, e) { 
+                                                cboFacultyFilter.SetValue(null); 
+                                                gvProgrammeInfo.ClearFilter(); 
+                                            }" />
                                             <Image Url="~/COOPERP/images/cross-button.png" />
                                         </dx:ASPxButton>
                                     </td>
+                                    <td>&nbsp;</td>
                                 </tr>
                             </table>
                         </dx:PanelContent>
@@ -139,6 +150,7 @@
                     </SettingsCommandButton>
                     <SettingsDataSecurity AllowDelete="False" />
                     <SettingsSearchPanel Visible="True" />
+                    <Settings ShowHeaderFilterButton="True" ShowFilterRow="True" />
                     <Columns>
                         <dx:GridViewDataTextColumn FieldName="progcode" ShowInCustomizationForm="True" VisibleIndex="1" Caption="Code">
                         </dx:GridViewDataTextColumn>
@@ -230,7 +242,8 @@
                 <asp:ObjectDataSource ID="dsProgrammeInfo" runat="server" 
                     OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" 
                     TypeName="FacultyDataTableAdapters.acad_programmeTableAdapter" 
-                    DeleteMethod="Delete" InsertMethod="Insert" UpdateMethod="Update">
+                    DeleteMethod="Delete" InsertMethod="Insert" UpdateMethod="Update"
+                    OnSelecting="dsProgrammeInfo_Selecting">
                     <DeleteParameters>
                         <asp:Parameter Name="Original_progcode" Type="String" />
                     </DeleteParameters>
@@ -246,7 +259,7 @@
                         <asp:Parameter Name="study_system" Type="String" />
                     </InsertParameters>
                     <SelectParameters>
-                        <asp:ControlParameter ControlID="txtSearch" DefaultValue="%" Name="txt" PropertyName="Text" Type="String" />
+                        <asp:Parameter DefaultValue="%" Name="txt" Type="String" />
                     </SelectParameters>
                     <UpdateParameters>
                         <asp:Parameter Name="progname" Type="String" />
