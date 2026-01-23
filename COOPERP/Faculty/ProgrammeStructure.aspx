@@ -695,6 +695,137 @@ e.processOnServer = confirm('Change/Copy the Selected Course(s) to the Selected 
                         </dx:ContentControl>
                     </ContentCollection>
                 </dx:TabPage>
+                <dx:TabPage Text="Specialisations">
+                    <TabImage IconID="businessobjects_boparameter_16x16">
+                    </TabImage>
+                    <ContentCollection>
+                        <dx:ContentControl runat="server">
+                            <dx:ASPxRoundPanel ID="ASPxRoundPanel4" runat="server" DefaultButton="txtSearch" HeaderText="Programme Specialisations" ShowHeader="False" Width="100%">
+                                <PanelCollection>
+                                    <dx:PanelContent runat="server">
+                                        <table class="style1">
+                                            <tr>
+                                                <td>
+                                                    <table class="style1">
+                                                        <tr>
+                                                            <td>
+                                                                <dx:ASPxButton ID="cmdAddNewSpec" runat="server" OnClick="cmdAddNewSpec_Click" Text="Add New Specialisation" Width="200px">
+                                                                    <Image IconID="actions_add_16x16">
+                                                                    </Image>
+                                                                </dx:ASPxButton>
+                                                            </td>
+                                                            <td style="text-align: right" width="170px">&nbsp;</td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <dx:ASPxGridView ID="gv_specialisations" runat="server" AutoGenerateColumns="False" ClientInstanceName="gv_specialisations" DataSourceID="ds_specialisations" KeyFieldName="spec_id" OnCustomErrorText="gv_specialisations_CustomErrorText" OnRowInserting="gv_specialisations_RowInserting" Width="100%">
+                                                        <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" />
+                                                        <Settings ShowFilterRow="True" ShowFilterRowMenu="True" />
+                                                        <SettingsPager AlwaysShowPager="True">
+                                                            <Summary AllPagesText="Pages: {0} - {1} ({2} Specialisation(s))" Text="Page {0} of {1} ({2} Specialisation(s))" />
+                                                        </SettingsPager>
+                                                        <SettingsCommandButton>
+                                                            <UpdateButton RenderMode="Link">
+                                                            </UpdateButton>
+                                                            <CancelButton RenderMode="Link">
+                                                            </CancelButton>
+                                                            <EditButton>
+                                                                <Image Url="~/COOPERP/images/clipboard--pencil.png">
+                                                                </Image>
+                                                            </EditButton>
+                                                            <DeleteButton>
+                                                                <Image Url="~/COOPERP/images/minus-button.png">
+                                                                </Image>
+                                                            </DeleteButton>
+                                                        </SettingsCommandButton>
+                                                        <Columns>
+                                                            <dx:GridViewCommandColumn ShowInCustomizationForm="True" ShowSelectCheckbox="True" VisibleIndex="0" Width="25px">
+                                                            </dx:GridViewCommandColumn>
+                                                            <dx:GridViewDataTextColumn Caption="ID" FieldName="spec_id" ReadOnly="True" ShowInCustomizationForm="True" VisibleIndex="1" Width="50px">
+                                                                <EditFormSettings Visible="False" />
+                                                            </dx:GridViewDataTextColumn>
+                                                            <dx:GridViewDataTextColumn FieldName="prog_id" ShowInCustomizationForm="True" Visible="False" VisibleIndex="2">
+                                                            </dx:GridViewDataTextColumn>
+                                                            <dx:GridViewDataTextColumn Caption="Specialisation Name" FieldName="spec" ShowInCustomizationForm="True" VisibleIndex="3">
+                                                                <PropertiesTextEdit>
+                                                                    <ValidationSettings>
+                                                                        <RequiredField IsRequired="True" ErrorText="Specialisation name is required" />
+                                                                    </ValidationSettings>
+                                                                </PropertiesTextEdit>
+                                                            </dx:GridViewDataTextColumn>
+                                                            <dx:GridViewDataTextColumn Caption="Abbreviation" FieldName="abbrev" ShowInCustomizationForm="True" VisibleIndex="4" Width="150px">
+                                                            </dx:GridViewDataTextColumn>
+                                                            <dx:GridViewCommandColumn ButtonRenderMode="Image" ButtonType="Image" ShowDeleteButton="True" ShowEditButton="True" ShowInCustomizationForm="True" VisibleIndex="5" Width="50px">
+                                                            </dx:GridViewCommandColumn>
+                                                        </Columns>
+                                                    </dx:ASPxGridView>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>&nbsp;</td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <asp:SqlDataSource ID="ds_specialisations" runat="server" 
+                                                        ConnectionString="<%$ ConnectionStrings:vacConnectionString %>" 
+                                                        ProviderName="MySql.Data.MySqlClient"
+                                                        SelectCommand="SELECT spec_id, prog_id, spec, abbrev FROM acad_specialisation WHERE prog_id = @prog_id ORDER BY spec"
+                                                        InsertCommand="INSERT INTO acad_specialisation (prog_id, spec, abbrev) VALUES (@prog_id, @spec, @abbrev)"
+                                                        UpdateCommand="UPDATE acad_specialisation SET spec=@spec, abbrev=@abbrev WHERE spec_id=@Original_spec_id"
+                                                        DeleteCommand="DELETE FROM acad_specialisation WHERE spec_id=@Original_spec_id">
+                                                        <SelectParameters>
+                                                            <asp:SessionParameter Name="prog_id" SessionField="prog" Type="String" DefaultValue="" />
+                                                        </SelectParameters>
+                                                        <InsertParameters>
+                                                            <asp:SessionParameter Name="prog_id" SessionField="prog" Type="String" />
+                                                            <asp:Parameter Name="spec" Type="String" />
+                                                            <asp:Parameter Name="abbrev" Type="String" />
+                                                        </InsertParameters>
+                                                        <UpdateParameters>
+                                                            <asp:Parameter Name="spec" Type="String" />
+                                                            <asp:Parameter Name="abbrev" Type="String" />
+                                                            <asp:Parameter Name="Original_spec_id" Type="Int32" />
+                                                        </UpdateParameters>
+                                                        <DeleteParameters>
+                                                            <asp:Parameter Name="Original_spec_id" Type="Int32" />
+                                                        </DeleteParameters>
+                                                    </asp:SqlDataSource>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <dx:ASPxPopupControl ID="pop_spec_messagebox" runat="server" DisappearAfter="10" HeaderText="Campus Dynamics Version 1.0" Height="100px" Modal="True" PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter" Width="300px">
+                                                        <HeaderStyle HorizontalAlign="Center" />
+                                                        <ContentCollection>
+                                                            <dx:PopupControlContentControl runat="server">
+                                                                <table align="center" class="style1">
+                                                                    <tr>
+                                                                        <td align="center">
+                                                                            <br />
+                                                                            <br />
+                                                                            <dx:ASPxLabel ID="lbl_spec_comment" runat="server" ForeColor="Red" style="font-weight: 700">
+                                                                            </dx:ASPxLabel>
+                                                                            <br />
+                                                                            <br />
+                                                                            <br />
+                                                                        </td>
+                                                                    </tr>
+                                                                </table>
+                                                            </dx:PopupControlContentControl>
+                                                        </ContentCollection>
+                                                    </dx:ASPxPopupControl>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </dx:PanelContent>
+                                </PanelCollection>
+                            </dx:ASPxRoundPanel>
+                        </dx:ContentControl>
+                    </ContentCollection>
+                </dx:TabPage>
             </TabPages>
             <TabStyle>
                 <Paddings Padding="10px" />

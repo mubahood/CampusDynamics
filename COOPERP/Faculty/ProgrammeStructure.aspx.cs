@@ -164,4 +164,20 @@ public partial class COOPERP_Faculty_ProgrammeStructure : System.Web.UI.Page
     {
         e.ErrorText = UnwrapExceptionMessage(e.Exception);
     }
+    
+    // Specialisations Tab Handlers
+    protected void cmdAddNewSpec_Click(object sender, EventArgs e)
+    {
+        gv_specialisations.AddNewRow();
+    }
+    
+    protected void gv_specialisations_RowInserting(object sender, DevExpress.Web.Data.ASPxDataInsertingEventArgs e)
+    {
+        e.NewValues["prog_id"] = Session["prog"];
+    }
+    
+    protected void gv_specialisations_CustomErrorText(object sender, DevExpress.Web.ASPxGridViewCustomErrorTextEventArgs e)
+    {
+        e.ErrorText = UnwrapExceptionMessage(e.Exception);
+    }
 }
