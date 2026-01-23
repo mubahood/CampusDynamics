@@ -52,7 +52,7 @@
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
                     </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataComboBoxColumn FieldName="progcode" VisibleIndex="2" Caption="Programme" Width="220px">
+                    <dx:GridViewDataComboBoxColumn FieldName="progcode" VisibleIndex="2" Caption="Programme" Width="200px">
                         <PropertiesComboBox DataSourceID="dsProgrammes" 
                             TextField="progname" 
                             ValueField="progcode"
@@ -62,7 +62,17 @@
                             </ValidationSettings>
                         </PropertiesComboBox>
                     </dx:GridViewDataComboBoxColumn>
-                    <dx:GridViewDataComboBoxColumn FieldName="course_code" VisibleIndex="3" Caption="Course" Width="280px">
+                    <dx:GridViewDataComboBoxColumn FieldName="specialisation_id" VisibleIndex="3" Caption="Specialisation" Width="160px">
+                        <PropertiesComboBox DataSourceID="dsSpecialisations" 
+                            TextField="spec" 
+                            ValueField="spec_id"
+                            IncrementalFilteringMode="Contains">
+                            <ValidationSettings>
+                                <RequiredField IsRequired="True" ErrorText="Specialisation is required" />
+                            </ValidationSettings>
+                        </PropertiesComboBox>
+                    </dx:GridViewDataComboBoxColumn>
+                    <dx:GridViewDataComboBoxColumn FieldName="course_code" VisibleIndex="4" Caption="Course" Width="250px">
                         <PropertiesComboBox DataSourceID="dsCourses" 
                             TextField="display_name" 
                             ValueField="courseID"
@@ -72,7 +82,7 @@
                             </ValidationSettings>
                         </PropertiesComboBox>
                     </dx:GridViewDataComboBoxColumn>
-                    <dx:GridViewDataComboBoxColumn FieldName="study_year" VisibleIndex="4" Caption="Year" Width="60px">
+                    <dx:GridViewDataComboBoxColumn FieldName="study_year" VisibleIndex="5" Caption="Year" Width="55px">
                         <PropertiesComboBox ValueType="System.Int32">
                             <Items>
                                 <dx:ListEditItem Text="1" Value="1" />
@@ -88,7 +98,7 @@
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
                     </dx:GridViewDataComboBoxColumn>
-                    <dx:GridViewDataComboBoxColumn FieldName="semester" VisibleIndex="5" Caption="Sem" Width="55px">
+                    <dx:GridViewDataComboBoxColumn FieldName="semester" VisibleIndex="6" Caption="Sem" Width="50px">
                         <PropertiesComboBox ValueType="System.Int32">
                             <Items>
                                 <dx:ListEditItem Text="1" Value="1" />
@@ -101,27 +111,17 @@
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
                     </dx:GridViewDataComboBoxColumn>
-                    <dx:GridViewDataComboBoxColumn FieldName="CurriculumID" VisibleIndex="6" Caption="Curriculum" Width="140px">
-                        <PropertiesComboBox DataSourceID="dsCurriculums" 
-                            TextField="Tittle" 
-                            ValueField="ID"
-                            IncrementalFilteringMode="Contains">
-                            <ValidationSettings>
-                                <RequiredField IsRequired="True" ErrorText="Curriculum is required" />
-                            </ValidationSettings>
+                    <dx:GridViewDataComboBoxColumn FieldName="course_type" VisibleIndex="7" Caption="Type" Width="80px">
+                        <PropertiesComboBox>
+                            <Items>
+                                <dx:ListEditItem Text="Core" Value="CORE" />
+                                <dx:ListEditItem Text="Elective" Value="ELECTIVE" />
+                            </Items>
                         </PropertiesComboBox>
+                        <CellStyle HorizontalAlign="Center" />
+                        <HeaderStyle HorizontalAlign="Center" />
                     </dx:GridViewDataComboBoxColumn>
-                    <dx:GridViewDataComboBoxColumn FieldName="specialisation_id" VisibleIndex="7" Caption="Specialisation" Width="180px">
-                        <PropertiesComboBox DataSourceID="dsSpecialisations" 
-                            TextField="spec" 
-                            ValueField="spec_id"
-                            IncrementalFilteringMode="Contains">
-                            <ValidationSettings>
-                                <RequiredField IsRequired="True" ErrorText="Specialisation is required" />
-                            </ValidationSettings>
-                        </PropertiesComboBox>
-                    </dx:GridViewDataComboBoxColumn>
-                    <dx:GridViewDataTextColumn FieldName="CreditUnit" VisibleIndex="8" Caption="Credits" Width="55px" ReadOnly="True">
+                    <dx:GridViewDataTextColumn FieldName="CreditUnit" VisibleIndex="8" Caption="CU" Width="45px" ReadOnly="True">
                         <EditFormSettings Visible="False" />
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
@@ -140,25 +140,25 @@
     <asp:SqlDataSource ID="dsMain" runat="server" 
         ConnectionString="<%$ ConnectionStrings:vacConnectionString %>" 
         ProviderName="MySql.Data.MySqlClient"
-        SelectCommand="SELECT pc.ID, pc.progcode, pc.course_code, pc.study_year, pc.semester, pc.CurriculumID, pc.specialisation_id, c.courseName, c.CreditUnit FROM acad_programmecourses pc LEFT JOIN acad_course c ON pc.course_code = c.courseID ORDER BY pc.progcode, pc.study_year, pc.semester"
-        InsertCommand="INSERT INTO acad_programmecourses (progcode, course_code, study_year, semester, CurriculumID, specialisation_id) VALUES (@progcode, @course_code, @study_year, @semester, @CurriculumID, @specialisation_id)"
-        UpdateCommand="UPDATE acad_programmecourses SET progcode=@progcode, course_code=@course_code, study_year=@study_year, semester=@semester, CurriculumID=@CurriculumID, specialisation_id=@specialisation_id WHERE ID=@ID"
+        SelectCommand="SELECT pc.ID, pc.progcode, pc.course_code, pc.study_year, pc.semester, pc.specialisation_id, pc.course_type, c.courseName, c.CreditUnit FROM acad_programmecourses pc LEFT JOIN acad_course c ON pc.course_code = c.courseID ORDER BY pc.progcode, pc.study_year, pc.semester"
+        InsertCommand="INSERT INTO acad_programmecourses (progcode, course_code, study_year, semester, CurriculumID, specialisation_id, course_type) VALUES (@progcode, @course_code, @study_year, @semester, 0, @specialisation_id, @course_type)"
+        UpdateCommand="UPDATE acad_programmecourses SET progcode=@progcode, course_code=@course_code, study_year=@study_year, semester=@semester, specialisation_id=@specialisation_id, course_type=@course_type WHERE ID=@ID"
         DeleteCommand="DELETE FROM acad_programmecourses WHERE ID=@ID">
         <InsertParameters>
             <asp:Parameter Name="progcode" Type="String" />
             <asp:Parameter Name="course_code" Type="String" />
             <asp:Parameter Name="study_year" Type="Int32" />
             <asp:Parameter Name="semester" Type="Int32" />
-            <asp:Parameter Name="CurriculumID" Type="Int32" />
             <asp:Parameter Name="specialisation_id" Type="Int32" />
+            <asp:Parameter Name="course_type" Type="String" DefaultValue="CORE" />
         </InsertParameters>
         <UpdateParameters>
             <asp:Parameter Name="progcode" Type="String" />
             <asp:Parameter Name="course_code" Type="String" />
             <asp:Parameter Name="study_year" Type="Int32" />
             <asp:Parameter Name="semester" Type="Int32" />
-            <asp:Parameter Name="CurriculumID" Type="Int32" />
             <asp:Parameter Name="specialisation_id" Type="Int32" />
+            <asp:Parameter Name="course_type" Type="String" />
             <asp:Parameter Name="ID" Type="Int32" />
         </UpdateParameters>
         <DeleteParameters>
@@ -170,12 +170,6 @@
         ConnectionString="<%$ ConnectionStrings:vacConnectionString %>" 
         ProviderName="MySql.Data.MySqlClient"
         SelectCommand="SELECT progcode, progname FROM acad_programme ORDER BY progname">
-    </asp:SqlDataSource>
-    
-    <asp:SqlDataSource ID="dsCurriculums" runat="server" 
-        ConnectionString="<%$ ConnectionStrings:vacConnectionString %>" 
-        ProviderName="MySql.Data.MySqlClient"
-        SelectCommand="SELECT ID, Tittle FROM acad_curriculum ORDER BY Tittle">
     </asp:SqlDataSource>
     
     <asp:SqlDataSource ID="dsCourses" runat="server" 

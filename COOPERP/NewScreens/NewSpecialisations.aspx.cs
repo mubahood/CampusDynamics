@@ -28,28 +28,6 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         gvMain.AddNewRow();
     }
 
-    protected void cmbProgramme_SelectedIndexChanged(object sender, EventArgs e)
-    {
-        string progCode = cmbProgramme.Value != null ? cmbProgramme.Value.ToString() : string.Empty;
-        
-        if (!string.IsNullOrEmpty(progCode))
-        {
-            dsMain.SelectCommand = "SELECT s.spec_id, s.prog_id, s.spec, s.abbrev, p.progname, COALESCE(c.course_count, 0) as course_count FROM acad_specialisation s LEFT JOIN acad_programme p ON s.prog_id = p.progcode LEFT JOIN (SELECT specialisation_id, COUNT(*) as course_count FROM acad_programmecourses GROUP BY specialisation_id) c ON s.spec_id = c.specialisation_id WHERE s.prog_id = @prog_id ORDER BY s.spec";
-            dsMain.SelectParameters.Clear();
-            dsMain.SelectParameters.Add("prog_id", progCode);
-            lblFilterInfo.Text = "Filtered by: " + cmbProgramme.Text;
-        }
-        else
-        {
-            dsMain.SelectCommand = "SELECT s.spec_id, s.prog_id, s.spec, s.abbrev, p.progname, COALESCE(c.course_count, 0) as course_count FROM acad_specialisation s LEFT JOIN acad_programme p ON s.prog_id = p.progcode LEFT JOIN (SELECT specialisation_id, COUNT(*) as course_count FROM acad_programmecourses GROUP BY specialisation_id) c ON s.spec_id = c.specialisation_id ORDER BY p.progname, s.spec";
-            dsMain.SelectParameters.Clear();
-            lblFilterInfo.Text = "";
-        }
-        
-        gvMain.DataBind();
-        UpdateTotalCount();
-    }
-
     protected void gvMain_RowInserting(object sender, DevExpress.Web.Data.ASPxDataInsertingEventArgs e)
     {
     }
@@ -86,18 +64,8 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                 conn.Open();
                 string sql = "SELECT COUNT(*) FROM acad_specialisation";
                 
-                string progCode = cmbProgramme.Value != null ? cmbProgramme.Value.ToString() : string.Empty;
-                if (!string.IsNullOrEmpty(progCode))
-                {
-                    sql += " WHERE prog_id = @prog_id";
-                }
-                
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
-                    if (!string.IsNullOrEmpty(progCode))
-                    {
-                        cmd.Parameters.AddWithValue("@prog_id", progCode);
-                    }
                     int count = Convert.ToInt32(cmd.ExecuteScalar());
                     lblTotalCount.Text = count.ToString();
                 }
@@ -159,6 +127,19 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         
         popManageCourses.ShowOnPageLoad = true;
     }
+    
+    protected void btnPrintStructure_Click(object sender, EventArgs e)
+    {
+        LinkButton btn = (LinkButton)sender;
+        string[] args = btn.CommandArgument.Split('|');
+        int specId = Convert.ToInt32(args[0]);
+        string specName = args[1];
+        string progName = args[2];
+        
+        // Open PDF viewer in new window
+        string url = "SpecialisationStructurePDF.aspx?specId=" + specId + "&specName=" + Server.UrlEncode(specName) + "&progName=" + Server.UrlEncode(progName);
+        ScriptManager.RegisterStartupScript(this, GetType(), "openPdf", "window.open('" + url + "', '_blank');", true);
+    }
 
     protected void cmdValidateBatch_Click(object sender, EventArgs e)
     {
@@ -176,7 +157,6 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         List<string> duplicateCourses = new List<string>();
         
         int specId = Convert.ToInt32(hdnSpecId.Value);
-        int curriculumId = cmbBatchCurriculum.Value != null ? Convert.ToInt32(cmbBatchCurriculum.Value) : 0;
         int year = Convert.ToInt32(cmbBatchYear.Value);
         int semester = Convert.ToInt32(cmbBatchSemester.Value);
         
@@ -203,11 +183,10 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                 }
                 
                 // Check if already added to this specialisation
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_programmecourses WHERE specialisation_id = @specId AND course_code = @code AND CurriculumID = @currId AND study_year = @year AND semester = @sem", conn))
+                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_programmecourses WHERE specialisation_id = @specId AND course_code = @code AND study_year = @year AND semester = @sem", conn))
                 {
                     cmd.Parameters.AddWithValue("@specId", specId);
                     cmd.Parameters.AddWithValue("@code", trimmedCode);
-                    cmd.Parameters.AddWithValue("@currId", curriculumId);
                     cmd.Parameters.AddWithValue("@year", year);
                     cmd.Parameters.AddWithValue("@sem", semester);
                     int duplicate = Convert.ToInt32(cmd.ExecuteScalar());
@@ -255,17 +234,10 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         
         int specId = Convert.ToInt32(hdnSpecId.Value);
         string progCode = hdnProgCode.Value;
-        int curriculumId = cmbBatchCurriculum.Value != null ? Convert.ToInt32(cmbBatchCurriculum.Value) : 0;
         int year = Convert.ToInt32(cmbBatchYear.Value);
         int semester = Convert.ToInt32(cmbBatchSemester.Value);
-        
-        if (curriculumId == 0)
-        {
-            lblBatchResult.Text = "<span class='validation-error'>Please select a curriculum.</span>";
-            pnlBatchResult.Visible = true;
-            popManageCourses.ShowOnPageLoad = true;
-            return;
-        }
+        int credits = Convert.ToInt32(spnBatchCredits.Number);
+        string courseType = cmbBatchCourseType.Value != null ? cmbBatchCourseType.Value.ToString() : "CORE";
         
         string[] codes = courseCodes.Split(new char[] { ',', ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         int added = 0;
@@ -295,11 +267,10 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                 }
                 
                 // Check if already added
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_programmecourses WHERE specialisation_id = @specId AND course_code = @code AND CurriculumID = @currId AND study_year = @year AND semester = @sem", conn))
+                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_programmecourses WHERE specialisation_id = @specId AND course_code = @code AND study_year = @year AND semester = @sem", conn))
                 {
                     cmd.Parameters.AddWithValue("@specId", specId);
                     cmd.Parameters.AddWithValue("@code", trimmedCode);
-                    cmd.Parameters.AddWithValue("@currId", curriculumId);
                     cmd.Parameters.AddWithValue("@year", year);
                     cmd.Parameters.AddWithValue("@sem", semester);
                     int duplicate = Convert.ToInt32(cmd.ExecuteScalar());
@@ -311,18 +282,30 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                     }
                 }
                 
-                // Insert
-                using (MySqlCommand cmd = new MySqlCommand("INSERT INTO acad_programmecourses (progcode, course_code, study_year, semester, CurriculumID, specialisation_id) VALUES (@progcode, @code, @year, @sem, @currId, @specId)", conn))
+                // Insert into programme courses with course_type
+                using (MySqlCommand cmd = new MySqlCommand("INSERT INTO acad_programmecourses (progcode, course_code, study_year, semester, CurriculumID, specialisation_id, course_type) VALUES (@progcode, @code, @year, @sem, 0, @specId, @courseType)", conn))
                 {
                     cmd.Parameters.AddWithValue("@progcode", progCode);
                     cmd.Parameters.AddWithValue("@code", trimmedCode);
                     cmd.Parameters.AddWithValue("@year", year);
                     cmd.Parameters.AddWithValue("@sem", semester);
-                    cmd.Parameters.AddWithValue("@currId", curriculumId);
                     cmd.Parameters.AddWithValue("@specId", specId);
+                    cmd.Parameters.AddWithValue("@courseType", courseType);
                     cmd.ExecuteNonQuery();
-                    added++;
                 }
+                
+                // Update course credits if specified
+                if (credits > 0)
+                {
+                    using (MySqlCommand cmd = new MySqlCommand("UPDATE acad_course SET CreditUnit = @credits WHERE courseID = @code AND (CreditUnit IS NULL OR CreditUnit = 0)", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@credits", credits);
+                        cmd.Parameters.AddWithValue("@code", trimmedCode);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                
+                added++;
             }
         }
         
@@ -397,14 +380,14 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                                 string credits = reader["CreditUnit"] != DBNull.Value ? reader["CreditUnit"].ToString() : "0";
                                 
                                 sb.Append("<div class='course-item'>");
-                                sb.Append("<span><strong>" + courseCode + "</strong> - " + courseName + "</span>");
-                                sb.Append("<span style='color:#666;font-size:10px;'>" + credits + " CU</span>");
+                                sb.Append("<span><strong>" + courseCode + "</strong> " + courseName + "</span>");
+                                sb.Append("<span class='credits'>" + credits + " CU</span>");
                                 sb.Append("</div>");
                             }
                             
                             if (!hasCourses)
                             {
-                                sb.Append("<span style='color:#999;font-style:italic;font-size:11px;'>No courses</span>");
+                                sb.Append("<div style='color:#999;font-style:italic;font-size:11px;padding:8px;'>No courses assigned</div>");
                             }
                         }
                     }
@@ -423,7 +406,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
-            string sql = "SELECT pc.ID, pc.course_code, pc.study_year, pc.semester, c.courseName, c.CreditUnit " +
+            string sql = "SELECT pc.ID, pc.course_code, pc.study_year, pc.semester, pc.course_type, c.courseName, c.CreditUnit " +
                         "FROM acad_programmecourses pc " +
                         "LEFT JOIN acad_course c ON pc.course_code = c.courseID " +
                         "WHERE pc.specialisation_id = @specId " +
@@ -448,15 +431,28 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         int id = Convert.ToInt32(e.Keys["ID"]);
         int year = Convert.ToInt32(e.NewValues["study_year"]);
         int semester = Convert.ToInt32(e.NewValues["semester"]);
+        int credits = e.NewValues["CreditUnit"] != null ? Convert.ToInt32(e.NewValues["CreditUnit"]) : 0;
+        string courseType = e.NewValues["course_type"] != null ? e.NewValues["course_type"].ToString() : "CORE";
+        string courseCode = e.OldValues["course_code"].ToString();
         
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
-            using (MySqlCommand cmd = new MySqlCommand("UPDATE acad_programmecourses SET study_year = @year, semester = @sem WHERE ID = @id", conn))
+            // Update programme course year/semester/course_type
+            using (MySqlCommand cmd = new MySqlCommand("UPDATE acad_programmecourses SET study_year = @year, semester = @sem, course_type = @courseType WHERE ID = @id", conn))
             {
                 cmd.Parameters.AddWithValue("@year", year);
                 cmd.Parameters.AddWithValue("@sem", semester);
+                cmd.Parameters.AddWithValue("@courseType", courseType);
                 cmd.Parameters.AddWithValue("@id", id);
+                cmd.ExecuteNonQuery();
+            }
+            
+            // Update course credits
+            using (MySqlCommand cmd = new MySqlCommand("UPDATE acad_course SET CreditUnit = @credits WHERE courseID = @code", conn))
+            {
+                cmd.Parameters.AddWithValue("@credits", credits);
+                cmd.Parameters.AddWithValue("@code", courseCode);
                 cmd.ExecuteNonQuery();
             }
         }

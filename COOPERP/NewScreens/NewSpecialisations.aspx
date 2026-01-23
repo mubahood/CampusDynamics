@@ -3,24 +3,334 @@
 
 <asp:Content ID="Content1" ContentPlaceHolderID="HeadContent" Runat="Server">
     <style>
-        .manage-courses-btn { cursor: pointer; color: #422774; font-size: 11px; text-decoration: underline; }
-        .manage-courses-btn:hover { color: #5a3a9a; }
-        .course-count-badge { display: inline-block; padding: 2px 6px; background: #e8e0f3; color: #422774; border-radius: 3px; font-size: 11px; font-weight: 500; }
-        .batch-input { font-family: Consolas, monospace; font-size: 12px; }
-        .year-sem-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        .year-sem-table th, .year-sem-table td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
-        .year-sem-table th { background: #f5f5f5; font-weight: 600; }
-        .year-sem-header { background: #422774 !important; color: #fff !important; }
-        .course-item { padding: 3px 6px; margin: 2px 0; background: #f8f9fa; border-radius: 2px; display: flex; justify-content: space-between; align-items: center; }
-        .course-item:hover { background: #e8e0f3; }
-        .remove-course { color: #dc3545; cursor: pointer; font-size: 14px; }
-        .tab-content { padding: 15px 0; }
-        .form-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-end; }
-        .form-group { flex: 1; }
-        .form-group label { display: block; font-size: 11px; font-weight: 500; color: #666; margin-bottom: 3px; }
-        .validation-msg { font-size: 11px; margin-top: 5px; }
-        .validation-success { color: #28a745; }
-        .validation-error { color: #dc3545; }
+        /* =============================================
+           POPUP SPECIFIC OVERRIDES  
+           ============================================= */
+        
+        /* Popup body container */
+        .popup-body {
+            padding: 12px;
+        }
+        
+        /* Info bar at top of popup */
+        .popup-info-bar {
+            background: #f5f5f5;
+            padding: 10px 12px;
+            margin: -12px -12px 15px -12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .popup-info-bar .separator {
+            color: #ccc;
+        }
+        .popup-info-bar .info-value {
+            color: #422774;
+            font-weight: 600;
+        }
+        
+        /* Tab styling inside popup */
+        .cd-tabs {
+            border: none !important;
+        }
+        .cd-tabs .dxpLite_Glass,
+        .cd-tabs .dxtvControl_Glass,
+        .cd-tabs .dxtcLite_Glass {
+            border: none !important;
+            background: transparent !important;
+        }
+        
+        /* Tab content area */
+        .tab-content { 
+            padding: 15px 10px;
+            min-height: 380px;
+        }
+        
+        /* =============================================
+           FORM ELEMENTS IN POPUP  
+           ============================================= */
+        
+        /* Form sections */
+        .form-section {
+            margin-bottom: 15px;
+        }
+        
+        /* Form labels */
+        .form-label { 
+            display: block; 
+            font-size: 11px; 
+            font-weight: 600; 
+            color: #666; 
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        /* Form layout */
+        .form-row { 
+            display: flex; 
+            gap: 12px; 
+            margin-bottom: 15px; 
+            align-items: flex-end;
+        }
+        .form-group { 
+            flex: 0 0 auto;
+        }
+        .form-group--flex {
+            flex: 1 1 auto;
+        }
+        
+        /* Input styling */
+        .cd-input,
+        .cd-combo,
+        .cd-input--memo {
+            font-size: 12px !important;
+        }
+        .cd-input--memo { 
+            font-family: Consolas, "Courier New", monospace !important; 
+        }
+        
+        /* DevExpress input overrides */
+        .cd-input input,
+        .cd-combo input,
+        .cd-input--memo textarea {
+            border: 1px solid #ddd !important;
+            padding: 6px 8px !important;
+            font-size: 12px !important;
+            color: #333 !important;
+            background: #fff !important;
+        }
+        .cd-input input:focus,
+        .cd-combo input:focus,
+        .cd-input--memo textarea:focus {
+            border-color: #422774 !important;
+            outline: none !important;
+            color: #333 !important;
+            background: #fff !important;
+        }
+        
+        /* Fix for combo dropdown selected items */
+        .cd-combo .dxeListBoxItemSelected_Glass,
+        .cd-combo tr.dxeListBoxItemSelected_Glass td {
+            background: #422774 !important;
+            color: #fff !important;
+        }
+        .cd-combo .dxeListBoxItem_Glass:hover,
+        .cd-combo tr.dxeListBoxItem_Glass:hover td {
+            background: #e8e0f3 !important;
+            color: #422774 !important;
+        }
+        
+        /* =============================================
+           BUTTONS IN POPUP  
+           ============================================= */
+        
+        /* Button row */
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            padding-top: 12px;
+            margin-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .btn-row--top {
+            border-top: none;
+            border-bottom: 1px solid #e0e0e0;
+            padding-top: 0;
+            padding-bottom: 12px;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        /* Secondary button style */
+        .cd-btn--secondary {
+            background: #f5f5f5 !important;
+            color: #333 !important;
+            border: 1px solid #ddd !important;
+        }
+        .cd-btn--secondary:hover {
+            background: #e8e8e8 !important;
+            border-color: #ccc !important;
+        }
+        
+        /* =============================================
+           RESULT PANELS  
+           ============================================= */
+        
+        .result-panel {
+            margin-top: 12px;
+            padding: 10px 12px;
+            font-size: 11px;
+            background: #f8f9fa;
+        }
+        .result-panel.success,
+        .validation-success {
+            background: #d4edda;
+            border-left: 3px solid #28a745;
+            color: #155724;
+        }
+        .result-panel.error,
+        .validation-error {
+            background: #f8d7da;
+            border-left: 3px solid #dc3545;
+            color: #721c24;
+        }
+        .result-panel.info {
+            background: #e8e0f3;
+            border-left: 3px solid #422774;
+            color: #422774;
+        }
+        
+        /* =============================================
+           COURSE STRUCTURE TAB  
+           ============================================= */
+        
+        .structure-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        /* Year-Semester structure table */
+        .year-sem-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 11px;
+            border: 1px solid #e0e0e0;
+        }
+        .year-sem-table th, 
+        .year-sem-table td { 
+            border: 1px solid #e0e0e0; 
+            padding: 8px 10px; 
+            text-align: left;
+            vertical-align: top;
+        }
+        .year-sem-table th { 
+            background: #f8f9fa; 
+            font-weight: 600;
+            color: #333;
+        }
+        .year-sem-header { 
+            background: #422774 !important; 
+            color: #fff !important;
+            font-size: 12px;
+        }
+        
+        /* Course items in structure */
+        .course-item { 
+            padding: 4px 8px; 
+            margin: 3px 0; 
+            background: #fff;
+            border: 1px solid #eee;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            font-size: 11px;
+        }
+        .course-item:hover { 
+            background: #f8f5fc;
+            border-color: #d0c4e8;
+        }
+        .course-item strong {
+            color: #422774;
+            margin-right: 8px;
+        }
+        .course-item .credits {
+            background: #f0f0f0;
+            padding: 1px 6px;
+            font-size: 10px;
+            color: #666;
+        }
+        
+        /* =============================================
+           ALL COURSES TAB / GRID  
+           ============================================= */
+        
+        .cd-grid {
+            font-size: 11px;
+        }
+        .cd-grid .dxgvHeader_Glass,
+        .cd-grid th {
+            background: #f5f5f5 !important;
+            border-bottom: 2px solid #422774 !important;
+            font-weight: 600 !important;
+            padding: 6px 8px !important;
+        }
+        .cd-grid td {
+            padding: 5px 8px !important;
+            border-bottom: 1px solid #eee !important;
+        }
+        .cd-grid tr:hover td {
+            background: #f8f5fc !important;
+        }
+        
+        /* =============================================
+           GRID ACTION BUTTONS  
+           ============================================= */
+        
+        .manage-courses-btn { 
+            cursor: pointer; 
+            color: #422774; 
+            font-size: 10px; 
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            transition: all 0.15s ease;
+        }
+        .manage-courses-btn:hover { 
+            background: #422774;
+            border-color: #422774;
+            color: #fff;
+        }
+        .manage-courses-btn svg {
+            width: 10px;
+            height: 10px;
+        }
+        
+        /* Print structure button */
+        .print-structure-btn { 
+            cursor: pointer; 
+            color: #666; 
+            font-size: 10px; 
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 6px;
+            background: #fff;
+            border: 1px solid #ddd;
+            transition: all 0.15s ease;
+        }
+        .print-structure-btn:hover { 
+            background: #28a745;
+            border-color: #28a745;
+            color: #fff;
+        }
+        .print-structure-btn svg {
+            width: 10px;
+            height: 10px;
+        }
+        
+        /* Course count badge */
+        .course-count-badge { 
+            display: inline-block; 
+            padding: 2px 10px; 
+            background: #e8e0f3; 
+            color: #422774; 
+            font-size: 11px; 
+            font-weight: 600;
+            min-width: 24px;
+            text-align: center;
+        }
+        .course-count-badge:empty::after {
+            content: "0";
+        }
     </style>
 </asp:Content>
 
@@ -36,25 +346,6 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     Add New
                 </asp:LinkButton>
-            </div>
-        </div>
-        
-        <!-- Filter Panel -->
-        <div class="cd-card__filter" style="padding: 8px 12px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <label style="font-size: 11px; font-weight: 500; color: #666;">Filter by Programme:</label>
-                <dx:ASPxComboBox ID="cmbProgramme" runat="server" 
-                    DataSourceID="dsProgrammes" 
-                    TextField="progname" 
-                    ValueField="progcode"
-                    Width="350px"
-                    IncrementalFilteringMode="Contains"
-                    EnableTheming="True" Theme="Glass"
-                    AutoPostBack="True"
-                    OnSelectedIndexChanged="cmbProgramme_SelectedIndexChanged"
-                    NullText="-- All Programmes --">
-                    <ClearButton DisplayMode="Always" />
-                </dx:ASPxComboBox>
             </div>
         </div>
         
@@ -116,7 +407,17 @@
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
                     </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="course_count" VisibleIndex="5" Caption="Courses" Width="60px" ReadOnly="True">
+                    <dx:GridViewDataComboBoxColumn FieldName="is_fully_set" VisibleIndex="5" Caption="Fully Set" Width="70px">
+                        <PropertiesComboBox>
+                            <Items>
+                                <dx:ListEditItem Text="Yes" Value="Yes" />
+                                <dx:ListEditItem Text="No" Value="No" />
+                            </Items>
+                        </PropertiesComboBox>
+                        <CellStyle HorizontalAlign="Center" />
+                        <HeaderStyle HorizontalAlign="Center" />
+                    </dx:GridViewDataComboBoxColumn>
+                    <dx:GridViewDataTextColumn FieldName="course_count" VisibleIndex="6" Caption="Courses" Width="60px" ReadOnly="True">
                         <EditFormSettings Visible="False" />
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
@@ -124,17 +425,25 @@
                             <span class="course-count-badge"><%# Eval("course_count") %></span>
                         </DataItemTemplate>
                     </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn VisibleIndex="6" Caption="Actions" Width="100px" ReadOnly="True">
+                    <dx:GridViewDataTextColumn VisibleIndex="7" Caption="Actions" Width="140px" ReadOnly="True">
                         <EditFormSettings Visible="False" />
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
                         <DataItemTemplate>
-                            <asp:LinkButton ID="btnManageCourses" runat="server" CssClass="manage-courses-btn" 
-                                CommandArgument='<%# Eval("spec_id") + "|" + Eval("spec") + "|" + Eval("prog_id") %>'
-                                OnClick="btnManageCourses_Click">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                                Manage
-                            </asp:LinkButton>
+                            <div style="display: flex; gap: 4px; justify-content: center;">
+                                <asp:LinkButton ID="btnManageCourses" runat="server" CssClass="manage-courses-btn" 
+                                    CommandArgument='<%# Eval("spec_id") + "|" + Eval("spec") + "|" + Eval("prog_id") %>'
+                                    OnClick="btnManageCourses_Click" ToolTip="Manage Courses">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                                    Manage
+                                </asp:LinkButton>
+                                <asp:LinkButton ID="btnPrintStructure" runat="server" CssClass="print-structure-btn" 
+                                    CommandArgument='<%# Eval("spec_id") + "|" + Eval("spec") + "|" + Eval("progname") %>'
+                                    OnClick="btnPrintStructure_Click" ToolTip="Print Course Structure">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                                    PDF
+                                </asp:LinkButton>
+                            </div>
                         </DataItemTemplate>
                     </dx:GridViewDataTextColumn>
                 </Columns>
@@ -171,49 +480,43 @@
         PopupHorizontalAlign="WindowCenter" 
         PopupVerticalAlign="WindowCenter"
         ClientInstanceName="popManageCourses"
-        EnableTheming="True" Theme="Glass">
+        CssClass="cd-popup">
+        <HeaderStyle BackColor="#422774" ForeColor="White" Font-Size="13px" Font-Bold="True" Paddings-Padding="10px" />
+        <ContentStyle Paddings-Padding="0px" />
+        <CloseButtonStyle Paddings-Padding="8px" />
         <ContentCollection>
             <dx:PopupControlContentControl runat="server">
                 <asp:HiddenField ID="hdnSpecId" runat="server" />
                 <asp:HiddenField ID="hdnProgCode" runat="server" />
                 
-                <div style="padding: 5px;">
-                    <div style="background: #f8f9fa; padding: 8px 12px; margin-bottom: 10px; border-radius: 3px;">
-                        <strong>Specialisation:</strong> <asp:Label ID="lblSpecName" runat="server" ForeColor="#422774"></asp:Label>
-                        &nbsp;&nbsp;|&nbsp;&nbsp;
-                        <strong>Programme:</strong> <asp:Label ID="lblProgName" runat="server" ForeColor="#422774"></asp:Label>
+                <div class="popup-body">
+                    <div class="popup-info-bar">
+                        <span><strong>Specialisation:</strong> <asp:Label ID="lblSpecName" runat="server" CssClass="info-value"></asp:Label></span>
+                        <span class="separator">|</span>
+                        <span><strong>Programme:</strong> <asp:Label ID="lblProgName" runat="server" CssClass="info-value"></asp:Label></span>
                     </div>
                     
-                    <dx:ASPxPageControl ID="tabCourses" runat="server" ActiveTabIndex="0" Width="100%" EnableTheming="True" Theme="Glass">
+                    <dx:ASPxPageControl ID="tabCourses" runat="server" ActiveTabIndex="0" Width="100%" CssClass="cd-tabs">
+                        <TabStyle Font-Size="11px" Paddings-PaddingLeft="12px" Paddings-PaddingRight="12px" Paddings-PaddingTop="8px" Paddings-PaddingBottom="8px" />
+                        <ActiveTabStyle BackColor="#422774" ForeColor="White" />
                         <TabPages>
                             <dx:TabPage Text="Batch Add Courses">
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
                                         <div class="tab-content">
-                                            <div style="margin-bottom: 15px;">
-                                                <label style="font-size: 11px; font-weight: 500; color: #666; display: block; margin-bottom: 5px;">
+                                            <div class="form-section">
+                                                <label class="form-label">
                                                     Enter course codes separated by comma (e.g., BBA101, BBA102, BBA103):
                                                 </label>
                                                 <dx:ASPxMemo ID="txtBatchCourses" runat="server" Width="100%" Height="80px" 
-                                                    NullText="Enter course codes here..." CssClass="batch-input">
+                                                    NullText="Enter course codes here..." CssClass="cd-input cd-input--memo">
                                                 </dx:ASPxMemo>
                                             </div>
                                             
                                             <div class="form-row">
-                                                <div class="form-group">
-                                                    <label>Curriculum</label>
-                                                    <dx:ASPxComboBox ID="cmbBatchCurriculum" runat="server" 
-                                                        DataSourceID="dsCurriculums" 
-                                                        TextField="Tittle" 
-                                                        ValueField="ID"
-                                                        Width="100%"
-                                                        IncrementalFilteringMode="Contains"
-                                                        EnableTheming="True" Theme="Glass">
-                                                    </dx:ASPxComboBox>
-                                                </div>
-                                                <div class="form-group" style="max-width: 100px;">
-                                                    <label>Year</label>
-                                                    <dx:ASPxComboBox ID="cmbBatchYear" runat="server" Width="100%" EnableTheming="True" Theme="Glass">
+                                                <div class="form-group" style="width: 70px;">
+                                                    <label class="form-label">Year</label>
+                                                    <dx:ASPxComboBox ID="cmbBatchYear" runat="server" Width="100%" CssClass="cd-combo">
                                                         <Items>
                                                             <dx:ListEditItem Text="1" Value="1" Selected="True" />
                                                             <dx:ListEditItem Text="2" Value="2" />
@@ -223,37 +526,52 @@
                                                         </Items>
                                                     </dx:ASPxComboBox>
                                                 </div>
-                                                <div class="form-group" style="max-width: 100px;">
-                                                    <label>Semester</label>
-                                                    <dx:ASPxComboBox ID="cmbBatchSemester" runat="server" Width="100%" EnableTheming="True" Theme="Glass">
+                                                <div class="form-group" style="width: 70px;">
+                                                    <label class="form-label">Semester</label>
+                                                    <dx:ASPxComboBox ID="cmbBatchSemester" runat="server" Width="100%" CssClass="cd-combo">
                                                         <Items>
                                                             <dx:ListEditItem Text="1" Value="1" Selected="True" />
                                                             <dx:ListEditItem Text="2" Value="2" />
                                                         </Items>
                                                     </dx:ASPxComboBox>
                                                 </div>
-                                                <div class="form-group" style="max-width: 150px;">
-                                                    <label>&nbsp;</label>
+                                                <div class="form-group" style="width: 65px;">
+                                                    <label class="form-label">Credits</label>
+                                                    <dx:ASPxSpinEdit ID="spnBatchCredits" runat="server" Width="100%" 
+                                                        Number="3" MinValue="0" MaxValue="20" CssClass="cd-combo">
+                                                    </dx:ASPxSpinEdit>
+                                                </div>
+                                                <div class="form-group" style="width: 90px;">
+                                                    <label class="form-label">Type</label>
+                                                    <dx:ASPxComboBox ID="cmbBatchCourseType" runat="server" Width="100%" CssClass="cd-combo">
+                                                        <Items>
+                                                            <dx:ListEditItem Text="Core" Value="CORE" Selected="True" />
+                                                            <dx:ListEditItem Text="Elective" Value="ELECTIVE" />
+                                                        </Items>
+                                                    </dx:ASPxComboBox>
+                                                </div>
+                                                <div class="form-group" style="width: 90px;">
+                                                    <label class="form-label">&nbsp;</label>
                                                     <dx:ASPxButton ID="cmdValidateBatch" runat="server" Text="Validate" 
-                                                        OnClick="cmdValidateBatch_Click" Width="100%">
+                                                        OnClick="cmdValidateBatch_Click" Width="100%" CssClass="cd-btn cd-btn--secondary">
                                                     </dx:ASPxButton>
                                                 </div>
                                             </div>
                                             
                                             <asp:Panel ID="pnlValidationResult" runat="server" Visible="false">
-                                                <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 3px;">
+                                                <div class="result-panel">
                                                     <asp:Label ID="lblValidationResult" runat="server"></asp:Label>
                                                 </div>
                                             </asp:Panel>
                                             
-                                            <div style="margin-top: 15px; text-align: right;">
+                                            <div class="btn-row">
                                                 <dx:ASPxButton ID="cmdAddBatch" runat="server" Text="Add Courses" 
                                                     OnClick="cmdAddBatch_Click" CssClass="cd-btn cd-btn--primary">
                                                 </dx:ASPxButton>
                                             </div>
                                             
                                             <asp:Panel ID="pnlBatchResult" runat="server" Visible="false">
-                                                <div style="margin-top: 10px; padding: 10px; border-radius: 3px;">
+                                                <div class="result-panel">
                                                     <asp:Label ID="lblBatchResult" runat="server"></asp:Label>
                                                 </div>
                                             </asp:Panel>
@@ -265,15 +583,17 @@
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
                                         <div class="tab-content">
-                                            <div style="margin-bottom: 10px; text-align: right;">
+                                            <div class="btn-row btn-row--top">
                                                 <dx:ASPxButton ID="cmdRefreshStructure" runat="server" Text="Refresh" 
-                                                    OnClick="cmdRefreshStructure_Click">
+                                                    OnClick="cmdRefreshStructure_Click" CssClass="cd-btn cd-btn--secondary">
                                                 </dx:ASPxButton>
                                                 <dx:ASPxButton ID="cmdPrintStructure" runat="server" Text="Print PDF" 
                                                     OnClick="cmdPrintStructure_Click" CssClass="cd-btn cd-btn--primary">
                                                 </dx:ASPxButton>
                                             </div>
-                                            <asp:Literal ID="litCourseStructure" runat="server"></asp:Literal>
+                                            <div class="structure-container">
+                                                <asp:Literal ID="litCourseStructure" runat="server"></asp:Literal>
+                                            </div>
                                         </div>
                                     </dx:ContentControl>
                                 </ContentCollection>
@@ -284,7 +604,7 @@
                                         <div class="tab-content">
                                             <dx:ASPxGridView ID="gvSpecCourses" runat="server" AutoGenerateColumns="False" 
                                                 KeyFieldName="ID" Width="100%" 
-                                                EnableTheming="True" Theme="Glass"
+                                                CssClass="cd-grid"
                                                 ClientInstanceName="gvSpecCourses"
                                                 OnRowUpdating="gvSpecCourses_RowUpdating"
                                                 OnRowDeleting="gvSpecCourses_RowDeleting">
@@ -296,13 +616,13 @@
                                                     <dx:GridViewCommandColumn ShowEditButton="True" ShowDeleteButton="True" VisibleIndex="0" Width="70px">
                                                         <CellStyle HorizontalAlign="Center" />
                                                     </dx:GridViewCommandColumn>
-                                                    <dx:GridViewDataTextColumn FieldName="course_code" Caption="Code" Width="100px" ReadOnly="True">
+                                                    <dx:GridViewDataTextColumn FieldName="course_code" Caption="Code" Width="90px" ReadOnly="True">
                                                         <EditFormSettings Visible="False" />
                                                     </dx:GridViewDataTextColumn>
                                                     <dx:GridViewDataTextColumn FieldName="courseName" Caption="Course Name" ReadOnly="True">
                                                         <EditFormSettings Visible="False" />
                                                     </dx:GridViewDataTextColumn>
-                                                    <dx:GridViewDataComboBoxColumn FieldName="study_year" Caption="Year" Width="60px">
+                                                    <dx:GridViewDataComboBoxColumn FieldName="study_year" Caption="Year" Width="55px">
                                                         <PropertiesComboBox ValueType="System.Int32">
                                                             <Items>
                                                                 <dx:ListEditItem Text="1" Value="1" />
@@ -314,7 +634,7 @@
                                                         </PropertiesComboBox>
                                                         <CellStyle HorizontalAlign="Center" />
                                                     </dx:GridViewDataComboBoxColumn>
-                                                    <dx:GridViewDataComboBoxColumn FieldName="semester" Caption="Sem" Width="55px">
+                                                    <dx:GridViewDataComboBoxColumn FieldName="semester" Caption="Sem" Width="50px">
                                                         <PropertiesComboBox ValueType="System.Int32">
                                                             <Items>
                                                                 <dx:ListEditItem Text="1" Value="1" />
@@ -323,13 +643,26 @@
                                                         </PropertiesComboBox>
                                                         <CellStyle HorizontalAlign="Center" />
                                                     </dx:GridViewDataComboBoxColumn>
-                                                    <dx:GridViewDataTextColumn FieldName="CreditUnit" Caption="Credits" Width="55px" ReadOnly="True">
+                                                    <dx:GridViewDataComboBoxColumn FieldName="course_type" Caption="Type" Width="75px">
+                                                        <PropertiesComboBox>
+                                                            <Items>
+                                                                <dx:ListEditItem Text="Core" Value="CORE" />
+                                                                <dx:ListEditItem Text="Elective" Value="ELECTIVE" />
+                                                            </Items>
+                                                        </PropertiesComboBox>
                                                         <CellStyle HorizontalAlign="Center" />
-                                                    </dx:GridViewDataTextColumn>
+                                                    </dx:GridViewDataComboBoxColumn>
+                                                    <dx:GridViewDataSpinEditColumn FieldName="CreditUnit" Caption="CU" Width="55px">
+                                                        <PropertiesSpinEdit MinValue="0" MaxValue="20" NumberType="Integer" />
+                                                        <CellStyle HorizontalAlign="Center" />
+                                                    </dx:GridViewDataSpinEditColumn>
                                                 </Columns>
                                                 <Styles>
-                                                    <Header Font-Size="11px" />
-                                                    <Cell Font-Size="11px" Paddings-Padding="3px" />
+                                                    <Header Font-Size="11px" BackColor="#f5f5f5" Font-Bold="True" />
+                                                    <Cell Font-Size="11px" Paddings-Padding="4px" />
+                                                    <FilterRow Font-Size="11px" />
+                                                    <AlternatingRow BackColor="#fafafa" />
+                                                    <CommandColumn Paddings-Padding="2px" />
                                                 </Styles>
                                             </dx:ASPxGridView>
                                         </div>
@@ -347,19 +680,21 @@
     <asp:SqlDataSource ID="dsMain" runat="server" 
         ConnectionString="<%$ ConnectionStrings:vacConnectionString %>" 
         ProviderName="MySql.Data.MySqlClient"
-        SelectCommand="SELECT s.spec_id, s.prog_id, s.spec, s.abbrev, p.progname, COALESCE(c.course_count, 0) as course_count FROM acad_specialisation s LEFT JOIN acad_programme p ON s.prog_id = p.progcode LEFT JOIN (SELECT specialisation_id, COUNT(*) as course_count FROM acad_programmecourses GROUP BY specialisation_id) c ON s.spec_id = c.specialisation_id ORDER BY p.progname, s.spec"
-        InsertCommand="INSERT INTO acad_specialisation (prog_id, spec, abbrev) VALUES (@prog_id, @spec, @abbrev)"
-        UpdateCommand="UPDATE acad_specialisation SET prog_id=@prog_id, spec=@spec, abbrev=@abbrev WHERE spec_id=@spec_id"
+        SelectCommand="SELECT s.spec_id, s.prog_id, s.spec, s.abbrev, s.is_fully_set, p.progname, COALESCE(c.course_count, 0) as course_count FROM acad_specialisation s LEFT JOIN acad_programme p ON s.prog_id = p.progcode LEFT JOIN (SELECT specialisation_id, COUNT(*) as course_count FROM acad_programmecourses GROUP BY specialisation_id) c ON s.spec_id = c.specialisation_id ORDER BY p.progname, s.spec"
+        InsertCommand="INSERT INTO acad_specialisation (prog_id, spec, abbrev, is_fully_set) VALUES (@prog_id, @spec, @abbrev, @is_fully_set)"
+        UpdateCommand="UPDATE acad_specialisation SET prog_id=@prog_id, spec=@spec, abbrev=@abbrev, is_fully_set=@is_fully_set WHERE spec_id=@spec_id"
         DeleteCommand="DELETE FROM acad_specialisation WHERE spec_id=@spec_id">
         <InsertParameters>
             <asp:Parameter Name="prog_id" Type="String" />
             <asp:Parameter Name="spec" Type="String" />
             <asp:Parameter Name="abbrev" Type="String" />
+            <asp:Parameter Name="is_fully_set" Type="String" DefaultValue="No" />
         </InsertParameters>
         <UpdateParameters>
             <asp:Parameter Name="prog_id" Type="String" />
             <asp:Parameter Name="spec" Type="String" />
             <asp:Parameter Name="abbrev" Type="String" />
+            <asp:Parameter Name="is_fully_set" Type="String" />
             <asp:Parameter Name="spec_id" Type="Int32" />
         </UpdateParameters>
         <DeleteParameters>
@@ -371,11 +706,5 @@
         ConnectionString="<%$ ConnectionStrings:vacConnectionString %>" 
         ProviderName="MySql.Data.MySqlClient"
         SelectCommand="SELECT progcode, progname FROM acad_programme ORDER BY progname">
-    </asp:SqlDataSource>
-    
-    <asp:SqlDataSource ID="dsCurriculums" runat="server" 
-        ConnectionString="<%$ ConnectionStrings:vacConnectionString %>" 
-        ProviderName="MySql.Data.MySqlClient"
-        SelectCommand="SELECT ID, Tittle FROM acad_curriculum ORDER BY Tittle">
     </asp:SqlDataSource>
 </asp:Content>

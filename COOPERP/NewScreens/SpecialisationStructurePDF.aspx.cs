@@ -1,6 +1,8 @@
 using System;
 using System.Data;
 using System.Text;
+using System.Web.UI;
+using System.Web.UI.WebControls;
 using System.Configuration;
 using MySql.Data.MySqlClient;
 
@@ -24,103 +26,173 @@ public partial class COOPERP_NewScreens_SpecialisationStructurePDF : System.Web.
             string specName = Request.QueryString["specName"] ?? "";
             string progName = Request.QueryString["progName"] ?? "";
             
-            litSpecName.Text = Server.HtmlEncode(specName);
-            litProgName.Text = Server.HtmlEncode(progName);
-            litDate.Text = DateTime.Now.ToString("dd MMM yyyy HH:mm");
+            // Set header info
+            litInstitution.Text = GetInstitutionName();
+            litProgramme.Text = progName;
+            litSpecialisation.Text = specName;
+            
+            // Load logo
+            string logoPath = GetLogoPath();
+            if (!string.IsNullOrEmpty(logoPath))
+            {
+                imgLogo.ImageUrl = "~/" + logoPath;
+                imgLogo.Visible = true;
+            }
             
             if (specId > 0)
             {
-                GenerateStructure(specId);
+                LoadCourseStructure(specId);
+            }
+            else
+            {
+                phContent.Controls.Add(new LiteralControl("<div class='no-data'>No specialisation specified.</div>"));
             }
         }
     }
 
-    private void GenerateStructure(int specId)
+    private void LoadCourseStructure(int specId)
     {
-        StringBuilder sb = new StringBuilder();
-        int totalCourses = 0;
-        double totalCredits = 0;
+        DataTable dtCourses = GetAllCoursesForSpec(specId);
         
-        sb.Append("<table class='structure-table'>");
-        sb.Append("<tr><th class='course-code'>Code</th><th class='course-name'>Course Name</th><th class='credits'>Credits</th></tr>");
+        if (dtCourses.Rows.Count == 0)
+        {
+            phContent.Controls.Add(new LiteralControl("<div class='no-data'>No courses found for this specialisation.</div>"));
+            litTotalCourses.Text = "0";
+            litTotalCredits.Text = "0";
+            return;
+        }
+        
+        // Calculate totals
+        int totalCourses = dtCourses.Rows.Count;
+        double totalCredits = 0;
+        foreach (DataRow row in dtCourses.Rows)
+        {
+            totalCredits += row["CreditUnit"] != DBNull.Value ? Convert.ToDouble(row["CreditUnit"]) : 0;
+        }
+        
+        litTotalCourses.Text = totalCourses.ToString();
+        litTotalCredits.Text = totalCredits.ToString();
+        
+        StringBuilder sb = new StringBuilder();
+        
+        // Group by year and semester
+        for (int year = 1; year <= 5; year++)
+        {
+            DataRow[] yearCourses = dtCourses.Select("study_year = " + year);
+            if (yearCourses.Length == 0) continue;
+            
+            sb.AppendLine("<div class='year-section'>");
+            sb.AppendLine("<div class='year-header'>YEAR " + year + "</div>");
+            
+            for (int sem = 1; sem <= 2; sem++)
+            {
+                DataRow[] semCourses = dtCourses.Select("study_year = " + year + " AND semester = " + sem);
+                if (semCourses.Length == 0) continue;
+                
+                // Calculate semester credits
+                double semCredits = 0;
+                foreach (DataRow row in semCourses)
+                {
+                    semCredits += row["CreditUnit"] != DBNull.Value ? Convert.ToDouble(row["CreditUnit"]) : 0;
+                }
+                
+                sb.AppendLine("<div class='semester-section'>");
+                sb.AppendFormat("<div class='semester-header'>Semester {0} ({1} courses, {2} CU)</div>", sem, semCourses.Length, semCredits);
+                
+                sb.AppendLine("<table>");
+                sb.AppendLine("<thead><tr><th class='code'>Code</th><th>Course Name</th><th class='type'>Type</th><th class='cu'>CU</th></tr></thead>");
+                sb.AppendLine("<tbody>");
+                
+                foreach (DataRow row in semCourses)
+                {
+                    string code = row["course_code"].ToString();
+                    string name = row["courseName"] != DBNull.Value ? row["courseName"].ToString() : "";
+                    string courseType = row["course_type"] != DBNull.Value ? row["course_type"].ToString() : "CORE";
+                    double credits = row["CreditUnit"] != DBNull.Value ? Convert.ToDouble(row["CreditUnit"]) : 0;
+                    
+                    string typeDisplay = courseType == "ELECTIVE" ? "E" : "C";
+                    string typeClass = courseType == "ELECTIVE" ? "type-elective" : "type-core";
+                    
+                    sb.AppendFormat("<tr><td class='code'>{0}</td><td>{1}</td><td class='type {4}'>{2}</td><td class='cu'>{3}</td></tr>",
+                        Server.HtmlEncode(code),
+                        Server.HtmlEncode(name),
+                        typeDisplay,
+                        credits,
+                        typeClass);
+                }
+                
+                sb.AppendLine("</tbody></table>");
+                sb.AppendLine("</div>"); // semester-section
+            }
+            
+            sb.AppendLine("</div>"); // year-section
+        }
+        
+        phContent.Controls.Add(new LiteralControl(sb.ToString()));
+    }
+
+    private DataTable GetAllCoursesForSpec(int specId)
+    {
+        DataTable dt = new DataTable();
         
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
+            string sql = @"SELECT pc.course_code, c.courseName, COALESCE(c.CreditUnit, 0) as CreditUnit, 
+                          pc.study_year, pc.semester, COALESCE(pc.course_type, 'CORE') as course_type
+                          FROM acad_programmecourses pc 
+                          LEFT JOIN acad_course c ON pc.course_code = c.courseID 
+                          WHERE pc.specialisation_id = @specId 
+                          ORDER BY pc.study_year, pc.semester, pc.course_code";
             
-            for (int year = 1; year <= 5; year++)
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
-                // Check if year has courses
-                bool yearHasCourses = false;
-                using (MySqlCommand checkCmd = new MySqlCommand(
-                    "SELECT COUNT(*) FROM acad_programmecourses WHERE specialisation_id = @specId AND study_year = @year", conn))
+                cmd.Parameters.AddWithValue("@specId", specId);
+                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
                 {
-                    checkCmd.Parameters.AddWithValue("@specId", specId);
-                    checkCmd.Parameters.AddWithValue("@year", year);
-                    yearHasCourses = Convert.ToInt32(checkCmd.ExecuteScalar()) > 0;
-                }
-                
-                if (!yearHasCourses) continue;
-                
-                sb.Append("<tr><th colspan='3' class='year-header'>YEAR " + year + "</th></tr>");
-                
-                for (int sem = 1; sem <= 2; sem++)
-                {
-                    using (MySqlCommand cmd = new MySqlCommand(
-                        "SELECT pc.course_code, c.courseName, COALESCE(c.CreditUnit, 0) as CreditUnit " +
-                        "FROM acad_programmecourses pc " +
-                        "LEFT JOIN acad_course c ON pc.course_code = c.courseID " +
-                        "WHERE pc.specialisation_id = @specId AND pc.study_year = @year AND pc.semester = @sem " +
-                        "ORDER BY pc.course_code", conn))
-                    {
-                        cmd.Parameters.AddWithValue("@specId", specId);
-                        cmd.Parameters.AddWithValue("@year", year);
-                        cmd.Parameters.AddWithValue("@sem", sem);
-                        
-                        using (MySqlDataReader reader = cmd.ExecuteReader())
-                        {
-                            bool semHasCourses = false;
-                            StringBuilder semCourses = new StringBuilder();
-                            double semCredits = 0;
-                            int semCount = 0;
-                            
-                            while (reader.Read())
-                            {
-                                semHasCourses = true;
-                                string courseCode = reader["course_code"].ToString();
-                                string courseName = reader["courseName"] != DBNull.Value ? reader["courseName"].ToString() : "";
-                                double credits = reader["CreditUnit"] != DBNull.Value ? Convert.ToDouble(reader["CreditUnit"]) : 0;
-                                
-                                semCourses.Append("<tr class='course-row'>");
-                                semCourses.Append("<td class='course-code'>" + courseCode + "</td>");
-                                semCourses.Append("<td class='course-name'>" + courseName + "</td>");
-                                semCourses.Append("<td class='credits'>" + credits + "</td>");
-                                semCourses.Append("</tr>");
-                                
-                                semCredits += credits;
-                                semCount++;
-                                totalCourses++;
-                                totalCredits += credits;
-                            }
-                            
-                            if (semHasCourses)
-                            {
-                                sb.Append("<tr><td colspan='3' class='semester-header'>Semester " + sem + " (" + semCount + " courses, " + semCredits + " CU)</td></tr>");
-                                sb.Append(semCourses.ToString());
-                            }
-                        }
-                    }
+                    da.Fill(dt);
                 }
             }
         }
         
-        sb.Append("</table>");
-        litStructure.Text = sb.ToString();
-        
-        // Summary
-        StringBuilder summary = new StringBuilder();
-        summary.Append("<div class='summary-row'><span><strong>Total Courses:</strong></span><span>" + totalCourses + "</span></div>");
-        summary.Append("<div class='summary-row'><span><strong>Total Credit Units:</strong></span><span>" + totalCredits + "</span></div>");
-        litSummary.Text = summary.ToString();
+        return dt;
+    }
+    
+    private string GetInstitutionName()
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand("SELECT SettingValue FROM sys_setting WHERE SettingKey = 'InstitutionName' LIMIT 1", conn))
+                {
+                    object result = cmd.ExecuteScalar();
+                    if (result != null && result != DBNull.Value)
+                        return result.ToString();
+                }
+            }
+        }
+        catch { }
+        return "Campus Dynamics Institution";
+    }
+    
+    private string GetLogoPath()
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand("SELECT SettingValue FROM sys_setting WHERE SettingKey = 'LogoPath' LIMIT 1", conn))
+                {
+                    object result = cmd.ExecuteScalar();
+                    if (result != null && result != DBNull.Value)
+                        return result.ToString();
+                }
+            }
+        }
+        catch { }
+        return "";
     }
 }

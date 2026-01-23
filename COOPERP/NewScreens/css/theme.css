@@ -819,7 +819,8 @@ table.dxeListBox_Glass {
 }
 
 .dxeListBox_Glass tr.dxeListBoxItem_Glass,
-.dxeListBox_Glass .dxeListBoxItemRow_Glass td {
+.dxeListBox_Glass .dxeListBoxItemRow_Glass td,
+.dxeListBox_Glass td.dxeListBoxItem_Glass {
     padding: 4px 8px !important;
     font-size: 11px !important;
     color: #333333 !important;
@@ -827,10 +828,24 @@ table.dxeListBox_Glass {
     background: #ffffff !important;
 }
 
+/* Selected item in dropdown - IMPORTANT: Fix white-on-white */
 .dxeListBox_Glass tr.dxeListBoxItemSelected_Glass,
+.dxeListBox_Glass tr.dxeListBoxItemSelected_Glass td,
+.dxeListBox_Glass .dxeListBoxItemSelected_Glass,
+.dxeListBoxItemSelected_Glass,
+.dxeListBoxItemSelected_Glass td,
+td.dxeListBoxItemSelected_Glass {
+    background: #422774 !important;
+    background-color: #422774 !important;
+    color: #ffffff !important;
+}
+
+/* Hover state for dropdown items */
 .dxeListBox_Glass tr.dxeListBoxItem_Glass:hover,
-.dxeListBox_Glass .dxeListBoxItemRow_Glass:hover td {
-    background: #f0f0f0 !important;
+.dxeListBox_Glass tr.dxeListBoxItem_Glass:hover td,
+.dxeListBox_Glass .dxeListBoxItemRow_Glass:hover td,
+.dxeListBoxItem_Glass:hover {
+    background: #e8e0f3 !important;
     color: #422774 !important;
 }
 
@@ -965,6 +980,32 @@ div.dxpc-mainDiv[id*="_DDD_PW"] {
     padding: 3px 6px !important;
 }
 
+/* === INLINE EDIT CONTROLS - Fix white-on-white === */
+.dxgvDataRow td input,
+.dxgvDataRow_Glass td input,
+.dxgvEditingRow td input,
+.dxgvEditingRow_Glass td input,
+td.dxgv input.dxeEditArea_Glass,
+td.dxgv input.dxeEditAreaSys {
+    color: #333333 !important;
+    background: #ffffff !important;
+}
+
+/* SpinEdit controls */
+.dxeSpinEdit_Glass,
+.dxeSpinEdit_Glass input,
+.dxeSpinEdit_Glass .dxeEditArea {
+    color: #333333 !important;
+    background: #ffffff !important;
+}
+
+/* Memo/Textarea controls */
+.dxeMemo_Glass,
+.dxeMemo_Glass textarea {
+    color: #333333 !important;
+    background: #ffffff !important;
+}
+
 /* === ROUND PANEL - Square corners, primary header with WHITE text === */
 .dxrp,
 .dxrpControl,
@@ -1032,11 +1073,34 @@ div.dxpc-mainDiv[id*="_DDD_PW"] {
 .dxeListBox,
 .dxeListBox_Glass {
     font-size: var(--cd-font-sm) !important;
+    background: #ffffff !important;
 }
 
 .dxeListBoxItem,
 .dxeListBoxItem_Glass {
     padding: 3px 6px !important;
+    color: #333333 !important;
+    background: #ffffff !important;
+}
+
+/* GLOBAL FIX: Selected items in all dropdowns/listboxes */
+.dxeListBoxItemSelected,
+.dxeListBoxItemSelected_Glass,
+tr.dxeListBoxItemSelected_Glass,
+tr.dxeListBoxItemSelected_Glass td,
+.dxeListBoxItemSelected_Glass td {
+    background: #422774 !important;
+    background-color: #422774 !important;
+    color: #ffffff !important;
+}
+
+/* Hover state */
+.dxeListBoxItem:hover,
+.dxeListBoxItem_Glass:hover,
+tr.dxeListBoxItem_Glass:hover,
+tr.dxeListBoxItem_Glass:hover td {
+    background: #e8e0f3 !important;
+    color: #422774 !important;
 }
 
 /* === BUTTON - Flat, compact === */
@@ -1065,47 +1129,294 @@ div.dxpc-mainDiv[id*="_DDD_PW"] {
     color: var(--cd-white) !important;
 }
 
-/* === POPUP CONTROL - WHITE text on primary header === */
-.dxpc-mainDiv {
+/* === POPUP CONTROL - COMPREHENSIVE MODERN STYLING === */
+
+/* Main popup container */
+.dxpc-mainDiv,
+.dxpcLite_Glass,
+.dxpc-mainDiv_Glass,
+div[class*="dxpc-mainDiv"] {
     border: 1px solid var(--cd-border) !important;
     border-radius: 0 !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
+/* Popup header - Primary background, white text */
 .dxpc-header,
 .dxpcHeader_Glass,
-.dxpc-header_Glass {
+.dxpc-header_Glass,
+.dxpcLite_Glass .dxpc-header,
+div[class*="dxpc-header"] {
     background: var(--cd-primary) !important;
     background-image: none !important;
     color: var(--cd-white) !important;
-    padding: 6px 10px !important;
-    font-size: var(--cd-font-md) !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    border-bottom: none !important;
+    min-height: auto !important;
 }
 
+/* Header text */
 .dxpc-header span,
 .dxpc-headerText,
-.dxpc-header_Glass span {
+.dxpc-header_Glass span,
+.dxpcHeader_Glass span,
+.dxpc-header td,
+.dxpc-headerContent {
     color: var(--cd-white) !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
 }
 
+/* Close button */
 .dxpc-closeBtn,
-.dxpc-closeBtn_Glass {
+.dxpc-closeBtn_Glass,
+.dxpcCloseBtn,
+.dxpc-header .dxpc-closeBtn {
     color: var(--cd-white) !important;
+    opacity: 0.8 !important;
+    background: none !important;
+    border: none !important;
 }
 
+.dxpc-closeBtn:hover,
+.dxpc-closeBtn_Glass:hover {
+    opacity: 1 !important;
+    background: rgba(255,255,255,0.1) !important;
+}
+
+/* Popup content area */
 .dxpc-content,
 .dxpcContent,
-.dxpcContent_Glass {
+.dxpcContent_Glass,
+.dxpc-contentWrapper,
+.dxpcLite_Glass .dxpc-content,
+div[class*="dxpc-content"] {
     background-color: var(--cd-white) !important;
-    padding: var(--cd-space-lg) !important;
+    padding: 12px !important;
+    font-size: 12px !important;
 }
 
+/* Popup footer */
 .dxpc-footer,
 .dxpcFooter,
-.dxpcFooter_Glass {
-    background-color: var(--cd-bg) !important;
-    padding: 6px 10px !important;
+.dxpcFooter_Glass,
+div[class*="dxpc-footer"] {
+    background-color: #f8f9fa !important;
+    padding: 8px 12px !important;
     border-top: 1px solid var(--cd-border) !important;
+}
+
+/* === TABS INSIDE POPUP - Modern flat style === */
+.dxpc-content .dxtc-stripContainer,
+.dxpc-content .dxtc-stripContainer_Glass,
+.dxpcContent .dxtc-stripContainer {
+    background: #f8f9fa !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 1px solid var(--cd-border) !important;
+    padding: 0 !important;
+}
+
+.dxpc-content .dxtc-tab,
+.dxpc-content .dxtc-tab_Glass,
+.dxpcContent .dxtc-tab {
+    padding: 8px 16px !important;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: var(--cd-text-secondary) !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+}
+
+.dxpc-content .dxtc-tab:hover,
+.dxpcContent .dxtc-tab:hover {
+    background: rgba(66, 39, 116, 0.05) !important;
+    color: var(--cd-primary) !important;
+}
+
+.dxpc-content .dxtc-activeTab,
+.dxpc-content .dxtc-activeTab_Glass,
+.dxpcContent .dxtc-activeTab {
+    background: var(--cd-white) !important;
+    color: var(--cd-primary) !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid var(--cd-primary) !important;
+}
+
+/* Tab content panels */
+.dxpc-content .dxtc-content,
+.dxpc-content .dxtc-content_Glass,
+.dxpcContent .dxtc-content {
+    background: var(--cd-white) !important;
+    border: none !important;
+    padding: 12px 0 !important;
+}
+
+/* === FORM CONTROLS INSIDE POPUP === */
+
+/* Text inputs, memos */
+.dxpc-content .dxeTextBox,
+.dxpc-content .dxeTextBox_Glass,
+.dxpc-content .dxeMemo,
+.dxpc-content .dxeMemo_Glass,
+.dxpcContent .dxeTextBox,
+.dxpcContent .dxeMemo {
+    border: 1px solid var(--cd-border) !important;
+    border-radius: 0 !important;
+    font-size: 12px !important;
+    padding: 6px 8px !important;
+}
+
+.dxpc-content .dxeTextBox:focus,
+.dxpc-content .dxeMemo:focus,
+.dxpc-content .dxeTextBoxSys:focus {
+    border-color: var(--cd-primary) !important;
+    box-shadow: 0 0 0 2px rgba(66, 39, 116, 0.1) !important;
+}
+
+/* Combo boxes inside popup */
+.dxpc-content .dxeComboBox,
+.dxpc-content .dxeComboBox_Glass,
+.dxpcContent .dxeComboBox {
+    border: 1px solid var(--cd-border) !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+}
+
+.dxpc-content .dxeComboBoxInput,
+.dxpc-content .dxeEditArea,
+.dxpc-content input.dxeEditArea_Glass,
+.dxpc-content .dxeEditAreaSys {
+    font-size: 12px !important;
+    padding: 4px 6px !important;
+    color: #333333 !important;
+    background: #ffffff !important;
+}
+
+/* Combo/Edit focused state inside popup */
+.dxpc-content .dxeComboBox_Glass.dxeFocused,
+.dxpc-content .dxeTextBox_Glass.dxeFocused,
+.dxpc-content .dxeFocused {
+    border-color: var(--cd-primary) !important;
+}
+
+.dxpc-content .dxeFocused input,
+.dxpc-content .dxeFocused .dxeEditArea {
+    color: #333333 !important;
+    background: #ffffff !important;
+}
+
+/* Buttons inside popup */
+.dxpc-content .dxbButton,
+.dxpc-content .dxbButton_Glass,
+.dxpcContent .dxbButton {
+    padding: 6px 12px !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    border-radius: 0 !important;
+    border: 1px solid var(--cd-border) !important;
+    background: var(--cd-white) !important;
+    background-image: none !important;
+    color: var(--cd-text) !important;
+}
+
+.dxpc-content .dxbButton:hover,
+.dxpcContent .dxbButton:hover {
+    background: var(--cd-bg) !important;
+    border-color: var(--cd-border-dark) !important;
+}
+
+/* Primary styled buttons in popup */
+.dxpc-content .dxbButton[style*="422774"],
+.dxpc-content .cd-btn--primary,
+.dxpcContent .dxbButton[style*="422774"] {
+    background: var(--cd-primary) !important;
+    border-color: var(--cd-primary) !important;
+    color: var(--cd-white) !important;
+}
+
+.dxpc-content .dxbButton[style*="422774"]:hover {
+    background: var(--cd-primary-dark) !important;
+}
+
+/* === GRID INSIDE POPUP === */
+.dxpc-content .dxgvControl,
+.dxpc-content .dxgvControl_Glass,
+.dxpcContent .dxgvControl {
+    border: 1px solid var(--cd-border) !important;
+    font-size: 11px !important;
+}
+
+.dxpc-content .dxgvHeader td,
+.dxpc-content .dxgvHeader_Glass td,
+.dxpcContent .dxgvHeader td {
+    background: var(--cd-primary) !important;
+    color: var(--cd-white) !important;
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+}
+
+.dxpc-content .dxgvDataRow td,
+.dxpc-content .dxgvDataRow_Glass td,
+.dxpcContent .dxgvDataRow td {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    border-bottom: 1px solid #eee !important;
+}
+
+.dxpc-content .dxgvDataRow:hover td,
+.dxpcContent .dxgvDataRow:hover td {
+    background: rgba(66, 39, 116, 0.03) !important;
+}
+
+/* Filter row in popup grid */
+.dxpc-content .dxgvFilterRow td,
+.dxpcContent .dxgvFilterRow td {
+    padding: 4px !important;
+    background: #fafafa !important;
+}
+
+/* Command buttons in popup grid */
+.dxpc-content .dxgvCommandColumn a,
+.dxpcContent .dxgvCommandColumn a {
+    color: var(--cd-primary) !important;
+    font-size: 10px !important;
+    text-decoration: none !important;
+}
+
+.dxpc-content .dxgvCommandColumn a:hover,
+.dxpcContent .dxgvCommandColumn a:hover {
+    text-decoration: underline !important;
+}
+
+/* Pager in popup */
+.dxpc-content .dxpLite_Glass,
+.dxpc-content .dxpPageNumber,
+.dxpcContent .dxpLite_Glass {
+    font-size: 10px !important;
+}
+
+/* === LABELS AND TEXT IN POPUP === */
+.dxpc-content label,
+.dxpcContent label {
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: var(--cd-text-secondary) !important;
+    margin-bottom: 3px !important;
+    display: block !important;
+}
+
+.dxpc-content .dxeBase,
+.dxpcContent .dxeBase {
+    font-size: 12px !important;
 }
 
 /* === MENU - Compact === */
@@ -1114,6 +1425,62 @@ div.dxpc-mainDiv[id*="_DDD_PW"] {
     background: var(--cd-white) !important;
     background-image: none !important;
     border: 1px solid var(--cd-border) !important;
+}
+
+/* === CD-POPUP CLASS - Additional overrides === */
+.cd-popup {
+    z-index: 10000 !important;
+}
+
+.cd-popup .dxpc-mainDiv,
+.cd-popup.dxpc-mainDiv {
+    border: none !important;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2) !important;
+}
+
+/* Tab control with cd-tabs class */
+.cd-tabs {
+    border: none !important;
+}
+
+.cd-tabs .dxtc-stripContainer,
+.cd-tabs .dxtcLite_Glass .dxtc-stripContainer {
+    background: #fafafa !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 1px solid #e0e0e0 !important;
+    padding: 0 !important;
+}
+
+.cd-tabs .dxtc-tab {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    padding: 10px 16px !important;
+    font-size: 11px !important;
+    color: #666 !important;
+    font-weight: 500 !important;
+    margin: 0 !important;
+}
+
+.cd-tabs .dxtc-tab:hover {
+    background: rgba(66, 39, 116, 0.05) !important;
+    color: var(--cd-primary) !important;
+}
+
+.cd-tabs .dxtc-activeTab {
+    background: #fff !important;
+    background-image: none !important;
+    color: var(--cd-primary) !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid var(--cd-primary) !important;
+}
+
+.cd-tabs .dxtc-content {
+    border: none !important;
+    background: #fff !important;
+    padding: 0 !important;
 }
 
 .dxm-item,
