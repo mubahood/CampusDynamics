@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="BudgetManager.aspx.cs" Inherits="COOPERP_accounts_BudgetManager" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="BudgetManager.aspx.cs" Inherits="COOPERP_accounts_BudgetManager" %>
 
 <%@ Register src="../../UserControls/Accounts/BudgetManager.ascx" tagname="BudgetManager" tagprefix="uc1" %>
 

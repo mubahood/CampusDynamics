@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="ReceiptForm.aspx.cs" Inherits="COOPERP_accounts_ReceiptForm" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="ReceiptForm.aspx.cs" Inherits="COOPERP_accounts_ReceiptForm" %>
 
 <%@ Register src="../../UserControls/Accounts/ReceiptForm.ascx" tagname="ReceiptForm" tagprefix="uc1" %>
 

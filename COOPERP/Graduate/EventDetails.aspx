@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="EventDetails.aspx.cs" Inherits="COOPERP_Graduate_EventDetails" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="EventDetails.aspx.cs" Inherits="COOPERP_Graduate_EventDetails" %>
 
 <%@ Register src="../../UserControls/StudentInfo/RegistrationHistory.ascx" tagname="registrationhistory" tagprefix="uc3" %>
 <%@ Register src="../../UserControls/Results/StudentResults.ascx" tagname="studentresults" tagprefix="uc2" %>

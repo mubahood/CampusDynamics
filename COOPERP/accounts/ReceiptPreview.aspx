@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ReceiptPreview.aspx.cs" Inherits="COOPERP_accounts_ReceiptPreview" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ReceiptPreview.aspx.cs" Inherits="COOPERP_accounts_ReceiptPreview" %>
 
 <%@ Register src="../../UserControls/Accounts/ReceiptPreview.ascx" tagname="ReceiptPreview" tagprefix="uc1" %>
 

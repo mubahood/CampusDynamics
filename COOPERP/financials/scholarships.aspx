@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="scholarships.aspx.cs" Inherits="COOPERP_financials_scholarships" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="scholarships.aspx.cs" Inherits="COOPERP_financials_scholarships" %>
 
 <%@ Register src="../../UserControls/financials/scholarships.ascx" tagname="scholarships" tagprefix="uc1" %>
 

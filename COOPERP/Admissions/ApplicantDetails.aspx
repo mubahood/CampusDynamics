@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ApplicantDetails.aspx.cs" Inherits="COOPERP_Admissions_ApplicantDetails" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ApplicantDetails.aspx.cs" Inherits="COOPERP_Admissions_ApplicantDetails" %>
 <%@ Register src="../../UserControls/Admissions/ApplicantChoices.ascx" tagname="ApplicantChoices" tagprefix="uc4" %>
 <%@ Register src="../../UserControls/Admissions/ApplicantResults.ascx" tagname="ApplicantResults" tagprefix="uc5" %>
 <%@ Register src="../../UserControls/Admissions/ApplicantQualifications.ascx" tagname="ApplicantQualifications" tagprefix="uc6" %>

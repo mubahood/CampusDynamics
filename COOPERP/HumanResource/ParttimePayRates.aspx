@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/HumanResource/MasterPage.master" AutoEventWireup="true" CodeFile="ParttimePayRates.aspx.cs" Inherits="COOPERP_HumanResource_ParttimePayRates" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/HumanResource/MasterPage.master" AutoEventWireup="true" CodeFile="ParttimePayRates.aspx.cs" Inherits="COOPERP_HumanResource_ParttimePayRates" %>
 
 <%@ Register src="../../UserControls/HumanResource/PayrollSpecialRates.ascx" tagname="PayrollSpecialRates" tagprefix="uc1" %>
 

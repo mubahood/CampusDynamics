@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/CommCentre/MasterPage.master" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="COOPERP_CommCentre_Default" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/CommCentre/MasterPage.master" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="COOPERP_CommCentre_Default" %>
 
 <%@ Register src="../../UserControls/CommunicationCentre/ComnicationCentre.ascx" tagname="ComnicationCentre" tagprefix="uc1" %>
 

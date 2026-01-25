@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ExamPaperDetail.aspx.cs" Inherits="COOPERP_Timetables_ExamPaperDetail" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ExamPaperDetail.aspx.cs" Inherits="COOPERP_Timetables_ExamPaperDetail" %>
 
 <!DOCTYPE html>
 

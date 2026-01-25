@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ExcellDataLoader.aspx.cs" Inherits="COOPERP_accounts_ExcellDataLoader" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ExcellDataLoader.aspx.cs" Inherits="COOPERP_accounts_ExcellDataLoader" %>
 
 <!DOCTYPE html>
 

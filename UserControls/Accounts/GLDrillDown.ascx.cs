@@ -1,4 +1,4 @@
-﻿using DevExpress.Export;
+using DevExpress.Export;
 using DevExpress.Web;
 using DevExpress.XtraPrinting;
 using System;

@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="PhotoUpload.aspx.cs" Inherits="COOPERP_Registry_PhotoUpload" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="PhotoUpload.aspx.cs" Inherits="COOPERP_Registry_PhotoUpload" %>
 
 <!DOCTYPE html>
 

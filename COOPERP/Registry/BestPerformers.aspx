@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Registry/MasterPage.master" AutoEventWireup="true" CodeFile="BestPerformers.aspx.cs" Inherits="COOPERP_Registry_BestPerformers" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Registry/MasterPage.master" AutoEventWireup="true" CodeFile="BestPerformers.aspx.cs" Inherits="COOPERP_Registry_BestPerformers" %>
 
 <%@ Register src="../../UserControls/Results/BestPerformersAnnual.ascx" tagname="BestPerformersAnnual" tagprefix="uc1" %>
 

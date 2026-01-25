@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Results/MasterPage.master" AutoEventWireup="true" CodeFile="ResearchElectronicMarkSheets.aspx.cs" Inherits="COOPERP_Results_ResearchElectronicMarkSheets" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Results/MasterPage.master" AutoEventWireup="true" CodeFile="ResearchElectronicMarkSheets.aspx.cs" Inherits="COOPERP_Results_ResearchElectronicMarkSheets" %>
 
 <%@ Register Src="~/UserControls/Results/ResearchElectronicSheets.ascx" TagPrefix="uc1" TagName="ResearchElectronicSheets" %>
 

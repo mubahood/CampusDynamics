@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="GraduateReports.aspx.cs" Inherits="COOPERP_Graduate_GraduateReports" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="GraduateReports.aspx.cs" Inherits="COOPERP_Graduate_GraduateReports" %>
 
 <!DOCTYPE html>
 

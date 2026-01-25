@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="JournalDetails.aspx.cs" Inherits="COOPERP_accounts_JournalDetails" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="JournalDetails.aspx.cs" Inherits="COOPERP_accounts_JournalDetails" %>
 
 <%@ Register src="../../UserControls/Accounts/JournalDetails.ascx" tagname="JournalDetails" tagprefix="uc1" %>
 

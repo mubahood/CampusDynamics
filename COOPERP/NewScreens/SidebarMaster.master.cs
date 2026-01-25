@@ -26,6 +26,7 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
         {
             LoadAcademicYears();
             LoadSemesters();
+            LoadCampuses();
         }
     }
     
@@ -50,6 +51,12 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
                 break;
             case "newprogrammecourses":
                 title = "Programme Courses";
+                break;
+            case "newcourses":
+                title = "Course Bank";
+                break;
+            case "newstudentinfo":
+                title = "Student Records";
                 break;
             default:
                 title = pageName.Replace("New", "").Replace("_", " ");
@@ -178,5 +185,73 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
     {
         // Save selected semester to session
         Session["SelectedSemester"] = ddlSemester.SelectedValue;
+    }
+    
+    private void LoadCampuses()
+    {
+        ddlCampus.Items.Clear();
+        
+        // Add "No Campus" option first (default - no campus selected)
+        ddlCampus.Items.Add(new System.Web.UI.WebControls.ListItem("- No Campus -", ""));
+        
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                // Get all campuses excluding ID=0 (usually system/placeholder records)
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT ID, campus_name, campus_short_name FROM acad_campuses WHERE ID != 0 ORDER BY campus_name", conn))
+                {
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string id = reader["ID"].ToString();
+                            string name = reader["campus_name"].ToString();
+                            string shortName = reader["campus_short_name"] != DBNull.Value 
+                                ? reader["campus_short_name"].ToString() 
+                                : "";
+                            
+                            // Display short name if available, otherwise full name
+                            string displayText = !string.IsNullOrEmpty(shortName) ? shortName : name;
+                            
+                            ddlCampus.Items.Add(new System.Web.UI.WebControls.ListItem(displayText, id));
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // If database fails, just keep the "No Campus" option
+        }
+        
+        // Set selected campus from session if available
+        if (Session["SelectedCampus"] != null && !string.IsNullOrEmpty(Session["SelectedCampus"].ToString()))
+        {
+            string savedCampus = Session["SelectedCampus"].ToString();
+            if (ddlCampus.Items.FindByValue(savedCampus) != null)
+            {
+                ddlCampus.SelectedValue = savedCampus;
+            }
+        }
+        // Otherwise, leave default "No Campus" selected (which has empty value)
+    }
+    
+    protected void ddlCampus_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        // Save selected campus to session
+        Session["SelectedCampus"] = ddlCampus.SelectedValue;
+        
+        // Also set campusno session variable for compatibility with existing system
+        if (!string.IsNullOrEmpty(ddlCampus.SelectedValue))
+        {
+            Session["campusno"] = ddlCampus.SelectedValue;
+        }
+        else
+        {
+            Session["campusno"] = null;
+        }
     }
 }

@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="BankReconciliation.aspx.cs" Inherits="COOPERP_accounts_BankReconciliation" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="BankReconciliation.aspx.cs" Inherits="COOPERP_accounts_BankReconciliation" %>
 
 <%@ Register src="../../UserControls/Accounts/BankReconciliation.ascx" tagname="BankReconciliation" tagprefix="uc1" %>
 

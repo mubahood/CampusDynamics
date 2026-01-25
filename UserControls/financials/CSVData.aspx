@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="CSVData.aspx.cs" Inherits="COOPERP_financials_CSVData" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="CSVData.aspx.cs" Inherits="COOPERP_financials_CSVData" %>
 
 <%@ Register src="../../UserControls/financials/CSVDataLoader.ascx" tagname="CSVDataLoader" tagprefix="uc1" %>
 

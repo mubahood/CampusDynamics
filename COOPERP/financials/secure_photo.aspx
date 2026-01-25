@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="secure_photo.aspx.cs" Inherits="COOPERP_financials_secure_photo" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="secure_photo.aspx.cs" Inherits="COOPERP_financials_secure_photo" %>
 
 <!DOCTYPE html>
 

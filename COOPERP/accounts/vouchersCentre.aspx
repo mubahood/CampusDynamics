@@ -1,4 +1,4 @@
-﻿<%@ Page Title="Vouchers Centre" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="vouchersCentre.aspx.cs" Inherits="COOPERP_accounts_vouchersCentre" %>
+<%@ Page Title="Vouchers Centre" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="vouchersCentre.aspx.cs" Inherits="COOPERP_accounts_vouchersCentre" %>
 
 <%@ Register src="../../UserControls/Accounts/voucherCentre.ascx" tagname="voucherCentre" tagprefix="uc1" %>
 

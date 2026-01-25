@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="_Default" Title="Campus Dynamics :: Higher Education ERP" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="_Default" Title="Campus Dynamics :: Higher Education ERP" %>
 
 <%--<%@ Register assembly="DevExpress.ExpressApp.Web.v11.1, Version=11.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.ExpressApp.Web.Controls" tagprefix="cc1" %>
 --%>

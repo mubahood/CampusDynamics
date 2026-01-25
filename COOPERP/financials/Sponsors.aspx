@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="Sponsors.aspx.cs" Inherits="COOPERP_financials_Sponsors" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="Sponsors.aspx.cs" Inherits="COOPERP_financials_Sponsors" %>
 
 <%@ Register src="../../UserControls/financials/scholarships.ascx" tagname="scholarships" tagprefix="uc1" %>
 

@@ -1,4 +1,4 @@
-﻿using admission_dataTableAdapters;
+using admission_dataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Linq;

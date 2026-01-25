@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="staff_id_verifier.aspx.cs" Inherits="API_id_verifier" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="staff_id_verifier.aspx.cs" Inherits="API_id_verifier" %>
 
 <!DOCTYPE html>
 

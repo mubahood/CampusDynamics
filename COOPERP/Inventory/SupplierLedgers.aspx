@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Inventory/MasterPage.master" AutoEventWireup="true" CodeFile="SupplierLedgers.aspx.cs" Inherits="COOPERP_Inventory_SupplierLedgers" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Inventory/MasterPage.master" AutoEventWireup="true" CodeFile="SupplierLedgers.aspx.cs" Inherits="COOPERP_Inventory_SupplierLedgers" %>
 
 <%@ Register src="../../UserControls/Inventory/SupplierLedgers.ascx" tagname="SupplierLedgers" tagprefix="uc1" %>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ProgrammeStructure.aspx.cs" Inherits="COOPERP_Faculty_ProgrammeStructure" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ProgrammeStructure.aspx.cs" Inherits="COOPERP_Faculty_ProgrammeStructure" %>
 
 <!DOCTYPE html>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ledgerTypes.aspx.cs" Inherits="COOPERP_accounts_ledgerTypes" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ledgerTypes.aspx.cs" Inherits="COOPERP_accounts_ledgerTypes" %>
 
 <%@ Register src="../../UserControls/Accounts/LedgerTypes.ascx" tagname="LedgerTypes" tagprefix="uc1" %>
 

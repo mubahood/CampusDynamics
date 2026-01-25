@@ -45,6 +45,66 @@
                         
                         <li class="cd-sidebar__heading">Academics</li>
                         
+                        <!-- Students Management Menu with Submenu -->
+                        <li class="cd-sidebar__item cd-sidebar__item--has-submenu">
+                            <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                <span>Students</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cd-sidebar__arrow"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </a>
+                            <ul class="cd-sidebar__submenu">
+                                <!-- Student Records -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkStudentInfo" runat="server" NavigateUrl="~/COOPERP/NewScreens/NewStudentInfo.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                        <span>Student Records</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <!-- Student Specialisations -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkStudentSpecialisations" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
+                                        <span>Student Specialisations</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <!-- Promotions Centre -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkPromotions" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                                        <span>Promotions Centre</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <!-- ID Cards -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkStudentCards" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                                        <span>ID Cards</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <!-- Student Documents -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkStudentDocuments" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                        <span>Student Documents</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <!-- Enrollment Analysis -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkEnrollmentAnalysis" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                                        <span>Enrollment Analysis</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <!-- Residence Allocation -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkResidenceAllocation" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                                        <span>Residence Allocation</span>
+                                    </asp:HyperLink>
+                                </li>
+                            </ul>
+                        </li>
+                        
                         <!-- Academic Setup Menu with Submenu -->
                         <li class="cd-sidebar__item cd-sidebar__item--has-submenu">
                             <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
@@ -75,6 +135,12 @@
                                     <asp:HyperLink ID="lnkNewProgrammeCourses" runat="server" NavigateUrl="~/COOPERP/NewScreens/NewProgrammeCourses.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                         <span>Programme Courses</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkNewCourses" runat="server" NavigateUrl="~/COOPERP/NewScreens/NewCourses.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                                        <span>Course Bank</span>
                                     </asp:HyperLink>
                                 </li>
                             </ul>
@@ -121,6 +187,8 @@
                             <asp:DropDownList ID="ddlAcademicYear" runat="server" CssClass="cd-header-dropdown" AutoPostBack="true" OnSelectedIndexChanged="ddlAcademicYear_SelectedIndexChanged">
                             </asp:DropDownList>
                             <asp:DropDownList ID="ddlSemester" runat="server" CssClass="cd-header-dropdown" AutoPostBack="true" OnSelectedIndexChanged="ddlSemester_SelectedIndexChanged">
+                            </asp:DropDownList>
+                            <asp:DropDownList ID="ddlCampus" runat="server" CssClass="cd-header-dropdown cd-header-dropdown--campus" AutoPostBack="true" OnSelectedIndexChanged="ddlCampus_SelectedIndexChanged">
                             </asp:DropDownList>
                         </div>
                     </div>
@@ -278,8 +346,79 @@
                         closeSidebar();
                     }
                     closeUserDropdown();
+                    // Close any open action popovers
+                    closeAllActionPopovers();
                 }
             });
+            
+            // ============================================
+            // Action Popover Menu - Global Functions
+            // ============================================
+            window.closeAllActionPopovers = function() {
+                document.querySelectorAll('.cd-action-popover.show').forEach(function(popover) {
+                    popover.classList.remove('show');
+                });
+            };
+            
+            window.toggleActionPopover = function(btn, event) {
+                if (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                
+                var wrapper = btn.closest('.cd-action-wrapper');
+                var popover = wrapper ? wrapper.querySelector('.cd-action-popover') : null;
+                
+                if (!popover) return;
+                
+                var isOpen = popover.classList.contains('show');
+                
+                // Close all other popovers first
+                closeAllActionPopovers();
+                
+                if (!isOpen) {
+                    popover.classList.add('show');
+                    
+                    // Check if popover goes below viewport and flip if needed
+                    setTimeout(function() {
+                        var rect = popover.getBoundingClientRect();
+                        if (rect.bottom > window.innerHeight) {
+                            popover.classList.add('cd-action-popover--top');
+                        } else {
+                            popover.classList.remove('cd-action-popover--top');
+                        }
+                    }, 0);
+                }
+            };
+            
+            // Close popovers when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.cd-action-wrapper')) {
+                    closeAllActionPopovers();
+                }
+                if (userDropdownMenu && !userDropdownMenu.contains(e.target) && e.target !== userDropdownTrigger) {
+                    closeUserDropdown();
+                }
+            });
+            
+            // DevExpress Grid Edit/Delete handler
+            window.gridEditRow = function(gridClientId, keyValue) {
+                var grid = ASPxClientControl.GetControlCollection().GetByName(gridClientId);
+                if (grid) {
+                    grid.StartEditRowByKey(keyValue);
+                }
+                closeAllActionPopovers();
+            };
+            
+            window.gridDeleteRow = function(gridClientId, keyValue) {
+                if (confirm('Are you sure you want to delete this record?')) {
+                    var grid = ASPxClientControl.GetControlCollection().GetByName(gridClientId);
+                    if (grid) {
+                        grid.DeleteRowByKey(keyValue);
+                    }
+                }
+                closeAllActionPopovers();
+            };
             
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', init);

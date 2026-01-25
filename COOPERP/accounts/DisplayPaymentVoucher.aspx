@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="DisplayPaymentVoucher.aspx.cs" Inherits="COOPERP_accounts_DisplayPaymentVoucher" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="DisplayPaymentVoucher.aspx.cs" Inherits="COOPERP_accounts_DisplayPaymentVoucher" %>
 
 <!DOCTYPE html>
 

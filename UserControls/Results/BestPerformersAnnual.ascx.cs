@@ -1,4 +1,4 @@
-﻿using DevExpress.XtraPrinting;
+using DevExpress.XtraPrinting;
 using ResultsDataTableAdapters;
 using System;
 using System.Collections.Generic;

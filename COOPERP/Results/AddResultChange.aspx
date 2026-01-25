@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="AddResultChange.aspx.cs" Inherits="COOPERP_Results_AddResultChange" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="AddResultChange.aspx.cs" Inherits="COOPERP_Results_AddResultChange" %>
 
 <!DOCTYPE html>
 

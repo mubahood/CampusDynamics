@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="FeesStructure.aspx.cs" Inherits="COOPERP_financials_FeesStructure" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="FeesStructure.aspx.cs" Inherits="COOPERP_financials_FeesStructure" %>
 
 <%@ Register src="../../UserControls/financials/FeesStructure.ascx" tagname="FeesStructure" tagprefix="uc1" %>
 

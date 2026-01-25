@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="bankcharges.aspx.cs" Inherits="COOPERP_financials_bankcharges" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="bankcharges.aspx.cs" Inherits="COOPERP_financials_bankcharges" %>
 
 <%@ Register src="../../UserControls/financials/bankcharges.ascx" tagname="bankcharges" tagprefix="uc1" %>
 

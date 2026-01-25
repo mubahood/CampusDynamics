@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="MasterPage.master" AutoEventWireup="true" CodeFile="MyApplications.aspx.cs" Inherits="MyApplications" %>
+<%@ Page Title="" Language="C#" MasterPageFile="MasterPage.master" AutoEventWireup="true" CodeFile="MyApplications.aspx.cs" Inherits="MyApplications" %>
 
 <%@ Register src="UserControls/Security/SystemApplications.ascx" tagname="SystemApplications" tagprefix="uc1" %>
 

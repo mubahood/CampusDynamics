@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="TranscriptFormatDetails.aspx.cs" Inherits="COOPERP_Registry_TranscriptFormatDetails" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="TranscriptFormatDetails.aspx.cs" Inherits="COOPERP_Registry_TranscriptFormatDetails" %>
 
 <!DOCTYPE html>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Inventory/MasterPage.master" AutoEventWireup="true" CodeFile="SchoolBudgets.aspx.cs" Inherits="COOPERP_schools_SchoolBudgets" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Inventory/MasterPage.master" AutoEventWireup="true" CodeFile="SchoolBudgets.aspx.cs" Inherits="COOPERP_schools_SchoolBudgets" %>
 
 <%@ Register src="../../UserControls/Inventory/lnventoryBudgets.ascx" tagname="lnventoryBudgets" tagprefix="uc1" %>
 

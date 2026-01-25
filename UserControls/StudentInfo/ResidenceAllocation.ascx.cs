@@ -1,4 +1,4 @@
-﻿using StudentAccountingDataTableAdapters;
+using StudentAccountingDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Linq;

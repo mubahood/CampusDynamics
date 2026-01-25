@@ -1,4 +1,4 @@
-﻿<%@ Page Title="Hotel Dynamics: Night Audit" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="NightAudit.aspx.cs" Inherits="COOPERP_accounts_NightAudit" %>
+<%@ Page Title="Hotel Dynamics: Night Audit" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="NightAudit.aspx.cs" Inherits="COOPERP_accounts_NightAudit" %>
 
 <%@ Register src="../../UserControls/Accounts/AuditTodayBookings.ascx" tagname="AuditTodayBookings" tagprefix="uc1" %>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Inventory/MasterPage.master" AutoEventWireup="true" CodeFile="SchoolRequisitions.aspx.cs" Inherits="COOPERP_Inventory_SchoolRequisitions" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Inventory/MasterPage.master" AutoEventWireup="true" CodeFile="SchoolRequisitions.aspx.cs" Inherits="COOPERP_Inventory_SchoolRequisitions" %>
 
 
 

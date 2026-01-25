@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Timetables/MasterPage.master" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="COOPERP_Timetables_Default" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Timetables/MasterPage.master" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="COOPERP_Timetables_Default" %>
 
 <%@ Register src="../../UserControls/Timetables/TeachingAllocations.ascx" tagname="TeachingAllocations" tagprefix="uc1" %>
 

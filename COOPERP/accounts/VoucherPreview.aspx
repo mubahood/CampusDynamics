@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="VoucherPreview.aspx.cs" Inherits="COOPERP_accounts_VoucherPreview" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="VoucherPreview.aspx.cs" Inherits="COOPERP_accounts_VoucherPreview" %>
 
 <%@ Register src="../../UserControls/Accounts/VoucherPreview.ascx" tagname="VoucherPreview" tagprefix="uc1" %>
 

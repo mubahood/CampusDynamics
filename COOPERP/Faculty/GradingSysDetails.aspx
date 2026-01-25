@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="GradingSysDetails.aspx.cs" Inherits="COOPERP_Faculty_GradingSysDetails" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="GradingSysDetails.aspx.cs" Inherits="COOPERP_Faculty_GradingSysDetails" %>
 
 <%@ Register src="../../UserControls/Faculty/GradindDetails.ascx" tagname="GradindDetails" tagprefix="uc1" %>
 

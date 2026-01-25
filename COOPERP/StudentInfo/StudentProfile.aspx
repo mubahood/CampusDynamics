@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="StudentProfile.aspx.cs" Inherits="COOPERP_StudentInfo_StudentProfile" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="StudentProfile.aspx.cs" Inherits="COOPERP_StudentInfo_StudentProfile" %>
 
 <%@ Register src="../../UserControls/StudentInfo/BioData.ascx" tagname="BioData" tagprefix="uc1" %>
 

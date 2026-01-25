@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Admissions/MasterPage.master" AutoEventWireup="true" CodeFile="RegistrationNoCentre.aspx.cs" Inherits="COOPERP_Admissions_RegistrationNoCentre" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Admissions/MasterPage.master" AutoEventWireup="true" CodeFile="RegistrationNoCentre.aspx.cs" Inherits="COOPERP_Admissions_RegistrationNoCentre" %>
 
 <%@ Register src="../../UserControls/Admissions/RegistrationNoCentre.ascx" tagname="RegistrationNoCentre" tagprefix="uc1" %>
 

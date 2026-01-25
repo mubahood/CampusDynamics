@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/Security/MasterPage.master" AutoEventWireup="true" CodeFile="Deadline_Manager.aspx.cs" Inherits="COOPERP_Results_Deadline_Manager" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/Security/MasterPage.master" AutoEventWireup="true" CodeFile="Deadline_Manager.aspx.cs" Inherits="COOPERP_Results_Deadline_Manager" %>
  
 <asp:Content ID="Content1" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
     <dx:ASPxRoundPanel ID="ASPxRoundPanel1" runat="server" ShowHeader="False" Width="100%">

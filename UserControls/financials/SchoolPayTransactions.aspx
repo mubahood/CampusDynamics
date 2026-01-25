@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="SchoolPayTransactions.aspx.cs" Inherits="COOPERP_financials_SchoolPayTransactions" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="SchoolPayTransactions.aspx.cs" Inherits="COOPERP_financials_SchoolPayTransactions" %>
 
 <%@ Register src="../../UserControls/financials/SchoolPayDatal.ascx" tagname="SchoolPayDatal" tagprefix="uc1" %>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Title="Coop ERP: Ledger Center" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="LedgeerCenter.aspx.cs" Inherits="COOPERP_accounts_LedgeerCenter" %>
+<%@ Page Title="Coop ERP: Ledger Center" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="LedgeerCenter.aspx.cs" Inherits="COOPERP_accounts_LedgeerCenter" %>
 
 <%@ Register src="../../UserControls/Accounts/LedgersCentre.ascx" tagname="LedgersCentre" tagprefix="uc1" %>
 

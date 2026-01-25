@@ -1,4 +1,4 @@
-﻿<%@ Page Title="Journals Centre" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="JournalCentre.aspx.cs" Inherits="COOPERP_accounts_JournalCentre" %>
+<%@ Page Title="Journals Centre" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="JournalCentre.aspx.cs" Inherits="COOPERP_accounts_JournalCentre" %>
 
 <%@ Register src="../../UserControls/Accounts/JournalCentre.ascx" tagname="JournalCentre" tagprefix="uc1" %>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Executive/MasterPage.master" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="COOPERP_Campus_Default" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Executive/MasterPage.master" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="COOPERP_Campus_Default" %>
 
 <%@ Register src="../../UserControls/Campus/CampusInfo.ascx" tagname="CampusInfo" tagprefix="uc1" %>
 

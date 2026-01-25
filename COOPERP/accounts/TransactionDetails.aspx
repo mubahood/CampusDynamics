@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="TransactionDetails.aspx.cs" Inherits="COOPERP_accounts_TransactionDetails" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="TransactionDetails.aspx.cs" Inherits="COOPERP_accounts_TransactionDetails" %>
 
 <!DOCTYPE html>
 

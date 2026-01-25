@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Results/MasterPage.master" AutoEventWireup="true" CodeFile="ResultsUpdates.aspx.cs" Inherits="COOPERP_Results_ResultsUpdates" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Results/MasterPage.master" AutoEventWireup="true" CodeFile="ResultsUpdates.aspx.cs" Inherits="COOPERP_Results_ResultsUpdates" %>
 
 <%@ Register src="../../UserControls/Results/ResultsUpdates.ascx" tagname="ResultsUpdates" tagprefix="uc1" %>
 

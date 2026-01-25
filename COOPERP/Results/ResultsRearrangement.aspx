@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ResultsRearrangement.aspx.cs" Inherits="COOPERP_Results_Reports_ResultsRearrangement" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ResultsRearrangement.aspx.cs" Inherits="COOPERP_Results_Reports_ResultsRearrangement" %>
 
 <!DOCTYPE html>
 

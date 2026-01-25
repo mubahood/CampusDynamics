@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="PopWindows.aspx.cs" Inherits="COOPERP_Inventory_PopWindows" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="PopWindows.aspx.cs" Inherits="COOPERP_Inventory_PopWindows" %>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 

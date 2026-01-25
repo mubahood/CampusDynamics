@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="BranchInfo.aspx.cs" Inherits="COOPERP_accounts_BranchInfo" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="BranchInfo.aspx.cs" Inherits="COOPERP_accounts_BranchInfo" %>
 
 <%@ Register src="../../UserControls/schools/School_Branches.ascx" tagname="School_Branches" tagprefix="uc1" %>
 

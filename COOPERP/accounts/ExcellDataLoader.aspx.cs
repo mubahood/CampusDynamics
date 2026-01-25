@@ -1,4 +1,4 @@
-﻿using DevExpress.Spreadsheet;
+using DevExpress.Spreadsheet;
 using System;
 using System.Collections.Generic;
 using System.Globalization;

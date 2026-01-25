@@ -1,4 +1,4 @@
-﻿<%@ Page  Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="AccountingCenter.aspx.cs" Inherits="COOPERP_accounts_AccountingCenter" %>
+<%@ Page  Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="AccountingCenter.aspx.cs" Inherits="COOPERP_accounts_AccountingCenter" %>
 
 <%@ Register src="../../UserControls/Accounts/ChartAccounts.ascx" tagname="ChartAccounts" tagprefix="uc1" %>
 

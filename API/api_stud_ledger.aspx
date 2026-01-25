@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="api_stud_ledger.aspx.cs" Inherits="API_api_stud_ledger" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="api_stud_ledger.aspx.cs" Inherits="API_api_stud_ledger" %>
 
 <%@ Register src="../UserControls/financials/api_stud_ledger.ascx" tagname="api_stud_ledger" tagprefix="uc1" %>
 

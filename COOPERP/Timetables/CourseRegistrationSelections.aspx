@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Timetables/MasterPage.master" AutoEventWireup="true" CodeFile="CourseRegistrationSelections.aspx.cs" Inherits="COOPERP_Timetables_CourseRegistrationSelections" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Timetables/MasterPage.master" AutoEventWireup="true" CodeFile="CourseRegistrationSelections.aspx.cs" Inherits="COOPERP_Timetables_CourseRegistrationSelections" %>
 
 <%@ Register src="../../UserControls/Timetables/CourseRegistrationSelections.ascx" tagname="CourseRegistrationSelections" tagprefix="uc1" %>
 

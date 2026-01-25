@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Registry/MasterPage.master" AutoEventWireup="true" CodeFile="TranscriptSettings.aspx.cs" Inherits="COOPERP_Registry_TranscriptSettings" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Registry/MasterPage.master" AutoEventWireup="true" CodeFile="TranscriptSettings.aspx.cs" Inherits="COOPERP_Registry_TranscriptSettings" %>
 
 <%@ Register src="../../UserControls/Registry/TranscriptFormatCentre.ascx" tagname="TranscriptFormatCentre" tagprefix="uc1" %>
 

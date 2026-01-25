@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="BillingSystems.aspx.cs" Inherits="COOPERP_financials_BillingSystems" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="BillingSystems.aspx.cs" Inherits="COOPERP_financials_BillingSystems" %>
 
 <%@ Register src="../../UserControls/financials/BillingSystems.ascx" tagname="BillingSystems" tagprefix="uc1" %>
 

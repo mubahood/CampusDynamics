@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="CashBook.aspx.cs" Inherits="COOPERP_accounts_CashBook" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="CashBook.aspx.cs" Inherits="COOPERP_accounts_CashBook" %>
 
 <%@ Register src="../../UserControls/Accounts/CashBook.ascx" tagname="CashBook" tagprefix="uc1" %>
 

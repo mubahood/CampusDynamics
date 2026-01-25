@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ContraVoucher.aspx.cs" Inherits="UserControls_Accounts_PaymentVoucher" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ContraVoucher.aspx.cs" Inherits="UserControls_Accounts_PaymentVoucher" %>
 
 <!DOCTYPE html>
 

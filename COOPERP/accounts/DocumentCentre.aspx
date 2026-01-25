@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="DocumentCentre.aspx.cs" Inherits="COOPERP_accounts_DocumentCentre" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="DocumentCentre.aspx.cs" Inherits="COOPERP_accounts_DocumentCentre" %>
 
 <%@ Register src="../../UserControls/Accounts/DocumentCentre.ascx" tagname="DocumentCentre" tagprefix="uc1" %>
 

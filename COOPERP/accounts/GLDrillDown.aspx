@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="GLDrillDown.aspx.cs" Inherits="COOPERP_accounts_GLDrillDown" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="GLDrillDown.aspx.cs" Inherits="COOPERP_accounts_GLDrillDown" %>
 
 <%@ Register src="../../UserControls/Accounts/GLDrillDown.ascx" tagname="GLDrillDown" tagprefix="uc1" %>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="SMSSender.aspx.cs" Inherits="SMSSender" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="SMSSender.aspx.cs" Inherits="SMSSender" %>
 
 <%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
 

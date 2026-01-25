@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ReschProgressTracking.aspx.cs" Inherits="COOPERP_Graduate_ReschProgressTracking" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ReschProgressTracking.aspx.cs" Inherits="COOPERP_Graduate_ReschProgressTracking" %>
 
 <%@ Register src="../../UserControls/Graduate/ReschProgressTracking.ascx" tagname="ReschProgressTracking" tagprefix="uc1" %>
 

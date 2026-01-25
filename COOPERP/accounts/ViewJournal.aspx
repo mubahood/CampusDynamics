@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ViewJournal.aspx.cs" Inherits="COOPERP_accounts_ViewJournal" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ViewJournal.aspx.cs" Inherits="COOPERP_accounts_ViewJournal" %>
 
 <!DOCTYPE html>
 

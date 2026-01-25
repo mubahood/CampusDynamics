@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Analysis/MasterPage.master" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="COOPERP_Analysis_Default" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Analysis/MasterPage.master" AutoEventWireup="true" CodeFile="Default.aspx.cs" Inherits="COOPERP_Analysis_Default" %>
 
 <%@ Register src="../../UserControls/Admissions/AdmissionStatistics.ascx" tagname="AdmissionStatistics" tagprefix="uc1" %>
 

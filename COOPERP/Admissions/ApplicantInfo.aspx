@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Admissions/MasterPage.master" AutoEventWireup="true" CodeFile="ApplicantInfo.aspx.cs" Inherits="COOPERP_Admissions_ApplicantInfo" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Admissions/MasterPage.master" AutoEventWireup="true" CodeFile="ApplicantInfo.aspx.cs" Inherits="COOPERP_Admissions_ApplicantInfo" %>
 
 <%@ Register src="../../UserControls/Admissions/applications.ascx" tagname="applications" tagprefix="uc1" %>
 

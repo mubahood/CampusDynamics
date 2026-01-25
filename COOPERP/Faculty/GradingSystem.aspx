@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Faculty/MasterPage.master" AutoEventWireup="true" CodeFile="GradingSystem.aspx.cs" Inherits="COOPERP_Faculty_GradingSystem" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Faculty/MasterPage.master" AutoEventWireup="true" CodeFile="GradingSystem.aspx.cs" Inherits="COOPERP_Faculty_GradingSystem" %>
 
 <%@ Register src="../../UserControls/Faculty/GradingSystem.ascx" tagname="GradingSystem" tagprefix="uc1" %>
 

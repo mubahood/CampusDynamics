@@ -1,4 +1,4 @@
-﻿using ResultsDataTableAdapters;
+using ResultsDataTableAdapters;
 using StudentDataTableAdapters;
 using System;
 using System.Collections.Generic;

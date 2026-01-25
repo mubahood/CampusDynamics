@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Results/MasterPage.master" AutoEventWireup="true" CodeFile="ExamSettingApproval.aspx.cs" Inherits="COOPERP_Timetables_ExamSettingApproval" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Results/MasterPage.master" AutoEventWireup="true" CodeFile="ExamSettingApproval.aspx.cs" Inherits="COOPERP_Timetables_ExamSettingApproval" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
     <dx:ASPxRoundPanel ID="ASPxRoundPanel1" runat="server" 

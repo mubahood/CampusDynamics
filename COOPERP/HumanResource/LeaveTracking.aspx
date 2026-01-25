@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="LeaveTracking.aspx.cs" Inherits="COOPERP_HumanResource_LeaveTracking" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="LeaveTracking.aspx.cs" Inherits="COOPERP_HumanResource_LeaveTracking" %>
 
 <!DOCTYPE html>
 

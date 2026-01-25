@@ -1,4 +1,4 @@
-﻿using CoopERPDataTableAdapters;
+using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Data;

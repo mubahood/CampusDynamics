@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ResearchMarkSheetDetails.aspx.cs" Inherits="COOPERP_Results_ResearchMarkSheetDetails" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ResearchMarkSheetDetails.aspx.cs" Inherits="COOPERP_Results_ResearchMarkSheetDetails" %>
 
 <%@ Register Src="~/UserControls/Results/ResearchMarkSheetDetails.ascx" TagPrefix="uc1" TagName="ResearchMarkSheetDetails" %>
 

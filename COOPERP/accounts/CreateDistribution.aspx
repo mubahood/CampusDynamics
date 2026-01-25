@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="CreateDistribution.aspx.cs" Inherits="COOPERP_accounts_CreateDistribution" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="CreateDistribution.aspx.cs" Inherits="COOPERP_accounts_CreateDistribution" %>
 
 <!DOCTYPE html>
 

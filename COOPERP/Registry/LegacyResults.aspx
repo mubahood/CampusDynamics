@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="LegacyResults.aspx.cs" Inherits="COOPERP_Registry_LegacyResults" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="LegacyResults.aspx.cs" Inherits="COOPERP_Registry_LegacyResults" %>
 
 <%--<%@ Register assembly="DevExpress.Xpo.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Xpo" tagprefix="dx" %>--%>
 

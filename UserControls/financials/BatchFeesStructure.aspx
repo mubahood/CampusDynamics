@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="BatchFeesStructure.aspx.cs" Inherits="COOPERP_financials_BatchFeesStructure" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="BatchFeesStructure.aspx.cs" Inherits="COOPERP_financials_BatchFeesStructure" %>
 
 <!DOCTYPE html>
 

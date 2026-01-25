@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="SpecialisationManager.aspx.cs" Inherits="COOPERP_StudentInfo_SpecialisationManager" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="SpecialisationManager.aspx.cs" Inherits="COOPERP_StudentInfo_SpecialisationManager" %>
 
 <!DOCTYPE html>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/HumanResource/MasterPage.master" AutoEventWireup="true" CodeFile="TeachingCentre.aspx.cs" Inherits="COOPERP_HumanResource_TeachingCentre" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/HumanResource/MasterPage.master" AutoEventWireup="true" CodeFile="TeachingCentre.aspx.cs" Inherits="COOPERP_HumanResource_TeachingCentre" %>
 
 <%@ Register src="../../UserControls/schools/hr_teaching_allocation.ascx" tagname="hr_teaching_allocation" tagprefix="uc1" %>
 

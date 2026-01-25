@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="MarkSheetDetails.aspx.cs" Inherits="COOPERP_Results_MarkSheetDetails" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="MarkSheetDetails.aspx.cs" Inherits="COOPERP_Results_MarkSheetDetails" %>
 
 <%@ Register src="../../UserControls/Results/MarksheetDetails.ascx" tagname="MarksheetDetails" tagprefix="uc1" %>
 

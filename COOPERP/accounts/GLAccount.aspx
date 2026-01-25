@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="GLAccount.aspx.cs" Inherits="COOPERP_accounts_GLAccount" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="GLAccount.aspx.cs" Inherits="COOPERP_accounts_GLAccount" %>
 
 <!DOCTYPE html>
 

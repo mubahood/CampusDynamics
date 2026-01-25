@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Registry/MasterPage.master" AutoEventWireup="true" CodeFile="LegacyGraduands.aspx.cs" Inherits="COOPERP_Results_LegacyGraduands" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Registry/MasterPage.master" AutoEventWireup="true" CodeFile="LegacyGraduands.aspx.cs" Inherits="COOPERP_Results_LegacyGraduands" %>
 
 <%@ Register src="../../UserControls/Results/LegacyStudents.ascx" tagname="LegacyStudents" tagprefix="uc1" %>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="FeesTracking.aspx.cs" Inherits="COOPERP_accounts_FeesTracking" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="FeesTracking.aspx.cs" Inherits="COOPERP_accounts_FeesTracking" %>
 
 <%@ Register src="../../UserControls/schools/TermlyClasses.ascx" tagname="TermlyClasses" tagprefix="uc1" %>
 

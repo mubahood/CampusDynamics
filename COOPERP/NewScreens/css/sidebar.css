@@ -438,6 +438,12 @@ form, #form1 {
     color: var(--cd-text);
 }
 
+/* Campus dropdown - slightly wider to accommodate campus names */
+.cd-header-dropdown--campus {
+    min-width: 120px;
+    max-width: 160px;
+}
+
 .cd-header__actions {
     display: flex;
     align-items: center;
@@ -939,3 +945,416 @@ form, #form1 {
 .cd-transition { transition: all 0.2s ease !important; }
 .cd-transition-fast { transition: all 0.1s ease !important; }
 .cd-transition-none { transition: none !important; }
+
+/* ============================================
+   DevExpress GridView Overrides - Clean Modern Style
+   ============================================ */
+
+/* Remove all black/dark borders from DevExpress grids */
+.dxgvControl_Glass,
+.dxgvControl_Glass table,
+.dxgvControl_Glass td,
+.dxgvControl_Glass th,
+.dxgvTable_Glass,
+.dxgvTable_Glass td,
+.dxgvTable_Glass th {
+    border-color: var(--cd-border) !important;
+}
+
+/* Grid Header - Primary color background with white text */
+.dxgvHeader_Glass,
+.dxgvHeader_Glass td,
+.dxgvHeader_Glass table,
+.dxgvHeader_Glass table td,
+[class*="dxgvHeader"],
+[class*="dxgvHeader"] td,
+[class*="dxgvHeader"] table td {
+    background: var(--cd-primary) !important;
+    background-color: #174DA4 !important;
+    background-image: none !important;
+    border: none !important;
+    border-right: 1px solid rgba(255,255,255,0.2) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    font-size: 11px !important;
+    padding: 10px 8px !important;
+}
+
+/* Last header cell - no right border */
+.dxgvHeader_Glass:last-child,
+[class*="dxgvHeader"]:last-child {
+    border-right: none !important;
+}
+
+/* Remove nested table borders in headers */
+.dxgvHeader_Glass table,
+.dxgvHeader_Glass table td,
+.dxgvHeader_Glass table tr,
+[class*="dxgvHeader"] table,
+[class*="dxgvHeader"] table td,
+[class*="dxgvHeader"] table tr {
+    border: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    padding: 0 !important;
+    color: #fff !important;
+}
+
+/* Header row container */
+[id*="DXHeadersRow"],
+tr[id*="DXHeadersRow"],
+tr[id*="DXHeadersRow"] td,
+tr[id*="DXHeadersRow"] td table,
+tr[id*="DXHeadersRow"] td table td {
+    background: #174DA4 !important;
+    background-color: #174DA4 !important;
+    background-image: none !important;
+    border: none !important;
+    color: #fff !important;
+}
+
+/* Header text - ensure white */
+.dxgvHeader_Glass *,
+[class*="dxgvHeader"] *,
+tr[id*="DXHeadersRow"] * {
+    color: #fff !important;
+}
+
+/* Sort icons - white */
+.dxGridView_gvHeaderSortUp_Glass,
+.dxGridView_gvHeaderSortDown_Glass,
+[class*="dxGridView_gvHeaderSort"],
+.dxgvHeader_Glass img,
+[class*="dxgvHeader"] img {
+    filter: brightness(0) invert(1) !important;
+    opacity: 0.9 !important;
+}
+
+/* Grid Data Rows */
+.dxgvDataRow_Glass td,
+.dxgvDataRow_Glass,
+[class*="dxgvDataRow"] td {
+    background: var(--cd-white) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--cd-border) !important;
+    padding: 8px !important;
+    font-size: 11px !important;
+    color: var(--cd-text) !important;
+}
+
+/* Alternate row */
+.dxgvDataRowAlt_Glass td,
+[class*="dxgvDataRowAlt"] td {
+    background: #fafbfc !important;
+}
+
+/* Row hover */
+.dxgvDataRow_Glass:hover td,
+.dxgvDataRowAlt_Glass:hover td,
+[class*="dxgvDataRow"]:hover td {
+    background: #e8f4fd !important;
+}
+
+/* Selected row */
+.dxgvSelectedRow_Glass td,
+[class*="dxgvSelectedRow"] td,
+.dxgvFocusedRow_Glass td,
+[class*="dxgvFocusedRow"] td {
+    background: #cce5ff !important;
+    border-color: var(--cd-primary) !important;
+}
+
+/* Grid main container */
+.dxgvControl_Glass {
+    border: 1px solid var(--cd-border) !important;
+    background: var(--cd-white) !important;
+}
+
+/* Remove Glass theme gradient backgrounds - except headers */
+.dxgvTable_Glass *:not([class*="dxgvHeader"]):not([id*="DXHeadersRow"] *) {
+    background-image: none !important;
+}
+
+/* Pager styling */
+.dxgvPagerBottomPanel_Glass,
+.dxpLite_Glass,
+[class*="dxpLite"],
+[class*="dxgvPager"] {
+    background: #f8f9fa !important;
+    background-image: none !important;
+    border: none !important;
+    border-top: 1px solid var(--cd-border) !important;
+    padding: 8px !important;
+}
+
+.dxpLite_Glass td,
+.dxpLite_Glass a,
+[class*="dxpLite"] td,
+[class*="dxpLite"] a {
+    border: none !important;
+    background: transparent !important;
+    color: var(--cd-text) !important;
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+}
+
+.dxpCurrentPageNumber_Glass,
+[class*="dxpCurrentPageNumber"] {
+    background: var(--cd-primary) !important;
+    color: var(--cd-white) !important;
+    font-weight: 600 !important;
+    padding: 4px 10px !important;
+}
+
+/* Filter row */
+.dxgvFilterRow_Glass td,
+[class*="dxgvFilterRow"] td {
+    background: #fff !important;
+    border: none !important;
+    border-bottom: 1px solid var(--cd-border) !important;
+    padding: 4px !important;
+}
+
+/* Edit form */
+.dxgvEditFormTable_Glass,
+[class*="dxgvEditForm"] {
+    background: var(--cd-white) !important;
+    border: 1px solid var(--cd-border) !important;
+}
+
+/* Group row */
+.dxgvGroupRow_Glass td,
+[class*="dxgvGroupRow"] td {
+    background: #e9ecef !important;
+    font-weight: 600 !important;
+    border: none !important;
+    border-bottom: 1px solid var(--cd-border) !important;
+}
+
+/* Empty data row */
+.dxgvEmptyDataRow_Glass td,
+[class*="dxgvEmptyDataRow"] td {
+    background: var(--cd-white) !important;
+    color: var(--cd-text-muted) !important;
+    text-align: center !important;
+    padding: 20px !important;
+    font-style: italic !important;
+}
+
+/* Command column buttons */
+.dxgvCommandColumn_Glass,
+[class*="dxgvCommandColumn"] {
+    text-align: center !important;
+}
+
+/* DevExpress Buttons in grids */
+.dxgvControl_Glass .dxbButton_Glass,
+.dxgvControl_Glass [class*="dxbButton"] {
+    background: var(--cd-primary) !important;
+    background-image: none !important;
+    border: none !important;
+    color: var(--cd-white) !important;
+    padding: 4px 12px !important;
+    font-size: 11px !important;
+}
+
+.dxgvControl_Glass .dxbButton_Glass:hover,
+.dxgvControl_Glass [class*="dxbButton"]:hover {
+    background: var(--cd-primary-dark) !important;
+}
+
+/* Fix inline styles that DevExpress adds */
+td[style*="border-top-width:0px"],
+td[style*="border-left-width:0px"],
+td[style*="border-right-width:0px"] {
+    border: none !important;
+}
+
+/* ============================================
+   Standard HTML Tables - Primary header
+   ============================================ */
+table.cd-table thead th,
+table.cd-table th,
+.cd-main table thead th,
+.cd-main table th {
+    background: #174DA4 !important;
+    background-color: #174DA4 !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    padding: 10px 8px !important;
+    font-size: 11px !important;
+    border: none !important;
+    border-right: 1px solid rgba(255,255,255,0.2) !important;
+}
+
+table.cd-table thead th:last-child,
+table.cd-table th:last-child,
+.cd-main table thead th:last-child,
+.cd-main table th:last-child {
+    border-right: none !important;
+}
+
+/* Table header icons and images - white */
+table.cd-table thead th *,
+table.cd-table th *,
+.cd-main table thead th *,
+.cd-main table th * {
+    color: #fff !important;
+}
+
+table.cd-table thead th img,
+table.cd-table th img,
+.cd-main table thead th img,
+.cd-main table th img {
+    filter: brightness(0) invert(1) !important;
+}
+
+/* ============================================
+   Action Popover Menu - Global Styles
+   ============================================ */
+
+/* Action trigger button (3 dots) */
+.cd-action-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--cd-text-muted);
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.cd-action-trigger:hover {
+    background: #f0f0f0;
+    color: var(--cd-primary);
+}
+
+.cd-action-trigger:focus {
+    outline: none;
+    background: #e8f0fa;
+}
+
+.cd-action-trigger svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Wrapper for positioning - MUST be relative */
+.cd-action-wrapper {
+    position: relative !important;
+    display: inline-block !important;
+}
+
+/* Popover container */
+.cd-action-popover {
+    position: absolute !important;
+    z-index: 99999 !important;
+    background: #fff !important;
+    border: 1px solid #e0e0e0 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    min-width: 120px !important;
+    display: none !important;
+    right: 0 !important;
+    top: 100% !important;
+    margin-top: 4px !important;
+}
+
+.cd-action-popover.show {
+    display: block !important;
+}
+
+/* Popover positioned above */
+.cd-action-popover.cd-action-popover--top {
+    top: auto !important;
+    bottom: 100% !important;
+    margin-top: 0 !important;
+    margin-bottom: 4px !important;
+}
+
+/* Popover menu list */
+.cd-action-popover__menu {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 4px 0 !important;
+    background: #fff !important;
+}
+
+.cd-action-popover__item {
+    margin: 0;
+    padding: 0;
+}
+
+.cd-action-popover__btn {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    padding: 8px 12px !important;
+    border: none !important;
+    background: #fff !important;
+    color: #333 !important;
+    font-size: 11px !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    text-decoration: none !important;
+}
+
+.cd-action-popover__btn:hover {
+    background: #f5f5f5 !important;
+    color: #174DA4 !important;
+}
+
+.cd-action-popover__btn svg {
+    width: 14px !important;
+    height: 14px !important;
+    flex-shrink: 0 !important;
+    color: inherit !important;
+}
+
+/* Edit action */
+.cd-action-popover__btn--edit:hover {
+    background: #e3f2fd !important;
+    color: #1976d2 !important;
+}
+
+/* Delete action */
+.cd-action-popover__btn--delete {
+    color: #666 !important;
+}
+
+.cd-action-popover__btn--delete:hover {
+    background: #ffebee !important;
+    color: #d32f2f !important;
+}
+
+/* View action */
+.cd-action-popover__btn--view:hover {
+    background: #e8f5e9 !important;
+    color: #388e3c !important;
+}
+
+/* Divider */
+.cd-action-popover__divider {
+    height: 1px !important;
+    background: #e0e0e0 !important;
+    margin: 4px 0 !important;
+}
+
+/* Center action column */
+.cd-action-cell {
+    text-align: center !important;
+    padding: 4px !important;
+    overflow: visible !important;
+}
+
+/* Ensure cell allows overflow for popover */
+.dxgvDataRow_Glass td.cd-action-cell,
+[class*="dxgvDataRow"] td.cd-action-cell {
+    overflow: visible !important;
+}
+}

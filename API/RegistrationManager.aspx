@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="RegistrationManager.aspx.cs" Inherits="API_RegistrationManager" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="RegistrationManager.aspx.cs" Inherits="API_RegistrationManager" %>
 
 <!DOCTYPE html>
 

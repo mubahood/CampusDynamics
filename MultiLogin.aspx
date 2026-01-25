@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="MultiLogin.aspx.cs" Inherits="MultiLogin" Title="Campus Dynamics :: Higher Education ERP" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="MultiLogin.aspx.cs" Inherits="MultiLogin" Title="Campus Dynamics :: Higher Education ERP" %>
 
 <!DOCTYPE html>
 

@@ -51,7 +51,7 @@
         }
         .cd-tabs .dxtc-tab:hover {
             color: #174DA4 !important;
-            background: #f8f5fc !important;
+            background: #f0f5ff !important;
         }
         .cd-tabs .dxtc-activeTab:hover {
             color: #174DA4 !important;
@@ -102,7 +102,7 @@
         .cd-combo .dxeListBoxItemSelected_Glass,
         .cd-combo tr.dxeListBoxItemSelected_Glass td { background: #174DA4 !important; color: #fff !important; }
         .cd-combo .dxeListBoxItem_Glass:hover,
-        .cd-combo tr.dxeListBoxItem_Glass:hover td { background: #f8f5fc !important; color: #174DA4 !important; }
+        .cd-combo tr.dxeListBoxItem_Glass:hover td { background: #f0f5ff !important; color: #174DA4 !important; }
         
         /* =============================================
            BUTTONS - Compact
@@ -172,7 +172,7 @@
             align-items: center;
             font-size: 10px;
         }
-        .course-item:hover { background: #f8f5fc; border-color: #d0c4e8; }
+        .course-item:hover { background: #f0f5ff; border-color: #d0c4e8; }
         .course-item strong { color: #174DA4; margin-right: 6px; }
         .course-item .credits { background: #f0f0f0; padding: 1px 5px; font-size: 9px; color: #666; }
         
@@ -188,7 +188,7 @@
             font-size: 10px !important;
         }
         .cd-grid td { padding: 3px 6px !important; border-bottom: 1px solid #eee !important; }
-        .cd-grid tr:hover td { background: #f8f5fc !important; }
+        .cd-grid tr:hover td { background: #f0f5ff !important; }
         
         /* =============================================
            ACTION BUTTONS - Compact

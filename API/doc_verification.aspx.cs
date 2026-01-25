@@ -1,4 +1,4 @@
-﻿using ResultsDataTableAdapters;
+using ResultsDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Linq;

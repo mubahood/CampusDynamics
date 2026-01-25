@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/Security/MasterPage.master" AutoEventWireup="true" CodeFile="FileDatabaseAdmin.aspx.cs" Inherits="Security_FileDatabaseAdmin" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/Security/MasterPage.master" AutoEventWireup="true" CodeFile="FileDatabaseAdmin.aspx.cs" Inherits="Security_FileDatabaseAdmin" %>
 
 <%@ Register src="../UserControls/Security/FileManager.ascx" tagname="FileManager" tagprefix="uc1" %>
 <%@ Register src="../UserControls/Security/DatabaseManager.ascx" tagname="DatabaseManager" tagprefix="uc2" %>

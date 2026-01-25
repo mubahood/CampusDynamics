@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Registry/MasterPage.master" AutoEventWireup="true" CodeFile="GraduationAnalysis.aspx.cs" Inherits="COOPERP_Registry_GraduationAnalysis" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Registry/MasterPage.master" AutoEventWireup="true" CodeFile="GraduationAnalysis.aspx.cs" Inherits="COOPERP_Registry_GraduationAnalysis" %>
 
 <%@ Register src="../../UserControls/Results/GraduationAnalysis.ascx" tagname="GraduationAnalysis" tagprefix="uc1" %>
 

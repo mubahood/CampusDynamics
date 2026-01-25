@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="SponsorshipDistribution.aspx.cs" Inherits="COOPERP_accounts_SponsorshipDistribution" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="SponsorshipDistribution.aspx.cs" Inherits="COOPERP_accounts_SponsorshipDistribution" %>
 <!DOCTYPE html>
 
 <html xmlns="http://www.w3.org/1999/xhtml">

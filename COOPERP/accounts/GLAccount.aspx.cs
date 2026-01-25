@@ -1,4 +1,4 @@
-﻿using DevExpress.Export;
+using DevExpress.Export;
 using DevExpress.XtraPrinting;
 using System;
 using System.Collections.Generic;

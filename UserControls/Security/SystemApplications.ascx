@@ -58,6 +58,68 @@
                 </table>
             </td>
         </tr>
+        
+        <!-- FLOATING NEW DASHBOARD BUTTON -->
+        <style>
+            @keyframes floatPulse2 {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-5px); }
+            }
+            @keyframes badgePop2 {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.1); }
+            }
+            .float-new-dash2 {
+                position: fixed;
+                bottom: 30px;
+                right: 30px;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: #174DA4;
+                color: #fff !important;
+                padding: 14px 22px;
+                border-radius: 50px;
+                text-decoration: none;
+                font-weight: 600;
+                font-size: 14px;
+                box-shadow: 0 4px 20px rgba(23, 77, 164, 0.5);
+                animation: floatPulse2 2s ease-in-out infinite;
+                transition: all 0.3s ease;
+            }
+            .float-new-dash2 span,
+            .float-new-dash2 svg {
+                color: #fff !important;
+                fill: none;
+                stroke: #fff !important;
+            }
+            .float-new-dash2:hover {
+                background: #0f3a7d;
+                color: #fff !important;
+                transform: scale(1.08) translateY(-3px);
+                box-shadow: 0 8px 30px rgba(23, 77, 164, 0.6);
+            }
+            .float-new-dash2 .new-dot2 {
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                background: #ff4757;
+                color: #fff;
+                font-size: 9px;
+                font-weight: 700;
+                padding: 4px 8px;
+                border-radius: 10px;
+                animation: badgePop2 1.5s ease-in-out infinite;
+            }
+        </style>
+        <a href="COOPERP/NewScreens/NewDashboard.aspx" target="_blank" class="float-new-dash2">
+            <span class="new-dot2">NEW</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <span>New Dashboard</span>
+        </a>
+        <!-- END FLOATING BUTTON -->
+        
         <tr>
             <td colspan="2">
                 &nbsp;</td>

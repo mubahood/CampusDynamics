@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="RequisitionDetails.aspx.cs" Inherits="COOPERP_Inventory_RequisitionDetails" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="RequisitionDetails.aspx.cs" Inherits="COOPERP_Inventory_RequisitionDetails" %>
 
 <%@ Register src="../../UserControls/Inventory/RequisitionsDetails.ascx" tagname="RequisitionsDetails" tagprefix="uc1" %>
 

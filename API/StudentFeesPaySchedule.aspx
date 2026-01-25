@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="StudentFeesPaySchedule.aspx.cs" Inherits="COOPERP_financials_FeesPaySchedule" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="StudentFeesPaySchedule.aspx.cs" Inherits="COOPERP_financials_FeesPaySchedule" %>
 
 <!DOCTYPE html>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="AccountingPeriod.aspx.cs" Inherits="COOPERP_accounts_Default2" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/accounts/MasterPage.master" AutoEventWireup="true" CodeFile="AccountingPeriod.aspx.cs" Inherits="COOPERP_accounts_Default2" %>
 
 <%@ Register src="../../UserControls/Accounts/AccountingPeriods.ascx" tagname="AccountingPeriods" tagprefix="uc1" %>
 

@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="MasterPage.master" AutoEventWireup="true" CodeFile="Register.aspx.cs" Inherits="Security_Register" %>
+<%@ Page Title="" Language="C#" MasterPageFile="MasterPage.master" AutoEventWireup="true" CodeFile="Register.aspx.cs" Inherits="Security_Register" %>
 
 <%@ Register src="../UserControls/Security/UserRegister.ascx" tagname="UserRegister" tagprefix="uc1" %>
 

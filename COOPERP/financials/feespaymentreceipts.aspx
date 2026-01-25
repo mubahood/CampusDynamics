@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="feespaymentreceipts.aspx.cs" Inherits="COOPERP_financials_feespaymenttracking" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="feespaymentreceipts.aspx.cs" Inherits="COOPERP_financials_feespaymenttracking" %>
 
 
 <%@ Register src="../../UserControls/Accounts/ReceiptCentre.ascx" tagname="ReceiptCentre" tagprefix="uc1" %>

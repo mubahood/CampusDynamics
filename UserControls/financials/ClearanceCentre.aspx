@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="ClearanceCentre.aspx.cs" Inherits="COOPERP_financials_ClearanceCentre" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/financials/MasterPage.master" AutoEventWireup="true" CodeFile="ClearanceCentre.aspx.cs" Inherits="COOPERP_financials_ClearanceCentre" %>
 
 <%@ Register src="../../UserControls/financials/ClearanceCentre.ascx" tagname="ClearanceCentre" tagprefix="uc1" %>
 

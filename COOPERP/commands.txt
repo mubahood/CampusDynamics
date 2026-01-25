@@ -123,4 +123,9 @@ Now, design the main dashobard NewDashboard default to act as a main landing pag
 
 ///
 
+noW, i WANT you to design the new screen for courses and add it last item on academic setup menu, ensure it is following our design and betchmak from what we have so far done.
+
+this system enables managing more than one campus in the system, please analyze the system very well and understand how campuses are managed and how they are related to other modules. 
+in the master pager, on the top header next to semeser picker dropwdown, i want you to introduce the dropdwby default, no campus selen o t he  campuses can be selected.. but also give a bility to have a - (select no campus)  
+
 

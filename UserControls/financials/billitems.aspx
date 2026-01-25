@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="billitems.aspx.cs" Inherits="COOPERP_financials_billitems" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="billitems.aspx.cs" Inherits="COOPERP_financials_billitems" %>
 
 <%@ Register src="../../UserControls/financials/billitems.ascx" tagname="billitems" tagprefix="uc1" %>
 

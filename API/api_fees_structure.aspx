@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="api_fees_structure.aspx.cs" Inherits="API_api_fees_structure" %>
+<%@ Page Language="C#" AutoEventWireup="true" CodeFile="api_fees_structure.aspx.cs" Inherits="API_api_fees_structure" %>
 
 <%@ Register src="../UserControls/financials/api_fees_structure.ascx" tagname="api_fees_structure" tagprefix="uc1" %>
 

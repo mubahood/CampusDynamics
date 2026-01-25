@@ -1,4 +1,4 @@
-﻿<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Graduate/MasterPage.master" AutoEventWireup="true" CodeFile="Superviors.aspx.cs" Inherits="COOPERP_Graduate_Superviors" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/COOPERP/Graduate/MasterPage.master" AutoEventWireup="true" CodeFile="Superviors.aspx.cs" Inherits="COOPERP_Graduate_Superviors" %>
 
 <%@ Register src="../../UserControls/Graduate/Superviors.ascx" tagname="Superviors" tagprefix="uc1" %>
 

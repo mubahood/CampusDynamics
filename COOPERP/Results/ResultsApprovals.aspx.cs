@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -53,7 +53,7 @@ public partial class COOPERP_Results_ResultsApprovals : System.Web.UI.Page
         }
         catch (Exception ex)
         {
-            lbl_comment.Text = "Ërror! " + ex.Message;
+            lbl_comment.Text = "�rror! " + ex.Message;
         }
         pop_details.Height = 100;
         pop_details.Width = 300;

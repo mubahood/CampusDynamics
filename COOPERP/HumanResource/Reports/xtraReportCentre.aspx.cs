@@ -1,4 +1,4 @@
-﻿using CoopERPDataTableAdapters;
+using CoopERPDataTableAdapters;
 using DevExpress.XtraPrinting;
 using System;
 using System.Collections.Generic;
