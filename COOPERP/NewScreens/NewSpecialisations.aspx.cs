@@ -423,7 +423,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         summary.Append("<span style='color:#28a745'>Added: " + totalAdded + "</span>");
         if (totalSkipped > 0) summary.Append(" | <span style='color:#856404'>Skipped (duplicates): " + totalSkipped + "</span>");
         if (totalInvalid > 0) summary.Append(" | <span style='color:#dc3545'>Invalid: " + totalInvalid + "</span>");
-        if (ddlSetFullySet.SelectedValue == "Yes") summary.Append(" | <span style='color:#422774'>Marked as Fully Set</span>");
+        if (ddlSetFullySet.SelectedValue == "Yes") summary.Append(" | <span style='color:#174DA4'>Marked as Fully Set</span>");
         
         litBatchSummary.Text = summary.ToString();
         pnlBatchSummary.Visible = true;
