@@ -48,19 +48,21 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
         try
         {
             fin_ledgerTableAdapter LEDGER = new fin_ledgerTableAdapter();
+            string refNo = txtRefNo.Text.Trim();
+
             if (rb_payeetype.SelectedIndex == 0)
             {
                 LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtAccount.Value.ToString(),
-                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text, "CR");
+                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text, "CR", refNo);
             }
 
             LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtPayees.Value.ToString(),
-            txtPayees.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid thru " + txtAccount.Text, "DR");
+            txtPayees.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid thru " + txtAccount.Text, "DR", refNo);
 
             fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
             string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtAccount.Text;
             int JNO = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
-            //JN.UpdateParticulars(Particulars, JNO);
+
 
             JN.UpdateJournalAmounts(decimal.Parse(txtAmount.Text.Replace(",", "")), decimal.Parse(txtAmount.Text.Replace(",", "")), JNO.ToString());
             gvParticulars.DataBind();
@@ -103,7 +105,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
         Session["Report"] = "Payment Voucher";
         Session["accno"] = gvParticulars.GetRowValues(0, "JournalNo");
         Response.Redirect("~/COOPERP/accounts/xtraReports/xtraReportCentre.aspx");
-        
+
     }
 
 
@@ -131,7 +133,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                 else
                 {
                     fin_journalnumbersTableAdapter LEDGER = new fin_journalnumbersTableAdapter();
-                    lbl_msg.Text = LEDGER.fin_ApproveJournal(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name,"Normal Journal").ToString();
+                    lbl_msg.Text = LEDGER.fin_ApproveJournal(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name, "Normal Journal").ToString();
                 }
                 gvParticulars.DataBind();
                 ButtonManager();
@@ -161,7 +163,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
 
             }
 
-            
+
 
             if (ApprovalStat == "Posted" || ApprovalStat == null)
             {
@@ -194,7 +196,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
     }
     protected void gvParticulars_RowUpdated(object sender, DevExpress.Web.Data.ASPxDataUpdatedEventArgs e)
     {
-        
+
     }
     protected void gvParticulars_RowUpdating(object sender, DevExpress.Web.Data.ASPxDataUpdatingEventArgs e)
     {

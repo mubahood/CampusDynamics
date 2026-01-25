@@ -49,6 +49,12 @@
     
 
 
+        .auto-style8 {
+            width: 49px;
+        }
+    
+
+
         </style>
 </head>
 <body>
@@ -71,6 +77,11 @@
                                     <dx:ListBoxColumn FieldName="journaltypename" />
                                 </Columns>
                             </dx:ASPxComboBox>
+                        </td>
+                        <td class="auto-style8">Ref No:</td>
+                        <td class="auto-style2">
+                            <dx:ASPxTextBox ID="txtRefNo" runat="server" Height="35px" Width="170px">
+                            </dx:ASPxTextBox>
                         </td>
                         <td class="auto-style4">
                             <dx:ASPxButton ID="cmdApproveJournal" runat="server" OnClick="cmdApproveJournal_Click" Text="Approve Voucher" Width="170px" Height="35px">
@@ -210,9 +221,16 @@
                     <InsertParameters>
                         <asp:Parameter Name="Teller" Type="String" />
                         <asp:Parameter Name="PostStatus" Type="String" />
-                        <asp:Parameter Name="Journaltype" Type="String" />
+                        <asp:Parameter Name="journalType" Type="String" />
                         <asp:Parameter Name="journalDate" Type="DateTime" />
                         <asp:Parameter Name="journalParticulars" Type="String" />
+                        <asp:Parameter Name="journal_serialno" Type="UInt32" />
+                        <asp:Parameter Name="journal_currency" Type="String" />
+                        <asp:Parameter Name="GL_VoucherNo" Type="String" />
+                        <asp:Parameter Name="voucherType" Type="String" />
+                        <asp:Parameter Name="forex_rate" Type="Double" />
+                        <asp:Parameter Name="transactionDate" Type="DateTime" />
+                        <asp:Parameter Name="RefNo" Type="String" />
                     </InsertParameters>
                     <SelectParameters>
                         <asp:ControlParameter ControlID="txtType" Name="typ" PropertyName="Value" Type="String" />
@@ -221,11 +239,17 @@
                     <UpdateParameters>
                         <asp:Parameter Name="Teller" Type="String" />
                         <asp:Parameter Name="PostStatus" Type="String" />
-                        <asp:Parameter Name="Journaltype" Type="String" />
+                        <asp:Parameter Name="journalType" Type="String" />
                         <asp:Parameter Name="journalDate" Type="DateTime" />
                         <asp:Parameter Name="journalParticulars" Type="String" />
+                        <asp:Parameter Name="journal_serialno" Type="UInt32" />
                         <asp:Parameter Name="journal_currency" Type="String" />
-                        <asp:Parameter Name="Original_JournalNo" Type="Int32" />
+                        <asp:Parameter Name="GL_VoucherNo" Type="String" />
+                        <asp:Parameter Name="voucherType" Type="String" />
+                        <asp:Parameter Name="forex_rate" Type="Double" />
+                        <asp:Parameter Name="transactionDate" Type="DateTime" />
+                        <asp:Parameter Name="RefNo" Type="String" />
+                        <asp:Parameter Name="Original_JournalNo" Type="UInt32" />
                     </UpdateParameters>
                 </asp:ObjectDataSource>
                 <asp:ObjectDataSource ID="dsJournalDetails" runat="server" DeleteMethod="Delete" InsertMethod="Insert" OldValuesParameterFormatString="original_{0}" SelectMethod="GetJournalDetails" TypeName="CoopERPDataTableAdapters.fin_ledgerTableAdapter" UpdateMethod="UpdateJournalDetails">

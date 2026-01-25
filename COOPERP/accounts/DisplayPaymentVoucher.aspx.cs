@@ -47,14 +47,17 @@ public partial class COOPERP_accounts_DisplayPaymentVoucher : System.Web.UI.Page
         try
         {
             fin_ledgerTableAdapter LEDGER = new fin_ledgerTableAdapter();
+            string refNo = txtRefNo.Text.Trim();
+
             if (rb_payeetype.SelectedIndex == 0)
             {
+
                 LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtAccount.Value.ToString(),
-                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text, "CR");
+                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text, "CR", refNo);
             }
 
             LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtPayees.Value.ToString(),
-            txtPayees.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid thru " + txtAccount.Text, "DR");
+            txtPayees.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid thru " + txtAccount.Text, "DR", refNo);
 
             fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
             string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtAccount.Text;

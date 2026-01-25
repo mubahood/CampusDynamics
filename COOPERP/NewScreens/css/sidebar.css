@@ -1,7 +1,7 @@
 /*
  * Campus Dynamics - Sidebar Layout CSS
  * Design Principles: Small padding, small margins, small fonts, 
- * square corners, flat design, primary color #422774
+ * square corners, flat design, primary color #174DA4
  * Version: 2.0 - Improved compact design
  */
 
@@ -9,9 +9,9 @@
    CSS Variables
    ============================================ */
 :root {
-    --cd-primary: #422774;
-    --cd-primary-dark: #331d5c;
-    --cd-primary-light: #5a3a96;
+    --cd-primary: #174DA4;
+    --cd-primary-dark: #0f3a7d;
+    --cd-primary-light: #2563b8;
     --cd-secondary: #666666;
     --cd-text: #333333;
     --cd-text-muted: #888888;
@@ -101,15 +101,16 @@ form, #form1 {
     align-items: center;
     justify-content: space-between;
     padding: var(--cd-spacing-md);
-    border-bottom: 1px solid var(--cd-border);
+    border-bottom: none;
     min-height: var(--cd-header-height);
+    background: var(--cd-primary);
 }
 
 .cd-sidebar__brand {
     display: flex;
     align-items: center;
     text-decoration: none;
-    color: var(--cd-primary);
+    color: var(--cd-white);
     gap: var(--cd-spacing-md);
 }
 
@@ -117,12 +118,14 @@ form, #form1 {
     width: 24px;
     height: 24px;
     object-fit: contain;
+    filter: brightness(0) invert(1);
 }
 
 .cd-sidebar__title {
     font-size: var(--cd-font-size);
     font-weight: 600;
     white-space: nowrap;
+    color: var(--cd-white);
 }
 
 .cd-sidebar__close {
@@ -188,7 +191,7 @@ form, #form1 {
 
 /* Active State - Left border indicator */
 .cd-sidebar__link.active {
-    background: #f0ebf5;
+    background: #e8f0fa;
     color: var(--cd-primary);
     font-weight: 500;
     border-left-color: var(--cd-primary);
@@ -338,7 +341,7 @@ form, #form1 {
     background: var(--cd-bg);
 }
 
-/* Header - Pure white, edge to edge */
+/* Header - Primary color dark mode */
 .cd-header {
     position: sticky;
     top: 0;
@@ -347,8 +350,8 @@ form, #form1 {
     height: var(--cd-header-height);
     padding: 0 var(--cd-spacing-lg);
     margin: 0;
-    background: var(--cd-white);
-    border-bottom: 1px solid var(--cd-border);
+    background: var(--cd-primary);
+    border-bottom: none;
     gap: var(--cd-spacing-md);
     z-index: 100;
     width: 100%;
@@ -370,7 +373,11 @@ form, #form1 {
     border: none;
     padding: var(--cd-spacing-sm);
     cursor: pointer;
-    color: var(--cd-secondary);
+    color: var(--cd-white);
+}
+
+.cd-header__toggle:hover {
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .cd-header__toggle svg {
@@ -380,9 +387,55 @@ form, #form1 {
 
 .cd-header__breadcrumb {
     flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
     font-size: var(--cd-font-size);
-    color: var(--cd-text);
+    color: var(--cd-white);
     font-weight: 500;
+}
+
+.cd-header__page-title {
+    font-weight: 600;
+    color: var(--cd-white);
+}
+
+.cd-header__separator {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 300;
+    margin: 0 4px;
+}
+
+.cd-header__filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cd-header-dropdown {
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--cd-white);
+    background: rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    min-width: 90px;
+}
+
+.cd-header-dropdown:focus {
+    border-color: rgba(255, 255, 255, 0.6);
+    outline: none;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.cd-header-dropdown:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.cd-header-dropdown option {
+    background: var(--cd-white);
+    color: var(--cd-text);
 }
 
 .cd-header__actions {
@@ -394,14 +447,15 @@ form, #form1 {
 .cd-header__logout {
     display: inline-block;
     padding: var(--cd-spacing-sm) var(--cd-spacing-md);
-    background: var(--cd-primary);
+    background: rgba(255, 255, 255, 0.15);
     color: var(--cd-white) !important;
     text-decoration: none;
     font-size: var(--cd-font-size-sm);
+    border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .cd-header__logout:hover {
-    background: var(--cd-primary-dark);
+    background: rgba(255, 255, 255, 0.25);
     text-decoration: none;
 }
 
@@ -414,7 +468,7 @@ form, #form1 {
     justify-content: center;
     width: 32px;
     height: 32px;
-    background: var(--cd-primary);
+    background: rgba(255, 255, 255, 0.2);
     color: var(--cd-white);
     font-weight: 600;
     font-size: var(--cd-font-size);
@@ -453,15 +507,15 @@ form, #form1 {
     padding: var(--cd-spacing-xs) var(--cd-spacing-sm);
     background: transparent;
     border: 1px solid transparent;
-    color: var(--cd-text);
+    color: var(--cd-white);
     font-size: var(--cd-font-size-sm);
     cursor: pointer;
     transition: background 0.15s ease;
 }
 
 .cd-dropdown__trigger:hover {
-    background: var(--cd-bg);
-    border-color: var(--cd-border);
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .cd-dropdown__text {

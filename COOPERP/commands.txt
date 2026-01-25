@@ -1,0 +1,126 @@
+great!
+i want you to ceeate 1 main folder and name it new_portal under this folder, add following folders
+1. core (this will contain reusable functions)
+2. models (this will contain centralized models to perform different operations)
+3. views (will contain things that users will interact with. screens , uis, etc.)
+4. Resouces (public css )
+
+please note, that for each year. we have semester 3. please add semester 3 to each year, but while ensurering our compact design. if possible you can use a larger modal.
+please add is fully set radio or select next to vaildation button so i can set is fully set at once. 
+
+but you can think and plan better optmal structiung of folders. dont complcate, but simple and yet powerful.
+
+this new portal is going to be an extension and rebuild of the current system without changing or messing anything that we already have. 
+
+we are going to acpracoh it very very carefully and step by step.
+
+we shall ensure we do things, in mordern and perfect way.
+
+keep it in mind how this new version will handle employees and teachers at once.
+
+when done structuring the file folders. document the puropose of each and same in md files.
+
+create our very first controller/route .. let it lisent to the /new endpoint. in that endpoint, just display welcome message.
+
+do it very carflly, and ensure you dont mess whar we have. 
+
+
+now, that (new.aspx) is going to be the login page. 
+- before we start implementing the logic, we are going to start by focusing on the UI.
+- you are going to write core css extending bootstrap 4 css, then write the core theme css file  to ensure the them is fully but yet powerful admin side css.
+- write a css that is going to provide for all kind of UIs that we shall need through the entire peocess. button,s cards etc.
+- our core desgin princple is. 
+- - small paddings, 
+- - small margins
+- - small fonts
+- - square corners for UIs (not rounded corners)
+- - proffesonal look
+- - no need for gradients, shadows etc. just flat desgin
+- - mix up with only and only primary colour: #422774 (not funny colours)
+- - white background for most parts. simple but yet powerful and mordern.
+- document these rules to work as our core design principles in a md file.
+- learn where to get the logo, university name etc. design a static but yet perfect login page. make use of re-usable components from the core css file.
+- when click on  login, go to a core admin strcutured and responsive section with only dashboard tab, header, sudebar. 
+- write perfect css and js. ensure re-usability
+
+now let us proceed to the side of admin template
+- the icons are realy messed, please consider using a proffsional library for icons. there are so many libraries for icons out there. pick a perfect one and use it. i dont prefer font awsome, you can use something better.
+- feel free to use jquery.
+- ensure consistency and re userbility of compnents
+- improve on the header, you can do something better and more robust. user can see thei avatar, name and core role. then toggle to edit profile or logout dropdown. just be creative. NOTE: ensure responsiveness on mobile phones. write perfect javascrictipe to ensure responsiveness.
+- the sidebar menu is so far nice. i love the small fonts and small paddings. improve on it towards that direction. carefully add and demo logic of expand and collapse sub menu.
+- on dsuboard, jumbotron is enoug.. no need to show the word dashboard again, no need to say welcome again... remember we are optmising space. this rule is cuting accross rest of pages.
+- design standard tdummy table e.g for employees that we shall use for rest. ensure you flllow guidelines ablove. and ensure conisisncene.
+- design  perfect form for employee that we shall use as benchmark.
+- remember, to design things with knowldge of reusabiliuilty. improve the themeing to wnusre it will prvodie css for compentes without contradiction.
+
+now, let us start doing real thing.
+
+analyze and understand the concempt of results n old system. understand it very well.
+
+create a perfect Results model and table for results, add it to navigation. let it display real data from database and with pagnation, search and filter. but wth perfect space optimisation
+
+on the top menu of "COOPERP/Faculty" (since it is a main nav bar) i want you to introduce a new menu tab , call it "New Menu", this new menu is going to have sub-menu items. for now those sub menu items you are going to keep them as empty links. let it reflect things like "Faculties, Courses, Programs, Program Courses" ... they will be just emoty links.
+
+I want you to create a file and name it NewFacultyScreen.aspx this is going to be use mimic Faculty/Default.aspx 100% using exactly same things. then link it to our new navigation. if possible you can put these new screens and logic into a new folder.
+
+now, implement 
+
+
+NewFacultyProgrammes.aspx
+
+To reflect 
+Faculty/Programmes.aspx
+
+in new version
+
+great. on this grid, i want you to do the following
+- remove these cols: session, study system, credit, abrev
+- remove the Facultyfilter on top.
+
+Good work but you can do better.
+i want you to add that logic in alredy existing dialog editor for a prgram that has these tabs "Courses
+Curriculums
+Graduation Loads
+ " it shoes upw whe you click on programs... on those tabs, add one for speclilazations and add the logic there.
+
+ then replace the row you otnrodced by showing number of specializations in that prorgram. 
+
+ now, i want you to introduce a new column to the table of prorgams. this is a brand new column. call it is_fully_set this will help admins to follow up if a program has been fully conifgred or not. by default it will be no.
+add it in our programs grid, it will should be able to be edited inline with simple dowpdown of Yes or No as it lively updates the db.
+
+now, i want you to create a screen for acad_specialisation . make it perfetc and robust. add it to our nav next to prgrams
+
+now create a perfect module for acad_programmecourses and add it n our new nav. first make reasereach and understand it very well so you can do it perfectly with knowldge.
+////
+now, there is some serious adjustment we are going to make.
+- Programme Programme Courses
+ are going to belong to Programme Specialisations, meaning that we are going to introduce one more column to Programme Courses that will connect it with Specialisations.
+ - Every program must have at least 1 spcialization. if it does not have write a logic to generate a spcilzation called Default for that program if the system detects the prgam does not have any spcilization. once it default Specialisations is generated for a prgram that did not have, all its rgram courses should be connected to that default spcilzation. ensure this and enforce it.
+- meaning in table of program courses, add one more column that shows a spcilzation it belongs to.
+- do this very carefully and creative.
+- once done. go back to Specialisations table, to its grid, add column that shows number of courses it has, add a column with action text button of manage courses it can be an icon ... it will launch a popup that will enable a user to add courses by batch, i.e, add course codes sperated with comma, specify other fields and add by batch. the system valdiates if those courses exist in our list of courses and adds them and it should avoid ducplciations. in that very modal it wll have a tab that preiews all courses organied in year-semster table , and it will have ability to edit, modulf (CRUD), then ability to generate a pdf of that spezilzation structure. YOU CAN learn how this has been done in programs and borrow an iddea.
+
+a few things you need to improve.
+- in the creation form, add field to collect CU (Credits), no need to collect the cariculum, remove it from form and from data table. during edit, make the credits ediable as well. 
+- the pdf generation is not working, you must fix it. make use devxpress tools to generate a perferct, well organised and well branded course structure. you can even add button of generate course structure to the table.
+
+the styling of content on modals has messed things... some things when you select them, they have white text and white bg, this is wrong. please fix the desugn accordingly 
+
+now, i want you to add one more field on program course, add in db table if it is not there yet. it is for asking if course is CORE (Compulosry) or (ELLECTIVE) optional. by default make it complsory. then also a add it in form according.
+
+then just like how we did on programs, also in spcizlations, i want you to add a field to track if is fully_set with yes or no just like how we did with program an dwith capbility of inline editor. 
+
+also re arrange the table of program courses, let spelizaition come next to program column. also remove cariculum column,  
+
+in spelization page, reamove "Filter by Programme:" filter on top, because filter is already in tabel.
+///
+great! i love the UI, i love the progress, I love everything.
+
+now, I want you to get back to the Master Page UI. please remvoe all things that we have not implemented in new UI from the sidemenu. keep only the Control Panel (Old). add there word old. no need to put the section of "New Screens" as title, but you can put "Academics" as a section title.
+ensure perfection.
+Now, design the main dashobard NewDashboard default to act as a main landing page for the new UI section. put there only dummy contet stats but ensure maintaining our design principles (compact UI, sqaure corners UI, small paddings and margins, mix with primary colour...) ensure it is nice and perfect.
+
+///
+
+

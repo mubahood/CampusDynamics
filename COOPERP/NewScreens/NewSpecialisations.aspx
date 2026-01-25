@@ -4,332 +4,328 @@
 <asp:Content ID="Content1" ContentPlaceHolderID="HeadContent" Runat="Server">
     <style>
         /* =============================================
-           POPUP SPECIFIC OVERRIDES  
+           POPUP & MODAL STYLING
            ============================================= */
-        
-        /* Popup body container */
         .popup-body {
-            padding: 12px;
+            padding: 8px;
         }
-        
-        /* Info bar at top of popup */
         .popup-info-bar {
-            background: #f5f5f5;
-            padding: 10px 12px;
-            margin: -12px -12px 15px -12px;
+            background: #f8f8f8;
+            padding: 6px 10px;
+            margin: -8px -8px 8px -8px;
             border-bottom: 1px solid #e0e0e0;
-            font-size: 12px;
+            font-size: 11px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
-        .popup-info-bar .separator {
-            color: #ccc;
-        }
-        .popup-info-bar .info-value {
-            color: #422774;
-            font-weight: 600;
-        }
+        .popup-info-bar .separator { color: #ccc; }
+        .popup-info-bar .info-value { color: #174DA4; font-weight: 600; }
         
-        /* Tab styling inside popup */
-        .cd-tabs {
-            border: none !important;
-        }
+        /* =============================================
+           TABS - Compact & Clean
+           ============================================= */
+        .cd-tabs { border: none !important; }
         .cd-tabs .dxpLite_Glass,
         .cd-tabs .dxtvControl_Glass,
-        .cd-tabs .dxtcLite_Glass {
+        .cd-tabs .dxtcLite_Glass { border: none !important; background: transparent !important; }
+        
+        /* Tab buttons - smaller, cleaner */
+        .cd-tabs .dxtc-tab,
+        .cd-tabs .dxtc-activeTab {
+            padding: 5px 10px !important;
+            font-size: 10px !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.3px !important;
             border: none !important;
+            border-bottom: 2px solid transparent !important;
+            background: transparent !important;
+            color: #666 !important;
+            margin-right: 2px !important;
+        }
+        .cd-tabs .dxtc-activeTab {
+            color: #174DA4 !important;
+            border-bottom-color: #174DA4 !important;
             background: transparent !important;
         }
+        .cd-tabs .dxtc-tab:hover {
+            color: #174DA4 !important;
+            background: #f8f5fc !important;
+        }
+        .cd-tabs .dxtc-activeTab:hover {
+            color: #174DA4 !important;
+            background: transparent !important;
+        }
+        /* Tab strip bottom border */
+        .cd-tabs .dxtc-stripContainer { border-bottom: 1px solid #e0e0e0 !important; }
         
-        /* Tab content area */
+        /* Tab content - minimal padding */
         .tab-content { 
-            padding: 15px 10px;
-            min-height: 380px;
+            padding: 8px 6px;
+            min-height: auto;
         }
         
         /* =============================================
-           FORM ELEMENTS IN POPUP  
+           FORM ELEMENTS - Compact
            ============================================= */
-        
-        /* Form sections */
-        .form-section {
-            margin-bottom: 15px;
-        }
-        
-        /* Form labels */
+        .form-section { margin-bottom: 8px; }
         .form-label { 
             display: block; 
-            font-size: 11px; 
+            font-size: 9px; 
             font-weight: 600; 
-            color: #666; 
-            margin-bottom: 5px;
+            color: #888; 
+            margin-bottom: 2px;
             text-transform: uppercase;
             letter-spacing: 0.3px;
         }
+        .form-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
+        .form-group { flex: 0 0 auto; }
+        .form-group--flex { flex: 1 1 auto; }
         
-        /* Form layout */
-        .form-row { 
-            display: flex; 
-            gap: 12px; 
-            margin-bottom: 15px; 
-            align-items: flex-end;
-        }
-        .form-group { 
-            flex: 0 0 auto;
-        }
-        .form-group--flex {
-            flex: 1 1 auto;
-        }
-        
-        /* Input styling */
-        .cd-input,
-        .cd-combo,
-        .cd-input--memo {
-            font-size: 12px !important;
-        }
-        .cd-input--memo { 
-            font-family: Consolas, "Courier New", monospace !important; 
-        }
-        
-        /* DevExpress input overrides */
-        .cd-input input,
-        .cd-combo input,
-        .cd-input--memo textarea {
+        /* Inputs */
+        .cd-input, .cd-combo, .cd-input--memo { font-size: 11px !important; }
+        .cd-input--memo { font-family: Consolas, monospace !important; }
+        .cd-input input, .cd-combo input, .cd-input--memo textarea {
             border: 1px solid #ddd !important;
-            padding: 6px 8px !important;
-            font-size: 12px !important;
+            padding: 4px 6px !important;
+            font-size: 11px !important;
             color: #333 !important;
             background: #fff !important;
         }
-        .cd-input input:focus,
-        .cd-combo input:focus,
-        .cd-input--memo textarea:focus {
-            border-color: #422774 !important;
+        .cd-input input:focus, .cd-combo input:focus, .cd-input--memo textarea:focus {
+            border-color: #174DA4 !important;
             outline: none !important;
-            color: #333 !important;
-            background: #fff !important;
         }
         
-        /* Fix for combo dropdown selected items */
+        /* Combo dropdown fix */
         .cd-combo .dxeListBoxItemSelected_Glass,
-        .cd-combo tr.dxeListBoxItemSelected_Glass td {
-            background: #422774 !important;
-            color: #fff !important;
-        }
+        .cd-combo tr.dxeListBoxItemSelected_Glass td { background: #174DA4 !important; color: #fff !important; }
         .cd-combo .dxeListBoxItem_Glass:hover,
-        .cd-combo tr.dxeListBoxItem_Glass:hover td {
-            background: #e8e0f3 !important;
-            color: #422774 !important;
-        }
+        .cd-combo tr.dxeListBoxItem_Glass:hover td { background: #f8f5fc !important; color: #174DA4 !important; }
         
         /* =============================================
-           BUTTONS IN POPUP  
+           BUTTONS - Compact
            ============================================= */
-        
-        /* Button row */
         .btn-row {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             justify-content: flex-end;
-            padding-top: 12px;
-            margin-top: 15px;
-            border-top: 1px solid #e0e0e0;
+            padding-top: 8px;
+            margin-top: 8px;
+            border-top: 1px solid #eee;
         }
         .btn-row--top {
             border-top: none;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid #eee;
             padding-top: 0;
-            padding-bottom: 12px;
+            padding-bottom: 8px;
             margin-top: 0;
-            margin-bottom: 15px;
+            margin-bottom: 8px;
         }
-        
-        /* Secondary button style */
         .cd-btn--secondary {
             background: #f5f5f5 !important;
             color: #333 !important;
             border: 1px solid #ddd !important;
+            padding: 4px 10px !important;
+            font-size: 10px !important;
         }
-        .cd-btn--secondary:hover {
-            background: #e8e8e8 !important;
-            border-color: #ccc !important;
-        }
+        .cd-btn--secondary:hover { background: #e8e8e8 !important; }
         
         /* =============================================
-           RESULT PANELS  
+           RESULT PANELS - Compact
            ============================================= */
-        
         .result-panel {
-            margin-top: 12px;
-            padding: 10px 12px;
-            font-size: 11px;
+            margin-top: 6px;
+            padding: 6px 8px;
+            font-size: 10px;
             background: #f8f9fa;
         }
-        .result-panel.success,
-        .validation-success {
-            background: #d4edda;
-            border-left: 3px solid #28a745;
-            color: #155724;
-        }
-        .result-panel.error,
-        .validation-error {
-            background: #f8d7da;
-            border-left: 3px solid #dc3545;
-            color: #721c24;
-        }
-        .result-panel.info {
-            background: #e8e0f3;
-            border-left: 3px solid #422774;
-            color: #422774;
-        }
+        .validation-success { color: #155724; }
+        .validation-error { color: #721c24; }
         
         /* =============================================
-           COURSE STRUCTURE TAB  
+           COURSE STRUCTURE TAB
            ============================================= */
-        
-        .structure-container {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        
-        /* Year-Semester structure table */
+        .structure-container { max-height: 350px; overflow-y: auto; }
         .year-sem-table { 
             width: 100%; 
             border-collapse: collapse; 
-            font-size: 11px;
+            font-size: 10px;
             border: 1px solid #e0e0e0;
         }
-        .year-sem-table th, 
-        .year-sem-table td { 
+        .year-sem-table th, .year-sem-table td { 
             border: 1px solid #e0e0e0; 
-            padding: 8px 10px; 
+            padding: 5px 8px; 
             text-align: left;
             vertical-align: top;
         }
-        .year-sem-table th { 
-            background: #f8f9fa; 
-            font-weight: 600;
-            color: #333;
-        }
-        .year-sem-header { 
-            background: #422774 !important; 
-            color: #fff !important;
-            font-size: 12px;
-        }
-        
-        /* Course items in structure */
+        .year-sem-table th { background: #f8f9fa; font-weight: 600; color: #333; }
+        .year-sem-header { background: #174DA4 !important; color: #fff !important; font-size: 11px; }
         .course-item { 
-            padding: 4px 8px; 
-            margin: 3px 0; 
+            padding: 3px 6px; 
+            margin: 2px 0; 
             background: #fff;
             border: 1px solid #eee;
             display: flex; 
             justify-content: space-between; 
             align-items: center;
-            font-size: 11px;
-        }
-        .course-item:hover { 
-            background: #f8f5fc;
-            border-color: #d0c4e8;
-        }
-        .course-item strong {
-            color: #422774;
-            margin-right: 8px;
-        }
-        .course-item .credits {
-            background: #f0f0f0;
-            padding: 1px 6px;
             font-size: 10px;
-            color: #666;
         }
+        .course-item:hover { background: #f8f5fc; border-color: #d0c4e8; }
+        .course-item strong { color: #174DA4; margin-right: 6px; }
+        .course-item .credits { background: #f0f0f0; padding: 1px 5px; font-size: 9px; color: #666; }
         
         /* =============================================
-           ALL COURSES TAB / GRID  
+           ALL COURSES GRID - Compact
            ============================================= */
-        
-        .cd-grid {
-            font-size: 11px;
-        }
-        .cd-grid .dxgvHeader_Glass,
-        .cd-grid th {
+        .cd-grid { font-size: 10px; }
+        .cd-grid .dxgvHeader_Glass, .cd-grid th {
             background: #f5f5f5 !important;
-            border-bottom: 2px solid #422774 !important;
+            border-bottom: 2px solid #174DA4 !important;
             font-weight: 600 !important;
-            padding: 6px 8px !important;
+            padding: 4px 6px !important;
+            font-size: 10px !important;
         }
-        .cd-grid td {
-            padding: 5px 8px !important;
-            border-bottom: 1px solid #eee !important;
-        }
-        .cd-grid tr:hover td {
-            background: #f8f5fc !important;
-        }
+        .cd-grid td { padding: 3px 6px !important; border-bottom: 1px solid #eee !important; }
+        .cd-grid tr:hover td { background: #f8f5fc !important; }
         
         /* =============================================
-           GRID ACTION BUTTONS  
+           ACTION BUTTONS - Compact
            ============================================= */
-        
         .manage-courses-btn { 
             cursor: pointer; 
-            color: #422774; 
-            font-size: 10px; 
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            padding: 2px 6px;
+            color: #174DA4; 
+            font-size: 9px; 
+            padding: 2px 5px;
             background: #f8f9fa;
             border: 1px solid #e0e0e0;
-            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
         }
-        .manage-courses-btn:hover { 
-            background: #422774;
-            border-color: #422774;
-            color: #fff;
-        }
-        .manage-courses-btn svg {
-            width: 10px;
-            height: 10px;
-        }
+        .manage-courses-btn:hover { background: #174DA4; border-color: #174DA4; color: #fff; }
+        .manage-courses-btn svg { width: 9px; height: 9px; }
         
-        /* Print structure button */
         .print-structure-btn { 
             cursor: pointer; 
             color: #666; 
-            font-size: 10px; 
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            padding: 2px 6px;
+            font-size: 9px; 
+            padding: 2px 5px;
             background: #fff;
             border: 1px solid #ddd;
-            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
         }
-        .print-structure-btn:hover { 
-            background: #28a745;
-            border-color: #28a745;
-            color: #fff;
-        }
-        .print-structure-btn svg {
-            width: 10px;
-            height: 10px;
-        }
+        .print-structure-btn:hover { background: #28a745; border-color: #28a745; color: #fff; }
+        .print-structure-btn svg { width: 9px; height: 9px; }
         
-        /* Course count badge */
         .course-count-badge { 
             display: inline-block; 
-            padding: 2px 10px; 
+            padding: 1px 8px; 
             background: #e8e0f3; 
-            color: #422774; 
-            font-size: 11px; 
+            color: #174DA4; 
+            font-size: 10px; 
             font-weight: 600;
-            min-width: 24px;
+            min-width: 20px;
             text-align: center;
         }
-        .course-count-badge:empty::after {
-            content: "0";
+        
+        /* =============================================
+           BATCH ADD - Optimized Grid (3 columns for S1, S2, S3)
+           ============================================= */
+        .batch-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+        .batch-year-section {
+            border: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+        .batch-year-header {
+            background: #174DA4;
+            color: #fff;
+            padding: 3px 6px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .batch-year-body {
+            padding: 6px;
+        }
+        .batch-field-row {
+            display: flex;
+            gap: 4px;
+            align-items: flex-end;
+        }
+        .batch-courses-field {
+            flex: 1;
+        }
+        .batch-courses-field input {
+            width: 100%;
+            border: 1px solid #ddd;
+            padding: 4px 6px;
+            font-size: 10px;
+            font-family: Consolas, monospace;
+        }
+        .batch-courses-field input:focus {
+            border-color: #174DA4;
+            outline: none;
+        }
+        .batch-courses-field input::placeholder {
+            color: #bbb;
+            font-size: 9px;
+        }
+        .batch-small-field {
+            width: 40px;
+        }
+        .batch-small-field select,
+        .batch-small-field input {
+            width: 100%;
+            border: 1px solid #ddd;
+            padding: 3px 4px;
+            font-size: 9px;
+            text-align: center;
+        }
+        .batch-small-field select:focus,
+        .batch-small-field input:focus {
+            border-color: #174DA4;
+            outline: none;
+        }
+        .batch-field-label {
+            font-size: 8px;
+            color: #999;
+            margin-bottom: 1px;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+        }
+        .batch-validation-result {
+            margin-top: 4px;
+            font-size: 9px;
+            padding: 3px 5px;
+            display: none;
+            line-height: 1.3;
+        }
+        .batch-validation-result.has-result { display: block; }
+        .batch-validation-result.valid { background: #d4edda; border-left: 2px solid #28a745; color: #155724; }
+        .batch-validation-result.invalid { background: #f8d7da; border-left: 2px solid #dc3545; color: #721c24; }
+        .batch-validation-result.mixed { background: #fff3cd; border-left: 2px solid #856404; color: #856404; }
+        
+        .batch-actions {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 6px;
+            justify-content: flex-end;
+        }
+        .batch-result-summary {
+            margin-top: 8px;
+            padding: 6px 8px;
+            background: #f8f9fa;
+            font-size: 10px;
+            border-left: 3px solid #174DA4;
         }
     </style>
 </asp:Content>
@@ -474,14 +470,14 @@
     <!-- Manage Courses Popup -->
     <dx:ASPxPopupControl ID="popManageCourses" runat="server" 
         HeaderText="Manage Specialisation Courses" 
-        Width="900px" Height="600px"
+        Width="1050px" Height="620px"
         Modal="True" 
         CloseAction="CloseButton"
         PopupHorizontalAlign="WindowCenter" 
         PopupVerticalAlign="WindowCenter"
         ClientInstanceName="popManageCourses"
         CssClass="cd-popup">
-        <HeaderStyle BackColor="#422774" ForeColor="White" Font-Size="13px" Font-Bold="True" Paddings-Padding="10px" />
+        <HeaderStyle BackColor="#174DA4" ForeColor="White" Font-Size="13px" Font-Bold="True" Paddings-Padding="10px" />
         <ContentStyle Paddings-Padding="0px" />
         <CloseButtonStyle Paddings-Padding="8px" />
         <ContentCollection>
@@ -497,89 +493,294 @@
                     </div>
                     
                     <dx:ASPxPageControl ID="tabCourses" runat="server" ActiveTabIndex="0" Width="100%" CssClass="cd-tabs">
-                        <TabStyle Font-Size="11px" Paddings-PaddingLeft="12px" Paddings-PaddingRight="12px" Paddings-PaddingTop="8px" Paddings-PaddingBottom="8px" />
-                        <ActiveTabStyle BackColor="#422774" ForeColor="White" />
+                        <TabStyle Font-Size="10px" Paddings-PaddingLeft="10px" Paddings-PaddingRight="10px" Paddings-PaddingTop="5px" Paddings-PaddingBottom="5px" />
+                        <ActiveTabStyle BackColor="Transparent" ForeColor="#174DA4" />
                         <TabPages>
-                            <dx:TabPage Text="Batch Add Courses">
+                            <dx:TabPage Text="Batch Add">
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
-                                        <div class="tab-content">
-                                            <div class="form-section">
-                                                <label class="form-label">
-                                                    Enter course codes separated by comma (e.g., BBA101, BBA102, BBA103):
-                                                </label>
-                                                <dx:ASPxMemo ID="txtBatchCourses" runat="server" Width="100%" Height="80px" 
-                                                    NullText="Enter course codes here..." CssClass="cd-input cd-input--memo">
-                                                </dx:ASPxMemo>
+                                        <div class="tab-content" style="min-height: auto; padding: 6px;">
+                                            <div class="batch-grid">
+                                                <!-- Year 1 Semester 1 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y1 - S1</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY1S1" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY1S1CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY1S1Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY1S1Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 1 Semester 2 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y1 - S2</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY1S2" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY1S2CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY1S2Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY1S2Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 1 Semester 3 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y1 - S3</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY1S3" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY1S3CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY1S3Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY1S3Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 2 Semester 1 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y2 - S1</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY2S1" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY2S1CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY2S1Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY2S1Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 2 Semester 2 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y2 - S2</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY2S2" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY2S2CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY2S2Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY2S2Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 2 Semester 3 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y2 - S3</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY2S3" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY2S3CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY2S3Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY2S3Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 3 Semester 1 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y3 - S1</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY3S1" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY3S1CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY3S1Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY3S1Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 3 Semester 2 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y3 - S2</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY3S2" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY3S2CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY3S2Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY3S2Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 3 Semester 3 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y3 - S3</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY3S3" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY3S3CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY3S3Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY3S3Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 4 Semester 1 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y4 - S1</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY4S1" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY4S1CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY4S1Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY4S1Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 4 Semester 2 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y4 - S2</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY4S2" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY4S2CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY4S2Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY4S2Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
+                                                <!-- Year 4 Semester 3 -->
+                                                <div class="batch-year-section">
+                                                    <div class="batch-year-header">Y4 - S3</div>
+                                                    <div class="batch-year-body">
+                                                        <div class="batch-field-row">
+                                                            <div class="batch-courses-field">
+                                                                <asp:TextBox ID="txtY4S3" runat="server" placeholder="Courses"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:TextBox ID="txtY4S3CU" runat="server" Text="3" MaxLength="2"></asp:TextBox>
+                                                            </div>
+                                                            <div class="batch-small-field">
+                                                                <asp:DropDownList ID="ddlY4S3Type" runat="server">
+                                                                    <asp:ListItem Text="C" Value="CORE" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="E" Value="ELECTIVE"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                        </div>
+                                                        <asp:Panel ID="pnlY4S3Result" runat="server" CssClass="batch-validation-result"></asp:Panel>
+                                                    </div>
+                                                </div>
                                             </div>
                                             
-                                            <div class="form-row">
-                                                <div class="form-group" style="width: 70px;">
-                                                    <label class="form-label">Year</label>
-                                                    <dx:ASPxComboBox ID="cmbBatchYear" runat="server" Width="100%" CssClass="cd-combo">
-                                                        <Items>
-                                                            <dx:ListEditItem Text="1" Value="1" Selected="True" />
-                                                            <dx:ListEditItem Text="2" Value="2" />
-                                                            <dx:ListEditItem Text="3" Value="3" />
-                                                            <dx:ListEditItem Text="4" Value="4" />
-                                                            <dx:ListEditItem Text="5" Value="5" />
-                                                        </Items>
-                                                    </dx:ASPxComboBox>
+                                            <div class="batch-actions">
+                                                <div style="display: flex; align-items: center; gap: 6px; margin-right: auto;">
+                                                    <span style="font-size: 10px; color: #666;">Set Fully Configured:</span>
+                                                    <asp:DropDownList ID="ddlSetFullySet" runat="server" style="font-size: 10px; padding: 3px 6px; border: 1px solid #ddd;">
+                                                        <asp:ListItem Text="No" Value="No" Selected="True"></asp:ListItem>
+                                                        <asp:ListItem Text="Yes" Value="Yes"></asp:ListItem>
+                                                    </asp:DropDownList>
                                                 </div>
-                                                <div class="form-group" style="width: 70px;">
-                                                    <label class="form-label">Semester</label>
-                                                    <dx:ASPxComboBox ID="cmbBatchSemester" runat="server" Width="100%" CssClass="cd-combo">
-                                                        <Items>
-                                                            <dx:ListEditItem Text="1" Value="1" Selected="True" />
-                                                            <dx:ListEditItem Text="2" Value="2" />
-                                                        </Items>
-                                                    </dx:ASPxComboBox>
-                                                </div>
-                                                <div class="form-group" style="width: 65px;">
-                                                    <label class="form-label">Credits</label>
-                                                    <dx:ASPxSpinEdit ID="spnBatchCredits" runat="server" Width="100%" 
-                                                        Number="3" MinValue="0" MaxValue="20" CssClass="cd-combo">
-                                                    </dx:ASPxSpinEdit>
-                                                </div>
-                                                <div class="form-group" style="width: 90px;">
-                                                    <label class="form-label">Type</label>
-                                                    <dx:ASPxComboBox ID="cmbBatchCourseType" runat="server" Width="100%" CssClass="cd-combo">
-                                                        <Items>
-                                                            <dx:ListEditItem Text="Core" Value="CORE" Selected="True" />
-                                                            <dx:ListEditItem Text="Elective" Value="ELECTIVE" />
-                                                        </Items>
-                                                    </dx:ASPxComboBox>
-                                                </div>
-                                                <div class="form-group" style="width: 90px;">
-                                                    <label class="form-label">&nbsp;</label>
-                                                    <dx:ASPxButton ID="cmdValidateBatch" runat="server" Text="Validate" 
-                                                        OnClick="cmdValidateBatch_Click" Width="100%" CssClass="cd-btn cd-btn--secondary">
-                                                    </dx:ASPxButton>
-                                                </div>
-                                            </div>
-                                            
-                                            <asp:Panel ID="pnlValidationResult" runat="server" Visible="false">
-                                                <div class="result-panel">
-                                                    <asp:Label ID="lblValidationResult" runat="server"></asp:Label>
-                                                </div>
-                                            </asp:Panel>
-                                            
-                                            <div class="btn-row">
-                                                <dx:ASPxButton ID="cmdAddBatch" runat="server" Text="Add Courses" 
-                                                    OnClick="cmdAddBatch_Click" CssClass="cd-btn cd-btn--primary">
+                                                <dx:ASPxButton ID="cmdValidateAll" runat="server" Text="Validate All" 
+                                                    OnClick="cmdValidateAll_Click" CssClass="cd-btn cd-btn--secondary">
+                                                </dx:ASPxButton>
+                                                <dx:ASPxButton ID="cmdAddAllBatch" runat="server" Text="Add All Courses" 
+                                                    OnClick="cmdAddAllBatch_Click" CssClass="cd-btn cd-btn--primary">
                                                 </dx:ASPxButton>
                                             </div>
                                             
-                                            <asp:Panel ID="pnlBatchResult" runat="server" Visible="false">
-                                                <div class="result-panel">
-                                                    <asp:Label ID="lblBatchResult" runat="server"></asp:Label>
+                                            <asp:Panel ID="pnlBatchSummary" runat="server" Visible="false">
+                                                <div class="batch-result-summary">
+                                                    <asp:Literal ID="litBatchSummary" runat="server"></asp:Literal>
                                                 </div>
                                             </asp:Panel>
                                         </div>
                                     </dx:ContentControl>
                                 </ContentCollection>
                             </dx:TabPage>
-                            <dx:TabPage Text="Course Structure">
+                            <dx:TabPage Text="Structure">
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
                                         <div class="tab-content">
@@ -598,7 +799,7 @@
                                     </dx:ContentControl>
                                 </ContentCollection>
                             </dx:TabPage>
-                            <dx:TabPage Text="All Courses">
+                            <dx:TabPage Text="Courses">
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
                                         <div class="tab-content">
@@ -639,6 +840,7 @@
                                                             <Items>
                                                                 <dx:ListEditItem Text="1" Value="1" />
                                                                 <dx:ListEditItem Text="2" Value="2" />
+                                                                <dx:ListEditItem Text="3" Value="3" />
                                                             </Items>
                                                         </PropertiesComboBox>
                                                         <CellStyle HorizontalAlign="Center" />

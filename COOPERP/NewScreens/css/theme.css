@@ -2,7 +2,7 @@
  * Campus Dynamics - Master Theme CSS v2.0
  * Comprehensive styling for all new screens with DevExpress overrides
  * Design Principles: Flat, Professional, Space-Optimized, Compact
- * Primary Color: #422774
+ * Primary Color: #174DA4
  */
 
 /* ========================================
@@ -11,7 +11,7 @@
 
 :root {
     /* Colors */
-    --cd-primary: #422774;
+    --cd-primary: #174DA4;
     --cd-primary-dark: #331d5c;
     --cd-primary-light: #5a3a96;
     --cd-white: #FFFFFF;
@@ -835,8 +835,8 @@ table.dxeListBox_Glass {
 .dxeListBoxItemSelected_Glass,
 .dxeListBoxItemSelected_Glass td,
 td.dxeListBoxItemSelected_Glass {
-    background: #422774 !important;
-    background-color: #422774 !important;
+    background: #174DA4 !important;
+    background-color: #174DA4 !important;
     color: #ffffff !important;
 }
 
@@ -846,7 +846,7 @@ td.dxeListBoxItemSelected_Glass {
 .dxeListBox_Glass .dxeListBoxItemRow_Glass:hover td,
 .dxeListBoxItem_Glass:hover {
     background: #e8e0f3 !important;
-    color: #422774 !important;
+    color: #174DA4 !important;
 }
 
 /* Incremental filter popup */
@@ -871,7 +871,7 @@ div.dxpc-mainDiv[id*="_DDD_PW"] {
 .dxmLite_Glass .dxm-item:hover,
 .dxmLite_Glass .dxm-hovered {
     background: #f0f0f0 !important;
-    color: #422774 !important;
+    color: #174DA4 !important;
 }
 
 /* === COMMAND COLUMN - Text buttons, no boxes === */
@@ -1089,8 +1089,8 @@ td.dxgv input.dxeEditAreaSys {
 tr.dxeListBoxItemSelected_Glass,
 tr.dxeListBoxItemSelected_Glass td,
 .dxeListBoxItemSelected_Glass td {
-    background: #422774 !important;
-    background-color: #422774 !important;
+    background: #174DA4 !important;
+    background-color: #174DA4 !important;
     color: #ffffff !important;
 }
 
@@ -1100,7 +1100,7 @@ tr.dxeListBoxItemSelected_Glass td,
 tr.dxeListBoxItem_Glass:hover,
 tr.dxeListBoxItem_Glass:hover td {
     background: #e8e0f3 !important;
-    color: #422774 !important;
+    color: #174DA4 !important;
 }
 
 /* === BUTTON - Flat, compact === */

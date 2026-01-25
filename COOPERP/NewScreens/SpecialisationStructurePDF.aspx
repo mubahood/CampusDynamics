@@ -19,29 +19,29 @@
             padding: 30px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        .header { display: flex; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #422774; padding-bottom: 15px; }
+        .header { display: flex; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #174DA4; padding-bottom: 15px; }
         .header img { width: 60px; height: auto; margin-right: 15px; }
-        .header-text h1 { margin: 0; font-size: 18px; color: #422774; }
+        .header-text h1 { margin: 0; font-size: 18px; color: #174DA4; }
         .header-text h2 { margin: 5px 0 0 0; font-size: 12px; color: #666; font-weight: normal; }
         .meta { display: flex; justify-content: space-between; margin-bottom: 15px; padding: 10px; background: #f9f9f9; }
         .meta-item { font-size: 11px; }
-        .meta-item strong { color: #422774; }
-        .summary { background: #422774; color: #fff; padding: 8px 12px; font-size: 11px; margin-bottom: 15px; }
+        .meta-item strong { color: #174DA4; }
+        .summary { background: #174DA4; color: #fff; padding: 8px 12px; font-size: 11px; margin-bottom: 15px; }
         .year-section { margin-bottom: 20px; }
-        .year-header { background: #422774; color: #fff; padding: 8px 12px; font-size: 13px; font-weight: bold; }
+        .year-header { background: #174DA4; color: #fff; padding: 8px 12px; font-size: 13px; font-weight: bold; }
         .semester-section { margin: 10px 0; }
-        .semester-header { background: #f0f0f0; padding: 6px 12px; font-size: 11px; font-weight: bold; color: #333; border-left: 3px solid #422774; }
+        .semester-header { background: #f0f0f0; padding: 6px 12px; font-size: 11px; font-weight: bold; color: #333; border-left: 3px solid #174DA4; }
         table { width: 100%; border-collapse: collapse; margin-top: 5px; }
         th { background: #f5f5f5; padding: 6px 8px; text-align: left; font-size: 10px; border: 1px solid #ddd; color: #333; }
         td { padding: 5px 8px; border: 1px solid #ddd; font-size: 10px; }
-        .code { font-weight: bold; color: #422774; width: 80px; }
+        .code { font-weight: bold; color: #174DA4; width: 80px; }
         .type { width: 50px; text-align: center; }
         .type-core { color: #666; }
         .type-elective { color: #2e7d32; font-weight: bold; }
         .cu { width: 40px; text-align: center; }
         .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 9px; color: #999; display: flex; justify-content: space-between; }
         .toolbar { margin-bottom: 15px; text-align: right; }
-        .toolbar button { background: #422774; color: #fff; border: none; padding: 8px 16px; cursor: pointer; font-size: 11px; margin-left: 5px; }
+        .toolbar button { background: #174DA4; color: #fff; border: none; padding: 8px 16px; cursor: pointer; font-size: 11px; margin-left: 5px; }
         .toolbar button:hover { background: #5a3a8c; }
         .no-data { padding: 40px; text-align: center; color: #999; }
         @media print {

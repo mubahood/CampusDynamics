@@ -8,15 +8,15 @@
     <style type="text/css">
         .auto-style1 {
             width: 94px;
-        }
-        .auto-style2 {
-            width: 176px;
+            height: 43px;
         }
         .auto-style3 {
             width: 122px;
+            height: 43px;
         }
         .auto-style4 {
             width: 175px;
+            height: 43px;
         }
         .auto-style5 {
             width: 100%;
@@ -43,6 +43,23 @@
     
 
 
+        .auto-style8 {
+            height: 18px;
+        }
+        .auto-style9 {
+            width: 176px;
+            height: 43px;
+        }
+        .auto-style10 {
+            height: 43px;
+        }
+        .auto-style11 {
+            height: 43px;
+            width: 65px;
+        }
+    
+
+
         </style>
 </head>
 <body>
@@ -59,12 +76,17 @@
                 <table class="dx-justification">
                     <tr>
                         <td class="auto-style1">Journal Type:</td>
-                        <td class="auto-style2">
+                        <td class="auto-style9">
                             <dx:ASPxComboBox ID="txtType" runat="server" DataSourceID="dsJournalTypes" TextField="journaltypename" ValueField="journaltypename" AutoPostBack="True" Height="35px" ReadOnly="True">
                                 <Columns>
                                     <dx:ListBoxColumn FieldName="journaltypename" />
                                 </Columns>
                             </dx:ASPxComboBox>
+                        </td>
+                        <td class="auto-style11">Ref No:</td>
+                        <td class="auto-style9">
+                            <dx:ASPxTextBox ID="txtRefNo" runat="server" Height="35px" Width="170px">
+                            </dx:ASPxTextBox>
                         </td>
                         <td class="auto-style4">
                             <dx:ASPxButton ID="cmdApproveJournal" runat="server" OnClick="cmdApproveJournal_Click" Text="Approve Voucher" Width="170px" Height="35px">
@@ -78,8 +100,8 @@
                                 </Image>
                             </dx:ASPxButton>
                         </td>
-                        <td style="text-align: right">
-                            &nbsp;</td>
+                        <td style="text-align: right" class="auto-style10">
+                            </td>
                     </tr>
                 </table>
             </td>
@@ -122,8 +144,8 @@
             </td>
         </tr>
         <tr>
-            <td>
-                &nbsp;</td>
+            <td class="auto-style8">
+                </td>
         </tr>
         <tr>
             <td>
@@ -184,28 +206,13 @@
         </tr>
         <tr>
             <td>
-                <asp:ObjectDataSource ID="dsLatestJournal" runat="server" DeleteMethod="Delete" InsertMethod="Insert" OldValuesParameterFormatString="original_{0}" SelectMethod="GetSingleJournal" TypeName="CoopERPDataTableAdapters.fin_journalnumbersTableAdapter" UpdateMethod="Update">
+                <asp:ObjectDataSource ID="dsLatestJournal" runat="server" DeleteMethod="Delete" OldValuesParameterFormatString="original_{0}" SelectMethod="GetSingleJournal" TypeName="CoopERPDataTableAdapters.fin_journalnumbersTableAdapter">
                     <DeleteParameters>
                         <asp:Parameter Name="Original_JournalNo" Type="UInt32" />
                     </DeleteParameters>
-                    <InsertParameters>
-                        <asp:Parameter Name="Teller" Type="String" />
-                        <asp:Parameter Name="PostStatus" Type="String" />
-                        <asp:Parameter Name="Journaltype" Type="String" />
-                        <asp:Parameter Name="journalDate" Type="DateTime" />
-                        <asp:Parameter Name="journalParticulars" Type="String" />
-                    </InsertParameters>
                     <SelectParameters>
                         <asp:SessionParameter Name="JNO" SessionField="jno" Type="Int32" DefaultValue="0" />
                     </SelectParameters>
-                    <UpdateParameters>
-                        <asp:Parameter Name="Teller" Type="String" />
-                        <asp:Parameter Name="PostStatus" Type="String" />
-                        <asp:Parameter Name="Journaltype" Type="String" />
-                        <asp:Parameter Name="journalDate" Type="DateTime" />
-                        <asp:Parameter Name="journalParticulars" Type="String" />
-                        <asp:Parameter Name="Original_JournalNo" Type="UInt32" />
-                    </UpdateParameters>
                 </asp:ObjectDataSource>
                 <asp:ObjectDataSource ID="dsJournalDetails" runat="server" DeleteMethod="Delete" InsertMethod="Insert" OldValuesParameterFormatString="original_{0}" SelectMethod="GetJournalDetails" TypeName="CoopERPDataTableAdapters.fin_ledgerTableAdapter" UpdateMethod="UpdateJournalDetails">
                     <DeleteParameters>
