@@ -90,29 +90,44 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         }
     }
 
-    protected void btnManageCourses_Click(object sender, EventArgs e)
+    protected void btnOpenManage_Click(object sender, EventArgs e)
     {
-        LinkButton btn = (LinkButton)sender;
-        string[] args = btn.CommandArgument.Split('|');
-        int specId = Convert.ToInt32(args[0]);
-        string specName = args[1];
-        string progCode = args[2];
+        int specId = Convert.ToInt32(hdnSelectedSpecId.Value);
+        OpenManageCoursesPopup(specId);
+    }
+
+    private void OpenManageCoursesPopup(int specId)
+    {
+        // Fetch specialisation details from database to ensure correct data
+        string specName = "";
+        string progCode = "";
+        string progName = "";
+        
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand(@"SELECT s.spec, s.prog_id, p.progname 
+                FROM acad_specialisation s 
+                LEFT JOIN acad_programme p ON s.prog_id = p.progcode 
+                WHERE s.spec_id = @specId", conn))
+            {
+                cmd.Parameters.AddWithValue("@specId", specId);
+                using (MySqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        specName = reader["spec"] != DBNull.Value ? reader["spec"].ToString() : "";
+                        progCode = reader["prog_id"] != DBNull.Value ? reader["prog_id"].ToString() : "";
+                        progName = reader["progname"] != DBNull.Value ? reader["progname"].ToString() : progCode;
+                    }
+                }
+            }
+        }
         
         hdnSpecId.Value = specId.ToString();
         hdnProgCode.Value = progCode;
         lblSpecName.Text = specName;
-        
-        // Get programme name
-        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
-        {
-            conn.Open();
-            using (MySqlCommand cmd = new MySqlCommand("SELECT progname FROM acad_programme WHERE progcode = @progcode", conn))
-            {
-                cmd.Parameters.AddWithValue("@progcode", progCode);
-                object result = cmd.ExecuteScalar();
-                lblProgName.Text = result != null ? result.ToString() : progCode;
-            }
-        }
+        lblProgName.Text = progName;
         
         // Reset batch add form - clear all year-semester fields
         txtY1S1.Text = ""; txtY1S2.Text = ""; txtY1S3.Text = "";
@@ -129,19 +144,6 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         LoadSpecCoursesGrid(specId);
         
         popManageCourses.ShowOnPageLoad = true;
-    }
-    
-    protected void btnPrintStructure_Click(object sender, EventArgs e)
-    {
-        LinkButton btn = (LinkButton)sender;
-        string[] args = btn.CommandArgument.Split('|');
-        int specId = Convert.ToInt32(args[0]);
-        string specName = args[1];
-        string progName = args[2];
-        
-        // Open PDF viewer in new window
-        string url = "SpecialisationStructurePDF.aspx?specId=" + specId + "&specName=" + Server.UrlEncode(specName) + "&progName=" + Server.UrlEncode(progName);
-        ScriptManager.RegisterStartupScript(this, GetType(), "openPdf", "window.open('" + url + "', '_blank');", true);
     }
 
     // Helper class to store year-semester data

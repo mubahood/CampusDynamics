@@ -129,3 +129,25 @@ this system enables managing more than one campus in the system, please analyze 
 in the master pager, on the top header next to semeser picker dropwdown, i want you to introduce the dropdwby default, no campus selen o t he  campuses can be selected.. but also give a bility to have a - (select no campus)  
 
 
+.
+
+I now want us to get back to NewScreens/NewStudentInfo.aspx .
+- introduce campus column
+i want use to beef up a dteails page/popup for the student. it has to be loaded from server when click on view ...
+please veryc arefully learn from this old UI how it was done StudentInfo/StudentInfo.aspx and ensur we display all and even better.
+- restyple our studet profile modal, introduce tabs as it is in the old ui, ensure those tab show 100% correct information aotu that student. make the modal be bigge rand better.
+- ensrure no room for any error
+- ensure it is very detailed.
+- ensure you follow our new design guidlines as well as ensure compactibility but yet clean and perfect deisgn.
+
+USING THIS VERY screen NewStudentInfo.aspx, I want you to reuse it into 4 
+1. Active students (ones in school)
+2. DMITED STUDENTS (The ones admited but not active in school)
+3. Alumni (Students who are no longer active and left school)
+4. All students
+analyze very wel the current ssystem, understand it very well.. check if a student has a status field on their record, check the possible values status if suit active, pending and not active. if not that, then introduce it.
+- use that status to sort studentsin those respective screens.
+- design those screens and add them to the menu of students info
+- ensure it is perfect and has no room fo any error
+
+

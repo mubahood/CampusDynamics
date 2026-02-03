@@ -53,51 +53,80 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cd-sidebar__arrow"><polyline points="9 18 15 12 9 6"></polyline></svg>
                             </a>
                             <ul class="cd-sidebar__submenu">
-                                <!-- Student Records -->
+                                <!-- Active Students -->
                                 <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkStudentInfo" runat="server" NavigateUrl="~/COOPERP/NewScreens/NewStudentInfo.aspx" CssClass="cd-sidebar__sublink">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                        <span>Student Records</span>
+                                    <asp:HyperLink ID="lnkActiveStudents" runat="server" NavigateUrl="~/COOPERP/NewScreens/ActiveStudents.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                        <span>Active Students</span>
                                     </asp:HyperLink>
                                 </li>
+                                <!-- Admitted Students -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkAdmittedStudents" runat="server" NavigateUrl="~/COOPERP/NewScreens/AdmittedStudents.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+                                        <span>Admitted Students</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <!-- Alumni Students -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkAlumniStudents" runat="server" NavigateUrl="~/COOPERP/NewScreens/AlumniStudents.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+                                        <span>Alumni</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <!-- All Students / Student Records -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkStudentInfo" runat="server" NavigateUrl="~/COOPERP/NewScreens/AllStudents.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                        <span>All Students</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <!-- Students Registration -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkStudentsRegistration" runat="server" NavigateUrl="~/COOPERP/NewScreens/StudentsRegistration.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+                                        <span>Students Registration</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li style="border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 10px;"></li>
                                 <!-- Student Specialisations -->
                                 <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkStudentSpecialisations" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                    <asp:HyperLink ID="lnkStudentSpecialisations" runat="server" NavigateUrl="~/COOPERP/NewScreens/StudentsSpecialisation.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
                                         <span>Student Specialisations</span>
                                     </asp:HyperLink>
                                 </li>
                                 <!-- Promotions Centre -->
                                 <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkPromotions" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                    <asp:HyperLink ID="lnkPromotions" runat="server" NavigateUrl="~/COOPERP/NewScreens/StudentsPromotion.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
                                         <span>Promotions Centre</span>
                                     </asp:HyperLink>
                                 </li>
                                 <!-- ID Cards -->
                                 <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkStudentCards" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                    <asp:HyperLink ID="lnkStudentCards" runat="server" NavigateUrl="~/COOPERP/NewScreens/StudentsIDCards.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
                                         <span>ID Cards</span>
                                     </asp:HyperLink>
                                 </li>
                                 <!-- Student Documents -->
                                 <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkStudentDocuments" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                    <asp:HyperLink ID="lnkStudentDocuments" runat="server" NavigateUrl="~/COOPERP/NewScreens/StudentDocuments.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                                         <span>Student Documents</span>
                                     </asp:HyperLink>
                                 </li>
                                 <!-- Enrollment Analysis -->
                                 <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkEnrollmentAnalysis" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                    <asp:HyperLink ID="lnkEnrollmentAnalysis" runat="server" NavigateUrl="~/COOPERP/NewScreens/EnrollmentAnalysis.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
                                         <span>Enrollment Analysis</span>
                                     </asp:HyperLink>
                                 </li>
                                 <!-- Residence Allocation -->
                                 <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkResidenceAllocation" runat="server" NavigateUrl="#" CssClass="cd-sidebar__sublink">
+                                    <asp:HyperLink ID="lnkResidenceAllocation" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResidenceAllocation.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                                         <span>Residence Allocation</span>
                                     </asp:HyperLink>
@@ -146,14 +175,112 @@
                             </ul>
                         </li>
                         
+                        <!-- Section Header: Results & Examinations -->
+                        <li class="cd-sidebar__heading">Results</li>
+                        
+                        <!-- 1. Exams Management (Course Registration, Exam Results, Approval & Marksheets) -->
+                        <li class="cd-sidebar__item cd-sidebar__item--has-submenu">
+                            <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+                                <span>Exams Management</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cd-sidebar__arrow"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </a>
+                            <ul class="cd-sidebar__submenu">
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkCourseRegistration" runat="server" NavigateUrl="~/COOPERP/NewScreens/CourseRegistration.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                        <span>Course Registration</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkFacultyResults" runat="server" NavigateUrl="~/COOPERP/NewScreens/ExamResultsInfo.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                                        <span>Exam Results Info</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkExamApprovalPrinting" runat="server" NavigateUrl="~/COOPERP/NewScreens/ExamApproval.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                        <span>Exam Approval & Printing</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkElectronicMarksheets" runat="server" NavigateUrl="~/COOPERP/NewScreens/GeneralMarksheets.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                                        <span>General Marksheets</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkResearchMarksheets" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResearchMarksheets.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                                        <span>Research Marksheets</span>
+                                    </asp:HyperLink>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- 2. Results Management -->
+                        <li class="cd-sidebar__item cd-sidebar__item--has-submenu">
+                            <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                <span>Results Management</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cd-sidebar__arrow"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </a>
+                            <ul class="cd-sidebar__submenu">
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkResultsRelease" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                        <span>Results Release</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkResultsUpdates" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsUpdates.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                                        <span>Results Updates</span>
+                                    </asp:HyperLink>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- 5. Graduation -->
+                        <li class="cd-sidebar__item cd-sidebar__item--has-submenu">
+                            <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
+                                <span>Graduation</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cd-sidebar__arrow"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </a>
+                            <ul class="cd-sidebar__submenu">
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkGraduationCentre" runat="server" NavigateUrl="~/COOPERP/NewScreens/GraduationCentre.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                                        <span>Graduation Centre</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkGraduationAnalysis" runat="server" NavigateUrl="~/COOPERP/NewScreens/GraduationAnalysis.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                                        <span>Graduation Analysis</span>
+                                    </asp:HyperLink>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- 6. Document Centre (Standalone) -->
+                        <li class="cd-sidebar__item">
+                            <asp:HyperLink ID="lnkDocumentCentre" runat="server" NavigateUrl="~/COOPERP/NewScreens/DocumentCentre.aspx" CssClass="cd-sidebar__link">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                                <span>Document Centre</span>
+                            </asp:HyperLink>
+                        </li>
+                        
                         <!-- Divider -->
                         <li class="cd-sidebar__divider"></li>
                         
-                        <!-- Control Panel (Old) -->
+                        <!-- Legacy Control Panel -->
                         <li class="cd-sidebar__item">
                             <asp:HyperLink ID="lnkControlPanel" runat="server" NavigateUrl="~/MyApplications.aspx" CssClass="cd-sidebar__link">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                                <span>Control Panel (Old)</span>
+                                <span>Legacy Control Panel</span>
                             </asp:HyperLink>
                         </li>
                     </ul>
@@ -295,23 +422,66 @@
             }
             
             function setActiveMenuItem() {
+                // Get current page path (without query string)
                 var currentPath = window.location.pathname.toLowerCase();
+                var currentFileName = currentPath.split('/').pop().split('?')[0];
+                
+                // Get query string parameters
+                var urlParams = new URLSearchParams(window.location.search);
+                var statusParam = urlParams.get('status');
+                
                 var menuLinks = document.querySelectorAll('.cd-sidebar__link, .cd-sidebar__sublink');
+                var foundActive = false;
                 
                 menuLinks.forEach(function(link) {
                     var href = link.getAttribute('href');
                     if (href && href !== '#' && href !== 'javascript:void(0)') {
                         var linkPath = href.toLowerCase();
-                        var fileName = currentPath.split('/').pop();
-                        var linkFileName = linkPath.split('/').pop();
+                        var linkFileName = linkPath.split('/').pop().split('?')[0];
                         
-                        if (fileName && linkFileName && fileName === linkFileName) {
-                            link.classList.add('active');
-                            var parentSubmenu = link.closest('.cd-sidebar__item--has-submenu');
-                            if (parentSubmenu) parentSubmenu.classList.add('open');
+                        // Special handling for student status pages
+                        // ActiveStudents.aspx, AdmittedStudents.aspx, AlumniStudents.aspx, AllStudents.aspx
+                        // all redirect to NewStudentInfo.aspx with status parameter
+                        var isStudentStatusPage = (currentFileName === 'newstudentinfo.aspx' && statusParam);
+                        
+                        if (isStudentStatusPage) {
+                            // Map status parameter to the redirect page
+                            var statusToPage = {
+                                'ACTIVE': 'activestudents.aspx',
+                                'ADMITTED': 'admittedstudents.aspx',
+                                'ALUMNI': 'alumnistudents.aspx',
+                                'ALL': 'allstudents.aspx'
+                            };
+                            var expectedPage = statusToPage[statusParam.toUpperCase()];
+                            
+                            if (expectedPage && linkFileName === expectedPage) {
+                                link.classList.add('active');
+                                foundActive = true;
+                                var parentSubmenu = link.closest('.cd-sidebar__item--has-submenu');
+                                if (parentSubmenu) parentSubmenu.classList.add('open');
+                            }
+                        } else {
+                            // Standard matching - compare file names
+                            if (currentFileName && linkFileName && currentFileName === linkFileName) {
+                                link.classList.add('active');
+                                foundActive = true;
+                                var parentSubmenu = link.closest('.cd-sidebar__item--has-submenu');
+                                if (parentSubmenu) parentSubmenu.classList.add('open');
+                            }
                         }
                     }
                 });
+                
+                // If we're on NewStudentInfo without a status param (direct access), 
+                // mark All Students as active
+                if (!foundActive && currentFileName === 'newstudentinfo.aspx') {
+                    var allStudentsLink = document.querySelector('a[href*="AllStudents.aspx"]');
+                    if (allStudentsLink) {
+                        allStudentsLink.classList.add('active');
+                        var parentSubmenu = allStudentsLink.closest('.cd-sidebar__item--has-submenu');
+                        if (parentSubmenu) parentSubmenu.classList.add('open');
+                    }
+                }
             }
             
             // User Dropdown Toggle

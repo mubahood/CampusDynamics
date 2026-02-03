@@ -354,7 +354,7 @@
                 OnRowUpdating="gvMain_RowUpdating"
                 OnRowDeleting="gvMain_RowDeleting"
                 OnCustomErrorText="gvMain_CustomErrorText"
-                EnableCallBacks="true">
+                EnableCallBacks="false">
                 <Settings ShowFilterRow="True" ShowFilterRowMenu="True" ShowGroupPanel="False" />
                 <SettingsBehavior AllowSort="True" AllowGroup="True" AllowFocusedRow="True" ConfirmDelete="True" />
                 <SettingsEditing Mode="Inline" />
@@ -427,18 +427,16 @@
                         <HeaderStyle HorizontalAlign="Center" />
                         <DataItemTemplate>
                             <div style="display: flex; gap: 4px; justify-content: center;">
-                                <asp:LinkButton ID="btnManageCourses" runat="server" CssClass="manage-courses-btn" 
-                                    CommandArgument='<%# Eval("spec_id") + "|" + Eval("spec") + "|" + Eval("prog_id") %>'
-                                    OnClick="btnManageCourses_Click" ToolTip="Manage Courses">
+                                <a href="javascript:void(0);" class="manage-courses-btn" 
+                                    onclick="openManageCourses(<%# Eval("spec_id") %>); return false;" title="Manage Courses">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                     Manage
-                                </asp:LinkButton>
-                                <asp:LinkButton ID="btnPrintStructure" runat="server" CssClass="print-structure-btn" 
-                                    CommandArgument='<%# Eval("spec_id") + "|" + Eval("spec") + "|" + Eval("progname") %>'
-                                    OnClick="btnPrintStructure_Click" ToolTip="Print Course Structure">
+                                </a>
+                                <a href="javascript:void(0);" class="print-structure-btn" 
+                                    onclick="printStructure(<%# Eval("spec_id") %>); return false;" title="Print Course Structure">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
                                     PDF
-                                </asp:LinkButton>
+                                </a>
                             </div>
                         </DataItemTemplate>
                     </dx:GridViewDataTextColumn>
@@ -484,6 +482,8 @@
             <dx:PopupControlContentControl runat="server">
                 <asp:HiddenField ID="hdnSpecId" runat="server" />
                 <asp:HiddenField ID="hdnProgCode" runat="server" />
+                <asp:HiddenField ID="hdnSelectedSpecId" runat="server" />
+                <asp:Button ID="btnOpenManage" runat="server" OnClick="btnOpenManage_Click" style="display:none;" />
                 
                 <div class="popup-body">
                     <div class="popup-info-bar">
@@ -909,4 +909,15 @@
         ProviderName="MySql.Data.MySqlClient"
         SelectCommand="SELECT progcode, progname FROM acad_programme ORDER BY progname">
     </asp:SqlDataSource>
+    
+    <script type="text/javascript">
+        function openManageCourses(specId) {
+            document.getElementById('<%= hdnSelectedSpecId.ClientID %>').value = specId;
+            document.getElementById('<%= btnOpenManage.ClientID %>').click();
+        }
+        
+        function printStructure(specId) {
+            window.open('SpecialisationStructurePDF.aspx?specId=' + specId, '_blank');
+        }
+    </script>
 </asp:Content>
