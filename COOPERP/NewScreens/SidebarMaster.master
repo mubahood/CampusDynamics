@@ -17,7 +17,7 @@
     <asp:ContentPlaceHolder ID="HeadContent" runat="server"></asp:ContentPlaceHolder>
 </head>
 <body>
-    <form id="form1" runat="server">
+    <form id="form1" runat="server" EnableViewState="false">
         <asp:ScriptManager ID="ScriptManager1" runat="server"></asp:ScriptManager>
         
         <div class="cd-app">
@@ -35,11 +35,19 @@
                 
                 <nav class="cd-sidebar__nav">
                     <ul class="cd-sidebar__menu">
-                        <!-- Dashboard -->
+                        <!-- Main Dashboard -->
                         <li class="cd-sidebar__item">
                             <asp:HyperLink ID="lnkDashboard" runat="server" NavigateUrl="~/COOPERP/NewScreens/NewDashboard.aspx" CssClass="cd-sidebar__link">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
                                 <span>Dashboard</span>
+                            </asp:HyperLink>
+                        </li>
+                        
+                        <!-- Validation Stats -->
+                        <li class="cd-sidebar__item">
+                            <asp:HyperLink ID="lnkValidationStats" runat="server" NavigateUrl="~/COOPERP/NewScreens/SystemValidationStats.aspx" CssClass="cd-sidebar__link">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                <span>Validation Stats</span>
                             </asp:HyperLink>
                         </li>
                         

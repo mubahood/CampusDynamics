@@ -5,6 +5,7 @@ using System.Data;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using System.Web.Script.Serialization;
 using MySql.Data.MySqlClient;
 using DevExpress.Web;
 
@@ -17,6 +18,14 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
     
     protected void Page_Load(object sender, EventArgs e)
     {
+        // Handle AJAX requests for Summary Report
+        string action = Request.QueryString["action"];
+        if (!string.IsNullOrEmpty(action))
+        {
+            HandleAjaxRequest(action);
+            return;
+        }
+        
         if (!IsPostBack)
         {
             LoadFaculties();
@@ -28,6 +37,537 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
             BindGrid();
         }
     }
+    
+    #region Summary Report AJAX Handlers
+    
+    private void HandleAjaxRequest(string action)
+    {
+        Response.Clear();
+        
+        switch (action)
+        {
+            case "GetProgrammes":
+                HandleGetProgrammes();
+                break;
+            case "GetAcademicYears":
+                HandleGetAcademicYears();
+                break;
+            case "PreviewSummaryReportStudents":
+                HandlePreviewSummaryReportStudents();
+                break;
+            case "ExportSummaryReport":
+                HandleExportSummaryReport();
+                break;
+            default:
+                Response.ContentType = "application/json";
+                Response.Write("{\"error\": \"Unknown action\"}");
+                break;
+        }
+        
+        if (action != "ExportSummaryReport")
+            Response.End();
+    }
+    
+    private void HandleGetProgrammes()
+    {
+        Response.ContentType = "application/json";
+        
+        try
+        {
+            List<object> programmes = new List<object>();
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                string sql = "SELECT DISTINCT progcode, progname FROM acad_programme ORDER BY progname";
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            programmes.Add(new { 
+                                code = reader["progcode"].ToString(), 
+                                name = reader["progname"].ToString() 
+                            });
+                        }
+                    }
+                }
+            }
+            
+            JavaScriptSerializer serializer = new JavaScriptSerializer();
+            Response.Write(serializer.Serialize(programmes));
+        }
+        catch (Exception ex)
+        {
+            Response.Write("[]");
+        }
+    }
+    
+    private void HandleGetAcademicYears()
+    {
+        Response.ContentType = "application/json";
+        
+        try
+        {
+            List<string> years = new List<string>();
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                string sql = "SELECT DISTINCT acadyear FROM acad_examresults_faculty WHERE acadyear IS NOT NULL AND acadyear != '' ORDER BY acadyear DESC";
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            years.Add(reader["acadyear"].ToString());
+                        }
+                    }
+                }
+            }
+            
+            // Add generated years as fallback
+            int currentYear = DateTime.Now.Year;
+            for (int i = currentYear + 1; i >= currentYear - 5; i--)
+            {
+                string acadYear = string.Format("{0}/{1}", i, i + 1);
+                if (!years.Contains(acadYear))
+                    years.Add(acadYear);
+            }
+            
+            JavaScriptSerializer serializer = new JavaScriptSerializer();
+            Response.Write(serializer.Serialize(years));
+        }
+        catch (Exception ex)
+        {
+            Response.Write("[]");
+        }
+    }
+    
+    private void HandlePreviewSummaryReportStudents()
+    {
+        Response.ContentType = "application/json";
+        
+        try
+        {
+            string programme = Request.QueryString["programme"] ?? "";
+            string acadYear = Request.QueryString["acadYear"] ?? "";
+            string semester = Request.QueryString["semester"] ?? "";
+            string studyYear = Request.QueryString["studyYear"] ?? "";
+            
+            // Get CGPA-based student counts
+            DataTable studentData = GetStudentCGPAData(programme, acadYear, semester, studyYear);
+            
+            int vcList = 0, deansList = 0, secondLower = 0, pass = 0;
+            
+            foreach (DataRow row in studentData.Rows)
+            {
+                decimal cgpa = row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
+                
+                if (cgpa >= 4.40m) vcList++;
+                else if (cgpa >= 3.60m) deansList++;
+                else if (cgpa >= 2.80m) secondLower++;
+                else if (cgpa >= 2.00m) pass++;
+            }
+            
+            var result = new {
+                vcList = vcList,
+                deansList = deansList,
+                secondLower = secondLower,
+                pass = pass,
+                total = studentData.Rows.Count
+            };
+            
+            JavaScriptSerializer serializer = new JavaScriptSerializer();
+            Response.Write(serializer.Serialize(result));
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"vcList\": 0, \"deansList\": 0, \"secondLower\": 0, \"pass\": 0, \"total\": 0, \"error\": \"" + ex.Message.Replace("\"", "'") + "\"}");
+        }
+    }
+    
+    private DataTable GetStudentCGPAData(string programme, string acadYear, string semester, string studyYear)
+    {
+        DataTable dt = new DataTable();
+        
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            
+            // Calculate CGPA for each student based on their results
+            string sql = @"SELECT 
+                s.regno,
+                s.entryno,
+                CONCAT(COALESCE(s.firstname, ''), ' ', COALESCE(s.othername, '')) AS student_name,
+                s.gender,
+                p.progname,
+                ROUND(SUM(r.gradept * r.CreditUnits) / NULLIF(SUM(r.CreditUnits), 0), 2) AS cgpa
+            FROM acad_student s
+            INNER JOIN acad_examresults_faculty r ON s.regno = r.regno
+            LEFT JOIN acad_programme p ON s.progid = p.progcode
+            WHERE r.progid = @programme
+              AND r.acadyear = @acadYear
+              AND r.semester = @semester";
+            
+            if (!string.IsNullOrEmpty(studyYear))
+                sql += " AND r.studyyear = @studyYear";
+            
+            sql += @" GROUP BY s.regno, s.entryno, s.firstname, s.othername, s.gender, p.progname
+                      HAVING cgpa IS NOT NULL AND cgpa >= 2.00
+                      ORDER BY cgpa DESC";
+            
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@programme", programme);
+                cmd.Parameters.AddWithValue("@acadYear", acadYear);
+                cmd.Parameters.AddWithValue("@semester", int.Parse(semester));
+                
+                if (!string.IsNullOrEmpty(studyYear))
+                    cmd.Parameters.AddWithValue("@studyYear", int.Parse(studyYear));
+                
+                using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
+                {
+                    adapter.Fill(dt);
+                }
+            }
+        }
+        
+        return dt;
+    }
+    
+    private void HandleExportSummaryReport()
+    {
+        try
+        {
+            string programme = Request.QueryString["programme"] ?? "";
+            string acadYear = Request.QueryString["acadYear"] ?? "";
+            string semester = Request.QueryString["semester"] ?? "";
+            string studyYear = Request.QueryString["studyYear"] ?? "";
+            
+            // Get data for PDF
+            DataTable studentData = GetStudentCGPAData(programme, acadYear, semester, studyYear);
+            
+            if (studentData.Rows.Count == 0)
+            {
+                Response.ContentType = "text/html";
+                Response.Write("<html><body><h3>No data found for the selected filters.</h3></body></html>");
+                return;
+            }
+            
+            // Get programme name
+            string programmeName = GetProgrammeName(programme);
+            
+            // Generate PDF
+            GenerateSummaryReportPdf(studentData, programmeName, acadYear, semester, studyYear);
+        }
+        catch (Exception ex)
+        {
+            Response.ContentType = "text/html";
+            Response.Write("<html><body><h3>Error generating report:</h3><p>" + Server.HtmlEncode(ex.Message) + "</p></body></html>");
+        }
+    }
+    
+    private string GetProgrammeName(string progCode)
+    {
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand("SELECT progname FROM acad_programme WHERE progcode = @code", conn))
+            {
+                cmd.Parameters.AddWithValue("@code", progCode);
+                object result = cmd.ExecuteScalar();
+                return result != null ? result.ToString() : progCode;
+            }
+        }
+    }
+    
+    private void GenerateSummaryReportPdf(DataTable data, string programmeName, string acadYear, string semester, string studyYear)
+    {
+        // Create DevExpress PrintingSystem
+        DevExpress.XtraPrinting.PrintingSystem ps = new DevExpress.XtraPrinting.PrintingSystem();
+        DevExpress.XtraPrinting.PrintableComponentLink link = new DevExpress.XtraPrinting.PrintableComponentLink(ps);
+        
+        // Create custom link for PDF content
+        DevExpress.XtraPrinting.Link pdfLink = new DevExpress.XtraPrinting.Link(ps);
+        pdfLink.CreateDetailArea += (s, args) => {
+            GenerateSummaryReportContent(args.Graph, data, programmeName, acadYear, semester, studyYear);
+        };
+        
+        // Set page settings
+        ps.PageSettings.PaperKind = System.Drawing.Printing.PaperKind.A4;
+        ps.PageSettings.Landscape = false;
+        ps.PageSettings.LeftMargin = 50;
+        ps.PageSettings.RightMargin = 50;
+        ps.PageSettings.TopMargin = 40;
+        ps.PageSettings.BottomMargin = 40;
+        
+        pdfLink.CreateDocument();
+        
+        // Export to PDF
+        string fileName = string.Format("PerformanceSummary_{0}_{1}.pdf", acadYear.Replace("/", "-"), DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+        
+        Response.Clear();
+        Response.ContentType = "application/pdf";
+        Response.AddHeader("Content-Disposition", "inline; filename=\"" + fileName + "\"");
+        
+        using (System.IO.MemoryStream stream = new System.IO.MemoryStream())
+        {
+            ps.ExportToPdf(stream);
+            Response.BinaryWrite(stream.ToArray());
+        }
+        
+        Response.End();
+    }
+    
+    private void GenerateSummaryReportContent(DevExpress.XtraPrinting.BrickGraphics gr, DataTable data, 
+        string programmeName, string acadYear, string semester, string studyYear)
+    {
+        // Define colors
+        System.Drawing.Color brandColor = System.Drawing.Color.FromArgb(23, 77, 164); // #174DA4
+        System.Drawing.Color vcListColor = System.Drawing.Color.FromArgb(26, 84, 144); // Blue
+        System.Drawing.Color deansListColor = System.Drawing.Color.FromArgb(46, 125, 50); // Green
+        System.Drawing.Color secondLowerColor = System.Drawing.Color.FromArgb(245, 124, 0); // Orange
+        System.Drawing.Color passColor = System.Drawing.Color.FromArgb(198, 40, 40); // Red
+        
+        // Define fonts
+        System.Drawing.Font titleFont = new System.Drawing.Font("Tahoma", 14, System.Drawing.FontStyle.Bold);
+        System.Drawing.Font subtitleFont = new System.Drawing.Font("Tahoma", 10, System.Drawing.FontStyle.Regular);
+        System.Drawing.Font sectionFont = new System.Drawing.Font("Tahoma", 11, System.Drawing.FontStyle.Bold);
+        System.Drawing.Font headerFont = new System.Drawing.Font("Tahoma", 8, System.Drawing.FontStyle.Bold);
+        System.Drawing.Font dataFont = new System.Drawing.Font("Tahoma", 8, System.Drawing.FontStyle.Regular);
+        System.Drawing.Font smallFont = new System.Drawing.Font("Tahoma", 7, System.Drawing.FontStyle.Regular);
+        
+        float pageWidth = 495; // A4 width minus margins (approx)
+        float yPos = 0;
+        float rowHeight = 14;
+        
+        // Categorize students
+        List<DataRow> vcListStudents = new List<DataRow>();
+        List<DataRow> deansListStudents = new List<DataRow>();
+        List<DataRow> secondLowerStudents = new List<DataRow>();
+        List<DataRow> passStudents = new List<DataRow>();
+        
+        foreach (DataRow row in data.Rows)
+        {
+            decimal cgpa = row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
+            
+            if (cgpa >= 4.40m) vcListStudents.Add(row);
+            else if (cgpa >= 3.60m) deansListStudents.Add(row);
+            else if (cgpa >= 2.80m) secondLowerStudents.Add(row);
+            else if (cgpa >= 2.00m) passStudents.Add(row);
+        }
+        
+        // ===== HEADER SECTION =====
+        // University name
+        DevExpress.XtraPrinting.TextBrick uniNameBrick = new DevExpress.XtraPrinting.TextBrick();
+        uniNameBrick.Text = "MOUNTAINS OF THE MOON UNIVERSITY";
+        uniNameBrick.Font = titleFont;
+        uniNameBrick.ForeColor = brandColor;
+        uniNameBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
+        uniNameBrick.BackColor = System.Drawing.Color.Transparent;
+        uniNameBrick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+        gr.DrawBrick(uniNameBrick, new System.Drawing.RectangleF(0, yPos, pageWidth, 20));
+        yPos += 22;
+        
+        // Report title
+        DevExpress.XtraPrinting.TextBrick reportTitleBrick = new DevExpress.XtraPrinting.TextBrick();
+        reportTitleBrick.Text = "STUDENT PERFORMANCE SUMMARY REPORT";
+        reportTitleBrick.Font = sectionFont;
+        reportTitleBrick.ForeColor = System.Drawing.Color.FromArgb(51, 51, 51);
+        reportTitleBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
+        reportTitleBrick.BackColor = System.Drawing.Color.Transparent;
+        reportTitleBrick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+        gr.DrawBrick(reportTitleBrick, new System.Drawing.RectangleF(0, yPos, pageWidth, 16));
+        yPos += 20;
+        
+        // Subtitle with filters
+        string filterText = string.Format("Programme: {0}  |  Academic Year: {1}  |  Semester: {2}{3}",
+            programmeName, acadYear, semester,
+            !string.IsNullOrEmpty(studyYear) ? "  |  Year: " + studyYear : "");
+        
+        DevExpress.XtraPrinting.TextBrick filterBrick = new DevExpress.XtraPrinting.TextBrick();
+        filterBrick.Text = filterText;
+        filterBrick.Font = subtitleFont;
+        filterBrick.ForeColor = System.Drawing.Color.FromArgb(102, 102, 102);
+        filterBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
+        filterBrick.BackColor = System.Drawing.Color.Transparent;
+        filterBrick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+        gr.DrawBrick(filterBrick, new System.Drawing.RectangleF(0, yPos, pageWidth, 14));
+        yPos += 18;
+        
+        // Horizontal line
+        DevExpress.XtraPrinting.LineBrick line1 = new DevExpress.XtraPrinting.LineBrick();
+        line1.LineStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+        line1.ForeColor = brandColor;
+        gr.DrawBrick(line1, new System.Drawing.RectangleF(0, yPos, pageWidth, 2));
+        yPos += 8;
+        
+        // ===== DRAW EACH CATEGORY =====
+        // Column widths
+        float numWidth = 25;
+        float regNoWidth = 90;
+        float entryNoWidth = 100;
+        float nameWidth = 150;
+        float genderWidth = 45;
+        float cgpaWidth = 45;
+        float progWidth = pageWidth - numWidth - regNoWidth - entryNoWidth - nameWidth - genderWidth - cgpaWidth;
+        
+        // 1. VC's LIST (FIRST CLASS)
+        if (vcListStudents.Count > 0)
+        {
+            yPos = DrawCategorySection(gr, vcListStudents, "1. VC's LIST (FIRST CLASS)", "CGPA: 4.40 - 5.00",
+                vcListColor, yPos, pageWidth, rowHeight, headerFont, dataFont, smallFont,
+                numWidth, regNoWidth, entryNoWidth, nameWidth, genderWidth, cgpaWidth, progWidth);
+            yPos += 10;
+        }
+        
+        // 2. DEAN'S LIST (SECOND CLASS UPPER DIVISION)
+        if (deansListStudents.Count > 0)
+        {
+            yPos = DrawCategorySection(gr, deansListStudents, "2. DEAN'S LIST (SECOND CLASS UPPER DIVISION)", "CGPA: 3.60 - 4.39",
+                deansListColor, yPos, pageWidth, rowHeight, headerFont, dataFont, smallFont,
+                numWidth, regNoWidth, entryNoWidth, nameWidth, genderWidth, cgpaWidth, progWidth);
+            yPos += 10;
+        }
+        
+        // 3. SECOND CLASS LOWER DIVISION
+        if (secondLowerStudents.Count > 0)
+        {
+            yPos = DrawCategorySection(gr, secondLowerStudents, "3. SECOND CLASS LOWER DIVISION", "CGPA: 2.80 - 3.59",
+                secondLowerColor, yPos, pageWidth, rowHeight, headerFont, dataFont, smallFont,
+                numWidth, regNoWidth, entryNoWidth, nameWidth, genderWidth, cgpaWidth, progWidth);
+            yPos += 10;
+        }
+        
+        // 4. PASS
+        if (passStudents.Count > 0)
+        {
+            yPos = DrawCategorySection(gr, passStudents, "4. PASS", "CGPA: 2.00 - 2.79",
+                passColor, yPos, pageWidth, rowHeight, headerFont, dataFont, smallFont,
+                numWidth, regNoWidth, entryNoWidth, nameWidth, genderWidth, cgpaWidth, progWidth);
+            yPos += 10;
+        }
+        
+        // ===== SUMMARY FOOTER =====
+        yPos += 5;
+        DevExpress.XtraPrinting.LineBrick line2 = new DevExpress.XtraPrinting.LineBrick();
+        line2.LineStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+        line2.ForeColor = brandColor;
+        gr.DrawBrick(line2, new System.Drawing.RectangleF(0, yPos, pageWidth, 2));
+        yPos += 8;
+        
+        // Summary box
+        DevExpress.XtraPrinting.TextBrick summaryBrick = new DevExpress.XtraPrinting.TextBrick();
+        summaryBrick.Text = string.Format("TOTAL SUMMARY  |  VC's List: {0}  |  Dean's List: {1}  |  Second Lower: {2}  |  Pass: {3}  |  TOTAL: {4}",
+            vcListStudents.Count, deansListStudents.Count, secondLowerStudents.Count, passStudents.Count, data.Rows.Count);
+        summaryBrick.Font = new System.Drawing.Font("Tahoma", 9, System.Drawing.FontStyle.Bold);
+        summaryBrick.ForeColor = System.Drawing.Color.White;
+        summaryBrick.BackColor = brandColor;
+        summaryBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
+        summaryBrick.Padding = new DevExpress.XtraPrinting.PaddingInfo(8, 8, 4, 4);
+        summaryBrick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+        gr.DrawBrick(summaryBrick, new System.Drawing.RectangleF(0, yPos, pageWidth, 20));
+        yPos += 28;
+        
+        // Generated date footer
+        DevExpress.XtraPrinting.TextBrick footerBrick = new DevExpress.XtraPrinting.TextBrick();
+        footerBrick.Text = string.Format("Generated on: {0}  |  Mountains of the Moon University - Academic Registry", DateTime.Now.ToString("dd MMMM yyyy, HH:mm"));
+        footerBrick.Font = smallFont;
+        footerBrick.ForeColor = System.Drawing.Color.FromArgb(128, 128, 128);
+        footerBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
+        footerBrick.BackColor = System.Drawing.Color.Transparent;
+        footerBrick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+        gr.DrawBrick(footerBrick, new System.Drawing.RectangleF(0, yPos, pageWidth, 12));
+    }
+    
+    private float DrawCategorySection(DevExpress.XtraPrinting.BrickGraphics gr, List<DataRow> students,
+        string categoryTitle, string cgpaRange, System.Drawing.Color categoryColor, float yPos, float pageWidth,
+        float rowHeight, System.Drawing.Font headerFont, System.Drawing.Font dataFont, System.Drawing.Font smallFont,
+        float numWidth, float regNoWidth, float entryNoWidth, float nameWidth, float genderWidth, float cgpaWidth, float progWidth)
+    {
+        // Category header with background
+        DevExpress.XtraPrinting.TextBrick categoryBrick = new DevExpress.XtraPrinting.TextBrick();
+        categoryBrick.Text = string.Format("{0}  ({1} students)  -  {2}", categoryTitle, students.Count, cgpaRange);
+        categoryBrick.Font = new System.Drawing.Font("Tahoma", 9, System.Drawing.FontStyle.Bold);
+        categoryBrick.ForeColor = System.Drawing.Color.White;
+        categoryBrick.BackColor = categoryColor;
+        categoryBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
+        categoryBrick.Padding = new DevExpress.XtraPrinting.PaddingInfo(6, 6, 3, 3);
+        gr.DrawBrick(categoryBrick, new System.Drawing.RectangleF(0, yPos, pageWidth, 16));
+        yPos += 18;
+        
+        // Table header
+        float xPos = 0;
+        System.Drawing.Color headerBg = System.Drawing.Color.FromArgb(240, 240, 240);
+        
+        DrawHeaderCell(gr, "#", xPos, yPos, numWidth, rowHeight, headerFont, headerBg); xPos += numWidth;
+        DrawHeaderCell(gr, "REG. NO", xPos, yPos, regNoWidth, rowHeight, headerFont, headerBg); xPos += regNoWidth;
+        DrawHeaderCell(gr, "ENTRY NO", xPos, yPos, entryNoWidth, rowHeight, headerFont, headerBg); xPos += entryNoWidth;
+        DrawHeaderCell(gr, "STUDENT NAME", xPos, yPos, nameWidth, rowHeight, headerFont, headerBg); xPos += nameWidth;
+        DrawHeaderCell(gr, "GENDER", xPos, yPos, genderWidth, rowHeight, headerFont, headerBg); xPos += genderWidth;
+        DrawHeaderCell(gr, "CGPA", xPos, yPos, cgpaWidth, rowHeight, headerFont, headerBg); xPos += cgpaWidth;
+        DrawHeaderCell(gr, "PROGRAMME", xPos, yPos, progWidth, rowHeight, headerFont, headerBg);
+        yPos += rowHeight;
+        
+        // Data rows
+        int rowNum = 1;
+        foreach (DataRow row in students)
+        {
+            xPos = 0;
+            System.Drawing.Color rowBg = rowNum % 2 == 0 ? System.Drawing.Color.FromArgb(250, 250, 250) : System.Drawing.Color.White;
+            
+            DrawDataCell(gr, rowNum.ToString(), xPos, yPos, numWidth, rowHeight, dataFont, rowBg, System.Drawing.StringAlignment.Center); xPos += numWidth;
+            DrawDataCell(gr, row["regno"].ToString(), xPos, yPos, regNoWidth, rowHeight, dataFont, rowBg, System.Drawing.StringAlignment.Near); xPos += regNoWidth;
+            DrawDataCell(gr, row["entryno"].ToString(), xPos, yPos, entryNoWidth, rowHeight, dataFont, rowBg, System.Drawing.StringAlignment.Near); xPos += entryNoWidth;
+            DrawDataCell(gr, row["student_name"].ToString(), xPos, yPos, nameWidth, rowHeight, dataFont, rowBg, System.Drawing.StringAlignment.Near); xPos += nameWidth;
+            DrawDataCell(gr, row["gender"].ToString(), xPos, yPos, genderWidth, rowHeight, dataFont, rowBg, System.Drawing.StringAlignment.Center); xPos += genderWidth;
+            
+            decimal cgpa = row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
+            DrawDataCell(gr, cgpa.ToString("F2"), xPos, yPos, cgpaWidth, rowHeight, dataFont, rowBg, System.Drawing.StringAlignment.Center); xPos += cgpaWidth;
+            
+            string progName = row["progname"] != DBNull.Value ? row["progname"].ToString() : "";
+            if (progName.Length > 25) progName = progName.Substring(0, 22) + "...";
+            DrawDataCell(gr, progName, xPos, yPos, progWidth, rowHeight, smallFont, rowBg, System.Drawing.StringAlignment.Near);
+            
+            yPos += rowHeight;
+            rowNum++;
+        }
+        
+        return yPos;
+    }
+    
+    private void DrawHeaderCell(DevExpress.XtraPrinting.BrickGraphics gr, string text, float x, float y, 
+        float width, float height, System.Drawing.Font font, System.Drawing.Color bgColor)
+    {
+        DevExpress.XtraPrinting.TextBrick brick = new DevExpress.XtraPrinting.TextBrick();
+        brick.Text = text;
+        brick.Font = font;
+        brick.ForeColor = System.Drawing.Color.FromArgb(51, 51, 51);
+        brick.BackColor = bgColor;
+        brick.Sides = DevExpress.XtraPrinting.BorderSide.All;
+        brick.BorderColor = System.Drawing.Color.FromArgb(200, 200, 200);
+        brick.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 2, 2);
+        brick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+        gr.DrawBrick(brick, new System.Drawing.RectangleF(x, y, width, height));
+    }
+    
+    private void DrawDataCell(DevExpress.XtraPrinting.BrickGraphics gr, string text, float x, float y, 
+        float width, float height, System.Drawing.Font font, System.Drawing.Color bgColor, System.Drawing.StringAlignment align)
+    {
+        DevExpress.XtraPrinting.TextBrick brick = new DevExpress.XtraPrinting.TextBrick();
+        brick.Text = text;
+        brick.Font = font;
+        brick.ForeColor = System.Drawing.Color.FromArgb(51, 51, 51);
+        brick.BackColor = bgColor;
+        brick.Sides = DevExpress.XtraPrinting.BorderSide.All;
+        brick.BorderColor = System.Drawing.Color.FromArgb(220, 220, 220);
+        brick.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 1, 1);
+        brick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(align);
+        gr.DrawBrick(brick, new System.Drawing.RectangleF(x, y, width, height));
+    }
+    
+    #endregion
     
     #region Data Loading
     

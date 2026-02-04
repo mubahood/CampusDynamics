@@ -146,15 +146,60 @@
             overflow-y: auto !important;
             min-height: 0;
         }
-        .sp-tab-content {
-            padding: 16px;
+        
+        /* Compact Tab Switcher Styles */
+        .sp-profile-tabs-wrapper .dxtc-stripContainer {
+            background: #f5f7fa !important;
+            border-bottom: 1px solid #e0e0e0 !important;
+            padding: 0 4px !important;
+        }
+        .sp-profile-tabs-wrapper .dxtc-tab {
+            padding: 4px 8px !important;
+            font-size: 10px !important;
+            font-weight: 500 !important;
+            border-radius: 3px 3px 0 0 !important;
+            margin: 2px 1px 0 1px !important;
+            border: 1px solid transparent !important;
+            border-bottom: none !important;
+            background: transparent !important;
+            color: #666 !important;
+            transition: all 0.15s ease !important;
+        }
+        .sp-profile-tabs-wrapper .dxtc-tab:hover {
+            background: #e9ecef !important;
+            color: #333 !important;
+        }
+        .sp-profile-tabs-wrapper .dxtc-activeTab {
+            background: #fff !important;
+            color: #174DA4 !important;
+            font-weight: 600 !important;
+            border-color: #e0e0e0 !important;
+            border-bottom-color: #fff !important;
+            margin-bottom: -1px !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        .sp-profile-tabs-wrapper .dxtc-spacer {
+            display: none !important;
+        }
+        .sp-profile-tabs-wrapper .dxtc-tabRow {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .sp-profile-tabs-wrapper .dxtc-strip {
+            height: auto !important;
+            min-height: 26px !important;
         }
         
-        /* Profile Header Section */
+        .sp-tab-content {
+            padding: 12px;
+        }
+        
+        /* Profile Header Section - Compact */
         .sp-profile-header {
             display: flex;
-            gap: 20px;
-            padding: 16px;
+            gap: 12px;
+            padding: 10px 12px;
             background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
             border-bottom: 1px solid #e0e0e0;
         }
@@ -163,16 +208,16 @@
             text-align: center;
         }
         .sp-profile-photo {
-            width: 100px;
-            height: 120px;
+            width: 70px;
+            height: 85px;
             object-fit: cover;
             border: 2px solid #174DA4;
             background: #f5f5f5;
         }
         .sp-profile-signature {
-            width: 80px;
-            height: 30px;
-            margin-top: 6px;
+            width: 60px;
+            height: 22px;
+            margin-top: 4px;
             border: 1px solid #ddd;
             background: #fff;
         }
@@ -181,86 +226,87 @@
             min-width: 0;
         }
         .sp-profile-name {
-            font-size: 20px;
+            font-size: 15px;
             font-weight: 700;
             color: #333;
-            margin: 0 0 2px 0;
+            margin: 0 0 1px 0;
             line-height: 1.2;
         }
         .sp-profile-regno {
-            font-size: 14px;
+            font-size: 12px;
             color: #174DA4;
             font-weight: 600;
-            margin-bottom: 8px;
-        }
-        .sp-profile-programme {
-            font-size: 12px;
-            color: #555;
             margin-bottom: 4px;
         }
-        .sp-profile-specialisation {
+        .sp-profile-programme {
             font-size: 11px;
+            color: #555;
+            margin-bottom: 2px;
+        }
+        .sp-profile-specialisation {
+            font-size: 10px;
             color: #777;
         }
         .sp-profile-quick-stats {
             display: flex;
-            gap: 16px;
-            margin-top: 12px;
+            gap: 8px;
+            margin-top: 6px;
             flex-wrap: wrap;
         }
         .sp-quick-stat {
             display: flex;
             flex-direction: column;
-            padding: 6px 12px;
+            padding: 3px 8px;
             background: #fff;
             border: 1px solid #e0e0e0;
+            border-radius: 3px;
         }
         .sp-quick-stat__label {
-            font-size: 9px;
+            font-size: 8px;
             color: #888;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
         }
         .sp-quick-stat__value {
-            font-size: 12px;
+            font-size: 10px;
             font-weight: 600;
             color: #333;
         }
         
         /* Bio Data Section */
         .sp-bio-section {
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
         .sp-bio-section:last-child {
             margin-bottom: 0;
         }
         .sp-bio-section__title {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             color: #174DA4;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
-            padding-bottom: 4px;
+            letter-spacing: 0.3px;
+            margin-bottom: 6px;
+            padding-bottom: 3px;
             border-bottom: 1px solid #e0e0e0;
         }
         .sp-bio-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
+            gap: 6px 10px;
         }
         .sp-bio-field {
             display: flex;
             flex-direction: column;
         }
         .sp-bio-field__label {
-            font-size: 9px;
+            font-size: 8px;
             color: #888;
             text-transform: uppercase;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
         .sp-bio-field__value {
-            font-size: 12px;
+            font-size: 11px;
             color: #333;
             font-weight: 500;
         }
@@ -269,16 +315,16 @@
         .sp-data-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
+            font-size: 10px;
         }
         .sp-data-table th {
             background: #f5f5f5;
-            padding: 6px 8px;
+            padding: 4px 6px;
             text-align: left;
             font-weight: 600;
             color: #555;
             border-bottom: 1px solid #ddd;
-            font-size: 10px;
+            font-size: 9px;
             text-transform: uppercase;
         }
         .sp-data-table td {
@@ -362,6 +408,331 @@
             flex-shrink: 0;
         }
         
+        /* Curriculum Tab Styles */
+        .sp-curriculum-header {
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: linear-gradient(135deg, #f0f7ff 0%, #e6f0fa 100%);
+            border-bottom: 1px solid #dce8f4;
+            align-items: stretch;
+            flex-wrap: wrap;
+        }
+        .sp-curriculum-info-card {
+            flex: 1;
+            min-width: 140px;
+            padding: 6px 8px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+        }
+        .sp-curriculum-info-card__label {
+            font-size: 8px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
+        }
+        .sp-curriculum-info-card__value {
+            font-size: 11px;
+            font-weight: 600;
+            color: #174DA4;
+        }
+        .sp-curriculum-info-card__sub {
+            font-size: 9px;
+            color: #888;
+            margin-top: 1px;
+        }
+        .sp-curriculum-stats {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            align-items: stretch;
+        }
+        .sp-curriculum-stat {
+            padding: 4px 8px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+            text-align: center;
+            min-width: 50px;
+        }
+        .sp-curriculum-stat__value {
+            font-size: 13px;
+            font-weight: 700;
+            color: #174DA4;
+            line-height: 1.2;
+        }
+        .sp-curriculum-stat__label {
+            font-size: 8px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        .sp-curriculum-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 8px;
+            padding: 8px;
+        }
+        .sp-curriculum-year {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .sp-curriculum-year__header {
+            padding: 5px 8px;
+            background: #174DA4;
+            color: #fff;
+            font-weight: 600;
+            font-size: 10px;
+        }
+        .sp-curriculum-semester {
+            border-bottom: 1px solid #eee;
+        }
+        .sp-curriculum-semester:last-child {
+            border-bottom: none;
+        }
+        .sp-curriculum-semester__header {
+            padding: 4px 8px;
+            background: #f5f5f5;
+            font-weight: 600;
+            font-size: 10px;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+        }
+        .sp-curriculum-semester__credits {
+            color: #174DA4;
+        }
+        .sp-curriculum-course {
+            display: flex;
+            padding: 3px 8px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 10px;
+            align-items: center;
+        }
+        .sp-curriculum-course:last-child {
+            border-bottom: none;
+        }
+        .sp-curriculum-course:hover {
+            background: #fafafa;
+        }
+        .sp-curriculum-course__code {
+            font-weight: 600;
+            color: #174DA4;
+            min-width: 90px;
+        }
+        .sp-curriculum-course__name {
+            flex: 1;
+            color: #333;
+        }
+        .sp-curriculum-course__credits {
+            min-width: 50px;
+            text-align: center;
+            color: #666;
+        }
+        .sp-curriculum-course__type {
+            min-width: 60px;
+            text-align: center;
+        }
+        .sp-curriculum-course__type--core {
+            color: #28a745;
+            font-weight: 500;
+        }
+        .sp-curriculum-course__type--elective {
+            color: #fd7e14;
+            font-weight: 500;
+        }
+        .sp-curriculum-empty {
+            padding: 8px 12px;
+            color: #999;
+            font-style: italic;
+            font-size: 10px;
+        }
+        .sp-curriculum-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .sp-curriculum-badge--default {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .sp-curriculum-badge--assigned {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        /* Validation Tab Styles */
+        .sp-validation-header {
+            display: flex;
+            gap: 10px;
+            padding: 8px 10px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid #dee2e6;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .sp-validation-summary {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .sp-validation-stat {
+            padding: 4px 10px;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 3px;
+            text-align: center;
+            min-width: 70px;
+        }
+        .sp-validation-stat__value {
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .sp-validation-stat__value--pass { color: #28a745; }
+        .sp-validation-stat__value--fail { color: #dc3545; }
+        .sp-validation-stat__value--pending { color: #ffc107; }
+        .sp-validation-stat__label {
+            font-size: 8px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        .sp-validation-overall {
+            margin-left: auto;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .sp-validation-overall--pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .sp-validation-overall--fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .sp-validation-overall--pending {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .sp-validation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 8px;
+            padding: 8px;
+        }
+        .sp-validation-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .sp-validation-card:hover {
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .sp-validation-card--pass {
+            border-left: 3px solid #28a745;
+        }
+        .sp-validation-card--fail {
+            border-left: 3px solid #dc3545;
+        }
+        .sp-validation-card--pending {
+            border-left: 3px solid #ffc107;
+        }
+        .sp-validation-card__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+        .sp-validation-card__title {
+            font-weight: 600;
+            font-size: 11px;
+            color: #333;
+        }
+        .sp-validation-card__status {
+            font-size: 9px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            text-transform: uppercase;
+        }
+        .sp-validation-card__status--pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        .sp-validation-card__status--fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .sp-validation-card__status--pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .sp-validation-card__body {
+            padding: 8px 10px;
+        }
+        .sp-validation-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            padding: 3px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .sp-validation-row:last-child {
+            border-bottom: none;
+        }
+        .sp-validation-row__label {
+            color: #666;
+        }
+        .sp-validation-row__value {
+            font-weight: 600;
+            color: #333;
+        }
+        .sp-validation-row__value--pass { color: #28a745; }
+        .sp-validation-row__value--fail { color: #dc3545; }
+        .sp-validation-row__value--warning { color: #ffc107; }
+        .sp-validation-progress {
+            margin-top: 6px;
+            height: 4px;
+            background: #e9ecef;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .sp-validation-progress__bar {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .sp-validation-progress__bar--pass { background: #28a745; }
+        .sp-validation-progress__bar--fail { background: #dc3545; }
+        .sp-validation-progress__bar--partial { background: #ffc107; }
+        .sp-validation-empty {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+            font-size: 11px;
+        }
+        .sp-validation-empty svg {
+            width: 36px;
+            height: 36px;
+            margin-bottom: 8px;
+            opacity: 0.4;
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
             .sp-profile-header {
@@ -400,6 +771,14 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>
                         Change Students Status
                     </a>
+                    <a href="javascript:void(0);" class="cd-batch-menu__item" onclick="openBatchValidationModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        Validate Student Results
+                    </a>
+                    <a href="javascript:void(0);" class="cd-batch-menu__item" onclick="openSummaryReportModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        Export Summary Report
+                    </a>
                     <a href="javascript:void(0);" class="cd-batch-menu__item" onclick="openBatchPromotionModal()">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
                         Promote Students
@@ -430,9 +809,14 @@
             <asp:DropDownList ID="ddlFilterFaculty" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterFaculty_SelectedIndexChanged">
                 <asp:ListItem Value="" Text="-- All Faculties --"></asp:ListItem>
             </asp:DropDownList>
-            <asp:DropDownList ID="ddlFilterProgramme" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterProgramme_SelectedIndexChanged">
-                <asp:ListItem Value="" Text="-- All Programmes --"></asp:ListItem>
-            </asp:DropDownList>
+            <dx:ASPxComboBox ID="ddlFilterProgramme" runat="server" 
+                ValueType="System.String" TextField="progname" ValueField="progcode"
+                IncrementalFilteringMode="Contains" EnableCallbackMode="false"
+                DropDownStyle="DropDownList" Width="220px"
+                AutoPostBack="true" OnSelectedIndexChanged="ddlFilterProgramme_SelectedIndexChanged"
+                NullText="-- All Programmes --">
+                <ClearButton DisplayMode="Always" />
+            </dx:ASPxComboBox>
             <asp:DropDownList ID="ddlFilterEntryYear" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterEntryYear_SelectedIndexChanged">
                 <asp:ListItem Value="" Text="-- All Entry Years --"></asp:ListItem>
             </asp:DropDownList>
@@ -451,7 +835,7 @@
                     <Summary Text="Page {0} of {1} ({2} students)" />
                 </SettingsPager>
                 
-                <Settings ShowFilterRow="True" ShowFilterRowMenu="True" />
+                <Settings ShowFilterRow="True" ShowFilterRowMenu="True" HorizontalScrollBarMode="Auto" />
                 <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" />
                 <SettingsEditing Mode="PopupEditForm" />
                 <SettingsDataSecurity AllowDelete="False" />
@@ -575,8 +959,9 @@
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataComboBoxColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Phone" FieldName="studPhone" VisibleIndex="11" Width="95px">
+                    <dx:GridViewDataTextColumn Caption="Phone" FieldName="studPhone" VisibleIndex="11" Width="95px" Visible="False">
                         <HeaderStyle Font-Size="11px" />
+                        <EditFormSettings Visible="True" />
                     </dx:GridViewDataTextColumn>
                     
                     <dx:GridViewDataTextColumn Caption="Email" FieldName="email" VisibleIndex="12" Width="150px" Visible="False">
@@ -592,23 +977,57 @@
                         <HeaderStyle Font-Size="11px" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Programme" FieldName="progname" VisibleIndex="15" Visible="False" ReadOnly="True">
+                    <dx:GridViewDataTextColumn Caption="Specialisation" FieldName="spec_name" VisibleIndex="15" Width="100px" ReadOnly="True">
+                        <EditFormSettings Visible="False" />
+                        <HeaderStyle Font-Size="11px" />
+                    </dx:GridViewDataTextColumn>
+                    
+                    <%-- Validation Status Columns --%>
+                    <dx:GridViewDataTextColumn Caption="Passed" FieldName="has_passed" VisibleIndex="16" Width="60px" ReadOnly="True">
+                        <EditFormSettings Visible="False" />
+                        <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
+                        <CellStyle HorizontalAlign="Center" />
+                        <DataItemTemplate>
+                            <%# Eval("has_passed").ToString() == "Yes" 
+                                ? "<span style='color:#28a745;font-weight:bold;'>&#10004; Yes</span>" 
+                                : "<span style='color:#dc3545;'>&#10008; No</span>" %>
+                        </DataItemTemplate>
+                    </dx:GridViewDataTextColumn>
+                    
+                    <dx:GridViewDataTextColumn Caption="Curriculum Set" FieldName="is_curriculum_fully_set" VisibleIndex="17" Width="80px" ReadOnly="True">
+                        <EditFormSettings Visible="False" />
+                        <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
+                        <CellStyle HorizontalAlign="Center" />
+                        <DataItemTemplate>
+                            <%# Eval("is_curriculum_fully_set").ToString() == "Yes" 
+                                ? "<span style='color:#28a745;font-weight:bold;'>&#10004;</span>" 
+                                : "<span style='color:#dc3545;'>&#10008;</span>" %>
+                        </DataItemTemplate>
+                    </dx:GridViewDataTextColumn>
+                    
+                    <dx:GridViewDataTextColumn Caption="Fail Reason" FieldName="fail_reason" VisibleIndex="18" Width="150px" ReadOnly="True">
+                        <EditFormSettings Visible="False" />
+                        <HeaderStyle Font-Size="11px" />
+                        <CellStyle Font-Size="10px" />
+                    </dx:GridViewDataTextColumn>
+                    
+                    <dx:GridViewDataTextColumn Caption="Programme" FieldName="progname" VisibleIndex="50" Visible="False" ReadOnly="True">
                         <EditFormSettings Visible="False" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataComboBoxColumn Caption="Programme" FieldName="progid" VisibleIndex="16" Visible="False">
+                    <dx:GridViewDataComboBoxColumn Caption="Programme" FieldName="progid" VisibleIndex="51" Visible="False">
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataComboBoxColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Specialisation" FieldName="specialisation" VisibleIndex="17" Width="100px" Visible="False">
+                    <dx:GridViewDataTextColumn Caption="Specialisation" FieldName="specialisation" VisibleIndex="52" Width="100px" Visible="False">
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Entry Year" FieldName="entryyear" VisibleIndex="18" Visible="False">
+                    <dx:GridViewDataTextColumn Caption="Entry Year" FieldName="entryyear" VisibleIndex="53" Visible="False">
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataComboBoxColumn Caption="Intake" FieldName="intake" VisibleIndex="19" Width="80px" Visible="False">
+                    <dx:GridViewDataComboBoxColumn Caption="Intake" FieldName="intake" VisibleIndex="54" Width="80px" Visible="False">
                         <PropertiesComboBox>
                             <Items>
                                 <dx:ListEditItem Text="JANUARY" Value="JANUARY" />
@@ -628,22 +1047,22 @@
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataComboBoxColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Session" FieldName="studsesion" VisibleIndex="20" Width="55px">
+                    <dx:GridViewDataTextColumn Caption="Session" FieldName="studsesion" VisibleIndex="19" Width="55px">
                         <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
                         <CellStyle HorizontalAlign="Center" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Campus" FieldName="campus_name" VisibleIndex="21" Width="80px">
+                    <dx:GridViewDataTextColumn Caption="Campus" FieldName="campus_name" VisibleIndex="20" Width="80px">
                         <HeaderStyle Font-Size="11px" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Old Status" FieldName="stud_status" VisibleIndex="22" Width="70px" ReadOnly="True">
+                    <dx:GridViewDataTextColumn Caption="Old Status" FieldName="stud_status" VisibleIndex="21" Width="70px" ReadOnly="True">
                         <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
                         <CellStyle HorizontalAlign="Center" ForeColor="#999999" />
                         <EditFormSettings Visible="False" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataComboBoxColumn Caption="Status" FieldName="new_status" VisibleIndex="23" Width="75px">
+                    <dx:GridViewDataComboBoxColumn Caption="Status" FieldName="new_status" VisibleIndex="22" Width="75px">
                         <PropertiesComboBox>
                             <Items>
                                 <dx:ListEditItem Text="ADMITTED" Value="ADMITTED" />
@@ -728,7 +1147,7 @@
     <!-- Student Profile Modal (Server-loaded) -->
     <dx:ASPxPopupControl ID="popStudentProfile" runat="server" 
         ClientInstanceName="popStudentProfile"
-        Width="950px" Height="650px"
+        Width="950px" Height="780px"
         PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter"
         Modal="True" CloseAction="CloseButton"
         HeaderText="Student Profile" CssClass="sp-popup"
@@ -774,8 +1193,8 @@
                     <!-- Tabs (Wrapped for scrolling) -->
                     <div class="sp-profile-tabs-wrapper">
                         <dx:ASPxPageControl ID="tabStudentProfile" runat="server" ActiveTabIndex="0" Width="100%" EnableTabScrolling="True">
-                            <TabStyle Font-Size="11px" Paddings-PaddingLeft="12px" Paddings-PaddingRight="12px" Paddings-PaddingTop="6px" Paddings-PaddingBottom="6px" />
-                            <ActiveTabStyle BackColor="#fff" ForeColor="#174DA4" />
+                            <TabStyle Font-Size="10px" Paddings-PaddingLeft="8px" Paddings-PaddingRight="8px" Paddings-PaddingTop="4px" Paddings-PaddingBottom="4px" />
+                            <ActiveTabStyle BackColor="#fff" ForeColor="#174DA4" Font-Bold="true" />
                             <TabPages>
                                 <dx:TabPage Text="Bio Data">
                                     <ContentCollection>
@@ -882,6 +1301,57 @@
                                     </dx:ContentControl>
                                 </ContentCollection>
                             </dx:TabPage>
+                                
+                                <dx:TabPage Text="Curriculum">
+                                    <ContentCollection>
+                                        <dx:ContentControl runat="server">
+                                            <div class="sp-tab-content" style="padding: 0;">
+                                                <div class="sp-curriculum-header">
+                                                    <div class="sp-curriculum-info-card">
+                                                        <div class="sp-curriculum-info-card__label">Programme</div>
+                                                        <div class="sp-curriculum-info-card__value"><asp:Literal ID="litCurrProgramme" runat="server" /></div>
+                                                        <div class="sp-curriculum-info-card__sub"><asp:Literal ID="litCurrProgCode" runat="server" /></div>
+                                                    </div>
+                                                    <div class="sp-curriculum-info-card">
+                                                        <div class="sp-curriculum-info-card__label">Specialisation</div>
+                                                        <div class="sp-curriculum-info-card__value">
+                                                            <asp:Literal ID="litCurrSpecialisation" runat="server" />
+                                                            <asp:Literal ID="litCurrSpecBadge" runat="server" />
+                                                        </div>
+                                                        <div class="sp-curriculum-info-card__sub"><asp:Literal ID="litCurrSpecNote" runat="server" /></div>
+                                                    </div>
+                                                    <div class="sp-curriculum-stats">
+                                                        <div class="sp-curriculum-stat">
+                                                            <div class="sp-curriculum-stat__value"><asp:Literal ID="litCurrTotalCourses" runat="server">0</asp:Literal></div>
+                                                            <div class="sp-curriculum-stat__label">Courses</div>
+                                                        </div>
+                                                        <div class="sp-curriculum-stat">
+                                                            <div class="sp-curriculum-stat__value"><asp:Literal ID="litCurrTotalCredits" runat="server">0</asp:Literal></div>
+                                                            <div class="sp-curriculum-stat__label">Credits</div>
+                                                        </div>
+                                                        <div class="sp-curriculum-stat">
+                                                            <div class="sp-curriculum-stat__value"><asp:Literal ID="litCurrCoreCourses" runat="server">0</asp:Literal></div>
+                                                            <div class="sp-curriculum-stat__label">Core</div>
+                                                        </div>
+                                                        <div class="sp-curriculum-stat">
+                                                            <div class="sp-curriculum-stat__value"><asp:Literal ID="litCurrElectives" runat="server">0</asp:Literal></div>
+                                                            <div class="sp-curriculum-stat__label">Elective</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="sp-curriculum-grid">
+                                                    <asp:Literal ID="litCurriculumContent" runat="server" />
+                                                </div>
+                                                
+                                                <asp:Panel ID="pnlNoCurriculum" runat="server" Visible="false" CssClass="sp-empty">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                                    <div>No curriculum defined for this specialisation</div>
+                                                </asp:Panel>
+                                            </div>
+                                        </dx:ContentControl>
+                                    </ContentCollection>
+                                </dx:TabPage>
                             
                             <dx:TabPage Text="Academic Results">
                                 <ContentCollection>
@@ -950,6 +1420,57 @@
                                     </dx:ContentControl>
                                 </ContentCollection>
                             </dx:TabPage>
+                                
+                                <dx:TabPage Text="Validation">
+                                    <ContentCollection>
+                                        <dx:ContentControl runat="server">
+                                            <div class="sp-tab-content" style="padding: 0;">
+                                                <div class="sp-curriculum-header">
+                                                    <div class="sp-curriculum-info-card">
+                                                        <div class="sp-curriculum-info-card__label">Programme</div>
+                                                        <div class="sp-curriculum-info-card__value"><asp:Literal ID="litChkProgramme" runat="server" /></div>
+                                                        <div class="sp-curriculum-info-card__sub"><asp:Literal ID="litChkProgCode" runat="server" /></div>
+                                                    </div>
+                                                    <div class="sp-curriculum-info-card">
+                                                        <div class="sp-curriculum-info-card__label">Specialisation</div>
+                                                        <div class="sp-curriculum-info-card__value">
+                                                            <asp:Literal ID="litChkSpecialisation" runat="server" />
+                                                            <asp:Literal ID="litChkSpecBadge" runat="server" />
+                                                        </div>
+                                                        <div class="sp-curriculum-info-card__sub"><asp:Literal ID="litChkSpecNote" runat="server" /></div>
+                                                    </div>
+                                                    <div class="sp-curriculum-stats">
+                                                        <div class="sp-curriculum-stat">
+                                                            <div class="sp-curriculum-stat__value"><asp:Literal ID="litChkTotalCourses" runat="server">0</asp:Literal></div>
+                                                            <div class="sp-curriculum-stat__label">Courses</div>
+                                                        </div>
+                                                        <div class="sp-curriculum-stat">
+                                                            <div class="sp-curriculum-stat__value"><asp:Literal ID="litChkTotalCredits" runat="server">0</asp:Literal></div>
+                                                            <div class="sp-curriculum-stat__label">Credits</div>
+                                                        </div>
+                                                        <div class="sp-curriculum-stat">
+                                                            <div class="sp-curriculum-stat__value"><asp:Literal ID="litChkCoreCourses" runat="server">0</asp:Literal></div>
+                                                            <div class="sp-curriculum-stat__label">Core</div>
+                                                        </div>
+                                                        <div class="sp-curriculum-stat">
+                                                            <div class="sp-curriculum-stat__value"><asp:Literal ID="litChkElectives" runat="server">0</asp:Literal></div>
+                                                            <div class="sp-curriculum-stat__label">Elective</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="sp-curriculum-grid">
+                                                    <asp:Literal ID="litCheckerContent" runat="server" />
+                                                </div>
+                                                
+                                                <asp:Panel ID="pnlNoChecker" runat="server" Visible="false" CssClass="sp-empty">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                                    <div>No curriculum defined for this specialisation</div>
+                                                </asp:Panel>
+                                            </div>
+                                        </dx:ContentControl>
+                                    </ContentCollection>
+                                </dx:TabPage>
                             
                             <dx:TabPage Text="Faculty Registration">
                                 <ContentCollection>
@@ -1450,6 +1971,474 @@
             xhr.send(JSON.stringify(params));
         }
         
+        // ========== BATCH VALIDATION FUNCTIONS ==========
+        
+        // Open batch validation modal
+        function openBatchValidationModal() {
+            document.getElementById('batchMenu').classList.remove('show');
+            document.getElementById('batchValidationModal').style.display = 'flex';
+            resetBatchValidationForm();
+        }
+        
+        // Close batch validation modal
+        function closeBatchValidationModal() {
+            document.getElementById('batchValidationModal').style.display = 'none';
+        }
+        
+        // Reset the batch validation form
+        function resetBatchValidationForm() {
+            document.getElementById('<%= ddlValidationProgramme.ClientID %>').value = '';
+            document.getElementById('ddlValidationEntryYear').value = '';
+            document.getElementById('txtValidationEntryNumbers').value = '';
+            document.getElementById('validationPreviewSection').style.display = 'none';
+            document.getElementById('validationPreviewCount').innerText = '0';
+            document.getElementById('btnApplyBatchValidation').disabled = true;
+        }
+        
+        // Preview students to validate
+        function previewBatchValidation() {
+            var programme = document.getElementById('<%= ddlValidationProgramme.ClientID %>').value;
+            var entryYear = document.getElementById('ddlValidationEntryYear').value;
+            var entryNumbers = document.getElementById('txtValidationEntryNumbers').value.trim();
+            
+            // Show loading
+            document.getElementById('validationPreviewCount').innerText = 'Loading...';
+            document.getElementById('validationPreviewSection').style.display = 'block';
+            
+            // Build query string
+            var queryParams = '?action=PreviewBatchValidation';
+            if (entryNumbers) {
+                // If entry numbers specified, use them (ignore other filters)
+                queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
+            } else {
+                if (programme) queryParams += '&programme=' + encodeURIComponent(programme);
+                if (entryYear) queryParams += '&entryYear=' + encodeURIComponent(entryYear);
+            }
+            
+            // Make AJAX call to get preview count
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', window.location.pathname + queryParams, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        var response = JSON.parse(xhr.responseText);
+                        document.getElementById('validationPreviewCount').innerText = response.count;
+                        document.getElementById('btnApplyBatchValidation').disabled = (response.count === 0);
+                        if (response.error) {
+                            alert('Error: ' + response.error);
+                        }
+                    } else {
+                        document.getElementById('validationPreviewCount').innerText = 'Error';
+                    }
+                }
+            };
+            xhr.send();
+        }
+        
+        // Apply batch validation
+        function applyBatchValidation() {
+            var programme = document.getElementById('<%= ddlValidationProgramme.ClientID %>').value;
+            var entryYear = document.getElementById('ddlValidationEntryYear').value;
+            var entryNumbers = document.getElementById('txtValidationEntryNumbers').value.trim();
+            var count = document.getElementById('validationPreviewCount').innerText;
+            
+            var filterDesc = '';
+            if (entryNumbers) {
+                filterDesc = ' (specific entry numbers)';
+            } else if (programme || entryYear) {
+                filterDesc = ' (filtered';
+                if (programme) filterDesc += ' by programme';
+                if (entryYear) filterDesc += (programme ? ' and' : '') + ' by entry year ' + entryYear;
+                filterDesc += ')';
+            }
+            
+            if (!confirm('Are you sure you want to validate ' + count + ' students' + filterDesc + '?\n\nThis will update their has_passed, is_curriculum_fully_set, and fail_reason fields based on their curriculum.')) {
+                return;
+            }
+            
+            var params = {
+                programme: entryNumbers ? '' : programme,
+                entryYear: entryNumbers ? '' : entryYear,
+                entryNumbers: entryNumbers
+            };
+            
+            // Show loading
+            document.getElementById('btnApplyBatchValidation').disabled = true;
+            document.getElementById('btnApplyBatchValidation').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"></circle><path d="M14.31 8l5.74 9.94"></path></svg> Validating...';
+            
+            // Make AJAX call to apply validation
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', window.location.pathname + '?action=ApplyBatchValidation', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    document.getElementById('btnApplyBatchValidation').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Validate Students';
+                    if (xhr.status === 200) {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.success) {
+                            alert('Successfully validated ' + response.validated + ' students.\n\nThe grid will now refresh to show updated validation results.');
+                            closeBatchValidationModal();
+                            // Refresh the grid
+                            window.location.reload();
+                        } else {
+                            alert('Error: ' + response.message);
+                            document.getElementById('btnApplyBatchValidation').disabled = false;
+                        }
+                    } else {
+                        alert('An error occurred. Please try again.');
+                        document.getElementById('btnApplyBatchValidation').disabled = false;
+                    }
+                }
+            };
+            xhr.send(JSON.stringify(params));
+        }
+        
+        // ========== SUMMARY REPORT EXPORT FUNCTIONS ==========
+        
+        // Programme list for searchable dropdown
+        var programmeList = [];
+        
+        // Initialize programme list from dropdown
+        function initProgrammeList() {
+            programmeList = [];
+            var ddl = document.getElementById('<%= ddlReportProgramme.ClientID %>');
+            for (var i = 0; i < ddl.options.length; i++) {
+                if (ddl.options[i].value) {
+                    programmeList.push({ value: ddl.options[i].value, text: ddl.options[i].text });
+                }
+            }
+        }
+        
+        // Show programme dropdown
+        function showProgrammeDropdown() {
+            if (programmeList.length === 0) initProgrammeList();
+            var container = document.getElementById('programmeDropdownList');
+            renderProgrammeList('');
+            container.style.display = 'block';
+        }
+        
+        // Hide programme dropdown
+        function hideProgrammeDropdown() {
+            setTimeout(function() {
+                document.getElementById('programmeDropdownList').style.display = 'none';
+            }, 200);
+        }
+        
+        // Filter programme dropdown
+        function filterProgrammeDropdown(searchText) {
+            if (programmeList.length === 0) initProgrammeList();
+            renderProgrammeList(searchText.toLowerCase());
+            document.getElementById('programmeDropdownList').style.display = 'block';
+        }
+        
+        // Render filtered programme list
+        function renderProgrammeList(filter) {
+            var container = document.getElementById('programmeDropdownList');
+            var html = '';
+            var filtered = programmeList.filter(function(p) {
+                return !filter || p.text.toLowerCase().indexOf(filter) > -1 || p.value.toLowerCase().indexOf(filter) > -1;
+            });
+            
+            if (filtered.length === 0) {
+                html = '<div style="padding:8px 12px; color:#888; font-size:11px;">No programmes found</div>';
+            } else {
+                filtered.forEach(function(p) {
+                    html += '<div class="prog-item" style="padding:8px 12px; cursor:pointer; font-size:11px; border-bottom:1px solid #eee;" '
+                         + 'onmouseover="this.style.backgroundColor=\'#f0f7ff\'" '
+                         + 'onmouseout="this.style.backgroundColor=\'#fff\'" '
+                         + 'onclick="selectProgramme(\'' + p.value.replace(/'/g, "\\'") + '\', \'' + p.text.replace(/'/g, "\\'") + '\')">' 
+                         + p.text + '</div>';
+                });
+            }
+            container.innerHTML = html;
+        }
+        
+        // Select a programme
+        function selectProgramme(value, text) {
+            document.getElementById('txtSearchProgramme').value = text;
+            document.getElementById('hdnSelectedProgramme').value = value;
+            document.getElementById('<%= ddlReportProgramme.ClientID %>').value = value;
+            document.getElementById('programmeDropdownList').style.display = 'none';
+        }
+        
+        // ========== ENTRY YEAR SEARCHABLE DROPDOWN ==========
+        var entryYearList = [];
+        
+        // Initialize entry year list
+        function initEntryYearList() {
+            entryYearList = [];
+            var currentYear = new Date().getFullYear();
+            for (var year = currentYear; year >= 2000; year--) {
+                entryYearList.push({ value: year.toString(), text: year.toString() });
+            }
+        }
+        
+        // Show entry year dropdown
+        function showEntryYearDropdown() {
+            if (entryYearList.length === 0) initEntryYearList();
+            var container = document.getElementById('entryYearDropdownList');
+            renderEntryYearList('');
+            container.style.display = 'block';
+        }
+        
+        // Hide entry year dropdown
+        function hideEntryYearDropdown() {
+            setTimeout(function() {
+                document.getElementById('entryYearDropdownList').style.display = 'none';
+            }, 200);
+        }
+        
+        // Filter entry year dropdown
+        function filterEntryYearDropdown(searchText) {
+            if (entryYearList.length === 0) initEntryYearList();
+            renderEntryYearList(searchText.toLowerCase());
+            document.getElementById('entryYearDropdownList').style.display = 'block';
+        }
+        
+        // Render filtered entry year list
+        function renderEntryYearList(filter) {
+            var container = document.getElementById('entryYearDropdownList');
+            var html = '';
+            var filtered = entryYearList.filter(function(y) {
+                return !filter || y.text.indexOf(filter) > -1;
+            });
+            
+            if (filtered.length === 0) {
+                html = '<div style="padding:8px 12px; color:#888; font-size:11px;">No years found</div>';
+            } else {
+                filtered.forEach(function(y) {
+                    html += '<div class="year-item" style="padding:8px 12px; cursor:pointer; font-size:11px; border-bottom:1px solid #eee;" '
+                         + 'onmouseover="this.style.backgroundColor=\'#f0f7ff\'" '
+                         + 'onmouseout="this.style.backgroundColor=\'#fff\'" '
+                         + 'onclick="selectEntryYear(\'' + y.value + '\', \'' + y.text + '\')">' 
+                         + y.text + '</div>';
+                });
+            }
+            container.innerHTML = html;
+        }
+        
+        // Select an entry year
+        function selectEntryYear(value, text) {
+            document.getElementById('txtSearchEntryYear').value = text;
+            document.getElementById('hdnSelectedEntryYear').value = value;
+            document.getElementById('entryYearDropdownList').style.display = 'none';
+        }
+        
+        // ========== END ENTRY YEAR SEARCHABLE DROPDOWN ==========
+        
+        // Open summary report modal
+        function openSummaryReportModal() {
+            document.getElementById('batchMenu').classList.remove('show');
+            document.getElementById('summaryReportModal').style.display = 'flex';
+            initProgrammeList();
+            initEntryYearList();
+            resetSummaryReportForm();
+        }
+        
+        // Close summary report modal
+        function closeSummaryReportModal() {
+            document.getElementById('summaryReportModal').style.display = 'none';
+        }
+        
+        // Reset the summary report form
+        function resetSummaryReportForm() {
+            document.getElementById('txtSearchProgramme').value = '';
+            document.getElementById('hdnSelectedProgramme').value = '';
+            document.getElementById('<%= ddlReportProgramme.ClientID %>').value = '';
+            document.getElementById('txtSearchEntryYear').value = '';
+            document.getElementById('hdnSelectedEntryYear').value = '';
+            document.getElementById('ddlReportStudyYear').value = '';
+            document.getElementById('ddlReportSemester').value = '';
+            document.getElementById('txtReportEntryNumbers').value = '';
+            document.getElementById('reportPreviewSection').style.display = 'none';
+            document.getElementById('reportPreviewCount').innerText = '0';
+            document.getElementById('btnExportSummaryReport').disabled = true;
+            document.getElementById('btnExportPerformanceReport').disabled = true;
+        }
+        
+        // Preview students for summary report
+        function previewSummaryReport() {
+            var programme = document.getElementById('hdnSelectedProgramme').value || document.getElementById('<%= ddlReportProgramme.ClientID %>').value;
+            var entryYear = document.getElementById('hdnSelectedEntryYear').value;
+            var studyYear = document.getElementById('ddlReportStudyYear').value;
+            var semester = document.getElementById('ddlReportSemester').value;
+            var entryNumbers = document.getElementById('txtReportEntryNumbers').value.trim();
+            
+            // Validate required fields
+            if (!programme) {
+                alert('Please select a Programme. This field is required.');
+                document.getElementById('txtSearchProgramme').focus();
+                return;
+            }
+            if (!entryYear) {
+                alert('Please select an Entry Year. This field is required.');
+                document.getElementById('txtSearchEntryYear').focus();
+                return;
+            }
+            if (!studyYear) {
+                alert('Please select a Year of Study. This field is required.');
+                document.getElementById('ddlReportStudyYear').focus();
+                return;
+            }
+            if (!semester) {
+                alert('Please select a Semester. This field is required.');
+                document.getElementById('ddlReportSemester').focus();
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('reportPreviewCount').innerText = 'Loading...';
+            document.getElementById('reportPreviewSection').style.display = 'block';
+            
+            // Build query string
+            var queryParams = '?action=PreviewSummaryReport';
+            queryParams += '&programme=' + encodeURIComponent(programme);
+            queryParams += '&entryYear=' + encodeURIComponent(entryYear);
+            queryParams += '&studyYear=' + encodeURIComponent(studyYear);
+            queryParams += '&semester=' + encodeURIComponent(semester);
+            if (entryNumbers) {
+                queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
+            }
+            
+            // Make AJAX call to get preview count
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', window.location.pathname + queryParams, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        var response = JSON.parse(xhr.responseText);
+                        document.getElementById('reportPreviewCount').innerText = response.count;
+                        document.getElementById('btnExportSummaryReport').disabled = (response.count === 0);
+                        document.getElementById('btnExportPerformanceReport').disabled = (response.count === 0);
+                        if (response.error) {
+                            alert('Error: ' + response.error);
+                        }
+                    } else {
+                        document.getElementById('reportPreviewCount').innerText = 'Error';
+                    }
+                }
+            };
+            xhr.send();
+        }
+        
+        // Export summary report to PDF
+        function exportSummaryReport() {
+            var programme = document.getElementById('hdnSelectedProgramme').value || document.getElementById('<%= ddlReportProgramme.ClientID %>').value;
+            var entryYear = document.getElementById('hdnSelectedEntryYear').value;
+            var studyYear = document.getElementById('ddlReportStudyYear').value;
+            var semester = document.getElementById('ddlReportSemester').value;
+            var entryNumbers = document.getElementById('txtReportEntryNumbers').value.trim();
+            var count = document.getElementById('reportPreviewCount').innerText;
+            
+            // Validate required fields
+            if (!programme) {
+                alert('Please select a Programme. This field is required.');
+                return;
+            }
+            if (!entryYear) {
+                alert('Please select an Entry Year. This field is required.');
+                return;
+            }
+            if (!studyYear) {
+                alert('Please select a Year of Study. This field is required.');
+                return;
+            }
+            if (!semester) {
+                alert('Please select a Semester. This field is required.');
+                return;
+            }
+            
+            if (count === '0' || count === 'Loading...' || count === 'Error') {
+                alert('Please preview students first before exporting.');
+                return;
+            }
+            
+            // Show loading state on button
+            var btn = document.getElementById('btnExportSummaryReport');
+            var originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"></circle></svg> Generating PDF...';
+            
+            // Build query string for PDF generation
+            var queryParams = '?action=ExportSummaryReport';
+            queryParams += '&programme=' + encodeURIComponent(programme);
+            queryParams += '&entryYear=' + encodeURIComponent(entryYear);
+            queryParams += '&studyYear=' + encodeURIComponent(studyYear);
+            queryParams += '&semester=' + encodeURIComponent(semester);
+            if (entryNumbers) {
+                queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
+            }
+            
+            // Open PDF in new window for download
+            window.open(window.location.pathname + queryParams, '_blank');
+            
+            // Reset button after a short delay
+            setTimeout(function() {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 2000);
+        }
+        
+        // Export Performance Summary Report (CGPA-based categorization)
+        function exportPerformanceReport() {
+            var programme = document.getElementById('hdnSelectedProgramme').value || document.getElementById('<%= ddlReportProgramme.ClientID %>').value;
+            var entryYear = document.getElementById('hdnSelectedEntryYear').value;
+            var studyYear = document.getElementById('ddlReportStudyYear').value;
+            var semester = document.getElementById('ddlReportSemester').value;
+            var entryNumbers = document.getElementById('txtReportEntryNumbers').value.trim();
+            var count = document.getElementById('reportPreviewCount').innerText;
+            
+            // Validate required fields
+            if (!programme) {
+                alert('Please select a Programme. This field is required.');
+                return;
+            }
+            if (!entryYear) {
+                alert('Please select an Entry Year. This field is required.');
+                return;
+            }
+            if (!studyYear) {
+                alert('Please select a Year of Study. This field is required.');
+                return;
+            }
+            if (!semester) {
+                alert('Please select a Semester. This field is required.');
+                return;
+            }
+            
+            if (count === '0' || count === 'Loading...' || count === 'Error') {
+                alert('Please preview students first before exporting.');
+                return;
+            }
+            
+            // Show loading state on button
+            var btn = document.getElementById('btnExportPerformanceReport');
+            var originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"></circle></svg> Generating...';
+            
+            // Build query string for Performance Report PDF generation
+            var queryParams = '?action=ExportPerformanceReport';
+            queryParams += '&programme=' + encodeURIComponent(programme);
+            queryParams += '&entryYear=' + encodeURIComponent(entryYear);
+            queryParams += '&studyYear=' + encodeURIComponent(studyYear);
+            queryParams += '&semester=' + encodeURIComponent(semester);
+            if (entryNumbers) {
+                queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
+            }
+            
+            // Open PDF in new window for download
+            window.open(window.location.pathname + queryParams, '_blank');
+            
+            // Reset button after a short delay
+            setTimeout(function() {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 2000);
+        }
+        
+        // ========== END SUMMARY REPORT FUNCTIONS ==========
+        
         // Placeholder functions for other batch operations
         function openBatchPromotionModal() {
             document.getElementById('batchMenu').classList.remove('show');
@@ -1606,6 +2595,205 @@
                 <button type="button" id="btnApplyBatchStatus" class="cd-btn cd-btn--primary" onclick="applyBatchStatusChange()" disabled>
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     Apply Changes
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========== BATCH VALIDATION MODAL ========== -->
+    <!-- Modal for validating student results against their curriculum in bulk -->
+    <div id="batchValidationModal" class="cd-modal-overlay">
+        <div class="cd-modal">
+            <div class="cd-modal__header">
+                <h3 class="cd-modal__title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    Validate Student Results
+                </h3>
+                <button type="button" class="cd-modal__close" onclick="closeBatchValidationModal()">&times;</button>
+            </div>
+            <div class="cd-modal__body">
+                <p style="margin-bottom: 12px; color: #666; font-size: 11px;">
+                    Validate students' results against their curriculum. This will check if each student has passed all required courses per semester and update their validation status.
+                </p>
+                
+                <!-- Filter: Programme -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Filter by Programme (Optional)</label>
+                    <asp:DropDownList ID="ddlValidationProgramme" runat="server" CssClass="cd-form-select">
+                        <asp:ListItem Value="" Text="-- All Programmes --"></asp:ListItem>
+                    </asp:DropDownList>
+                    <small style="color: #888; margin-top: 4px; display: block; font-size: 10px;">Leave blank to validate all students.</small>
+                </div>
+                
+                <!-- Filter: Entry Year -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Filter by Entry Year (Optional)</label>
+                    <select id="ddlValidationEntryYear" class="cd-form-select">
+                        <option value="">-- All Entry Years --</option>
+                        <% for (int year = DateTime.Now.Year; year >= 2000; year--) { %>
+                        <option value="<%= year %>"><%= year %></option>
+                        <% } %>
+                    </select>
+                    <small style="color: #888; margin-top: 4px; display: block; font-size: 10px;">Leave blank to validate all entry years.</small>
+                </div>
+                
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;" />
+                
+                <!-- Specific Entry Numbers -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Or Validate Specific Students by Entry Number</label>
+                    <textarea id="txtValidationEntryNumbers" class="cd-form-input" rows="3" placeholder="Enter entry numbers separated by commas, e.g.:
+24/U/BSCS/0001/K/DAY, 24/U/BSCS/0002/K/DAY" style="font-size: 11px; resize: vertical;"></textarea>
+                    <small style="color: #888; margin-top: 4px; display: block; font-size: 10px;">If entry numbers are provided, the programme and entry year filters above will be ignored.</small>
+                </div>
+                
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;" />
+                
+                <!-- Validation Info -->
+                <div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 4px; padding: 12px; margin-bottom: 16px;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 12px; color: #333; font-weight: 600;">What this validation does:</h4>
+                    <ul style="margin: 0; padding-left: 18px; font-size: 11px; color: #666; line-height: 1.6;">
+                        <li>Gets each student's curriculum (their specialisation or programme default)</li>
+                        <li>Checks if curriculum is marked as "fully set"</li>
+                        <li>Compares passed courses per semester against curriculum requirements</li>
+                        <li>Updates: <strong>has_passed</strong>, <strong>is_curriculum_fully_set</strong>, <strong>fail_reason</strong></li>
+                    </ul>
+                </div>
+                
+                <!-- Preview Button -->
+                <div class="cd-form-group" style="margin-top: 20px;">
+                    <button type="button" class="cd-btn cd-btn--secondary" onclick="previewBatchValidation()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        Preview Students to Validate
+                    </button>
+                </div>
+                
+                <!-- Preview Results -->
+                <div id="validationPreviewSection" class="cd-preview-box" style="display: none;">
+                    <div class="cd-preview-box__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    </div>
+                    <div class="cd-preview-box__content">
+                        <span class="cd-preview-box__count" id="validationPreviewCount">0</span>
+                        <span class="cd-preview-box__label">students will be validated</span>
+                    </div>
+                </div>
+            </div>
+            <div class="cd-modal__footer">
+                <button type="button" class="cd-btn cd-btn--outline" onclick="closeBatchValidationModal()">Cancel</button>
+                <button type="button" id="btnApplyBatchValidation" class="cd-btn cd-btn--primary" onclick="applyBatchValidation()" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Validate Students
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ========== SUMMARY REPORT EXPORT MODAL ========== -->
+    <!-- Modal for exporting student results/marksheets in PDF format -->
+    <div id="summaryReportModal" class="cd-modal-overlay">
+        <div class="cd-modal" style="max-width: 550px;">
+            <div class="cd-modal__header">
+                <h3 class="cd-modal__title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Export Summary Report
+                </h3>
+                <button type="button" class="cd-modal__close" onclick="closeSummaryReportModal()">&times;</button>
+            </div>
+            <div class="cd-modal__body">
+                <p style="margin-bottom: 12px; color: #666; font-size: 11px;">
+                    Export student results/marksheets as a PDF summary report. <span style="color: #c0392b;">* Required fields</span>
+                </p>
+                
+                <!-- Filter: Programme (Required) -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Filter by Programme <span style="color: #c0392b;">*</span></label>
+                    <div style="position: relative;">
+                        <input type="text" id="txtSearchProgramme" class="cd-form-input" placeholder="Type to search programme..." 
+                               onkeyup="filterProgrammeDropdown(this.value)" onclick="showProgrammeDropdown()" onblur="hideProgrammeDropdown()" autocomplete="off" />
+                        <asp:DropDownList ID="ddlReportProgramme" runat="server" CssClass="cd-form-select" style="display:none;">
+                            <asp:ListItem Value="" Text="-- Select Programme --"></asp:ListItem>
+                        </asp:DropDownList>
+                        <div id="programmeDropdownList" class="cd-searchable-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; border-radius:4px; z-index:1000; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                        </div>
+                    </div>
+                    <input type="hidden" id="hdnSelectedProgramme" value="" />
+                </div>
+                
+                <!-- Filter: Entry Year (Required) -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Entry Year <span style="color: #c0392b;">*</span></label>
+                    <div style="position: relative;">
+                        <input type="text" id="txtSearchEntryYear" class="cd-form-input" placeholder="Type to search entry year..." 
+                               onkeyup="filterEntryYearDropdown(this.value)" onclick="showEntryYearDropdown()" onblur="hideEntryYearDropdown()" autocomplete="off" />
+                        <div id="entryYearDropdownList" class="cd-searchable-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; border-radius:4px; z-index:1000; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                        </div>
+                    </div>
+                    <input type="hidden" id="hdnSelectedEntryYear" value="" />
+                </div>
+                
+                <!-- Filter: Year of Study (Required) -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Year of Study <span style="color: #c0392b;">*</span></label>
+                    <select id="ddlReportStudyYear" class="cd-form-select">
+                        <option value="">-- Select Year of Study --</option>
+                        <option value="1">Year 1</option>
+                        <option value="2">Year 2</option>
+                        <option value="3">Year 3</option>
+                        <option value="4">Year 4</option>
+                        <option value="5">Year 5</option>
+                    </select>
+                </div>
+                
+                <!-- Filter: Semester (Required) -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Semester <span style="color: #c0392b;">*</span></label>
+                    <select id="ddlReportSemester" class="cd-form-select">
+                        <option value="">-- Select Semester --</option>
+                        <option value="1">Semester 1</option>
+                        <option value="2">Semester 2</option>
+                        <option value="3">Semester 3</option>
+                    </select>
+                </div>
+                
+                <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;" />
+                
+                <!-- Specific Entry Numbers -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Or Export for Specific Students by Entry Number</label>
+                    <textarea id="txtReportEntryNumbers" class="cd-form-input" rows="3" placeholder="Enter entry numbers separated by commas, e.g.:
+24/U/BSCS/0001/K/DAY, 24/U/BSCS/0002/K/DAY" style="font-size: 11px; resize: vertical;"></textarea>
+                    <small style="color: #888; margin-top: 4px; display: block; font-size: 10px;">If entry numbers are provided, Programme and Entry Year are still required.</small>
+                </div>
+                
+                <!-- Preview Button -->
+                <div class="cd-form-group" style="margin-top: 20px;">
+                    <button type="button" class="cd-btn cd-btn--secondary" onclick="previewSummaryReport()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        Preview Students
+                    </button>
+                </div>
+                
+                <!-- Preview Results -->
+                <div id="reportPreviewSection" class="cd-preview-box" style="display: none;">
+                    <div class="cd-preview-box__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                    </div>
+                    <div class="cd-preview-box__content">
+                        <span class="cd-preview-box__count" id="reportPreviewCount">0</span>
+                        <span class="cd-preview-box__label">students will be included in the report</span>
+                    </div>
+                </div>
+            </div>
+            <div class="cd-modal__footer">
+                <button type="button" class="cd-btn cd-btn--outline" onclick="closeSummaryReportModal()">Cancel</button>
+                <button type="button" id="btnExportSummaryReport" class="cd-btn cd-btn--primary" onclick="exportSummaryReport()" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export Results
+                </button>
+                <button type="button" id="btnExportPerformanceReport" class="cd-btn cd-btn--success" onclick="exportPerformanceReport()" disabled style="background:#198754; border-color:#198754;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    Summary Report
                 </button>
             </div>
         </div>
