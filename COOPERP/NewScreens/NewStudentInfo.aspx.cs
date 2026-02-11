@@ -100,6 +100,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             }
         }
         
+        // Always reload programmes - ViewState is disabled so dropdowns lose items on postback
+        LoadBatchProgrammes();
+        
         if (!IsPostBack)
         {
             // Initialize status filter from query string
@@ -113,7 +116,6 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             }
             
             LoadFilters();
-            LoadBatchProgrammes(); // Load programmes for batch modal
             // Set default photo URL for JavaScript use
             hdnDefaultPhotoUrl.Value = ResolveUrl("~/COOPERP/StudentInfo/photos/default.png");
             
@@ -653,6 +655,15 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// <summary>
     /// Validates a single student's results against their curriculum.
     /// Updates has_passed, is_curriculum_fully_set, and fail_reason fields.
+    /// 
+    /// Relaxed validation rules:
+    /// 1. Only CORE courses count towards the required curriculum total (electives excluded).
+    /// 2. Semester 3 is always auto-passed (supplementary / short semester).
+    /// 3. Future year+semester slots where the student has ZERO results are skipped
+    ///    (student hasn't reached that point yet).
+    /// 4. If a student has 6 or more total results in a given year+semester,
+    ///    that slot is auto-passed regardless of the curriculum requirement.
+    /// 5. Curriculum is now compared per study_year + semester (not semester alone).
     /// </summary>
     private void ValidateSingleStudent(MySqlConnection conn, string regno, string progid, string specId)
     {
@@ -662,10 +673,15 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         try
         {
+            // Normalise specId: treat "-", "0", whitespace-only as empty (unassigned)
+            specId = (specId ?? "").Trim();
+            bool needDefault = string.IsNullOrEmpty(specId) || specId == "0" || specId == "-";
+            
             // Step 1: Get specialisation ID (student's own or default for programme)
-            if (string.IsNullOrEmpty(specId))
+            if (needDefault)
             {
-                // Get default specialisation for the programme
+                specId = "";
+                // Strategy 1: Find specialisation marked as default
                 string defaultSpecSql = @"SELECT spec_id FROM acad_specialisation 
                                           WHERE prog_id = @progid AND is_default = 'Yes' 
                                           LIMIT 1";
@@ -673,21 +689,49 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 {
                     cmd.Parameters.AddWithValue("@progid", progid);
                     object result = cmd.ExecuteScalar();
-                    specId = result != null ? result.ToString() : "";
+                    specId = result != null ? result.ToString().Trim() : "";
+                }
+                
+                // Strategy 2: Find specialisation named 'Default'
+                if (string.IsNullOrEmpty(specId))
+                {
+                    string namedDefaultSql = @"SELECT spec_id FROM acad_specialisation 
+                                              WHERE prog_id = @progid AND (spec = 'Default' OR spec LIKE '%Default%')
+                                              ORDER BY spec_id LIMIT 1";
+                    using (MySqlCommand cmd = new MySqlCommand(namedDefaultSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@progid", progid);
+                        object result = cmd.ExecuteScalar();
+                        specId = result != null ? result.ToString().Trim() : "";
+                    }
+                }
+                
+                // Strategy 3: Fall back to the first specialisation for this programme
+                if (string.IsNullOrEmpty(specId))
+                {
+                    string firstSpecSql = @"SELECT spec_id FROM acad_specialisation 
+                                            WHERE prog_id = @progid 
+                                            ORDER BY spec_id LIMIT 1";
+                    using (MySqlCommand cmd = new MySqlCommand(firstSpecSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@progid", progid);
+                        object result = cmd.ExecuteScalar();
+                        specId = result != null ? result.ToString().Trim() : "";
+                    }
                 }
             }
             
             // Step 2: Check if specialisation exists and is fully set
             if (!string.IsNullOrEmpty(specId))
             {
-                string checkSpecSql = @"SELECT is_fully_set FROM acad_specialisation WHERE spec_id = @specId";
+                string checkSpecSql = @"SELECT COALESCE(is_fully_set, 'No') AS is_fully_set FROM acad_specialisation WHERE spec_id = @specId";
                 using (MySqlCommand cmd = new MySqlCommand(checkSpecSql, conn))
                 {
                     cmd.Parameters.AddWithValue("@specId", specId);
                     object result = cmd.ExecuteScalar();
-                    if (result != null)
+                    if (result != null && result != DBNull.Value)
                     {
-                        isCurriculumFullySet = result.ToString() == "Yes" ? "Yes" : "No";
+                        isCurriculumFullySet = result.ToString().Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase) ? "Yes" : "No";
                     }
                 }
             }
@@ -702,15 +746,22 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             }
             else
             {
-                // Step 3: Validate results against curriculum per semester
-                // Get curriculum courses grouped by semester
-                string curriculumSql = @"SELECT semester, COUNT(*) as course_count 
+                // ============================================================
+                // Step 3: Get CORE curriculum courses grouped by study_year + semester
+                // Only CORE courses count towards the required total.
+                // ============================================================
+                string curriculumSql = @"SELECT study_year, semester, COUNT(*) as course_count 
                                          FROM acad_programmecourses 
                                          WHERE specialisation_id = @specId 
-                                         GROUP BY semester 
-                                         ORDER BY semester";
+                                           AND UPPER(TRIM(course_type)) = 'CORE'
+                                         GROUP BY study_year, semester 
+                                         ORDER BY study_year, semester";
                 
-                Dictionary<string, int> curriculumBySemester = new Dictionary<string, int>();
+                // Key = "Y{study_year}S{semester}", Value = required CORE course count
+                Dictionary<string, int> curriculumByYearSem = new Dictionary<string, int>();
+                // Also track the raw year and semester for each key
+                Dictionary<string, int[]> yearSemLookup = new Dictionary<string, int[]>();
+                
                 using (MySqlCommand cmd = new MySqlCommand(curriculumSql, conn))
                 {
                     cmd.Parameters.AddWithValue("@specId", specId);
@@ -718,56 +769,130 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     {
                         while (reader.Read())
                         {
-                            string sem = reader["semester"].ToString();
+                            int yr = Convert.ToInt32(reader["study_year"]);
+                            int sem = Convert.ToInt32(reader["semester"]);
+                            string key = "Y" + yr + "S" + sem;
                             int count = Convert.ToInt32(reader["course_count"]);
-                            curriculumBySemester[sem] = count;
+                            curriculumByYearSem[key] = count;
+                            yearSemLookup[key] = new int[] { yr, sem };
                         }
                     }
                 }
                 
-                // Get student results grouped by semester (passed courses only - grade not F)
-                string resultsSql = @"SELECT semester, COUNT(*) as result_count 
-                                      FROM acad_results 
-                                      WHERE regno = @regno AND grade IS NOT NULL AND grade != 'F'
-                                      GROUP BY semester";
+                // ============================================================
+                // Step 4: Get ALL student results grouped by studyyear + semester
+                //         (total count — includes F grades — for the 6+ auto-pass rule)
+                // ============================================================
+                string allResultsSql = @"SELECT studyyear, semester, COUNT(*) as total_count 
+                                         FROM acad_results 
+                                         WHERE TRIM(regno) = @regno 
+                                           AND grade IS NOT NULL
+                                         GROUP BY studyyear, semester";
                 
-                Dictionary<string, int> resultsBySemester = new Dictionary<string, int>();
-                using (MySqlCommand cmd = new MySqlCommand(resultsSql, conn))
+                Dictionary<string, int> totalResultsByYearSem = new Dictionary<string, int>();
+                using (MySqlCommand cmd = new MySqlCommand(allResultsSql, conn))
                 {
                     cmd.Parameters.AddWithValue("@regno", regno);
                     using (MySqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            string sem = reader["semester"].ToString();
-                            int count = Convert.ToInt32(reader["result_count"]);
-                            resultsBySemester[sem] = count;
+                            int yr = Convert.ToInt32(reader["studyyear"]);
+                            int sem = Convert.ToInt32(reader["semester"]);
+                            string key = "Y" + yr + "S" + sem;
+                            totalResultsByYearSem[key] = Convert.ToInt32(reader["total_count"]);
                         }
                     }
                 }
                 
-                // Compare curriculum vs results per semester
-                bool allSemestersPassed = true;
-                foreach (var kvp in curriculumBySemester)
+                // ============================================================
+                // Step 5: Get PASSED results grouped by studyyear + semester
+                //         (grade IS NOT NULL and grade != 'F')
+                // ============================================================
+                string passedResultsSql = @"SELECT studyyear, semester, COUNT(*) as result_count 
+                                            FROM acad_results 
+                                            WHERE TRIM(regno) = @regno 
+                                              AND grade IS NOT NULL 
+                                              AND UPPER(TRIM(grade)) != 'F'
+                                            GROUP BY studyyear, semester";
+                
+                Dictionary<string, int> passedResultsByYearSem = new Dictionary<string, int>();
+                using (MySqlCommand cmd = new MySqlCommand(passedResultsSql, conn))
                 {
-                    string semester = kvp.Key;
-                    int required = kvp.Value;
-                    int passed = resultsBySemester.ContainsKey(semester) ? resultsBySemester[semester] : 0;
-                    
-                    if (passed < required)
+                    cmd.Parameters.AddWithValue("@regno", regno);
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
                     {
-                        allSemestersPassed = false;
-                        failReasons.Add("Sem " + semester + ": " + passed + "/" + required + " courses passed");
+                        while (reader.Read())
+                        {
+                            int yr = Convert.ToInt32(reader["studyyear"]);
+                            int sem = Convert.ToInt32(reader["semester"]);
+                            string key = "Y" + yr + "S" + sem;
+                            passedResultsByYearSem[key] = Convert.ToInt32(reader["result_count"]);
+                        }
                     }
                 }
                 
-                if (allSemestersPassed && curriculumBySemester.Count > 0)
+                // ============================================================
+                // Step 6: Compare curriculum vs results per year+semester
+                //         with relaxed rules
+                // ============================================================
+                bool allSemestersPassed = true;
+                int validatedSlots = 0; // track how many slots were actually evaluated
+                
+                foreach (var kvp in curriculumByYearSem)
+                {
+                    string key = kvp.Key;
+                    int required = kvp.Value;
+                    int[] yrSem = yearSemLookup[key];
+                    int year = yrSem[0];
+                    int semester = yrSem[1];
+                    
+                    int totalResults = totalResultsByYearSem.ContainsKey(key) ? totalResultsByYearSem[key] : 0;
+                    int passedResults = passedResultsByYearSem.ContainsKey(key) ? passedResultsByYearSem[key] : 0;
+                    
+                    // Rule 1: Semester 3 is always auto-passed (skip validation entirely)
+                    if (semester == 3)
+                    {
+                        validatedSlots++;
+                        continue; // auto-pass
+                    }
+                    
+                    // Rule 2: Skip future slots where student has NO results at all
+                    //         (student hasn't reached this year+semester yet)
+                    if (totalResults == 0)
+                    {
+                        continue; // don't count, don't fail — future semester
+                    }
+                    
+                    validatedSlots++;
+                    
+                    // Rule 3: If student has 6 or more total results in this slot,
+                    //         auto-pass regardless of curriculum requirement
+                    if (totalResults >= 6)
+                    {
+                        continue; // auto-pass — heavy course load
+                    }
+                    
+                    // Rule 4: Normal comparison — passed results vs required CORE count
+                    if (passedResults < required)
+                    {
+                        allSemestersPassed = false;
+                        failReasons.Add("Y" + year + " Sem" + semester + ": " + passedResults + "/" + required + " core courses passed");
+                    }
+                }
+                
+                if (allSemestersPassed && validatedSlots > 0)
                 {
                     hasPassed = "Yes";
                 }
-                else if (curriculumBySemester.Count == 0)
+                else if (curriculumByYearSem.Count == 0)
                 {
-                    failReasons.Add("Curriculum has no courses defined");
+                    failReasons.Add("Curriculum has no CORE courses defined");
+                }
+                else if (validatedSlots == 0)
+                {
+                    // Student has no results in any curriculum slot yet
+                    failReasons.Add("No results found for any curriculum semester");
                 }
             }
         }
@@ -776,7 +901,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             failReasons.Add("Validation error: " + ex.Message);
         }
         
-        // Step 4: Update the student record
+        // Step 7: Update the student record
         string failReason = failReasons.Count > 0 ? string.Join("; ", failReasons) : null;
         
         string updateSql = @"UPDATE acad_student 
@@ -1217,14 +1342,14 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y += 8;
         
         // ========== COLUMN WIDTHS - FULL PAGE WIDTH (555) ==========
-        // Columns: #, ENTRY NO, STUDENT NAME, GENDER, CGPA, STATUS, REASON
+        // Columns: #, REG NO, STUDENT NAME, GENDER, CGPA, STATUS, REASON
         float numWidth = 22;
-        float entryNoWidth = 115;
-        float nameWidth = 160;
+        float regNoWidth = 130;
+        float nameWidth = 145;
         float genderWidth = 45;
         float cgpaWidth = 40;
         float statusWidth = 50;
-        float reasonWidth = pageWidth - numWidth - entryNoWidth - nameWidth - genderWidth - cgpaWidth - statusWidth; // = 123
+        float reasonWidth = pageWidth - numWidth - regNoWidth - nameWidth - genderWidth - cgpaWidth - statusWidth; // = 123
         float rowHeight = 20;
         
         // ========== DRAW EACH CATEGORY ==========
@@ -1234,7 +1359,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             "The following students obtained a CGPA between 4.40 and 5.00.",
             "No students meet the First Class criteria (CGPA 4.40 - 5.00)",
             vcListColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
-            numWidth, entryNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
+            numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 10;
         
@@ -1243,7 +1368,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             "The following students obtained a CGPA between 3.60 and 4.39.",
             "No students meet the Second Class Upper criteria (CGPA 3.60 - 4.39)",
             deansListColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
-            numWidth, entryNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
+            numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 10;
         
@@ -1252,7 +1377,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             "The following students obtained a CGPA between 2.80 and 3.59.",
             "No students in this category",
             secondLowerColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
-            numWidth, entryNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
+            numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 10;
         
@@ -1261,7 +1386,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             "The following students obtained a CGPA between 2.00 and 2.79.",
             "No students in this category",
             passColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
-            numWidth, entryNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
+            numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 15;
         
@@ -1347,7 +1472,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         System.Drawing.Color categoryColor, float y, float pageWidth,
         float rowHeight, System.Drawing.Font categoryFont, System.Drawing.Font headerFont, System.Drawing.Font cellFont,
         System.Drawing.Font normalFont, System.Drawing.Font italicFont,
-        float numWidth, float entryNoWidth, float nameWidth, float genderWidth, float cgpaWidth, float statusWidth, float reasonWidth,
+        float numWidth, float regNoWidth, float nameWidth, float genderWidth, float cgpaWidth, float statusWidth, float reasonWidth,
         System.Drawing.Color headerBg, System.Drawing.Color altRowColor, System.Drawing.Color borderColor)
     {
         // Category header: "1. VC'S LIST (FIRST CLASS) 0 STUDENTS"
@@ -1375,10 +1500,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         }
         else
         {
-            // Table header row - Columns: #, ENTRY NO, NAME, GENDER, CGPA, STATUS, REASON
+            // Table header row - Columns: #, REG NO, NAME, GENDER, CGPA, STATUS, REASON
             float x = 0;
             DrawTableHeaderCell(gr, "#", x, y, numWidth, rowHeight, headerFont, headerBg, borderColor); x += numWidth;
-            DrawTableHeaderCell(gr, "ENTRY NO", x, y, entryNoWidth, rowHeight, headerFont, headerBg, borderColor); x += entryNoWidth;
+            DrawTableHeaderCell(gr, "REG NO", x, y, regNoWidth, rowHeight, headerFont, headerBg, borderColor); x += regNoWidth;
             DrawTableHeaderCell(gr, "STUDENT NAME", x, y, nameWidth, rowHeight, headerFont, headerBg, borderColor); x += nameWidth;
             DrawTableHeaderCell(gr, "GENDER", x, y, genderWidth, rowHeight, headerFont, headerBg, borderColor); x += genderWidth;
             DrawTableHeaderCell(gr, "CGPA", x, y, cgpaWidth, rowHeight, headerFont, headerBg, borderColor); x += cgpaWidth;
@@ -1394,7 +1519,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 System.Drawing.Color rowBg = rowNum % 2 == 0 ? altRowColor : System.Drawing.Color.White;
                 
                 DrawTableDataCell(gr, rowNum.ToString(), x, y, numWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += numWidth;
-                DrawTableDataCell(gr, row["entryno"].ToString(), x, y, entryNoWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += entryNoWidth;
+                DrawTableDataCell(gr, row["regno"].ToString(), x, y, regNoWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += regNoWidth;
                 DrawTableDataCell(gr, row["student_name"].ToString(), x, y, nameWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += nameWidth;
                 DrawTableDataCell(gr, row["gender"].ToString(), x, y, genderWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += genderWidth;
                 
@@ -1489,7 +1614,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             s.progid,
                             p.progname,
                             s.specialisation AS spec_id,
-                            COALESCE(sp.spec, 'General') AS specialization,
+                            CASE WHEN sp.spec IS NULL OR TRIM(sp.spec) = '' OR TRIM(sp.spec) = '-' THEN 'General' ELSE TRIM(sp.spec) END AS specialization,
                             r.courseid,
                             c.courseName AS course_title,
                             r.semester AS result_semester,
@@ -1627,6 +1752,43 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     }
     
     /// <summary>
+    /// Normalizes a specialization name so that equivalent text variants group together.
+    /// Handles: case, separators (& → AND), whitespace, and parenthetical spacing.
+    /// IMPORTANT: Subject order is preserved — "GEOGRAPHY AND HISTORY" is a different
+    /// specialization from "HISTORY AND GEOGRAPHY" (first subject = primary/major).
+    /// </summary>
+    private string NormalizeSpecializationName(string name)
+    {
+        if (string.IsNullOrEmpty(name) || name.Trim().Length == 0)
+            return "GENERAL";
+        
+        string n = name.Trim().ToUpper();
+        
+        // Treat dash, "0", "GENERAL", or any single non-letter character as no-specialization
+        if (n == "GENERAL" || n == "-" || n == "0" || n == "N/A" || n == "NONE")
+            return "GENERAL";
+        
+        // Replace & with AND (the canonical separator)
+        n = n.Replace("&", " AND ");
+        
+        // Normalize spacing before parentheses: "RELIGION(" → "RELIGION ("
+        n = n.Replace("(", " (");
+        
+        // Collapse multiple spaces to single space
+        while (n.Contains("  "))
+            n = n.Replace("  ", " ");
+        
+        n = n.Trim();
+        
+        // Trim individual parts but do NOT reorder — subject order is significant
+        string[] parts = n.Split(new string[] { " AND " }, StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < parts.Length; i++)
+            parts[i] = parts[i].Trim();
+        
+        return string.Join(" AND ", parts);
+    }
+    
+    /// <summary>
     /// Gets curriculum validation info for a specialization, study year, and semester.
     /// Returns: spec_id, curriculum_course_count, is_fully_set, programme default spec_id if applicable
     /// </summary>
@@ -1652,14 +1814,19 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         try
         {
+            // Normalise specId: treat "-", "0", whitespace-only as empty (unassigned)
+            string cleanSpecId = (specId ?? "").Trim();
+            bool needDefault = string.IsNullOrEmpty(cleanSpecId) || cleanSpecId == "0" || cleanSpecId == "-";
+            
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
                 
-                // If no spec_id, get the default specialisation for the programme
-                if (string.IsNullOrEmpty(specId) || specId == "0")
+                if (needDefault)
                 {
-                    string defaultSpecSql = @"SELECT spec_id, spec, is_fully_set FROM acad_specialisation 
+                    // Strategy 1: Find specialisation marked as default
+                    string defaultSpecSql = @"SELECT spec_id, spec, COALESCE(is_fully_set, 'No') AS is_fully_set 
+                                              FROM acad_specialisation 
                                               WHERE prog_id = @progId AND is_default = 'Yes' 
                                               LIMIT 1";
                     using (MySqlCommand cmd = new MySqlCommand(defaultSpecSql, conn))
@@ -1669,34 +1836,86 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         {
                             if (reader.Read())
                             {
-                                info.SpecId = reader["spec_id"].ToString();
-                                info.SpecName = reader["spec"] != DBNull.Value ? reader["spec"].ToString() : "";
-                                info.IsFullySet = reader["is_fully_set"] != DBNull.Value && reader["is_fully_set"].ToString() == "Yes";
+                                info.SpecId = reader["spec_id"].ToString().Trim();
+                                info.SpecName = reader["spec"] != DBNull.Value ? reader["spec"].ToString().Trim() : "";
+                                info.IsFullySet = reader["is_fully_set"] != DBNull.Value 
+                                    && reader["is_fully_set"].ToString().Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase);
                                 info.IsDefault = true;
+                            }
+                        }
+                    }
+                    
+                    // Strategy 2: Find specialisation named 'Default'
+                    if (string.IsNullOrEmpty(info.SpecId) || info.SpecId == "0")
+                    {
+                        string namedDefaultSql = @"SELECT spec_id, spec, COALESCE(is_fully_set, 'No') AS is_fully_set 
+                                                   FROM acad_specialisation 
+                                                   WHERE prog_id = @progId AND (spec = 'Default' OR spec LIKE '%Default%')
+                                                   ORDER BY spec_id LIMIT 1";
+                        using (MySqlCommand cmd = new MySqlCommand(namedDefaultSql, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@progId", progId);
+                            using (MySqlDataReader reader = cmd.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    info.SpecId = reader["spec_id"].ToString().Trim();
+                                    info.SpecName = reader["spec"] != DBNull.Value ? reader["spec"].ToString().Trim() : "";
+                                    info.IsFullySet = reader["is_fully_set"] != DBNull.Value 
+                                        && reader["is_fully_set"].ToString().Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase);
+                                    info.IsDefault = true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Strategy 3: Fall back to the first specialisation for this programme
+                    if (string.IsNullOrEmpty(info.SpecId) || info.SpecId == "0")
+                    {
+                        string firstSpecSql = @"SELECT spec_id, spec, COALESCE(is_fully_set, 'No') AS is_fully_set 
+                                                FROM acad_specialisation 
+                                                WHERE prog_id = @progId 
+                                                ORDER BY spec_id LIMIT 1";
+                        using (MySqlCommand cmd = new MySqlCommand(firstSpecSql, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@progId", progId);
+                            using (MySqlDataReader reader = cmd.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    info.SpecId = reader["spec_id"].ToString().Trim();
+                                    info.SpecName = reader["spec"] != DBNull.Value ? reader["spec"].ToString().Trim() : "";
+                                    info.IsFullySet = reader["is_fully_set"] != DBNull.Value 
+                                        && reader["is_fully_set"].ToString().Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase);
+                                    info.IsDefault = true;
+                                }
                             }
                         }
                     }
                 }
                 else
                 {
-                    // Get spec info for the given spec_id
-                    string specSql = @"SELECT spec, is_fully_set FROM acad_specialisation WHERE spec_id = @specId";
+                    // Student has a valid spec_id — look it up directly
+                    string specSql = @"SELECT spec, COALESCE(is_fully_set, 'No') AS is_fully_set 
+                                       FROM acad_specialisation WHERE spec_id = @specId";
                     using (MySqlCommand cmd = new MySqlCommand(specSql, conn))
                     {
-                        cmd.Parameters.AddWithValue("@specId", specId);
+                        cmd.Parameters.AddWithValue("@specId", cleanSpecId);
                         using (MySqlDataReader reader = cmd.ExecuteReader())
                         {
                             if (reader.Read())
                             {
-                                info.SpecName = reader["spec"] != DBNull.Value ? reader["spec"].ToString() : "";
-                                info.IsFullySet = reader["is_fully_set"] != DBNull.Value && reader["is_fully_set"].ToString() == "Yes";
+                                info.SpecName = reader["spec"] != DBNull.Value ? reader["spec"].ToString().Trim() : "";
+                                info.IsFullySet = reader["is_fully_set"] != DBNull.Value 
+                                    && reader["is_fully_set"].ToString().Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase);
                             }
                         }
                     }
+                    info.SpecId = cleanSpecId;
                 }
                 
-                // Get curriculum course count for this spec, study_year, semester
-                if (!string.IsNullOrEmpty(info.SpecId))
+                // Get curriculum course count for this spec + study_year + semester
+                if (!string.IsNullOrEmpty(info.SpecId) && info.SpecId != "0")
                 {
                     string countSql = @"SELECT COUNT(*) FROM acad_programmecourses 
                                         WHERE specialisation_id = @specId 
@@ -1713,7 +1932,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("GetCurriculumInfo error: " + ex.Message);
+        }
         
         return info;
     }
@@ -1730,10 +1952,21 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         // Get logo path
         string logoPath = Server.MapPath("~/COOPERP/images/welcomelogo.png");
         
-        // Group data by specialization
+        // Group by spec_id (the database primary key) to ensure each specialization
+        // is displayed EXACTLY as it exists in acad_specialisation — no fabrication, no merging.
+        // Students with no specialization (null/0/-/empty) group together under key "0".
         var specializationGroups = data.AsEnumerable()
-            .GroupBy(r => r["specialization"] != DBNull.Value ? r["specialization"].ToString() : "General")
-            .OrderBy(g => g.Key)
+            .GroupBy(r => {
+                string sid = r["spec_id"] != DBNull.Value ? r["spec_id"].ToString().Trim() : "0";
+                if (string.IsNullOrEmpty(sid) || sid == "-") sid = "0";
+                return sid;
+            })
+            .OrderBy(g => g.Key == "0" ? 1 : 0)  // No-specialization group goes LAST
+            .ThenBy(g => {
+                // Sort named groups by their display name from the DB
+                string raw = g.First()["specialization"] != DBNull.Value ? g.First()["specialization"].ToString().Trim() : "";
+                return raw;
+            })
             .ToList();
         
         using (DevExpress.XtraPrinting.PrintingSystem ps = new DevExpress.XtraPrinting.PrintingSystem())
@@ -1933,14 +2166,28 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 // ========== SPECIALIZATION SECTIONS ==========
                 foreach (var specGroup in specializationGroups)
                 {
-                    string specName = specGroup.Key;
+                    // Use the EXACT spec name from acad_specialisation — no fabrication
+                    string specName;
+                    if (specGroup.Key == "0")
+                    {
+                        specName = "NOT ASSIGNED";
+                    }
+                    else
+                    {
+                        // Get the spec name directly from the DB row (already TRIM'd in SQL)
+                        specName = specGroup.First()["specialization"] != DBNull.Value 
+                            ? specGroup.First()["specialization"].ToString().Trim() : "NOT ASSIGNED";
+                        if (string.IsNullOrEmpty(specName) || specName == "General" || specName == "-")
+                            specName = "NOT ASSIGNED";
+                    }
                     
-                    // Get spec_id and programme from the first row in the group
-                    string specId = specGroup.First()["spec_id"] != DBNull.Value ? specGroup.First()["spec_id"].ToString() : "";
+                    // Get programme and spec_id from the group key
                     string progId = specGroup.First()["progid"] != DBNull.Value ? specGroup.First()["progid"].ToString() : "";
+                    string specId = specGroup.Key; // This is the actual spec_id from the database
                     
-                    // Get curriculum validation info
-                    CurriculumInfo curricInfo = GetCurriculumInfo(specId, progId, studyYear, semester);
+                    // Get curriculum validation info for this exact spec_id
+                    CurriculumInfo curricInfo = GetCurriculumInfo(
+                        specId != "0" ? specId : "", progId, studyYear, semester);
                     
                     // Get unique courses for this specialization
                     var courses = specGroup
@@ -1971,8 +2218,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     
                     // Calculate column widths - now including Status column
                     float snWidth = 22;
-                    float nameWidth = 110;
-                    float regWidth = 65;
+                    float nameWidth = 100;
+                    float regWidth = 115;
                     float statusWidth = 55; // New status column
                     float fixedWidth = snWidth + nameWidth + regWidth + statusWidth;
                     float availableWidth = pageWidth - fixedWidth;
@@ -1991,7 +2238,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     System.Drawing.Color dangerColor = System.Drawing.Color.FromArgb(192, 57, 43);   // Red
                     
                     // Build header text with curriculum info
-                    string specHeaderText = "  " + specName.ToUpper() + " (" + students.Count + " students)";
+                    string specHeaderText = "  " + specName + " (" + students.Count + " students)";
                     string curricText = "Curriculum: " + curricInfo.CurriculumCourseCount + " courses";
                     if (curricInfo.IsDefault) curricText += " [Default]";
                     
@@ -2525,7 +2772,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             Response.ClearHeaders();
             Response.ClearContent();
             Response.ContentType = "application/pdf";
-            Response.AddHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+            Response.AddHeader("Content-Disposition", "inline; filename=\"" + fileName + "\"");
             Response.Cache.SetCacheability(System.Web.HttpCacheability.NoCache);
             
             using (MemoryStream ms = new MemoryStream())
@@ -2561,9 +2808,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     private void LoadFilters()
     {
         LoadFaculties();
-        LoadProgrammes(""); // Load all programmes by default
+        LoadProgrammes("");
         LoadEntryYears();
         LoadSessions();
+        LoadCampuses();
     }
     
     private void LoadFaculties()
@@ -2574,16 +2822,16 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             {
                 conn.Open();
                 using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT faculty_code, faculty_name FROM acad_faculty ORDER BY faculty_name", conn))
+                    "SELECT TRIM(faculty_code) AS faculty_code, TRIM(faculty_name) AS faculty_name FROM acad_faculty WHERE TRIM(faculty_name) <> '' ORDER BY faculty_name", conn))
                 {
                     using (MySqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            ddlFilterFaculty.Items.Add(new ListItem(
-                                reader["faculty_name"].ToString(),
-                                reader["faculty_code"].ToString()
-                            ));
+                            string name = reader["faculty_name"].ToString().Trim();
+                            string code = reader["faculty_code"].ToString().Trim();
+                            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(code))
+                                ddlFilterFaculty.Items.Add(new ListItem(name, code));
                         }
                     }
                 }
@@ -2606,16 +2854,14 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 
                 if (string.IsNullOrEmpty(facultyCode))
                 {
-                    // Load all programmes when no faculty selected
-                    sql = "SELECT progcode, CONCAT(progcode, ' - ', progname) AS progname FROM acad_programme ORDER BY progname";
+                    sql = "SELECT TRIM(progcode) AS progcode, CONCAT(TRIM(progcode), ' - ', TRIM(progname)) AS progname FROM acad_programme WHERE TRIM(progcode) <> '' ORDER BY progname";
                     cmd = new MySqlCommand(sql, conn);
                 }
                 else
                 {
-                    // Load programmes for selected faculty
-                    sql = "SELECT progcode, CONCAT(progcode, ' - ', progname) AS progname FROM acad_programme WHERE faculty_code = @faculty ORDER BY progname";
+                    sql = "SELECT TRIM(progcode) AS progcode, CONCAT(TRIM(progcode), ' - ', TRIM(progname)) AS progname FROM acad_programme WHERE TRIM(faculty_code) = @faculty ORDER BY progname";
                     cmd = new MySqlCommand(sql, conn);
-                    cmd.Parameters.AddWithValue("@faculty", facultyCode);
+                    cmd.Parameters.AddWithValue("@faculty", facultyCode.Trim());
                 }
                 
                 using (cmd)
@@ -2626,7 +2872,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         {
                             ddlFilterProgramme.Items.Add(
                                 reader["progname"].ToString(),
-                                reader["progcode"].ToString()
+                                reader["progcode"].ToString().Trim()
                             );
                         }
                     }
@@ -2644,17 +2890,15 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             {
                 conn.Open();
                 using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT DISTINCT entryyear FROM acad_student WHERE entryyear IS NOT NULL ORDER BY entryyear DESC", conn))
+                    "SELECT DISTINCT TRIM(entryyear) AS entryyear FROM acad_student WHERE entryyear IS NOT NULL AND TRIM(entryyear) <> '' ORDER BY entryyear DESC", conn))
                 {
                     using (MySqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            string year = reader["entryyear"].ToString();
+                            string year = reader["entryyear"].ToString().Trim();
                             if (!string.IsNullOrEmpty(year))
-                            {
                                 ddlFilterEntryYear.Items.Add(new ListItem(year, year));
-                            }
                         }
                     }
                 }
@@ -2671,14 +2915,41 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             {
                 conn.Open();
                 using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT Session FROM acad_studysessions ORDER BY Session", conn))
+                    "SELECT TRIM(Session) AS Session FROM acad_studysessions WHERE TRIM(Session) <> '' ORDER BY Session", conn))
                 {
                     using (MySqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            string session = reader["Session"].ToString();
-                            ddlFilterSession.Items.Add(new ListItem(session, session));
+                            string session = reader["Session"].ToString().Trim();
+                            if (!string.IsNullOrEmpty(session))
+                                ddlFilterSession.Items.Add(new ListItem(session, session));
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+    }
+    
+    private void LoadCampuses()
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT TRIM(campus_code) AS campus_code, TRIM(campus_name) AS campus_name FROM acad_campuses WHERE TRIM(campus_name) <> '' ORDER BY campus_name", conn))
+                {
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string name = reader["campus_name"].ToString().Trim();
+                            string code = reader["campus_code"].ToString().Trim();
+                            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(code))
+                                ddlFilterCampus.Items.Add(new ListItem(name, code));
                         }
                     }
                 }
@@ -2712,37 +2983,58 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                            LEFT JOIN acad_campuses c ON s.studCampus = c.campus_code
                            WHERE 1=1 ";
             
-            // Apply status filter (from query string or dropdown) - uses new_status column
+            // --- Search filter: partial match across key columns ---
+            string searchTerm = txtSearch != null ? txtSearch.Text.Trim() : "";
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                sql += @" AND (TRIM(s.firstname) LIKE @search 
+                           OR TRIM(s.othername) LIKE @search 
+                           OR TRIM(s.regno) LIKE @search 
+                           OR TRIM(s.entryno) LIKE @search 
+                           OR TRIM(s.studPhone) LIKE @search 
+                           OR TRIM(s.email) LIKE @search
+                           OR CONCAT(COALESCE(TRIM(s.firstname),''), ' ', COALESCE(TRIM(s.othername),'')) LIKE @search) ";
+            }
+            
+            // --- Status filter (from query string or dropdown) ---
             string effectiveStatus = !string.IsNullOrEmpty(ddlFilterStatus.SelectedValue) 
-                ? ddlFilterStatus.SelectedValue 
+                ? ddlFilterStatus.SelectedValue.Trim() 
                 : StatusFilter;
             
             if (!string.IsNullOrEmpty(effectiveStatus) && effectiveStatus != "ALL")
             {
-                sql += " AND s.new_status = @status ";
+                sql += " AND TRIM(s.new_status) = @status ";
             }
             
-            // Get programme filter value (DevExpress combobox uses Value property)
-            string selectedProgramme = ddlFilterProgramme.Value != null ? ddlFilterProgramme.Value.ToString() : "";
+            // --- Programme filter (DevExpress combobox) ---
+            string selectedProgramme = ddlFilterProgramme.Value != null ? ddlFilterProgramme.Value.ToString().Trim() : "";
             
-            // Apply filters
             if (!string.IsNullOrEmpty(selectedProgramme))
             {
-                sql += " AND s.progid = @progid ";
+                sql += " AND TRIM(s.progid) = @progid ";
             }
             else if (!string.IsNullOrEmpty(ddlFilterFaculty.SelectedValue))
             {
-                sql += " AND p.faculty_code = @faculty ";
+                sql += " AND TRIM(p.faculty_code) = @faculty ";
             }
             
+            // --- Entry year filter ---
             if (!string.IsNullOrEmpty(ddlFilterEntryYear.SelectedValue))
             {
-                sql += " AND s.entryyear = @entryyear ";
+                sql += " AND TRIM(s.entryyear) = @entryyear ";
             }
             
+            // --- Session filter ---
             if (!string.IsNullOrEmpty(ddlFilterSession.SelectedValue))
             {
-                sql += " AND s.studsesion = @session ";
+                sql += " AND TRIM(s.studsesion) = @session ";
+            }
+            
+            // --- Campus filter ---
+            string selectedCampus = ddlFilterCampus != null ? ddlFilterCampus.SelectedValue : "";
+            if (!string.IsNullOrEmpty(selectedCampus))
+            {
+                sql += " AND TRIM(s.studCampus) = @campus ";
             }
             
             sql += " ORDER BY s.entryyear DESC, s.firstname, s.othername";
@@ -2752,20 +3044,26 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 conn.Open();
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
+                    if (!string.IsNullOrEmpty(searchTerm))
+                        cmd.Parameters.AddWithValue("@search", "%" + searchTerm + "%");
+                    
                     if (!string.IsNullOrEmpty(effectiveStatus) && effectiveStatus != "ALL")
-                        cmd.Parameters.AddWithValue("@status", effectiveStatus);
+                        cmd.Parameters.AddWithValue("@status", effectiveStatus.Trim());
                     
                     if (!string.IsNullOrEmpty(selectedProgramme))
-                        cmd.Parameters.AddWithValue("@progid", selectedProgramme);
+                        cmd.Parameters.AddWithValue("@progid", selectedProgramme.Trim());
                     
                     if (!string.IsNullOrEmpty(ddlFilterFaculty.SelectedValue))
-                        cmd.Parameters.AddWithValue("@faculty", ddlFilterFaculty.SelectedValue);
+                        cmd.Parameters.AddWithValue("@faculty", ddlFilterFaculty.SelectedValue.Trim());
                     
                     if (!string.IsNullOrEmpty(ddlFilterEntryYear.SelectedValue))
-                        cmd.Parameters.AddWithValue("@entryyear", int.Parse(ddlFilterEntryYear.SelectedValue));
+                        cmd.Parameters.AddWithValue("@entryyear", ddlFilterEntryYear.SelectedValue.Trim());
                     
                     if (!string.IsNullOrEmpty(ddlFilterSession.SelectedValue))
-                        cmd.Parameters.AddWithValue("@session", ddlFilterSession.SelectedValue);
+                        cmd.Parameters.AddWithValue("@session", ddlFilterSession.SelectedValue.Trim());
+                    
+                    if (!string.IsNullOrEmpty(selectedCampus))
+                        cmd.Parameters.AddWithValue("@campus", selectedCampus.Trim());
                     
                     using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
                     {
@@ -2778,12 +3076,56 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         {
             System.Diagnostics.Debug.WriteLine("Error loading students: " + ex.Message);
         }
+        
+        // Update student count indicator
+        UpdateStudentCount(dt.Rows.Count);
+        
         return dt;
+    }
+    
+    private void UpdateStudentCount(int count)
+    {
+        if (litStudentCount != null)
+        {
+            if (count == 0)
+                litStudentCount.Text = "<span class='cd-filters__count'>No students found</span>";
+            else
+                litStudentCount.Text = string.Format("<span class='cd-filters__count'>{0} student{1}</span>", count, count == 1 ? "" : "s");
+        }
     }
     
     #endregion
     
     #region Filter Events
+    
+    protected void btnSearch_Click(object sender, EventArgs e)
+    {
+        // Grid will rebind automatically via Page_Load with the search term
+    }
+    
+    protected void btnResetFilters_Click(object sender, EventArgs e)
+    {
+        // Clear search
+        txtSearch.Text = "";
+        
+        // Reset all dropdowns
+        ddlFilterStatus.SelectedIndex = 0;
+        ddlFilterFaculty.SelectedIndex = 0;
+        ddlFilterProgramme.Value = null;
+        ddlFilterEntryYear.SelectedIndex = 0;
+        ddlFilterSession.SelectedIndex = 0;
+        ddlFilterCampus.SelectedIndex = 0;
+        
+        // Reset status filter
+        StatusFilter = "";
+        
+        // Reload programmes (in case faculty had filtered them)
+        LoadProgrammes("");
+        
+        // Update page title
+        if (litPageTitle != null)
+            litPageTitle.Text = "Student Records";
+    }
     
     protected void ddlFilterFaculty_SelectedIndexChanged(object sender, EventArgs e)
     {
@@ -2801,6 +3143,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     }
     
     protected void ddlFilterSession_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        // Grid will rebind automatically via Page_Load
+    }
+    
+    protected void ddlFilterCampus_SelectedIndexChanged(object sender, EventArgs e)
     {
         // Grid will rebind automatically via Page_Load
     }

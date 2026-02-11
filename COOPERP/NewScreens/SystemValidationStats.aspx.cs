@@ -346,4 +346,109 @@ public partial class COOPERP_NewScreens_SystemValidationStats : System.Web.UI.Pa
             }
         }
     }
+
+    protected void btnValidateSpecializations_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                
+                // Get all specializations with their course counts
+                string selectSql = @"
+                    SELECT 
+                        s.spec_id,
+                        s.spec as specName,
+                        COALESCE(y1.count, 0) as y1Courses,
+                        COALESCE(y2.count, 0) as y2Courses,
+                        COALESCE(y3.count, 0) as y3Courses
+                    FROM acad_specialisation s
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 1 
+                        GROUP BY specialisation_id
+                    ) y1 ON s.spec_id = y1.specialisation_id
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 2 
+                        GROUP BY specialisation_id
+                    ) y2 ON s.spec_id = y2.specialisation_id
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 3 
+                        GROUP BY specialisation_id
+                    ) y3 ON s.spec_id = y3.specialisation_id";
+                
+                List<string> toSetYes = new List<string>();
+                List<string> toSetNo = new List<string>();
+                
+                using (MySqlCommand cmd = new MySqlCommand(selectSql, conn))
+                {
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string specId = reader["spec_id"].ToString();
+                            int y1 = Convert.ToInt32(reader["y1Courses"]);
+                            int y2 = Convert.ToInt32(reader["y2Courses"]);
+                            int y3 = Convert.ToInt32(reader["y3Courses"]);
+                            
+                            // Validation Rules:
+                            // - Year 1 & Year 2 must have at least 5 courses each
+                            // - Year 1, Year 2 & Year 3 must not exceed 12 courses each
+                            bool isValid = (y1 >= 5 && y2 >= 5) && 
+                                          (y1 <= 12 && y2 <= 12 && y3 <= 12);
+                            
+                            if (isValid)
+                                toSetYes.Add(specId);
+                            else
+                                toSetNo.Add(specId);
+                        }
+                    }
+                }
+                
+                // Update specializations
+                int updatedToYes = 0;
+                int updatedToNo = 0;
+                
+                if (toSetYes.Count > 0)
+                {
+                    string updateYesSql = "UPDATE acad_specialisation SET is_fully_set = 'Yes' WHERE spec_id IN (" +
+                        string.Join(",", toSetYes.ConvertAll(id => "'" + id.Replace("'", "''") + "'")) + ")";
+                    using (MySqlCommand cmd = new MySqlCommand(updateYesSql, conn))
+                    {
+                        updatedToYes = cmd.ExecuteNonQuery();
+                    }
+                }
+                
+                if (toSetNo.Count > 0)
+                {
+                    string updateNoSql = "UPDATE acad_specialisation SET is_fully_set = 'No' WHERE spec_id IN (" +
+                        string.Join(",", toSetNo.ConvertAll(id => "'" + id.Replace("'", "''") + "'")) + ")";
+                    using (MySqlCommand cmd = new MySqlCommand(updateNoSql, conn))
+                    {
+                        updatedToNo = cmd.ExecuteNonQuery();
+                    }
+                }
+                
+                // Show success message
+                string message = string.Format("Specialization validation completed successfully!\\n\\n" +
+                    "{0} specializations marked as Fully Set\\n" +
+                    "{1} specializations marked as Not Fully Set", 
+                    updatedToYes, updatedToNo);
+                
+                ClientScript.RegisterStartupScript(this.GetType(), "ValidationSuccess", 
+                    "alert('" + message + "'); window.location.href=window.location.href;", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ClientScript.RegisterStartupScript(this.GetType(), "ValidationError", 
+                "alert('Error validating specializations: " + ex.Message.Replace("'", "\\'") + "');", true);
+        }
+    }
 }

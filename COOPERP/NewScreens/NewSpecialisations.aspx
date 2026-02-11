@@ -327,6 +327,230 @@
             font-size: 10px;
             border-left: 3px solid #174DA4;
         }
+        
+        /* =============================================
+           TRANSCRIPT GRID - Compact styling
+           ============================================= */
+        .transcript-grid {
+            font-size: 11px;
+            border-collapse: collapse;
+        }
+        .transcript-grid th {
+            border-bottom: 2px solid #174DA4 !important;
+            padding: 6px 8px !important;
+        }
+        .transcript-grid td {
+            border-bottom: 1px solid #eee !important;
+            padding: 5px 8px !important;
+        }
+        
+        /* =============================================
+           TRANSCRIPT TAB - Enhanced Styling
+           ============================================= */
+        .transcript-context {
+            background: #174DA4;
+            color: white;
+            padding: 10px 12px;
+            margin: -8px -8px 8px -8px;
+            border-radius: 3px 3px 0 0;
+            font-size: 11px;
+        }
+        .transcript-context-title {
+            font-weight: 700;
+            font-size: 12px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .transcript-context-info {
+            display: flex;
+            gap: 15px;
+            font-size: 10px;
+            opacity: 0.95;
+            flex-wrap: wrap;
+        }
+        .transcript-context-info span {
+            color: white;
+        }
+        .transcript-context-info strong {
+            color: white;
+            font-weight: 600;
+        }
+        .transcript-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ff6b6b;
+            padding: 8px 10px;
+            margin-top: 8px;
+            font-size: 11px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .transcript-courses-compact {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 4px;
+            max-height: 350px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+        .transcript-course-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            padding: 6px 8px;
+            font-size: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        .transcript-course-item:hover {
+            border-color: #174DA4;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .transcript-course-item.status-ready {
+            border-left: 3px solid #28a745;
+        }
+        .transcript-course-item.status-exists {
+            border-left: 3px solid #ffc107;
+            background: #fffbf0;
+        }
+        .transcript-course-item.status-invalid {
+            border-left: 3px solid #dc3545;
+            background: #fff5f5;
+            opacity: 0.7;
+        }
+        .transcript-course-code {
+            font-weight: 700;
+            color: #174DA4;
+            font-size: 11px;
+        }
+        .transcript-course-meta {
+            font-size: 9px;
+            color: #666;
+            margin-top: 2px;
+        }
+        .transcript-course-badge {
+            font-size: 8px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
+            line-height: 1;
+        }
+        .transcript-course-badge svg {
+            flex-shrink: 0;
+            vertical-align: middle;
+        }
+        .transcript-course-badge.ready {
+            background: #d4edda;
+            color: #155724;
+        }
+        .transcript-course-badge.exists {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .transcript-course-badge.invalid {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        /* =============================================
+           COURSES TAB - Toolbar & Summary
+           ============================================= */
+        .courses-tab-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #174DA4;
+            margin: -8px -6px 8px -6px;
+        }
+        .courses-tab-toolbar .toolbar-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #174DA4;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .courses-tab-toolbar .toolbar-title svg {
+            width: 13px;
+            height: 13px;
+        }
+        .courses-tab-toolbar .toolbar-count {
+            display: inline-block;
+            padding: 1px 8px;
+            background: #e8e0f3;
+            color: #174DA4;
+            font-size: 10px;
+            font-weight: 600;
+            min-width: 20px;
+            text-align: center;
+            border-radius: 2px;
+        }
+        .courses-tab-toolbar .toolbar-spacer {
+            flex: 1;
+        }
+        .courses-tab-summary {
+            display: flex;
+            gap: 12px;
+            padding: 5px 8px;
+            background: #f0f5ff;
+            border: 1px solid #d0e3ff;
+            border-radius: 3px;
+            margin-bottom: 8px;
+            font-size: 10px;
+            color: #333;
+        }
+        .courses-tab-summary .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .courses-tab-summary .summary-item strong {
+            color: #174DA4;
+        }
+        .courses-tab-summary .summary-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .courses-tab-summary .dot-core { background: #174DA4; }
+        .courses-tab-summary .dot-elective { background: #28a745; }
+        .courses-tab-summary .dot-credits { background: #ff9800; }
+        
+        /* Spinner for AJAX loading */
+        .transcript-spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #174DA4;
+            border-radius: 50%;
+            animation: transcriptSpin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes transcriptSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .transcript-loading-overlay {
+            text-align: center;
+            padding: 30px 20px;
+        }
+        .transcript-loading-overlay .transcript-loading-text {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #666;
+            font-weight: 500;
+        }
     </style>
 </asp:Content>
 
@@ -474,6 +698,7 @@
         PopupHorizontalAlign="WindowCenter" 
         PopupVerticalAlign="WindowCenter"
         ClientInstanceName="popManageCourses"
+        EnableCallbackMode="false"
         CssClass="cd-popup">
         <HeaderStyle BackColor="#174DA4" ForeColor="White" Font-Size="13px" Font-Bold="True" Paddings-Padding="10px" />
         <ContentStyle Paddings-Padding="0px" />
@@ -487,9 +712,9 @@
                 
                 <div class="popup-body">
                     <div class="popup-info-bar">
-                        <span><strong>Specialisation:</strong> <asp:Label ID="lblSpecName" runat="server" CssClass="info-value"></asp:Label></span>
+                        <span><strong>Specialisation:</strong> <asp:Literal ID="litSpecName" runat="server"></asp:Literal><asp:Label ID="lblSpecName" runat="server" CssClass="info-value"></asp:Label></span>
                         <span class="separator">|</span>
-                        <span><strong>Programme:</strong> <asp:Label ID="lblProgName" runat="server" CssClass="info-value"></asp:Label></span>
+                        <span><strong>Programme:</strong> <asp:Literal ID="litProgName" runat="server"></asp:Literal><asp:Label ID="lblProgName" runat="server" CssClass="info-value"></asp:Label></span>
                     </div>
                     
                     <dx:ASPxPageControl ID="tabCourses" runat="server" ActiveTabIndex="0" Width="100%" CssClass="cd-tabs">
@@ -780,10 +1005,149 @@
                                     </dx:ContentControl>
                                 </ContentCollection>
                             </dx:TabPage>
+                            <dx:TabPage Text="Copy from Transcript">
+                                <ContentCollection>
+                                    <dx:ContentControl runat="server">
+                                        <div class="tab-content" style="min-height: auto; padding: 0; max-height: 500px; overflow-y: auto;">
+                                            <!-- Context: Current Specialization (outside UpdatePanel - set once) -->
+                                            <div class="transcript-context" style="position: sticky; top: 0; z-index: 10;">
+                                                <div class="transcript-context-title">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                                    Target Specialisation
+                                                </div>
+                                                <div class="transcript-context-info">
+                                                    <span><strong>Specialisation:</strong> <asp:Label ID="lblContextSpecName" runat="server" style="color: white;"></asp:Label></span>
+                                                    <span><strong>Programme:</strong> <asp:Label ID="lblContextProgName" runat="server" style="color: white;"></asp:Label></span>
+                                                </div>
+                                            </div>
+                                            
+                                            <asp:UpdatePanel ID="upTranscript" runat="server" UpdateMode="Conditional">
+                                                <ContentTemplate>
+                                                    <div style="padding: 8px;">
+                                                        <!-- Loading indicator (shown via JS) -->
+                                                        <div id="transcriptLoading" style="display:none; text-align: center; padding: 20px;">
+                                                            <div class="transcript-spinner"></div>
+                                                            <div style="margin-top: 8px; font-size: 11px; color: #666;">Loading transcript...</div>
+                                                        </div>
+                                                        
+                                                        <!-- Step 1: Student Lookup -->
+                                                        <div class="form-section">
+                                                            <div class="form-row">
+                                                                <div class="form-group" style="width: 300px;">
+                                                                    <label class="form-label">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 3px;"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+                                                                        Student Reg No / Entry No
+                                                                    </label>
+                                                                    <asp:TextBox ID="txtTranscriptRegNo" runat="server" placeholder="Enter reg number or entry number" CssClass="cd-input" MaxLength="30"></asp:TextBox>
+                                                                </div>
+                                                                <div class="form-group">
+                                                                    <asp:Button ID="cmdLoadTranscript" runat="server" Text="Load Transcript" 
+                                                                        OnClick="cmdLoadTranscript_Click" CssClass="cd-btn cd-btn--primary" style="margin-top: 17px;" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <!-- Step 2: Student Info Panel -->
+                                                        <asp:Panel ID="pnlTranscriptStudentInfo" runat="server" Visible="false" style="margin-top: 8px; padding: 10px 12px; background: #f0f5ff; border: 1px solid #d0e3ff; border-radius: 3px; font-size: 11px;">
+                                                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                                                                <div>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 3px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                                                    <strong>Student:</strong> <asp:Label ID="lblTranscriptStudent" runat="server"></asp:Label>
+                                                                </div>
+                                                                <div>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 3px;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                                                    <strong>Programme:</strong> <asp:Label ID="lblTranscriptProgramme" runat="server"></asp:Label>
+                                                                </div>
+                                                                <div>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 3px;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                                                                    <strong>Total Courses:</strong> <asp:Label ID="lblTranscriptCourseCount" runat="server"></asp:Label>
+                                                                </div>
+                                                                <div>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 3px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                                    <strong>Ready:</strong> <asp:Label ID="lblTranscriptValidation" runat="server" CssClass="validation-success"></asp:Label>
+                                                                </div>
+                                                            </div>
+                                                        </asp:Panel>
+                                                        
+                                                        <!-- Program Mismatch Warning -->
+                                                        <asp:Panel ID="pnlProgramMismatch" runat="server" Visible="false" CssClass="transcript-warning">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                                            <div>
+                                                                <strong>Warning: Programme Mismatch</strong><br/>
+                                                                <asp:Label ID="lblProgramMismatchDetails" runat="server"></asp:Label>
+                                                            </div>
+                                                        </asp:Panel>
+                                                    
+                                                        <!-- Step 3: Course List for Review (Compact Grid) -->
+                                                        <asp:Panel ID="pnlTranscriptCourseList" runat="server" Visible="false" style="margin-top: 8px;">
+                                                            <div style="background: #f8f9fa; padding: 6px 8px; border-bottom: 2px solid #174DA4; font-size: 10px; font-weight: 700; color: #174DA4;">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                                                                COURSES FROM TRANSCRIPT
+                                                            </div>
+                                                            <div style="border: 1px solid #e0e0e0; background: #fafafa;">
+                                                                <asp:Repeater ID="rptTranscriptCourses" runat="server">
+                                                                    <HeaderTemplate>
+                                                                        <div class="transcript-courses-compact">
+                                                                    </HeaderTemplate>
+                                                                    <ItemTemplate>
+                                                                        <div class='transcript-course-item status-<%# Eval("Status").ToString().ToLower().Replace(" ", "-") %>'>
+                                                                            <div style="flex: 1;">
+                                                                                <div class="transcript-course-code"><%# Eval("CourseCode") %></div>
+                                                                                <div style="font-size: 9px; color: #555; margin-top: 1px; font-weight: 500;"><%# Eval("CourseName") %></div>
+                                                                                <div class="transcript-course-meta">
+                                                                                    Y<%# Eval("Year") %> S<%# Eval("Semester") %> &bull; <%# Eval("CreditUnits") %>CU &bull; Grade: <%# Eval("Grade") %>
+                                                                                </div>
+                                                                            </div>
+                                                                            <span class='transcript-course-badge <%# GetStatusBadgeClass(Eval("Status").ToString()) %>'><%# GetStatusBadgeText(Eval("Status").ToString()) %></span>
+                                                                        </div>
+                                                                    </ItemTemplate>
+                                                                    <FooterTemplate>
+                                                                        </div>
+                                                                    </FooterTemplate>
+                                                                </asp:Repeater>
+                                                            </div>
+                                                        </asp:Panel>
+                                                        
+                                                        <!-- Step 4: Summary Panel -->
+                                                        <asp:Panel ID="pnlTranscriptSummary" runat="server" Visible="false" style="margin-top: 8px; padding: 8px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 3px; font-size: 11px;">
+                                                            <asp:Literal ID="litTranscriptSummary" runat="server"></asp:Literal>
+                                                        </asp:Panel>
+                                                        
+                                                        <!-- Step 5: Action Buttons -->
+                                                        <asp:Panel ID="pnlTranscriptActions" runat="server" Visible="false" style="margin-top: 8px; display: flex; gap: 6px; align-items: center; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                                                            <div style="display: flex; align-items: center; gap: 6px; margin-right: auto;">
+                                                                <span style="font-size: 10px; color: #666;">Set Fully Configured:</span>
+                                                                <asp:DropDownList ID="ddlTranscriptFullySet" runat="server" style="font-size: 10px; padding: 3px 6px; border: 1px solid #ddd;">
+                                                                    <asp:ListItem Text="No" Value="No" Selected="True"></asp:ListItem>
+                                                                    <asp:ListItem Text="Yes" Value="Yes"></asp:ListItem>
+                                                                </asp:DropDownList>
+                                                            </div>
+                                                            <asp:Button ID="cmdCancelTranscript" runat="server" Text="Cancel" 
+                                                                OnClick="cmdCancelTranscript_Click" CssClass="cd-btn cd-btn--secondary" />
+                                                            <asp:Button ID="cmdApplyTranscript" runat="server" Text="Apply Courses to Specialisation" 
+                                                                OnClick="cmdApplyTranscript_Click" CssClass="cd-btn cd-btn--primary" />
+                                                        </asp:Panel>
+                                                        
+                                                        <!-- Step 6: Result Message -->
+                                                        <asp:Panel ID="pnlTranscriptResult" runat="server" Visible="false" style="margin-top: 8px; padding: 8px; border-left: 3px solid #28a745; background: #d4edda; font-size: 11px;">
+                                                            <asp:Literal ID="litTranscriptResult" runat="server"></asp:Literal>
+                                                        </asp:Panel>
+                                                    </div>
+                                                </ContentTemplate>
+                                                <Triggers>
+                                                    <asp:AsyncPostBackTrigger ControlID="cmdLoadTranscript" EventName="Click" />
+                                                    <asp:AsyncPostBackTrigger ControlID="cmdCancelTranscript" EventName="Click" />
+                                                    <asp:AsyncPostBackTrigger ControlID="cmdApplyTranscript" EventName="Click" />
+                                                </Triggers>
+                                            </asp:UpdatePanel>
+                                        </div>
+                                    </dx:ContentControl>
+                                </ContentCollection>
+                            </dx:TabPage>
                             <dx:TabPage Text="Structure">
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
-                                        <div class="tab-content">
+                                        <div class="tab-content" style="min-height: auto; padding: 6px;">
                                             <div class="btn-row btn-row--top">
                                                 <dx:ASPxButton ID="cmdRefreshStructure" runat="server" Text="Refresh" 
                                                     OnClick="cmdRefreshStructure_Click" CssClass="cd-btn cd-btn--secondary">
@@ -802,7 +1166,39 @@
                             <dx:TabPage Text="Courses">
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
-                                        <div class="tab-content">
+                                        <div class="tab-content" style="min-height: auto; padding: 6px;">
+                                            <!-- Toolbar -->
+                                            <div class="courses-tab-toolbar">
+                                                <span class="toolbar-title">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                                                    CURRICULUM COURSES
+                                                </span>
+                                                <span class="toolbar-count"><asp:Label ID="lblCoursesCount" runat="server" Text="0"></asp:Label></span>
+                                                <span class="toolbar-spacer"></span>
+                                                <dx:ASPxButton ID="cmdRefreshCourses" runat="server" Text="Refresh" 
+                                                    OnClick="cmdRefreshCourses_Click" CssClass="cd-btn cd-btn--secondary">
+                                                </dx:ASPxButton>
+                                            </div>
+                                            
+                                            <!-- Summary Bar -->
+                                            <asp:Panel ID="pnlCoursesSummary" runat="server">
+                                                <div class="courses-tab-summary">
+                                                    <div class="summary-item">
+                                                        <span class="summary-dot dot-core"></span>
+                                                        <span>Core: <strong><asp:Label ID="lblCoreCount" runat="server" Text="0"></asp:Label></strong></span>
+                                                    </div>
+                                                    <div class="summary-item">
+                                                        <span class="summary-dot dot-elective"></span>
+                                                        <span>Elective: <strong><asp:Label ID="lblElectiveCount" runat="server" Text="0"></asp:Label></strong></span>
+                                                    </div>
+                                                    <div class="summary-item">
+                                                        <span class="summary-dot dot-credits"></span>
+                                                        <span>Total CU: <strong><asp:Label ID="lblTotalCredits" runat="server" Text="0"></asp:Label></strong></span>
+                                                    </div>
+                                                </div>
+                                            </asp:Panel>
+                                            
+                                            <!-- Courses Grid -->
                                             <dx:ASPxGridView ID="gvSpecCourses" runat="server" AutoGenerateColumns="False" 
                                                 KeyFieldName="ID" Width="100%" 
                                                 CssClass="cd-grid"
@@ -860,9 +1256,9 @@
                                                     </dx:GridViewDataSpinEditColumn>
                                                 </Columns>
                                                 <Styles>
-                                                    <Header Font-Size="11px" BackColor="#f5f5f5" Font-Bold="True" />
-                                                    <Cell Font-Size="11px" Paddings-Padding="4px" />
-                                                    <FilterRow Font-Size="11px" />
+                                                    <Header Font-Size="10px" BackColor="#f5f5f5" Font-Bold="True" />
+                                                    <Cell Font-Size="10px" Paddings-Padding="3px" />
+                                                    <FilterRow Font-Size="10px" />
                                                     <AlternatingRow BackColor="#fafafa" />
                                                     <CommandColumn Paddings-Padding="2px" />
                                                 </Styles>
@@ -919,5 +1315,23 @@
         function printStructure(specId) {
             window.open('SpecialisationStructurePDF.aspx?specId=' + specId, '_blank');
         }
+        
+        // AJAX loading indicator for transcript UpdatePanel
+        var prm = Sys.WebForms.PageRequestManager.getInstance();
+        prm.add_beginRequest(function(sender, args) {
+            var panel = args.get_postBackElement();
+            if (panel && (panel.id.indexOf('cmdLoadTranscript') >= 0 || 
+                          panel.id.indexOf('cmdApplyTranscript') >= 0 ||
+                          panel.id.indexOf('cmdCancelTranscript') >= 0)) {
+                var loader = document.getElementById('transcriptLoading');
+                if (loader) loader.style.display = 'block';
+                // Disable buttons during request
+                if (panel) panel.disabled = true;
+            }
+        });
+        prm.add_endRequest(function(sender, args) {
+            var loader = document.getElementById('transcriptLoading');
+            if (loader) loader.style.display = 'none';
+        });
     </script>
 </asp:Content>

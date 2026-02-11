@@ -294,9 +294,15 @@ public static class BatchOperationsHelper
         
         try
         {
+            // Normalise specId: treat "-", "0", whitespace-only as empty (unassigned)
+            specId = (specId ?? "").Trim();
+            bool needDefault = string.IsNullOrEmpty(specId) || specId == "0" || specId == "-";
+            
             // Step 1: Get specialisation ID (student's own or default for programme)
-            if (string.IsNullOrEmpty(specId))
+            if (needDefault)
             {
+                specId = "";
+                // Strategy 1: Find specialisation marked as default
                 string defaultSpecSql = @"SELECT spec_id FROM acad_specialisation 
                                           WHERE prog_id = @progcode AND is_default = 'Yes' 
                                           LIMIT 1";
@@ -304,21 +310,49 @@ public static class BatchOperationsHelper
                 {
                     cmd.Parameters.AddWithValue("@progcode", progcode);
                     object result = cmd.ExecuteScalar();
-                    specId = result != null ? result.ToString() : "";
+                    specId = result != null ? result.ToString().Trim() : "";
+                }
+                
+                // Strategy 2: Find specialisation named 'Default'
+                if (string.IsNullOrEmpty(specId))
+                {
+                    string namedDefaultSql = @"SELECT spec_id FROM acad_specialisation 
+                                              WHERE prog_id = @progcode AND (spec = 'Default' OR spec LIKE '%Default%')
+                                              ORDER BY spec_id LIMIT 1";
+                    using (MySqlCommand cmd = new MySqlCommand(namedDefaultSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@progcode", progcode);
+                        object result = cmd.ExecuteScalar();
+                        specId = result != null ? result.ToString().Trim() : "";
+                    }
+                }
+                
+                // Strategy 3: Fall back to the first specialisation for this programme
+                if (string.IsNullOrEmpty(specId))
+                {
+                    string firstSpecSql = @"SELECT spec_id FROM acad_specialisation 
+                                            WHERE prog_id = @progcode 
+                                            ORDER BY spec_id LIMIT 1";
+                    using (MySqlCommand cmd = new MySqlCommand(firstSpecSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@progcode", progcode);
+                        object result = cmd.ExecuteScalar();
+                        specId = result != null ? result.ToString().Trim() : "";
+                    }
                 }
             }
             
             // Step 2: Check if specialisation exists and is fully set
             if (!string.IsNullOrEmpty(specId))
             {
-                string checkSpecSql = @"SELECT is_fully_set FROM acad_specialisation WHERE spec_id = @specId";
+                string checkSpecSql = @"SELECT COALESCE(is_fully_set, 'No') AS is_fully_set FROM acad_specialisation WHERE spec_id = @specId";
                 using (MySqlCommand cmd = new MySqlCommand(checkSpecSql, conn))
                 {
                     cmd.Parameters.AddWithValue("@specId", specId);
                     object result = cmd.ExecuteScalar();
-                    if (result != null)
+                    if (result != null && result != DBNull.Value)
                     {
-                        isCurriculumFullySet = result.ToString() == "Yes" ? "Yes" : "No";
+                        isCurriculumFullySet = result.ToString().Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase) ? "Yes" : "No";
                     }
                 }
             }
@@ -542,6 +576,7 @@ public static class BatchOperationsHelper
     {
         if (string.IsNullOrEmpty(action)) return;
         
+        response.Clear();
         response.ContentType = "application/json";
         JavaScriptSerializer serializer = new JavaScriptSerializer();
         
@@ -567,6 +602,14 @@ public static class BatchOperationsHelper
                     
                 case "PreviewSummaryReport":
                     HandlePreviewSummaryReport(request, response, serializer);
+                    break;
+                    
+                case "GetSpecSummary":
+                    HandleGetSpecSummary(request, response, serializer);
+                    break;
+                    
+                case "ApplySpecValidation":
+                    HandleApplySpecValidation(request, response, serializer);
                     break;
             }
         }
@@ -586,6 +629,7 @@ public static class BatchOperationsHelper
         string action = request.QueryString["action"];
         if (string.IsNullOrEmpty(action)) return false;
         
+        response.Clear();
         response.ContentType = "application/json";
         JavaScriptSerializer serializer = new JavaScriptSerializer();
         
@@ -611,6 +655,14 @@ public static class BatchOperationsHelper
                     
                 case "PreviewSummaryReport":
                     HandlePreviewSummaryReport(request, response, serializer);
+                    return true;
+                    
+                case "GetSpecSummary":
+                    HandleGetSpecSummary(request, response, serializer);
+                    return true;
+                    
+                case "ApplySpecValidation":
+                    HandleApplySpecValidation(request, response, serializer);
                     return true;
             }
         }
@@ -716,6 +768,197 @@ public static class BatchOperationsHelper
         
         response.Write(serializer.Serialize(new { count = count }));
         EndResponse(response);
+    }
+
+    private static void HandleGetSpecSummary(HttpRequest request, HttpResponse response, JavaScriptSerializer serializer)
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                
+                string sql = @"
+                    SELECT 
+                        s.spec_id,
+                        s.spec as specName,
+                        p.prog as progName,
+                        COALESCE(y1.count, 0) as y1Courses,
+                        COALESCE(y2.count, 0) as y2Courses,
+                        COALESCE(y3.count, 0) as y3Courses,
+                        COALESCE(y4.count, 0) as y4Courses,
+                        COALESCE(st.count, 0) as studentCount,
+                        COALESCE(s.is_fully_set, 'No') as isFullySet
+                    FROM acad_specialisation s
+                    LEFT JOIN acad_programme p ON s.prog_id = p.progcode
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 1 
+                        GROUP BY specialisation_id
+                    ) y1 ON s.spec_id = y1.specialisation_id
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 2 
+                        GROUP BY specialisation_id
+                    ) y2 ON s.spec_id = y2.specialisation_id
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 3 
+                        GROUP BY specialisation_id
+                    ) y3 ON s.spec_id = y3.specialisation_id
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 4 
+                        GROUP BY specialisation_id
+                    ) y4 ON s.spec_id = y4.specialisation_id
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_student 
+                        WHERE specialisation_id IS NOT NULL 
+                        GROUP BY specialisation_id
+                    ) st ON s.spec_id = st.specialisation_id
+                    ORDER BY p.prog, s.spec";
+                
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    List<object> specList = new List<object>();
+                    
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            specList.Add(new
+                            {
+                                specId = reader["spec_id"].ToString(),
+                                specName = reader["specName"].ToString(),
+                                progName = reader["progName"].ToString(),
+                                y1Courses = Convert.ToInt32(reader["y1Courses"]),
+                                y2Courses = Convert.ToInt32(reader["y2Courses"]),
+                                y3Courses = Convert.ToInt32(reader["y3Courses"]),
+                                y4Courses = Convert.ToInt32(reader["y4Courses"]),
+                                studentCount = Convert.ToInt32(reader["studentCount"]),
+                                isFullySet = reader["isFullySet"].ToString()
+                            });
+                        }
+                    }
+                    
+                    response.Write(serializer.Serialize(new { success = true, data = specList }));
+                    EndResponse(response);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            response.Write(serializer.Serialize(new { success = false, message = ex.Message }));
+            EndResponse(response);
+        }
+    }
+
+    private static void HandleApplySpecValidation(HttpRequest request, HttpResponse response, JavaScriptSerializer serializer)
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                
+                // Get all specializations with their course counts
+                string selectSql = @"
+                    SELECT 
+                        s.spec_id,
+                        COALESCE(y1.count, 0) as y1Courses,
+                        COALESCE(y2.count, 0) as y2Courses,
+                        COALESCE(y3.count, 0) as y3Courses
+                    FROM acad_specialisation s
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 1 
+                        GROUP BY specialisation_id
+                    ) y1 ON s.spec_id = y1.specialisation_id
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 2 
+                        GROUP BY specialisation_id
+                    ) y2 ON s.spec_id = y2.specialisation_id
+                    LEFT JOIN (
+                        SELECT specialisation_id, COUNT(*) as count 
+                        FROM acad_programmecourses 
+                        WHERE study_year = 3 
+                        GROUP BY specialisation_id
+                    ) y3 ON s.spec_id = y3.specialisation_id";
+                
+                List<string> toSetYes = new List<string>();
+                List<string> toSetNo = new List<string>();
+                
+                using (MySqlCommand cmd = new MySqlCommand(selectSql, conn))
+                {
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string specId = reader["spec_id"].ToString();
+                            int y1 = Convert.ToInt32(reader["y1Courses"]);
+                            int y2 = Convert.ToInt32(reader["y2Courses"]);
+                            int y3 = Convert.ToInt32(reader["y3Courses"]);
+                            
+                            // Validation Rules:
+                            // - Year 1 & Year 2 must have at least 5 courses each
+                            // - Year 1, Year 2 & Year 3 must not exceed 12 courses each
+                            bool isValid = (y1 >= 5 && y2 >= 5) && 
+                                          (y1 <= 12 && y2 <= 12 && y3 <= 12);
+                            
+                            if (isValid)
+                                toSetYes.Add(specId);
+                            else
+                                toSetNo.Add(specId);
+                        }
+                    }
+                }
+                
+                // Update specializations
+                int updatedToYes = 0;
+                int updatedToNo = 0;
+                
+                if (toSetYes.Count > 0)
+                {
+                    string updateYesSql = "UPDATE acad_specialisation SET is_fully_set = 'Yes' WHERE spec_id IN (" +
+                        string.Join(",", toSetYes.ConvertAll(id => "'" + id.Replace("'", "''") + "'")) + ")";
+                    using (MySqlCommand cmd = new MySqlCommand(updateYesSql, conn))
+                    {
+                        updatedToYes = cmd.ExecuteNonQuery();
+                    }
+                }
+                
+                if (toSetNo.Count > 0)
+                {
+                    string updateNoSql = "UPDATE acad_specialisation SET is_fully_set = 'No' WHERE spec_id IN (" +
+                        string.Join(",", toSetNo.ConvertAll(id => "'" + id.Replace("'", "''") + "'")) + ")";
+                    using (MySqlCommand cmd = new MySqlCommand(updateNoSql, conn))
+                    {
+                        updatedToNo = cmd.ExecuteNonQuery();
+                    }
+                }
+                
+                response.Write(serializer.Serialize(new 
+                { 
+                    success = true, 
+                    updatedToYes = updatedToYes,
+                    updatedToNo = updatedToNo
+                }));
+                EndResponse(response);
+            }
+        }
+        catch (Exception ex)
+        {
+            response.Write(serializer.Serialize(new { success = false, message = ex.Message }));
+            EndResponse(response);
+        }
     }
 
     private static void EndResponse(HttpResponse response)

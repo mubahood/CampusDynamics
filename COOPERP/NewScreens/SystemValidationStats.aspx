@@ -290,7 +290,13 @@
             </h2>
             <span style="font-size: 10px; color: #888; margin-top: 2px; display: block;">View validation metrics and run batch operations</span>
         </div>
-        <uc:BatchOperations ID="ucBatchOperations" runat="server" />
+        <div style="display: flex; gap: 8px;">
+            <asp:Button ID="btnValidateSpecializations" runat="server" Text="Validate Specializations" 
+                OnClick="btnValidateSpecializations_Click" 
+                CssClass="cd-btn cd-btn--primary cd-btn--sm" 
+                OnClientClick="return confirm('This will validate all specializations and update their status.\n\nValidation Rules:\n- Year 1 & 2 must have 5-12 courses each\n- Year 3 must have ≤12 courses\n\nContinue?');" />
+            <uc:BatchOperations ID="ucBatchOperations" runat="server" />
+        </div>
     </div>
     
     <div class="dashboard-layout">

@@ -45,6 +45,70 @@ Primary databases:
 - `campus_dynamics_admissions` - Admissions data
 - `campus_dynamics_accounts` - Financial data
 
+### Academic Data Model
+
+#### Programme-Course-Specialization Relationship
+
+**CRITICAL CONCEPT:** Courses are assigned to SPECIALIZATIONS, not programmes.
+
+**Data Flow:**
+```
+Faculty
+  └── Programme (e.g., BSCS)
+       ├── Specialization A (e.g., Software Engineering)
+       │    ├── Course 1 (Year 1, Sem 1)
+       │    ├── Course 2 (Year 1, Sem 2)
+       │    └── Course 3 (Year 2, Sem 1)
+       └── Specialization B (e.g., Cybersecurity)
+            ├── Course 1 (Year 1, Sem 1)  ← Same course, different spec = VALID
+            ├── Course 4 (Year 2, Sem 1)
+            └── Course 5 (Year 2, Sem 2)
+```
+
+**Key Tables:**
+- `acad_programme` - Programme definitions (progcode, prog)
+- `acad_specialisation` - Specializations within programmes (spec_id, prog_id)
+- `acad_course` - Course bank (courseID, CourseTitle, CreditUnit)
+- `acad_programmecourses` - Course assignments to specializations
+  - **Primary Key:** ID
+  - **Unique Constraint:** (progcode, course_code, specialisation_id, study_year, semester, CurriculumID)
+  - **Foreign Keys:** 
+    - specialisation_id → acad_specialisation.spec_id
+    - course_code → acad_course.courseID
+
+**Important Rules:**
+1. A course CAN appear in multiple specializations (e.g., CSC101 in both Software Engineering and Cybersecurity)
+2. A course CANNOT appear twice in the SAME specialization with the same year/semester
+3. Each specialization gets its OWN records - records are NEVER shared between specializations
+4. When adding courses to a specialization, always INSERT new records, never UPDATE existing records from other specializations
+
+**Database Integrity:**
+```sql
+-- Recommended unique constraint (prevents duplicate courses within same specialization)
+ALTER TABLE acad_programmecourses
+ADD UNIQUE KEY uk_spec_course (
+    progcode, 
+    course_code, 
+    specialisation_id, 
+    study_year, 
+    semester, 
+    CurriculumID
+);
+
+-- Recommended foreign keys
+ALTER TABLE acad_programmecourses
+ADD CONSTRAINT fk_spec 
+FOREIGN KEY (specialisation_id) 
+REFERENCES acad_specialisation(spec_id) 
+ON DELETE CASCADE;
+
+ALTER TABLE acad_programmecourses
+ADD CONSTRAINT fk_course 
+FOREIGN KEY (course_code) 
+REFERENCES acad_course(courseID) 
+ON DELETE RESTRICT;
+```
+
 ## Security
 - ASP.NET Forms Authentication
 - Role-based access control (Dean, Admin, Faculty, Staff)

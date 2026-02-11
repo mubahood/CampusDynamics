@@ -294,9 +294,15 @@ public static class BatchOperationsHelper
         
         try
         {
+            // Normalise specId: treat "-", "0", whitespace-only as empty (unassigned)
+            specId = (specId ?? "").Trim();
+            bool needDefault = string.IsNullOrEmpty(specId) || specId == "0" || specId == "-";
+            
             // Step 1: Get specialisation ID (student's own or default for programme)
-            if (string.IsNullOrEmpty(specId))
+            if (needDefault)
             {
+                specId = "";
+                // Strategy 1: Find specialisation marked as default
                 string defaultSpecSql = @"SELECT spec_id FROM acad_specialisation 
                                           WHERE prog_id = @progcode AND is_default = 'Yes' 
                                           LIMIT 1";
@@ -304,21 +310,49 @@ public static class BatchOperationsHelper
                 {
                     cmd.Parameters.AddWithValue("@progcode", progcode);
                     object result = cmd.ExecuteScalar();
-                    specId = result != null ? result.ToString() : "";
+                    specId = result != null ? result.ToString().Trim() : "";
+                }
+                
+                // Strategy 2: Find specialisation named 'Default'
+                if (string.IsNullOrEmpty(specId))
+                {
+                    string namedDefaultSql = @"SELECT spec_id FROM acad_specialisation 
+                                              WHERE prog_id = @progcode AND (spec = 'Default' OR spec LIKE '%Default%')
+                                              ORDER BY spec_id LIMIT 1";
+                    using (MySqlCommand cmd = new MySqlCommand(namedDefaultSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@progcode", progcode);
+                        object result = cmd.ExecuteScalar();
+                        specId = result != null ? result.ToString().Trim() : "";
+                    }
+                }
+                
+                // Strategy 3: Fall back to the first specialisation for this programme
+                if (string.IsNullOrEmpty(specId))
+                {
+                    string firstSpecSql = @"SELECT spec_id FROM acad_specialisation 
+                                            WHERE prog_id = @progcode 
+                                            ORDER BY spec_id LIMIT 1";
+                    using (MySqlCommand cmd = new MySqlCommand(firstSpecSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@progcode", progcode);
+                        object result = cmd.ExecuteScalar();
+                        specId = result != null ? result.ToString().Trim() : "";
+                    }
                 }
             }
             
             // Step 2: Check if specialisation exists and is fully set
             if (!string.IsNullOrEmpty(specId))
             {
-                string checkSpecSql = @"SELECT is_fully_set FROM acad_specialisation WHERE spec_id = @specId";
+                string checkSpecSql = @"SELECT COALESCE(is_fully_set, 'No') AS is_fully_set FROM acad_specialisation WHERE spec_id = @specId";
                 using (MySqlCommand cmd = new MySqlCommand(checkSpecSql, conn))
                 {
                     cmd.Parameters.AddWithValue("@specId", specId);
                     object result = cmd.ExecuteScalar();
-                    if (result != null)
+                    if (result != null && result != DBNull.Value)
                     {
-                        isCurriculumFullySet = result.ToString() == "Yes" ? "Yes" : "No";
+                        isCurriculumFullySet = result.ToString().Trim().Equals("Yes", StringComparison.OrdinalIgnoreCase) ? "Yes" : "No";
                     }
                 }
             }

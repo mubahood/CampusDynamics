@@ -78,30 +78,119 @@
             font-size: 13px;
         }
         
-        /* Filter row */
-        .cd-filter-row {
-            display: flex;
-            gap: 10px;
-            padding: 8px 12px;
+        /* ===== Filter Bar ===== */
+        .cd-filters {
             background: #f8f9fa;
             border-bottom: 1px solid #e0e0e0;
+            padding: 8px 12px;
+        }
+        .cd-filters__top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .cd-search-wrap {
+            position: relative;
+            flex: 1;
+            max-width: 360px;
+        }
+        .cd-search-wrap__icon {
+            position: absolute;
+            left: 9px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            pointer-events: none;
+        }
+        .cd-search-input {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 6px 10px 6px 30px;
+            font-size: 12px;
+            background: #fff;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .cd-search-input:focus {
+            border-color: #174DA4;
+            box-shadow: 0 0 0 2px rgba(23,77,164,0.10);
+            outline: none;
+        }
+        .cd-search-input::placeholder { color: #aaa; }
+        .cd-btn-search {
+            border: none;
+            background: #174DA4;
+            color: #fff;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+        .cd-btn-search:hover { background: #12397a; }
+        .cd-btn-reset {
+            border: 1px solid #ddd;
+            background: #fff;
+            color: #666;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 11px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+        .cd-btn-reset:hover { background: #f0f0f0; color: #333; border-color: #bbb; }
+        .cd-filters__count {
+            font-size: 11px;
+            color: #174DA4;
+            font-weight: 600;
+            margin-left: auto;
+            white-space: nowrap;
+            background: rgba(23,77,164,0.07);
+            padding: 4px 10px;
+            border-radius: 10px;
+        }
+        .cd-filters__row {
+            display: flex;
+            gap: 6px;
             flex-wrap: wrap;
             align-items: center;
         }
-        .cd-filter-row__label {
-            font-size: 11px;
-            color: #666;
+        .cd-filter-grp {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .cd-filter-grp__label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-weight: 600;
         }
         .cd-filter-select {
             border: 1px solid #ddd;
-            padding: 4px 8px;
+            border-radius: 4px;
+            padding: 4px 6px;
             font-size: 11px;
-            min-width: 140px;
+            min-width: 120px;
             background: #fff;
+            color: #333;
+            transition: border-color 0.15s;
+            cursor: pointer;
         }
         .cd-filter-select:focus {
             border-color: #174DA4;
             outline: none;
+        }
+        .cd-filter-sep {
+            width: 1px;
+            height: 20px;
+            background: #ddd;
+            margin: 0 2px;
         }
         
         /* Student Profile Popup Scrolling Fix */
@@ -795,34 +884,72 @@
             </div>
         </div>
         
-        <!-- Quick Filters -->
-        <div class="cd-filter-row">
-            <span class="cd-filter-row__label">Filter:</span>
-            <asp:DropDownList ID="ddlFilterStatus" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterStatus_SelectedIndexChanged" style="min-width: 130px; font-weight: 500;">
-                <asp:ListItem Value="" Text="-- All Statuses --"></asp:ListItem>
-                <asp:ListItem Value="ADMITTED" Text="Admitted"></asp:ListItem>
-                <asp:ListItem Value="ACTIVE" Text="Active"></asp:ListItem>
-                <asp:ListItem Value="ALUMNI" Text="Alumni"></asp:ListItem>
-                <asp:ListItem Value="SUSPENDED" Text="Suspended"></asp:ListItem>
-                <asp:ListItem Value="DEFERRED" Text="Deferred"></asp:ListItem>
-            </asp:DropDownList>
-            <asp:DropDownList ID="ddlFilterFaculty" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterFaculty_SelectedIndexChanged">
-                <asp:ListItem Value="" Text="-- All Faculties --"></asp:ListItem>
-            </asp:DropDownList>
-            <dx:ASPxComboBox ID="ddlFilterProgramme" runat="server" 
-                ValueType="System.String" TextField="progname" ValueField="progcode"
-                IncrementalFilteringMode="Contains" EnableCallbackMode="false"
-                DropDownStyle="DropDownList" Width="220px"
-                AutoPostBack="true" OnSelectedIndexChanged="ddlFilterProgramme_SelectedIndexChanged"
-                NullText="-- All Programmes --">
-                <ClearButton DisplayMode="Always" />
-            </dx:ASPxComboBox>
-            <asp:DropDownList ID="ddlFilterEntryYear" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterEntryYear_SelectedIndexChanged">
-                <asp:ListItem Value="" Text="-- All Entry Years --"></asp:ListItem>
-            </asp:DropDownList>
-            <asp:DropDownList ID="ddlFilterSession" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterSession_SelectedIndexChanged">
-                <asp:ListItem Value="" Text="-- All Sessions --"></asp:ListItem>
-            </asp:DropDownList>
+        <!-- ===== Filter Bar ===== -->
+        <div class="cd-filters">
+            <!-- Row 1: Search + Reset + Count -->
+            <div class="cd-filters__top">
+                <div class="cd-search-wrap">
+                    <svg class="cd-search-wrap__icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <asp:TextBox ID="txtSearch" runat="server" CssClass="cd-search-input" placeholder="Search by name, reg no, entry no, phone or email..." />
+                </div>
+                <asp:Button ID="btnSearch" runat="server" Text="Search" CssClass="cd-btn-search" OnClick="btnSearch_Click" />
+                <asp:Button ID="btnResetFilters" runat="server" Text="✕ Reset All" CssClass="cd-btn-reset" OnClick="btnResetFilters_Click" />
+                <asp:Literal ID="litStudentCount" runat="server" />
+            </div>
+            <!-- Row 2: Dropdown filters -->
+            <div class="cd-filters__row">
+                <div class="cd-filter-grp">
+                    <span class="cd-filter-grp__label">Status</span>
+                    <asp:DropDownList ID="ddlFilterStatus" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterStatus_SelectedIndexChanged" style="min-width: 110px;">
+                        <asp:ListItem Value="" Text="All"></asp:ListItem>
+                        <asp:ListItem Value="ADMITTED" Text="Admitted"></asp:ListItem>
+                        <asp:ListItem Value="ACTIVE" Text="Active"></asp:ListItem>
+                        <asp:ListItem Value="ALUMNI" Text="Alumni"></asp:ListItem>
+                        <asp:ListItem Value="SUSPENDED" Text="Suspended"></asp:ListItem>
+                        <asp:ListItem Value="DEFERRED" Text="Deferred"></asp:ListItem>
+                    </asp:DropDownList>
+                </div>
+                <div class="cd-filter-sep"></div>
+                <div class="cd-filter-grp">
+                    <span class="cd-filter-grp__label">Faculty</span>
+                    <asp:DropDownList ID="ddlFilterFaculty" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterFaculty_SelectedIndexChanged">
+                        <asp:ListItem Value="" Text="All"></asp:ListItem>
+                    </asp:DropDownList>
+                </div>
+                <div class="cd-filter-sep"></div>
+                <div class="cd-filter-grp">
+                    <span class="cd-filter-grp__label">Programme</span>
+                    <dx:ASPxComboBox ID="ddlFilterProgramme" runat="server" 
+                        ValueType="System.String" TextField="progname" ValueField="progcode"
+                        IncrementalFilteringMode="Contains" EnableCallbackMode="false"
+                        DropDownStyle="DropDownList" Width="200px"
+                        AutoPostBack="true" OnSelectedIndexChanged="ddlFilterProgramme_SelectedIndexChanged"
+                        NullText="All">
+                        <ClearButton DisplayMode="Always" />
+                    </dx:ASPxComboBox>
+                </div>
+                <div class="cd-filter-sep"></div>
+                <div class="cd-filter-grp">
+                    <span class="cd-filter-grp__label">Year</span>
+                    <asp:DropDownList ID="ddlFilterEntryYear" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterEntryYear_SelectedIndexChanged" style="min-width: 70px;">
+                        <asp:ListItem Value="" Text="All"></asp:ListItem>
+                    </asp:DropDownList>
+                </div>
+                <div class="cd-filter-sep"></div>
+                <div class="cd-filter-grp">
+                    <span class="cd-filter-grp__label">Session</span>
+                    <asp:DropDownList ID="ddlFilterSession" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterSession_SelectedIndexChanged" style="min-width: 80px;">
+                        <asp:ListItem Value="" Text="All"></asp:ListItem>
+                    </asp:DropDownList>
+                </div>
+                <div class="cd-filter-sep"></div>
+                <div class="cd-filter-grp">
+                    <span class="cd-filter-grp__label">Campus</span>
+                    <asp:DropDownList ID="ddlFilterCampus" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterCampus_SelectedIndexChanged" style="min-width: 90px;">
+                        <asp:ListItem Value="" Text="All"></asp:ListItem>
+                    </asp:DropDownList>
+                </div>
+            </div>
         </div>
         
         <div class="cd-card__body cd-p-0">
@@ -880,7 +1007,7 @@
                     <dx:GridViewDataTextColumn Caption="" VisibleIndex="0" Width="45px" Settings-AllowSort="False" Settings-AllowAutoFilter="False">
                         <DataItemTemplate>
                             <img class="cd-student-thumb" 
-                                 src='<%# !String.IsNullOrEmpty(Eval("photofile") as string) ? ResolveUrl("~/COOPERP/StudentInfo/photos/") + Eval("photofile") : ResolveUrl("~/COOPERP/StudentInfo/photos/default.png") %>' 
+                                 src='<%# (!String.IsNullOrEmpty(Eval("photofile") as string) && (Eval("photofile").ToString().Trim() != "-") && (Eval("photofile").ToString().Trim().Length > 1)) ? ResolveUrl("~/COOPERP/StudentInfo/photos/") + Eval("photofile").ToString().Trim() : ResolveUrl("~/COOPERP/StudentInfo/photos/default.png") %>' 
                                  alt="" 
                                  data-default-src='<%# ResolveUrl("~/COOPERP/StudentInfo/photos/default.png") %>' 
                                  onerror="this.src=this.getAttribute('data-default-src')" 
@@ -1746,6 +1873,19 @@
             if (e.key === 'Escape') {
                 closeLightbox();
                 closeBatchStatusModal();
+            }
+        });
+        
+        // ========== SEARCH BOX: Enter key triggers Search button ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            var searchBox = document.getElementById('<%= txtSearch.ClientID %>');
+            if (searchBox) {
+                searchBox.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('<%= btnSearch.ClientID %>').click();
+                    }
+                });
             }
         });
         
