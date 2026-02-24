@@ -28,7 +28,10 @@ public partial class API_doc_verification : System.Web.UI.Page
             acad_GetBatchStudentTranscript_Col2TableAdapter COL_2 = new acad_GetBatchStudentTranscript_Col2TableAdapter();
             acad_universityTableAdapter UNIV = new acad_universityTableAdapter();
             ResultsData DS = new ResultsData();
-            ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, Request["reg"].ToString());
+            DS.EnforceConstraints = false;
+            string regNo = Request["reg"].ToString().Trim();
+            ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, regNo);
+            CertificateDataHelper.EnsureSingleStudentData(DS, regNo);
             //ResStatement.Fill(DS.acad_GetBatchStudentTranscriptData, Session["prog"].ToString(), Session["acad"].ToString());
             UNIV.Fill(DS.acad_university);
             FinalTranscript TRANS_RPT = new FinalTranscript();
@@ -42,8 +45,11 @@ public partial class API_doc_verification : System.Web.UI.Page
             acad_universityTableAdapter UNIV = new acad_universityTableAdapter();
             acad_GetBatchStudentTranscriptDataTableAdapter ResStatement = new acad_GetBatchStudentTranscriptDataTableAdapter();
             ResultsData DS = new ResultsData();
+            DS.EnforceConstraints = false;
             UNIV.Fill(DS.acad_university);
-            ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, Request["reg"].ToString());
+            string regNo = Request["reg"].ToString().Trim();
+            ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, regNo);
+            CertificateDataHelper.EnsureSingleStudentData(DS, regNo);
             RPT.DataSource = DS;
             ReportViewer1.Report = RPT;
         }

@@ -60,7 +60,7 @@
                         <td class="auto-style2">
                             Start Date:</td>
                         <td class="style4">
-                            <dx:ASPxDateEdit ID="txtStartDate" runat="server" Height="27px" Width="170px" DisplayFormatString="dd MMMM, yyyy">
+                            <dx:ASPxDateEdit ID="txtStartDate" runat="server" Height="27px" Width="170px" DisplayFormatString="dd MMMM, yyyy" AutoPostBack="True">
                             </dx:ASPxDateEdit>
                         </td>
                         <td>
@@ -72,13 +72,30 @@
                         <td class="auto-style2">
                             End Date:</td>
                         <td class="style4">
-                            <dx:ASPxDateEdit ID="txtEndDate" runat="server" Height="27px" Width="170px" DisplayFormatString="dd MMMM, yyyy">
+                            <dx:ASPxDateEdit ID="txtEndDate" runat="server" Height="27px" Width="170px" DisplayFormatString="dd MMMM, yyyy" AutoPostBack="True">
                             </dx:ASPxDateEdit>
                         </td>
                         <td>
                             &nbsp;</td>
-                        <td>
-                            &nbsp;</td>
+                        <td align="right">
+                            <dx:ASPxButton ID="cmdExport" runat="server" OnClick="cmdExport_Click" 
+                                Text="Export to Excel" Width="170px" Height="35px">
+                                <Image Url="~/COOPERP/images/document-excel-table.png">
+                                </Image>
+                            </dx:ASPxButton>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="auto-style2">&nbsp;</td>
+                        <td class="style4">&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td align="right">
+                            <dx:ASPxButton ID="cmdPrint" runat="server" OnClick="cmdPrint_Click" 
+                                Text="Print  Summary" Width="170px" Height="35px">
+                                <Image Url="~/COOPERP/images/printer.png">
+                                </Image>
+                            </dx:ASPxButton>
+                        </td>
                     </tr>
                 </table>
             </td>
@@ -86,7 +103,7 @@
         <tr>
             <td>
                 <dx:ASPxGridView ID="gv_supplier" runat="server" AutoGenerateColumns="False" 
-                    DataSourceID="ds_supplier" KeyFieldName="SupplierCode" Width="100%" OnHtmlDataCellPrepared="gv_supplier_HtmlDataCellPrepared">
+                    DataSourceID="ds_supplier" KeyFieldName="SupplierCode" Width="100%" OnHtmlDataCellPrepared="gv_supplier_HtmlDataCellPrepared" OnCustomUnboundColumnData="gv_supplier_CustomUnboundColumnData">
                     <SettingsCommandButton>
                         <UpdateButton RenderMode="Link">
                         </UpdateButton>
@@ -130,7 +147,12 @@
                         </dx:GridViewDataTextColumn>
                         <dx:GridViewDataTextColumn Caption="VAT No" FieldName="VAT_No" ShowInCustomizationForm="True" VisibleIndex="8" Width="170px">
                         </dx:GridViewDataTextColumn>
-                        <dx:GridViewDataTextColumn Caption="Ledger" ShowInCustomizationForm="True" VisibleIndex="9" Width="25px">
+                        <dx:GridViewDataTextColumn Caption="Running Balance" FieldName="FinalBalance" ShowInCustomizationForm="True" VisibleIndex="9" Width="150px" UnboundType="String">
+                            <HeaderStyle HorizontalAlign="Right" />
+                            <CellStyle HorizontalAlign="Right">
+                            </CellStyle>
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn Caption="Ledger" ShowInCustomizationForm="True" VisibleIndex="10" Width="25px">
                             <DataItemTemplate>
                                 <asp:ImageButton ID="imgButton" runat="server" ImageUrl="~/COOPERP/images/clipboard-invoice.png" OnClick="cmdLedger_Click" />
                             </DataItemTemplate>
@@ -145,6 +167,41 @@
         </tr>
         <tr>
             <td>
+                <dx:ASPxGridViewExporter ID="Exporter" runat="server" GridViewID="gv_supplier" 
+                    PaperKind="A4" Landscape="True">
+                </dx:ASPxGridViewExporter>
+                <dx:ASPxGridView ID="gv_allLedgers" runat="server" AutoGenerateColumns="False" 
+                    Width="100%" Visible="False" KeyFieldName="RowID"
+                    OnHtmlDataCellPrepared="gv_allLedgers_HtmlDataCellPrepared">
+                    <SettingsPager Mode="ShowAllRecords" />
+                    <Columns>
+                        <dx:GridViewDataTextColumn FieldName="SupplierName" Caption="Supplier" VisibleIndex="0" Width="200px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="EntryDate" Caption="Entry Date" VisibleIndex="1" Width="120px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="InvoiceDate" Caption="Invoice Date" VisibleIndex="2" Width="100px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="Particulars" Caption="Particulars" VisibleIndex="3" Width="250px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="VoucherNo" Caption="Journal No" VisibleIndex="4" Width="80px">
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="DR" Caption="DR" VisibleIndex="5" Width="100px">
+                            <CellStyle HorizontalAlign="Right" />
+                            <HeaderStyle HorizontalAlign="Right" />
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="CR" Caption="CR" VisibleIndex="6" Width="100px">
+                            <CellStyle HorizontalAlign="Right" />
+                            <HeaderStyle HorizontalAlign="Right" />
+                        </dx:GridViewDataTextColumn>
+                        <dx:GridViewDataTextColumn FieldName="Balance" Caption="Balance" VisibleIndex="7" Width="120px">
+                            <CellStyle HorizontalAlign="Right" />
+                            <HeaderStyle HorizontalAlign="Right" />
+                        </dx:GridViewDataTextColumn>
+                    </Columns>
+                </dx:ASPxGridView>
+                <dx:ASPxGridViewExporter ID="ExporterAll" runat="server" GridViewID="gv_allLedgers" 
+                    PaperKind="A4" Landscape="True">
+                </dx:ASPxGridViewExporter>
                 <asp:ObjectDataSource ID="ds_supplier" runat="server" DeleteMethod="Delete" InsertMethod="Insert" OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" TypeName="InventoryDataTableAdapters.inv_supplierdetailsTableAdapter" UpdateMethod="Update">
                     <DeleteParameters>
                         <asp:Parameter Name="Original_SupplierCode" Type="UInt32" />

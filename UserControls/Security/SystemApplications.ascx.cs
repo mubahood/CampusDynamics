@@ -95,35 +95,58 @@ public partial class UserControls_Security_SystemApplications : System.Web.UI.Us
         SMSSendingBLL SMS = new SMSSendingBLL();
         SecurityTableAdapters.my_aspnet_userphoneTableAdapter USR = new SecurityTableAdapters.my_aspnet_userphoneTableAdapter();
         lbl_comment.ForeColor = System.Drawing.Color.Blue;
-        //Session["newotp"] = "1234";
-        string channel = "Email";
+
+        // Guard: username must be in session
+        if (Session["username"] == null || string.IsNullOrEmpty(Session["username"].ToString()))
+        {
+            lbl_comment.ForeColor = System.Drawing.Color.Red;
+            lbl_comment.Text = "Session expired. Please log in again.";
+            return;
+        }
+        string username = Session["username"].ToString();
+
+        Random Coder = new Random();
+        Session["newotp"] = Coder.Next(10000, 99999);
+
         if (rb_channel.SelectedIndex == 0)
         {
-            channel = "Phone";
-            Random Coder = new Random();
-            Session["newotp"] = Coder.Next(10000, 99999);
-            string Message = SMS.SMSSending("Campus Dynamics", "Your Code: " + Session["newotp"], USR.GetUserPhone(Session["username"].ToString()));
+            // --- SMS / Phone path ---
+            object phoneObj = USR.GetUserPhone(username);
+            string phone = (phoneObj != null) ? phoneObj.ToString() : "";
+            if (string.IsNullOrEmpty(phone))
+            {
+                lbl_comment.ForeColor = System.Drawing.Color.Red;
+                lbl_comment.Text = "Error: No phone number found for your account. Please contact support.";
+                return;
+            }
+            string Message = SMS.SMSSending("Campus Dynamics", "Your Code: " + Session["newotp"], phone);
             if (Message.Contains("successfully"))
             {
-                lbl_comment.Text = "New Code sent to your phone No [" + USR.GetUserPhone(Session["username"].ToString()).Substring(0, 8) + "...]";
+                lbl_comment.Text = "New Code sent to your phone No [" + phone.Substring(0, Math.Min(8, phone.Length)) + "...]";
             }
             else
             {
-                lbl_comment.Text = "SMS Error. No Code Sent [" + Message+"]";
+                lbl_comment.Text = "SMS Error. No Code Sent [" + Message + "]";
             }
         }
         else
         {
-            Random Coder = new Random();
-            Session["newotp"] = Coder.Next(10000, 99999);
+            // --- Email path ---
+            object emailObj = USR.GetUserEmail(username);
+            string Email = (emailObj != null) ? emailObj.ToString() : "";
+            if (string.IsNullOrEmpty(Email))
+            {
+                lbl_comment.ForeColor = System.Drawing.Color.Red;
+                lbl_comment.Text = "Error: No email address found for your account. Please contact support.";
+                return;
+            }
             EmailSenderProtocol Emailer = new EmailSenderProtocol();
             string EmailMessage = "Your OTP Code: " + Session["newotp"];
-            string Email = USR.GetUserEmail(Session["username"].ToString()).ToString();
             string responseValue = "";
             try
             {
                 string URL = string.Format("https://erp.edusaterp.com/api/SecureOTP/sendotp?msg={0}&email={1}&sender=Campus Dynamics",
-                    EmailMessage,Email);
+                    EmailMessage, Email);
                 HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(URL);
                 //ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
                 webRequest.Method = "GET";
@@ -140,9 +163,7 @@ public partial class UserControls_Security_SystemApplications : System.Web.UI.Us
             {
                 responseValue = "Error! [" + ex.Message + "]";
             }
-
-            lbl_comment.Text = responseValue + ". Your email is: [" + Email.Substring(0, 5) + "...]";
+            lbl_comment.Text = responseValue + ". Your email is: [" + Email.Substring(0, Math.Min(5, Email.Length)) + "...]";
         }
-        //lbl_comment.Text = "OTP Code Send to your "+channel+" Please Check";
     }
 }

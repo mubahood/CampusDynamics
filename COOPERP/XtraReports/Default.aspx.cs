@@ -41,6 +41,7 @@ public partial class COOPERP_XtraReports_Default : System.Web.UI.Page
                 LetterOfCompletion LTR = new LetterOfCompletion();
                 acad_GetBatchStudentTranscriptDataTableAdapter ResStatement = new acad_GetBatchStudentTranscriptDataTableAdapter();
                 ResultsData DS = new ResultsData();
+                DS.EnforceConstraints = false;
                 ResStatement.Fill(DS.acad_GetBatchStudentTranscriptData, Session["prog"].ToString(), Session["acad"].ToString());
                 UNIV.Fill(DS.acad_university);
                 RPT.DataSource = DS;
@@ -59,8 +60,11 @@ public partial class COOPERP_XtraReports_Default : System.Web.UI.Page
                 LetterOfCompletion_Caution LTR_B = new LetterOfCompletion_Caution();
                 acad_GetBatchStudentTranscriptDataTableAdapter ResStatement = new acad_GetBatchStudentTranscriptDataTableAdapter();
                 ResultsData DS = new ResultsData();
+                DS.EnforceConstraints = false;
                 UNIV.Fill(DS.acad_university);
-                ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, Session["reg"].ToString());
+                string regNo = Session["reg"].ToString().Trim();
+                ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, regNo);
+                CertificateDataHelper.EnsureSingleStudentData(DS, regNo);
                 RPT.DataSource = DS;
                 LTR.DataSource = DS;
                 LTR_B.DataSource = DS;
@@ -77,7 +81,10 @@ public partial class COOPERP_XtraReports_Default : System.Web.UI.Page
                 Certificate RPT = new Certificate();
                 acad_GetBatchStudentTranscriptDataTableAdapter ResStatement = new acad_GetBatchStudentTranscriptDataTableAdapter();
                 ResultsData DS = new ResultsData();
-                ResStatement.LegacyTranscriptData(DS.acad_GetBatchStudentTranscriptData, Session["reg"].ToString());
+                DS.EnforceConstraints = false;
+                string regNo = Session["reg"].ToString().Trim();
+                ResStatement.LegacyTranscriptData(DS.acad_GetBatchStudentTranscriptData, regNo);
+                CertificateDataHelper.EnsureSingleStudentData(DS, regNo);
                 RPT.DataSource = DS;
 
                 ReportViewer1.Report = RPT;
@@ -91,7 +98,10 @@ public partial class COOPERP_XtraReports_Default : System.Web.UI.Page
                 acad_GetBatchStudentTranscript_Col2TableAdapter COL_2 = new acad_GetBatchStudentTranscript_Col2TableAdapter();
                 acad_universityTableAdapter UNIV = new acad_universityTableAdapter();
                 ResultsData DS = new ResultsData();
-                ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, Session["reg"].ToString());
+                DS.EnforceConstraints = false;
+                string regNo = Session["reg"].ToString().Trim();
+                ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, regNo);
+                CertificateDataHelper.EnsureSingleStudentData(DS, regNo);
                 //ResStatement.Fill(DS.acad_GetBatchStudentTranscriptData, Session["prog"].ToString(), Session["acad"].ToString());
                 UNIV.Fill(DS.acad_university);
                 FinalTranscript TRANS_RPT = new FinalTranscript();
@@ -107,6 +117,7 @@ public partial class COOPERP_XtraReports_Default : System.Web.UI.Page
                 acad_GetBatchStudentTranscript_Col2TableAdapter COL_2 = new acad_GetBatchStudentTranscript_Col2TableAdapter();
                 acad_universityTableAdapter UNIV = new acad_universityTableAdapter();
                 ResultsData DS = new ResultsData();
+                DS.EnforceConstraints = false;
                 //ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, Session["reg"].ToString());
                 ResStatement.Fill(DS.acad_GetBatchStudentTranscriptData, Session["prog"].ToString(), Session["acad"].ToString());
                 UNIV.Fill(DS.acad_university);

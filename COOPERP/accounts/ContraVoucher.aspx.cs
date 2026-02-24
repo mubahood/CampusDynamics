@@ -1,4 +1,4 @@
-using CoopERPDataTableAdapters;
+﻿using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -56,11 +56,11 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                 fin_ledgerTableAdapter LEDGER = new fin_ledgerTableAdapter();
 
                 LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtDestAccount.Value.ToString(),
-                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Transferred from " + txtSourceAccount.Value.ToString(), "DR");
+                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Transferred from " + txtSourceAccount.Value.ToString(), "DR", "");
 
 
                 LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtSourceAccount.Value.ToString(),
-                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtDestAccount.Text, "CR");
+                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtDestAccount.Text, "CR", "");
 
                 fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
                 string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtDestAccount.Text;
@@ -200,7 +200,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
     }
     protected void gvParticulars_RowUpdated(object sender, DevExpress.Web.Data.ASPxDataUpdatedEventArgs e)
     {
-        
+        gvParticulars.DataBind();
     }
     protected void gvParticulars_RowUpdating(object sender, DevExpress.Web.Data.ASPxDataUpdatingEventArgs e)
     {
@@ -219,8 +219,6 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                 JN.UpdateForexRate(decimal.Parse(buy_rate), int.Parse(Session["jno"].ToString()));
             }
 
-            gvParticulars.DataBind();
-
         }
         else
         {
@@ -228,7 +226,6 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             if (IsPostBack)
             {
                 JN.UpdateForexRate(1, int.Parse(Session["jno"].ToString()));
-                gvParticulars.DataBind();
             }
         }
     }

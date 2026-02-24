@@ -1238,6 +1238,16 @@
                                                 Edit
                                             </button>
                                         </li>
+                                        <li class="cd-action-popover__divider"></li>
+                                        <li class="cd-action-popover__item">
+                                            <button type="button" class="cd-action-popover__btn cd-action-popover__btn--password" 
+                                                data-regno='<%# Eval("regno") %>'
+                                                data-name='<%# HttpUtility.HtmlAttributeEncode((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()) %>'
+                                                onclick="openSetPasswordModal(this.getAttribute('data-regno'), this.getAttribute('data-name'))">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                                Set Password
+                                            </button>
+                                        </li>
                                     </ul>
                                 </div>
                             </div>
@@ -1764,6 +1774,57 @@
         </div>
     </div>
     
+    <!-- Set Password Modal -->
+    <div id="setPasswordOverlay" class="cd-modal-overlay">
+        <div class="cd-modal" style="max-width: 420px;">
+            <div class="cd-modal__header">
+                <h3 class="cd-modal__title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    Set Password
+                </h3>
+                <button type="button" class="cd-modal__close" onclick="closeSetPasswordModal()">&times;</button>
+            </div>
+            <div class="cd-modal__body">
+                <!-- Student Info -->
+                <div style="background: #f0f4ff; border: 1px solid #c4d9f8; padding: 10px 12px; margin-bottom: 14px;">
+                    <div style="font-size: 10px; color: #666; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Student</div>
+                    <div id="spStudentName" style="font-size: 13px; font-weight: 600; color: #333;"></div>
+                    <div id="spStudentRegno" style="font-size: 11px; color: #174DA4; font-weight: 500;"></div>
+                </div>
+                
+                <!-- Password Fields -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">New Password</label>
+                    <div style="position: relative;">
+                        <input type="password" id="spNewPassword" class="cd-form-input" placeholder="Enter new password" autocomplete="new-password" />
+                        <button type="button" class="cd-pwd-toggle" onclick="togglePasswordVisibility('spNewPassword', this)" title="Show/Hide password">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Confirm Password</label>
+                    <div style="position: relative;">
+                        <input type="password" id="spConfirmPassword" class="cd-form-input" placeholder="Confirm new password" autocomplete="new-password" />
+                        <button type="button" class="cd-pwd-toggle" onclick="togglePasswordVisibility('spConfirmPassword', this)" title="Show/Hide password">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Status Message -->
+                <div id="spStatusMsg" style="display: none; padding: 8px 10px; font-size: 11px; margin-top: 8px;"></div>
+            </div>
+            <div class="cd-modal__footer">
+                <button type="button" class="cd-btn cd-btn--outline" onclick="closeSetPasswordModal()">Cancel</button>
+                <button type="button" id="btnSetPassword" class="cd-btn cd-btn--primary" onclick="submitSetPassword()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    Set Password
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <script type="text/javascript">
         function toggleActionPopover(btn, e) {
             if (e) {
@@ -1813,6 +1874,156 @@
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.cd-action-wrapper')) {
                 closeAllPopovers();
+            }
+        });
+        
+        // ===== Set Password Modal Functions =====
+        var _spRegno = '';
+        
+        function openSetPasswordModal(regno, studentName) {
+            closeAllPopovers();
+            if (!regno) {
+                alert('No registration number provided');
+                return;
+            }
+            _spRegno = regno;
+            document.getElementById('spStudentName').innerText = studentName || '';
+            document.getElementById('spStudentRegno').innerText = regno;
+            document.getElementById('spNewPassword').value = '';
+            document.getElementById('spConfirmPassword').value = '';
+            hideSpStatus();
+            document.getElementById('btnSetPassword').disabled = false;
+            
+            var overlay = document.getElementById('setPasswordOverlay');
+            overlay.style.display = 'flex';
+            
+            // Focus the password field after a brief delay
+            setTimeout(function() {
+                document.getElementById('spNewPassword').focus();
+            }, 100);
+        }
+        
+        function closeSetPasswordModal() {
+            document.getElementById('setPasswordOverlay').style.display = 'none';
+            _spRegno = '';
+            document.getElementById('spNewPassword').value = '';
+            document.getElementById('spConfirmPassword').value = '';
+            hideSpStatus();
+        }
+        
+        function togglePasswordVisibility(inputId, btn) {
+            var input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+            } else {
+                input.type = 'password';
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+            }
+        }
+        
+        function showSpStatus(message, isError) {
+            var el = document.getElementById('spStatusMsg');
+            el.style.display = 'block';
+            el.innerText = message;
+            if (isError) {
+                el.style.background = '#f8d7da';
+                el.style.color = '#721c24';
+                el.style.border = '1px solid #f5c6cb';
+            } else {
+                el.style.background = '#d4edda';
+                el.style.color = '#155724';
+                el.style.border = '1px solid #c3e6cb';
+            }
+        }
+        
+        function hideSpStatus() {
+            var el = document.getElementById('spStatusMsg');
+            el.style.display = 'none';
+            el.innerText = '';
+        }
+        
+        function submitSetPassword() {
+            var newPwd = document.getElementById('spNewPassword').value;
+            var confirmPwd = document.getElementById('spConfirmPassword').value;
+            
+            // Validation
+            if (!newPwd) {
+                showSpStatus('Please enter a new password.', true);
+                document.getElementById('spNewPassword').focus();
+                return;
+            }
+            if (newPwd.length < 1) {
+                showSpStatus('Password must be at least 1 character long.', true);
+                document.getElementById('spNewPassword').focus();
+                return;
+            }
+            if (newPwd !== confirmPwd) {
+                showSpStatus('Passwords do not match. Please re-enter.', true);
+                document.getElementById('spConfirmPassword').focus();
+                return;
+            }
+            if (!_spRegno) {
+                showSpStatus('No student selected. Please try again.', true);
+                return;
+            }
+            
+            // Disable button and show loading
+            var btn = document.getElementById('btnSetPassword');
+            btn.disabled = true;
+            btn.innerHTML = '<span style="margin-right:4px;">&#9203;</span> Setting Password...';
+            hideSpStatus();
+            
+            // AJAX call to server
+            var xhr = new XMLHttpRequest();
+            var url = window.location.pathname + '?action=SetPassword';
+            xhr.open('POST', url, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Set Password';
+                    
+                    if (xhr.status === 200) {
+                        try {
+                            var result = JSON.parse(xhr.responseText);
+                            if (result.success) {
+                                showSpStatus(result.message, false);
+                                // Clear password fields on success
+                                document.getElementById('spNewPassword').value = '';
+                                document.getElementById('spConfirmPassword').value = '';
+                            } else {
+                                showSpStatus(result.message || 'Failed to set password.', true);
+                            }
+                        } catch (ex) {
+                            showSpStatus('Unexpected response from server.', true);
+                        }
+                    } else {
+                        showSpStatus('Server error. Please try again.', true);
+                    }
+                }
+            };
+            xhr.send('regno=' + encodeURIComponent(_spRegno) + '&newPassword=' + encodeURIComponent(newPwd));
+        }
+        
+        // Close Set Password modal on overlay click
+        document.getElementById('setPasswordOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSetPasswordModal();
+            }
+        });
+        
+        // Handle Enter key in password fields
+        document.getElementById('spNewPassword').addEventListener('keydown', function(e) {
+            if (e.keyCode === 13) {
+                e.preventDefault();
+                document.getElementById('spConfirmPassword').focus();
+            }
+        });
+        document.getElementById('spConfirmPassword').addEventListener('keydown', function(e) {
+            if (e.keyCode === 13) {
+                e.preventDefault();
+                submitSetPassword();
             }
         });
         
@@ -2184,7 +2395,7 @@
             
             var filterDesc = '';
             if (entryNumbers) {
-                filterDesc = ' (specific entry numbers)';
+                filterDesc = ' (specific registration numbers)';
             } else if (programme || entryYear) {
                 filterDesc = ' (filtered';
                 if (programme) filterDesc += ' by programme';
@@ -2779,12 +2990,12 @@
                 
                 <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;" />
                 
-                <!-- Specific Entry Numbers -->
+                <!-- Specific Registration Numbers -->
                 <div class="cd-form-group">
-                    <label class="cd-form-label">Or Validate Specific Students by Entry Number</label>
-                    <textarea id="txtValidationEntryNumbers" class="cd-form-input" rows="3" placeholder="Enter entry numbers separated by commas, e.g.:
+                    <label class="cd-form-label">Or Validate Specific Students by Registration Number</label>
+                    <textarea id="txtValidationEntryNumbers" class="cd-form-input" rows="3" placeholder="Enter registration numbers separated by commas, e.g.:
 24/U/BSCS/0001/K/DAY, 24/U/BSCS/0002/K/DAY" style="font-size: 11px; resize: vertical;"></textarea>
-                    <small style="color: #888; margin-top: 4px; display: block; font-size: 10px;">If entry numbers are provided, the programme and entry year filters above will be ignored.</small>
+                    <small style="color: #888; margin-top: 4px; display: block; font-size: 10px;">If registration numbers are provided, the programme and entry year filters above will be ignored.</small>
                 </div>
                 
                 <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;" />
@@ -2898,12 +3109,12 @@
                 
                 <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;" />
                 
-                <!-- Specific Entry Numbers -->
+                <!-- Specific Registration Numbers -->
                 <div class="cd-form-group">
-                    <label class="cd-form-label">Or Export for Specific Students by Entry Number</label>
-                    <textarea id="txtReportEntryNumbers" class="cd-form-input" rows="3" placeholder="Enter entry numbers separated by commas, e.g.:
+                    <label class="cd-form-label">Or Export for Specific Students by Registration Number</label>
+                    <textarea id="txtReportEntryNumbers" class="cd-form-input" rows="3" placeholder="Enter registration numbers separated by commas, e.g.:
 24/U/BSCS/0001/K/DAY, 24/U/BSCS/0002/K/DAY" style="font-size: 11px; resize: vertical;"></textarea>
-                    <small style="color: #888; margin-top: 4px; display: block; font-size: 10px;">If entry numbers are provided, Programme and Entry Year are still required.</small>
+                    <small style="color: #888; margin-top: 4px; display: block; font-size: 10px;">If registration numbers are provided, Programme and Entry Year are still required.</small>
                 </div>
                 
                 <!-- Preview Button -->
@@ -3337,6 +3548,24 @@
         .cd-btn--outline:hover {
             background: #f5f5f5;
             border-color: #ccc;
+        }
+        
+        /* Password Toggle Button */
+        .cd-pwd-toggle {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #999;
+            padding: 2px;
+            line-height: 1;
+            transition: color 0.15s;
+        }
+        .cd-pwd-toggle:hover {
+            color: #174DA4;
         }
     </style>
     

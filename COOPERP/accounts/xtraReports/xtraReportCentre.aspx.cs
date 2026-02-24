@@ -1,7 +1,8 @@
-using CoopERPDataTableAdapters;
+﻿using CoopERPDataTableAdapters;
 using DevExpress.XtraPrinting;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Web;
@@ -75,6 +76,15 @@ public partial class Accounting_xtraReports_xtraReportCentre : System.Web.UI.Pag
             RPT.Parameters["eDate"].Value = Session["eDate"];
             myReports.Report = RPT;
 
+        }
+        else if (Session["Report"].ToString() == "AllSupplierLedgers")
+        {
+            AllSupplierLedgers RPT = new AllSupplierLedgers();
+            DataTable dt = Session["AllSupplierLedgersData"] as DataTable;
+            DateTime sDate = Session["sDate"] != null ? Convert.ToDateTime(Session["sDate"]) : DateTime.Now;
+            DateTime eDate = Session["eDate"] != null ? Convert.ToDateTime(Session["eDate"]) : DateTime.Now;
+            RPT.SetData(dt, sDate, eDate);
+            myReports.Report = RPT;
         }
         else if (Session["Report"].ToString() == "Fees List")
         {

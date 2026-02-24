@@ -77,13 +77,39 @@ public partial class COOPERP_NewScreens_SystemValidationStats : System.Web.UI.Pa
                     lblTotalSpecs.Text = String.Format("{0:N0}", totalSpecs);
                 }
                 
-                // Configured Specialisations
-                int configuredSpecs = 0;
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_specialisation WHERE is_fully_set = 'Yes'", conn))
+                // Active Specialisations
+                int activeSpecs = 0;
+                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_specialisation WHERE is_active = 'Active'", conn))
                 {
-                    configuredSpecs = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblConfiguredSpecs.Text = String.Format("{0:N0}", configuredSpecs);
+                    activeSpecs = Convert.ToInt32(cmd.ExecuteScalar());
+                    lblActiveSpecs.Text = String.Format("{0:N0}", activeSpecs);
                 }
+                
+                // Inactive Specialisations
+                int inactiveSpecs = totalSpecs - activeSpecs;
+                lblInactiveSpecs.Text = String.Format("{0:N0}", inactiveSpecs);
+                lblHealthInactiveCount.Text = String.Format("{0:N0}", inactiveSpecs);
+                
+                // Active + Fully Set  ← the only metric that counts toward readiness
+                int activeFullySet = 0;
+                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_specialisation WHERE is_active = 'Active' AND is_fully_set = 'Yes'", conn))
+                {
+                    activeFullySet = Convert.ToInt32(cmd.ExecuteScalar());
+                    lblActiveFullySet.Text = String.Format("{0:N0}", activeFullySet);
+                    lblConfiguredSpecs.Text = String.Format("{0:N0}", activeFullySet);
+                }
+                
+                // Active + Not Fully Set
+                int activeNotFullySet = activeSpecs - activeFullySet;
+                lblActiveNotFullySet.Text = String.Format("{0:N0}", activeNotFullySet);
+                
+                // Active Readiness Rate
+                int activeReadinessRate = activeSpecs > 0 ? (activeFullySet * 100 / activeSpecs) : 0;
+                lblActiveReadinessRate.Text = activeReadinessRate + "%";
+                lblQsActiveReadiness.Text = activeReadinessRate + "%";
+                
+                // Keep configuredSpecs alias for any remaining calculations below
+                int configuredSpecs = activeFullySet;
 
                 // ========== VALIDATION METRICS ==========
                 
@@ -129,13 +155,12 @@ public partial class COOPERP_NewScreens_SystemValidationStats : System.Web.UI.Pa
                 };
                 hfValidationChartData.Value = serializer.Serialize(validationChartData);
                 
-                // Curriculum Chart Data (Based on Specialisations - Fully Set vs Not Fully Set)
-                int unconfiguredSpecs = totalSpecs - configuredSpecs;
-                
+                // Specialisation Status Chart Data (Active+Ready / Active+Pending / Inactive)
                 var curriculumChartData = new
                 {
-                    configured = configuredSpecs,
-                    unconfigured = unconfiguredSpecs
+                    activeReady   = activeFullySet,
+                    activePending = activeNotFullySet,
+                    inactive      = inactiveSpecs
                 };
                 hfCurriculumChartData.Value = serializer.Serialize(curriculumChartData);
 
@@ -146,10 +171,15 @@ public partial class COOPERP_NewScreens_SystemValidationStats : System.Web.UI.Pa
                 lblProgConfigPercent.Text = progPercent + "%";
                 progBar.Style["width"] = progPercent + "%";
                 
-                // Specialisations Configured Percentage
-                int specPercent = totalSpecs > 0 ? (configuredSpecs * 100 / totalSpecs) : 0;
+                // Specialisations Configured Percentage (active specs only)
+                int specPercent = activeSpecs > 0 ? (activeFullySet * 100 / activeSpecs) : 0;
                 lblSpecConfigPercent.Text = specPercent + "%";
                 specBar.Style["width"] = specPercent + "%";
+                
+                // Inactive Specialisations Percentage (of total)
+                int inactiveSpecPercent = totalSpecs > 0 ? (inactiveSpecs * 100 / totalSpecs) : 0;
+                lblInactiveSpecPercent.Text = inactiveSpecPercent + "%";
+                inactiveSpecBar.Style["width"] = inactiveSpecPercent + "%";
                 
                 // Students Validated Percentage
                 int studentValidPercent = totalStudents > 0 ? (validatedStudents * 100 / totalStudents) : 0;
@@ -301,7 +331,8 @@ public partial class COOPERP_NewScreens_SystemValidationStats : System.Web.UI.Pa
                     LEFT JOIN (SELECT specialisation_id, COUNT(*) as course_count 
                                FROM acad_programmecourses GROUP BY specialisation_id) c 
                         ON s.spec_id = c.specialisation_id
-                    WHERE s.is_fully_set IS NULL OR s.is_fully_set = '' OR s.is_fully_set = 'No'
+                    WHERE s.is_active = 'Active'
+                      AND (s.is_fully_set IS NULL OR s.is_fully_set = '' OR s.is_fully_set = 'No')
                     ORDER BY p.prog, s.spec
                     LIMIT 8", conn))
                 {

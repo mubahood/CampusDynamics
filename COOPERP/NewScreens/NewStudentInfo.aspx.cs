@@ -9,6 +9,7 @@ using System.Web.Script.Serialization;
 using System.IO;
 using System.Text;
 using System.Linq;
+using System.Security.Cryptography;
 
 public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 {
@@ -96,6 +97,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             else if (action == "ExportPerformanceReport")
             {
                 HandleExportPerformanceReport();
+                return;
+            }
+            else if (action == "SetPassword")
+            {
+                HandleSetPassword();
                 return;
             }
         }
@@ -1519,7 +1525,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 System.Drawing.Color rowBg = rowNum % 2 == 0 ? altRowColor : System.Drawing.Color.White;
                 
                 DrawTableDataCell(gr, rowNum.ToString(), x, y, numWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += numWidth;
-                DrawTableDataCell(gr, row["regno"].ToString(), x, y, regNoWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += regNoWidth;
+                DrawTableDataCell(gr, row["entryno"].ToString(), x, y, regNoWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += regNoWidth;
                 DrawTableDataCell(gr, row["student_name"].ToString(), x, y, nameWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += nameWidth;
                 DrawTableDataCell(gr, row["gender"].ToString(), x, y, genderWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += genderWidth;
                 
@@ -2207,7 +2213,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         .GroupBy(r => r["entryno"].ToString())
                         .Select(g => new {
                             EntryNo = g.Key,
-                            RegNo = g.First()["regno"] != DBNull.Value ? g.First()["regno"].ToString() : "",
+                            RegNo = g.First()["entryno"] != DBNull.Value ? g.First()["entryno"].ToString() : "",
                             Name = g.First()["student_name"] != DBNull.Value ? g.First()["student_name"].ToString() : "",
                             Results = g.ToList()
                         })
@@ -2219,7 +2225,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     // Calculate column widths - now including Status column
                     float snWidth = 22;
                     float nameWidth = 100;
-                    float regWidth = 115;
+                    float regWidth = 130;
                     float statusWidth = 55; // New status column
                     float fixedWidth = snWidth + nameWidth + regWidth + statusWidth;
                     float availableWidth = pageWidth - fixedWidth;
@@ -2738,6 +2744,245 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 gr.DrawBrick(noCurricDesc, new System.Drawing.RectangleF(sumCol3X + 85, summaryY, 80, 12));
                 
                 y += summaryBoxHeight + 8;
+                
+                // ========== COURSE PERFORMANCE ANALYSIS TABLE ==========
+                {
+                    // Aggregate stats per course across ALL specializations
+                    var courseStats = data.AsEnumerable()
+                        .Where(r => r["courseid"] != DBNull.Value && !string.IsNullOrEmpty(r["courseid"].ToString())
+                                 && r["grade"] != DBNull.Value && !string.IsNullOrEmpty(r["grade"].ToString()))
+                        .GroupBy(r => r["courseid"].ToString())
+                        .Select(g => {
+                            var scores = g.Where(r => r["score"] != DBNull.Value)
+                                          .Select(r => { 
+                                              decimal val; 
+                                              return decimal.TryParse(r["score"].ToString(), out val) ? val : -1m; 
+                                          })
+                                          .Where(s => s >= 0)
+                                          .ToList();
+                            
+                            int totalResults = g.Count();
+                            int passCount = g.Count(r => r["grade"].ToString() != "F");
+                            int failCount = totalResults - passCount;
+                            
+                            string courseTitle = g.First()["course_title"] != DBNull.Value 
+                                ? g.First()["course_title"].ToString() : "";
+                            
+                            decimal creditUnits = 0;
+                            var cuRow = g.FirstOrDefault(r => r["CreditUnits"] != DBNull.Value);
+                            if (cuRow != null) decimal.TryParse(cuRow["CreditUnits"].ToString(), out creditUnits);
+                            
+                            return new {
+                                Code = g.Key,
+                                Title = courseTitle,
+                                CreditUnits = creditUnits,
+                                TotalResults = totalResults,
+                                PassCount = passCount,
+                                FailCount = failCount,
+                                PassRate = totalResults > 0 ? Math.Round((decimal)passCount / totalResults * 100, 1) : 0m,
+                                AvgScore = scores.Count > 0 ? Math.Round(scores.Average(), 1) : 0m,
+                                HighScore = scores.Count > 0 ? scores.Max() : 0m,
+                                LowScore = scores.Count > 0 ? scores.Min() : 0m
+                            };
+                        })
+                        .OrderBy(c => c.Code)
+                        .ToList();
+                    
+                    if (courseStats.Count > 0)
+                    {
+                        // Section title
+                        DevExpress.XtraPrinting.TextBrick cpaTitle = new DevExpress.XtraPrinting.TextBrick();
+                        cpaTitle.Text = "  COURSE PERFORMANCE ANALYSIS";
+                        cpaTitle.Font = new System.Drawing.Font("Tahoma", 8, System.Drawing.FontStyle.Bold);
+                        cpaTitle.ForeColor = System.Drawing.Color.White;
+                        cpaTitle.BackColor = brandColor;
+                        cpaTitle.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                        cpaTitle.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 5, 5);
+                        gr.DrawBrick(cpaTitle, new System.Drawing.RectangleF(0, y, pageWidth, 20));
+                        y += 22;
+                        
+                        // Column widths
+                        float cpaSn = 22;
+                        float cpaCode = 70;
+                        float cpaName = 215;
+                        float cpaCU = 28;
+                        float cpaStudents = 52;
+                        float cpaAvg = 50;
+                        float cpaHigh = 50;
+                        float cpaLow = 50;
+                        float cpaPass = 42;
+                        float cpaFail = 42;
+                        float cpaRate = 55;
+                        float cpaBar = pageWidth - cpaSn - cpaCode - cpaName - cpaCU - cpaStudents 
+                                     - cpaAvg - cpaHigh - cpaLow - cpaPass - cpaFail - cpaRate;
+                        
+                        // Table header
+                        float cpaHeaderH = 20;
+                        System.Drawing.Font cpaHeaderFont = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
+                        System.Drawing.Font cpaDataFont = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Regular);
+                        System.Drawing.Color cpaHeaderBg = System.Drawing.Color.FromArgb(52, 73, 94);
+                        
+                        float cx = 0;
+                        string[] cpaHeaders = new string[] { "#", "COURSE CODE", "COURSE NAME", "CU", "STUDENTS", "AVG", "HIGHEST", "LOWEST", "PASS", "FAIL", "PASS %", "" };
+                        float[] cpaWidths = new float[] { cpaSn, cpaCode, cpaName, cpaCU, cpaStudents, cpaAvg, cpaHigh, cpaLow, cpaPass, cpaFail, cpaRate, cpaBar };
+                        System.Drawing.StringAlignment[] cpaAligns = new System.Drawing.StringAlignment[] {
+                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Near, System.Drawing.StringAlignment.Near,
+                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center,
+                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center,
+                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Near
+                        };
+                        
+                        for (int h = 0; h < cpaHeaders.Length; h++)
+                        {
+                            DevExpress.XtraPrinting.TextBrick hdr = new DevExpress.XtraPrinting.TextBrick();
+                            hdr.Text = cpaHeaders[h];
+                            hdr.Font = cpaHeaderFont;
+                            hdr.ForeColor = System.Drawing.Color.White;
+                            hdr.BackColor = cpaHeaderBg;
+                            hdr.BorderColor = borderColor;
+                            hdr.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                            hdr.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 4, 4);
+                            hdr.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(cpaAligns[h]);
+                            gr.DrawBrick(hdr, new System.Drawing.RectangleF(cx, y, cpaWidths[h], cpaHeaderH));
+                            cx += cpaWidths[h];
+                        }
+                        y += cpaHeaderH;
+                        
+                        // Data rows
+                        float cpaRowH = 18;
+                        int cpaRowNum = 0;
+                        
+                        // Compute overall totals for the footer row
+                        int grandTotalResults = 0;
+                        int grandTotalPass = 0;
+                        int grandTotalFail = 0;
+                        decimal grandScoreSum = 0;
+                        int grandScoreCount = 0;
+                        
+                        foreach (var cs in courseStats)
+                        {
+                            cpaRowNum++;
+                            cx = 0;
+                            System.Drawing.Color cpaRowBg = (cpaRowNum % 2 == 0) ? altRowColor : System.Drawing.Color.White;
+                            
+                            // Determine pass rate color
+                            System.Drawing.Color rateColor;
+                            if (cs.PassRate >= 80) rateColor = System.Drawing.Color.FromArgb(39, 174, 96);        // Green
+                            else if (cs.PassRate >= 60) rateColor = System.Drawing.Color.FromArgb(41, 128, 185);   // Blue
+                            else if (cs.PassRate >= 40) rateColor = System.Drawing.Color.FromArgb(243, 156, 18);   // Orange
+                            else rateColor = System.Drawing.Color.FromArgb(192, 57, 43);                           // Red
+                            
+                            // Truncate long course names
+                            string cpaDispName = cs.Title.Length > 38 ? cs.Title.Substring(0, 38) + ".." : cs.Title;
+                            
+                            string[] cpaValues = new string[] {
+                                cpaRowNum.ToString(),
+                                cs.Code,
+                                cpaDispName,
+                                cs.CreditUnits > 0 ? cs.CreditUnits.ToString("0") : "-",
+                                cs.TotalResults.ToString(),
+                                cs.AvgScore > 0 ? cs.AvgScore.ToString("0.0") : "-",
+                                cs.HighScore > 0 ? cs.HighScore.ToString("0") : "-",
+                                cs.LowScore > 0 ? cs.LowScore.ToString("0") : "-",
+                                cs.PassCount.ToString(),
+                                cs.FailCount.ToString(),
+                                cs.PassRate.ToString("0.0") + "%",
+                                ""
+                            };
+                            
+                            for (int d = 0; d < cpaValues.Length; d++)
+                            {
+                                DevExpress.XtraPrinting.TextBrick cell = new DevExpress.XtraPrinting.TextBrick();
+                                cell.Text = cpaValues[d];
+                                cell.Font = cpaDataFont;
+                                cell.BackColor = cpaRowBg;
+                                cell.BorderColor = borderColor;
+                                cell.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                                cell.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 3, 3);
+                                cell.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(cpaAligns[d]);
+                                
+                                // Color-code specific columns
+                                if (d == 10) cell.ForeColor = rateColor; // Pass %
+                                else if (d == 9 && cs.FailCount > 0) cell.ForeColor = System.Drawing.Color.FromArgb(192, 57, 43); // Fail count in red
+                                else cell.ForeColor = darkGray;
+                                
+                                // Bold the pass % column
+                                if (d == 10) cell.Font = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
+                                
+                                gr.DrawBrick(cell, new System.Drawing.RectangleF(cx, y, cpaWidths[d], cpaRowH));
+                                cx += cpaWidths[d];
+                            }
+                            
+                            // Visual pass-rate bar in the last column
+                            if (cpaBar > 4)
+                            {
+                                float barMaxWidth = cpaBar - 6;
+                                float barWidth = barMaxWidth * (float)(cs.PassRate / 100m);
+                                if (barWidth < 1 && cs.PassRate > 0) barWidth = 1;
+                                
+                                DevExpress.XtraPrinting.TextBrick barBrick = new DevExpress.XtraPrinting.TextBrick();
+                                barBrick.Text = "";
+                                barBrick.BackColor = rateColor;
+                                barBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                                gr.DrawBrick(barBrick, new System.Drawing.RectangleF(
+                                    cx - cpaBar + 3, y + 4, barWidth, cpaRowH - 8));
+                            }
+                            
+                            // Accumulate grand totals
+                            grandTotalResults += cs.TotalResults;
+                            grandTotalPass += cs.PassCount;
+                            grandTotalFail += cs.FailCount;
+                            if (cs.AvgScore > 0)
+                            {
+                                grandScoreSum += cs.AvgScore * cs.TotalResults;
+                                grandScoreCount += cs.TotalResults;
+                            }
+                            
+                            y += cpaRowH;
+                        }
+                        
+                        // ========== TOTALS / OVERALL ROW ==========
+                        cx = 0;
+                        System.Drawing.Color totalsBg = System.Drawing.Color.FromArgb(44, 62, 80);
+                        System.Drawing.Font totalsFont = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
+                        decimal grandAvg = grandScoreCount > 0 ? Math.Round(grandScoreSum / grandScoreCount, 1) : 0m;
+                        decimal grandPassRate = grandTotalResults > 0 ? Math.Round((decimal)grandTotalPass / grandTotalResults * 100, 1) : 0m;
+                        
+                        string[] totalValues = new string[] {
+                            "", "OVERALL", courseStats.Count + " courses", "",
+                            grandTotalResults.ToString(),
+                            grandAvg > 0 ? grandAvg.ToString("0.0") : "-",
+                            "", "",
+                            grandTotalPass.ToString(),
+                            grandTotalFail.ToString(),
+                            grandPassRate.ToString("0.0") + "%",
+                            ""
+                        };
+                        
+                        for (int t = 0; t < totalValues.Length; t++)
+                        {
+                            DevExpress.XtraPrinting.TextBrick tCell = new DevExpress.XtraPrinting.TextBrick();
+                            tCell.Text = totalValues[t];
+                            tCell.Font = totalsFont;
+                            tCell.ForeColor = System.Drawing.Color.White;
+                            tCell.BackColor = totalsBg;
+                            tCell.BorderColor = borderColor;
+                            tCell.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                            tCell.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 3, 3);
+                            tCell.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(cpaAligns[t]);
+                            
+                            // Highlight fail count in totals row
+                            if (t == 9 && grandTotalFail > 0) 
+                                tCell.ForeColor = System.Drawing.Color.FromArgb(255, 180, 180);
+                            
+                            gr.DrawBrick(tCell, new System.Drawing.RectangleF(cx, y, cpaWidths[t], cpaRowH + 2));
+                            cx += cpaWidths[t];
+                        }
+                        
+                        y += cpaRowH + 2;
+                        y += 12;
+                    }
+                }
                 
                 // ========== PROFESSIONAL FOOTER ==========
                 
@@ -4434,6 +4679,147 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             System.Diagnostics.Debug.WriteLine("Error loading checker courses: " + ex.Message);
             litCheckerContent.Text = "";
             pnlNoChecker.Visible = true;
+        }
+    }
+    
+    #endregion
+    
+    #region Set Password
+    
+    private void HandleSetPassword()
+    {
+        Response.ContentType = "application/json";
+        JavaScriptSerializer serializer = new JavaScriptSerializer();
+        
+        try
+        {
+            // Read POST data
+            string regno = Request.Form["regno"];
+            string newPassword = Request.Form["newPassword"];
+            
+            if (string.IsNullOrEmpty(regno) || string.IsNullOrEmpty(newPassword))
+            {
+                Response.Write(serializer.Serialize(new { success = false, message = "Registration number and password are required." }));
+                Response.End();
+                return;
+            }
+            
+            regno = regno.Trim();
+            newPassword = newPassword.Trim();
+            
+            // Use the portal connection string for membership tables
+            string portalConnStr = ConfigurationManager.ConnectionStrings["campus_dynamics_portalConnectionString"] != null
+                ? ConfigurationManager.ConnectionStrings["campus_dynamics_portalConnectionString"].ConnectionString
+                : "";
+            
+            if (string.IsNullOrEmpty(portalConnStr))
+            {
+                // Fallback: use main connection but prefix tables with campus_dynamics_portal
+                portalConnStr = ConnectionString;
+            }
+            
+            using (MySqlConnection conn = new MySqlConnection(portalConnStr))
+            {
+                conn.Open();
+                
+                // Step 1: Find the user ID from my_aspnet_users by name (username = regno)
+                string userId = null;
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT id FROM campus_dynamics_portal.my_aspnet_users WHERE TRIM(name) = @regno", conn))
+                {
+                    cmd.Parameters.AddWithValue("@regno", regno);
+                    object result = cmd.ExecuteScalar();
+                    if (result != null && result != DBNull.Value)
+                    {
+                        userId = result.ToString();
+                    }
+                }
+                
+                if (string.IsNullOrEmpty(userId))
+                {
+                    Response.Write(serializer.Serialize(new { 
+                        success = false, 
+                        message = "No portal account found for " + regno + ". The student may not have a portal account yet." 
+                    }));
+                    Response.End();
+                    return;
+                }
+                
+                // Step 2: Generate a new salt and hash the password
+                byte[] saltBytes = new byte[16];
+                using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider())
+                {
+                    rng.GetBytes(saltBytes);
+                }
+                string salt = Convert.ToBase64String(saltBytes);
+                string hashedPassword = HashPasswordWithSalt(newPassword, salt);
+                
+                // Step 3: Update the membership record with new password, salt, unlock account
+                using (MySqlCommand cmd = new MySqlCommand(
+                    @"UPDATE campus_dynamics_portal.my_aspnet_membership 
+                      SET password = @password, 
+                          passwordKey = @salt, 
+                          IsLockedOut = 0, 
+                          FailedPasswordAttemptCount = 0,
+                          LastPasswordChangedDate = @now
+                      WHERE userid = @userId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@password", hashedPassword);
+                    cmd.Parameters.AddWithValue("@salt", salt);
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+                    
+                    int rows = cmd.ExecuteNonQuery();
+                    if (rows > 0)
+                    {
+                        Response.Write(serializer.Serialize(new { 
+                            success = true, 
+                            message = "Password set successfully for " + regno + ". The student can now log in with the new password." 
+                        }));
+                    }
+                    else
+                    {
+                        Response.Write(serializer.Serialize(new { 
+                            success = false, 
+                            message = "No membership record found for this user. The account may be incomplete." 
+                        }));
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Response.Write(serializer.Serialize(new { 
+                success = false, 
+                message = "Error: " + ex.Message 
+            }));
+        }
+        
+        Response.End();
+    }
+    
+    /// <summary>
+    /// Hashes a password matching the ASP.NET MySQLMembershipProvider with passwordFormat="Hashed".
+    /// In .NET 4.0+ with no explicit machineKey, Membership.HashAlgorithmType defaults to "HMACSHA256".
+    /// HMACSHA256 is a KeyedHashAlgorithm, so the salt is used as the HMAC key.
+    /// Algorithm: HMACSHA256(key=salt_bytes, data=salt_bytes + Unicode_bytes(password)) → Base64
+    /// Matches HashPasswordBytes() / EncodePassword() in MySql.Web.Security.MySQLMembershipProvider.
+    /// </summary>
+    private string HashPasswordWithSalt(string password, string base64Salt)
+    {
+        byte[] saltBytes = Convert.FromBase64String(base64Salt);
+        byte[] passwordBytes = Encoding.Unicode.GetBytes(password);
+        
+        // Combine salt + password bytes (salt first, then password)
+        byte[] combined = new byte[saltBytes.Length + passwordBytes.Length];
+        System.Buffer.BlockCopy(saltBytes, 0, combined, 0, saltBytes.Length);
+        System.Buffer.BlockCopy(passwordBytes, 0, combined, saltBytes.Length, passwordBytes.Length);
+        
+        // Hash with HMACSHA256 keyed by the salt (matches .NET 4.0+ default Membership hash)
+        using (HMACSHA256 hmac = new HMACSHA256(saltBytes))
+        {
+            byte[] hashBytes = hmac.ComputeHash(combined);
+            return Convert.ToBase64String(hashBytes);
         }
     }
     

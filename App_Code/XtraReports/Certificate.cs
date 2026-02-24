@@ -485,16 +485,22 @@ public class Certificate : DevExpress.XtraReports.UI.XtraReport
 
     private void xrLabel1_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
-        string stud_name = GetCurrentColumnValue("studnm").ToString();
-        stud_name = new CultureInfo("en").TextInfo.ToTitleCase(stud_name.ToLower());
+        object val = GetCurrentColumnValue("studnm");
+        string stud_name = (val != null && val != DBNull.Value) ? val.ToString() : "";
+        if (!string.IsNullOrEmpty(stud_name))
+            stud_name = new CultureInfo("en").TextInfo.ToTitleCase(stud_name.ToLower());
         (sender as XRLabel).Text = stud_name;
     }
 
     private void xrLabel10_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
-        string deg = GetCurrentColumnValue("deg_class_label").ToString();
-        deg = new CultureInfo("en").TextInfo.ToTitleCase(deg.ToLower());
-        deg = deg.Replace("Ii", "II").Replace("Iii", "III");
+        object val = GetCurrentColumnValue("deg_class_label");
+        string deg = (val != null && val != DBNull.Value) ? val.ToString() : "";
+        if (!string.IsNullOrEmpty(deg))
+        {
+            deg = new CultureInfo("en").TextInfo.ToTitleCase(deg.ToLower());
+            deg = deg.Replace("Ii", "II").Replace("Iii", "III");
+        }
         (sender as XRLabel).Text = deg;
     }
 }

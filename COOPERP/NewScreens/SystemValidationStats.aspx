@@ -85,11 +85,12 @@
         /* Charts Row */
         .charts-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 12px;
             margin-bottom: 14px;
         }
-        @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
+        @media (max-width: 1100px) { .charts-row { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 700px)  { .charts-row { grid-template-columns: 1fr; } }
         
         /* Section Card */
         .section-card {
@@ -273,6 +274,62 @@
         .status-badge--pass { background: #e8f5e9; color: #388e3c; }
         .status-badge--fail { background: #ffebee; color: #d32f2f; }
         .status-badge--pending { background: #fff3e0; color: #f57c00; }
+        .status-badge--active   { background: #e8f5e9; color: #388e3c; }
+        .status-badge--inactive { background: #f5f5f5; color: #757575; }
+        
+        /* Specialisation Health Cards */
+        .spec-health-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0;
+        }
+        @media (max-width: 1000px) { .spec-health-grid { grid-template-columns: repeat(2, 1fr); } }
+        .health-card {
+            padding: 12px 14px;
+            border-right: 1px solid #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .health-card:last-child { border-right: none; }
+        .health-card--ready   { border-top: 3px solid #388e3c; background: #f9fdf9; }
+        .health-card--pending { border-top: 3px solid #f57c00; background: #fffaf5; }
+        .health-card--inactive{ border-top: 3px solid #9e9e9e; background: #fafafa; }
+        .health-card--rate    { border-top: 3px solid #174DA4; background: #f5f8ff; }
+        .health-card__tag {
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .health-card__dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .health-card--ready   .health-card__tag   { color: #388e3c; }
+        .health-card--pending .health-card__tag   { color: #f57c00; }
+        .health-card--inactive .health-card__tag  { color: #9e9e9e; }
+        .health-card--rate    .health-card__tag   { color: #174DA4; }
+        .health-card--ready   .health-card__dot   { background: #388e3c; }
+        .health-card--pending .health-card__dot   { background: #f57c00; }
+        .health-card--inactive .health-card__dot  { background: #9e9e9e; }
+        .health-card--rate    .health-card__dot   { background: #174DA4; }
+        .health-card__value {
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1;
+            margin-top: 2px;
+        }
+        .health-card--ready   .health-card__value { color: #388e3c; }
+        .health-card--pending .health-card__value { color: #f57c00; }
+        .health-card--inactive .health-card__value{ color: #9e9e9e; }
+        .health-card--rate    .health-card__value { color: #174DA4; }
+        .health-card__desc { font-size: 9px; color: #888; }
     </style>
 </asp:Content>
 
@@ -344,7 +401,8 @@
                     <div class="stat-card__content">
                         <div class="stat-card__value"><asp:Label ID="lblTotalSpecs" runat="server" Text="0"></asp:Label></div>
                         <div class="stat-card__label">Specialisations</div>
-                        <div class="stat-card__sub">Fully Set: <span class="pass"><asp:Label ID="lblConfiguredSpecs" runat="server" Text="0"></asp:Label></span></div>
+                        <div class="stat-card__sub">Active: <span class="pass"><asp:Label ID="lblActiveSpecs" runat="server" Text="0"></asp:Label></span> &bull; Inactive: <asp:Label ID="lblInactiveSpecs" runat="server" Text="0" style="color:#9e9e9e;font-weight:600;"></asp:Label></div>
+                        <div class="stat-card__sub">Fully Set <span style="font-size:8px;color:#aaa;">(active only)</span>: <span class="pass"><asp:Label ID="lblConfiguredSpecs" runat="server" Text="0"></asp:Label></span></div>
                     </div>
                 </div>
             </div>
@@ -396,7 +454,42 @@
                 </div>
             </div>
             
-            <!-- Row 3: Charts -->
+            <!-- Row 3: Specialisation Health Breakdown -->
+            <div class="section-card" style="margin-bottom: 14px;">
+                <div class="section-card__header">
+                    <div class="section-card__title">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                        Specialisation Health
+                    </div>
+                    <span style="font-size:9px;color:#888;">Active specs only count toward readiness &mdash; inactive are excluded from curriculum metrics</span>
+                </div>
+                <div class="section-card__body" style="padding: 0;">
+                    <div class="spec-health-grid">
+                        <div class="health-card health-card--ready">
+                            <div class="health-card__tag"><span class="health-card__dot"></span>Active &amp; Ready</div>
+                            <div class="health-card__value"><asp:Label ID="lblActiveFullySet" runat="server" Text="0"></asp:Label></div>
+                            <div class="health-card__desc">Active + Fully Configured</div>
+                        </div>
+                        <div class="health-card health-card--pending">
+                            <div class="health-card__tag"><span class="health-card__dot"></span>Active &amp; Pending</div>
+                            <div class="health-card__value"><asp:Label ID="lblActiveNotFullySet" runat="server" Text="0"></asp:Label></div>
+                            <div class="health-card__desc">Active but incomplete curriculum</div>
+                        </div>
+                        <div class="health-card health-card--inactive">
+                            <div class="health-card__tag"><span class="health-card__dot"></span>Inactive / Archived</div>
+                            <div class="health-card__value"><asp:Label ID="lblHealthInactiveCount" runat="server" Text="0"></asp:Label></div>
+                            <div class="health-card__desc">Not in active use</div>
+                        </div>
+                        <div class="health-card health-card--rate">
+                            <div class="health-card__tag"><span class="health-card__dot"></span>Active Readiness</div>
+                            <div class="health-card__value"><asp:Label ID="lblActiveReadinessRate" runat="server" Text="0%"></asp:Label></div>
+                            <div class="health-card__desc">% of active specs fully configured</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Row 4: Charts -->
             <div class="charts-row">
                 <!-- Validation Status Chart -->
                 <div class="section-card">
@@ -413,17 +506,34 @@
                     </div>
                 </div>
                 
-                <!-- Curriculum Setup Chart -->
+                <!-- Active vs Inactive Specialisations Chart -->
+                <div class="section-card">
+                    <div class="section-card__header">
+                        <div class="section-card__title">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                            Active vs Inactive
+                        </div>
+                        <span style="font-size:9px;color:#888;">All specialisations</span>
+                    </div>
+                    <div class="section-card__body">
+                        <div class="chart-container" style="height: 185px;">
+                            <canvas id="specActiveChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fully Set vs Not Fully Set (Active only) Chart -->
                 <div class="section-card">
                     <div class="section-card__header">
                         <div class="section-card__title">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
-                            Specialisation Configuration Status
+                            Curriculum Readiness
                         </div>
+                        <span style="font-size:9px;color:#f57c00;">Active specs only</span>
                     </div>
                     <div class="section-card__body">
-                        <div class="chart-container">
-                            <canvas id="curriculumChart"></canvas>
+                        <div class="chart-container" style="height: 185px;">
+                            <canvas id="specReadinessChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -446,9 +556,14 @@
                             <span class="progress-mini__value"><asp:Label ID="lblProgConfigPercent" runat="server" Text="0%"></asp:Label></span>
                         </div>
                         <div class="progress-mini">
-                            <span class="progress-mini__label">Specialisations Configured</span>
+                            <span class="progress-mini__label">Specs Configured <span style="font-size:8px;color:#aaa;">(active)</span></span>
                             <div class="progress-mini__bar"><div class="progress-mini__fill progress-mini__fill--green" id="specBar" runat="server"></div></div>
                             <span class="progress-mini__value"><asp:Label ID="lblSpecConfigPercent" runat="server" Text="0%"></asp:Label></span>
+                        </div>
+                        <div class="progress-mini">
+                            <span class="progress-mini__label">Inactive Specialisations</span>
+                            <div class="progress-mini__bar"><div class="progress-mini__fill" style="background:#9e9e9e;" id="inactiveSpecBar" runat="server"></div></div>
+                            <span class="progress-mini__value"><asp:Label ID="lblInactiveSpecPercent" runat="server" Text="0%"></asp:Label></span>
                         </div>
                         <div class="progress-mini">
                             <span class="progress-mini__label">Students Validated</span>
@@ -548,13 +663,14 @@
                     </div>
                 </div>
                 
-                <!-- Unconfigured Specialisations -->
+                <!-- Active Specs Not Configured -->
                 <div class="section-card">
                     <div class="section-card__header">
                         <div class="section-card__title">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
-                            Unconfigured Specialisations
+                            Active Specs Not Configured
                         </div>
+                        <span style="font-size:9px;color:#f57c00;">Needs attention</span>
                     </div>
                     <div class="section-card__body">
                         <table class="mini-table">
@@ -575,7 +691,7 @@
                         </table>
                         <asp:Panel ID="pnlNoUnconfiguredSpecs" runat="server" CssClass="alert-item alert-item--success" Visible="false">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                            All specialisations are configured!
+                            All active specialisations are fully configured!
                         </asp:Panel>
                     </div>
                 </div>
@@ -671,6 +787,10 @@
                     <div class="metric-highlight__value"><asp:Label ID="lblValidationRate" runat="server" Text="0%"></asp:Label></div>
                     <div class="metric-highlight__label">Validated</div>
                 </div>
+                <div class="metric-highlight">
+                    <div class="metric-highlight__value" style="color:#174DA4;"><asp:Label ID="lblQsActiveReadiness" runat="server" Text="0%"></asp:Label></div>
+                    <div class="metric-highlight__label">Spec Readiness</div>
+                </div>
             </div>
             
             <div class="section-card__header">
@@ -740,20 +860,22 @@
                 }
             });
             
-            // Specialisation Configuration Chart (Doughnut) - Fully Set vs Not Fully Set
-            var curriculumData = JSON.parse(document.getElementById('<%= hfCurriculumChartData.ClientID %>').value || '{"configured":0,"unconfigured":0}');
-            var curriculumTotal = curriculumData.configured + curriculumData.unconfigured;
-            var ctxCurriculum = document.getElementById('curriculumChart').getContext('2d');
-            new Chart(ctxCurriculum, {
+            // Chart 2a: Active vs Inactive Specialisations
+            var curriculumData = JSON.parse(document.getElementById('<%= hfCurriculumChartData.ClientID %>').value || '{"activeReady":0,"activePending":0,"inactive":0}');
+            var activeTotal   = curriculumData.activeReady + curriculumData.activePending;
+            var inactiveTotal = curriculumData.inactive;
+            var allSpecTotal  = activeTotal + inactiveTotal;
+            var ctxSpecActive = document.getElementById('specActiveChart').getContext('2d');
+            new Chart(ctxSpecActive, {
                 type: 'doughnut',
                 data: {
                     labels: [
-                        'Fully Set (' + (curriculumTotal > 0 ? Math.round(curriculumData.configured * 100 / curriculumTotal) : 0) + '% - ' + curriculumData.configured + ')',
-                        'Not Fully Set (' + (curriculumTotal > 0 ? Math.round(curriculumData.unconfigured * 100 / curriculumTotal) : 0) + '% - ' + curriculumData.unconfigured + ')'
+                        'Active ('   + (allSpecTotal > 0 ? Math.round(activeTotal   * 100 / allSpecTotal) : 0) + '\u2009% \u2014 ' + activeTotal   + ')',
+                        'Inactive (' + (allSpecTotal > 0 ? Math.round(inactiveTotal * 100 / allSpecTotal) : 0) + '\u2009% \u2014 ' + inactiveTotal + ')'
                     ],
                     datasets: [{
-                        data: [curriculumData.configured, curriculumData.unconfigured],
-                        backgroundColor: ['#388e3c', '#e0e0e0'],
+                        data: [activeTotal, inactiveTotal],
+                        backgroundColor: ['#174DA4', '#9e9e9e'],
                         borderWidth: 0
                     }]
                 },
@@ -763,7 +885,35 @@
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { font: { size: 10 }, padding: 12 }
+                            labels: { font: { size: 10 }, padding: 12, boxWidth: 12 }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+            
+            // Chart 2b: Fully Set vs Not Fully Set (Active specs only)
+            var ctxSpecReadiness = document.getElementById('specReadinessChart').getContext('2d');
+            new Chart(ctxSpecReadiness, {
+                type: 'doughnut',
+                data: {
+                    labels: [
+                        'Fully Set ('   + (activeTotal > 0 ? Math.round(curriculumData.activeReady   * 100 / activeTotal) : 0) + '\u2009% \u2014 ' + curriculumData.activeReady   + ')',
+                        'Not Fully Set (' + (activeTotal > 0 ? Math.round(curriculumData.activePending * 100 / activeTotal) : 0) + '\u2009% \u2014 ' + curriculumData.activePending + ')'
+                    ],
+                    datasets: [{
+                        data: [curriculumData.activeReady, curriculumData.activePending],
+                        backgroundColor: ['#388e3c', '#f57c00'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { font: { size: 10 }, padding: 12, boxWidth: 12 }
                         }
                     },
                     cutout: '60%'

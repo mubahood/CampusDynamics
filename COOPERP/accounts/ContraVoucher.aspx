@@ -1,4 +1,4 @@
-<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ContraVoucher.aspx.cs" Inherits="UserControls_Accounts_PaymentVoucher" %>
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="ContraVoucher.aspx.cs" Inherits="UserControls_Accounts_PaymentVoucher" %>
 
 <!DOCTYPE html>
 
@@ -92,7 +92,7 @@
         </tr>
         <tr>
             <td>
-                <dx:ASPxGridView ID="gvParticulars" runat="server" AutoGenerateColumns="False" DataSourceID="dsLatestJournal" KeyFieldName="JournalNo" OnCustomErrorText="gvParticulars_CustomErrorText" OnDataBound="gvParticulars_DataBound" OnHtmlDataCellPrepared="gvParticulars_HtmlDataCellPrepared" Width="100%" OnRowUpdating="gvParticulars_RowUpdating">
+                <dx:ASPxGridView ID="gvParticulars" runat="server" AutoGenerateColumns="False" DataSourceID="dsLatestJournal" KeyFieldName="JournalNo" OnCustomErrorText="gvParticulars_CustomErrorText" OnDataBound="gvParticulars_DataBound" OnHtmlDataCellPrepared="gvParticulars_HtmlDataCellPrepared" Width="100%" OnRowUpdating="gvParticulars_RowUpdating" OnRowUpdated="gvParticulars_RowUpdated">
                     <SettingsPager Mode="ShowAllRecords">
                     </SettingsPager>
                     <SettingsEditing Mode="Batch">
@@ -210,9 +210,16 @@
                     <InsertParameters>
                         <asp:Parameter Name="Teller" Type="String" />
                         <asp:Parameter Name="PostStatus" Type="String" />
-                        <asp:Parameter Name="Journaltype" Type="String" />
+                        <asp:Parameter Name="journalType" Type="String" />
                         <asp:Parameter Name="journalDate" Type="DateTime" />
                         <asp:Parameter Name="journalParticulars" Type="String" />
+                        <asp:Parameter Name="journal_serialno" Type="UInt32" />
+                        <asp:Parameter Name="journal_currency" Type="String" />
+                        <asp:Parameter Name="GL_VoucherNo" Type="String" />
+                        <asp:Parameter Name="voucherType" Type="String" />
+                        <asp:Parameter Name="forex_rate" Type="Double" />
+                        <asp:Parameter Name="transactionDate" Type="DateTime" />
+                        <asp:Parameter Name="RefNo" Type="String" />
                     </InsertParameters>
                     <SelectParameters>
                         <asp:ControlParameter ControlID="txtType" Name="typ" PropertyName="Value" Type="String" />
@@ -221,11 +228,17 @@
                     <UpdateParameters>
                         <asp:Parameter Name="Teller" Type="String" />
                         <asp:Parameter Name="PostStatus" Type="String" />
-                        <asp:Parameter Name="Journaltype" Type="String" />
+                        <asp:Parameter Name="journalType" Type="String" />
                         <asp:Parameter Name="journalDate" Type="DateTime" />
                         <asp:Parameter Name="journalParticulars" Type="String" />
+                        <asp:Parameter Name="journal_serialno" Type="UInt32" />
                         <asp:Parameter Name="journal_currency" Type="String" />
-                        <asp:Parameter Name="Original_JournalNo" Type="Int32" />
+                        <asp:Parameter Name="GL_VoucherNo" Type="String" />
+                        <asp:Parameter Name="voucherType" Type="String" />
+                        <asp:Parameter Name="forex_rate" Type="Double" />
+                        <asp:Parameter Name="transactionDate" Type="DateTime" />
+                        <asp:Parameter Name="RefNo" Type="String" />
+                        <asp:Parameter Name="Original_JournalNo" Type="UInt32" />
                     </UpdateParameters>
                 </asp:ObjectDataSource>
                 <asp:ObjectDataSource ID="dsJournalDetails" runat="server" DeleteMethod="Delete" InsertMethod="Insert" OldValuesParameterFormatString="original_{0}" SelectMethod="GetJournalDetails" TypeName="CoopERPDataTableAdapters.fin_ledgerTableAdapter" UpdateMethod="UpdateJournalDetails">

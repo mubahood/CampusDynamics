@@ -389,20 +389,22 @@
         }
         .transcript-courses-compact {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 4px;
-            max-height: 350px;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 5px;
+            max-height: 380px;
             overflow-y: auto;
-            padding: 4px;
+            padding: 6px;
         }
         .transcript-course-item {
             background: white;
             border: 1px solid #e0e0e0;
-            padding: 6px 8px;
+            border-left: 3px solid transparent;
+            padding: 8px 10px;
             font-size: 10px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
+            gap: 6px;
             transition: all 0.2s;
         }
         .transcript-course-item:hover {
@@ -458,6 +460,65 @@
         .transcript-course-badge.invalid {
             background: #f8d7da;
             color: #721c24;
+        }
+        .transcript-course-name {
+            font-size: 9.5px;
+            color: #444;
+            font-weight: 500;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+        /* Inline pill tags inside transcript course cards */
+        .tci-pill {
+            display: inline-block;
+            font-size: 8px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 10px;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+        .tci-pill--year { background: #e8f0fe; color: #174DA4; }
+        .tci-pill--sem  { background: #e8f5e9; color: #2e7d32; }
+        .tci-pill--cu   { background: #fff3e0; color: #e65100; }
+        /* Copy-from-transcript options bar */
+        .copy-options-bar {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            padding: 9px 14px;
+            background: #f0f5ff;
+            border: 1px solid #d0e3ff;
+            border-radius: 3px;
+            margin-top: 10px;
+        }
+        .cpy-radio-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .cpy-radio-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #333;
+            white-space: nowrap;
+        }
+        .cpy-rbl { display: inline-block; }
+        .cpy-rbl table { border-collapse: collapse; }
+        .cpy-rbl td { padding: 0 10px 0 0; font-size: 10px; white-space: nowrap; line-height: 1.6; }
+        .cpy-rbl input[type="radio"] { cursor: pointer; margin-right: 3px; vertical-align: middle; }
+        .cpy-rbl label { cursor: pointer; }
+        .copy-actions-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e0e0e0;
         }
         
         /* =============================================
@@ -527,6 +588,217 @@
         .courses-tab-summary .dot-elective { background: #28a745; }
         .courses-tab-summary .dot-credits { background: #ff9800; }
         
+        /* =============================================
+           STRUCTURE TAB - Batch Delete
+           ============================================= */
+        .struct-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .struct-select-all-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #555;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+            padding: 4px 6px;
+            border: 1px solid #ddd;
+            background: #f5f5f5;
+        }
+        .struct-select-all-label:hover { background: #e8e8e8; }
+        .struct-select-all-label input[type="checkbox"] {
+            cursor: pointer;
+            width: 13px;
+            height: 13px;
+        }
+        .cd-btn--danger {
+            background: #dc3545 !important;
+            color: #fff !important;
+            border: 1px solid #c82333 !important;
+            padding: 4px 10px !important;
+            font-size: 10px !important;
+            font-weight: 600 !important;
+            cursor: pointer !important;
+        }
+        .cd-btn--danger:hover { background: #c82333 !important; }
+        .struct-sel-badge {
+            display: inline-block;
+            min-width: 18px;
+            padding: 0 5px;
+            background: #dc3545;
+            color: #fff;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: 700;
+            text-align: center;
+            line-height: 16px;
+        }
+        .course-item.selected-for-delete {
+            background: #fff5f5 !important;
+            border-color: #dc3545 !important;
+        }
+
+        /* =============================================
+           BATCH OPERATIONS TOOLBAR (Main Grid)
+           ============================================= */
+        .batch-ops-bar {
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+            padding: 7px 12px;
+            background: #eef2fb;
+            border-bottom: 1px solid #c8d8f8;
+            transition: background 0.2s;
+        }
+        .batch-ops-bar.bar-active { background: #dbeafe; border-bottom-color: #174DA4; }
+        .batch-sel-info {
+            font-size: 10px; font-weight: 700; color: #174DA4;
+            display: flex; align-items: center; gap: 5px; white-space: nowrap;
+        }
+        .batch-sel-count {
+            display: inline-block; background: #174DA4; color: white;
+            border-radius: 10px; padding: 1px 9px; min-width: 24px;
+            text-align: center; font-size: 11px;
+        }
+        .batch-sep { width: 1px; height: 20px; background: #c8d8f8; margin: 0 3px; flex-shrink: 0; }
+        .bat-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 4px 9px; font-size: 10px; font-weight: 600;
+            cursor: pointer; border: 1px solid; white-space: nowrap;
+            background: white; transition: background .15s, color .15s, border-color .15s;
+            line-height: 1.4;
+        }
+        .bat-btn svg { width: 11px; height: 11px; flex-shrink: 0; }
+        .bat-btn.bat-green  { color: #155724; border-color: #b7ddc0; }
+        .bat-btn.bat-green:hover  { background: #28a745; color: white; border-color: #28a745; }
+        .bat-btn.bat-orange { color: #7a4500; border-color: #ffd08a; }
+        .bat-btn.bat-orange:hover { background: #fd7e14; color: white; border-color: #e8660c; }
+        .bat-btn.bat-blue   { color: #004085; border-color: #b8daff; }
+        .bat-btn.bat-blue:hover   { background: #007bff; color: white; border-color: #0062cc; }
+        .bat-btn.bat-teal   { color: #0c5460; border-color: #bee5eb; }
+        .bat-btn.bat-teal:hover   { background: #17a2b8; color: white; border-color: #138496; }
+        .bat-btn.bat-red    { color: #721c24; border-color: #f5c6cb; }
+        .bat-btn.bat-red:hover    { background: #dc3545; color: white; border-color: #dc3545; }
+        .bat-btn.bat-dis    { opacity: 0.35; cursor: default !important; pointer-events: none; }
+        .batch-result-msg {
+            padding: 7px 14px; font-size: 11px;
+            border-left: 4px solid; display: flex; align-items: center; gap: 7px;
+        }
+        .batch-result-msg.ok  { background: #d4edda; border-color: #28a745; color: #155724; }
+        .batch-result-msg.err { background: #f8d7da; border-color: #dc3545; color: #721c24; }
+        .batch-result-msg.inf { background: #cce5ff; border-color: #007bff; color: #004085; }
+
+        /* Active / Inactive status badge */
+        .status-badge { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 10px; font-weight: 700; letter-spacing: .3px; white-space: nowrap; }
+        .status-active   { background: #d4edda; color: #155724; border: 1px solid #b7ddc0; }
+        .status-inactive { background: #e9ecef; color: #666; border: 1px solid #ced4da; }
+        /* Dim inactive rows */
+        tr.row-inactive > td { background-color: #fafafa !important; color: #aaa !important; }
+        tr.row-inactive > td a, tr.row-inactive > td button { opacity: 0.45; }
+        /* Grey batch button */
+        .bat-btn.bat-grey { color: #3d4555; border-color: #c8ccd6; }
+        .bat-btn.bat-grey:hover { background: #6c757d; color: white; border-color: #545b62; }
+
+        /* ===========================
+           SMART FILTER BAR
+           =========================== */
+        .sfilter-bar {
+            display: flex; align-items: stretch; flex-wrap: wrap;
+            background: linear-gradient(135deg, #f5f8ff 0%, #f0f4fc 100%);
+            border-bottom: 2px solid #dde5f5;
+        }
+        .sfilter-bar.bar-filtered { border-bottom-color: #174DA4; background: linear-gradient(135deg, #eef3ff 0%, #e6edfa 100%); }
+        .sfilter-group {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 13px; border-right: 1px solid #e2e8f5;
+            min-height: 44px; box-sizing: border-box;
+        }
+        .sfilter-label {
+            font-size: 9px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .5px; color: #8a97b4; white-space: nowrap;
+        }
+        .sfilter-icon { color: #8a97b4; display: flex; flex-shrink: 0; }
+        .sfilter-search-wrap { display: flex; align-items: center; gap: 3px; }
+        .sfilter-input {
+            border: none; background: transparent; font-size: 12px; color: #333;
+            outline: none; width: 200px; padding: 2px 0;
+        }
+        .sfilter-input::placeholder { color: #b5bfd5; font-style: italic; }
+        .sfilter-input:focus { background: white; border-radius: 3px; padding: 2px 7px; box-shadow: 0 0 0 2px #b8d0f8; transition: all .15s; }
+        .sfilter-x {
+            background: none; border: none; padding: 0 3px; color: #c5cfe0;
+            cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0;
+        }
+        .sfilter-x:hover { color: #dc3545; }
+        .sfilter-select {
+            border: 1px solid #d0d9f0; border-radius: 4px; background: white;
+            font-size: 11px; color: #333; padding: 5px 26px 5px 8px; cursor: pointer;
+            min-width: 130px; outline: none;
+            -webkit-appearance: none; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23aab'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 8px center;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .sfilter-select:focus { border-color: #174DA4; box-shadow: 0 0 0 2px #b8d0f8; }
+        .sfilter-select.sf-active { border-color: #174DA4; background-color: #eef3ff; color: #174DA4; font-weight: 600; }
+        .sfilter-select--sm { min-width: 95px; }
+        .sfilter-actions {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 14px 8px 10px; margin-left: auto;
+        }
+        .sfilter-apply-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 6px 15px; font-size: 10px; font-weight: 700; letter-spacing: .2px;
+            background: #174DA4; color: white !important; border: none; border-radius: 4px;
+            cursor: pointer; white-space: nowrap; text-decoration: none !important;
+            transition: background .15s; line-height: 1.3;
+        }
+        .sfilter-apply-btn:hover { background: #1360c8; color: white !important; }
+        .sfilter-clear-btn {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-size: 10px; color: #dc3545 !important; cursor: pointer; background: none;
+            border: 1px solid #f5c6cb; padding: 5px 10px; border-radius: 4px;
+            transition: background .15s, border-color .15s; white-space: nowrap;
+            text-decoration: none !important; line-height: 1.3;
+        }
+        .sfilter-clear-btn:hover { background: #fff0f0; border-color: #dc3545; }
+        /* Active chips strip */
+        .sfilter-chips {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+            padding: 5px 14px; background: #eef3ff; border-bottom: 1px solid #c8d8f8;
+        }
+        .sfilter-chips-label {
+            font-size: 9px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .4px; color: #8a97b4; margin-right: 2px; white-space: nowrap;
+        }
+        .sfchip {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: white; border: 1px solid #b8ccf0; color: #174DA4;
+            border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: 600;
+        }
+        .sfilter-result-count { margin-left: auto; font-size: 10px; color: #555; white-space: nowrap; }
+        .sfilter-result-count strong { color: #174DA4; font-weight: 700; }
+
+        /* ---- Per-page selector ---- */
+        .per-page-wrap {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 11px; color: #666;
+        }
+        .per-page-wrap label { font-weight: 600; white-space: nowrap; }
+        .per-page-select {
+            border: 1px solid #d0d9f0; border-radius: 4px; background: white;
+            font-size: 11px; color: #174DA4; font-weight: 700;
+            padding: 4px 24px 4px 8px; cursor: pointer; outline: none;
+            -webkit-appearance: none; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23174DA4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 7px center;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .per-page-select:focus { border-color: #174DA4; box-shadow: 0 0 0 2px #b8d0f8; }
+
         /* Spinner for AJAX loading */
         .transcript-spinner {
             width: 28px;
@@ -570,6 +842,116 @@
         </div>
         
         <div class="cd-card__body cd-p-0">
+            <!-- ====== Smart Filter Bar ====== -->
+            <asp:Panel ID="pnlFilterBar" runat="server" CssClass="sfilter-bar">
+                <!-- Search -->
+                <div class="sfilter-group">
+                    <span class="sfilter-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </span>
+                    <div class="sfilter-search-wrap">
+                        <asp:TextBox ID="txtFilterSearch" runat="server" CssClass="sfilter-input"
+                            placeholder="Search name or abbreviation&#x2026;" autocomplete="off" MaxLength="100" />
+                        <button type="button" class="sfilter-x" id="btnClearSearchX"
+                            onclick="clearFilterSearchJS()" title="Clear search" style="display:none">&#x2715;</button>
+                    </div>
+                </div>
+                <!-- Programme -->
+                <div class="sfilter-group">
+                    <span class="sfilter-label">Programme</span>
+                    <asp:DropDownList ID="ddlFilterProgramme" runat="server" CssClass="sfilter-select"
+                        AutoPostBack="True" OnSelectedIndexChanged="ddlFilter_Changed" />
+                </div>
+                <!-- Fully Set -->
+                <div class="sfilter-group">
+                    <span class="sfilter-label">Fully Set</span>
+                    <asp:DropDownList ID="ddlFilterFullySet" runat="server" CssClass="sfilter-select sfilter-select--sm"
+                        AutoPostBack="True" OnSelectedIndexChanged="ddlFilter_Changed">
+                        <asp:ListItem Value="" Text="&#8212; All &#8212;" />
+                        <asp:ListItem Value="Yes" Text="&#10003;  Yes" />
+                        <asp:ListItem Value="No" Text="&#10007;  No" />
+                    </asp:DropDownList>
+                </div>
+                <!-- Status -->
+                <div class="sfilter-group">
+                    <span class="sfilter-label">Status</span>
+                    <asp:DropDownList ID="ddlFilterStatus" runat="server" CssClass="sfilter-select sfilter-select--sm"
+                        AutoPostBack="True" OnSelectedIndexChanged="ddlFilter_Changed">
+                        <asp:ListItem Value="" Text="&#8212; All &#8212;" />
+                        <asp:ListItem Value="Active" Text="&#9679;  Active" />
+                        <asp:ListItem Value="Inactive" Text="&#9675;  Inactive" />
+                    </asp:DropDownList>
+                </div>
+                <!-- Actions -->
+                <div class="sfilter-actions">
+                    <asp:LinkButton ID="btnApplySearch" runat="server" CssClass="sfilter-apply-btn" OnClick="btnApplySearch_Click">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        Search
+                    </asp:LinkButton>
+                    <asp:LinkButton ID="btnClearFilters" runat="server" CssClass="sfilter-clear-btn"
+                        OnClick="btnClearFilters_Click" Visible="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                        Clear All
+                    </asp:LinkButton>
+                </div>
+            </asp:Panel>
+            <!-- Active filter chips -->
+            <asp:Panel ID="pnlFilterChips" runat="server" Visible="false" CssClass="sfilter-chips">
+                <span class="sfilter-chips-label">Filters:</span>
+                <asp:Literal ID="litFilterChips" runat="server" />
+                <span class="sfilter-result-count"><asp:Label ID="lblFilteredCount" runat="server" /></span>
+            </asp:Panel>
+            <!-- ====== Batch Operations Toolbar ====== -->
+            <div id="divBatchBar" class="batch-ops-bar">
+                <div class="batch-sel-info">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                    <span id="spanBatchCount" class="batch-sel-count">0</span>
+                    <span>selected</span>
+                </div>
+                <div class="batch-sep"></div>
+                <button type="button" class="bat-btn bat-green bat-dis" onclick="doBatch('fully_set_yes')" title="Mark selected as Fully Configured">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Mark Fully Set
+                </button>
+                <button type="button" class="bat-btn bat-orange bat-dis" onclick="doBatch('fully_set_no')" title="Mark selected as Not Fully Configured">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    Mark Not Set
+                </button>
+                <div class="batch-sep"></div>
+                <button type="button" class="bat-btn bat-teal bat-dis" onclick="doBatch('set_active')" title="Mark selected as Active">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    Set Active
+                </button>
+                <button type="button" class="bat-btn bat-grey bat-dis" onclick="doBatch('set_inactive','Set {n} specialisation(s) as Inactive?\n\nInactive specialisations will be hidden from student-facing views.')" title="Mark selected as Inactive">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                    Set Inactive
+                </button>
+                <div class="batch-sep"></div>
+                <button type="button" class="bat-btn bat-blue bat-dis" onclick="doBatch('print_pdf')" title="Print Course Structures for selected">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    Print PDFs
+                </button>
+                <button type="button" class="bat-btn bat-teal bat-dis" onclick="doBatch('export_csv')" title="Export selected to CSV">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export CSV
+                </button>
+                <div class="batch-sep"></div>
+                <button type="button" class="bat-btn bat-red bat-dis" onclick="doBatch('delete','Delete {n} specialisation(s)?\n\nNote: Those with existing courses will be skipped automatically.')" title="Delete selected (skips those with courses)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
+                    Delete Selected
+                </button>
+                <span style="flex:1;"></span>
+                <span style="font-size:9px;color:#aaa;font-style:italic;">Tick rows to enable actions</span>
+            </div>
+            <!-- Batch Result Message -->
+            <asp:Panel ID="pnlBatchResult" runat="server" Visible="false">
+                <asp:Label ID="lblBatchResult" runat="server"></asp:Label>
+            </asp:Panel>
+            <!-- Hidden batch controls -->
+            <asp:HiddenField ID="hdnBatchIds" runat="server" />
+            <asp:HiddenField ID="hdnBatchAction" runat="server" />
+            <asp:Button ID="btnBatchExecute" runat="server" OnClick="btnBatchExecute_Click" style="display:none;" />
+            <!-- ====== Main Grid ====== -->
             <dx:ASPxGridView ID="gvMain" runat="server" AutoGenerateColumns="False" DataSourceID="dsMain" 
                 KeyFieldName="spec_id" Width="100%" 
                 EnableTheming="True" Theme="Glass"
@@ -578,8 +960,9 @@
                 OnRowUpdating="gvMain_RowUpdating"
                 OnRowDeleting="gvMain_RowDeleting"
                 OnCustomErrorText="gvMain_CustomErrorText"
+                OnHtmlRowCreated="gvMain_HtmlRowCreated"
                 EnableCallBacks="false">
-                <Settings ShowFilterRow="True" ShowFilterRowMenu="True" ShowGroupPanel="False" />
+                <Settings ShowFilterRow="False" ShowFilterRowMenu="False" ShowGroupPanel="False" />
                 <SettingsBehavior AllowSort="True" AllowGroup="True" AllowFocusedRow="True" ConfirmDelete="True" />
                 <SettingsEditing Mode="Inline" />
                 <SettingsDataSecurity AllowDelete="True" />
@@ -592,7 +975,18 @@
                     <NewButton Text="New" />
                 </SettingsCommandButton>
                 <Columns>
-                    <dx:GridViewCommandColumn ShowEditButton="True" ShowDeleteButton="True" ShowNewButtonInHeader="False" VisibleIndex="0" Width="80px">
+                    <dx:GridViewDataTextColumn Caption="" Width="32px" VisibleIndex="0" ReadOnly="True">
+                        <EditFormSettings Visible="False" />
+                        <HeaderTemplate>
+                            <input type="checkbox" class="spec-sel-all" onchange="toggleSelectAll(this)" style="cursor:pointer;width:13px;height:13px;" title="Select / Deselect All" />
+                        </HeaderTemplate>
+                        <DataItemTemplate>
+                            <input type="checkbox" class="spec-row-chk" data-specid='<%# Eval("spec_id") %>' onchange="updateBatchBar()" style="cursor:pointer;width:13px;height:13px;" />
+                        </DataItemTemplate>
+                        <CellStyle HorizontalAlign="Center" />
+                        <HeaderStyle HorizontalAlign="Center" />
+                    </dx:GridViewDataTextColumn>
+                    <dx:GridViewCommandColumn ShowEditButton="True" ShowDeleteButton="True" ShowNewButtonInHeader="False" VisibleIndex="1" Width="80px">
                         <HeaderStyle HorizontalAlign="Center" />
                         <CellStyle HorizontalAlign="Center" />
                     </dx:GridViewCommandColumn>
@@ -637,7 +1031,20 @@
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
                     </dx:GridViewDataComboBoxColumn>
-                    <dx:GridViewDataTextColumn FieldName="course_count" VisibleIndex="6" Caption="Courses" Width="60px" ReadOnly="True">
+                    <dx:GridViewDataComboBoxColumn FieldName="is_active" VisibleIndex="6" Caption="Status" Width="75px">
+                        <PropertiesComboBox>
+                            <Items>
+                                <dx:ListEditItem Text="Active" Value="Active" />
+                                <dx:ListEditItem Text="Inactive" Value="Inactive" />
+                            </Items>
+                        </PropertiesComboBox>
+                        <DataItemTemplate>
+                            <%# Convert.ToString(Eval("is_active")) == "Inactive" ? "<span class='status-badge status-inactive'>&#9679; Inactive</span>" : "<span class='status-badge status-active'>&#9679; Active</span>" %>
+                        </DataItemTemplate>
+                        <CellStyle HorizontalAlign="Center" />
+                        <HeaderStyle HorizontalAlign="Center" />
+                    </dx:GridViewDataComboBoxColumn>
+                    <dx:GridViewDataTextColumn FieldName="course_count" VisibleIndex="7" Caption="Courses" Width="60px" ReadOnly="True">
                         <EditFormSettings Visible="False" />
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
@@ -645,7 +1052,7 @@
                             <span class="course-count-badge"><%# Eval("course_count") %></span>
                         </DataItemTemplate>
                     </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn VisibleIndex="7" Caption="Actions" Width="140px" ReadOnly="True">
+                    <dx:GridViewDataTextColumn VisibleIndex="8" Caption="Actions" Width="140px" ReadOnly="True">
                         <EditFormSettings Visible="False" />
                         <CellStyle HorizontalAlign="Center" />
                         <HeaderStyle HorizontalAlign="Center" />
@@ -676,14 +1083,32 @@
     
     <!-- Summary Panel -->
     <div class="cd-card cd-mt-3">
-        <div class="cd-card__body" style="padding: 10px 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #666;">
-                <div>
-                    <strong>Total Specialisations:</strong> 
-                    <asp:Label ID="lblTotalCount" runat="server" Text="0" CssClass="cd-badge cd-badge--primary"></asp:Label>
+        <div class="cd-card__body" style="padding: 8px 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <!-- Left: totals -->
+                <div style="font-size: 12px; color: #555; display: flex; align-items: center; gap: 14px;">
+                    <span>
+                        <strong style="color:#333">Total:</strong>&nbsp;
+                        <asp:Label ID="lblTotalCount" runat="server" Text="0" CssClass="cd-badge cd-badge--primary"></asp:Label>
+                        &nbsp;<span style="color:#999;font-size:10px">specialisation(s)</span>
+                    </span>
+                    <asp:Label ID="lblFilterInfo" runat="server" Text="" style="font-size:11px;color:#888;"></asp:Label>
                 </div>
-                <div>
-                    <asp:Label ID="lblFilterInfo" runat="server" Text="" ForeColor="#888"></asp:Label>
+                <!-- Right: per-page -->
+                <div class="per-page-wrap">
+                    <label for="<%= ddlPageSize.ClientID %>">Rows per page:</label>
+                    <asp:DropDownList ID="ddlPageSize" runat="server"
+                        CssClass="per-page-select"
+                        AutoPostBack="True"
+                        OnSelectedIndexChanged="ddlPageSize_Changed">
+                        <asp:ListItem Value="10"  Text="10" />
+                        <asp:ListItem Value="20"  Text="20" Selected="True" />
+                        <asp:ListItem Value="50"  Text="50" />
+                        <asp:ListItem Value="100" Text="100" />
+                        <asp:ListItem Value="200" Text="200" />
+                        <asp:ListItem Value="0"   Text="All" />
+                    </asp:DropDownList>
+                    <span id="spanPageInfo" style="font-size:10px;color:#999;margin-left:2px;"></span>
                 </div>
             </div>
         </div>
@@ -1091,12 +1516,15 @@
                                                                     </HeaderTemplate>
                                                                     <ItemTemplate>
                                                                         <div class='transcript-course-item status-<%# Eval("Status").ToString().ToLower().Replace(" ", "-") %>'>
-                                                                            <div style="flex: 1;">
-                                                                                <div class="transcript-course-code"><%# Eval("CourseCode") %></div>
-                                                                                <div style="font-size: 9px; color: #555; margin-top: 1px; font-weight: 500;"><%# Eval("CourseName") %></div>
-                                                                                <div class="transcript-course-meta">
-                                                                                    Y<%# Eval("Year") %> S<%# Eval("Semester") %> &bull; <%# Eval("CreditUnits") %>CU &bull; Grade: <%# Eval("Grade") %>
+                                                                            <div style="flex: 1; min-width: 0;">
+                                                                                <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 3px;">
+                                                                                    <span class="transcript-course-code"><%# Eval("CourseCode") %></span>
+                                                                                    <span class="tci-pill tci-pill--year">Y<%# Eval("Year") %></span>
+                                                                                    <span class="tci-pill tci-pill--sem">S<%# Eval("Semester") %></span>
+                                                                                    <span class="tci-pill tci-pill--cu"><%# Eval("CreditUnits") %>CU</span>
                                                                                 </div>
+                                                                                <div class="transcript-course-name" title='<%# Eval("CourseName") %>'><%# Eval("CourseName") %></div>
+                                                                                <div class="transcript-course-meta">Grade: <strong><%# Eval("Grade") %></strong></div>
                                                                             </div>
                                                                             <span class='transcript-course-badge <%# GetStatusBadgeClass(Eval("Status").ToString()) %>'><%# GetStatusBadgeText(Eval("Status").ToString()) %></span>
                                                                         </div>
@@ -1114,18 +1542,31 @@
                                                         </asp:Panel>
                                                         
                                                         <!-- Step 5: Action Buttons -->
-                                                        <asp:Panel ID="pnlTranscriptActions" runat="server" Visible="false" style="margin-top: 8px; display: flex; gap: 6px; align-items: center; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                                                            <div style="display: flex; align-items: center; gap: 6px; margin-right: auto;">
-                                                                <span style="font-size: 10px; color: #666;">Set Fully Configured:</span>
-                                                                <asp:DropDownList ID="ddlTranscriptFullySet" runat="server" style="font-size: 10px; padding: 3px 6px; border: 1px solid #ddd;">
-                                                                    <asp:ListItem Text="No" Value="No" Selected="True"></asp:ListItem>
-                                                                    <asp:ListItem Text="Yes" Value="Yes"></asp:ListItem>
-                                                                </asp:DropDownList>
+                                                        <asp:Panel ID="pnlTranscriptActions" runat="server" Visible="false">
+                                                            <div class="copy-options-bar">
+                                                                <div class="cpy-radio-wrap">
+                                                                    <span class="cpy-radio-label">Fully Configured:</span>
+                                                                    <asp:RadioButtonList ID="rblTranscriptFullySet" runat="server"
+                                                                        RepeatDirection="Horizontal" CssClass="cpy-rbl">
+                                                                        <asp:ListItem Text="Yes" Value="Yes" Selected="True"></asp:ListItem>
+                                                                        <asp:ListItem Text="No" Value="No"></asp:ListItem>
+                                                                    </asp:RadioButtonList>
+                                                                </div>
+                                                                <div class="cpy-radio-wrap">
+                                                                    <span class="cpy-radio-label">Status:</span>
+                                                                    <asp:RadioButtonList ID="rblTranscriptIsActive" runat="server"
+                                                                        RepeatDirection="Horizontal" CssClass="cpy-rbl">
+                                                                        <asp:ListItem Text="Active" Value="Active" Selected="True"></asp:ListItem>
+                                                                        <asp:ListItem Text="Inactive" Value="Inactive"></asp:ListItem>
+                                                                    </asp:RadioButtonList>
+                                                                </div>
                                                             </div>
-                                                            <asp:Button ID="cmdCancelTranscript" runat="server" Text="Cancel" 
-                                                                OnClick="cmdCancelTranscript_Click" CssClass="cd-btn cd-btn--secondary" />
-                                                            <asp:Button ID="cmdApplyTranscript" runat="server" Text="Apply Courses to Specialisation" 
-                                                                OnClick="cmdApplyTranscript_Click" CssClass="cd-btn cd-btn--primary" />
+                                                            <div class="copy-actions-row">
+                                                                <asp:Button ID="cmdCancelTranscript" runat="server" Text="Cancel" 
+                                                                    OnClick="cmdCancelTranscript_Click" CssClass="cd-btn cd-btn--secondary" />
+                                                                <asp:Button ID="cmdApplyTranscript" runat="server" Text="Apply Courses to Specialisation" 
+                                                                    OnClick="cmdApplyTranscript_Click" CssClass="cd-btn cd-btn--primary" />
+                                                            </div>
                                                         </asp:Panel>
                                                         
                                                         <!-- Step 6: Result Message -->
@@ -1148,14 +1589,35 @@
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
                                         <div class="tab-content" style="min-height: auto; padding: 6px;">
-                                            <div class="btn-row btn-row--top">
+                                            <!-- Toolbar: Refresh | Print PDF | [spacer] | Select All | Delete Selected -->
+                                            <div class="btn-row btn-row--top struct-toolbar">
                                                 <dx:ASPxButton ID="cmdRefreshStructure" runat="server" Text="Refresh" 
                                                     OnClick="cmdRefreshStructure_Click" CssClass="cd-btn cd-btn--secondary">
                                                 </dx:ASPxButton>
                                                 <dx:ASPxButton ID="cmdPrintStructure" runat="server" Text="Print PDF" 
                                                     OnClick="cmdPrintStructure_Click" CssClass="cd-btn cd-btn--primary">
                                                 </dx:ASPxButton>
+                                                <span style="flex:1;"></span>
+                                                <!-- Select All checkbox -->
+                                                <label class="struct-select-all-label" title="Select / Deselect all courses">
+                                                    <input type="checkbox" id="chkSelectAllStructure" onchange="toggleSelectAllStructure(this)" />
+                                                    Select All
+                                                </label>
+                                                <!-- Hidden field: comma-separated IDs to delete -->
+                                                <asp:HiddenField ID="hdnDeleteIds" runat="server" />
+                                                <!-- Delete Selected button -->
+                                                <asp:Button ID="cmdDeleteSelectedCourses" runat="server"
+                                                    Text="Delete Selected"
+                                                    CssClass="cd-btn cd-btn--danger"
+                                                    OnClick="cmdDeleteSelectedCourses_Click"
+                                                    OnClientClick="return collectAndConfirmStructureDelete(this);" />
+                                                <span id="spanStructSelCount" style="font-size:10px;color:#999;display:none;">0 selected</span>
                                             </div>
+                                            <!-- Delete result message -->
+                                            <asp:Panel ID="pnlStructureDeleteResult" runat="server" Visible="false"
+                                                style="margin-bottom:6px; padding: 5px 8px; font-size: 10px;">
+                                                <asp:Label ID="lblStructureDeleteResult" runat="server"></asp:Label>
+                                            </asp:Panel>
                                             <div class="structure-container">
                                                 <asp:Literal ID="litCourseStructure" runat="server"></asp:Literal>
                                             </div>
@@ -1278,21 +1740,23 @@
     <asp:SqlDataSource ID="dsMain" runat="server" 
         ConnectionString="<%$ ConnectionStrings:vacConnectionString %>" 
         ProviderName="MySql.Data.MySqlClient"
-        SelectCommand="SELECT s.spec_id, s.prog_id, s.spec, s.abbrev, s.is_fully_set, p.progname, COALESCE(c.course_count, 0) as course_count FROM acad_specialisation s LEFT JOIN acad_programme p ON s.prog_id = p.progcode LEFT JOIN (SELECT specialisation_id, COUNT(*) as course_count FROM acad_programmecourses GROUP BY specialisation_id) c ON s.spec_id = c.specialisation_id ORDER BY p.progname, s.spec"
-        InsertCommand="INSERT INTO acad_specialisation (prog_id, spec, abbrev, is_fully_set) VALUES (@prog_id, @spec, @abbrev, @is_fully_set)"
-        UpdateCommand="UPDATE acad_specialisation SET prog_id=@prog_id, spec=@spec, abbrev=@abbrev, is_fully_set=@is_fully_set WHERE spec_id=@spec_id"
+        SelectCommand="SELECT s.spec_id, s.prog_id, s.spec, s.abbrev, s.is_fully_set, s.is_active, p.progname, COALESCE(c.course_count, 0) as course_count FROM acad_specialisation s LEFT JOIN acad_programme p ON s.prog_id = p.progcode LEFT JOIN (SELECT specialisation_id, COUNT(*) as course_count FROM acad_programmecourses GROUP BY specialisation_id) c ON s.spec_id = c.specialisation_id ORDER BY p.progname, s.spec"
+        InsertCommand="INSERT INTO acad_specialisation (prog_id, spec, abbrev, is_fully_set, is_active) VALUES (@prog_id, @spec, @abbrev, @is_fully_set, @is_active)"
+        UpdateCommand="UPDATE acad_specialisation SET prog_id=@prog_id, spec=@spec, abbrev=@abbrev, is_fully_set=@is_fully_set, is_active=@is_active WHERE spec_id=@spec_id"
         DeleteCommand="DELETE FROM acad_specialisation WHERE spec_id=@spec_id">
         <InsertParameters>
             <asp:Parameter Name="prog_id" Type="String" />
             <asp:Parameter Name="spec" Type="String" />
             <asp:Parameter Name="abbrev" Type="String" />
             <asp:Parameter Name="is_fully_set" Type="String" DefaultValue="No" />
+            <asp:Parameter Name="is_active" Type="String" DefaultValue="Active" />
         </InsertParameters>
         <UpdateParameters>
             <asp:Parameter Name="prog_id" Type="String" />
             <asp:Parameter Name="spec" Type="String" />
             <asp:Parameter Name="abbrev" Type="String" />
             <asp:Parameter Name="is_fully_set" Type="String" />
+            <asp:Parameter Name="is_active" Type="String" />
             <asp:Parameter Name="spec_id" Type="Int32" />
         </UpdateParameters>
         <DeleteParameters>
@@ -1316,6 +1780,70 @@
             window.open('SpecialisationStructurePDF.aspx?specId=' + specId, '_blank');
         }
         
+        // ======================================================
+        // Structure Tab - Batch Delete Functions
+        // ======================================================
+        
+        /** Toggle all course checkboxes when Select All is clicked */
+        function toggleSelectAllStructure(cb) {
+            var boxes = document.querySelectorAll('.struct-chk');
+            for (var i = 0; i < boxes.length; i++) {
+                boxes[i].checked = cb.checked;
+                var item = boxes[i].closest('.course-item');
+                if (item) item.classList.toggle('selected-for-delete', cb.checked);
+            }
+            updateStructureDeleteBtn();
+        }
+        
+        /** Called on each individual checkbox change */
+        function onStructureCheckChange(cb) {
+            var item = cb.closest('.course-item');
+            if (item) item.classList.toggle('selected-for-delete', cb.checked);
+            updateStructureDeleteBtn();
+            // Sync the Select All checkbox indeterminate state
+            var all = document.querySelectorAll('.struct-chk');
+            var checked = document.querySelectorAll('.struct-chk:checked');
+            var selectAll = document.getElementById('chkSelectAllStructure');
+            if (selectAll) {
+                selectAll.indeterminate = (checked.length > 0 && checked.length < all.length);
+                selectAll.checked = (all.length > 0 && checked.length === all.length);
+            }
+        }
+        
+        /** Update the Delete button label with selected count */
+        function updateStructureDeleteBtn() {
+            var checked = document.querySelectorAll('.struct-chk:checked');
+            var n = checked.length;
+            var btn = document.getElementById('<%= cmdDeleteSelectedCourses.ClientID %>');
+            var counter = document.getElementById('spanStructSelCount');
+            if (btn) {
+                btn.value = (n > 0) ? ('Delete Selected (' + n + ')') : 'Delete Selected';
+            }
+            if (counter) {
+                counter.style.display = (n > 0) ? 'inline' : 'none';
+                counter.textContent = n + ' selected';
+            }
+        }
+        
+        /** Collect IDs, confirm and submit — called via OnClientClick */
+        function collectAndConfirmStructureDelete(btn) {
+            var checked = document.querySelectorAll('.struct-chk:checked');
+            if (checked.length === 0) {
+                alert('Please select at least one course to delete.');
+                return false;
+            }
+            if (!confirm('Delete ' + checked.length + ' selected course(s) from this curriculum?\n\nThis action cannot be undone.')) {
+                return false;
+            }
+            var ids = [];
+            for (var i = 0; i < checked.length; i++) {
+                ids.push(checked[i].getAttribute('data-id'));
+            }
+            document.getElementById('<%= hdnDeleteIds.ClientID %>').value = ids.join(',');
+            return true;
+        }
+        
+        // ======================================================
         // AJAX loading indicator for transcript UpdatePanel
         var prm = Sys.WebForms.PageRequestManager.getInstance();
         prm.add_beginRequest(function(sender, args) {
@@ -1333,5 +1861,114 @@
             var loader = document.getElementById('transcriptLoading');
             if (loader) loader.style.display = 'none';
         });
+
+        // =====================================================
+        // BATCH OPERATIONS — Main Specialisations Grid
+        // =====================================================
+        function toggleSelectAll(cb) {
+            var rows = document.querySelectorAll('.spec-row-chk');
+            for (var i = 0; i < rows.length; i++) rows[i].checked = cb.checked;
+            updateBatchBar();
+        }
+
+        function updateBatchBar() {
+            var all     = document.querySelectorAll('.spec-row-chk');
+            var checked = document.querySelectorAll('.spec-row-chk:checked');
+            var n = checked.length;
+            // Count badge
+            var badge = document.getElementById('spanBatchCount');
+            if (badge) badge.textContent = n;
+            // Highlight bar
+            var bar = document.getElementById('divBatchBar');
+            if (bar) { if (n > 0) bar.classList.add('bar-active'); else bar.classList.remove('bar-active'); }
+            // Enable / disable action buttons
+            var btns = document.querySelectorAll('.bat-btn');
+            for (var i = 0; i < btns.length; i++) {
+                if (n > 0) btns[i].classList.remove('bat-dis');
+                else       btns[i].classList.add('bat-dis');
+            }
+            // Sync header checkbox indeterminate state
+            var selAll = document.querySelector('.spec-sel-all');
+            if (selAll) {
+                selAll.indeterminate = (n > 0 && n < all.length);
+                selAll.checked       = (all.length > 0 && n === all.length);
+            }
+        }
+
+        function doBatch(action, confirmMsg) {
+            var checked = document.querySelectorAll('.spec-row-chk:checked');
+            if (checked.length === 0) return;
+            if (confirmMsg) {
+                if (!confirm(confirmMsg.replace('{n}', checked.length))) return;
+            }
+            var ids = [];
+            for (var i = 0; i < checked.length; i++) ids.push(checked[i].getAttribute('data-specid'));
+            document.getElementById('<%= hdnBatchIds.ClientID %>').value = ids.join(',');
+            document.getElementById('<%= hdnBatchAction.ClientID %>').value = action;
+            document.getElementById('<%= btnBatchExecute.ClientID %>').click();
+        }
+
+        // =====================================================
+        // SMART FILTER BAR — client-side helpers
+        // =====================================================
+        (function () {
+            var txt  = document.getElementById('<%= txtFilterSearch.ClientID %>');
+            var xBtn = document.getElementById('btnClearSearchX');
+
+            function syncX() {
+                if (xBtn) xBtn.style.display = (txt && txt.value.length > 0) ? '' : 'none';
+            }
+            if (txt) {
+                txt.addEventListener('input', syncX);
+                // Enter key fires Search button
+                txt.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter' || e.keyCode === 13) {
+                        e.preventDefault();
+                        var btn = document.getElementById('<%= btnApplySearch.ClientID %>');
+                        if (btn) btn.click();
+                    }
+                });
+                syncX();
+            }
+
+            // Visually highlight selects that have a non-empty value
+            function highlightSelects() {
+                var sels = document.querySelectorAll('.sfilter-select');
+                for (var i = 0; i < sels.length; i++) {
+                    if (sels[i].value && sels[i].value !== '')
+                        sels[i].classList.add('sf-active');
+                    else
+                        sels[i].classList.remove('sf-active');
+                }
+            }
+            highlightSelects();
+            var ddls = document.querySelectorAll('.sfilter-select');
+            for (var j = 0; j < ddls.length; j++) {
+                ddls[j].addEventListener('change', highlightSelects);
+            }
+        })();
+
+        function clearFilterSearchJS() {
+            var txt = document.getElementById('<%= txtFilterSearch.ClientID %>');
+            if (txt) { txt.value = ''; txt.focus(); }
+            var x = document.getElementById('btnClearSearchX');
+            if (x) x.style.display = 'none';
+        }
+
+        // Update "showing N–M of T" info next to per-page selector
+        (function () {
+            var ddl   = document.getElementById('<%= ddlPageSize.ClientID %>');
+            var total = parseInt('<%= lblTotalCount.Text %>') || 0;
+            var span  = document.getElementById('spanPageInfo');
+            if (!ddl || !span) return;
+            function refresh() {
+                var ps = parseInt(ddl.value);
+                if (!ps || ps <= 0) { span.textContent = '(showing all ' + total + ')'; return; }
+                var pages = Math.ceil(total / ps);
+                span.textContent = pages + ' page' + (pages === 1 ? '' : 's');
+            }
+            ddl.addEventListener('change', refresh);
+            refresh();
+        })();
     </script>
 </asp:Content>

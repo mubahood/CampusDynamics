@@ -95,7 +95,10 @@ public partial class COOPERP_Results_Reports_PrintCentre : System.Web.UI.Page
             acad_GetBatchStudentTranscript_Col1TableAdapter COL_1 = new acad_GetBatchStudentTranscript_Col1TableAdapter();
             acad_GetBatchStudentTranscript_Col2TableAdapter COL_2 = new acad_GetBatchStudentTranscript_Col2TableAdapter();
             ResultsData DS = new ResultsData();
-            ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, Session["reg"].ToString());
+            DS.EnforceConstraints = false;
+            string regNo = Session["reg"].ToString().Trim();
+            ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, regNo);
+            CertificateDataHelper.EnsureSingleStudentData(DS, regNo);
             //********************** Add Photo To List of selected data based on image file names*************************************************
             string ImageFile, PhotoPath;
             for (int i = 0; i < DS.acad_GetBatchStudentTranscriptData.Count; i++)

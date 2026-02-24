@@ -1338,6 +1338,12 @@ table.cd-table th img,
     color: #388e3c !important;
 }
 
+/* Password action */
+.cd-action-popover__btn--password:hover {
+    background: #fff3e0 !important;
+    color: #e65100 !important;
+}
+
 /* Divider */
 .cd-action-popover__divider {
     height: 1px !important;

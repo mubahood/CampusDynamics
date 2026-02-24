@@ -21,7 +21,12 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         if (!IsPostBack)
         {
             EnsureSpecialisationUniqueKey();
+            PopulateFilterProgrammes();
             UpdateTotalCount();
+            // Sync per-page dropdown to current grid page size
+            int current = gvMain.SettingsPager.PageSize;
+            System.Web.UI.WebControls.ListItem li = ddlPageSize.Items.FindByValue(current.ToString());
+            if (li != null) li.Selected = true;
         }
     }
 
@@ -123,6 +128,18 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
     {
     }
 
+    protected void gvMain_HtmlRowCreated(object sender, ASPxGridViewTableRowEventArgs e)
+    {
+        if (e.RowType == GridViewRowType.Data)
+        {
+            object val = gvMain.GetRowValues(e.VisibleIndex, "is_active");
+            if (val != null && val.ToString() == "Inactive")
+            {
+                e.Row.CssClass = (e.Row.CssClass + " row-inactive").Trim();
+            }
+        }
+    }
+
     protected void gvMain_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
     {
         int specId = Convert.ToInt32(e.Keys["spec_id"]);
@@ -141,6 +158,225 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
             e.ErrorText = e.Exception.Message;
         }
     }
+
+    #region Batch Operations (Main Grid)
+
+    protected void btnBatchExecute_Click(object sender, EventArgs e)
+    {
+        string idsRaw = hdnBatchIds.Value;
+        string action = (hdnBatchAction.Value ?? "").Trim();
+        hdnBatchIds.Value = "";
+        hdnBatchAction.Value = "";
+
+        List<int> ids = ParseBatchIds(idsRaw);
+        if (ids.Count == 0)
+        {
+            ShowBatchResult("err", "No valid rows were selected.");
+            return;
+        }
+
+        switch (action)
+        {
+            case "fully_set_yes": BatchSetFullySet(ids, "Yes");   break;
+            case "fully_set_no":  BatchSetFullySet(ids, "No");    break;
+            case "set_active":    BatchSetActive(ids, "Active");   break;
+            case "set_inactive":  BatchSetActive(ids, "Inactive"); break;
+            case "delete":        BatchDelete(ids);                break;
+            case "print_pdf":     BatchPrintPDF(ids);            return; // opens new tab, no result panel needed
+            case "export_csv":    BatchExportCSV(ids);           return; // file download response
+            default:
+                ShowBatchResult("err", "Unknown action: " + action);
+                break;
+        }
+
+        gvMain.DataBind();
+        UpdateTotalCount();
+    }
+
+    private List<int> ParseBatchIds(string raw)
+    {
+        var list = new List<int>();
+        if (string.IsNullOrEmpty(raw)) return list;
+        foreach (string s in raw.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            int id;
+            if (int.TryParse(s.Trim(), out id) && id > 0) list.Add(id);
+        }
+        return list;
+    }
+
+    private void BatchSetFullySet(List<int> ids, string value)
+    {
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand(
+                "UPDATE acad_specialisation SET is_fully_set = @v WHERE spec_id IN (" + string.Join(",", ids) + ")", conn))
+            {
+                cmd.Parameters.AddWithValue("@v", value);
+                cmd.ExecuteNonQuery();
+            }
+        }
+        string label = value == "Yes" ? "Fully Configured &#10003;" : "Not Fully Configured &#10007;";
+        ShowBatchResult("ok", "<strong>" + ids.Count + "</strong> specialisation(s) marked as <strong>" + label + "</strong>.");
+    }
+
+    private void BatchSetActive(List<int> ids, string value)
+    {
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand(
+                "UPDATE acad_specialisation SET is_active = @v WHERE spec_id IN (" + string.Join(",", ids) + ")", conn))
+            {
+                cmd.Parameters.AddWithValue("@v", value);
+                cmd.ExecuteNonQuery();
+            }
+        }
+        string badge = value == "Active"
+            ? "<span class='status-badge status-active'>&#9679; Active</span>"
+            : "<span class='status-badge status-inactive'>&#9679; Inactive</span>";
+        ShowBatchResult("ok", "<strong>" + ids.Count + "</strong> specialisation(s) set to " + badge + ".");
+    }
+
+    private void BatchDelete(List<int> ids)
+    {
+        int deleted = 0, skipped = 0;
+        var skippedNames = new List<string>();
+
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            foreach (int id in ids)
+            {
+                int cnt;
+                using (MySqlCommand chk = new MySqlCommand(
+                    "SELECT COUNT(*) FROM acad_programmecourses WHERE specialisation_id = @id", conn))
+                {
+                    chk.Parameters.AddWithValue("@id", id);
+                    cnt = Convert.ToInt32(chk.ExecuteScalar());
+                }
+
+                if (cnt > 0)
+                {
+                    string nm = id.ToString();
+                    using (MySqlCommand nm_cmd = new MySqlCommand(
+                        "SELECT spec FROM acad_specialisation WHERE spec_id = @id", conn))
+                    {
+                        nm_cmd.Parameters.AddWithValue("@id", id);
+                        object r = nm_cmd.ExecuteScalar();
+                        if (r != null) nm = r.ToString();
+                    }
+                    skippedNames.Add(nm + " (" + cnt + " courses)");
+                    skipped++;
+                }
+                else
+                {
+                    using (MySqlCommand del = new MySqlCommand(
+                        "DELETE FROM acad_specialisation WHERE spec_id = @id", conn))
+                    {
+                        del.Parameters.AddWithValue("@id", id);
+                        del.ExecuteNonQuery();
+                    }
+                    deleted++;
+                }
+            }
+        }
+
+        var msg = new StringBuilder();
+        string type = "ok";
+        if (deleted > 0) msg.Append("<strong>" + deleted + "</strong> specialisation(s) deleted. ");
+        if (skipped > 0)
+        {
+            type = deleted == 0 ? "err" : "inf";
+            msg.Append("<strong>" + skipped + "</strong> skipped (have courses): " + string.Join("; ", skippedNames) + ".");
+        }
+        ShowBatchResult(type, msg.ToString());
+    }
+
+    private void BatchPrintPDF(List<int> ids)
+    {
+        // Open batch PDF in new tab — SpecialisationStructurePDF.aspx handles batchIds param
+        string url = "SpecialisationStructurePDF.aspx?batchIds=" + string.Join(",", ids);
+        ScriptManager.RegisterStartupScript(this, GetType(), "batchPdf",
+            "window.open('" + url + "', '_blank');", true);
+        ShowBatchResult("inf", "Opening PDF for <strong>" + ids.Count + "</strong> specialisation(s) in a new tab...");
+        gvMain.DataBind();
+        UpdateTotalCount();
+    }
+
+    private void BatchExportCSV(List<int> ids)
+    {
+        var csv = new StringBuilder();
+        csv.AppendLine("ID,Programme,Specialisation,Abbreviation,Fully Set,Status,Course Count");
+
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            string sql = @"SELECT s.spec_id,
+                               COALESCE(p.progname, s.prog_id) AS prog,
+                               s.spec, s.abbrev, s.is_fully_set, s.is_active,
+                               COALESCE(c.cnt, 0) AS cnt
+                           FROM acad_specialisation s
+                           LEFT JOIN acad_programme p ON s.prog_id = p.progcode
+                           LEFT JOIN (SELECT specialisation_id, COUNT(*) cnt
+                                      FROM acad_programmecourses
+                                      GROUP BY specialisation_id) c
+                                  ON s.spec_id = c.specialisation_id
+                           WHERE s.spec_id IN (" + string.Join(",", ids) + @")
+                           ORDER BY p.progname, s.spec";
+
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            using (MySqlDataReader r = cmd.ExecuteReader())
+            {
+                while (r.Read())
+                {
+                    csv.AppendLine(string.Format("{0},\"{1}\",\"{2}\",{3},{4},{5},{6}",
+                        r["spec_id"],
+                        r["prog"].ToString().Replace("\"", "\"\""),
+                        r["spec"].ToString().Replace("\"", "\"\""),
+                        r["abbrev"],
+                        r["is_fully_set"],
+                        r["is_active"],
+                        r["cnt"]));
+                }
+            }
+        }
+
+        Response.Clear();
+        Response.ContentType = "text/csv";
+        Response.AddHeader("Content-Disposition", "attachment; filename=\"specialisations_export.csv\"");
+        Response.Write(csv.ToString());
+        Response.End();
+    }
+
+    private void ShowBatchResult(string type, string message)
+    {
+        pnlBatchResult.Visible = true;
+
+        string icon;
+        string css;
+        if (type == "ok")
+        {
+            icon = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' style='vertical-align:middle;margin-right:6px;flex-shrink:0'><polyline points='20 6 9 17 4 12'></polyline></svg>";
+            css  = "padding:7px 14px;font-size:11px;border-left:4px solid #28a745;background:#d4edda;color:#155724;display:flex;align-items:center;";
+        }
+        else if (type == "err")
+        {
+            icon = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align:middle;margin-right:6px;flex-shrink:0'><circle cx='12' cy='12' r='10'></circle><line x1='15' y1='9' x2='9' y2='15'></line><line x1='9' y1='9' x2='15' y2='15'></line></svg>";
+            css  = "padding:7px 14px;font-size:11px;border-left:4px solid #dc3545;background:#f8d7da;color:#721c24;display:flex;align-items:center;";
+        }
+        else // inf
+        {
+            icon = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align:middle;margin-right:6px;flex-shrink:0'><circle cx='12' cy='12' r='10'></circle><line x1='12' y1='8' x2='12' y2='12'></line><line x1='12' y1='16' x2='12.01' y2='16'></line></svg>";
+            css  = "padding:7px 14px;font-size:11px;border-left:4px solid #007bff;background:#cce5ff;color:#004085;display:flex;align-items:center;";
+        }
+
+        pnlBatchResult.Attributes["style"] = css;
+        lblBatchResult.Text = icon + message;
+    }
+
+    #endregion
 
     private void UpdateTotalCount()
     {
@@ -163,6 +399,174 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
             lblTotalCount.Text = "0";
         }
     }
+
+    #region Filter Bar
+
+    private void PopulateFilterProgrammes()
+    {
+        ddlFilterProgramme.Items.Clear();
+        ddlFilterProgramme.Items.Add(new System.Web.UI.WebControls.ListItem("All Programmes", ""));
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    @"SELECT DISTINCT p.progcode, p.progname
+                        FROM acad_specialisation s
+                        JOIN acad_programme p ON s.prog_id = p.progcode
+                        ORDER BY p.progname", conn))
+                using (MySqlDataReader r = cmd.ExecuteReader())
+                {
+                    while (r.Read())
+                        ddlFilterProgramme.Items.Add(
+                            new System.Web.UI.WebControls.ListItem(r["progname"].ToString(), r["progcode"].ToString()));
+                }
+            }
+        }
+        catch { /* silently skip if table unavailable */ }
+    }
+
+    private void ApplyFilters()
+    {
+        string search = (txtFilterSearch.Text ?? "").Trim();
+        string prog   = ddlFilterProgramme.SelectedValue ?? "";
+        string fully  = ddlFilterFullySet.SelectedValue  ?? "";
+        string status = ddlFilterStatus.SelectedValue    ?? "";
+
+        // Build DevExpress FilterExpression (CriteriaLanguage syntax)
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(search))
+        {
+            string safe = search.Replace("'", "''");
+            parts.Add(string.Format("(Contains([spec], '{0}') Or Contains([abbrev], '{0}'))", safe));
+        }
+        if (!string.IsNullOrEmpty(prog))
+            parts.Add(string.Format("[prog_id] = '{0}'", prog.Replace("'", "''")));
+        if (!string.IsNullOrEmpty(fully))
+            parts.Add(string.Format("[is_fully_set] = '{0}'", fully));
+        if (!string.IsNullOrEmpty(status))
+            parts.Add(string.Format("[is_active] = '{0}'", status));
+
+        gvMain.FilterExpression = parts.Count > 0 ? string.Join(" And ", parts) : "";
+
+        bool active = parts.Count > 0;
+        btnClearFilters.Visible  = active;
+        pnlFilterChips.Visible   = active;
+        pnlFilterBar.CssClass    = active ? "sfilter-bar bar-filtered" : "sfilter-bar";
+
+        if (active)
+        {
+            // Build filter chip descriptions
+            var chips = new StringBuilder();
+            if (!string.IsNullOrEmpty(search))
+                chips.Append("<span class='sfchip'>")  
+                     .Append("<svg xmlns='http://www.w3.org/2000/svg' width='9' height='9' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'></circle><line x1='21' y1='21' x2='16.65' y2='16.65'></line></svg>")
+                     .Append(" &ldquo;" + Server.HtmlEncode(search) + "&rdquo;</span> ");
+            if (!string.IsNullOrEmpty(prog))
+            {
+                var li = ddlFilterProgramme.Items.FindByValue(prog);
+                chips.Append("<span class='sfchip'>" + Server.HtmlEncode(li != null ? li.Text : prog) + "</span> ");
+            }
+            if (!string.IsNullOrEmpty(fully))
+                chips.Append("<span class='sfchip'>Fully Set: " + Server.HtmlEncode(fully) + "</span> ");
+            if (!string.IsNullOrEmpty(status))
+                chips.Append("<span class='sfchip'>Status: " + Server.HtmlEncode(status) + "</span> ");
+            litFilterChips.Text = chips.ToString();
+
+            // Run filtered count
+            int cnt = GetFilteredCount(search, prog, fully, status);
+            lblFilteredCount.Text = "<strong>" + cnt + "</strong> result" + (cnt == 1 ? "" : "s") + " found";
+            lblFilterInfo.Text    = "Showing " + cnt + " filtered result" + (cnt == 1 ? "" : "s");
+        }
+        else
+        {
+            lblFilterInfo.Text = "";
+        }
+    }
+
+    private int GetFilteredCount(string search, string prog, string fully, string status)
+    {
+        var where = new List<string>();
+        var parms = new List<MySqlParameter>();
+
+        if (!string.IsNullOrEmpty(search))
+        {
+            where.Add("(s.spec LIKE @search OR s.abbrev LIKE @search)");
+            parms.Add(new MySqlParameter("@search", "%" + search + "%"));
+        }
+        if (!string.IsNullOrEmpty(prog))
+        {
+            where.Add("s.prog_id = @prog");
+            parms.Add(new MySqlParameter("@prog", prog));
+        }
+        if (!string.IsNullOrEmpty(fully))
+        {
+            where.Add("s.is_fully_set = @fs");
+            parms.Add(new MySqlParameter("@fs", fully));
+        }
+        if (!string.IsNullOrEmpty(status))
+        {
+            where.Add("s.is_active = @sta");
+            parms.Add(new MySqlParameter("@sta", status));
+        }
+
+        string sql = "SELECT COUNT(*) FROM acad_specialisation s" +
+            (where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : "");
+
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                foreach (var p in parms) cmd.Parameters.Add(p);
+                return Convert.ToInt32(cmd.ExecuteScalar());
+            }
+        }
+    }
+
+    protected void ddlFilter_Changed(object sender, EventArgs e)
+    {
+        gvMain.PageIndex = 0;
+        ApplyFilters();
+        UpdateTotalCount();
+    }
+
+    protected void btnApplySearch_Click(object sender, EventArgs e)
+    {
+        gvMain.PageIndex = 0;
+        ApplyFilters();
+        UpdateTotalCount();
+    }
+
+    protected void btnClearFilters_Click(object sender, EventArgs e)
+    {
+        txtFilterSearch.Text             = "";
+        ddlFilterProgramme.SelectedIndex = 0;
+        ddlFilterFullySet.SelectedIndex  = 0;
+        ddlFilterStatus.SelectedIndex    = 0;
+        gvMain.FilterExpression          = "";
+        gvMain.PageIndex                 = 0;
+        pnlFilterBar.CssClass            = "sfilter-bar";
+        pnlFilterChips.Visible           = false;
+        btnClearFilters.Visible          = false;
+        lblFilterInfo.Text               = "";
+        UpdateTotalCount();
+    }
+
+    protected void ddlPageSize_Changed(object sender, EventArgs e)
+    {
+        int size;
+        if (int.TryParse(ddlPageSize.SelectedValue, out size))
+        {
+            // 0 means "All" — DevExpress uses a very large number to show all rows
+            gvMain.SettingsPager.PageSize = size > 0 ? size : 999999;
+            gvMain.PageIndex = 0;
+            gvMain.DataBind();
+        }
+    }
+
+    #endregion
 
     private int GetCourseCountForSpec(int specId)
     {
@@ -252,8 +656,10 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         txtY3S1.Text = ""; txtY3S2.Text = ""; txtY3S3.Text = "";
         txtY4S1.Text = ""; txtY4S2.Text = ""; txtY4S3.Text = "";
         pnlBatchSummary.Visible = false;
+        pnlStructureDeleteResult.Visible = false;
         ddlSetFullySet.SelectedValue = "No";
-        ddlTranscriptFullySet.SelectedValue = "No";
+        rblTranscriptFullySet.SelectedValue = "Yes";
+        rblTranscriptIsActive.SelectedValue = "Active";
         
         // Load course structure
         LoadCourseStructure(specId);
@@ -555,6 +961,89 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         popManageCourses.ShowOnPageLoad = true;
     }
 
+    /// <summary>
+    /// Batch delete selected courses from the Structure tab.
+    /// IDs are collected client-side and placed in hdnDeleteIds before postback.
+    /// Each ID is validated to belong to the current specialisation before deletion.
+    /// </summary>
+    protected void cmdDeleteSelectedCourses_Click(object sender, EventArgs e)
+    {
+        string idsRaw = hdnDeleteIds.Value;
+        hdnDeleteIds.Value = ""; // clear so it doesn't re-trigger on refresh
+
+        // Parse integer IDs only — reject anything that isn't a plain integer
+        List<int> ids = new List<int>();
+        if (!string.IsNullOrEmpty(idsRaw))
+        {
+            foreach (string raw in idsRaw.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                int id;
+                if (int.TryParse(raw.Trim(), out id) && id > 0)
+                    ids.Add(id);
+            }
+        }
+
+        if (ids.Count == 0)
+        {
+            ShowStructureDeleteResult(false, "No valid courses were selected.");
+            popManageCourses.ShowOnPageLoad = true;
+            return;
+        }
+
+        int specId = Convert.ToInt32(hdnSpecId.Value);
+        int deletedCount = 0;
+
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            foreach (int id in ids)
+            {
+                // Safety: only delete rows belonging to THIS specialisation
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "DELETE FROM acad_programmecourses WHERE ID = @id AND specialisation_id = @specId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    cmd.Parameters.AddWithValue("@specId", specId);
+                    deletedCount += cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        if (deletedCount > 0)
+            ShowStructureDeleteResult(true, deletedCount + " course" + (deletedCount == 1 ? "" : "s") + " deleted successfully.");
+        else
+            ShowStructureDeleteResult(false, "No courses were deleted. They may have already been removed.");
+
+        // Refresh both views and main grid course count
+        LoadCourseStructure(specId);
+        LoadSpecCoursesGrid(specId);
+        gvMain.DataBind();
+
+        popManageCourses.ShowOnPageLoad = true;
+
+        // Switch back to the Structure tab (index 2) after the postback
+        ScriptManager.RegisterStartupScript(this, GetType(), "SwitchToStructureTab",
+            "setTimeout(function(){ if(typeof tabCourses !== 'undefined') tabCourses.SetActiveTabIndex(2); }, 200);", true);
+    }
+
+    private void ShowStructureDeleteResult(bool success, string message)
+    {
+        pnlStructureDeleteResult.Visible = true;
+        if (success)
+        {
+            pnlStructureDeleteResult.Style["border-left"] = "3px solid #28a745";
+            pnlStructureDeleteResult.Style["background"] = "#d4edda";
+            pnlStructureDeleteResult.Style["color"] = "#155724";
+        }
+        else
+        {
+            pnlStructureDeleteResult.Style["border-left"] = "3px solid #dc3545";
+            pnlStructureDeleteResult.Style["background"] = "#f8d7da";
+            pnlStructureDeleteResult.Style["color"] = "#721c24";
+        }
+        lblStructureDeleteResult.Text = message;
+    }
+
     private void LoadCourseStructure(int specId)
     {
         StringBuilder sb = new StringBuilder();
@@ -592,12 +1081,14 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                             while (reader.Read())
                             {
                                 hasCourses = true;
+                                string rowId = reader["ID"].ToString();
                                 string courseCode = reader["course_code"].ToString();
                                 string courseName = reader["courseName"] != DBNull.Value ? reader["courseName"].ToString() : "";
                                 string credits = reader["CreditUnit"] != DBNull.Value ? reader["CreditUnit"].ToString() : "0";
                                 
-                                sb.Append("<div class='course-item'>");
-                                sb.Append("<span><strong>" + courseCode + "</strong> " + courseName + "</span>");
+                                sb.Append("<div class='course-item' data-row-id='" + rowId + "'>");
+                                sb.Append("<input type='checkbox' class='struct-chk' data-id='" + rowId + "' onchange='onStructureCheckChange(this);' style='cursor:pointer;width:13px;height:13px;margin-right:5px;flex-shrink:0;vertical-align:middle;' />");
+                                sb.Append("<span style='flex:1;'><strong>" + System.Web.HttpUtility.HtmlEncode(courseCode) + "</strong> " + System.Web.HttpUtility.HtmlEncode(courseName) + "</span>");
                                 sb.Append("<span class='credits'>" + credits + " CU</span>");
                                 sb.Append("</div>");
                             }
@@ -1094,19 +1585,18 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                 }
             }
             
-            // Update is_fully_set if selected
-            string transcriptFullySet = ddlTranscriptFullySet.SelectedValue;
-            if (transcriptFullySet == "Yes")
+            // Update is_fully_set and is_active
+            string transcriptFullySet = rblTranscriptFullySet.SelectedValue;
+            string transcriptIsActive = rblTranscriptIsActive.SelectedValue;
+            using (MySqlConnection conn2 = new MySqlConnection(ConnectionString))
             {
-                using (MySqlConnection conn2 = new MySqlConnection(ConnectionString))
+                conn2.Open();
+                using (MySqlCommand cmd = new MySqlCommand("UPDATE acad_specialisation SET is_fully_set = @fsValue, is_active = @iaValue WHERE spec_id = @specId", conn2))
                 {
-                    conn2.Open();
-                    using (MySqlCommand cmd = new MySqlCommand("UPDATE acad_specialisation SET is_fully_set = @value WHERE spec_id = @specId", conn2))
-                    {
-                        cmd.Parameters.AddWithValue("@value", transcriptFullySet);
-                        cmd.Parameters.AddWithValue("@specId", specId);
-                        cmd.ExecuteNonQuery();
-                    }
+                    cmd.Parameters.AddWithValue("@fsValue", transcriptFullySet);
+                    cmd.Parameters.AddWithValue("@iaValue", transcriptIsActive);
+                    cmd.Parameters.AddWithValue("@specId", specId);
+                    cmd.ExecuteNonQuery();
                 }
             }
             
@@ -1130,7 +1620,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
             if (totalProcessed == 0 && skippedDuplicate > 0) result.Append("<br/><em>All courses already exist in this specialisation.</em><br/>");
             result.Append("<br/>Source: Student " + regno + "'s transcript<br/>");
             if (totalProcessed > 0) result.Append("All courses added as CORE type. Review the 'Courses' tab to edit if needed.");
-            if (transcriptFullySet == "Yes") result.Append("<br/><span style='color:#174DA4; font-weight:600;'><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='#174DA4' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' style='vertical-align:middle;margin-right:3px;'><polyline points='20 6 9 17 4 12'></polyline></svg> Specialisation marked as Fully Configured</span>");
+            result.Append("<br/><span style='color:#174DA4; font-weight:600;'><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='#174DA4' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' style='vertical-align:middle;margin-right:3px;'><polyline points='20 6 9 17 4 12'></polyline></svg> Specialisation &mdash; Fully Configured: " + transcriptFullySet + " &bull; Status: " + transcriptIsActive + "</span>");
             
             litTranscriptResult.Text = result.ToString();
             pnlTranscriptResult.Visible = true;
@@ -1164,7 +1654,8 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         pnlTranscriptSummary.Visible = false;
         pnlTranscriptActions.Visible = false;
         pnlTranscriptResult.Visible = false;
-        ddlTranscriptFullySet.SelectedValue = "No";
+        rblTranscriptFullySet.SelectedValue = "Yes";
+        rblTranscriptIsActive.SelectedValue = "Active";
         
         // Clear input
         txtTranscriptRegNo.Text = "";

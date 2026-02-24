@@ -52,7 +52,7 @@ public partial class UserControls_Results_BestPerformersAnnual : System.Web.UI.U
                     Comm = COMP.acad_AddGraduand(gvMarksheetInfo.GetRowValues(i, "regno").ToString(), txtAcadYear.Text,
                         double.Parse(gvMarksheetInfo.GetRowValues(i, "cgpa").ToString()),
                         gvMarksheetInfo.GetRowValues(i, "AwardClass").ToString(), gvMarksheetInfo.GetRowValues(i, "stud_name").ToString(),
-                        txtFaculty.Value.ToString(), usr).ToString();
+                        txtFaculty.Value.ToString(), usr, gvMarksheetInfo.GetRowValues(i, "gender").ToString()).ToString();
                 }
             }
         }

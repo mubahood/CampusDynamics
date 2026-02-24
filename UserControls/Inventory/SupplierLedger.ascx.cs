@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using DevExpress.XtraPrinting;
 
 public partial class UserControls_Inventory_SupplierLedger : System.Web.UI.UserControl
 {
@@ -20,6 +21,13 @@ public partial class UserControls_Inventory_SupplierLedger : System.Web.UI.UserC
         Session["accno"] = Session["SupplierCode"];
         Session["Report"] = "SupplierLedger";
         Response.Redirect("~/COOPERP/accounts/xtraReports/xtraReportCentre.aspx");
+    }
+
+    protected void cmdExport_Click(object sender, EventArgs e)
+    {
+        string supplierName = Session["SupplierName"] != null ? Session["SupplierName"].ToString() : "Supplier";
+        Exporter.WriteXlsxToResponse("Ledger_" + supplierName.Replace(" ", "_"),
+            new XlsxExportOptions { ExportMode = XlsxExportMode.SingleFile });
     }
     protected void gvLedger_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
     {

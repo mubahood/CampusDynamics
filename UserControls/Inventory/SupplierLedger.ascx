@@ -131,8 +131,12 @@
                                 </Image>
                             </dx:ASPxButton>
                         </td>
-                        <td>
-                            &nbsp;</td>
+                        <td valign="top">
+                            <dx:ASPxButton ID="cmdExport" runat="server" OnClick="cmdExport_Click" Text="Export to Excel" Width="170px" Height="27px">
+                                <Image Url="~/COOPERP/images/document-excel-table.png">
+                                </Image>
+                            </dx:ASPxButton>
+                        </td>
                     </tr>
                     <tr>
                         <td class="auto-style2">
@@ -189,6 +193,9 @@
         </tr>
         <tr>
             <td class="auto-style8">
+                <dx:ASPxGridViewExporter ID="Exporter" runat="server" GridViewID="gvLedger" 
+                    PaperKind="A4" Landscape="True">
+                </dx:ASPxGridViewExporter>
                 <asp:ObjectDataSource ID="dsJournalTransactions" runat="server" OldValuesParameterFormatString="original_{0}" 
                     SelectMethod="GetData" 
                     TypeName="InventoryAccountingTableAdapters.fin_GetLimitedSupplierLedgerTableAdapter">
