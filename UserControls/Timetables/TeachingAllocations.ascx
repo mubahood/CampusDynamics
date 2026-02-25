@@ -224,12 +224,12 @@
             <td>
                 <dx:ASPxGridView ID="gvAllocations" runat="server" Width="100%" AutoGenerateColumns="False" DataSourceID="dsAllocations" KeyFieldName="ID" OnCustomErrorText="gvAllocations_CustomErrorText">
                     <SettingsPager AlwaysShowPager="True" Position="TopAndBottom">
+                        <PageSizeItemSettings Visible="False" />
                     </SettingsPager>
                     <SettingsEditing Mode="Batch">
                     </SettingsEditing>
                     <Settings ShowFilterRowMenu="True" />
-                    <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" />
-                    <SettingsDataSecurity AllowDelete="True" />
+                    <SettingsBehavior AllowFocusedRow="True" />
                     <SettingsSearchPanel Visible="True" />
                     <Columns>
                         <dx:GridViewDataTextColumn Caption="SNo" FieldName="ID" ReadOnly="True" ShowInCustomizationForm="True" VisibleIndex="1" Width="30px">

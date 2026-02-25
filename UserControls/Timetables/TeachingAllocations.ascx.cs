@@ -7,6 +7,22 @@ using System.Web.UI.WebControls;
 
 public partial class UserControls_TeachingAllocations : System.Web.UI.UserControl
 {
+    // Fix DevExpress v16.1 bug: batch-edit grid pager emits 'pageSizeChanged': with no value,
+    // causing a SyntaxError that crashes the entire DX init chain on the page.
+    protected override void Render(System.Web.UI.HtmlTextWriter writer)
+    {
+        System.IO.StringWriter sw = new System.IO.StringWriter();
+        System.Web.UI.HtmlTextWriter hw = new System.Web.UI.HtmlTextWriter(sw);
+        base.Render(hw);
+        string html = sw.ToString();
+        // Replace the broken: 'pageSizeChanged':\n  with  'pageSizeChanged': null\n
+        html = System.Text.RegularExpressions.Regex.Replace(
+            html,
+            @"'pageSizeChanged':\s*\r?\n",
+            "'pageSizeChanged': null\n");
+        writer.Write(html);
+    }
+
     protected void Page_Load(object sender, EventArgs e)
     {
         if (!IsPostBack)

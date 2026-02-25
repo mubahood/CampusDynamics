@@ -12,7 +12,7 @@
   <meta name="description" content="website description" />
   <meta name="keywords" content="Campus Dynamics ERP OPAC, IUIU Library" />
   <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
-  <link rel="stylesheet" type="text/css" href="~/COOPERP/css/style.css" />
+  <link rel="stylesheet" type="text/css" href="~/COOPERP/css/style.css" runat="server" />
   <link rel="shortcut icon" href="~/COOPERP/images/tinylogo.gif" />
     <style type="text/css">
         .style1
@@ -22,7 +22,7 @@
         .style2
         {
             width: 300px;
-            background-image: url('..images/header_1_backgrimg.png');
+            background-image: url('../images/header_1_backgrimg.png');
         }
         .backImg
         {
