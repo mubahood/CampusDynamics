@@ -151,6 +151,7 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
         litTotalCount.Text = "0";
         litPendingCount.Text = "0";
         litReleasedCount.Text = "0";
+        litHeldCount.Text = "0";
         
         try
         {
@@ -172,7 +173,8 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
                 
                 string countSql = @"SELECT 
                     COUNT(DISTINCT CONCAT(e.course_id, '-', e.progid, '-', e.acadyear, '-', e.semester)) as total,
-                    SUM(CASE WHEN e.approved_by IS NOT NULL AND e.approved_by != '-' AND e.approved_by != '' THEN 1 ELSE 0 END) as approved
+                    SUM(CASE WHEN e.approved_by IS NOT NULL AND e.approved_by != '-' AND e.approved_by != '' AND e.approved_by != 'HELD' THEN 1 ELSE 0 END) as approved,
+                    SUM(CASE WHEN e.approved_by = 'HELD' THEN 1 ELSE 0 END) as held
                     FROM acad_examresults_faculty e
                     LEFT JOIN acad_programme p ON e.progid = p.progcode
                     " + baseWhere;
@@ -194,11 +196,12 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
                         {
                             int total = reader["total"] != DBNull.Value ? Convert.ToInt32(reader["total"]) : 0;
                             int approved = reader["approved"] != DBNull.Value ? Convert.ToInt32(reader["approved"]) : 0;
+                            int held = reader["held"] != DBNull.Value ? Convert.ToInt32(reader["held"]) : 0;
                             
                             litTotalCount.Text = total.ToString();
-                            // For now, show approved as released (actual release status would need a separate table)
                             litReleasedCount.Text = approved.ToString();
-                            litPendingCount.Text = (total - approved).ToString();
+                            litHeldCount.Text = held.ToString();
+                            litPendingCount.Text = (total - approved - held).ToString();
                         }
                     }
                 }
@@ -249,6 +252,23 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
                 if (!string.IsNullOrEmpty(ddlFaculty.SelectedValue))
                     conditions.Add("p.fax_code = @fax");
                 
+                // Status filter
+                if (!string.IsNullOrEmpty(ddlStatus.SelectedValue))
+                {
+                    switch (ddlStatus.SelectedValue)
+                    {
+                        case "PENDING":
+                            conditions.Add("(e.approved_by IS NULL OR e.approved_by = '-' OR e.approved_by = '')");
+                            break;
+                        case "RELEASED":
+                            conditions.Add("e.approved_by IS NOT NULL AND e.approved_by != '-' AND e.approved_by != '' AND e.approved_by != 'HELD'");
+                            break;
+                        case "HELD":
+                            conditions.Add("e.approved_by = 'HELD'");
+                            break;
+                    }
+                }
+                
                 string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions.ToArray()) : "";
                 
                 // Group by course, programme, academic year, semester
@@ -258,14 +278,15 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
                     e.progid, p.progname as prog_name,
                     e.acadyear, e.semester,
                     COUNT(*) as student_count,
-                    SUM(CASE WHEN e.approved_by IS NOT NULL AND e.approved_by != '-' AND e.approved_by != '' THEN 1 ELSE 0 END) as approved_count,
+                    SUM(CASE WHEN e.approved_by IS NOT NULL AND e.approved_by != '-' AND e.approved_by != '' AND e.approved_by != 'HELD' THEN 1 ELSE 0 END) as approved_count,
                     CASE 
-                        WHEN SUM(CASE WHEN e.approved_by IS NOT NULL AND e.approved_by != '-' AND e.approved_by != '' THEN 1 ELSE 0 END) = COUNT(*) THEN 'RELEASED'
-                        WHEN SUM(CASE WHEN e.approved_by IS NOT NULL AND e.approved_by != '-' AND e.approved_by != '' THEN 1 ELSE 0 END) > 0 THEN 'PARTIAL'
+                        WHEN SUM(CASE WHEN e.approved_by = 'HELD' THEN 1 ELSE 0 END) > 0 THEN 'HELD'
+                        WHEN SUM(CASE WHEN e.approved_by IS NOT NULL AND e.approved_by != '-' AND e.approved_by != '' AND e.approved_by != 'HELD' THEN 1 ELSE 0 END) = COUNT(*) THEN 'RELEASED'
+                        WHEN SUM(CASE WHEN e.approved_by IS NOT NULL AND e.approved_by != '-' AND e.approved_by != '' AND e.approved_by != 'HELD' THEN 1 ELSE 0 END) > 0 THEN 'PARTIAL'
                         ELSE 'PENDING'
                     END as release_status,
                     NOW() as release_date,
-                    MAX(e.approved_by) as released_by
+                    MAX(CASE WHEN e.approved_by != '-' AND e.approved_by != '' AND e.approved_by != 'HELD' THEN e.approved_by ELSE NULL END) as released_by
                     FROM acad_examresults_faculty e
                     LEFT JOIN acad_course c ON e.course_id = c.courseID
                     LEFT JOIN acad_programme p ON e.progid = p.progcode
@@ -445,6 +466,7 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
             }
             
             ShowMessage(string.Format("{0} student result(s) released successfully.", released), "success");
+            LogActivity("RELEASE", string.Format("Released {0} results for {1} courses", released, selectedKeys.Count), "", "");
             gvResults.Selection.UnselectAll();
             LoadStats();
             BindGrid();
@@ -491,11 +513,11 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
                         string acadYear = parts[2] + "/" + parts[3];
                         int semester = Convert.ToInt32(parts[parts.Length - 1]);
                         
-                        // Remove approval to hold results
+                        // Mark results as HELD (different from pending which is '-')
                         string updateSql = @"UPDATE acad_examresults_faculty 
-                            SET approved_by = '-'
+                            SET approved_by = 'HELD'
                             WHERE course_id = @course AND progid = @prog AND acadyear = @acad AND semester = @sem
-                            AND approved_by IS NOT NULL AND approved_by != '-' AND approved_by != ''";
+                            AND approved_by IS NOT NULL AND approved_by != '-' AND approved_by != '' AND approved_by != 'HELD'";
                         
                         using (MySqlCommand cmd = new MySqlCommand(updateSql, conn))
                         {
@@ -510,6 +532,7 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
             }
             
             ShowMessage(string.Format("{0} student result(s) held successfully.", held), "success");
+            LogActivity("HOLD", string.Format("Held {0} results for {1} courses", held, selectedKeys.Count), "", "");
             gvResults.Selection.UnselectAll();
             LoadStats();
             BindGrid();
@@ -541,6 +564,31 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
         pnlMessage.CssClass = "rr-message show rr-message--" + type;
         litMessage.Text = message;
         pnlMessage.Visible = true;
+    }
+    
+    private void LogActivity(string action, string details, string courseId, string regNo)
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                string sql = @"INSERT INTO acad_activity_log (user_id, action, details, module, course_id, reg_no, created_at, ip_address)
+                              VALUES (@user, @action, @details, 'Results Release', @course, @regno, NOW(), @ip)";
+                              
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@user", HttpContext.Current.User.Identity.Name);
+                    cmd.Parameters.AddWithValue("@action", action);
+                    cmd.Parameters.AddWithValue("@details", details);
+                    cmd.Parameters.AddWithValue("@course", courseId ?? "");
+                    cmd.Parameters.AddWithValue("@regno", regNo ?? "");
+                    cmd.Parameters.AddWithValue("@ip", Request.UserHostAddress);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+        catch { /* Silent fail for logging */ }
     }
     
     #endregion

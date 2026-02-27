@@ -4,6 +4,8 @@ using System.Linq;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using System.Configuration;
+using MySql.Data.MySqlClient;
 
 public partial class UserControls_TeachingAllocations : System.Web.UI.UserControl
 {
@@ -69,7 +71,62 @@ catch(Exception ex)
     }
     protected void txtProgramme_SelectedIndexChanged(object sender, EventArgs e)
     {
-        txtCourse.DataBind();
+        BindCourses();
+    }
+    protected void txtStudyYear_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        BindCourses();
+    }
+    protected void txtSemester_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        BindCourses();
+    }
+
+    /// <summary>
+    /// Populates txtCourse directly from acad_programmecourses using a plain SQL query.
+    /// Bypasses the stored procedure (acad_GetCoursesByProgCodeAndPeriod) which had extra
+    /// campus/entry-year/intake filters that were hiding courses for programmes like BAED.
+    /// </summary>
+    private void BindCourses()
+    {
+        string prog = (txtProgramme.Value ?? "").ToString().Trim();
+        if (string.IsNullOrEmpty(prog)) { txtCourse.Items.Clear(); return; }
+
+        int yr  = 0; int.TryParse(txtStudyYear.Value != null ? txtStudyYear.Value.ToString() : txtStudyYear.Text, out yr);
+        int sem = 0; int.TryParse(txtSemester.Value  != null ? txtSemester.Value.ToString()  : txtSemester.Text,  out sem);
+
+        try
+        {
+            string cs = ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
+            using (MySqlConnection conn = new MySqlConnection(cs))
+            {
+                conn.Open();
+                string sql = @"SELECT DISTINCT pc.course_code,
+                                       COALESCE(c.courseName, pc.course_code) AS course_name
+                               FROM acad_programmecourses pc
+                               LEFT JOIN acad_course c ON c.courseID = pc.course_code
+                               WHERE pc.progcode = @prog
+                                 AND (@yr  = 0 OR pc.study_year = @yr)
+                                 AND (@sem = 0 OR pc.semester   = @sem)
+                               ORDER BY c.courseName, pc.course_code";
+
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@prog", prog);
+                    cmd.Parameters.AddWithValue("@yr",   yr);
+                    cmd.Parameters.AddWithValue("@sem",  sem);
+
+                    System.Data.DataTable dt = new System.Data.DataTable();
+                    new MySqlDataAdapter(cmd).Fill(dt);
+
+                    txtCourse.DataSource  = dt;
+                    txtCourse.ValueField  = "course_code";
+                    txtCourse.TextField   = "course_name";
+                    txtCourse.DataBind();
+                }
+            }
+        }
+        catch { /* silently degrade — leave combo empty on DB error */ }
     }
     protected void txtLecturer_SelectedIndexChanged(object sender, EventArgs e)
     {

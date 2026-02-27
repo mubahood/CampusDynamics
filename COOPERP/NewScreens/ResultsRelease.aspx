@@ -211,11 +211,30 @@
             <span class="rr-stat-item__label">Released:</span>
             <span class="rr-stat-item__value"><asp:Literal ID="litReleasedCount" runat="server">0</asp:Literal></span>
         </div>
+        <div class="rr-stat-item" style="background: #f8d7da; border-color: #f5c6cb;">
+            <span class="rr-stat-item__label" style="color: #721c24;">Held:</span>
+            <span class="rr-stat-item__value" style="color: #721c24;"><asp:Literal ID="litHeldCount" runat="server">0</asp:Literal></span>
+        </div>
         
         <button type="button" class="rr-filter-toggle" onclick="toggleFilters()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
             <span>Filters</span>
         </button>
+        
+        <div style="display: flex; gap: 6px; margin-left: auto;">
+            <asp:HyperLink ID="lnkAnalytics" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsAnalytics.aspx" CssClass="rr-batch-btn" ToolTip="View Analytics Dashboard">
+                📊 Analytics
+            </asp:HyperLink>
+            <asp:HyperLink ID="lnkHoldList" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsHoldList.aspx" CssClass="rr-batch-btn" ToolTip="Manage Held Results">
+                ⛔ Hold List
+            </asp:HyperLink>
+            <asp:HyperLink ID="lnkAuditLog" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsAuditLog.aspx" CssClass="rr-batch-btn" ToolTip="View Audit Log">
+                📋 Audit Log
+            </asp:HyperLink>
+            <asp:HyperLink ID="lnkStudentView" runat="server" NavigateUrl="~/COOPERP/NewScreens/StudentResultsView.aspx" CssClass="rr-batch-btn" ToolTip="View Student Results">
+                👤 Student View
+            </asp:HyperLink>
+        </div>
     </div>
     
     <!-- Filter Row -->

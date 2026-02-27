@@ -109,7 +109,7 @@
                         </td>
                         <td class="auto-style9">Study Year:</td>
                         <td>
-                            <dx:ASPxComboBox ID="txtStudyYear" runat="server" AutoPostBack="True" Height="30px" SelectedIndex="0" Width="200px">
+                            <dx:ASPxComboBox ID="txtStudyYear" runat="server" AutoPostBack="True" Height="30px" SelectedIndex="0" Width="200px" OnSelectedIndexChanged="txtStudyYear_SelectedIndexChanged">
                                 <Items>
                                     <dx:ListEditItem Selected="True" Text="1" Value="1" />
                                     <dx:ListEditItem Text="2" Value="2" />
@@ -123,7 +123,7 @@
                     <tr>
                         <td class="auto-style1">Course Name:</td>
                         <td class="auto-style3">
-                            <dx:ASPxComboBox ID="txtCourse" runat="server" AutoPostBack="True" DataSourceID="dsCourses" DropDownWidth="700px" Height="30px" SelectedIndex="1" TextField="course_name" TextFormatString="{0} :: {1}" ValueField="course_code" Width="300px">
+                            <dx:ASPxComboBox ID="txtCourse" runat="server" AutoPostBack="True" DropDownWidth="700px" Height="30px" SelectedIndex="0" TextField="course_name" TextFormatString="{0} :: {1}" ValueField="course_code" Width="300px">
                                 <Columns>
                                     <dx:ListBoxColumn Caption="Code" FieldName="course_code" Width="50px" />
                                     <dx:ListBoxColumn Caption="Course Name" FieldName="course_name" />
@@ -132,7 +132,7 @@
                         </td>
                         <td class="auto-style9">Semester/Quarter:</td>
                         <td>
-                            <dx:ASPxComboBox ID="txtSemester" runat="server" AutoPostBack="True" Height="30px" SelectedIndex="0" Width="200px">
+                            <dx:ASPxComboBox ID="txtSemester" runat="server" AutoPostBack="True" Height="30px" SelectedIndex="0" Width="200px" OnSelectedIndexChanged="txtSemester_SelectedIndexChanged">
                                 <Items>
                                     <dx:ListEditItem Selected="True" Text="1" Value="1" />
                                     <dx:ListEditItem Text="2" Value="2" />

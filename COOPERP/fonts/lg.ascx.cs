@@ -25,7 +25,7 @@ public partial class COOPERP_fonts_lg : System.Web.UI.UserControl
         Session["username"] = Login1.UserName;
         System.Web.UI.WebControls.Login senderLogin = sender as System.Web.UI.WebControls.Login;
         string key = senderLogin.UserName + senderLogin.Password;
-        TimeSpan TimeOut = new TimeSpan(0, 0, HttpContext.Current.Session.Timeout, 0, 0);
+        TimeSpan TimeOut = TimeSpan.FromDays(30);
         HttpContext.Current.Cache.Insert(key,
             Session.SessionID,
             null,

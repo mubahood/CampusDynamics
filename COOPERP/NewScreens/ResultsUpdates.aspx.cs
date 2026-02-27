@@ -361,7 +361,7 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
         // ===== HEADER SECTION =====
         // University name
         DevExpress.XtraPrinting.TextBrick uniNameBrick = new DevExpress.XtraPrinting.TextBrick();
-        uniNameBrick.Text = "MOUNTAINS OF THE MOON UNIVERSITY";
+        uniNameBrick.Text = "Mutesa I Royal University";
         uniNameBrick.Font = titleFont;
         uniNameBrick.ForeColor = brandColor;
         uniNameBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
@@ -472,7 +472,7 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
         
         // Generated date footer
         DevExpress.XtraPrinting.TextBrick footerBrick = new DevExpress.XtraPrinting.TextBrick();
-        footerBrick.Text = string.Format("Generated on: {0}  |  Mountains of the Moon University - Academic Registry", DateTime.Now.ToString("dd MMMM yyyy, HH:mm"));
+        footerBrick.Text = string.Format("Generated on: {0}  |  Mutesa I Royal University - Academic Registry", DateTime.Now.ToString("dd MMMM yyyy, HH:mm"));
         footerBrick.Font = smallFont;
         footerBrick.ForeColor = System.Drawing.Color.FromArgb(128, 128, 128);
         footerBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;

@@ -3485,6 +3485,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             LoadStudentValidation(regno);
             LoadStudentBioData(regno);
             LoadStudentResults(regno);
+            LoadAllResultsDirect(regno);  // Load direct results from acad_examresults_faculty
             LoadFacultyRegistrations(regno);
             LoadCourseRegistrations(regno);
             LoadFeesLedger(regno);
@@ -3800,6 +3801,240 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             pnlNoResults.Visible = true;
             rptResultsSemesters.Visible = false;
         }
+    }
+    
+    /// <summary>
+    /// Load all results directly from acad_examresults_faculty table (no filtering)
+    /// This bypasses the stored procedure and shows all results regardless of approval status
+    /// </summary>
+    private void LoadAllResultsDirect(string regno)
+    {
+        try
+        {
+            DataTable dtAllResults = new DataTable();
+            int passed = 0, failed = 0, pending = 0;
+            decimal totalMarks = 0;
+            decimal totalGP = 0;
+            decimal totalCredits = 0;
+            
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                
+                // Query directly from acad_examresults_faculty - no approval filter
+                string sql = @"SELECT 
+                    er.ID,
+                    er.course_id,
+                    COALESCE(c.coursename, er.course_id) AS course_name,
+                    COALESCE(c.credit_hrs, 3) AS credit_hours,
+                    er.ca_mark,
+                    er.exam_mark,
+                    er.finalmark,
+                    er.grade,
+                    er.gradept,
+                    er.acad_year,
+                    er.semester,
+                    er.approved_by,
+                    CASE 
+                        WHEN er.finalmark >= 75 THEN 'A'
+                        WHEN er.finalmark >= 65 THEN 'B'
+                        WHEN er.finalmark >= 55 THEN 'C'
+                        WHEN er.finalmark >= 50 THEN 'D'
+                        ELSE 'F'
+                    END AS computed_grade,
+                    CASE 
+                        WHEN er.finalmark >= 75 THEN 4.0
+                        WHEN er.finalmark >= 70 THEN 3.5
+                        WHEN er.finalmark >= 65 THEN 3.0
+                        WHEN er.finalmark >= 60 THEN 2.5
+                        WHEN er.finalmark >= 55 THEN 2.0
+                        WHEN er.finalmark >= 50 THEN 1.5
+                        ELSE 0.0
+                    END AS computed_gp
+                FROM acad_examresults_faculty er
+                LEFT JOIN acad_course c ON c.courseid = er.course_id
+                WHERE er.reg_no = @RegNo
+                ORDER BY er.acad_year DESC, er.semester ASC, c.coursename";
+                
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@RegNo", regno);
+                    using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
+                    {
+                        adapter.Fill(dtAllResults);
+                    }
+                }
+            }
+            
+            if (dtAllResults.Rows.Count == 0)
+            {
+                pnlNoDirectResults.Visible = true;
+                rptDirectResultsSemesters.Visible = false;
+                litDirectTotalCourses.Text = "0";
+                litDirectAvgMark.Text = "0.0";
+                litDirectGPA.Text = "0.00";
+                litDirectPassed.Text = "0";
+                litDirectFailed.Text = "0";
+                litDirectPending.Text = "0";
+            }
+            else
+            {
+                pnlNoDirectResults.Visible = false;
+                rptDirectResultsSemesters.Visible = true;
+                
+                // Calculate statistics
+                foreach (DataRow row in dtAllResults.Rows)
+                {
+                    decimal finalMark = row["finalmark"] != DBNull.Value ? Convert.ToDecimal(row["finalmark"]) : 0;
+                    decimal credits = row["credit_hours"] != DBNull.Value ? Convert.ToDecimal(row["credit_hours"]) : 3;
+                    decimal gp = row["computed_gp"] != DBNull.Value ? Convert.ToDecimal(row["computed_gp"]) : 0;
+                    string approvedBy = row["approved_by"] != null && row["approved_by"] != DBNull.Value ? row["approved_by"].ToString() : "-";
+                    
+                    totalMarks += finalMark;
+                    totalGP += gp * credits;
+                    totalCredits += credits;
+                    
+                    if (approvedBy == "-" || string.IsNullOrEmpty(approvedBy))
+                    {
+                        pending++;
+                    }
+                    else if (finalMark >= 50)
+                    {
+                        passed++;
+                    }
+                    else
+                    {
+                        failed++;
+                    }
+                }
+                
+                // Set summary statistics
+                litDirectTotalCourses.Text = dtAllResults.Rows.Count.ToString();
+                litDirectAvgMark.Text = (dtAllResults.Rows.Count > 0 ? totalMarks / dtAllResults.Rows.Count : 0).ToString("F1");
+                litDirectGPA.Text = (totalCredits > 0 ? totalGP / totalCredits : 0).ToString("F2");
+                litDirectPassed.Text = passed.ToString();
+                litDirectFailed.Text = failed.ToString();
+                litDirectPending.Text = pending.ToString();
+                
+                // Group results by academic year and semester
+                var semesterGroups = new List<object>();
+                DataView view = new DataView(dtAllResults);
+                DataTable distinctSemesters = view.ToTable(true, "acad_year", "semester");
+                distinctSemesters.DefaultView.Sort = "acad_year DESC, semester ASC";
+                
+                foreach (DataRowView semRowView in distinctSemesters.DefaultView)
+                {
+                    string acadYear = semRowView["acad_year"] != null && semRowView["acad_year"] != DBNull.Value ? semRowView["acad_year"].ToString() : "";
+                    int semester = semRowView["semester"] != DBNull.Value ? Convert.ToInt32(semRowView["semester"]) : 0;
+                    
+                    DataRow[] courseRows = dtAllResults.Select(
+                        string.Format("acad_year = '{0}' AND semester = {1}", acadYear.Replace("'", "''"), semester));
+                    
+                    if (courseRows.Length == 0) continue;
+                    
+                    var courses = new List<object>();
+                    decimal semGP = 0;
+                    decimal semCredits = 0;
+                    
+                    foreach (DataRow courseRow in courseRows)
+                    {
+                        decimal credits = courseRow["credit_hours"] != DBNull.Value ? Convert.ToDecimal(courseRow["credit_hours"]) : 3;
+                        decimal gp = courseRow["computed_gp"] != DBNull.Value ? Convert.ToDecimal(courseRow["computed_gp"]) : 0;
+                        
+                        semGP += gp * credits;
+                        semCredits += credits;
+                        
+                        courses.Add(new {
+                            course_code = courseRow["course_id"],
+                            course_title = courseRow["course_name"],
+                            credits = credits,
+                            ca_mark = courseRow["ca_mark"] != DBNull.Value ? Convert.ToDecimal(courseRow["ca_mark"]).ToString("F0") : "-",
+                            exam_mark = courseRow["exam_mark"] != DBNull.Value ? Convert.ToDecimal(courseRow["exam_mark"]).ToString("F0") : "-",
+                            final_mark = courseRow["finalmark"] != DBNull.Value ? Convert.ToDecimal(courseRow["finalmark"]).ToString("F0") : "-",
+                            grade = courseRow["computed_grade"] != null && courseRow["computed_grade"] != DBNull.Value ? courseRow["computed_grade"].ToString() : "-",
+                            gp = gp,
+                            approved_by = courseRow["approved_by"] != null && courseRow["approved_by"] != DBNull.Value ? courseRow["approved_by"].ToString() : "-"
+                        });
+                    }
+                    
+                    decimal semGPA = semCredits > 0 ? semGP / semCredits : 0;
+                    
+                    semesterGroups.Add(new {
+                        acad_year = acadYear,
+                        semester = semester,
+                        course_count = courses.Count,
+                        gpa = semGPA,
+                        courses = courses
+                    });
+                }
+                
+                rptDirectResultsSemesters.DataSource = semesterGroups;
+                rptDirectResultsSemesters.DataBind();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("Error loading direct results: " + ex.Message);
+            pnlNoDirectResults.Visible = true;
+            rptDirectResultsSemesters.Visible = false;
+        }
+    }
+    
+    /// <summary>
+    /// Get status badge HTML for direct results view
+    /// </summary>
+    protected string GetDirectStatusBadge(object approvedBy)
+    {
+        string status = approvedBy != null && approvedBy != DBNull.Value ? approvedBy.ToString() : "-";
+        
+        if (string.IsNullOrEmpty(status) || status == "-")
+        {
+            return "<span style=\"background:#ffc107;color:#000;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:500;\">PENDING</span>";
+        }
+        else if (status == "HELD")
+        {
+            return "<span style=\"background:#dc3545;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:500;\">HELD</span>";
+        }
+        else
+        {
+            return "<span style=\"background:#28a745;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:500;\">APPROVED</span>";
+        }
+    }
+    
+    /// <summary>
+    /// Print Provisional Results button click handler
+    /// </summary>
+    protected void btnPrintProvisional_Click(object sender, EventArgs e)
+    {
+        string regno = hdnSelectedRegno.Value;
+        if (string.IsNullOrEmpty(regno))
+            return;
+            
+        // Set session variables for the report
+        Session["regno"] = regno;
+        Session["Report"] = "ResultStatement";
+        
+        // Open report in new window using JavaScript
+        string script = "window.open('XtraReports/Default.aspx', 'ProvisionalResults', 'width=900,height=700,scrollbars=yes,resizable=yes');";
+        ScriptManager.RegisterStartupScript(this, GetType(), "PrintProvisional", script, true);
+    }
+    
+    /// <summary>
+    /// Print Transcript button click handler
+    /// </summary>
+    protected void btnPrintTranscript_Click(object sender, EventArgs e)
+    {
+        string regno = hdnSelectedRegno.Value;
+        if (string.IsNullOrEmpty(regno))
+            return;
+            
+        // Set session variables for the transcript report
+        Session["reg"] = regno;
+        Session["Report"] = "Single Transcript";
+        
+        // Open report in new window using JavaScript
+        string script = "window.open('XtraReports/Default.aspx', 'Transcript', 'width=900,height=700,scrollbars=yes,resizable=yes');";
+        ScriptManager.RegisterStartupScript(this, GetType(), "PrintTranscript", script, true);
     }
     
     private void LoadFacultyRegistrations(string regno)

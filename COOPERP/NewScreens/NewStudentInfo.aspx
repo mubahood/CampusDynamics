@@ -1557,6 +1557,108 @@
                                     </dx:ContentControl>
                                 </ContentCollection>
                             </dx:TabPage>
+                            
+                            <dx:TabPage Text="All Results (Direct)">
+                                <ContentCollection>
+                                    <dx:ContentControl runat="server">
+                                        <div style="padding: 12px;">
+                                            <!-- Action Bar with Print Button -->
+                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:10px 12px;background:linear-gradient(135deg, #174DA4 0%, #2980b9 100%);border-radius:6px;">
+                                                <div style="display:flex;align-items:center;gap:16px;">
+                                                    <span style="color:#fff;font-weight:600;font-size:13px;">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                                        Direct Results View
+                                                    </span>
+                                                    <span style="color:rgba(255,255,255,0.8);font-size:11px;">
+                                                        All results from Faculty Results table - No filters applied
+                                                    </span>
+                                                </div>
+                                                <div style="display:flex;gap:8px;">
+                                                    <asp:Button ID="btnPrintProvisional" runat="server" Text="📄 Print Provisional Results" 
+                                                        OnClick="btnPrintProvisional_Click"
+                                                        style="background:#28a745;border:none;color:#fff;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:500;" />
+                                                    <asp:Button ID="btnPrintTranscript" runat="server" Text="📋 Print Transcript" 
+                                                        OnClick="btnPrintTranscript_Click"
+                                                        style="background:#fff;border:none;color:#174DA4;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:500;" />
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Summary Statistics -->
+                                            <div class="sp-results-summary" style="display:flex;align-items:center;gap:24px;padding:10px 14px;background:#f8f9fa;border:1px solid #e9ecef;margin-bottom:12px;border-radius:4px;">
+                                                <div style="display:flex;align-items:center;gap:6px;">
+                                                    <span style="font-weight:600;color:#666;font-size:11px;">TOTAL COURSES:</span>
+                                                    <span style="font-weight:700;color:#174DA4;font-size:14px;"><asp:Literal ID="litDirectTotalCourses" runat="server" Text="0" /></span>
+                                                </div>
+                                                <div style="display:flex;align-items:center;gap:6px;">
+                                                    <span style="font-weight:600;color:#666;font-size:11px;">AVG. MARK:</span>
+                                                    <span style="font-weight:700;color:#174DA4;font-size:14px;"><asp:Literal ID="litDirectAvgMark" runat="server" Text="0.0" /></span>
+                                                </div>
+                                                <div style="display:flex;align-items:center;gap:6px;">
+                                                    <span style="font-weight:600;color:#666;font-size:11px;">EST. GPA:</span>
+                                                    <span style="font-weight:700;color:#174DA4;font-size:14px;"><asp:Literal ID="litDirectGPA" runat="server" Text="0.00" /></span>
+                                                </div>
+                                                <div style="margin-left:auto;display:flex;gap:20px;">
+                                                    <span style="font-size:11px;color:#28a745;">✓ Passed: <strong><asp:Literal ID="litDirectPassed" runat="server" Text="0" /></strong></span>
+                                                    <span style="font-size:11px;color:#dc3545;">✗ Failed: <strong><asp:Literal ID="litDirectFailed" runat="server" Text="0" /></strong></span>
+                                                    <span style="font-size:11px;color:#6c757d;">⏳ Pending: <strong><asp:Literal ID="litDirectPending" runat="server" Text="0" /></strong></span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Results Table - Grouped by Academic Year/Semester -->
+                                            <asp:Repeater ID="rptDirectResultsSemesters" runat="server">
+                                                <ItemTemplate>
+                                                    <div class="sp-semester-group" style="margin-bottom:16px;">
+                                                        <div class="sp-semester-group__header" style="background:#174DA4;color:#fff;padding:8px 12px;font-weight:600;font-size:12px;display:flex;justify-content:space-between;align-items:center;">
+                                                            <span><%# Eval("acad_year") %> - Semester <%# Eval("semester") %></span>
+                                                            <span style="font-weight:normal;font-size:11px;">
+                                                                <%# Eval("course_count") %> course(s) | GPA: <%# Eval("gpa", "{0:F2}") %>
+                                                            </span>
+                                                        </div>
+                                                        <table class="sp-data-table sp-data-table--results" style="border:1px solid #dee2e6;">
+                                                            <thead>
+                                                                <tr style="background:#e9ecef;">
+                                                                    <th style="width:100px;">Code</th>
+                                                                    <th>Course Title</th>
+                                                                    <th style="width:50px;text-align:center;">CU</th>
+                                                                    <th style="width:50px;text-align:center;">CA</th>
+                                                                    <th style="width:50px;text-align:center;">Exam</th>
+                                                                    <th style="width:50px;text-align:center;">Final</th>
+                                                                    <th style="width:50px;text-align:center;">Grade</th>
+                                                                    <th style="width:50px;text-align:center;">GP</th>
+                                                                    <th style="width:80px;text-align:center;">Status</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <asp:Repeater ID="rptDirectCourses" runat="server" DataSource='<%# Eval("courses") %>'>
+                                                                    <ItemTemplate>
+                                                                        <tr>
+                                                                            <td style="font-weight:500;color:#174DA4;"><%# Eval("course_code") %></td>
+                                                                            <td><%# Eval("course_title") %></td>
+                                                                            <td style="text-align:center;"><%# Eval("credits") %></td>
+                                                                            <td style="text-align:center;"><%# Eval("ca_mark") %></td>
+                                                                            <td style="text-align:center;"><%# Eval("exam_mark") %></td>
+                                                                            <td style="text-align:center;font-weight:600;"><%# Eval("final_mark") %></td>
+                                                                            <td class="grade grade-<%# Eval("grade") %>" style="text-align:center;font-weight:700;"><%# Eval("grade") %></td>
+                                                                            <td style="text-align:center;"><%# Eval("gp", "{0:F1}") %></td>
+                                                                            <td style="text-align:center;"><%# GetDirectStatusBadge(Eval("approved_by")) %></td>
+                                                                        </tr>
+                                                                    </ItemTemplate>
+                                                                </asp:Repeater>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </ItemTemplate>
+                                            </asp:Repeater>
+                                            
+                                            <asp:Panel ID="pnlNoDirectResults" runat="server" Visible="false" CssClass="sp-empty">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                                <div style="margin-top:12px;font-weight:500;">No results found in Faculty Results table</div>
+                                                <div style="color:#6c757d;font-size:11px;margin-top:4px;">This student may not have any exam results recorded yet.</div>
+                                            </asp:Panel>
+                                        </div>
+                                    </dx:ContentControl>
+                                </ContentCollection>
+                            </dx:TabPage>
                                 
                                 <dx:TabPage Text="Validation">
                                     <ContentCollection>
