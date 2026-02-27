@@ -134,6 +134,7 @@
                                                         <dx:ListEditItem Text="Basic Completion Letter" Value="Basic Completion Letter" />
                                                         <dx:ListEditItem Text="Single Completion Letter" Value="Single Completion Letter" />
                                                         <dx:ListEditItem Text="Batch Completion Letters" Value="Batch Completion Letters" />
+                                                        <dx:ListEditItem Text="Masters Letter of Award" Value="Masters Letter of Award" />
                                                     </Items>
                                                     <Paddings PaddingLeft="5px" />
                                                 </dx:ASPxComboBox>
@@ -597,6 +598,70 @@ if(e.processOnServer)
                                                 <dx:ASPxLoadingPanel ID="lp_loading_entry" runat="server" ClientInstanceName="lp_loading_entry" Modal="True" Text="Processing&amp;hellip;">
                                                 </dx:ASPxLoadingPanel>
                                                 <br />
+                                                <br />
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </dx:PopupControlContentControl>
+                            </ContentCollection>
+                        </dx:ASPxPopupControl>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <dx:ASPxPopupControl ID="pop_masters_letter" runat="server" HeaderText="Masters Letter of Award - Information" Modal="True" PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter" Width="500px">
+                            <ContentStyle>
+                                <Paddings Padding="30px" />
+                            </ContentStyle>
+                            <HeaderStyle HorizontalAlign="Center">
+                            <Paddings Padding="10px" />
+                            </HeaderStyle>
+                            <ModalBackgroundStyle BackColor="Black">
+                            </ModalBackgroundStyle>
+                            <ContentCollection>
+                                <dx:PopupControlContentControl runat="server">
+                                    <table class="style1">
+                                        <tr>
+                                            <td colspan="2">
+                                                <strong>Please provide the following information for the Masters Letter of Award:</strong>
+                                                <br />
+                                                <br />
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Honours / Distinction (optional):</td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <dx:ASPxTextBox ID="txtMastersHonors" runat="server" Height="35px" NullText="e.g., With Distinction" Width="100%">
+                                                </dx:ASPxTextBox>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Reference Number (optional):</td>
+                                        </tr>
+                                        <tr>
+                                            <td>
+                                                <dx:ASPxTextBox ID="txtMastersRefNumber" runat="server" Height="35px" NullText="leave blank to auto-generate" Width="100%">
+                                                </dx:ASPxTextBox>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>&nbsp;</td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2">
+                                                <dx:ASPxButton ID="cmdGenerateMastersLetter" runat="server" Height="35px" OnClick="cmdGenerateMastersLetter_Click" Text="Generate Masters Letter" Width="100%">
+                                                    <ClientSideEvents Click="function(s, e) {
+e.processOnServer = confirm('Generate Masters Letter of Award?');
+}" />
+                                                    <Image IconID="content_checkbox_16x16">
+                                                    </Image>
+                                                </dx:ASPxButton>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2">
                                                 <br />
                                             </td>
                                         </tr>

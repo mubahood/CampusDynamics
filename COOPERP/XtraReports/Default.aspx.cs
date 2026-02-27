@@ -51,29 +51,54 @@ public partial class COOPERP_XtraReports_Default : System.Web.UI.Page
                 else
                     ReportViewer1.Report = LTR;
             }
-            else if (Session["Report"].ToString() == "Single Certificate" || Session["Report"].ToString() == "Single Completion Letter" || Session["Report"].ToString() == "Basic Completion Letter")
+            else if (Session["Report"].ToString() == "Single Certificate" || Session["Report"].ToString() == "Single Completion Letter" || Session["Report"].ToString() == "Basic Completion Letter" || Session["Report"].ToString() == "Masters Letter of Award")
             {
-                //Basic Completion Letter
-                Certificate RPT = new Certificate();
-                acad_universityTableAdapter UNIV = new acad_universityTableAdapter();
-                LetterOfCompletion LTR = new LetterOfCompletion();
-                LetterOfCompletion_Caution LTR_B = new LetterOfCompletion_Caution();
-                acad_GetBatchStudentTranscriptDataTableAdapter ResStatement = new acad_GetBatchStudentTranscriptDataTableAdapter();
-                ResultsData DS = new ResultsData();
-                DS.EnforceConstraints = false;
-                UNIV.Fill(DS.acad_university);
-                string regNo = Session["reg"].ToString().Trim();
-                ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, regNo);
-                CertificateDataHelper.EnsureSingleStudentData(DS, regNo);
-                RPT.DataSource = DS;
-                LTR.DataSource = DS;
-                LTR_B.DataSource = DS;
-                if (Session["Report"].ToString() == "Single Certificate")
+                if (Session["Report"].ToString() == "Masters Letter of Award")
+                {
+                    MastersLetterOfAward RPT = new MastersLetterOfAward();
+                    acad_GetBatchStudentTranscriptDataTableAdapter ResStatement = new acad_GetBatchStudentTranscriptDataTableAdapter();
+                    acad_universityTableAdapter UNIV = new acad_universityTableAdapter();
+                    ResultsData DS = new ResultsData();
+                    DS.EnforceConstraints = false;
+                    UNIV.Fill(DS.acad_university);
+                    string regNo = Session["reg"].ToString().Trim();
+                    ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, regNo);
+                    CertificateDataHelper.EnsureSingleStudentData(DS, regNo);
+                    RPT.DataSource = DS;
+                    
+                    // Set parameters from Session
+                    RPT.Parameters["LetterDate"].Value = Session["masters_letter_date"] != null ? Session["masters_letter_date"].ToString() : DateTime.Now.ToString("dd MMMM, yyyy");
+                    RPT.Parameters["RefNumber"].Value = Session["masters_ref"] != null ? Session["masters_ref"].ToString() : "";
+                    RPT.Parameters["SenateApprovalDate"].Value = Session["masters_senate_date"] != null ? Session["masters_senate_date"].ToString() : "";
+                    RPT.Parameters["GraduationDate"].Value = Session["masters_grad_date"] != null ? Session["masters_grad_date"].ToString() : "";
+                    RPT.Parameters["Honours"].Value = Session["masters_honours"] != null ? Session["masters_honours"].ToString() : "";
+                    
                     ReportViewer1.Report = RPT;
-                else if (Session["Report"].ToString() == "Basic Completion Letter")
-                    ReportViewer1.Report = LTR_B;
+                }
                 else
-                    ReportViewer1.Report = LTR;
+                {
+                    //Basic Completion Letter
+                    Certificate RPT = new Certificate();
+                    acad_universityTableAdapter UNIV = new acad_universityTableAdapter();
+                    LetterOfCompletion LTR = new LetterOfCompletion();
+                    LetterOfCompletion_Caution LTR_B = new LetterOfCompletion_Caution();
+                    acad_GetBatchStudentTranscriptDataTableAdapter ResStatement = new acad_GetBatchStudentTranscriptDataTableAdapter();
+                    ResultsData DS = new ResultsData();
+                    DS.EnforceConstraints = false;
+                    UNIV.Fill(DS.acad_university);
+                    string regNo = Session["reg"].ToString().Trim();
+                    ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, regNo);
+                    CertificateDataHelper.EnsureSingleStudentData(DS, regNo);
+                    RPT.DataSource = DS;
+                    LTR.DataSource = DS;
+                    LTR_B.DataSource = DS;
+                    if (Session["Report"].ToString() == "Single Certificate")
+                        ReportViewer1.Report = RPT;
+                    else if (Session["Report"].ToString() == "Basic Completion Letter")
+                        ReportViewer1.Report = LTR_B;
+                    else
+                        ReportViewer1.Report = LTR;
+                }
             }
             else if (Session["Report"].ToString() == "Legacy Certificate")
             {
