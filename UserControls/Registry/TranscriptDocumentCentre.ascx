@@ -609,51 +609,42 @@ if(e.processOnServer)
                 </tr>
                 <tr>
                     <td>
-                        <dx:ASPxPopupControl ID="pop_masters_letter" runat="server" HeaderText="Masters Letter of Award - Information" Modal="True" PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter" Width="500px">
+                        <dx:ASPxPopupControl ID="pop_masters_letter" runat="server" HeaderText="Masters Letter of Award" Modal="True" PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter" Width="460px">
                             <ContentStyle>
-                                <Paddings Padding="30px" />
+                                <Paddings Padding="28px" />
                             </ContentStyle>
                             <HeaderStyle HorizontalAlign="Center">
-                            <Paddings Padding="10px" />
+                                <Paddings Padding="10px" />
                             </HeaderStyle>
-                            <ModalBackgroundStyle BackColor="Black">
+                            <ModalBackgroundStyle BackColor="Black" Opacity="60">
                             </ModalBackgroundStyle>
                             <ContentCollection>
                                 <dx:PopupControlContentControl runat="server">
                                     <table class="style1">
                                         <tr>
-                                            <td colspan="2">
-                                                <strong>Please provide the following information for the Masters Letter of Award:</strong>
-                                                <br />
-                                                <br />
+                                            <td>
+                                                <p style="margin:0 0 16px 0; color:#002365; font-weight:600; font-size:13px;">
+                                                    Enter the date of the Senate meeting at which the degree was approved.
+                                                    The reference number and letter date are generated automatically.
+                                                </p>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td>Honours / Distinction (optional):</td>
+                                            <td style="padding-bottom:6px; font-weight:600;">Senate Meeting Date:</td>
                                         </tr>
                                         <tr>
                                             <td>
-                                                <dx:ASPxTextBox ID="txtMastersHonors" runat="server" Height="35px" NullText="e.g., With Distinction" Width="100%">
-                                                </dx:ASPxTextBox>
+                                                <dx:ASPxDateEdit ID="txtMastersSenatDate" runat="server" DisplayFormatString="dd MMMM, yyyy" EditFormatString="dd MMMM, yyyy" Height="35px" Width="100%">
+                                                    <ClientSideEvents Init="function(s,e){ s.GetInputElement().setAttribute('autocomplete','off'); }" />
+                                                </dx:ASPxDateEdit>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td>Reference Number (optional):</td>
-                                        </tr>
-                                        <tr>
-                                            <td>
-                                                <dx:ASPxTextBox ID="txtMastersRefNumber" runat="server" Height="35px" NullText="leave blank to auto-generate" Width="100%">
-                                                </dx:ASPxTextBox>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td>&nbsp;</td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="2">
-                                                <dx:ASPxButton ID="cmdGenerateMastersLetter" runat="server" Height="35px" OnClick="cmdGenerateMastersLetter_Click" Text="Generate Masters Letter" Width="100%">
+                                            <td style="padding-top:20px;">
+                                                <dx:ASPxButton ID="cmdGenerateMastersLetter" runat="server" Height="38px" OnClick="cmdGenerateMastersLetter_Click" Text="Generate Letter of Award" Width="100%">
                                                     <ClientSideEvents Click="function(s, e) {
-e.processOnServer = confirm('Generate Masters Letter of Award?');
+e.processOnServer = confirm('Generate Masters Letter of Award for the selected student?');
+if(e.processOnServer) lp_processing.Show();
 }" />
                                                     <Image IconID="content_checkbox_16x16">
                                                     </Image>
@@ -661,9 +652,7 @@ e.processOnServer = confirm('Generate Masters Letter of Award?');
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td colspan="2">
-                                                <br />
-                                            </td>
+                                            <td><br /></td>
                                         </tr>
                                     </table>
                                 </dx:PopupControlContentControl>

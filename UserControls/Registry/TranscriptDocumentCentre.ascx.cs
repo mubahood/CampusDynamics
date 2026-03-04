@@ -15,6 +15,7 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
             txtAcadYear.DataSource = SettingsFile.ReturnAcademicYrs();
             txtAcadYear.DataBind();
             txtAcadYear.Text = SettingsFile.ReturnDefaultGraduationYr();
+            txtMastersSenatDate.Date = DateTime.Today;
         }
         pop_details.HeaderText = SettingsFile.AppName;
 
@@ -43,105 +44,78 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
             return;
         }
 
-        Session["Report"] = txtDocument.Text;
-        String TransStat = "Ready", CertStatus="Ready";
-        try
-        {
-            TransStat = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "trans_status").ToString();
-            CertStatus = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "cert_status").ToString();
-        }
-        catch (Exception) { 
-
-        }
-            if (txtDocument.Text.Contains("Trans") && TransStat != "Ready")
-            {
-                lbl_msg.Text = "Transcript Already Printed";
-                pop_msgBox.ShowOnPageLoad = true;
-            }
-            else if ((txtDocument.Text.Contains("Cert") || txtDocument.Text.Contains("Masters")) && CertStatus != "Ready")
-            {
-                lbl_msg.Text = "Document Already Printed";
-                pop_msgBox.ShowOnPageLoad = true;
-            }
-            else
-            {
-                
-                Session["acad"] = txtAcadYear.Text;
-                Session["prog"] = txtProgramme.Value;
-                Session["cat"] = txtDocument.Text;
-                Session["reg"] = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "regno");
-                //if (txtDocument.Text.Contains("Certificate") || txtDocument.Text.Contains("Letter") )
-                //{
-                    Session["Report"] = txtDocument.Value;
-                    pop_details.ContentUrl = "~/COOPERP/XtraReports/Default.aspx";
-                //}
-                //else
-                //{
-                //    pop_details.ContentUrl = "~/COOPERP/Results/Reports/PrintCentre.aspx";
-                //}
-                pop_details.Width = 1000;
-                pop_details.Height = 500;
-                pop_details.ShowOnPageLoad = true;
-
-            }
-            gvMarksheetInfo.DataBind();
+        Session["acad"] = txtAcadYear.Text;
+        Session["prog"] = txtProgramme.Value;
+        Session["cat"] = txtDocument.Text;
+        Session["reg"] = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "regno");
+        Session["Report"] = txtDocument.Value;
+        pop_details.ContentUrl = "~/COOPERP/XtraReports/Default.aspx";
+        pop_details.Width = 1000;
+        pop_details.Height = 500;
+        pop_details.ShowOnPageLoad = true;
+        gvMarksheetInfo.DataBind();
        
     }
     protected void cmdGenerateMastersLetter_Click(object sender, EventArgs e)
     {
         try
         {
-            String CertStatus = "Ready";
-            try { CertStatus = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "cert_status").ToString(); }
-            catch (Exception) { }
-
-            if (CertStatus != "Ready")
+            // Validate required selections
+            if (string.IsNullOrEmpty(txtAcadYear.Text))
             {
-                lbl_msg.Text = "Masters Letter Already Printed";
+                lbl_msg.Text = "Please select an Academic Year";
                 pop_msgBox.ShowOnPageLoad = true;
                 return;
             }
 
-            // derive core values from the selected student row (use existing certificate data)
-            string reg = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "regno").ToString();
-            string studName = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "stud_name").ToString();
-            object degObj = null;
-            try { degObj = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "deg"); } catch { degObj = null; }
-            string degree = degObj != null ? degObj.ToString() : "";
+            if (txtProgramme.Value == null || string.IsNullOrEmpty(txtProgramme.Value.ToString()))
+            {
+                lbl_msg.Text = "Please select a Programme";
+                pop_msgBox.ShowOnPageLoad = true;
+                return;
+            }
 
-            // Use grid dates when available; allow optional override via popup ref/honors only
-            object gradObj = null, compObj = null;
-            try { gradObj = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "grad_date"); } catch { gradObj = null; }
-            try { compObj = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "comp_date"); } catch { compObj = null; }
+            if (gvMarksheetInfo.FocusedRowIndex < 0)
+            {
+                lbl_msg.Text = "Please select a student from the list";
+                pop_msgBox.ShowOnPageLoad = true;
+                return;
+            }
 
-            string senateDate = compObj != null ? DateTime.Parse(compObj.ToString()).ToString("dd MMMM, yyyy") : DateTime.Now.ToString("dd MMMM, yyyy");
-            string graduationDate = gradObj != null ? DateTime.Parse(gradObj.ToString()).ToString("dd MMMM, yyyy") : DateTime.Now.ToString("dd MMMM, yyyy");
+            // Validate senate date — the only field collected from the popup
+            if (txtMastersSenatDate.Date == DateTime.MinValue)
+            {
+                lbl_msg.Text = "Please enter the Senate Meeting Date";
+                pop_msgBox.ShowOnPageLoad = true;
+                return;
+            }
 
-            // optional fields from popup
-            string refOverride = txtMastersRefNumber.Text.Trim();
-            string honours = txtMastersHonors.Text.Trim();
+            string reg = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "regno").ToString().Trim();
 
-            // generate default ref if none provided
-            if (string.IsNullOrEmpty(refOverride)) refOverride = string.Format("MLA/{0}/{1}", reg, DateTime.Now.Year);
+            // Senate date from popup — the only user-provided value
+            string senateDate = txtMastersSenatDate.Date.ToString("dd MMMM, yyyy");
 
-            // Store Masters Letter information in Session (report will use these)
-            Session["Report"] = "Masters Letter of Award";
-            Session["acad"] = txtAcadYear.Text;
-            Session["prog"] = txtProgramme.Value;
-            Session["cat"] = "Masters Letter of Award";
-            Session["reg"] = reg;
-            Session["masters_ref"] = refOverride;
+            // Reference number and letter date are auto-generated — no user input required
+            string refNumber  = string.Format("MLA/{0}/{1}", reg, DateTime.Now.Year);
+            string letterDate = DateTime.Now.ToString("dd MMMM, yyyy");
+
+            // Store in Session (Default.aspx.cs reads these to populate report parameters)
+            Session["Report"]              = "Masters Letter of Award";
+            Session["acad"]                = txtAcadYear.Text;
+            Session["prog"]                = txtProgramme.Value;
+            Session["cat"]                 = "Masters Letter of Award";
+            Session["reg"]                 = reg;
+            Session["masters_ref"]         = refNumber;
             Session["masters_senate_date"] = senateDate;
-            Session["masters_grad_date"] = graduationDate;
-            Session["masters_degree"] = degree;
-            Session["masters_letter_date"] = DateTime.Now.ToString("dd MMMM, yyyy");
-            Session["masters_honours"] = honours;
+            Session["masters_letter_date"] = letterDate;
+            Session["masters_grad_date"]   = "";  // derived from dataset (formated_grad_date column)
+            Session["masters_honours"]     = "";  // not collected
 
-            // Navigate to XtraReports
+            // Open report viewer popup
             pop_details.ContentUrl = "~/COOPERP/XtraReports/Default.aspx";
-            pop_details.Width = 1000;
+            pop_details.Width  = 1000;
             pop_details.Height = 500;
-            pop_details.ShowOnPageLoad = true;
+            pop_details.ShowOnPageLoad       = true;
             pop_masters_letter.ShowOnPageLoad = false;
         }
         catch (Exception ex)
@@ -149,6 +123,35 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
             lbl_msg.Text = "Error: " + ex.Message;
             pop_msgBox.ShowOnPageLoad = true;
         }
+    }
+    protected void cmdReverseStatus_Click(object sender, EventArgs e)
+    {
+        acad_Get_GraduationCompletionDataTableAdapter COMP = new acad_Get_GraduationCompletionDataTableAdapter();
+        String usr = HttpContext.Current.User.Identity.Name, Comm = "No Student Selected", stat = "-";
+        int noRows = gvMarksheetInfo.VisibleRowCount;
+        for (int i = 0; i < noRows; i++)
+        {
+            if (gvMarksheetInfo.Selection.IsRowSelected(i))
+            {
+                String reg = gvMarksheetInfo.GetRowValues(i, "regno").ToString();
+                if (txtDocument.Text.Contains("Transcript"))
+                {
+                    stat = gvMarksheetInfo.GetRowValues(i, "trans_status").ToString();
+                    Comm = COMP.acad_ReverseDocStatus(reg, "Transcript", stat, usr).ToString();
+                }
+                else
+                {
+                    stat = gvMarksheetInfo.GetRowValues(i, "cert_status").ToString();
+                    String docType = "Certificate";
+                    if (txtDocument.Text.Contains("Masters"))
+                        docType = "Masters";
+                    Comm = COMP.acad_ReverseDocStatus(reg, docType, stat, usr).ToString();
+                }
+            }
+        }
+        lbl_msg.Text = Comm;
+        pop_msgBox.ShowOnPageLoad = true;
+        gvMarksheetInfo.DataBind();
     }
     protected void cmdUpdateStatus_Click(object sender, EventArgs e)
     {
@@ -252,10 +255,9 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
         gvMarksheetInfo.DataBind();
     }
 
-    // Forwarding handler for the markup button `cmdGradDate` to reuse graduation logic
     protected void cmdGradDate_Click(object sender, EventArgs e)
     {
-        cmdSetGraduationInfo_Click(sender, e);
+        pop_set_gradinfo.ShowOnPageLoad = true;
     }
     protected void cmdUpdateEntryMethod_Click(object sender, EventArgs e)
     {
