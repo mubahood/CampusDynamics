@@ -1,0 +1,192 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.IO;
+using System.Web;
+using MySql.Data.MySqlClient;
+
+public partial class API_v2_student : System.Web.UI.Page
+{
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        if (ApiHelper.HandleCors(Request, Response)) return;
+
+        string action = ApiHelper.Param(Request, "action", "").ToLower();
+
+        try
+        {
+            switch (action)
+            {
+                case "profile":
+                    HandleProfile();
+                    break;
+                case "photo":
+                    HandlePhoto();
+                    break;
+                case "lock_status":
+                    HandleLockStatus();
+                    break;
+                case "summary":
+                    HandleSummary();
+                    break;
+                default:
+                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: profile, photo, lock_status, summary", "INVALID_ACTION");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Internal server error: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+
+    private void HandleProfile()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        // Allow staff to query a specific student by passing ?regno=
+        string regno = auth.UserType == "staff" 
+            ? ApiHelper.Param(Request, "regno", auth.UserId) 
+            : auth.UserId;
+
+        // If student, can only view own profile
+        if (auth.UserType == "student" && regno != auth.UserId)
+        {
+            ApiHelper.Error(Response, "Students can only view their own profile.", "ACCESS_DENIED");
+            return;
+        }
+
+        DataTable dt = ApiHelper.Query(
+            @"SELECT s.regno, s.surname, s.othername, s.stud_gender AS gender, 
+                     p.programme, s.progid AS progcode, c.campus_name AS campus,
+                     s.study_yr AS study_year, s.entryyear AS entry_year, 
+                     s.intake, s.studsesion AS session, s.studstatus AS status,
+                     s.nationality, s.telephone AS phone, s.email,
+                     s.stud_dob AS date_of_birth, s.stud_district AS district,
+                     s.sponsor_name, s.sponsor_tel
+              FROM acad_student s
+              LEFT JOIN acad_programmes p ON s.progid = p.progcode
+              LEFT JOIN setup_campus c ON s.studCampus = c.campus_id
+              WHERE s.regno = @reg",
+            new MySqlParameter("@reg", regno)
+        );
+
+        if (dt.Rows.Count == 0)
+        {
+            ApiHelper.Error(Response, "Student not found.", "NOT_FOUND");
+            return;
+        }
+
+        var profile = ApiHelper.FirstRowToDict(dt);
+        profile["photo_url"] = "/API/student_photo.aspx?id=" + Server.UrlEncode(regno);
+
+        ApiHelper.Success(Response, profile);
+    }
+
+    private void HandlePhoto()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string regno = auth.UserType == "staff"
+            ? ApiHelper.Param(Request, "regno", auth.UserId)
+            : auth.UserId;
+
+        if (auth.UserType == "student" && regno != auth.UserId)
+        {
+            ApiHelper.Error(Response, "Students can only view their own photo.", "ACCESS_DENIED");
+            return;
+        }
+
+        // Try to get photo from the database
+        DataTable dt = ApiHelper.Query(
+            "SELECT stud_photo FROM acad_student WHERE regno = @reg",
+            new MySqlParameter("@reg", regno)
+        );
+
+        if (dt.Rows.Count > 0 && dt.Rows[0]["stud_photo"] != DBNull.Value)
+        {
+            byte[] photoData = (byte[])dt.Rows[0]["stud_photo"];
+            if (photoData.Length > 0)
+            {
+                Response.Clear();
+                Response.ContentType = "image/jpeg";
+                Response.AddHeader("Access-Control-Allow-Origin", "*");
+                Response.BinaryWrite(photoData);
+                Response.End();
+                return;
+            }
+        }
+
+        // Try file-based photo as fallback
+        string photoPath = Server.MapPath("~/patientimages/" + regno.Replace("/", "_") + ".jpg");
+        if (File.Exists(photoPath))
+        {
+            Response.Clear();
+            Response.ContentType = "image/jpeg";
+            Response.AddHeader("Access-Control-Allow-Origin", "*");
+            Response.WriteFile(photoPath);
+            Response.End();
+            return;
+        }
+
+        ApiHelper.Error(Response, "Photo not found.", "NOT_FOUND");
+    }
+
+    private void HandleLockStatus()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string regno = auth.UserType == "staff"
+            ? ApiHelper.Param(Request, "regno", auth.UserId)
+            : auth.UserId;
+
+        if (auth.UserType == "student" && regno != auth.UserId)
+        {
+            ApiHelper.Error(Response, "Students can only check their own lock status.", "ACCESS_DENIED");
+            return;
+        }
+
+        try
+        {
+            PortalSecurityTableAdapters.fin_studentlocksTableAdapter LOCK = new PortalSecurityTableAdapters.fin_studentlocksTableAdapter();
+            DataTable dt = LOCK.GetLockStatusData(regno);
+            var data = ApiHelper.TableToList(dt);
+            ApiHelper.Success(Response, data);
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error checking lock status: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+
+    private void HandleSummary()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string regno = auth.UserType == "staff"
+            ? ApiHelper.Param(Request, "regno", auth.UserId)
+            : auth.UserId;
+
+        if (auth.UserType == "student" && regno != auth.UserId)
+        {
+            ApiHelper.Error(Response, "Students can only view their own summary.", "ACCESS_DENIED");
+            return;
+        }
+
+        try
+        {
+            MobileDataTableAdapters.mobile_stud_summaryTableAdapter SUMMARY = new MobileDataTableAdapters.mobile_stud_summaryTableAdapter();
+            DataTable dt = SUMMARY.GetData(regno);
+            var data = ApiHelper.FirstRowToDict(dt);
+            ApiHelper.Success(Response, data);
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error fetching summary: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+}
