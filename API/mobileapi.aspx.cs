@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -91,7 +91,12 @@ public partial class API_mobileapi : System.Web.UI.Page
             try
             {
                 PortalContentTableAdapters.acad_StudentRegistrationTableAdapter REG = new PortalContentTableAdapters.acad_StudentRegistrationTableAdapter();
-                Response.Write(REG.ProcessRegister(Request["reg"], Request["acad"], int.Parse(Request["sem"]), Request["reg"]).ToString());
+                string regResult = REG.ProcessRegister(Request["reg"], Request["acad"], int.Parse(Request["sem"]), Request["reg"]).ToString();
+                // Auto-bill student after registration
+                fin_GetStudentFeesTrackListTableAdapter BILLING = new fin_GetStudentFeesTrackListTableAdapter();
+                BILLING.fin_Autobilling(Request["reg"], Request["acad"], int.Parse(Request["sem"]), "REG", Request["reg"], "-");
+                BILLING.fin_Autobilling(Request["reg"], Request["acad"], int.Parse(Request["sem"]), "ACCOMO", Request["reg"], "-");
+                Response.Write(regResult);
             }
             catch (Exception ex)
             {

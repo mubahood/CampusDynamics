@@ -40,10 +40,10 @@ public partial class UserControls_TeachingAllocations : System.Web.UI.UserContro
             gvAllocations.Enabled = false;
             txt_new_entry_year.DataSource = SettingsFile.ReturnYears();
             txt_new_entry_year.DataBind();
+
+            // Populate courses for the initially-selected programme
+            BindCourses();
         }
-       
-        
-        
     }
     protected void cmdAddNew_Click(object sender, EventArgs e)
     {
@@ -84,16 +84,23 @@ catch(Exception ex)
 
     /// <summary>
     /// Populates txtCourse directly from acad_programmecourses using a plain SQL query.
-    /// Bypasses the stored procedure (acad_GetCoursesByProgCodeAndPeriod) which had extra
-    /// campus/entry-year/intake filters that were hiding courses for programmes like BAED.
+    /// Only filters by programme code — study year and semester filters are intentionally
+    /// removed so that ALL courses for a programme are always visible in the dropdown.
     /// </summary>
     private void BindCourses()
     {
-        string prog = (txtProgramme.Value ?? "").ToString().Trim();
-        if (string.IsNullOrEmpty(prog)) { txtCourse.Items.Clear(); return; }
+        txtCourse.Items.Clear();
 
-        int yr  = 0; int.TryParse(txtStudyYear.Value != null ? txtStudyYear.Value.ToString() : txtStudyYear.Text, out yr);
-        int sem = 0; int.TryParse(txtSemester.Value  != null ? txtSemester.Value.ToString()  : txtSemester.Text,  out sem);
+        // Ensure txtProgramme is databound (it uses DataSourceID which normally
+        // binds during PreRender, but we need its value earlier in the lifecycle)
+        if (txtProgramme.Items.Count == 0)
+        {
+            try { txtProgramme.DataBind(); } catch { }
+        }
+
+        string prog = "";
+        try { prog = (txtProgramme.Value ?? "").ToString().Trim(); } catch { }
+        if (string.IsNullOrEmpty(prog)) return;
 
         try
         {
@@ -106,15 +113,11 @@ catch(Exception ex)
                                FROM acad_programmecourses pc
                                LEFT JOIN acad_course c ON c.courseID = pc.course_code
                                WHERE pc.progcode = @prog
-                                 AND (@yr  = 0 OR pc.study_year = @yr)
-                                 AND (@sem = 0 OR pc.semester   = @sem)
                                ORDER BY c.courseName, pc.course_code";
 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@prog", prog);
-                    cmd.Parameters.AddWithValue("@yr",   yr);
-                    cmd.Parameters.AddWithValue("@sem",  sem);
 
                     System.Data.DataTable dt = new System.Data.DataTable();
                     new MySqlDataAdapter(cmd).Fill(dt);
@@ -126,7 +129,11 @@ catch(Exception ex)
                 }
             }
         }
-        catch { /* silently degrade — leave combo empty on DB error */ }
+        catch (Exception ex)
+        {
+            lbl_msg.Text = "Course load error: " + ex.Message;
+            pop_msgBox.ShowOnPageLoad = true;
+        }
     }
     protected void txtLecturer_SelectedIndexChanged(object sender, EventArgs e)
     {

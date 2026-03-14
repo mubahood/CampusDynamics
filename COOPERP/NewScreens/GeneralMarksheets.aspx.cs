@@ -468,7 +468,7 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
                 Session["acad"], Session["sem"]);
             
             popDetails.HeaderText = string.Format("MARKSHEET FOR {0} [{1}] - YEAR {2}", className, studSession, cyear);
-            popDetails.ContentUrl = "~/COOPERP/Results/MarkSheetDetails.aspx";
+            popDetails.ContentUrl = ResolveUrl("~/COOPERP/Results/MarkSheetDetails.aspx");
             popDetails.ShowOnPageLoad = true;
         }
     }

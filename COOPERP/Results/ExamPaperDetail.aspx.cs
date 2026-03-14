@@ -56,7 +56,7 @@ public partial class COOPERP_Timetables_ExamPaperDetail : System.Web.UI.Page
     }
     protected void cmdprint_Click(object sender, EventArgs e)
     {
-        pop_print.ContentUrl = "~/COOPERP/Timetables/XtraReports/Default.aspx";
+        pop_print.ContentUrl = ResolveUrl("~/COOPERP/Timetables/XtraReports/Default.aspx");
         pop_print.Width = 900;
         pop_print.Height = 500;
         Session["Report"] = "ExamPaper";

@@ -15,6 +15,12 @@ public partial class COOPERP_accounts_GLAccount : System.Web.UI.Page
     }
     protected void cmdPrint_Click(object sender, EventArgs e)
     {
-        gve_gl_listing.WriteXlsxToResponse(new XlsxExportOptionsEx() { ExportType = ExportType.WYSIWYG });
+        // WYSIWYG renders every row as a visual brick - causes OutOfMemoryException on large GL exports
+        // DataAware streams data directly without building full layout in memory
+        string fileName = "GeneralLedger_" + Session["s_date"] + "_to_" + Session["e_date"];
+        gve_gl_listing.WriteXlsxToResponse(fileName, true, new XlsxExportOptionsEx()
+        {
+            ExportType = ExportType.DataAware
+        });
     }
 }

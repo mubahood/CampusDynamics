@@ -4015,7 +4015,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         Session["Report"] = "ResultStatement";
         
         // Open report in new window using JavaScript
-        string script = "window.open('XtraReports/Default.aspx', 'ProvisionalResults', 'width=900,height=700,scrollbars=yes,resizable=yes');";
+        string script = "window.open('../XtraReports/Default.aspx', 'ProvisionalResults', 'width=900,height=700,scrollbars=yes,resizable=yes');";
         ScriptManager.RegisterStartupScript(this, GetType(), "PrintProvisional", script, true);
     }
     
@@ -4033,7 +4033,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         Session["Report"] = "Single Transcript";
         
         // Open report in new window using JavaScript
-        string script = "window.open('XtraReports/Default.aspx', 'Transcript', 'width=900,height=700,scrollbars=yes,resizable=yes');";
+        string script = "window.open('../XtraReports/Default.aspx', 'Transcript', 'width=900,height=700,scrollbars=yes,resizable=yes');";
         ScriptManager.RegisterStartupScript(this, GetType(), "PrintTranscript", script, true);
     }
     

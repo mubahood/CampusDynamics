@@ -124,7 +124,7 @@ public partial class COOPERP_Timetables_Exam_Timetables : System.Web.UI.Page
         Session["campusno"] = txtCampus.Value;
         Session["exmtyp"] = txt_examtyp.Text;
 
-        pop_print.ContentUrl = "~/COOPERP/Timetables/XtraReports/Default.aspx";
+        pop_print.ContentUrl = ResolveUrl("~/COOPERP/Timetables/XtraReports/Default.aspx");
         pop_print.Height = 600;
         pop_print.Width = 900;
         pop_print.ShowOnPageLoad = true;

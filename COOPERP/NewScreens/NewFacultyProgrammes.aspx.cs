@@ -116,7 +116,7 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
             
             // Set popup properties and show
             popStructure.HeaderText = "PROGRAMME STRUCTURE: " + progname + " [" + progcode + "]";
-            popStructure.ContentUrl = "~/COOPERP/Faculty/ProgrammeStructure.aspx";
+            popStructure.ContentUrl = ResolveUrl("~/COOPERP/Faculty/ProgrammeStructure.aspx");
             popStructure.ShowOnPageLoad = true;
         }
     }

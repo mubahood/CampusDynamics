@@ -4,121 +4,254 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
     <style type="text/css">
+        * {
+            box-sizing: border-box;
+        }
+
         .nche-exporter-container {
-            max-width: 900px;
+            max-width: 1400px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 20px 15px;
+            width: 100%;
         }
         
         .nche-header {
-            background: linear-gradient(135deg, #1f4e79 0%, #285a8f 100%);
+            background: linear-gradient(135deg, #1f4e79 0%, #2d5fa3 50%, #1a3f63 100%);
             color: white;
-            padding: 20px;
-            border-radius: 4px;
+            padding: 25px 25px;
             margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .nche-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
         }
         
         .nche-header h1 {
             margin: 0;
             font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            position: relative;
+            z-index: 1;
         }
         
         .nche-header .subtitle {
             font-size: 13px;
-            opacity: 0.9;
-            margin-top: 5px;
+            opacity: 0.92;
+            margin-top: 6px;
+            position: relative;
+            z-index: 1;
+            line-height: 1.4;
         }
         
         .nche-criteria {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
+            background: #fff;
+            border: 1px solid #ddd;
             padding: 20px;
             margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .nche-criteria > div:first-of-type {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1f4e79;
+            margin-bottom: 15px;
         }
         
         .criteria-row {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 15px;
-            align-items: flex-end;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 12px;
         }
         
         .criteria-field {
-            flex: 1;
-            min-width: 200px;
+            display: flex;
+            flex-direction: column;
         }
         
         .criteria-field label {
             display: block;
             font-weight: 600;
             margin-bottom: 5px;
-            color: #333;
+            color: #2c3e50;
             font-size: 13px;
+        }
+        
+        .criteria-field input,
+        .criteria-field select {
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+        
+        .criteria-field input:focus,
+        .criteria-field select:focus {
+            outline: none;
+            border-color: #1f4e79;
+            box-shadow: 0 0 0 2px rgba(31, 78, 121, 0.08);
         }
         
         .nche-actions {
             display: flex;
-            gap: 10px;
-            margin-top: 20px;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
             padding-top: 15px;
-            border-top: 1px solid #dee2e6;
+            border-top: 1px solid #ddd;
+            align-items: center;
         }
         
         .preview-section {
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
+            background: #fff;
+            border: 1px solid #ddd;
             padding: 20px;
             margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         
         .preview-title {
             font-size: 16px;
             font-weight: 600;
-            color: #333;
-            margin-bottom: 10px;
+            color: #1f4e79;
+            margin-bottom: 15px;
         }
         
         .preview-grid {
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
+            border: 1px solid #ddd;
+            overflow: hidden;
         }
         
         .summary-box {
-            background: #e7f3ff;
+            background: #f0f7ff;
             border-left: 4px solid #1f4e79;
-            padding: 15px;
-            border-radius: 3px;
-            margin-top: 15px;
+            padding: 14px 16px;
+            margin-bottom: 15px;
+        }
+        
+        .summary-box div {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 500;
         }
         
         .summary-box .count {
-            font-size: 18px;
-            font-weight: bold;
+            font-size: 22px;
+            font-weight: 700;
             color: #1f4e79;
-        }
-        
-        .export-format {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin: 10px 0;
+            display: inline-block;
+            margin: 0 8px;
         }
         
         .nche-info {
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 4px;
-            padding: 12px;
-            margin-bottom: 15px;
+            background: #fffaf0;
+            border-left: 4px solid #ffc107;
+            padding: 12px 14px;
+            margin-bottom: 18px;
             font-size: 12px;
-            color: #856404;
+            color: #7d6608;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
         }
         
         .nche-info strong {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
+            font-weight: 600;
+            color: #d48806;
+        }
+        
+        /* Button Styling */
+        .dx-btn {
+            padding: 8px 16px !important;
+            font-weight: 600 !important;
+            font-size: 13px !important;
+            transition: all 0.2s ease !important;
+            border: none !important;
+        }
+        
+        /* Grid Styling */
+        .dx-grid {
+            font-size: 13px !important;
+        }
+        
+        .dx-grid-header {
+            background: #f5f5f5 !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .nche-exporter-container {
+                padding: 15px 12px;
+            }
+            
+            .nche-header {
+                padding: 20px 18px;
+            }
+            
+            .nche-header h1 {
+                font-size: 24px;
+            }
+            
+            .nche-criteria {
+                padding: 16px;
+            }
+            
+            .preview-section {
+                padding: 16px;
+            }
+            
+            .criteria-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .nche-actions {
+                flex-direction: column;
+                gap: 6px;
+            }
+            
+            .nche-actions .dx-btn {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .nche-exporter-container {
+                padding: 12px 10px;
+            }
+            
+            .nche-header {
+                padding: 16px 14px;
+            }
+            
+            .nche-header h1 {
+                font-size: 20px;
+            }
+            
+            .nche-header .subtitle {
+                font-size: 12px;
+            }
+            
+            .preview-title {
+                font-size: 14px;
+            }
+            
+            .summary-box .count {
+                font-size: 20px;
+            }
         }
     </style>
 </asp:Content>
@@ -139,7 +272,7 @@
         
         <!-- Filtering Criteria -->
         <div class="nche-criteria">
-            <div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: #333;">Filter Criteria</div>
+            <div>Filter Criteria</div>
             
             <div class="criteria-row">
                 <div class="criteria-field">
@@ -151,22 +284,6 @@
                 </div>
                 
                 <div class="criteria-field">
-                    <label>Status:</label>
-                    <dx:ASPxComboBox ID="ddlStatus" runat="server" Width="100%"
-                        NullText="-- All Statuses --"
-                        ValueType="System.String">
-                        <Items>
-                            <dx:ListEditItem Text="Active" Value="ACTIVE" />
-                            <dx:ListEditItem Text="Admitted" Value="ADMITTED" />
-                            <dx:ListEditItem Text="Graduated" Value="GRADUATED" />
-                            <dx:ListEditItem Text="Alumni" Value="ALUMNI" />
-                        </Items>
-                    </dx:ASPxComboBox>
-                </div>
-            </div>
-            
-            <div class="criteria-row">
-                <div class="criteria-field">
                     <label>Programme:</label>
                     <dx:ASPxComboBox ID="ddlProgramme" runat="server" Width="100%"
                         NullText="-- All Programmes --"
@@ -174,9 +291,6 @@
                     </dx:ASPxComboBox>
                 </div>
                 
-            </div>
-            
-            <div class="criteria-row">
                 <div class="criteria-field">
                     <label>Study Centre/Campus:</label>
                     <dx:ASPxComboBox ID="ddlStudyCentre" runat="server" Width="100%"
@@ -204,25 +318,21 @@
             <div class="nche-actions">
                 <dx:ASPxButton ID="btnPreview" runat="server" Text="Preview Data" 
                     OnClick="BtnPreview_Click"
-                    Image-IconID="preview_16x16"
                     CausesValidation="false">
                 </dx:ASPxButton>
                 
                 <dx:ASPxButton ID="btnExportCSV" runat="server" Text="Export as CSV" 
                     OnClick="BtnExportCSV_Click"
-                    Image-IconID="export_16x16"
                     CausesValidation="false">
                 </dx:ASPxButton>
                 
                 <dx:ASPxButton ID="btnExportExcel" runat="server" Text="Export as Excel" 
                     OnClick="BtnExportExcel_Click"
-                    Image-IconID="export_16x16"
                     CausesValidation="false">
                 </dx:ASPxButton>
                 
                 <dx:ASPxButton ID="btnClear" runat="server" Text="Clear Filters" 
                     OnClick="BtnClear_Click"
-                    Image-IconID="delete_16x16"
                     CausesValidation="false"
                     Style="margin-left: auto;">
                 </dx:ASPxButton>
@@ -234,28 +344,30 @@
             <div class="preview-title">Data Preview</div>
             
             <div class="summary-box">
-                <div>Total Records to Export:  <span class="count" id="totalCount" runat="server">0</span></div>
+                <div>Total Records to Export: <span class="count" id="totalCount" runat="server">0</span> students</div>
             </div>
             
-            <dx:ASPxGridView ID="gvPreview" runat="server" Width="100%" 
-                AutoGenerateColumns="False"
-                KeyFieldName="id"
-                Settings-ShowFooter="true"
-                SettingsPager-PageSize="10">
-                <Columns>
-                    <dx:GridViewDataTextColumn FieldName="sn" Caption="S/N" Width="40" />
-                    <dx:GridViewDataTextColumn FieldName="names" Caption="Full Names" MinWidth="150" />
-                    <dx:GridViewDataTextColumn FieldName="sex" Caption="Sex" Width="50" />
-                    <dx:GridViewDataTextColumn FieldName="national_id" Caption="National ID No." Width="120" />
-                    <dx:GridViewDataTextColumn FieldName="reg_no" Caption="Institutional Reg. NO" Width="120" />
-                    <dx:GridViewDataTextColumn FieldName="prog_code" Caption="Prog. Code" Width="80" />
-                    <dx:GridViewDataTextColumn FieldName="prog_name" Caption="Programme Name" MinWidth="150" />
-                    <dx:GridViewDataTextColumn FieldName="award_level" Caption="Award Level" Width="100" />
-                    <dx:GridViewDataTextColumn FieldName="year_study" Caption="Year of Study" Width="100" />
-                    <dx:GridViewDataTextColumn FieldName="study_centre" Caption="Study Centre" Width="100" />
-                </Columns>
-                <Settings HorizontalScrollBarMode="Auto" />
-            </dx:ASPxGridView>
+            <div class="preview-grid">
+                <dx:ASPxGridView ID="gvPreview" runat="server" Width="100%" 
+                    AutoGenerateColumns="False"
+                    KeyFieldName="reg_no"
+                    Settings-ShowFooter="true"
+                    SettingsPager-PageSize="15">
+                    <Columns>
+                        <dx:GridViewDataTextColumn FieldName="sn" Caption="S/N" Width="50" />
+                        <dx:GridViewDataTextColumn FieldName="names" Caption="Full Names" MinWidth="180" />
+                        <dx:GridViewDataTextColumn FieldName="gender" Caption="Sex" Width="60" />
+                        <dx:GridViewDataTextColumn FieldName="national_id" Caption="National ID" MinWidth="130" />
+                        <dx:GridViewDataTextColumn FieldName="reg_no" Caption="Reg. NO" MinWidth="130" />
+                        <dx:GridViewDataTextColumn FieldName="progcode" Caption="Prog. Code" Width="90" />
+                        <dx:GridViewDataTextColumn FieldName="progname" Caption="Programme" MinWidth="150" />
+                        <dx:GridViewDataTextColumn FieldName="award_level" Caption="Award" Width="80" />
+                        <dx:GridViewDataTextColumn FieldName="year_study" Caption="Year" Width="60" />
+                        <dx:GridViewDataTextColumn FieldName="study_centre" Caption="Campus" MinWidth="120" />
+                    </Columns>
+                    <Settings HorizontalScrollBarMode="Auto" />
+                </dx:ASPxGridView>
+            </div>
         </div>
         
     </div>

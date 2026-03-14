@@ -129,7 +129,7 @@ public partial class COOPERP_Faculty_ProgrammeStructure : System.Web.UI.Page
         Session["Report"] = "Program Structures";
         //Session["prog"] = Session["prog"];
         Session["CurrID"] = txt_curriculums.Value;
-        pop_details.ContentUrl = "~/COOPERP/XtraReports/Default.aspx";
+        pop_details.ContentUrl = ResolveUrl("~/COOPERP/XtraReports/Default.aspx");
         pop_details.Width = 850;
         pop_details.Height = 500;
         pop_details.ShowOnPageLoad = true;

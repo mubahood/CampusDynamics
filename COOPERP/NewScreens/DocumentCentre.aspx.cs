@@ -106,8 +106,8 @@ public partial class COOPERP_NewScreens_DocumentCentre : System.Web.UI.Page
         // Set session variables for report
         SetReportSession();
 
-        // Open preview popup
-        popPreview.ContentUrl = "~/COOPERP/XtraReports/Default.aspx";
+        // Open preview popup - resolve URL properly for DevExpress control
+        popPreview.ContentUrl = ResolveUrl("~/COOPERP/XtraReports/Default.aspx");
         popPreview.ShowOnPageLoad = true;
     }
 

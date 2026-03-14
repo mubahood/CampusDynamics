@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -86,6 +86,10 @@ public partial class API_RegistrationManager : System.Web.UI.Page
                 PortalContentTableAdapters.acad_StudentRegistrationTableAdapter REG = new PortalContentTableAdapters.acad_StudentRegistrationTableAdapter();
                 string comm=REG.ProcessRegister(Request["reg"], Request["acadyear"], int.Parse(Request["sem"]), HttpContext.Current.User.Identity.Name).ToString();
                 if(comm.Contains("1 Bill")) comm="Registration Completed Successfully";
+                // Auto-bill student after registration
+                fin_GetStudentFeesTrackListTableAdapter BILLING = new fin_GetStudentFeesTrackListTableAdapter();
+                BILLING.fin_Autobilling(Request["reg"], Request["acadyear"], int.Parse(Request["sem"]), "REG", HttpContext.Current.User.Identity.Name, "-");
+                BILLING.fin_Autobilling(Request["reg"], Request["acadyear"], int.Parse(Request["sem"]), "ACCOMO", HttpContext.Current.User.Identity.Name, "-");
                 // --- Update labels and button dynamically ---
                 lbl_regStat.Text = "REGISTERED";
                 lbl_reg_comment.Text = "REGISTRATION DONE";

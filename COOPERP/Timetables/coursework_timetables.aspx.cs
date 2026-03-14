@@ -96,7 +96,7 @@ public partial class COOPERP_Timetables_coursework_timetables : System.Web.UI.Pa
         Session["sess"] = txtsession.Text;
         Session["campusno"] = txtCampus.Value;
 
-        pop_print.ContentUrl = "~/COOPERP/Timetables/XtraReports/Default.aspx";
+        pop_print.ContentUrl = ResolveUrl("~/COOPERP/Timetables/XtraReports/Default.aspx");
         pop_print.Height = 600;
         pop_print.Width = 900;
         pop_print.ShowOnPageLoad = true;

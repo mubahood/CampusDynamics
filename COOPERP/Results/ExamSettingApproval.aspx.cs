@@ -52,7 +52,7 @@ public partial class COOPERP_Timetables_ExamSettingApproval : System.Web.UI.Page
              gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "courseID"),
              gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "Course_Name").ToString().ToUpper(), txtAcadYear.Text, txtSemester.Text);
 
-        pop_details.ContentUrl = "~/COOPERP/Results/ExamPaperDetail.aspx";
+        pop_details.ContentUrl = ResolveUrl("~/COOPERP/Results/ExamPaperDetail.aspx");
         pop_details.ShowOnPageLoad = true;
     }
 
@@ -61,7 +61,7 @@ public partial class COOPERP_Timetables_ExamSettingApproval : System.Web.UI.Page
     {
         acad_examination_papersTableAdapter pap = new acad_examination_papersTableAdapter();
         Session["mid"] = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "ID");
-        pop_print.ContentUrl = "~/COOPERP/Timetables/XtraReports/Default.aspx";
+        pop_print.ContentUrl = ResolveUrl("~/COOPERP/Timetables/XtraReports/Default.aspx");
         pop_print.Width = 1000;
         pop_print.Height = 600;
         Session["Report"] = "ExamPaper";
