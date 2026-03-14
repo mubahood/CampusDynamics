@@ -193,7 +193,7 @@ public partial class API_v2_staff : System.Web.UI.Page
             parms.Add(new MySqlParameter("@sem", semester));
         }
 
-        sql += " ORDER BY ta.acad_year DESC, ta.semester, ta.course_code";
+        sql += " ORDER BY ta.acad_year DESC, ta.semester, ta.courseID";
 
         DataTable dt = ApiHelper.Query(sql, parms.ToArray());
         ApiHelper.Success(Response, ApiHelper.TableToList(dt));
