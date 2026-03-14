@@ -156,6 +156,30 @@ public static class ApiHelper
         }
     }
 
+    /// <summary>Executes a query against the accounts database and returns a DataTable.</summary>
+    public static DataTable QueryAccounts(string sql, params MySqlParameter[] parameters)
+    {
+        using (var conn = GetAccountsConnection())
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                if (parameters != null)
+                {
+                    foreach (var p in parameters)
+                        cmd.Parameters.Add(p);
+                }
+                using (var adapter = new MySqlDataAdapter(cmd))
+                {
+                    var dt = new DataTable();
+                    adapter.Fill(dt);
+                    return dt;
+                }
+            }
+        }
+    }
+
     /// <summary>Executes a stored procedure and returns a DataTable.</summary>
     public static DataTable QueryProc(string procName, params MySqlParameter[] parameters)
     {

@@ -58,9 +58,10 @@ public partial class API_v2_student : System.Web.UI.Page
         }
 
         DataTable dt = ApiHelper.Query(
-            @"SELECT s.regno, s.firstname, s.othername, s.gender, 
+            @"SELECT s.regno, s.entryno, s.firstname, s.othername, s.gender, 
                      p.progname AS programme, s.progid AS progcode, c.campus_name AS campus,
-                     s.study_yr AS study_year, s.entryyear AS entry_year, 
+                     COALESCE((SELECT MAX(r.studyyear) FROM acad_registration r WHERE r.regno = s.regno), 1) AS study_year,
+                     s.entryyear AS entry_year, 
                      s.intake, s.studsesion AS session, s.stud_status AS status,
                      s.nationality, s.studPhone AS phone, s.email,
                      s.dob AS date_of_birth, s.home_dist AS district

@@ -227,7 +227,8 @@ public partial class API_v2_staff : System.Web.UI.Page
         DataTable dt = ApiHelper.Query(
             @"SELECT cr.id AS registration_id, cr.regno, 
                      s.firstname, s.othername, s.gender,
-                     s.study_yr, s.studsesion AS session
+                     COALESCE((SELECT MAX(r.studyyear) FROM acad_registration r WHERE r.regno = s.regno), 1) AS study_year,
+                     s.studsesion AS session
               FROM acad_course_registration cr
               JOIN acad_student s ON cr.regno = s.regno
               WHERE cr.courseid = @course AND cr.acad_year = @acad AND cr.semester = @sem

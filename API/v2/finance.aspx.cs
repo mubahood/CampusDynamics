@@ -150,7 +150,10 @@ public partial class API_v2_finance : System.Web.UI.Page
         {
             // Get student's programme to fetch fees structure
             DataTable studentDt = ApiHelper.Query(
-                "SELECT progid, study_yr, studsesion, studCampus, nationality FROM acad_student WHERE regno = @reg",
+                @"SELECT s.progid, 
+                        COALESCE((SELECT MAX(r.studyyear) FROM acad_registration r WHERE r.regno = s.regno), 1) AS study_year,
+                        s.studsesion, s.studCampus, s.nationality 
+                  FROM acad_student s WHERE s.regno = @reg",
                 new MySqlParameter("@reg", regno)
             );
 
@@ -161,17 +164,17 @@ public partial class API_v2_finance : System.Web.UI.Page
             }
 
             string progcode = studentDt.Rows[0]["progid"].ToString();
-            string studyYear = studentDt.Rows[0]["study_yr"].ToString();
+            string studyYear = studentDt.Rows[0]["study_year"].ToString();
             string nationality = studentDt.Rows[0]["nationality"] != DBNull.Value ? studentDt.Rows[0]["nationality"].ToString() : "";
 
             // Determine fee category based on nationality
             string feeCategory = nationality.ToLower().Contains("ugand") ? "Ugandan" : "International";
 
-            DataTable feesDt = ApiHelper.Query(
-                @"SELECT f.item_description, f.amount, f.fee_category, f.study_year 
+            DataTable feesDt = ApiHelper.QueryAccounts(
+                @"SELECT f.ItemCode, f.amount, f.study_year, f.semester
                   FROM fin_fees_structure f 
-                  WHERE f.programme_code = @prog AND (f.study_year = @yr OR f.study_year = 0)
-                  ORDER BY f.item_description",
+                  WHERE f.progid = @prog AND (f.study_year = @yr OR f.study_year = 0)
+                  ORDER BY f.ItemCode",
                 new MySqlParameter("@prog", progcode),
                 new MySqlParameter("@yr", studyYear)
             );
@@ -187,9 +190,9 @@ public partial class API_v2_finance : System.Web.UI.Page
 
                 items.Add(new Dictionary<string, object>
                 {
-                    { "item", row["item_description"] },
+                    { "item", row["ItemCode"] },
                     { "amount", amount },
-                    { "category", row["fee_category"] }
+                    { "semester", row["semester"] }
                 });
             }
 

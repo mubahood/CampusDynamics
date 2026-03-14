@@ -49,7 +49,9 @@ public partial class API_v2_timetable : System.Web.UI.Page
             {
                 // Get student's programme info
                 DataTable studentDt = ApiHelper.Query(
-                    @"SELECT s.progid, s.study_yr, s.studsesion, s.studCampus, s.entryyear, s.intake
+                    @"SELECT s.progid, 
+                            COALESCE((SELECT MAX(r.studyyear) FROM acad_registration r WHERE r.regno = s.regno), 1) AS study_year,
+                            s.studsesion, s.studCampus, s.entryyear, s.intake
                       FROM acad_student s WHERE s.regno = @reg",
                     new MySqlParameter("@reg", userId)
                 );
@@ -62,7 +64,7 @@ public partial class API_v2_timetable : System.Web.UI.Page
 
                 DataRow sr = studentDt.Rows[0];
                 string progid = sr["progid"].ToString();
-                string studyYear = sr["study_yr"].ToString();
+                string studyYear = sr["study_year"].ToString();
 
                 // Get timetable for the student's programme
                 string sql = @"SELECT t.day_of_week, t.start_time, t.end_time, 
