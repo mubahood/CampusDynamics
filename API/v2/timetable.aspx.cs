@@ -150,7 +150,9 @@ public partial class API_v2_timetable : System.Web.UI.Page
             {
                 // Get student's registered courses and their exam schedule
                 DataTable studentDt = ApiHelper.Query(
-                    "SELECT progid, study_yr FROM acad_student WHERE regno = @reg",
+                    @"SELECT progid, 
+                            COALESCE((SELECT MAX(r.studyyear) FROM acad_registration r WHERE r.regno = s.regno), 1) AS study_year
+                      FROM acad_student s WHERE s.regno = @reg",
                     new MySqlParameter("@reg", userId)
                 );
 
@@ -161,7 +163,7 @@ public partial class API_v2_timetable : System.Web.UI.Page
                 }
 
                 string progid = studentDt.Rows[0]["progid"].ToString();
-                string studyYear = studentDt.Rows[0]["study_yr"].ToString();
+                string studyYear = studentDt.Rows[0]["study_year"].ToString();
 
                 string sql = @"SELECT et.exam_date, et.start_time, et.end_time,
                                et.course_code, c.courseName AS course_name,
