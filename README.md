@@ -51,6 +51,15 @@ See [database/README.md](database/README.md) for the Laravel-like database migra
 
 ## API Endpoints
 The system provides REST-like APIs for mobile and external integration:
+
+### API v2 (Current)
+- **Documentation:** [API/v2/API_DOCUMENTATION.md](API/v2/API_DOCUMENTATION.md)
+- **Base URL:** `/API/v2/`
+- **Auth:** Token-based (24hr expiry)
+- **Login:** Supports registration number, student/entry number, or email
+- **Endpoints:** auth, student, staff, academic, finance, timetable, campus
+
+### Legacy API
 - `/API/mobileapi.aspx` - Student data, results, ledger (JSON format)
 - `/API/api_applicant_data.aspx` - Applicant information
 - `/API/api_fees_structure.aspx` - Fee schedules
