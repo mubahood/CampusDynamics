@@ -4,6 +4,11 @@
 # Thumb/*
 !Thumb/.gitkeep
 
+# Auto-generated TypedDataSet / TableAdapter code (created by Docker build)
+*.Generated.cs
+*.Adapters.Generated.cs
+**/ResourceStubs.Generated.cs
+
 # Temporary and cache folders
 # App_Data/UploadTemp/
 # App_Data/WorkDirectory/
