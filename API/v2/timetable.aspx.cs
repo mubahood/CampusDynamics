@@ -70,10 +70,10 @@ public partial class API_v2_timetable : System.Web.UI.Page
                 string sql = @"SELECT t.day_of_week, t.start_time, t.end_time, 
                                t.course_code, c.courseName AS course_name,
                                t.room, t.building,
-                               CONCAT(IFNULL(e.emp_surname,''), ' ', IFNULL(e.emp_othernames,'')) AS lecturer
+                               IFNULL(e.emp_name, '') AS lecturer
                         FROM acad_timetable t
                         LEFT JOIN acad_course c ON t.course_code = c.courseID
-                        LEFT JOIN hrm_employee e ON t.lecturer_id = e.emp_id
+                        LEFT JOIN hrm_employee e ON t.lecturer_id = e.empID
                         WHERE t.programme_code = @prog AND t.study_year = @yr";
 
                 var parms = new List<MySqlParameter>();
@@ -105,7 +105,7 @@ public partial class API_v2_timetable : System.Web.UI.Page
                         FROM acad_timetable t
                         LEFT JOIN acad_course c ON t.course_code = c.courseID
                         LEFT JOIN acad_programme p ON t.programme_code = p.progcode
-                        LEFT JOIN hrm_employee e ON t.lecturer_id = e.emp_id
+                        LEFT JOIN hrm_employee e ON t.lecturer_id = e.empID
                         WHERE e.usernames = @uid";
 
                 var parms = new List<MySqlParameter>();
@@ -200,7 +200,7 @@ public partial class API_v2_timetable : System.Web.UI.Page
                                et.venue, et.exam_type, et.programme_code
                         FROM acad_exam_timetable et
                         LEFT JOIN acad_course c ON et.course_code = c.courseID
-                        LEFT JOIN hrm_employee e ON et.invigilator_id = e.emp_id
+                        LEFT JOIN hrm_employee e ON et.invigilator_id = e.empID
                         WHERE e.usernames = @uid";
 
                 var parms = new List<MySqlParameter>();

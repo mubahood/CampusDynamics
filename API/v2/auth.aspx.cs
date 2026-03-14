@@ -93,7 +93,7 @@ public partial class API_v2_auth : System.Web.UI.Page
                 else
                 {
                     DataTable dt = ApiHelper.Query(
-                        "SELECT CONCAT(IFNULL(emp_surname,''), ' ', IFNULL(emp_othernames,'')) AS full_name FROM hrm_employee WHERE TRIM(usernames) = @uid",
+                        "SELECT IFNULL(emp_name, '') AS full_name FROM hrm_employee WHERE TRIM(usernames) = @uid",
                         new MySqlParameter("@uid", resolvedUsername)
                     );
                     if (dt.Rows.Count > 0)
@@ -275,7 +275,7 @@ public partial class API_v2_auth : System.Web.UI.Page
         // --- 4. Try staff by username ---
         dt = ApiHelper.Query(
             @"SELECT TRIM(usernames) AS usernames, 
-                     CONCAT(IFNULL(emp_surname,''), ' ', IFNULL(emp_othernames,'')) AS full_name 
+                     IFNULL(emp_name, '') AS full_name 
               FROM hrm_employee 
               WHERE TRIM(usernames) = @input 
               LIMIT 1",
@@ -293,7 +293,7 @@ public partial class API_v2_auth : System.Web.UI.Page
         {
             dt = ApiHelper.Query(
                 @"SELECT TRIM(usernames) AS usernames, 
-                         CONCAT(IFNULL(emp_surname,''), ' ', IFNULL(emp_othernames,'')) AS full_name 
+                         IFNULL(emp_name, '') AS full_name 
                   FROM hrm_employee 
                   WHERE TRIM(emp_email) = @input 
                   LIMIT 1",

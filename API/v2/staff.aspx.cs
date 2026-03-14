@@ -67,14 +67,14 @@ public partial class API_v2_staff : System.Web.UI.Page
         }
 
         DataTable dt = ApiHelper.Query(
-            @"SELECT e.emp_id, e.emp_surname, e.emp_othernames, e.emp_gender, 
-                     e.emp_email, e.emp_phone, e.emp_title, 
-                     d.dept_name AS department, f.fac_name AS faculty,
-                     e.emp_status, e.emp_designation, e.emp_contract_type,
-                     e.emp_date_employed, e.emp_national_id, e.usernames
+            @"SELECT e.empID, e.emp_name, e.EMP_CODE, e.EmpType,
+                     e.emp_email, e.emp_phone, e.emp_nationality,
+                     d.dept_name AS department,
+                     e.emp_qualifications, e.usernames,
+                     c.contractStart, c.contractEnd, c.contractStatus
               FROM hrm_employee e
-              LEFT JOIN hrm_department d ON e.emp_dept = d.dept_id
-              LEFT JOIN hrm_faculty f ON e.emp_faculty = f.fac_id
+              LEFT JOIN hrm_emp_contracts c ON c.empID = e.empID AND c.contractStatus = 'VALID'
+              LEFT JOIN hrm_departments d ON c.departmentID = d.ID
               WHERE e.usernames = @uid",
             new MySqlParameter("@uid", staffUsername)
         );
@@ -86,7 +86,7 @@ public partial class API_v2_staff : System.Web.UI.Page
         }
 
         var profile = ApiHelper.FirstRowToDict(dt);
-        profile["photo_url"] = "/API/staff_photo.aspx?id=" + Server.UrlEncode(dt.Rows[0]["emp_id"].ToString());
+        profile["photo_url"] = "/API/v2/staff.aspx?action=photo&token=" + ApiHelper.Param(Request, "token", "");
 
         ApiHelper.Success(Response, profile);
     }
@@ -102,9 +102,9 @@ public partial class API_v2_staff : System.Web.UI.Page
             return;
         }
 
-        // Get emp_id from username
+        // Get empID from username
         DataTable empDt = ApiHelper.Query(
-            "SELECT emp_id FROM hrm_employee WHERE usernames = @uid",
+            "SELECT empID FROM hrm_employee WHERE usernames = @uid",
             new MySqlParameter("@uid", auth.UserId)
         );
 
@@ -114,36 +114,28 @@ public partial class API_v2_staff : System.Web.UI.Page
             return;
         }
 
-        string empId = empDt.Rows[0]["emp_id"].ToString();
+        string empId = empDt.Rows[0]["empID"].ToString();
 
-        // Try database photo
-        DataTable photoDt = ApiHelper.Query(
-            "SELECT emp_photo FROM hrm_employee WHERE emp_id = @id",
-            new MySqlParameter("@id", empId)
-        );
-
-        if (photoDt.Rows.Count > 0 && photoDt.Rows[0]["emp_photo"] != DBNull.Value)
-        {
-            byte[] photoData = (byte[])photoDt.Rows[0]["emp_photo"];
-            if (photoData.Length > 0)
-            {
-                Response.Clear();
-                Response.ContentType = "image/jpeg";
-                Response.AddHeader("Access-Control-Allow-Origin", "*");
-                Response.BinaryWrite(photoData);
-                ApiHelper.CompleteResponse(Response);
-                return;
-            }
-        }
-
-        // Try file-based photo
-        string photoPath = Server.MapPath("~/staffimages/" + empId + ".jpg");
+        // Try file-based photo (primary location)
+        string photoPath = Server.MapPath("~/COOPERP/staffimages/" + empId + "_photo.jpg");
         if (File.Exists(photoPath))
         {
             Response.Clear();
             Response.ContentType = "image/jpeg";
             Response.AddHeader("Access-Control-Allow-Origin", "*");
             Response.WriteFile(photoPath);
+            ApiHelper.CompleteResponse(Response);
+            return;
+        }
+
+        // Try alternate location
+        string altPath = Server.MapPath("~/staffimages/" + empId + ".jpg");
+        if (File.Exists(altPath))
+        {
+            Response.Clear();
+            Response.ContentType = "image/jpeg";
+            Response.AddHeader("Access-Control-Allow-Origin", "*");
+            Response.WriteFile(altPath);
             ApiHelper.CompleteResponse(Response);
             return;
         }
@@ -165,9 +157,9 @@ public partial class API_v2_staff : System.Web.UI.Page
         string acad_year = ApiHelper.Param(Request, "acad_year", "");
         int semester = ApiHelper.ParamInt(Request, "semester", 0);
 
-        // Get lecturer's emp_id
+        // Get staff code (EMP_CODE) from username
         DataTable empDt = ApiHelper.Query(
-            "SELECT emp_id FROM hrm_employee WHERE usernames = @uid",
+            "SELECT EMP_CODE FROM hrm_employee WHERE usernames = @uid",
             new MySqlParameter("@uid", auth.UserId)
         );
 
@@ -177,18 +169,18 @@ public partial class API_v2_staff : System.Web.UI.Page
             return;
         }
 
-        string empId = empDt.Rows[0]["emp_id"].ToString();
+        string staffCode = empDt.Rows[0]["EMP_CODE"].ToString();
 
-        string sql = @"SELECT ta.course_code, c.courseName AS course_name, c.CreditUnit AS credit_units,
-                       ta.programme_code, p.progname AS programme_name,
-                       ta.acad_year, ta.semester, ta.study_year
+        string sql = @"SELECT ta.courseID AS course_code, c.courseName AS course_name, c.CreditUnit AS credit_units,
+                       ta.progcode AS programme_code, p.progname AS programme_name,
+                       ta.acad_year, ta.semester, ta.cyear AS study_year
                 FROM acad_teaching_allocation ta
-                LEFT JOIN acad_course c ON ta.course_code = c.courseID
-                LEFT JOIN acad_programme p ON ta.programme_code = p.progcode
-                WHERE ta.lecturer = @empId";
+                LEFT JOIN acad_course c ON ta.courseID = c.courseID
+                LEFT JOIN acad_programme p ON ta.progcode = p.progcode
+                WHERE ta.staffCode = @staffCode";
 
         var parms = new List<MySqlParameter>();
-        parms.Add(new MySqlParameter("@empId", empId));
+        parms.Add(new MySqlParameter("@staffCode", staffCode));
 
         if (!string.IsNullOrEmpty(acad_year))
         {
@@ -389,12 +381,14 @@ public partial class API_v2_staff : System.Web.UI.Page
                     {
                         // Get student's programme info for insert
                         DataTable studDt = ApiHelper.Query(
-                            "SELECT progid, study_yr FROM acad_student WHERE regno=@reg",
+                            @"SELECT s.progid, 
+                                     COALESCE((SELECT MAX(r.studyyear) FROM acad_registration r WHERE r.regno = s.regno), 1) AS study_year
+                              FROM acad_student s WHERE s.regno = @reg",
                             new MySqlParameter("@reg", regno)
                         );
 
                         string progcode = studDt.Rows.Count > 0 ? studDt.Rows[0]["progid"].ToString() : "";
-                        string studyYear = studDt.Rows.Count > 0 ? studDt.Rows[0]["study_yr"].ToString() : "1";
+                        string studyYear = studDt.Rows.Count > 0 ? studDt.Rows[0]["study_year"].ToString() : "1";
 
                         // Get course credit units
                         DataTable courseDt = ApiHelper.Query(

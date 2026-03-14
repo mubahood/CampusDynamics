@@ -115,24 +115,23 @@ public partial class API_v2_campus : System.Web.UI.Page
             // Fallback: direct query
             try
             {
-                string sql = @"SELECT e.emp_id, 
-                               CONCAT(IFNULL(e.emp_surname,''), ' ', IFNULL(e.emp_othernames,'')) AS full_name,
-                               e.emp_title, e.emp_designation, e.emp_email, e.emp_telephone,
-                               d.dept_name AS department, f.fac_name AS faculty
+                string sql = @"SELECT e.empID, e.emp_name AS full_name,
+                               e.EmpType, e.emp_email, e.emp_phone,
+                               d.dept_name AS department
                         FROM hrm_employee e
-                        LEFT JOIN hrm_department d ON e.emp_dept = d.dept_id
-                        LEFT JOIN hrm_faculty f ON e.emp_faculty = f.fac_id
-                        WHERE e.emp_status = 'Active'";
+                        LEFT JOIN hrm_emp_contracts c ON c.empID = e.empID AND c.contractStatus = 'VALID'
+                        LEFT JOIN hrm_departments d ON c.departmentID = d.ID
+                        WHERE c.contractStatus = 'VALID' OR c.contractStatus IS NOT NULL";
 
                 var parms = new List<MySqlParameter>();
 
                 if (!string.IsNullOrEmpty(category))
                 {
-                    sql += " AND (d.dept_name LIKE @cat OR f.fac_name LIKE @cat OR e.emp_designation LIKE @cat)";
+                    sql += " AND (d.dept_name LIKE @cat OR e.EmpType LIKE @cat)";
                     parms.Add(new MySqlParameter("@cat", "%" + category + "%"));
                 }
 
-                sql += " ORDER BY e.emp_surname, e.emp_othernames";
+                sql += " ORDER BY e.emp_name";
 
                 DataTable dt = ApiHelper.Query(sql, parms.ToArray());
                 ApiHelper.Success(Response, ApiHelper.TableToList(dt));
