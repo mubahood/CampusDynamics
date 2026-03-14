@@ -1,19 +1,19 @@
 # User uploaded files and generated content
-Files/*
+# Files/*
 !Files/.gitkeep
-Thumb/*
+# Thumb/*
 !Thumb/.gitkeep
 
 # Temporary and cache folders
-App_Data/UploadTemp/
-App_Data/WorkDirectory/
-DXTempFolder/
+# App_Data/UploadTemp/
+# App_Data/WorkDirectory/
+# DXTempFolder/
 
 # Build outputs and compiled binaries
-Bin/
-obj/
-[Dd]ebug/
-[Rr]elease/
+# Bin/
+# obj/
+# [Dd]ebug/
+# [Rr]elease/
 
 # Visual Studio files
 *.suo
