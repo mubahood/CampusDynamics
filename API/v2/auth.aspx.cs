@@ -193,8 +193,8 @@ public partial class API_v2_auth : System.Web.UI.Page
         byte[] passwordBytes = Encoding.Unicode.GetBytes(password);
 
         byte[] combined = new byte[saltBytes.Length + passwordBytes.Length];
-        Buffer.BlockCopy(saltBytes, 0, combined, 0, saltBytes.Length);
-        Buffer.BlockCopy(passwordBytes, 0, combined, saltBytes.Length, passwordBytes.Length);
+        System.Buffer.BlockCopy(saltBytes, 0, combined, 0, saltBytes.Length);
+        System.Buffer.BlockCopy(passwordBytes, 0, combined, saltBytes.Length, passwordBytes.Length);
 
         using (HMACSHA256 hmac = new HMACSHA256(saltBytes))
         {
