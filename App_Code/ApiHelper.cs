@@ -21,6 +21,9 @@ public static class ApiHelper
     /// <summary>Sends a standard JSON success response and ends the request.</summary>
     public static void Success(HttpResponse response, object data, string message = "OK")
     {
+        // Prevent duplicate responses (e.g. if a previous Error/Success already completed the request)
+        if (HttpContext.Current != null && HttpContext.Current.Items.Contains("_api_response_sent")) return;
+
         WriteJson(response, new Dictionary<string, object>
         {
             { "success", true },
@@ -33,6 +36,9 @@ public static class ApiHelper
     /// <summary>Sends a standard JSON error response and ends the request.</summary>
     public static void Error(HttpResponse response, string message, string errorCode = "SERVER_ERROR", int httpStatus = 200)
     {
+        // Prevent duplicate responses (e.g. if a previous Error/Success already completed the request)
+        if (HttpContext.Current != null && HttpContext.Current.Items.Contains("_api_response_sent")) return;
+
         WriteJson(response, new Dictionary<string, object>
         {
             { "success", false },
@@ -53,7 +59,14 @@ public static class ApiHelper
         response.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         response.AddHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
         response.Write(_serializer.Serialize(obj));
-        response.End();
+
+        // Mark response as sent so duplicate Error/Success calls are suppressed
+        if (HttpContext.Current != null)
+            HttpContext.Current.Items["_api_response_sent"] = true;
+
+        // Use Flush + CompleteRequest instead of Response.End() to avoid ThreadAbortException
+        response.Flush();
+        HttpContext.Current.ApplicationInstance.CompleteRequest();
     }
 
     #endregion
@@ -274,10 +287,22 @@ public static class ApiHelper
         if (request.HttpMethod == "OPTIONS")
         {
             response.StatusCode = 200;
-            response.End();
+            CompleteResponse(response);
             return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Ends the response safely without throwing ThreadAbortException.
+    /// Use this instead of Response.End() for binary or non-JSON responses.
+    /// </summary>
+    public static void CompleteResponse(HttpResponse response)
+    {
+        if (HttpContext.Current != null)
+            HttpContext.Current.Items["_api_response_sent"] = true;
+        response.Flush();
+        HttpContext.Current.ApplicationInstance.CompleteRequest();
     }
 
     #endregion

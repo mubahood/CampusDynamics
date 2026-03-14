@@ -114,7 +114,7 @@ public partial class API_v2_student : System.Web.UI.Page
                 Response.ContentType = "image/jpeg";
                 Response.AddHeader("Access-Control-Allow-Origin", "*");
                 Response.BinaryWrite(photoData);
-                Response.End();
+                ApiHelper.CompleteResponse(Response);
                 return;
             }
         }
@@ -127,7 +127,7 @@ public partial class API_v2_student : System.Web.UI.Page
             Response.ContentType = "image/jpeg";
             Response.AddHeader("Access-Control-Allow-Origin", "*");
             Response.WriteFile(photoPath);
-            Response.End();
+            ApiHelper.CompleteResponse(Response);
             return;
         }
 
