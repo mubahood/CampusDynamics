@@ -226,7 +226,7 @@ public partial class API_v2_campus : System.Web.UI.Page
         try
         {
             DataTable dt = ApiHelper.Query(
-                @"SELECT p.progcode, p.progname AS programme, p.prog_type, p.duration
+                @"SELECT p.progcode, p.progname AS programme
                   FROM acad_programme p
                   WHERE p.progcode IS NOT NULL AND TRIM(p.progcode) <> ''
                   ORDER BY p.progname"
