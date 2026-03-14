@@ -437,10 +437,25 @@ public partial class API_v2_academic : System.Web.UI.Page
             PortalContentTableAdapters.acad_StudentRegistrationTableAdapter REG = new PortalContentTableAdapters.acad_StudentRegistrationTableAdapter();
             string regResult = REG.ProcessRegister(regno, acad_year, semester, regno).ToString();
 
-            // Auto-billing
-            fin_GetStudentFeesTrackListTableAdapter BILLING = new fin_GetStudentFeesTrackListTableAdapter();
-            BILLING.fin_Autobilling(regno, acad_year, semester, "REG", regno, "-");
-            BILLING.fin_Autobilling(regno, acad_year, semester, "ACCOMO", regno, "-");
+            // Auto-billing via stored procedure on accounts DB
+            ApiHelper.QueryAccounts(
+                "CALL fin_Autobilling(@reg, @acad, @sems, @typ, @usr, @csid)",
+                new MySqlParameter("@reg", regno),
+                new MySqlParameter("@acad", acad_year),
+                new MySqlParameter("@sems", semester),
+                new MySqlParameter("@typ", "REG"),
+                new MySqlParameter("@usr", regno),
+                new MySqlParameter("@csid", "-")
+            );
+            ApiHelper.QueryAccounts(
+                "CALL fin_Autobilling(@reg, @acad, @sems, @typ, @usr, @csid)",
+                new MySqlParameter("@reg", regno),
+                new MySqlParameter("@acad", acad_year),
+                new MySqlParameter("@sems", semester),
+                new MySqlParameter("@typ", "ACCOMO"),
+                new MySqlParameter("@usr", regno),
+                new MySqlParameter("@csid", "-")
+            );
 
             ApiHelper.Success(Response, new Dictionary<string, object>
             {
