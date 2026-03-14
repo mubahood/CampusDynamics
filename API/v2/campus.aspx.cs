@@ -59,17 +59,17 @@ public partial class API_v2_campus : System.Web.UI.Page
         try
         {
             // Get total count
-            object totalObj = ApiHelper.Scalar("SELECT COUNT(*) FROM acad_notices WHERE status = 'Active'");
+            object totalObj = ApiHelper.Scalar("SELECT COUNT(*) FROM acad_notices WHERE Archive_Status = 'Active'");
             int total = Convert.ToInt32(totalObj);
 
             DataTable dt = ApiHelper.Query(
-                @"SELECT notice_id, title, content, category, created_by, 
-                         DATE_FORMAT(date_created, '%Y-%m-%d %H:%i') AS date_created,
-                         DATE_FORMAT(expiry_date, '%Y-%m-%d') AS expiry_date,
-                         target_audience
+                @"SELECT ID AS notice_id, Notice_Title AS title, Notice_detail AS content, 
+                         Author AS created_by, 
+                         DATE_FORMAT(Notice_date, '%Y-%m-%d %H:%i') AS date_created,
+                         Target_category AS target_audience
                   FROM acad_notices 
-                  WHERE status = 'Active' AND (expiry_date IS NULL OR expiry_date >= CURDATE())
-                  ORDER BY date_created DESC
+                  WHERE Archive_Status = 'Active'
+                  ORDER BY Notice_date DESC
                   LIMIT @limit OFFSET @offset",
                 new MySqlParameter("@limit", limit),
                 new MySqlParameter("@offset", offset)
@@ -150,7 +150,7 @@ public partial class API_v2_campus : System.Web.UI.Page
         try
         {
             DataTable dt = ApiHelper.Query(
-                "SELECT DISTINCT acad_year FROM setup_academic_year ORDER BY acad_year DESC"
+                "SELECT DISTINCT academic_year AS acad_year FROM acad_calender ORDER BY academic_year DESC"
             );
             ApiHelper.Success(Response, ApiHelper.TableToList(dt));
         }
@@ -176,16 +176,16 @@ public partial class API_v2_campus : System.Web.UI.Page
         try
         {
             DataTable dt = ApiHelper.Query(
-                @"SELECT acad_year, semester, start_date, end_date 
-                  FROM setup_academic_year 
-                  WHERE is_current = 1 OR status = 'Active'
-                  ORDER BY acad_year DESC, semester DESC
+                @"SELECT academic_year AS acad_year
+                  FROM acad_calender 
+                  WHERE is_current = 1
                   LIMIT 1"
             );
 
             if (dt.Rows.Count > 0)
             {
-                ApiHelper.Success(Response, ApiHelper.FirstRowToDict(dt));
+                var result = ApiHelper.FirstRowToDict(dt);
+                ApiHelper.Success(Response, result);
             }
             else
             {
@@ -205,7 +205,18 @@ public partial class API_v2_campus : System.Web.UI.Page
         }
         catch (Exception ex)
         {
-            ApiHelper.Error(Response, "Error fetching current semester: " + ex.Message, "SERVER_ERROR");
+            // Fallback: calculate from system date
+            int year = DateTime.Now.Year;
+            int month = DateTime.Now.Month;
+            int sem = month >= 1 && month <= 6 ? 2 : 1;
+            string acadYear = sem == 1 ? year + "/" + (year + 1) : (year - 1) + "/" + year;
+
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            {
+                { "acad_year", acadYear },
+                { "semester", sem },
+                { "note", "Calculated from system date" }
+            });
         }
     }
 
@@ -215,13 +226,10 @@ public partial class API_v2_campus : System.Web.UI.Page
         try
         {
             DataTable dt = ApiHelper.Query(
-                @"SELECT p.progcode, p.programme, p.prog_type, p.duration, 
-                         f.fac_name AS faculty, d.dept_name AS department
-                  FROM acad_programmes p
-                  LEFT JOIN hrm_faculty f ON p.faculty = f.fac_id
-                  LEFT JOIN hrm_department d ON p.department = d.dept_id
-                  WHERE p.status = 'Active' OR p.status IS NULL
-                  ORDER BY p.programme"
+                @"SELECT p.progcode, p.progname AS programme, p.prog_type, p.duration
+                  FROM acad_programme p
+                  WHERE p.progcode IS NOT NULL AND TRIM(p.progcode) <> ''
+                  ORDER BY p.progname"
             );
             ApiHelper.Success(Response, ApiHelper.TableToList(dt));
         }
@@ -237,7 +245,7 @@ public partial class API_v2_campus : System.Web.UI.Page
         try
         {
             DataTable dt = ApiHelper.Query(
-                "SELECT campus_id, campus_name, campus_location FROM setup_campus ORDER BY campus_name"
+                "SELECT campus_code AS campus_id, campus_name FROM acad_campuses WHERE TRIM(campus_name) <> '' ORDER BY campus_name"
             );
             ApiHelper.Success(Response, ApiHelper.TableToList(dt));
         }

@@ -58,16 +58,15 @@ public partial class API_v2_student : System.Web.UI.Page
         }
 
         DataTable dt = ApiHelper.Query(
-            @"SELECT s.regno, s.surname, s.othername, s.stud_gender AS gender, 
-                     p.programme, s.progid AS progcode, c.campus_name AS campus,
+            @"SELECT s.regno, s.firstname, s.othername, s.gender, 
+                     p.progname AS programme, s.progid AS progcode, c.campus_name AS campus,
                      s.study_yr AS study_year, s.entryyear AS entry_year, 
-                     s.intake, s.studsesion AS session, s.studstatus AS status,
-                     s.nationality, s.telephone AS phone, s.email,
-                     s.stud_dob AS date_of_birth, s.stud_district AS district,
-                     s.sponsor_name, s.sponsor_tel
+                     s.intake, s.studsesion AS session, s.stud_status AS status,
+                     s.nationality, s.studPhone AS phone, s.email,
+                     s.dob AS date_of_birth, s.home_dist AS district
               FROM acad_student s
-              LEFT JOIN acad_programmes p ON s.progid = p.progcode
-              LEFT JOIN setup_campus c ON s.studCampus = c.campus_id
+              LEFT JOIN acad_programme p ON s.progid = p.progcode
+              LEFT JOIN acad_campuses c ON s.studCampus = c.campus_code
               WHERE s.regno = @reg",
             new MySqlParameter("@reg", regno)
         );
@@ -101,13 +100,13 @@ public partial class API_v2_student : System.Web.UI.Page
 
         // Try to get photo from the database
         DataTable dt = ApiHelper.Query(
-            "SELECT stud_photo FROM acad_student WHERE regno = @reg",
+            "SELECT photofile FROM acad_student WHERE regno = @reg",
             new MySqlParameter("@reg", regno)
         );
 
-        if (dt.Rows.Count > 0 && dt.Rows[0]["stud_photo"] != DBNull.Value)
+        if (dt.Rows.Count > 0 && dt.Rows[0]["photofile"] != DBNull.Value)
         {
-            byte[] photoData = (byte[])dt.Rows[0]["stud_photo"];
+            byte[] photoData = (byte[])dt.Rows[0]["photofile"];
             if (photoData.Length > 0)
             {
                 Response.Clear();

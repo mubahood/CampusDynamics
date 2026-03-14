@@ -66,11 +66,11 @@ public partial class API_v2_timetable : System.Web.UI.Page
 
                 // Get timetable for the student's programme
                 string sql = @"SELECT t.day_of_week, t.start_time, t.end_time, 
-                               t.course_code, c.coursename AS course_name,
+                               t.course_code, c.courseName AS course_name,
                                t.room, t.building,
                                CONCAT(IFNULL(e.emp_surname,''), ' ', IFNULL(e.emp_othernames,'')) AS lecturer
                         FROM acad_timetable t
-                        LEFT JOIN acad_courses c ON t.course_code = c.courseid
+                        LEFT JOIN acad_course c ON t.course_code = c.courseID
                         LEFT JOIN hrm_employee e ON t.lecturer_id = e.emp_id
                         WHERE t.programme_code = @prog AND t.study_year = @yr";
 
@@ -98,11 +98,11 @@ public partial class API_v2_timetable : System.Web.UI.Page
             {
                 // Staff: get timetable for courses they teach
                 string sql = @"SELECT t.day_of_week, t.start_time, t.end_time, 
-                               t.course_code, c.coursename AS course_name,
-                               t.room, t.building, t.programme_code, p.programme AS programme_name
+                               t.course_code, c.courseName AS course_name,
+                               t.room, t.building, t.programme_code, p.progname AS programme_name
                         FROM acad_timetable t
-                        LEFT JOIN acad_courses c ON t.course_code = c.courseid
-                        LEFT JOIN acad_programmes p ON t.programme_code = p.progcode
+                        LEFT JOIN acad_course c ON t.course_code = c.courseID
+                        LEFT JOIN acad_programme p ON t.programme_code = p.progcode
                         LEFT JOIN hrm_employee e ON t.lecturer_id = e.emp_id
                         WHERE e.usernames = @uid";
 
@@ -162,10 +162,10 @@ public partial class API_v2_timetable : System.Web.UI.Page
                 string studyYear = studentDt.Rows[0]["study_yr"].ToString();
 
                 string sql = @"SELECT et.exam_date, et.start_time, et.end_time,
-                               et.course_code, c.coursename AS course_name,
+                               et.course_code, c.courseName AS course_name,
                                et.venue, et.exam_type
                         FROM acad_exam_timetable et
-                        LEFT JOIN acad_courses c ON et.course_code = c.courseid
+                        LEFT JOIN acad_course c ON et.course_code = c.courseID
                         WHERE et.programme_code = @prog AND et.study_year = @yr";
 
                 var parms = new List<MySqlParameter>();
@@ -192,10 +192,10 @@ public partial class API_v2_timetable : System.Web.UI.Page
             {
                 // Staff: exam timetable for their courses
                 string sql = @"SELECT et.exam_date, et.start_time, et.end_time,
-                               et.course_code, c.coursename AS course_name,
+                               et.course_code, c.courseName AS course_name,
                                et.venue, et.exam_type, et.programme_code
                         FROM acad_exam_timetable et
-                        LEFT JOIN acad_courses c ON et.course_code = c.courseid
+                        LEFT JOIN acad_course c ON et.course_code = c.courseID
                         LEFT JOIN hrm_employee e ON et.invigilator_id = e.emp_id
                         WHERE e.usernames = @uid";
 

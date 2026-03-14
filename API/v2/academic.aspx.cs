@@ -126,9 +126,9 @@ public partial class API_v2_academic : System.Web.UI.Page
         {
             // Get student profile
             DataTable profileDt = ApiHelper.Query(
-                @"SELECT s.surname, s.othername, p.programme, s.progid, s.entryyear, s.intake
+                @"SELECT s.firstname, s.othername, p.progname AS programme, s.progid, s.entryyear, s.intake
                   FROM acad_student s
-                  LEFT JOIN acad_programmes p ON s.progid = p.progcode
+                  LEFT JOIN acad_programme p ON s.progid = p.progcode
                   WHERE s.regno = @reg",
                 new MySqlParameter("@reg", regno)
             );

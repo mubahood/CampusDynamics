@@ -68,7 +68,7 @@ public partial class API_v2_staff : System.Web.UI.Page
 
         DataTable dt = ApiHelper.Query(
             @"SELECT e.emp_id, e.emp_surname, e.emp_othernames, e.emp_gender, 
-                     e.emp_email, e.emp_telephone, e.emp_title, 
+                     e.emp_email, e.emp_phone, e.emp_title, 
                      d.dept_name AS department, f.fac_name AS faculty,
                      e.emp_status, e.emp_designation, e.emp_contract_type,
                      e.emp_date_employed, e.emp_national_id, e.usernames
@@ -179,12 +179,12 @@ public partial class API_v2_staff : System.Web.UI.Page
 
         string empId = empDt.Rows[0]["emp_id"].ToString();
 
-        string sql = @"SELECT ta.course_code, c.coursename AS course_name, c.cu AS credit_units,
-                       ta.programme_code, p.programme AS programme_name,
+        string sql = @"SELECT ta.course_code, c.courseName AS course_name, c.CreditUnit AS credit_units,
+                       ta.programme_code, p.progname AS programme_name,
                        ta.acad_year, ta.semester, ta.study_year
                 FROM acad_teaching_allocation ta
-                LEFT JOIN acad_courses c ON ta.course_code = c.courseid
-                LEFT JOIN acad_programmes p ON ta.programme_code = p.progcode
+                LEFT JOIN acad_course c ON ta.course_code = c.courseID
+                LEFT JOIN acad_programme p ON ta.programme_code = p.progcode
                 WHERE ta.lecturer = @empId";
 
         var parms = new List<MySqlParameter>();
@@ -226,12 +226,12 @@ public partial class API_v2_staff : System.Web.UI.Page
 
         DataTable dt = ApiHelper.Query(
             @"SELECT cr.id AS registration_id, cr.regno, 
-                     s.surname, s.othername, s.stud_gender AS gender,
+                     s.firstname, s.othername, s.gender,
                      s.study_yr, s.studsesion AS session
               FROM acad_course_registration cr
               JOIN acad_student s ON cr.regno = s.regno
               WHERE cr.courseid = @course AND cr.acad_year = @acad AND cr.semester = @sem
-              ORDER BY s.surname, s.othername",
+              ORDER BY s.firstname, s.othername",
             new MySqlParameter("@course", courseId),
             new MySqlParameter("@acad", acad_year),
             new MySqlParameter("@sem", semester)
@@ -267,12 +267,12 @@ public partial class API_v2_staff : System.Web.UI.Page
         int semester = ApiHelper.ParamInt(Request, "semester", 1);
 
         DataTable dt = ApiHelper.Query(
-            @"SELECT r.regno, s.surname, s.othername,
-                     r.coursework, r.exam, r.total, r.grade, r.gp, r.remarks
+            @"SELECT r.regno, s.firstname, s.othername,
+                     r.course_work, r.exam_total, r.score AS total, r.grade, r.gradept AS gp, r.result_comment AS remarks
               FROM acad_results r
               JOIN acad_student s ON r.regno = s.regno
-              WHERE r.courseid = @course AND r.acad_year = @acad AND r.semester = @sem
-              ORDER BY s.surname, s.othername",
+              WHERE r.courseid = @course AND r.acad = @acad AND r.semester = @sem
+              ORDER BY s.firstname, s.othername",
             new MySqlParameter("@course", courseId),
             new MySqlParameter("@acad", acad_year),
             new MySqlParameter("@sem", semester)
@@ -359,7 +359,7 @@ public partial class API_v2_staff : System.Web.UI.Page
 
                     // Check if record exists
                     object existing = ApiHelper.Scalar(
-                        "SELECT COUNT(*) FROM acad_results WHERE regno=@reg AND courseid=@crs AND acad_year=@acad AND semester=@sem",
+                        "SELECT COUNT(*) FROM acad_results WHERE regno=@reg AND courseid=@crs AND acad=@acad AND semester=@sem",
                         new MySqlParameter("@reg", regno),
                         new MySqlParameter("@crs", courseId),
                         new MySqlParameter("@acad", acad_year),
@@ -369,8 +369,8 @@ public partial class API_v2_staff : System.Web.UI.Page
                     if (Convert.ToInt32(existing) > 0)
                     {
                         ApiHelper.Execute(
-                            @"UPDATE acad_results SET coursework=@cw, exam=@ex, total=@tot, grade=@grd, gp=@gp, remarks=@rem
-                              WHERE regno=@reg AND courseid=@crs AND acad_year=@acad AND semester=@sem",
+                            @"UPDATE acad_results SET course_work=@cw, exam_total=@ex, score=@tot, grade=@grd, gradept=@gp, result_comment=@rem
+                              WHERE regno=@reg AND courseid=@crs AND acad=@acad AND semester=@sem",
                             new MySqlParameter("@cw", coursework),
                             new MySqlParameter("@ex", exam),
                             new MySqlParameter("@tot", total),
@@ -397,14 +397,14 @@ public partial class API_v2_staff : System.Web.UI.Page
 
                         // Get course credit units
                         DataTable courseDt = ApiHelper.Query(
-                            "SELECT cu FROM acad_courses WHERE courseid=@crs",
+                            "SELECT CreditUnit FROM acad_course WHERE courseID=@crs",
                             new MySqlParameter("@crs", courseId)
                         );
-                        string cu = courseDt.Rows.Count > 0 ? courseDt.Rows[0]["cu"].ToString() : "3";
+                        string cu = courseDt.Rows.Count > 0 ? courseDt.Rows[0]["CreditUnit"].ToString() : "3";
 
                         ApiHelper.Execute(
-                            @"INSERT INTO acad_results (regno, courseid, acad_year, semester, progcode, study_year, 
-                              coursework, exam, total, grade, gp, cu, remarks)
+                            @"INSERT INTO acad_results (regno, courseid, acad, semester, progid, studyyear, 
+                              course_work, exam_total, score, grade, gradept, CreditUnits, result_comment)
                               VALUES (@reg, @crs, @acad, @sem, @prog, @yr, @cw, @ex, @tot, @grd, @gp, @cu, @rem)",
                             new MySqlParameter("@reg", regno),
                             new MySqlParameter("@crs", courseId),

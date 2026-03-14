@@ -61,7 +61,7 @@ public partial class API_v2_auth : System.Web.UI.Page
             if (userType == "student")
             {
                 DataTable dt = ApiHelper.Query(
-                    "SELECT CONCAT(IFNULL(surname,''), ' ', IFNULL(othername,'')) AS full_name FROM acad_student WHERE regno = @reg",
+                    "SELECT CONCAT(IFNULL(firstname,''), ' ', IFNULL(othername,'')) AS full_name FROM acad_student WHERE regno = @reg",
                     new MySqlParameter("@reg", username)
                 );
                 if (dt.Rows.Count > 0)
