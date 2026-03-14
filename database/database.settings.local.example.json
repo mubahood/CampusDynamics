@@ -1,0 +1,23 @@
+{
+  "environmentName": "local-yourname",
+  "assemblyPath": "C:/Program Files (x86)/MySQL/MySQL Connector Net 6.6.7/Assemblies/v4.0/MySql.Data.dll",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "root",
+    "password": "CHANGE_ME",
+    "sslMode": "None"
+  },
+  "databases": {
+    "main": "campus_dynamics",
+    "admissions": "campus_dynamics_admissions",
+    "accounts": "campus_dynamics_accounts",
+    "portal": "campus_dynamics_portal"
+  },
+  "imports": {
+    "main": "C:/db-dumps/campus_dynamics.sql",
+    "admissions": "C:/db-dumps/campus_dynamics_admissions.sql",
+    "accounts": "C:/db-dumps/campus_dynamics_accounts.sql",
+    "portal": "C:/db-dumps/campus_dynamics_portal.sql"
+  }
+}

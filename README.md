@@ -15,6 +15,8 @@ Copy-Item web.Debug.config.example web.Debug.config   # optional
 Then open each file and replace every `{{ PLACEHOLDER }}` with your actual database host, username, and password.
 
 See [CONFIGURATION.md](CONFIGURATION.md) for the complete setup guide, placeholder reference, environment transforms, and security guidelines.
+See [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) for the contributor policy on environment variables, local database isolation, and conflict prevention when multiple contributors push code.
+See [database/README.md](database/README.md) for the Laravel-like database migration, seeding, baseline import, and validation workflow.
 
 ---
 

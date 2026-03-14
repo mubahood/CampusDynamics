@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Local example only.
+  Do NOT commit a real connectionStrings.local.config file.
+
+  Intended usage:
+  - copy this file to connectionStrings.local.config
+  - replace placeholders with your local values
+  - keep the real file untracked
+-->
+<connectionStrings>
+  <add name="LocalMySqlServer"
+       connectionString="server={{ CD_DB_HOST }};User Id={{ CD_DB_USER }};password={{ CD_DB_PASSWORD }};Persist Security Info=True;database={{ CD_DB_MAIN }}"
+       providerName="MySql.Data.MySqlClient" />
+  <add name="vacConnectionString"
+       connectionString="server={{ CD_DB_HOST }};User Id={{ CD_DB_USER }};password={{ CD_DB_PASSWORD }};Persist Security Info=True;database={{ CD_DB_MAIN }};DefaultCommandTimeout=600;Convert Zero Datetime=True"
+       providerName="MySql.Data.MySqlClient" />
+  <add name="campus_dynamics_admissionsConnectionString"
+       connectionString="server={{ CD_DB_HOST }};User Id={{ CD_DB_USER }};password={{ CD_DB_PASSWORD }};Persist Security Info=True;database={{ CD_DB_ADMISSIONS }};DefaultCommandTimeout=600;Convert Zero Datetime=True"
+       providerName="MySql.Data.MySqlClient" />
+  <add name="accountsConnectionString"
+       connectionString="server={{ CD_DB_HOST }};User Id={{ CD_DB_USER }};password={{ CD_DB_PASSWORD }};Persist Security Info=True;database={{ CD_DB_ACCOUNTS }};DefaultCommandTimeout=600;Convert Zero Datetime=True"
+       providerName="MySql.Data.MySqlClient" />
+  <add name="campus_dynamics_portalConnectionString"
+       connectionString="server={{ CD_DB_HOST }};User Id={{ CD_DB_USER }};password={{ CD_DB_PASSWORD }};Persist Security Info=True;database={{ CD_DB_PORTAL }}"
+       providerName="MySql.Data.MySqlClient" />
+</connectionStrings>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Local example only.
+  Copy to appSettings.local.config and keep the real file untracked.
+-->
+<appSettings>
+  <add key="EnvironmentName" value="{{ CD_ENVIRONMENT_NAME }}" />
+  <add key="DebugMode" value="{{ CD_DEBUG }}" />
+  <add key="CustomErrorsMode" value="{{ CD_CUSTOM_ERRORS_MODE }}" />
+</appSettings>

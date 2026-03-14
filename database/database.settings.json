@@ -1,0 +1,78 @@
+{
+  "projectName": "CampusDynamics",
+  "environmentNameEnv": "CD_ENVIRONMENT_NAME",
+  "metadata": {
+    "migrationsTable": "cd_schema_migrations",
+    "seedsTable": "cd_schema_seeds",
+    "importsTable": "cd_schema_imports",
+    "settingsTable": "cd_schema_settings"
+  },
+  "mysql": {
+    "assemblyPathEnv": "CD_MYSQL_ASSEMBLY_PATH"
+  },
+  "server": {
+    "hostEnv": "CD_DB_HOST",
+    "portEnv": "CD_DB_PORT",
+    "userEnv": "CD_DB_USER",
+    "passwordEnv": "CD_DB_PASSWORD",
+    "sslMode": "None"
+  },
+  "databases": [
+    {
+      "logicalName": "main",
+      "defaultName": "campus_dynamics",
+      "nameEnv": "CD_DB_MAIN",
+      "createOrder": 1,
+      "importRelativePath": "database/imports/main.sql",
+      "validationQueries": [
+        {
+          "name": "Schema contains tables",
+          "sql": "SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = DATABASE();"
+        },
+        {
+          "name": "API tokens table exists",
+          "sql": "SELECT COUNT(*) AS total FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'api_tokens';"
+        }
+      ]
+    },
+    {
+      "logicalName": "admissions",
+      "defaultName": "campus_dynamics_admissions",
+      "nameEnv": "CD_DB_ADMISSIONS",
+      "createOrder": 2,
+      "importRelativePath": "database/imports/admissions.sql",
+      "validationQueries": [
+        {
+          "name": "Admissions schema contains tables",
+          "sql": "SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = DATABASE();"
+        }
+      ]
+    },
+    {
+      "logicalName": "accounts",
+      "defaultName": "campus_dynamics_accounts",
+      "nameEnv": "CD_DB_ACCOUNTS",
+      "createOrder": 3,
+      "importRelativePath": "database/imports/accounts.sql",
+      "validationQueries": [
+        {
+          "name": "Accounts schema contains tables",
+          "sql": "SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = DATABASE();"
+        }
+      ]
+    },
+    {
+      "logicalName": "portal",
+      "defaultName": "campus_dynamics_portal",
+      "nameEnv": "CD_DB_PORTAL",
+      "createOrder": 4,
+      "importRelativePath": "database/imports/portal.sql",
+      "validationQueries": [
+        {
+          "name": "Portal schema contains tables",
+          "sql": "SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = DATABASE();"
+        }
+      ]
+    }
+  ]
+}

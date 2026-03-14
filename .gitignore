@@ -96,7 +96,23 @@ test_db.ps1
 test_nche_queries.ps1
 test_queries.ps1
 
+# Local secrets / environment fragments
+.env
+.env.*
+connectionStrings.local.config
+appSettings.local.config
+connectionStrings.*.local.config
+appSettings.*.local.config
+*.secrets.config
+secrets.config
+database/database.settings.local.json
+database/imports/*.sql
+
 # Always allow the sanitized example versions of test scripts
 !test_db.ps1.example
 !test_nche_queries.ps1.example
 !test_queries.ps1.example
+!connectionStrings.local.config.example
+!appSettings.local.config.example
+!database/imports/README.md
+!database/database.settings.local.example.json
