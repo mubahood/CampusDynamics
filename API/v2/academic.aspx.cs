@@ -96,7 +96,7 @@ public partial class API_v2_academic : System.Web.UI.Page
             {
                 string filter = "";
                 if (!string.IsNullOrEmpty(acad_year))
-                    filter += "acad_year = '" + acad_year.Replace("'", "") + "'";
+                    filter += "acad = '" + acad_year.Replace("'", "") + "'";
                 if (!string.IsNullOrEmpty(semester))
                 {
                     if (filter.Length > 0) filter += " AND ";
@@ -147,18 +147,18 @@ public partial class API_v2_academic : System.Web.UI.Page
             // Group results by acad_year and semester
             var semesters = new List<Dictionary<string, object>>();
             DataView dv = new DataView(resultsDt);
-            DataTable distinctSems = dv.ToTable(true, "acad_year", "semester");
+            DataTable distinctSems = dv.ToTable(true, "acad", "semester");
 
             double totalWeightedGP = 0;
             int totalCredits = 0;
 
             foreach (DataRow semRow in distinctSems.Rows)
             {
-                string ay = semRow["acad_year"].ToString();
+                string ay = semRow["acad"].ToString();
                 string sem = semRow["semester"].ToString();
 
                 DataView semView = new DataView(resultsDt);
-                semView.RowFilter = "acad_year = '" + ay.Replace("'", "") + "' AND semester = " + sem;
+                semView.RowFilter = "acad = '" + ay.Replace("'", "") + "' AND semester = " + sem;
                 DataTable semResults = semView.ToTable();
 
                 var courses = ApiHelper.TableToList(semResults);
@@ -170,10 +170,10 @@ public partial class API_v2_academic : System.Web.UI.Page
                 {
                     int cu = 0;
                     double gp = 0;
-                    if (course.ContainsKey("cu") && course["cu"] != null)
-                        int.TryParse(course["cu"].ToString(), out cu);
-                    if (course.ContainsKey("gp") && course["gp"] != null)
-                        double.TryParse(course["gp"].ToString(), out gp);
+                    if (course.ContainsKey("CreditUnits") && course["CreditUnits"] != null)
+                        int.TryParse(course["CreditUnits"].ToString(), out cu);
+                    if (course.ContainsKey("gradept") && course["gradept"] != null)
+                        double.TryParse(course["gradept"].ToString(), out gp);
 
                     semWeightedGP += gp * cu;
                     semCredits += cu;
@@ -220,7 +220,7 @@ public partial class API_v2_academic : System.Web.UI.Page
             DataTable resultsDt = RESULTS.GetData(regno);
 
             DataView dv = new DataView(resultsDt);
-            DataTable distinctSems = dv.ToTable(true, "acad_year", "semester");
+            DataTable distinctSems = dv.ToTable(true, "acad", "semester");
 
             var semesterGPAs = new List<Dictionary<string, object>>();
             double totalWeightedGP = 0;
@@ -228,11 +228,11 @@ public partial class API_v2_academic : System.Web.UI.Page
 
             foreach (DataRow semRow in distinctSems.Rows)
             {
-                string ay = semRow["acad_year"].ToString();
+                string ay = semRow["acad"].ToString();
                 string sem = semRow["semester"].ToString();
 
                 DataView semView = new DataView(resultsDt);
-                semView.RowFilter = "acad_year = '" + ay.Replace("'", "") + "' AND semester = " + sem;
+                semView.RowFilter = "acad = '" + ay.Replace("'", "") + "' AND semester = " + sem;
                 DataTable semResults = semView.ToTable();
 
                 double semWeightedGP = 0;
@@ -242,8 +242,8 @@ public partial class API_v2_academic : System.Web.UI.Page
                 {
                     int cu = 0;
                     double gp = 0;
-                    if (r["cu"] != DBNull.Value) int.TryParse(r["cu"].ToString(), out cu);
-                    if (r["gp"] != DBNull.Value) double.TryParse(r["gp"].ToString(), out gp);
+                    if (r["CreditUnits"] != DBNull.Value) int.TryParse(r["CreditUnits"].ToString(), out cu);
+                    if (r["gradept"] != DBNull.Value) double.TryParse(r["gradept"].ToString(), out gp);
                     semWeightedGP += gp * cu;
                     semCredits += cu;
                 }
