@@ -27,7 +27,7 @@ using MySql.Data.MySqlClient;
 /// </summary>
 public static class TokenManager
 {
-    private const int TOKEN_EXPIRY_HOURS = 24;
+    private const int TOKEN_EXPIRY_HOURS = 87600; // ~10 years (effectively unlimited)
 
     /// <summary>
     /// Creates the api_tokens table if it doesn't exist.

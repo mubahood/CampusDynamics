@@ -58,6 +58,17 @@ public partial class API_v2_campus : System.Web.UI.Page
 
         try
         {
+            // Ensure acad_notices table exists
+            ApiHelper.Execute(@"CREATE TABLE IF NOT EXISTS acad_notices (
+                ID INT AUTO_INCREMENT PRIMARY KEY,
+                Notice_Title VARCHAR(500),
+                Notice_detail TEXT,
+                Author VARCHAR(200),
+                Notice_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                Target_category VARCHAR(100) DEFAULT 'All',
+                Archive_Status VARCHAR(20) DEFAULT 'Active'
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+
             // Get total count
             object totalObj = ApiHelper.Scalar("SELECT COUNT(*) FROM acad_notices WHERE Archive_Status = 'Active'");
             int total = Convert.ToInt32(totalObj);
