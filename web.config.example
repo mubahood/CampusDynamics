@@ -1,0 +1,331 @@
+<!--
+  ============================================================
+  Campus Dynamics - web.config EXAMPLE / TEMPLATE
+  ============================================================
+  This file is a sanitized TEMPLATE of web.config.
+  It is safe to commit to source control.
+
+  SETUP INSTRUCTIONS:
+  1. Copy this file and rename the copy to "web.config"
+  2. Replace every placeholder ({{ ... }}) with your actual values
+  3. NEVER commit the real web.config to source control
+
+  See CONFIGURATION.md for full documentation.
+  ============================================================
+-->
+<configuration>
+  <configSections>
+    <sectionGroup name="devExpress">
+      <section name="settings"     type="DevExpress.Web.SettingsConfigurationSection, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" requirePermission="false" />
+      <section name="compression"  type="DevExpress.Web.CompressionConfigurationSection, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" requirePermission="false" />
+      <section name="themes"       type="DevExpress.Web.ThemesConfigurationSection, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" requirePermission="false" />
+      <section name="errors"       type="DevExpress.Web.ErrorsConfigurationSection, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" requirePermission="false" />
+    </sectionGroup>
+    <sectionGroup name="businessObjects">
+      <sectionGroup name="crystalReports">
+        <section name="rptBuildProvider" type="CrystalDecisions.Shared.RptBuildProviderHandler, CrystalDecisions.Shared, Version=13.0.2000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304, Custom=null" />
+      </sectionGroup>
+    </sectionGroup>
+  </configSections>
+
+  <!-- ========================================================
+       APPLICATION SETTINGS
+       ======================================================== -->
+  <appSettings>
+    <!-- Crystal Reports image cleaner configuration -->
+    <add key="CrystalImageCleaner-AutoStart" value="true" />
+    <add key="CrystalImageCleaner-Sleep"     value="60000" />
+    <add key="CrystalImageCleaner-Age"       value="120000" />
+
+    <!--
+      OPTIONAL: SMS / messaging provider API keys
+      <add key="SmsApiKey"    value="{{ YOUR_SMS_API_KEY }}" />
+      <add key="SmsApiSecret" value="{{ YOUR_SMS_API_SECRET }}" />
+    -->
+  </appSettings>
+
+  <!-- ========================================================
+       CONNECTION STRINGS
+       Replace {{ DB_SERVER }}, {{ DB_USER }}, {{ DB_PASSWORD }}
+       with your environment-specific values.
+
+       Common DB names used by this application:
+         campus_dynamics            – main operational database
+         campus_dynamics_admissions – admissions data
+         campus_dynamics_accounts   – financial / accounting data
+         campus_dynamics_portal     – student / staff portal
+       ======================================================== -->
+  <connectionStrings>
+    <remove name="LocalMySqlServer" />
+
+    <!-- Primary application database (also used for ASP.NET Membership) -->
+    <add name="LocalMySqlServer"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics"
+         providerName="MySql.Data.MySqlClient" />
+
+    <!-- Main campus_dynamics database (extended timeout) -->
+    <add name="vacConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics;DefaultCommandTimeout=600;Convert Zero Datetime=True"
+         providerName="MySql.Data.MySqlClient" />
+
+    <!-- Admissions database -->
+    <add name="campus_dynamics_admissionsConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics_admissions;DefaultCommandTimeout=600;Convert Zero Datetime=True"
+         providerName="MySql.Data.MySqlClient" />
+
+    <!-- Accounts / financial database -->
+    <add name="accountsConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True"
+         providerName="MySql.Data.MySqlClient" />
+
+    <!-- XPO provider – accounts -->
+    <add name="localhost_campus_dynamics_accounts_Connection"
+         connectionString="XpoProvider=MySql;server={{ DB_SERVER }};port={{ DB_PORT }};user Id={{ DB_USER }}; password={{ DB_PASSWORD }};database=campus_dynamics_accounts;persist security info=true;CharSet=utf8;" />
+
+    <!-- SchoolMIS (UTF-8 charset explicitly set) -->
+    <add name="schoolMISConnectionString"
+         connectionString="server={{ DB_SERVER }};charset=utf8;User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics;DefaultCommandTimeout=600"
+         providerName="MySql.Data.MySqlClient" />
+
+    <!-- Hotel Dynamics module -->
+    <add name="hoteldynamicsConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics;DefaultCommandTimeout=600"
+         providerName="MySql.Data.MySqlClient" />
+
+    <!-- Security provider -->
+    <add name="SecurityConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics;DefaultCommandTimeout=600"
+         providerName="MySql.Data.MySqlClient" />
+
+    <!-- Portal database -->
+    <add name="campus_dynamics_portalConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics_portal"
+         providerName="MySql.Data.MySqlClient" />
+
+    <!-- XPO provider – main database (multiple named instances for legacy compatibility) -->
+    <add name="localhost_campus_dynamics_Connection 1"
+         connectionString="XpoProvider=MySql;server={{ DB_SERVER }};port={{ DB_PORT }};user Id={{ DB_USER }}; password={{ DB_PASSWORD }}; database=campus_dynamics;persist security info=true;CharSet=utf8;" />
+    <add name="localhost_campus_dynamics_Connection"
+         connectionString="XpoProvider=MySql;server={{ DB_SERVER }};port={{ DB_PORT }};user Id={{ DB_USER }}; password={{ DB_PASSWORD }}; database=campus_dynamics;persist security info=true;CharSet=utf8;" />
+    <add name="localhost_campus_dynamics_Connection 2"
+         connectionString="XpoProvider=MySql;server={{ DB_SERVER }};port={{ DB_PORT }};user Id={{ DB_USER }}; password={{ DB_PASSWORD }}; database=campus_dynamics;persist security info=true;CharSet=utf8;" />
+
+    <!-- XPO provider – portal -->
+    <add name="localhost_campus_dynamics_portal_Connection"
+         connectionString="XpoProvider=MySql;server={{ DB_SERVER }};port={{ DB_PORT }};User Id={{ DB_USER }}; password={{ DB_PASSWORD }}; database=campus_dynamics_portal;persist security info=true;CharSet=utf8;" />
+  </connectionStrings>
+
+  <!-- ========================================================
+       ASP.NET RUNTIME CONFIGURATION
+       ======================================================== -->
+  <system.web>
+    <!--
+      Set debug="true" for development only.
+      Always use debug="false" in production.
+    -->
+    <compilation debug="{{ true_for_dev__false_for_prod }}" targetFramework="4.0">
+      <assemblies>
+        <!-- DevExpress UI components v16.1 -->
+        <add assembly="DevExpress.DataAccess.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.Xpo.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Data.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.XtraPrinting.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.XtraEditors.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Printing.v16.1.Core, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.XtraReports.v16.1.Web, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.XtraReports.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Utils.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.ExpressApp.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.ExpressApp.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.Web.ASPxTreeList.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Persistent.Base.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.Charts.v16.1.Core, Version=16.1.4.0, Culture=Neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.XtraCharts.v16.1, Version=16.1.4.0, Culture=Neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.PivotGrid.v16.1.Core, Version=16.1.4.0, Culture=Neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.XtraPivotGrid.v16.1, Version=16.1.4.0, Culture=Neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.XtraRichEdit.v16.1, Version=16.1.4.0, Culture=Neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.RichEdit.v16.1.Core, Version=16.1.4.0, Culture=Neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.BonusSkins.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Web.ASPxScheduler.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.XtraScheduler.v16.1.Core, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="MySql.Data, Version=6.6.7.0, Culture=neutral, PublicKeyToken=C5687FC88969C44D" />
+        <add assembly="System.Design, Version=4.0.0.0, Culture=neutral, PublicKeyToken=B03F5F7F11D50A3A" />
+        <add assembly="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=B77A5C561934E089" />
+        <add assembly="DevExpress.Web.ASPxHtmlEditor.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Web.ASPxSpellChecker.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.SpellChecker.v16.1.Core, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.XtraCharts.v16.1.Web, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Web.ASPxPivotGrid.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Web.ASPxThemes.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.Web.ASPxSpreadsheet.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Spreadsheet.v16.1.Core, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Office.v16.1.Core, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+        <add assembly="DevExpress.Sparkline.v16.1.Core, Version=16.1.4.0, Culture=Neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.XtraGauges.v16.1.Core, Version=16.1.4.0, Culture=Neutral, PublicKeyToken=b88d1754d700e49a" />
+        <add assembly="DevExpress.Web.Resources.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=B88D1754D700E49A" />
+      </assemblies>
+      <buildProviders>
+        <add extension=".rpt" type="CrystalDecisions.Web.Compilation.RptBuildProvider, CrystalDecisions.Web, Version=13.0.2000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304" />
+      </buildProviders>
+    </compilation>
+
+    <!-- Custom error pages - set mode="On" in production -->
+    <customErrors mode="Off" defaultRedirect="~/Error.aspx">
+      <!--<error statusCode="403" redirect="Error.aspx?code=403"/>-->
+      <!--<error statusCode="404" redirect="Error.aspx?code=404"/>-->
+    </customErrors>
+
+    <!-- Session timeout in minutes (43200 = 30 days) -->
+    <sessionState mode="InProc" timeout="43200" />
+
+    <!-- Forms authentication; loginUrl points to the main login page -->
+    <authentication mode="Forms">
+      <forms loginUrl="~/Default.aspx" timeout="43200" slidingExpiration="true" />
+    </authentication>
+
+    <!-- MySQL ASP.NET Membership provider -->
+    <membership defaultProvider="MySQLMembershipProvider">
+      <providers>
+        <clear />
+        <remove name="MySQLMembershipProvider" />
+        <add name="MySQLMembershipProvider"
+             type="MySql.Web.Security.MySQLMembershipProvider, MySql.Web, Version=6.6.7.0, Culture=neutral, PublicKeyToken=c5687fc88969c44d"
+             applicationName="/"
+             connectionStringName="LocalMySqlServer"
+             writeExceptionsToEventLog="False"
+             autogenerateschema="True"
+             enablePasswordRetrieval="False"
+             enablePasswordReset="True"
+             requiresQuestionAndAnswer="False"
+             requiresUniqueEmail="False"
+             passwordFormat="Hashed"
+             maxInvalidPasswordAttempts="5"
+             minRequiredPasswordLength="1"
+             minRequiredNonalphanumericCharacters="0"
+             passwordAttemptWindow="10"
+             passwordStrengthRegularExpression="" />
+      </providers>
+    </membership>
+
+    <profile>
+      <providers>
+        <clear />
+        <add name="MySQLProfileProvider"
+             type="System.Web.Profile.MySQLProfileProvider"
+             connectionStringName="ApplicationServices"
+             applicationName="/" />
+      </providers>
+    </profile>
+
+    <!-- MySQL Role provider -->
+    <roleManager enabled="true" defaultProvider="MySQLRoleProvider">
+      <providers>
+        <clear />
+        <remove name="MySQLRoleProvider" />
+        <add name="MySQLRoleProvider"
+             type="MySql.Web.Security.MySQLRoleProvider, MySql.Web, Version=6.6.7.0, Culture=neutral, PublicKeyToken=c5687fc88969c44d"
+             applicationName="/"
+             connectionStringName="LocalMySqlServer"
+             writeExceptionsToEventLog="False"
+             autogenerateschema="True" />
+      </providers>
+    </roleManager>
+
+    <!-- DevExpress page/control registrations -->
+    <pages controlRenderingCompatibilityVersion="3.5" clientIDMode="AutoID" theme="Office2010Blue">
+      <controls>
+        <add tagPrefix="dx"        assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"             namespace="DevExpress.Web" />
+        <add tagPrefix="dxwschs"   assembly="DevExpress.Web.ASPxScheduler.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web.ASPxScheduler" />
+        <add tagPrefix="cc1"       assembly="DevExpress.XtraScheduler.v16.1.Core, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.XtraScheduler" />
+        <add tagPrefix="dx"        assembly="DevExpress.XtraReports.v16.1.Web, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"    namespace="DevExpress.XtraReports.Web" />
+        <add tagPrefix="dx"        assembly="DevExpress.Web.ASPxPivotGrid.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"  namespace="DevExpress.Web.ASPxPivotGrid" />
+        <add tagPrefix="dxchartsui" assembly="DevExpress.XtraCharts.v16.1.Web, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"    namespace="DevExpress.XtraCharts.Web" />
+        <add tagPrefix="cc2"       assembly="DevExpress.XtraCharts.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"          namespace="DevExpress.XtraCharts" />
+        <add tagPrefix="dx"        assembly="DevExpress.Web.ASPxSpreadsheet.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web.ASPxSpreadsheet" />
+      </controls>
+    </pages>
+
+    <httpHandlers>
+      <add type="DevExpress.Web.ASPxUploadProgressHttpHandler, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"
+           verb="GET,POST" path="ASPxUploadProgressHandlerPage.ashx" validate="false" />
+      <add verb="GET" path="CrystalImageHandler.aspx"
+           type="CrystalDecisions.Web.CrystalImageHandler, CrystalDecisions.Web, Version=13.0.2000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304" />
+      <add type="DevExpress.Web.ASPxHttpHandlerModule, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"
+           verb="GET,POST" path="DX.ashx" validate="false" />
+      <add verb="*" path="DXX.axd"
+           type="DevExpress.ExpressApp.Web.XafHttpHandler, DevExpress.ExpressApp.Web.v16.1, Version=16.1.4.0, culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+      <add verb="GET,POST" path="DXXRD.axd"
+           type="DevExpress.Web.ASPxHttpHandlerModule, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+    </httpHandlers>
+
+    <httpModules>
+      <add type="DevExpress.Web.ASPxHttpHandlerModule, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"
+           name="ASPxHttpHandlerModule" />
+      <add name="XafHttpModule"
+           type="DevExpress.ExpressApp.Web.XafHttpModule, DevExpress.ExpressApp.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+    </httpModules>
+  </system.web>
+
+  <!-- ========================================================
+       IIS 7+ INTEGRATED PIPELINE (system.webServer)
+       ======================================================== -->
+  <system.webServer>
+    <validation validateIntegratedModeConfiguration="false" />
+    <modules>
+      <add type="DevExpress.Web.ASPxHttpHandlerModule, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"
+           name="ASPxHttpHandlerModule" />
+      <add name="XafHttpModule"
+           type="DevExpress.ExpressApp.Web.XafHttpModule, DevExpress.ExpressApp.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+    </modules>
+    <handlers>
+      <add type="DevExpress.Web.ASPxUploadProgressHttpHandler, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"
+           verb="GET,POST" path="ASPxUploadProgressHandlerPage.ashx" name="ASPxUploadProgressHandler" preCondition="integratedMode" />
+      <add name="CrystalImageHandler.aspx_GET" verb="GET" path="CrystalImageHandler.aspx"
+           type="CrystalDecisions.Web.CrystalImageHandler, CrystalDecisions.Web, Version=13.0.2000.0, Culture=neutral, PublicKeyToken=692fbea5521e1304"
+           preCondition="integratedMode" />
+      <add type="DevExpress.Web.ASPxHttpHandlerModule, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a"
+           verb="GET,POST" path="DX.ashx" name="ASPxHttpHandlerModule" preCondition="integratedMode" />
+      <add name="XafHttpHandler" preCondition="integratedMode" verb="*" path="DXX.axd"
+           type="DevExpress.ExpressApp.Web.XafHttpHandler, DevExpress.ExpressApp.Web.v16.1, Version=16.1.4.0, culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+      <add name="ASPxHttpHandlerModuleXAF" preCondition="integratedMode" verb="GET,POST" path="DXXRD.axd"
+           type="DevExpress.Web.ASPxHttpHandlerModule, DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+    </handlers>
+    <defaultDocument>
+      <files>
+        <clear />
+        <add value="Default.htm" />
+        <add value="Default.asp" />
+        <add value="index.htm" />
+        <add value="index.html" />
+        <add value="iisstart.htm" />
+        <add value="default.aspx" />
+        <add value="index.php" />
+      </files>
+    </defaultDocument>
+  </system.webServer>
+
+  <!-- ========================================================
+       DEVEXPRESS CONFIGURATION
+       ======================================================== -->
+  <devExpress>
+    <settings rightToLeft="false" doctypeMode="Xhtml" embedRequiredClientLibraries="true"
+              accessibilityCompliant="false" checkReferencesToExternalScripts="false"
+              ieCompatibilityVersion="edge" />
+    <compression enableHtmlCompression="false" enableCallbackCompression="true"
+                 enableResourceCompression="true" enableResourceMerging="false" />
+    <themes enableThemesAssembly="true" styleSheetTheme="" theme="" customThemeAssemblies="" />
+    <errors callbackErrorRedirectUrl="" />
+  </devExpress>
+
+  <!-- ========================================================
+       CRYSTAL REPORTS
+       ======================================================== -->
+  <businessObjects>
+    <crystalReports>
+      <rptBuildProvider>
+        <add embedRptInResource="true" />
+      </rptBuildProvider>
+    </crystalReports>
+  </businessObjects>
+</configuration>

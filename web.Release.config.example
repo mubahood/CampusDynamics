@@ -1,0 +1,88 @@
+<!--
+  ============================================================
+  Campus Dynamics - web.Release.config EXAMPLE / TEMPLATE
+  ============================================================
+  This is a Web.config TRANSFORMATION applied automatically by
+  MSBuild/Visual Studio when building in the "Release" (production)
+  configuration.
+
+  SETUP INSTRUCTIONS:
+  1. Copy this file and rename to "web.Release.config"
+  2. Fill in your production/staging server credentials
+  3. NEVER commit the real web.Release.config – it is git-ignored
+
+  Documentation: CONFIGURATION.md
+  ============================================================
+-->
+<configuration xmlns:xdt="http://schemas.microsoft.com/XML-Document-Transform">
+
+  <!--
+    RELEASE: Disable debug compilation for performance.
+  -->
+  <system.web>
+    <compilation xdt:Transform="SetAttributes" xdt:Locator="Match(debug)"
+                 debug="false" />
+
+    <!--
+      RELEASE: Show custom error pages instead of stack traces.
+      Set mode="On" or "RemoteOnly" in production.
+    -->
+    <customErrors xdt:Transform="SetAttributes" xdt:Locator="Match(mode)"
+                  mode="RemoteOnly" defaultRedirect="~/ErrorPage.aspx" />
+
+    <!--
+      RELEASE: Reduce session timeout for security (e.g., 60 minutes).
+      Adjust to match your institution's security policy.
+    -->
+    <sessionState xdt:Transform="SetAttributes" xdt:Locator="Match(timeout)"
+                  timeout="60" />
+  </system.web>
+
+  <!--
+    RELEASE: Override connection strings with production server values.
+    Replace {{ ... }} with your actual production values.
+
+    IMPORTANT SECURITY NOTES:
+    - Use a dedicated read/write database user (not root)
+    - Ensure SSL is enabled for DB connections on production
+    - Restrict firewall access to the DB host
+
+    Typical production values:
+      DB_SERVER       = your production MySQL hostname or IP
+      DB_PORT         = 3306  (or custom port)
+      DB_USER         = campus_app   (non-root, limited-privilege account)
+      DB_PASSWORD     = strong random password
+  -->
+  <connectionStrings>
+    <add name="LocalMySqlServer"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=False;database=campus_dynamics;SslMode=Required"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+
+    <add name="vacConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=False;database=campus_dynamics;DefaultCommandTimeout=600;Convert Zero Datetime=True;SslMode=Required"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+
+    <add name="campus_dynamics_admissionsConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=False;database=campus_dynamics_admissions;DefaultCommandTimeout=600;Convert Zero Datetime=True;SslMode=Required"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+
+    <add name="accountsConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=False;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True;SslMode=Required"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+
+    <add name="SecurityConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=False;database=campus_dynamics;DefaultCommandTimeout=600;SslMode=Required"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+
+    <add name="campus_dynamics_portalConnectionString"
+         connectionString="server={{ DB_SERVER }};User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=False;database=campus_dynamics_portal;SslMode=Required"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+  </connectionStrings>
+
+</configuration>

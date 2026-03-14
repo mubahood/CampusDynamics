@@ -3,6 +3,21 @@
 ## Overview
 Campus Dynamics is a comprehensive Educational Management Information System (EMIS) built on ASP.NET Web Forms for managing all aspects of higher education institutions.
 
+## Configuration & First-Time Setup
+
+This repository does **not** store real credentials. Before running the application, copy the example config templates and fill in your environment values:
+
+```powershell
+Copy-Item web.config.example       web.config
+Copy-Item web.Debug.config.example web.Debug.config   # optional
+```
+
+Then open each file and replace every `{{ PLACEHOLDER }}` with your actual database host, username, and password.
+
+See [CONFIGURATION.md](CONFIGURATION.md) for the complete setup guide, placeholder reference, environment transforms, and security guidelines.
+
+---
+
 ## Technology Stack
 - **Platform:** ASP.NET 4.0 Web Forms
 - **UI Framework:** DevExpress v16.1

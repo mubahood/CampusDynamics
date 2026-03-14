@@ -53,7 +53,7 @@ desktop.ini
 *.snupkg
 
 # NuGet packages folder
-packages/
+# packages/
 
 # Keep important folders but ignore their contents
 App_Data/XtraReports/*.repx
@@ -69,5 +69,34 @@ App_Data/XtraReports/*
 *.swo
 *~
 
-# Sensitive config (if needed, create example configs)
-# web.config (commented out - tracking this file)
+# ============================================================
+# SENSITIVE CONFIGURATION FILES
+# Never commit real config files containing credentials.
+# Track the sanitized *.example copies instead.
+# ============================================================
+
+# ASP.NET main config – contains DB connection strings & credentials
+web.config
+
+# Web.config environment transforms – may contain env-specific secrets
+web.Debug.config
+web.Release.config
+web.Staging.config
+web.Production.config
+
+# Always allow the sanitized example / template versions
+!web.config.example
+!web.Debug.config.example
+!web.Release.config.example
+!web.Staging.config.example
+!web.Production.config.example
+
+# PowerShell test/helper scripts that may contain inline credentials
+test_db.ps1
+test_nche_queries.ps1
+test_queries.ps1
+
+# Always allow the sanitized example versions of test scripts
+!test_db.ps1.example
+!test_nche_queries.ps1.example
+!test_queries.ps1.example

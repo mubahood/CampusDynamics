@@ -1,0 +1,66 @@
+<!--
+  ============================================================
+  Campus Dynamics - web.Debug.config EXAMPLE / TEMPLATE
+  ============================================================
+  This is a Web.config TRANSFORMATION applied automatically by
+  MSBuild/Visual Studio when building in the "Debug" configuration.
+
+  SETUP INSTRUCTIONS:
+  1. Copy this file and rename to "web.Debug.config"
+  2. Fill in your local development database credentials
+  3. Do NOT commit the real web.Debug.config – it is git-ignored
+
+  Documentation: CONFIGURATION.md
+  ============================================================
+-->
+<configuration xmlns:xdt="http://schemas.microsoft.com/XML-Document-Transform">
+
+  <!--
+    DEBUG: Enable compilation debugging symbols.
+    This overrides the base web.config value.
+  -->
+  <system.web>
+    <compilation xdt:Transform="SetAttributes" xdt:Locator="Match(debug)"
+                 debug="true" />
+
+    <!--
+      DEBUG: Show full error stack traces instead of the friendly error page.
+      Useful during local development.
+    -->
+    <customErrors xdt:Transform="SetAttributes" xdt:Locator="Match(mode)"
+                  mode="Off" />
+  </system.web>
+
+  <!--
+    DEBUG: Override connection strings to point at your local development database.
+    Replace {{ ... }} with your actual local values.
+
+    Typical local values:
+      DB_SERVER   = localhost
+      DB_PORT     = 3306
+      DB_USER     = root   (or a dedicated dev user)
+      DB_PASSWORD = your local MySQL root/dev password
+  -->
+  <connectionStrings>
+    <add name="LocalMySqlServer"
+         connectionString="server=localhost;User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+
+    <add name="vacConnectionString"
+         connectionString="server=localhost;User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics;DefaultCommandTimeout=600;Convert Zero Datetime=True"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+
+    <add name="campus_dynamics_admissionsConnectionString"
+         connectionString="server=localhost;User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics_admissions;DefaultCommandTimeout=600;Convert Zero Datetime=True"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+
+    <add name="accountsConnectionString"
+         connectionString="server=localhost;User Id={{ DB_USER }};password={{ DB_PASSWORD }};Persist Security Info=True;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True"
+         providerName="MySql.Data.MySqlClient"
+         xdt:Transform="SetAttributes" xdt:Locator="Match(name)" />
+  </connectionStrings>
+
+</configuration>
