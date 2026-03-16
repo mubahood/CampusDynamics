@@ -18,11 +18,11 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     
     protected void Page_Init(object sender, EventArgs e)
     {
-        // Bind empty table with proper columns to prevent DevExpress null reference on postback
+        // On postback, bind real data so DevExpress can restore grid state
+        // (pagination, selections, etc.) before event handlers fire
         if (IsPostBack)
         {
-            gvResults.DataSource = CreateEmptyResultsTable();
-            gvResults.DataBind();
+            BindGrid();
         }
     }
     
@@ -38,11 +38,10 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             UpdateDisplayLabels();
             LoadCourses();
             LoadStats();
+            BindGrid();
         }
         
-        // Always run on every request (including postbacks for pagination)
         CheckUserPermissions();
-        BindGrid();
     }
     
     private void CheckUserPermissions()
