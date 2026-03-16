@@ -288,10 +288,12 @@ public partial class COOPERP_NewScreens_AcademicResults : System.Web.UI.Page
                     LEFT JOIN acad_student s ON r.regno = s.regno
                     LEFT JOIN acad_course c ON r.courseid = c.courseID
                     " + whereClause + @"
-                    ORDER BY s.firstname, s.othername, r.studyyear, r.semester";
+                    ORDER BY r.ID DESC
+                    LIMIT 5000";
                 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
+                    cmd.CommandTimeout = 30;
                     AddFilterParameters(cmd);
                     
                     DataTable resultDt = new DataTable();
@@ -317,6 +319,8 @@ public partial class COOPERP_NewScreens_AcademicResults : System.Web.UI.Page
                         string msg = string.Format("Showing {0} records", dt.Rows.Count);
                         if (!string.IsNullOrEmpty(searchTerm))
                             msg += " for '" + searchTerm + "'";
+                        if (dt.Rows.Count >= 5000)
+                            msg += " (limit reached — use filters to narrow down)";
                         lblMessage.Text = msg;
                         lblMessage.ForeColor = System.Drawing.Color.Green;
                     }
