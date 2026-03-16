@@ -244,6 +244,12 @@
                             </a>
                             <ul class="cd-sidebar__submenu">
                                 <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkAcademicResults" runat="server" NavigateUrl="~/COOPERP/NewScreens/AcademicResults.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                                        <span>Academic Results</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
                                     <asp:HyperLink ID="lnkResultsRelease" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                         <span>Results Release</span>
