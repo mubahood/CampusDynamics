@@ -413,7 +413,7 @@
             <dx:ASPxGridView ID="gvResults" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="ID" 
                 CssClass="er-grid" OnBatchUpdate="gvResults_BatchUpdate" OnRowUpdating="gvResults_RowUpdating"
                 OnRowDeleting="gvResults_RowDeleting">
-                <SettingsPager PageSize="100" AlwaysShowPager="true" Position="Bottom">
+                <SettingsPager PageSize="500" AlwaysShowPager="true" Position="Bottom">
                 </SettingsPager>
                 <SettingsEditing Mode="Batch">
                     <BatchEditSettings StartEditAction="Click" EditMode="Cell" />

@@ -35,19 +35,14 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             LoadProgrammes();
             LoadEntryYears();
             
-            // Set defaults - keep All as default for maximum data visibility
-            // string defaultYear = GetCurrentAcademicYear();
-            // if (ddlAcadYear.Items.FindByValue(defaultYear) != null)
-            //     ddlAcadYear.SelectedValue = defaultYear;
-            
-            // ddlEntryYear.SelectedValue = DateTime.Now.Year.ToString();
-            
             UpdateDisplayLabels();
             LoadCourses();
             LoadStats();
-            CheckUserPermissions();
-            BindGrid();
         }
+        
+        // Always run on every request (including postbacks for pagination)
+        CheckUserPermissions();
+        BindGrid();
     }
     
     private void CheckUserPermissions()
@@ -485,8 +480,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                     LEFT JOIN acad_student s ON e.regno = s.regno
                     LEFT JOIN acad_course c ON e.course_id = c.courseID
                     " + whereClause + @"
-                    ORDER BY s.firstname, s.othername
-                    LIMIT 500";
+                    ORDER BY s.firstname, s.othername";
                 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
