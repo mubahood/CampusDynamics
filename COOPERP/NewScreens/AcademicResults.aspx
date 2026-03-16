@@ -347,7 +347,7 @@
                 <asp:Button ID="btnDeleteSelected" runat="server" Text="Delete Selected" CssClass="ar-btn ar-btn--danger" OnClick="btnDeleteSelected_Click" OnClientClick="return confirm('Are you sure you want to delete the selected results? This cannot be undone.');" />
                 <asp:Button ID="btnExportExcel" runat="server" Text="Export Excel" CssClass="ar-btn" OnClick="btnExportExcel_Click" />
             </div>
-            <asp:Label ID="lblMessage" runat="server" CssClass="ar-message" style="margin-left: 20px; font-weight: bold;"></asp:Label>
+            <asp:Label ID="lblMessage" runat="server" style="margin-left: 20px; font-weight: bold; font-size: 11px;"></asp:Label>
         </div>
         <div class="cd-card__body">
             <dx:ASPxGridView ID="gvResults" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="ID" 
