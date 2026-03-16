@@ -448,6 +448,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                 string sessionValue = ddlSession.SelectedValue;
                 string statusValue = ddlExamStatus.SelectedValue;
                 string studyYearValue = ddlStudyYear.SelectedValue;
+                string searchTerm = txtSearch.Text.Trim();
                 
                 if (!string.IsNullOrEmpty(acadValue))
                     conditions.Add("e.acadyear = @acad");
@@ -463,6 +464,12 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                     conditions.Add("e.exam_status = @stat");
                 if (!string.IsNullOrEmpty(studyYearValue))
                     conditions.Add("e.cyear = @yr");
+                
+                // Search by student name or registration number
+                if (!string.IsNullOrEmpty(searchTerm))
+                {
+                    conditions.Add("(e.regno LIKE @search OR s.firstname LIKE @search OR s.othername LIKE @search OR CONCAT(s.firstname, ' ', COALESCE(s.othername, '')) LIKE @search)");
+                }
                 
                 string whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
                 
@@ -497,6 +504,8 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                         cmd.Parameters.AddWithValue("@stat", statusValue);
                     if (!string.IsNullOrEmpty(studyYearValue))
                         cmd.Parameters.AddWithValue("@yr", int.Parse(studyYearValue));
+                    if (!string.IsNullOrEmpty(searchTerm))
+                        cmd.Parameters.AddWithValue("@search", "%" + searchTerm + "%");
                     
                     DataTable resultDt = new DataTable();
                     using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
@@ -511,12 +520,18 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                     // Show message if no data found
                     if (dt.Rows.Count == 0)
                     {
-                        lblMessage.Text = "No exam results found for the selected filters. Records in database: " + GetTotalRecordCount();
+                        if (!string.IsNullOrEmpty(searchTerm))
+                            lblMessage.Text = "No results found for '" + searchTerm + "'. Try a different name or registration number.";
+                        else
+                            lblMessage.Text = "No exam results found for the selected filters. Records in database: " + GetTotalRecordCount();
                         lblMessage.ForeColor = System.Drawing.Color.Orange;
                     }
                     else
                     {
-                        lblMessage.Text = string.Format("Showing {0} records", dt.Rows.Count);
+                        string msg = string.Format("Showing {0} records", dt.Rows.Count);
+                        if (!string.IsNullOrEmpty(searchTerm))
+                            msg += " for '" + searchTerm + "'";
+                        lblMessage.Text = msg;
                         lblMessage.ForeColor = System.Drawing.Color.Green;
                     }
                 }
@@ -602,6 +617,20 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     }
     
     #region Event Handlers
+    
+    protected void btnSearch_Click(object sender, EventArgs e)
+    {
+        // Search queries the database - BindGrid reads txtSearch.Text
+        LoadStats();
+        BindGrid();
+    }
+    
+    protected void btnClearSearch_Click(object sender, EventArgs e)
+    {
+        txtSearch.Text = "";
+        LoadStats();
+        BindGrid();
+    }
     
     protected void ddlCampus_SelectedIndexChanged(object sender, EventArgs e)
     {
@@ -791,6 +820,69 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
         gvExporter.WriteXlsxToResponse(fileName, new XlsxExportOptionsEx { ExportType = DevExpress.Export.ExportType.WYSIWYG });
     }
     
+    protected void gvResults_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
+    {
+        int id = Convert.ToInt32(e.Keys["ID"]);
+        
+        // Check if result is approved - block deletion of approved results
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                
+                // Check approval status first
+                string checkSql = "SELECT approved_by, regno, course_id FROM acad_examresults_faculty WHERE ID = @id";
+                string approvedBy = "-";
+                string regno = "";
+                string courseId = "";
+                
+                using (MySqlCommand checkCmd = new MySqlCommand(checkSql, conn))
+                {
+                    checkCmd.Parameters.AddWithValue("@id", id);
+                    using (MySqlDataReader reader = checkCmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            approvedBy = (reader["approved_by"] != DBNull.Value) ? reader["approved_by"].ToString() : "-";
+                            regno = reader["regno"].ToString();
+                            courseId = reader["course_id"].ToString();
+                        }
+                    }
+                }
+                
+                if (approvedBy != "-" && !string.IsNullOrEmpty(approvedBy))
+                {
+                    ShowMessage("Cannot delete approved result for " + regno + " (" + courseId + "). Cancel approval first.", "error");
+                    e.Cancel = true;
+                    BindGrid();
+                    return;
+                }
+                
+                // Delete the record
+                string deleteSql = "DELETE FROM acad_examresults_faculty WHERE ID = @id";
+                using (MySqlCommand deleteCmd = new MySqlCommand(deleteSql, conn))
+                {
+                    deleteCmd.Parameters.AddWithValue("@id", id);
+                    int affected = deleteCmd.ExecuteNonQuery();
+                    
+                    if (affected > 0)
+                        ShowMessage("Result deleted: " + regno + " - " + courseId, "success");
+                    else
+                        ShowMessage("Record not found or already deleted.", "warning");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage("Error deleting result: " + ex.Message, "error");
+        }
+        
+        e.Cancel = true; // Cancel default handling since we did it manually
+        LoadStats();
+        BindGrid();
+    }
+    
     protected void gvResults_BatchUpdate(object sender, DevExpress.Web.Data.ASPxDataBatchUpdateEventArgs e)
     {
         // Handle batch updates
@@ -860,6 +952,10 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             throw new Exception("Total mark exceeds 100 for student: " + e.OldValues["regno"]);
         }
         
+        // Recalculate grade and grade point from total mark
+        string grade = CalculateGrade(totalMark);
+        double gradePt = CalculateGradePoint(grade);
+        
         // Update the record directly
         int id = Convert.ToInt32(e.Keys["ID"]);
         
@@ -869,7 +965,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             string updateSql = @"UPDATE acad_examresults_faculty 
                                 SET cw_mark_entered = @cw_entered, cw_mark = @cw_mark,
                                     exam_mark_entered = @exam_entered, ex_mark = @ex_mark,
-                                    total_mark = @total
+                                    total_mark = @total, grade = @grade, gradept = @gradept
                                 WHERE ID = @id";
             
             using (MySqlCommand cmd = new MySqlCommand(updateSql, conn))
@@ -879,6 +975,8 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                 cmd.Parameters.AddWithValue("@exam_entered", examEntered);
                 cmd.Parameters.AddWithValue("@ex_mark", exMark);
                 cmd.Parameters.AddWithValue("@total", totalMark);
+                cmd.Parameters.AddWithValue("@grade", grade);
+                cmd.Parameters.AddWithValue("@gradept", gradePt);
                 cmd.Parameters.AddWithValue("@id", id);
                 cmd.ExecuteNonQuery();
             }
@@ -929,10 +1027,14 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             int exMark = (int)Math.Round(examEntered * examRatio / 100);
             int totalMark = cwMark + exMark;
             
+            // Recalculate grade and grade point from total mark
+            string grade = CalculateGrade(totalMark);
+            double gradePt = CalculateGradePoint(grade);
+            
             string updateSql = @"UPDATE acad_examresults_faculty 
                                 SET cw_mark_entered = @cw_entered, cw_mark = @cw_mark,
                                     exam_mark_entered = @exam_entered, ex_mark = @ex_mark,
-                                    total_mark = @total
+                                    total_mark = @total, grade = @grade, gradept = @gradept
                                 WHERE ID = @id";
             
             using (MySqlCommand cmd = new MySqlCommand(updateSql, conn))
@@ -942,9 +1044,55 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                 cmd.Parameters.AddWithValue("@exam_entered", examEntered);
                 cmd.Parameters.AddWithValue("@ex_mark", exMark);
                 cmd.Parameters.AddWithValue("@total", totalMark);
+                cmd.Parameters.AddWithValue("@grade", grade);
+                cmd.Parameters.AddWithValue("@gradept", gradePt);
                 cmd.Parameters.AddWithValue("@id", id);
                 cmd.ExecuteNonQuery();
             }
+        }
+    }
+    
+    #endregion
+    
+    #region Grade Calculation Helpers
+    
+    /// <summary>
+    /// Calculate letter grade from total mark (0-100 scale).
+    /// Uses the same grading scale as ResultsUpdates.aspx.cs.
+    /// </summary>
+    private string CalculateGrade(int totalMark)
+    {
+        if (totalMark >= 90) return "A";
+        if (totalMark >= 80) return "A-";
+        if (totalMark >= 75) return "B+";
+        if (totalMark >= 70) return "B";
+        if (totalMark >= 65) return "B-";
+        if (totalMark >= 60) return "C+";
+        if (totalMark >= 55) return "C";
+        if (totalMark >= 50) return "C-";
+        if (totalMark >= 45) return "D";
+        return "E";
+    }
+    
+    /// <summary>
+    /// Convert letter grade to grade point on 5.0 scale.
+    /// Uses the same mapping as ResultsUpdates.aspx.cs.
+    /// </summary>
+    private double CalculateGradePoint(string grade)
+    {
+        switch (grade)
+        {
+            case "A":  return 5.0;
+            case "A-": return 4.5;
+            case "B+": return 4.0;
+            case "B":  return 3.5;
+            case "B-": return 3.0;
+            case "C+": return 2.5;
+            case "C":  return 2.0;
+            case "C-": return 1.5;
+            case "D":  return 1.0;
+            case "E":  return 0.0;
+            default:   return 0.0;
         }
     }
     

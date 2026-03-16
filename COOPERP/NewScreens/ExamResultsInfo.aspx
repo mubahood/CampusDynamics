@@ -227,9 +227,43 @@
         .er-ratio-item__label { color: #666; }
         .er-ratio-item__value { font-weight: 700; color: #174DA4; }
         
+        /* Search Bar */
+        .er-search-bar {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .er-search-input {
+            border: 1px solid #ddd;
+            padding: 7px 12px;
+            font-size: 12px;
+            min-width: 280px;
+            border-radius: 4px;
+            background: #fff;
+        }
+        .er-search-input:focus { border-color: #174DA4; outline: none; box-shadow: 0 0 0 2px rgba(23,77,164,0.15); }
+        .er-search-input::placeholder { color: #aaa; }
+        .er-search-hint {
+            font-size: 10px;
+            color: #888;
+            margin-left: 4px;
+        }
+        
+        /* Delete confirmation row */
+        .er-delete-link {
+            color: #dc3545;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .er-delete-link:hover { color: #a71d2a; text-decoration: underline; }
+        
         /* Print Styles */
         @media print {
-            .er-batch-bar, .er-filter-row { display: none !important; }
+            .er-batch-bar, .er-filter-row, .er-search-bar { display: none !important; }
         }
     </style>
 </asp:Content>
@@ -270,6 +304,14 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
             <span>Filters</span>
         </button>
+    </div>
+    
+    <!-- Search Bar -->
+    <div class="er-search-bar">
+        <asp:TextBox ID="txtSearch" runat="server" CssClass="er-search-input" placeholder="Search by student name or registration number..." />
+        <asp:Button ID="btnSearch" runat="server" Text="Search" CssClass="er-batch-btn er-batch-btn--primary" OnClick="btnSearch_Click" />
+        <asp:Button ID="btnClearSearch" runat="server" Text="Clear" CssClass="er-batch-btn" OnClick="btnClearSearch_Click" />
+        <span class="er-search-hint">Searches across all programmes &amp; courses</span>
     </div>
     
     <!-- Filter Row -->
@@ -369,7 +411,8 @@
         </div>
         <div class="cd-card__body">
             <dx:ASPxGridView ID="gvResults" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="ID" 
-                CssClass="er-grid" OnBatchUpdate="gvResults_BatchUpdate" OnRowUpdating="gvResults_RowUpdating">
+                CssClass="er-grid" OnBatchUpdate="gvResults_BatchUpdate" OnRowUpdating="gvResults_RowUpdating"
+                OnRowDeleting="gvResults_RowDeleting">
                 <SettingsPager PageSize="100" AlwaysShowPager="true" Position="Bottom">
                 </SettingsPager>
                 <SettingsEditing Mode="Batch">
@@ -379,7 +422,8 @@
                 <Settings ShowFilterRow="false" />
                 <SettingsSearchPanel Visible="true" ShowApplyButton="true" />
                 <Columns>
-                    <dx:GridViewCommandColumn ShowSelectCheckbox="true" SelectAllCheckboxMode="Page" VisibleIndex="0" Width="30px">
+                    <dx:GridViewCommandColumn ShowSelectCheckbox="true" SelectAllCheckboxMode="Page" VisibleIndex="0" Width="60px"
+                        ShowDeleteButton="true">
                     </dx:GridViewCommandColumn>
                     <dx:GridViewDataTextColumn FieldName="ID" Caption="ID" VisibleIndex="1" Visible="false">
                     </dx:GridViewDataTextColumn>
