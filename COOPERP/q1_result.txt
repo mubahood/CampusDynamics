@@ -1,0 +1,4 @@
+transactionType	cnt
+CR	70227
+DR	68805
+

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -47,6 +48,42 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
     {
         try
         {
+            // B12 FIX: Block transactions outside open financial period
+            string periodError;
+            if (!IsInOpenFinancialPeriod(out periodError))
+            {
+                lbl_msg.Text = periodError;
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+
+            // C7 FIX: Input validation
+            if (txtSourceAccount.Value == null || string.IsNullOrEmpty(txtSourceAccount.Value.ToString()))
+            {
+                lbl_msg.Text = "Error! Please select a Source Account";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+            if (txtDestAccount.Value == null || string.IsNullOrEmpty(txtDestAccount.Value.ToString()))
+            {
+                lbl_msg.Text = "Error! Please select a Destination Account";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+            decimal amount;
+            if (!decimal.TryParse(txtAmount.Text.Replace(",", ""), out amount) || amount <= 0)
+            {
+                lbl_msg.Text = "Error! Enter a valid amount greater than zero";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+            if (amount > 10000000000m)
+            {
+                lbl_msg.Text = "Error! Amount exceeds maximum allowed (10 Billion UGX)";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+
             if (txtSourceAccount.Text == txtDestAccount.Text)
             {
                 lbl_msg.Text = "Error! Source and Destination Accounts should be different";
@@ -54,20 +91,25 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             else
             {
                 fin_ledgerTableAdapter LEDGER = new fin_ledgerTableAdapter();
-
-                LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtDestAccount.Value.ToString(),
-                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Transferred from " + txtSourceAccount.Value.ToString(), "DR", "");
-
-
-                LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtSourceAccount.Value.ToString(),
-                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtDestAccount.Text, "CR", "");
-
                 fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
-                string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtDestAccount.Text;
-                int JNO = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
-                //JN.UpdateParticulars(Particulars, JNO);
 
-                JN.UpdateJournalAmounts(decimal.Parse(txtAmount.Text.Replace(",", "")), decimal.Parse(txtAmount.Text.Replace(",", "")), JNO.ToString());
+                // C5 FIX: Wrap all DB writes in TransactionScope — either all succeed or all roll back
+                using (TransactionScope scope = new TransactionScope())
+                {
+                    LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtDestAccount.Value.ToString(),
+                    "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Transferred from " + txtSourceAccount.Value.ToString(), "DR", "");
+
+                    LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtSourceAccount.Value.ToString(),
+                    "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtDestAccount.Text, "CR", "");
+
+                    string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtDestAccount.Text;
+                    int JNO = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
+
+                    JN.UpdateJournalAmounts(decimal.Parse(txtAmount.Text.Replace(",", "")), decimal.Parse(txtAmount.Text.Replace(",", "")), JNO.ToString());
+
+                    scope.Complete();
+                }
+
                 gvParticulars.DataBind();
                 gvDetails.DataBind();
                 lbl_msg.Text = "Voucher Details Added Successfully";
@@ -228,5 +270,27 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                 JN.UpdateForexRate(1, int.Parse(Session["jno"].ToString()));
             }
         }
+    }
+    // B12 FIX: Financial period validation
+    private bool IsInOpenFinancialPeriod(out string errorMessage)
+    {
+        errorMessage = "";
+        fin_financial_yearsTableAdapter FY = new fin_financial_yearsTableAdapter();
+        var dtOpen = FY.GetFinicalPeriodStatus();
+        if (dtOpen.Rows.Count == 0)
+        {
+            errorMessage = "Error! No financial year is currently Open. Cannot create transactions.";
+            return false;
+        }
+        DateTime periodStart = Convert.ToDateTime(dtOpen.Rows[0]["start_date"]);
+        DateTime periodEnd = Convert.ToDateTime(dtOpen.Rows[0]["end_date"]);
+        DateTime today = DateTime.Today;
+        if (today < periodStart || today > periodEnd)
+        {
+            errorMessage = "Error! Cannot Add Transaction. Accounting Period Closed. The Date Ranges are: "
+                           + periodStart.ToString("dd/MM/yyyy") + " - " + periodEnd.ToString("dd/MM/yyyy") + ".";
+            return false;
+        }
+        return true;
     }
 }

@@ -1,0 +1,80 @@
+Warning: Using a password on the command line interface can be insecure.
+C:\Program Files\MySQL\MySQL Server 5.6\bin\mysql.exe: Unknown OS character set 'cp0'.
+C:\Program Files\MySQL\MySQL Server 5.6\bin\mysql.exe: Switching to the default character set 'latin1'.
+ERROR 2013 (HY000) at line 15: Lost connection to MySQL server during query
+ERROR 2006 (HY000) at line 18: MySQL server has gone away
+ERROR 2006 (HY000) at line 19: MySQL server has gone away
+ERROR 2006 (HY000) at line 22: MySQL server has gone away
+ERROR 2006 (HY000) at line 23: MySQL server has gone away
+ERROR 2006 (HY000) at line 26: MySQL server has gone away
+ERROR 2006 (HY000) at line 27: MySQL server has gone away
+ERROR 2006 (HY000) at line 30: MySQL server has gone away
+ERROR 2006 (HY000) at line 31: MySQL server has gone away
+ERROR 2006 (HY000) at line 34: MySQL server has gone away
+ERROR 2006 (HY000) at line 35: MySQL server has gone away
+ERROR 2006 (HY000) at line 38: MySQL server has gone away
+ERROR 2006 (HY000) at line 39: MySQL server has gone away
+ERROR 2006 (HY000) at line 42: MySQL server has gone away
+ERROR 2006 (HY000) at line 43: MySQL server has gone away
+ERROR 2006 (HY000) at line 46: MySQL server has gone away
+ERROR 2006 (HY000) at line 47: MySQL server has gone away
+ERROR 2006 (HY000) at line 50: MySQL server has gone away
+ERROR 2006 (HY000) at line 51: MySQL server has gone away
+ERROR 2006 (HY000) at line 54: MySQL server has gone away
+ERROR 2006 (HY000) at line 55: MySQL server has gone away
+ERROR 2006 (HY000) at line 58: MySQL server has gone away
+ERROR 2006 (HY000) at line 59: MySQL server has gone away
+ERROR 2006 (HY000) at line 62: MySQL server has gone away
+ERROR 2006 (HY000) at line 63: MySQL server has gone away
+ERROR 2006 (HY000) at line 66: MySQL server has gone away
+ERROR 2006 (HY000) at line 67: MySQL server has gone away
+ERROR 2006 (HY000) at line 70: MySQL server has gone away
+ERROR 2006 (HY000) at line 71: MySQL server has gone away
+ERROR 2006 (HY000) at line 74: MySQL server has gone away
+ERROR 2006 (HY000) at line 75: MySQL server has gone away
+ERROR 2006 (HY000) at line 78: MySQL server has gone away
+ERROR 2006 (HY000) at line 79: MySQL server has gone away
+ERROR 2006 (HY000) at line 82: MySQL server has gone away
+ERROR 2006 (HY000) at line 83: MySQL server has gone away
+ERROR 2006 (HY000) at line 86: MySQL server has gone away
+ERROR 2006 (HY000) at line 87: MySQL server has gone away
+ERROR 2006 (HY000) at line 90: MySQL server has gone away
+ERROR 2006 (HY000) at line 91: MySQL server has gone away
+ERROR 2006 (HY000) at line 94: MySQL server has gone away
+ERROR 2006 (HY000) at line 95: MySQL server has gone away
+ERROR 2006 (HY000) at line 98: MySQL server has gone away
+ERROR 2006 (HY000) at line 99: MySQL server has gone away
+ERROR 2006 (HY000) at line 102: MySQL server has gone away
+ERROR 2006 (HY000) at line 103: MySQL server has gone away
+ERROR 2006 (HY000) at line 106: MySQL server has gone away
+ERROR 2006 (HY000) at line 107: MySQL server has gone away
+ERROR 2006 (HY000) at line 110: MySQL server has gone away
+ERROR 2006 (HY000) at line 111: MySQL server has gone away
+
+=== QUERY 1: UNBALANCED VOUCHERS COUNT ===
+unbalanced_count
+2906
+
+=== QUERY 2: TOP 15 UNBALANCED VOUCHERS ===
+voucherNo	total_dr	total_cr	diff
+60411	724922003	0	724922003
+60408	552732973	0	552732973
+60407	320461470	0	320461470
+61062	0	82360000	82360000
+8171	0	17700000	17700000
+58649	0	15948500	15948500
+23991	7183000	1004000	6179000
+325	0	6030000	6030000
+283	0	6030000	6030000
+103851	0	6000000	6000000
+103852	0	6000000	6000000
+103838	6000000	0	6000000
+103839	6000000	0	6000000
+103842	0	6000000	6000000
+103843	0	6000000	6000000
+
+=== QUERY 3: ORPHAN LEDGER ENTRIES ===
+orphan_count
+121898
+
+=== QUERY 4: EMPTY JOURNALS ===

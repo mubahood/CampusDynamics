@@ -11,8 +11,10 @@ public partial class UserControls_Accounts_JournalCentre : System.Web.UI.UserCon
     string UserName = HttpContext.Current.User.Identity.Name;
     protected void Page_Load(object sender, EventArgs e)
     {
-        fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
-        JN.CleanJournalDetails();
+        // B2 FIX: Removed JN.CleanJournalDetails() from Page_Load
+        // It ran on EVERY page load (including postbacks) and deleted orphaned
+        // fin_journal_details entries, which could destroy other users' in-progress work.
+        // Cleanup should be done as a scheduled/manual maintenance task, not on every request.
 
         if (!IsPostBack)
         {

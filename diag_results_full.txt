@@ -1,0 +1,10 @@
+﻿cmd : '""C:\Program' is not recognized as an internal or external command,
+At line:1 char:11
++ $output = cmd /c '""C:\Program Files\MySQL\MySQL Server 5.6\bin\mysql ...
++           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ('""C:\Program' ...ternal command, 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+operable program or batch file.
+

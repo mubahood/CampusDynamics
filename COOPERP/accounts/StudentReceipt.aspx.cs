@@ -2,6 +2,7 @@ using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -46,25 +47,70 @@ public partial class COOPERP_accounts_StudentReceipt : System.Web.UI.Page
     {
         try
         {
+            // B9 FIX: Block transactions outside open financial period
+            string periodError;
+            if (!IsInOpenFinancialPeriod(out periodError))
+            {
+                lbl_msg.Text = periodError;
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+
+            // C7 FIX: Input validation
+            if (txtAccount.Value == null || string.IsNullOrEmpty(txtAccount.Value.ToString()))
+            {
+                lbl_msg.Text = "Error! Please select a Student Account";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+            if (txtPayee.Value == null || string.IsNullOrEmpty(txtPayee.Value.ToString()))
+            {
+                lbl_msg.Text = "Error! Please select a Payment Method";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+            decimal amount;
+            if (!decimal.TryParse(txtAmount.Text.Replace(",", ""), out amount) || amount <= 0)
+            {
+                lbl_msg.Text = "Error! Enter a valid amount greater than zero";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+            if (amount > 10000000000m)
+            {
+                lbl_msg.Text = "Error! Amount exceeds maximum allowed (10 Billion UGX)";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+
             fin_ledgerTableAdapter LEDGER = new fin_ledgerTableAdapter();
-            LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtAccount.Value.ToString(),
-            txtAccount.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtPayee.Text, "CR");
-
-            LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtPayee.Value.ToString(),
-            "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid By " + txtAccount.Text, "DR");
-
             fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
-            string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid By " + txtAccount.Text + "" + " Paid Thru " + txtPayee.Text;
-            int JNO = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
-            JN.UpdateParticulars(Particulars, JNO);
-            JN.UpdateJournalAmounts(decimal.Parse(txtAmount.Text.Replace(",", "")), decimal.Parse(txtAmount.Text.Replace(",", "")), JNO.ToString());
+
+            // C1 FIX: Wrap all DB writes in TransactionScope — either all succeed or all roll back
+            using (TransactionScope scope = new TransactionScope())
+            {
+                LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtAccount.Value.ToString(),
+                txtAccount.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtPayee.Text, "CR");
+
+                LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtPayee.Value.ToString(),
+                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid By " + txtAccount.Text, "DR");
+
+                string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid By " + txtAccount.Text + "" + " Paid Thru " + txtPayee.Text;
+                int JNO = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
+                JN.UpdateParticulars(Particulars, JNO);
+                JN.UpdateJournalAmounts(decimal.Parse(txtAmount.Text.Replace(",", "")), decimal.Parse(txtAmount.Text.Replace(",", "")), JNO.ToString());
+
+                scope.Complete();
+            }
+
             gvParticulars.DataBind();
             gvDetails.DataBind();
             lbl_msg.Text = "Receipt Details Added Successfully";
         }
-        catch (Exception )
+        catch (Exception ex)
         {
-            lbl_msg.Text = "Error! Check your details and try again";
+            // B5 FIX: Show actual error instead of generic message
+            lbl_msg.Text = "Error: " + ex.Message;
         }
         pop_messagebox.ShowOnPageLoad = true;
     }
@@ -137,7 +183,11 @@ public partial class COOPERP_accounts_StudentReceipt : System.Web.UI.Page
                 lbl_msg.Text = "Sorry. Only Bursar Approve Journals. See Your Bursar";
             }
         }
-        catch (Exception) { }
+        catch (Exception ex)
+        {
+            // B5 FIX: Show approval error instead of swallowing silently
+            lbl_msg.Text = "Approval Error: " + ex.Message;
+        }
         pop_messagebox.ShowOnPageLoad = true;
     }
 
@@ -176,9 +226,33 @@ public partial class COOPERP_accounts_StudentReceipt : System.Web.UI.Page
                 gvParticulars.SettingsEditing.Mode = DevExpress.Web.GridViewEditingMode.Batch;
             }
         }
-        catch (Exception) {
+        catch (Exception)
+        {
+            // B5 FIX: ButtonManager failure is non-critical — default to Create New
             cmdApproveJournal.Text = "Create New";
         }
+    }
+    // B9 FIX: Financial period validation
+    private bool IsInOpenFinancialPeriod(out string errorMessage)
+    {
+        errorMessage = "";
+        fin_financial_yearsTableAdapter FY = new fin_financial_yearsTableAdapter();
+        var dtOpen = FY.GetFinicalPeriodStatus();
+        if (dtOpen.Rows.Count == 0)
+        {
+            errorMessage = "Error! No financial year is currently Open. Cannot create transactions.";
+            return false;
+        }
+        DateTime periodStart = Convert.ToDateTime(dtOpen.Rows[0]["start_date"]);
+        DateTime periodEnd = Convert.ToDateTime(dtOpen.Rows[0]["end_date"]);
+        DateTime today = DateTime.Today;
+        if (today < periodStart || today > periodEnd)
+        {
+            errorMessage = "Error! Cannot Add Transaction. Accounting Period Closed. The Date Ranges are: "
+                           + periodStart.ToString("dd/MM/yyyy") + " - " + periodEnd.ToString("dd/MM/yyyy") + ".";
+            return false;
+        }
+        return true;
     }
     protected void gvParticulars_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
     {

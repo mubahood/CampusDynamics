@@ -1,0 +1,39 @@
+=== Q1: transactionType distribution === 
+Warning: Using a password on the command line interface can be insecure.
+transactionType	cnt
+CR	70227
+DR	68805
+ 
+=== Q2: BAD_ACCTCODE === 
+ 
+=== Q3: ZERO_AMT === 
+ 
+=== Q4: BAD_CURR_BAL === 
+ 
+=== Q5: fin_financial_years === 
+ 
+=== Q6: fin_mainaccounts === 
+ 
+=== Q7: Ledger entries by year === 
+ 
+=== Q8: DELETED ledger count === 
+ 
+=== Q9: fin_ledger indexes === 
+ 
+=== Q10: DESCRIBE fin_subaccounts === 
+ 
+=== Q11: JOURNALS_NO_LEDGER === 
+ 
+=== Q12: PostStatus distribution === 
+ 
+=== Q13: account_type distribution === 
+ 
+=== Q14: DUP_VOUCHER_JNO === 
+ 
+=== Q15: MISSING_FK_SUBACCT === 
+ 
+=== Q16: trans_currency distribution === 
+ 
+=== Q17: NEG_AMOUNT === 
+ 
+=== ALL DONE === 

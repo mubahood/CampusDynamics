@@ -1,0 +1,113 @@
+
+--- Q1: transactionType distribution ---
+transactionType	cnt
+CR	70227
+DR	68805
+
+--- Q2: BAD_ACCTCODE ---
+i	c
+BAD_ACCTCODE	0
+
+--- Q3: ZERO_AMT ---
+i	c
+ZERO_AMT	50
+
+--- Q4: BAD_CURR_BAL ---
+i	c
+BAD_CURR_BAL	0
+
+--- Q5: fin_financial_years ---
+id	finacial_Year	start_date	end_date	status
+1	2025/2026	2025-08-01	2026-07-31	Open
+
+--- Q6: fin_mainaccounts ---
+AccountCode	AccountName	GeneralCategory	SubCategory
+AC1101	TRADE AND OTHER RECEIVABLES	Assets	Current Assets
+AC1300	CASH AND BANK BALANCES	Assets	Current Assets
+AC2000	OPERATING EXPENSES 	Expense	-
+AC2001	ADMINISTRATIVE EXPENSES	Expense	Expense
+AC2002	EMPLOYMENT EXPENSES	Expense	Expense
+AC2004	FINANCIAL EXPENSES	Expense	Expense
+AC2005	ACADEMIC EXPENSES	Expense	Expense
+AC2110	GOVERNANCE EXPENSES	Expense	Expense
+AC2500	DEPRECIATION EXPENSES	Expense	Expense
+AC6001	INCOME	Income	Income
+AC7003	EQUITY	Equity	-
+AC8004	NON CURRENT ASSET A/C 	Assets	Fixed Assets
+AC9001	PROPERTY AND EQUIPMENT	Assets	Fixed Assets
+AC9100	PREPAID OPERATING LEASE RENTALS	Assets	Fixed Assets
+AC9200	INTANGIBLE ASSETS	Assets	Fixed Assets
+AC9300	DEFERRED TAX	Assets	Fixed Assets
+AC9400	NON-CURRENT LIABILITIES	Liabilities	Fixed Liabilities
+AC9500	CURRENT LIABILITIES	Liabilities	Current Liabilities
+
+--- Q7: Ledger entries by year ---
+yr	cnt
+2023	57
+2024	39624
+2025	79576
+2026	19775
+
+--- Q8: DELETED ledger count ---
+tbl	COUNT(*)
+DELETED	7273
+
+--- Q9: fin_ledger indexes ---
+INDEX_NAME	COLUMN_NAME
+PRIMARY	TID
+Index_2	accountcode
+Index_2	account_type
+Index_2	transactionDate
+Index_3	folio
+
+--- Q10: DESCRIBE fin_subaccounts ---
+Field	Type	Null	Key	Default	Extra
+AccountCode	char(20)	NO	PRI	NULL	
+MainAccountCode	varchar(45)	NO	MUL	IU1000	
+AccountName	varchar(45)	NO		NULL	
+Details	varchar(150)	YES		NULL	
+collectionLedgerType	varchar(45)	NO		-	
+accounttype	varchar(45)	NO		NULL	
+base_currency	char(25)	NO		UGX	
+
+--- Q11: JOURNALS_NO_LEDGER ---
+i	c
+JOURNALS_NO_LEDGER	3570
+
+--- Q12: PostStatus distribution ---
+PostStatus	cnt
+l	1
+Pending	68
+Posted	10435
+
+--- Q13: account_type distribution ---
+account_type	cnt
+-	29
+-Fees	5
+Chart Account	70954
+FBMFees	13593
+FOEFees	31042
+FSSAHFees	6216
+FSTEADFees	15756
+GCFees	653
+Gratuity	15
+Salary Advance	164
+SONMFees	28
+Sponsor	10
+Supplier	567
+
+--- Q14: DUP_VOUCHER_JNO ---
+i	c
+DUP_VOUCHER_JNO	67852
+
+--- Q15: MISSING_FK_SUBACCT ---
+i	c
+MISSING_FK_SUBACCT	5617
+
+--- Q16: trans_currency distribution ---
+trans_currency	cnt
+UGX	139032
+
+--- Q17: NEG_AMOUNT ---
+i	c
+NEG_AMOUNT	0

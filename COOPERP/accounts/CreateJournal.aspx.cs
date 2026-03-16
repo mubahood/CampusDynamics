@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -30,18 +31,24 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
         // Get user input for RefNo
         string refNo = txtRefNo.Text.Trim();
 
-        // Create the journal
-        fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
-        JN.fin_CreateJournal(txtType.Text, DateTime.Today, HttpContext.Current.User.Identity.Name);
-
-        gvParticulars.DataBind();
-        int journalNo = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
-        Session["jno"] = journalNo;
-
-        if (!string.IsNullOrWhiteSpace(refNo) && refNo != "-")
+        // C3 FIX: Wrap journal creation + ref update in TransactionScope
+        using (TransactionScope scope = new TransactionScope())
         {
-            // Update the RefNo for this JournalNo
-            JN.UpdateRefNo(refNo, journalNo);
+            // Create the journal
+            fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
+            JN.fin_CreateJournal(txtType.Text, DateTime.Today, HttpContext.Current.User.Identity.Name);
+
+            gvParticulars.DataBind();
+            int journalNo = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
+            Session["jno"] = journalNo;
+
+            if (!string.IsNullOrWhiteSpace(refNo) && refNo != "-")
+            {
+                // Update the RefNo for this JournalNo
+                JN.UpdateRefNo(refNo, journalNo);
+            }
+
+            scope.Complete();
         }
 
         gvDetails.DataBind();
@@ -81,6 +88,20 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
     }
     protected void AddNewItem_Click(object sender, EventArgs e)
     {
+        // C7 FIX: Input validation
+        if (txtAccount.Value == null || string.IsNullOrEmpty(txtAccount.Value.ToString()))
+        {
+            lbl_msg.Text = "Error! Please select an Account";
+            pop_messagebox.ShowOnPageLoad = true;
+            return;
+        }
+        if (string.IsNullOrEmpty(txtTransactionType.Text))
+        {
+            lbl_msg.Text = "Error! Please select a Transaction Type (DR/CR)";
+            pop_messagebox.ShowOnPageLoad = true;
+            return;
+        }
+
         fin_ledgerTableAdapter LEDGER = new fin_ledgerTableAdapter();
 
         // Get reference number from the input
@@ -216,7 +237,11 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
                 gvParticulars.SettingsEditing.Mode = DevExpress.Web.GridViewEditingMode.Batch;
             }
         }
-        catch (Exception) { }
+        catch (Exception)
+        {
+            // B7 FIX: ButtonManager failure is non-critical — default to Create New
+            cmdApproveJournal.Text = "Create New";
+        }
     }
 
     protected void cmdDelete_Click(object sender, EventArgs e)

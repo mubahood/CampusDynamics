@@ -1,0 +1,28 @@
+Warning: Using a password on the command line interface can be insecure.
+C:\Program Files\MySQL\MySQL Server 5.6\bin\mysql.exe: Unknown OS character set 'cp0'.
+C:\Program Files\MySQL\MySQL Server 5.6\bin\mysql.exe: Switching to the default character set 'latin1'.
+ERROR 1054 (42S22) at line 11: Unknown column 'j.voucherno' in 'where clause'
+
+=== QUERY 1: UNBALANCED VOUCHERS COUNT ===
+unbalanced_count
+2906
+
+=== QUERY 2: TOP 15 UNBALANCED VOUCHERS ===
+voucherNo	total_dr	total_cr	diff
+60411	724922003	0	724922003
+60408	552732973	0	552732973
+60407	320461470	0	320461470
+61062	0	82360000	82360000
+8171	0	17700000	17700000
+58649	0	15948500	15948500
+23991	7183000	1004000	6179000
+325	0	6030000	6030000
+283	0	6030000	6030000
+103838	6000000	0	6000000
+103839	6000000	0	6000000
+103842	0	6000000	6000000
+103843	0	6000000	6000000
+103846	6000000	0	6000000
+103848	6000000	0	6000000
+
+=== QUERY 3: ORPHAN LEDGER ENTRIES ===

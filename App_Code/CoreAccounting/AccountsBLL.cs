@@ -70,9 +70,10 @@ public class AccountsBLL
             MainAccountsAdapter.MainAccountEditor(UserName, AccountCode, AccountName, GeneralCategory, SubCategory);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw ex;
+            // B8 FIX: use throw instead of throw ex to preserve stack trace
+            throw;
         }
 
     }
@@ -87,9 +88,9 @@ public class AccountsBLL
             SubAccountsAdapter.AccountEditor(UserName, AccountCode, MainAccountCode, AccountName, Details, accounttype, collectionLedgerType);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw ex;
+            throw;
         }
 
     }
@@ -103,9 +104,9 @@ public class AccountsBLL
             MainAccountsAdapter.MainAccountEditor(UserName, original_AccountCode, AccountName, GeneralCategory, SubCategory);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw ex;
+            throw;
         }
 
     }
@@ -117,9 +118,9 @@ public class AccountsBLL
             SubAccountsAdapter.AccountEditor(UserName, original_AccountCode, MainAccountCode, AccountName, Details, accounttype, collectionLedgerType);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw ex;
+            throw;
         }
 
     }
@@ -150,9 +151,9 @@ public class AccountsBLL
             LegderTypeAdapter.fin_LedgerCategoryEditor(null, LedgerTypeName, LedgerTypeCategory);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw ex;
+            throw;
         }
 
     }
@@ -166,9 +167,9 @@ public class AccountsBLL
             LegderTypeAdapter.fin_LedgerCategoryEditor(original_LedgerTypeID, LedgerTypeName, LedgerTypeCategory);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw ex;
+            throw;
         }
 
     }
@@ -181,9 +182,9 @@ public class AccountsBLL
             LegderTypeAdapter.fin_DeleteLedgerCategory(original_LedgerTypeID);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            throw ex;
+            throw;
         }
 
     }

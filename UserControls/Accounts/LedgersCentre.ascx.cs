@@ -5,6 +5,8 @@ using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using Systems.Settings.SD;
+using CoopERPDataTableAdapters;
+using System.Transactions;
 
 public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserControl
 {
@@ -81,24 +83,43 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
         pop_msgbox.Width = 350;
         pop_msgbox.Height = 145;
 
+        // B13 FIX: Block all ledger operations outside open financial period
+        string periodError;
+        if (!IsInOpenFinancialPeriod(out periodError))
+        {
+            lbl_msgbox.Text = periodError;
+            pop_msgbox.ShowOnPageLoad = true;
+            return;
+        }
+
         AdjustmentsCentreTableAdapters.fin_ledgerTableAdapter ADJ = new AdjustmentsCentreTableAdapters.fin_ledgerTableAdapter();
         int noRows = gvLedger.VisibleRowCount, counter = 0;
         if (txtType.Text.Contains("Reverse"))
         {
-            if (txt_reason.Text == "")
+            // B4 FIX: Only Administrator or Bursar can reverse transactions
+            if (!HttpContext.Current.User.IsInRole("Administrator") && !HttpContext.Current.User.IsInRole("Bursar"))
+            {
+                lbl_msgbox.Text = "Sorry! Only Administrator or Bursar can reverse transactions";
+            }
+            else if (txt_reason.Text == "")
             {
                 lbl_msgbox.Text = "Error! You MUST enter a reason for the reversal";
             }
             else
             {
-                for (int i = 0; i < noRows; i++)
+                // C6 FIX: Wrap multi-row reversal in TransactionScope
+                using (TransactionScope scope = new TransactionScope())
                 {
-                    if (gvLedger.Selection.IsRowSelected(i))
+                    for (int i = 0; i < noRows; i++)
                     {
-                        ADJ.fin_TransactionReversal(int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString()),
-                            HttpContext.Current.User.Identity.Name, txt_reason.Text);
-                        counter++;
+                        if (gvLedger.Selection.IsRowSelected(i))
+                        {
+                            ADJ.fin_TransactionReversal(int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString()),
+                                HttpContext.Current.User.Identity.Name, txt_reason.Text);
+                            counter++;
+                        }
                     }
+                    scope.Complete();
                 }
                 lbl_msgbox.Text = counter + " transactions reversed successfully";
                 gvLedger.DataBind();
@@ -109,33 +130,37 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
         
         else if (txtType.Text.Contains("Correct Amount"))
         {
-
-            for (int i = 0; i < noRows; i++)
+            // C6 FIX: Wrap corrections in TransactionScope
+            using (TransactionScope scope = new TransactionScope())
             {
-                if (gvLedger.Selection.IsRowSelected(i))
+                for (int i = 0; i < noRows; i++)
                 {
-                    string details = gvLedger.GetRowValues(i, "particulars").ToString(), vno = gvLedger.GetRowValues(i, "voucherno").ToString();
-                    DateTime Tdate = DateTime.Parse(gvLedger.GetRowValues(i, "transactiondate").ToString());
-                    if (Tdate == DateTime.Today)
+                    if (gvLedger.Selection.IsRowSelected(i))
                     {
-                        if (HttpContext.Current.User.IsInRole("Bursar"))
+                        string details = gvLedger.GetRowValues(i, "particulars").ToString(), vno = gvLedger.GetRowValues(i, "voucherno").ToString();
+                        DateTime Tdate = DateTime.Parse(gvLedger.GetRowValues(i, "transactiondate").ToString());
+                        if (Tdate == DateTime.Today)
                         {
-                            ADJ.fin_UpdatePayAmount(vno, HttpContext.Current.User.Identity.Name, double.Parse(txtNewAmount.Text.Replace(",", "")));
-                            lbl_msgbox.Text = "Pay Amount Correction completed";
+                            if (HttpContext.Current.User.IsInRole("Bursar"))
+                            {
+                                ADJ.fin_UpdatePayAmount(vno, HttpContext.Current.User.Identity.Name, double.Parse(txtNewAmount.Text.Replace(",", "")));
+                                lbl_msgbox.Text = "Pay Amount Correction completed";
+                            }
+                            else
+                            {
+                                lbl_msgbox.Text = "Sorry! Only Bursar can make amounts corrections";
+                                return; // exits without scope.Complete() — rolls back
+                            }
                         }
                         else
                         {
-                            lbl_msgbox.Text = "Sorry! Only Bursar can make amounts corrections";
-                            break;
+                            lbl_msgbox.Text = "Sorry! Only today's transaction amounts can be corrected";
+                            return; // exits without scope.Complete() — rolls back
                         }
                     }
-                    else
-                    {
-                        lbl_msgbox.Text = "Sorry! Only today's transaction amounts can be corrected";
-                    }
                 }
+                scope.Complete();
             }
-
 
             pop_msgbox.ShowOnPageLoad = true;
             gvLedger.DataBind();
@@ -143,23 +168,28 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
         else if (txtType.Text.Contains("Cancel Transaction"))
         {
             lbl_msgbox.Text = "No Transaction selected";
-            for (int i = 0; i < noRows; i++)
+            // C6 FIX: Wrap multi-row cancellation in TransactionScope
+            using (TransactionScope scope = new TransactionScope())
             {
-                if (gvLedger.Selection.IsRowSelected(i))
+                for (int i = 0; i < noRows; i++)
                 {
-                    string details = gvLedger.GetRowValues(i, "particulars").ToString();
-                    if (HttpContext.Current.User.IsInRole("Bursar"))
+                    if (gvLedger.Selection.IsRowSelected(i))
                     {
-                        ADJ.CancelTransaction(int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString()));
-                        counter++;
-                        lbl_msgbox.Text = counter + " transaction(s) cancelled successfully";
-                    }
-                    else
-                    {
-                        lbl_msgbox.Text = "Sorry! only Bursar can cancel transactions";
-                        break;
+                        string details = gvLedger.GetRowValues(i, "particulars").ToString();
+                        if (HttpContext.Current.User.IsInRole("Bursar"))
+                        {
+                            ADJ.CancelTransaction(int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString()));
+                            counter++;
+                            lbl_msgbox.Text = counter + " transaction(s) cancelled successfully";
+                        }
+                        else
+                        {
+                            lbl_msgbox.Text = "Sorry! only Bursar can cancel transactions";
+                            return; // exits without scope.Complete() — rolls back
+                        }
                     }
                 }
+                scope.Complete();
             }
 
             pop_msgbox.ShowOnPageLoad = true;
@@ -167,11 +197,41 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
         }
         else if (txtType.Text.Contains("Clear Ledger"))
         {
-            ADJ.fin_ClearLedger(txtPayee.Value.ToString(), txtPayeeCategory.Value.ToString(),
-                HttpContext.Current.User.Identity.Name);
-            lbl_msgbox.Text = "Ledger Cleared";
+            // B3 FIX: Only Administrator can clear entire ledger (nuclear operation)
+            if (!HttpContext.Current.User.IsInRole("Administrator"))
+            {
+                lbl_msgbox.Text = "Sorry! Only Administrator can clear a ledger";
+            }
+            else
+            {
+                ADJ.fin_ClearLedger(txtPayee.Value.ToString(), txtPayeeCategory.Value.ToString(),
+                    HttpContext.Current.User.Identity.Name);
+                lbl_msgbox.Text = "Ledger Cleared";
+            }
             pop_msgbox.ShowOnPageLoad = true;
             gvLedger.DataBind();
         }
+    }
+    // B13 FIX: Financial period validation
+    private bool IsInOpenFinancialPeriod(out string errorMessage)
+    {
+        errorMessage = "";
+        fin_financial_yearsTableAdapter FY = new fin_financial_yearsTableAdapter();
+        var dtOpen = FY.GetFinicalPeriodStatus();
+        if (dtOpen.Rows.Count == 0)
+        {
+            errorMessage = "Error! No financial year is currently Open. Cannot perform ledger operations.";
+            return false;
+        }
+        DateTime periodStart = Convert.ToDateTime(dtOpen.Rows[0]["start_date"]);
+        DateTime periodEnd = Convert.ToDateTime(dtOpen.Rows[0]["end_date"]);
+        DateTime today = DateTime.Today;
+        if (today < periodStart || today > periodEnd)
+        {
+            errorMessage = "Error! Cannot modify ledger. Accounting Period Closed. The Date Ranges are: "
+                           + periodStart.ToString("dd/MM/yyyy") + " - " + periodEnd.ToString("dd/MM/yyyy") + ".";
+            return false;
+        }
+        return true;
     }
 }

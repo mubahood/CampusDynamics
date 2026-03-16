@@ -1,0 +1,81 @@
+Warning: Using a password on the command line interface can be insecure.
+C:\Program Files\MySQL\MySQL Server 5.6\bin\mysql.exe: Unknown OS character set 'cp0'.
+C:\Program Files\MySQL\MySQL Server 5.6\bin\mysql.exe: Switching to the default character set 'latin1'.
+
+=== Q21: DESCRIBE FIN_LEDGER ===
+Field	Type	Null	Key	Default	Extra
+TID	int(10) unsigned	NO	PRI	NULL	auto_increment
+accountcode	char(25)	NO	MUL	NULL	
+account_type	varchar(45)	NO		NULL	
+transactionType	char(2)	NO		NULL	
+transaction_amount	bigint(20) unsigned	NO		NULL	
+particulars	varchar(350)	NO		NULL	
+voucherNo	int(10) unsigned	NO		NULL	
+RefNo	varchar(50)	YES		NULL	
+transactionDate	date	NO		NULL	
+teller	varchar(45)	NO		NULL	
+timeLog	datetime	NO		NULL	
+folio	char(65)	YES	MUL	NULL	
+journal_no	char(25)	NO		-	
+trans_currency	char(25)	NO		UGX	
+actual_amount	double	NO		0	
+curr_balance	varchar(45)	NO		-	
+forex_rate	double	NO		1	
+ugx_amount	double	NO		1	
+InvoiceDate	date	YES		NULL	
+
+=== Q28: MAIN ACCOUNTS LIST ===
+AccountCode	AccountName	GeneralCategory	SubCategory
+AC1101	TRADE AND OTHER RECEIVABLES	Assets	Current Assets
+AC1300	CASH AND BANK BALANCES	Assets	Current Assets
+AC2000	OPERATING EXPENSES 	Expense	-
+AC2001	ADMINISTRATIVE EXPENSES	Expense	Expense
+AC2002	EMPLOYMENT EXPENSES	Expense	Expense
+AC2004	FINANCIAL EXPENSES	Expense	Expense
+AC2005	ACADEMIC EXPENSES	Expense	Expense
+AC2110	GOVERNANCE EXPENSES	Expense	Expense
+AC2500	DEPRECIATION EXPENSES	Expense	Expense
+AC6001	INCOME	Income	Income
+AC7003	EQUITY	Equity	-
+AC8004	NON CURRENT ASSET A/C 	Assets	Fixed Assets
+AC9001	PROPERTY AND EQUIPMENT	Assets	Fixed Assets
+AC9100	PREPAID OPERATING LEASE RENTALS	Assets	Fixed Assets
+AC9200	INTANGIBLE ASSETS	Assets	Fixed Assets
+AC9300	DEFERRED TAX	Assets	Fixed Assets
+AC9400	NON-CURRENT LIABILITIES	Liabilities	Fixed Liabilities
+AC9500	CURRENT LIABILITIES	Liabilities	Current Liabilities
+
+=== Q13: MAIN ACCOUNT CATEGORIES WITH SUB COUNT ===
+AccountCode	AccountName	sub_count
+AC1101	TRADE AND OTHER RECEIVABLES	25
+AC1300	CASH AND BANK BALANCES	9
+AC2000	OPERATING EXPENSES 	39
+AC2001	ADMINISTRATIVE EXPENSES	70
+AC2002	EMPLOYMENT EXPENSES	10
+AC2004	FINANCIAL EXPENSES	2
+AC2005	ACADEMIC EXPENSES	13
+AC2110	GOVERNANCE EXPENSES	3
+AC2500	DEPRECIATION EXPENSES	3
+AC6001	INCOME	19
+AC7003	EQUITY	6
+AC8004	NON CURRENT ASSET A/C 	27
+AC9001	PROPERTY AND EQUIPMENT	7
+AC9100	PREPAID OPERATING LEASE RENTALS	2
+AC9200	INTANGIBLE ASSETS	3
+AC9300	DEFERRED TAX	1
+AC9400	NON-CURRENT LIABILITIES	2
+AC9500	CURRENT LIABILITIES	23
+
+=== Q8: ORPHAN ACCOUNT CODES ===
+orphan_acct
+68058
+
+=== Q3: ORPHAN LEDGER ENTRIES (NO MATCHING JOURNAL) ===
+orphan_count
+121898
+
+=== Q4: EMPTY JOURNALS (NO LEDGER ENTRIES) ===
+empty_journals
+616
+
+=== BATCH2_COMPLETE ===
