@@ -70,7 +70,11 @@ public partial class UserControls_Accounts_ReceiptCentre : System.Web.UI.UserCon
         CoopERPDataTableAdapters.fin_vouchernumbersTableAdapter Vouchers = new CoopERPDataTableAdapters.fin_vouchernumbersTableAdapter();
         try
         {
-            Vouchers.fin_ReceiptRemover(int.Parse(gvVouchers.GetRowValues(gvVouchers.FocusedRowIndex,"VoucherNo").ToString()), HttpContext.Current.User.Identity.Name);
+            int deletedVoucherNo = int.Parse(gvVouchers.GetRowValues(gvVouchers.FocusedRowIndex,"VoucherNo").ToString());
+            Vouchers.fin_ReceiptRemover(deletedVoucherNo, HttpContext.Current.User.Identity.Name);
+            // F9: Audit log — receipt deleted
+            AuditLogger.Log("RECEIPT_DELETED",
+                string.Format("VoucherNo={0}", deletedVoucherNo), deletedVoucherNo);
             lbl_msg.Text = "Receipt Deleted.";
             gvVouchers.DataBind();
         }

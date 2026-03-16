@@ -122,6 +122,10 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
                     scope.Complete();
                 }
                 lbl_msgbox.Text = counter + " transactions reversed successfully";
+                // F8: Audit log — transaction reversal
+                AuditLogger.Log("TRANSACTION_REVERSED",
+                    string.Format("Reason={0}, Count={1}", txt_reason.Text, counter),
+                    null, null, null, null);
                 gvLedger.DataBind();
             }
             pop_msgbox.ShowOnPageLoad = true;
@@ -143,7 +147,15 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
                         {
                             if (HttpContext.Current.User.IsInRole("Bursar"))
                             {
+                                string oldAmount = gvLedger.GetRowValues(i, "transaction_amount").ToString();
                                 ADJ.fin_UpdatePayAmount(vno, HttpContext.Current.User.Identity.Name, double.Parse(txtNewAmount.Text.Replace(",", "")));
+                                // F8: Audit log — amount corrected
+                                AuditLogger.Log("AMOUNT_CORRECTED",
+                                    string.Format("VoucherNo={0}", vno),
+                                    int.Parse(vno),
+                                    decimal.Parse(txtNewAmount.Text.Replace(",", "")),
+                                    oldAmount,
+                                    txtNewAmount.Text);
                                 lbl_msgbox.Text = "Pay Amount Correction completed";
                             }
                             else
@@ -178,8 +190,12 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
                         string details = gvLedger.GetRowValues(i, "particulars").ToString();
                         if (HttpContext.Current.User.IsInRole("Bursar"))
                         {
-                            ADJ.CancelTransaction(int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString()));
+                            int cancelVno = int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString());
+                            ADJ.CancelTransaction(cancelVno);
                             counter++;
+                            // F8: Audit log — transaction cancelled
+                            AuditLogger.Log("TRANSACTION_CANCELLED",
+                                string.Format("VoucherNo={0}", cancelVno), cancelVno);
                             lbl_msgbox.Text = counter + " transaction(s) cancelled successfully";
                         }
                         else
@@ -206,6 +222,9 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
             {
                 ADJ.fin_ClearLedger(txtPayee.Value.ToString(), txtPayeeCategory.Value.ToString(),
                     HttpContext.Current.User.Identity.Name);
+                // F8: Audit log — ledger cleared (nuclear operation)
+                AuditLogger.Log("LEDGER_CLEARED",
+                    string.Format("Account={0}, Category={1}", txtPayee.Value, txtPayeeCategory.Value));
                 lbl_msgbox.Text = "Ledger Cleared";
             }
             pop_msgbox.ShowOnPageLoad = true;

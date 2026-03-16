@@ -112,7 +112,7 @@ public partial class COOPERP_accounts_SponsorshipDistribution : System.Web.UI.Pa
             if (HttpContext.Current.User.IsInRole("Administrator") || HttpContext.Current.User.IsInRole("Bursar"))
             {
                 fin_journalnumbersTableAdapter LEDGER = new fin_journalnumbersTableAdapter();
-                lbl_msg.Text = LEDGER.fin_ApproveJournal(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name).ToString();
+                lbl_msg.Text = LEDGER.fin_ApproveJournal_Safe(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name, "Normal Journal").ToString();
                 gvParticulars.DataBind();
                 ButtonManager();
             }

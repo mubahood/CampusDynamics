@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:eportal.mru.ac.ug)"
+      "WebFetch(domain:eportal.mru.ac.ug)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"database/cd-db.ps1\" migrate -Database accounts -DryRun)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"database/cd-db.ps1\" migrate -Database accounts)"
     ]
   }
 }

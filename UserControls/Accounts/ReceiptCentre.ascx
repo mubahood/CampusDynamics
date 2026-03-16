@@ -176,7 +176,7 @@
                                     ImageUrl="~/COOPERP/images/clipboard--pencil.png" onclick="cmdEdit_Click" />
                                 <asp:ImageButton ID="cmdDelete" runat="server" 
                                     ImageUrl="~/COOPERP/images/minus-button.png" onclick="cmdDelete_Click" 
-                                    onclientclick="return confirm('Delete Receipt?')" />
+                                    onclientclick="return confirm('Delete this receipt? This will permanently remove it and cannot be undone.')" />
                             </DataItemTemplate>
                         </dx:GridViewDataTextColumn>
                     </Columns>

@@ -49,12 +49,10 @@ public partial class COOPERP_accounts_DisplayPaymentVoucher : System.Web.UI.Page
             fin_ledgerTableAdapter LEDGER = new fin_ledgerTableAdapter();
             string refNo = txtRefNo.Text.Trim();
 
-            if (rb_payeetype.SelectedIndex == 0)
-            {
-
-                LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtAccount.Value.ToString(),
-                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text, "CR", refNo);
-            }
+            // B1 FIX: CR entry must ALWAYS be created (double-entry rule: every DR must have a CR)
+            // Previously skipped CR when rb_payeetype.SelectedIndex != 0 (Multiple Payee)
+            LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtAccount.Value.ToString(),
+            "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text, "CR", refNo);
 
             LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtPayees.Value.ToString(),
             txtPayees.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid thru " + txtAccount.Text, "DR", refNo);
@@ -69,9 +67,10 @@ public partial class COOPERP_accounts_DisplayPaymentVoucher : System.Web.UI.Page
             gvDetails.DataBind();
             lbl_msg.Text = "Voucher Details Added Successfully";
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            lbl_msg.Text = "Error! Check your details and try again";
+            // B6 FIX: Show actual error instead of generic message
+            lbl_msg.Text = "Error: " + ex.Message;
         }
         pop_messagebox.ShowOnPageLoad = true;
     }
@@ -133,7 +132,7 @@ public partial class COOPERP_accounts_DisplayPaymentVoucher : System.Web.UI.Page
                 else
                 {
                     fin_journalnumbersTableAdapter LEDGER = new fin_journalnumbersTableAdapter();
-                    lbl_msg.Text = LEDGER.fin_ApproveJournal(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name,"Normal Journal").ToString();
+                    lbl_msg.Text = LEDGER.fin_ApproveJournal_Safe(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name,"Normal Journal").ToString();
                 }
                 gvParticulars.DataBind();
                 ButtonManager();
@@ -143,7 +142,11 @@ public partial class COOPERP_accounts_DisplayPaymentVoucher : System.Web.UI.Page
                 lbl_msg.Text = "Sorry. Only Bursar Approve Journals. See Your Bursar";
             }
         }
-        catch (Exception) { }
+        catch (Exception ex)
+        {
+            // B5 FIX: Show approval error instead of swallowing silently
+            lbl_msg.Text = "Approval Error: " + ex.Message;
+        }
         pop_messagebox.ShowOnPageLoad = true;
     }
 

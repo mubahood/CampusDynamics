@@ -254,6 +254,12 @@
         </tr>
         <tr>
             <td>
+                <!-- G2: DR/CR balance indicator -->
+                <asp:Literal ID="litBalance" runat="server" />
+            </td>
+        </tr>
+        <tr>
+            <td>
                 <asp:ObjectDataSource ID="dsLatestJournal" runat="server" DeleteMethod="Delete" OldValuesParameterFormatString="original_{0}" SelectMethod="GetLatestJournal" TypeName="CoopERPDataTableAdapters.fin_journalnumbersTableAdapter" InsertMethod="Insert" UpdateMethod="Update">
                     <DeleteParameters>
                         <asp:Parameter Name="Original_JournalNo" Type="UInt32" />

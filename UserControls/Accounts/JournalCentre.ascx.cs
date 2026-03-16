@@ -186,11 +186,14 @@ public partial class UserControls_Accounts_JournalCentre : System.Web.UI.UserCon
     {
         if (e.Values["PostStatus"].ToString() != "Pending")
         {
-            Exception ex = new Exception("ERROR! Only Pending Journals Can be Deleted");
-            
-            throw ex;
-
+            throw new Exception("ERROR! Only Pending Journals Can be Deleted");
         }
+        // F10: Audit log — journal deleted
+        object jno = e.Keys["JournalNo"] ?? e.Values["JournalNo"];
+        AuditLogger.Log("JOURNAL_DELETED",
+            string.Format("JournalNo={0}, Type={1}, Status={2}",
+                jno, e.Values["journalType"], e.Values["PostStatus"]),
+            jno != null ? (int?)int.Parse(jno.ToString()) : null);
     }
     protected void gvJournals_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
     {

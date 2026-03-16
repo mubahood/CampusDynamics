@@ -1,12 +1,14 @@
 using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data;
 using System.Linq;
 using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using MySql.Data.MySqlClient;
 
 public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
 {
@@ -51,6 +53,12 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
             scope.Complete();
         }
 
+        // F5: Audit log — journal created
+        int newJournalNo = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
+        AuditLogger.Log("JOURNAL_CREATED",
+            string.Format("JournalNo={0}, Type={1}, Ref={2}", newJournalNo, txtType.Text, refNo),
+            newJournalNo);
+
         gvDetails.DataBind();
         ButtonManager();
     }
@@ -85,6 +93,7 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
     {
         Session["jno"] = gvParticulars.GetRowValues(0, "JournalNo");
         gvDetails.DataBind();
+        UpdateBalanceIndicator();
     }
     protected void AddNewItem_Click(object sender, EventArgs e)
     {
@@ -118,6 +127,7 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
         );
 
         gvDetails.DataBind();
+        UpdateBalanceIndicator();
     }
 
     protected void txtSearch_TextChanged(object sender, EventArgs e)
@@ -251,6 +261,62 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
         fin_ledgerTableAdapter LEDGER = new fin_ledgerTableAdapter();
         LEDGER.fin_Delete_journal_item(TID, jno);
         gvDetails.DataBind();
+        UpdateBalanceIndicator();
+    }
+
+    // G2: DR/CR balance indicator — updates after every DataBind on the details grid
+    private void UpdateBalanceIndicator()
+    {
+        try
+        {
+            if (Session["jno"] == null || Session["jno"].ToString() == "0") return;
+            int jno = int.Parse(Session["jno"].ToString());
+
+            string sql = @"SELECT
+                SUM(CASE WHEN transactionType='DR' THEN transaction_amount ELSE 0 END) AS total_dr,
+                SUM(CASE WHEN transactionType='CR' THEN transaction_amount ELSE 0 END) AS total_cr,
+                COUNT(*) AS line_count
+                FROM fin_journal_details WHERE journal_no = @jno";
+
+            string connStr = ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString;
+            decimal dr = 0, cr = 0; int lines = 0;
+            using (var conn = new MySqlConnection(connStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@jno", jno);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read() && reader["total_dr"] != DBNull.Value)
+                        {
+                            dr = Convert.ToDecimal(reader["total_dr"]);
+                            cr = Convert.ToDecimal(reader["total_cr"]);
+                            lines = Convert.ToInt32(reader["line_count"]);
+                        }
+                    }
+                }
+            }
+
+            if (lines == 0)
+            {
+                litBalance.Text = "";
+                return;
+            }
+
+            bool balanced = (dr == cr) && lines >= 2;
+            string balColor = balanced ? "#28a745" : "#dc3545";
+            string balText  = balanced ? "BALANCED ✓" : string.Format("IMBALANCE: {0:N0}", Math.Abs(dr - cr));
+            litBalance.Text = string.Format(
+                "<div style='background:#f8f9fa;border:1px solid {0};border-radius:4px;padding:8px 14px;margin:4px 0;font-size:12px;font-family:Segoe UI,Arial'>" +
+                "<strong>Journal Balance</strong> &nbsp;|&nbsp; " +
+                "DR: <strong>{1:N0}</strong> &nbsp;|&nbsp; " +
+                "CR: <strong>{2:N0}</strong> &nbsp;|&nbsp; " +
+                "<span style='color:{0};font-weight:700'>{3}</span>" +
+                "</div>",
+                balColor, dr, cr, balText);
+        }
+        catch { litBalance.Text = ""; }
     }
     protected void txtRefNo_TextChanged(object sender, EventArgs e)
     {

@@ -181,6 +181,7 @@
                         </dx:GridViewDataTextColumn>
                     </Columns>
                 </dx:ASPxGridView>
+                <asp:Literal ID="litBalance" runat="server" />
             </td>
         </tr>
         <tr>

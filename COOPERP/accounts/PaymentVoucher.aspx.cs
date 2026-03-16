@@ -1,12 +1,14 @@
 using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data;
 using System.Linq;
 using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using MySql.Data.MySqlClient;
 
 public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
 {
@@ -43,6 +45,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
     {
         Session["jno"] = gvParticulars.GetRowValues(0, "JournalNo");
         //gvDetails.DataBind();
+        UpdateBalanceIndicator();
     }
     protected void AddNewItem_Click(object sender, EventArgs e)
     {
@@ -109,7 +112,13 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
 
             gvParticulars.DataBind();
             gvDetails.DataBind();
+            UpdateBalanceIndicator();
             lbl_msg.Text = "Voucher Details Added Successfully";
+            // F6: Audit log — payment voucher created
+            AuditLogger.Log("VOUCHER_CREATED",
+                string.Format("PaymentAccount={0}, Payee={1}", txtAccount.Value, txtPayees.Value),
+                int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()),
+                amount);
         }
         catch (Exception ex)
         {
@@ -176,7 +185,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                 else
                 {
                     fin_journalnumbersTableAdapter LEDGER = new fin_journalnumbersTableAdapter();
-                    lbl_msg.Text = LEDGER.fin_ApproveJournal(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name, "Normal Journal").ToString();
+                    lbl_msg.Text = LEDGER.fin_ApproveJournal_Safe(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name, "Normal Journal").ToString();
                 }
                 gvParticulars.DataBind();
                 ButtonManager();
@@ -276,6 +285,57 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             }
         }
     }
+    // G3: DR/CR balance indicator
+    private void UpdateBalanceIndicator()
+    {
+        try
+        {
+            if (Session["jno"] == null || Session["jno"].ToString() == "0") return;
+            int jno = int.Parse(Session["jno"].ToString());
+
+            string sql = @"SELECT
+                SUM(CASE WHEN transactionType='DR' THEN transaction_amount ELSE 0 END) AS total_dr,
+                SUM(CASE WHEN transactionType='CR' THEN transaction_amount ELSE 0 END) AS total_cr,
+                COUNT(*) AS line_count
+                FROM fin_ledger WHERE voucherNo = @jno";
+
+            string connStr = ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString;
+            decimal dr = 0, cr = 0; int lines = 0;
+            using (var conn = new MySqlConnection(connStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@jno", jno);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read() && reader["total_dr"] != DBNull.Value)
+                        {
+                            dr = Convert.ToDecimal(reader["total_dr"]);
+                            cr = Convert.ToDecimal(reader["total_cr"]);
+                            lines = Convert.ToInt32(reader["line_count"]);
+                        }
+                    }
+                }
+            }
+
+            if (lines == 0) { litBalance.Text = ""; return; }
+
+            bool balanced = (dr == cr) && lines >= 2;
+            string balColor = balanced ? "#28a745" : "#dc3545";
+            string balText  = balanced ? "BALANCED ✓" : string.Format("IMBALANCE: {0:N0}", Math.Abs(dr - cr));
+            litBalance.Text = string.Format(
+                "<div style='background:#f8f9fa;border:1px solid {0};border-radius:4px;padding:8px 14px;margin:4px 0;font-size:12px;font-family:Segoe UI,Arial'>" +
+                "<strong>Journal Balance</strong> &nbsp;|&nbsp; " +
+                "DR: <strong>{1:N0}</strong> &nbsp;|&nbsp; " +
+                "CR: <strong>{2:N0}</strong> &nbsp;|&nbsp; " +
+                "<span style='color:{0};font-weight:700'>{3}</span>" +
+                "</div>",
+                balColor, dr, cr, balText);
+        }
+        catch { litBalance.Text = ""; }
+    }
+
     // B11 FIX: Financial period validation
     private bool IsInOpenFinancialPeriod(out string errorMessage)
     {

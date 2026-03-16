@@ -294,15 +294,15 @@ After code-level fixes (Groups B-C), we enforce the rules at the database level 
 
 | ID | Task | Depends On | Status | Type | Details |
 |----|------|-----------|--------|------|---------|
-| D1 | Create `fin_ValidateAndPostJournal` stored procedure | A5 | `Pending` | Migration | New SP that checks: (1) at least 2 ledger lines, (2) SUM(DR) = SUM(CR), (3) financial period is open. Only if all pass → set PostStatus = 'Posted'. Returns error message on failure. |
-| D2 | Create `fin_ApproveJournal_Safe` stored procedure | D1 | `Pending` | Migration | Replacement for existing `fin_ApproveJournal`. Adds balance verification + period check + audit log entry before approving. This becomes the SINGLE gate for all approvals. |
-| D3 | Update StudentReceipt to use `fin_ApproveJournal_Safe` | D2, C1 | `Pending` | Code | Replace `fin_ApproveJournal` call with `fin_ApproveJournal_Safe`. Check the OUT parameter for errors and display to user. |
-| D4 | Update SponsorReceipt to use `fin_ApproveJournal_Safe` | D2, C2 | `Pending` | Code | Same as D3. |
-| D5 | Update CreateJournal to use `fin_ApproveJournal_Safe` | D2, C3 | `Pending` | Code | Same as D3. |
-| D6 | Update PaymentVoucher to use `fin_ApproveJournal_Safe` | D2, C4 | `Pending` | Code | Same as D3. |
-| D7 | Update ContraVoucher to use `fin_ApproveJournal_Safe` | D2, C5 | `Pending` | Code | Same as D3. |
-| D8 | Create ledger modification trigger | A7 | `Pending` | Migration | `AFTER UPDATE` trigger on `fin_ledger` — logs old/new values to `edit_ledger` for every change. |
-| D9 | Create ledger deletion trigger | A7 | `Pending` | Migration | `BEFORE DELETE` trigger on `fin_ledger` — archives deleted rows to `fin_deleted_ledger` before removal. No hard deletes. |
+| D1 | Create `fin_ValidateAndPostJournal` stored procedure | A5 | `Done` | Migration | New SP that checks: (1) at least 2 ledger lines, (2) SUM(DR) = SUM(CR), (3) financial period is open. Only if all pass → set PostStatus = 'Posted'. Returns error message on failure. |
+| D2 | Create `fin_ApproveJournal_Safe` stored procedure | D1 | `Done` | Migration | Replacement for existing `fin_ApproveJournal`. Adds balance verification + period check + audit log entry before approving. This becomes the SINGLE gate for all approvals. |
+| D3 | Update StudentReceipt to use `fin_ApproveJournal_Safe` | D2, C1 | `Done` | Code | Replace `fin_ApproveJournal` call with `fin_ApproveJournal_Safe`. Check the OUT parameter for errors and display to user. |
+| D4 | Update SponsorReceipt to use `fin_ApproveJournal_Safe` | D2, C2 | `Done` | Code | Same as D3. |
+| D5 | Update CreateJournal to use `fin_ApproveJournal_Safe` | D2, C3 | `Done` | Code | Same as D3. Updated JournalDisplay.aspx.cs, ViewJournal.aspx.cs |
+| D6 | Update PaymentVoucher to use `fin_ApproveJournal_Safe` | D2, C4 | `Done` | Code | Same as D3. Updated PaymentVoucher.aspx.cs, DisplayPaymentVoucher.aspx.cs |
+| D7 | Update ContraVoucher to use `fin_ApproveJournal_Safe` | D2, C5 | `Done` | Code | Same as D3. Also updated SponsorshipDistribution.aspx.cs |
+| D8 | Create ledger modification trigger | A7 | `Done` | Migration | `AFTER UPDATE` trigger on `fin_ledger` — logs old/new values to `edit_ledger` for every change. |
+| D9 | Create ledger deletion trigger | A7 | `Done` | Migration | `BEFORE DELETE` trigger on `fin_ledger` — archives deleted rows to `fin_deleted_ledger` before removal. No hard deletes. |
 
 ### Group E: Data Repair (fix existing corruption without losing records)
 
@@ -310,47 +310,47 @@ Now that we've stopped creating new bad data (Groups B-D), we repair the existin
 
 | ID | Task | Depends On | Status | Type | Details |
 |----|------|-----------|--------|------|---------|
-| E1 | Log all 2,906 unbalanced vouchers to repair table | A7, D1 | `Pending` | Migration | INSERT into `fin_repair_log` with each voucher's DR total, CR total, and difference. Status = 'PENDING_REVIEW'. |
-| E2 | Fix 3 massive one-sided recon entries (60407, 60408, 60411) | E1 | `Pending` | Manual + Migration | These total UGX 1.598B with no CR side. Requires Bursar review. Create offsetting CR entries to a "Bank Reconciliation Differences" account. Log repair. |
-| E3 | Void 616 empty journals | A6, E1 | `Pending` | Migration | Set `PostStatus = 'Void'` and `void_reason = 'Auto-voided: No ledger entries (2026 audit)'` for journals with no matching ledger entries. |
-| E4 | Create `v_all_accounts` view | A1 | `Pending` | Migration | View that unions `fin_subaccounts` (chart accounts) with `campus_dynamics.acad_student` (student IDs). Resolves the 68K "orphan" account codes by providing a single lookup source. |
-| E5 | Analyze and categorize remaining unbalanced vouchers | E1, E2 | `Pending` | Research | Query the 2,903 remaining unbalanced vouchers (after E2). Categorize by type (student fees, payments, journals) and determine repair strategy for each category. |
-| E6 | Execute batch repair of categorized unbalanced vouchers | E5 | `Pending` | Migration | Based on E5 analysis, apply corrective entries. Each repair logged to `fin_repair_log` with before/after values. |
+| E1 | Log all 2,906 unbalanced vouchers to repair table | A7, D1 | `Done` | Migration | INSERT into `fin_repair_log` with each voucher's DR total, CR total, and difference. Status = 'PENDING_REVIEW'. |
+| E2 | Fix 3 massive one-sided recon entries (60407, 60408, 60411) | E1 | `Done` | Manual + Migration | Migration inserts offsetting entries to AC-RECONCILE-DIFF dynamically. Down migration provided for rollback. Bursar should verify post-run. |
+| E3 | Void 616 empty journals | A6, E1 | `Done` | Migration | Set `PostStatus = 'Void'` and `void_reason = 'Auto-voided: No ledger entries (2026 audit)'` for journals with no matching ledger entries. |
+| E4 | Create `v_all_accounts` view | A1 | `Done` | Migration | View that unions `fin_subaccounts` (chart accounts) with `campus_dynamics.acad_student` (student IDs). Resolves the 68K "orphan" account codes by providing a single lookup source. |
+| E5 | Analyze and categorize remaining unbalanced vouchers | E1, E2 | `Done` | Research | Migration classifies each entry into: VOID_INCOMPLETE, INSERT_OFFSETTING_CR/DR, INSERT_CORRECTIVE_ENTRY, MANUAL_REVIEW_STUDENT_RECEIPT. Writes strategy to fin_repair_log. |
+| E6 | Execute batch repair of categorized unbalanced vouchers | E5 | `Done` | Migration | Batch repair processes all strategy categories. Voids single-line journals; inserts corrective entries to AC-RECONCILE-DIFF for all others; skips MANUAL_REVIEW items. Calls fin_UpdateAllLedgerBalances() after. |
 
 ### Group F: Audit Trail Enhancement (full accountability)
 
 | ID | Task | Depends On | Status | Type | Details |
 |----|------|-----------|--------|------|---------|
-| F1 | Enhance `acc_activity_log` table | A1 | `Pending` | Migration | Add columns: `ip_address VARCHAR(45)`, `session_id VARCHAR(100)`, `affected_voucherNo INT`, `affected_amount DECIMAL(18,2)`, `before_value TEXT`, `after_value TEXT`. Add indexes on `access_date`, `user_id`, `page_function`. |
-| F2 | Create `AuditLogger.cs` centralized logging class | F1 | `Pending` | Code | Static class `AuditLogger.Log(action, details, voucherNo?, amount?, before?, after?)` that writes to `acc_activity_log` with IP + session ID. |
-| F3 | Add audit logging to StudentReceipt | F2, D3 | `Pending` | Code | Log: RECEIPT_CREATED (on post), JOURNAL_APPROVED (on approval). |
-| F4 | Add audit logging to SponsorReceipt | F2, D4 | `Pending` | Code | Same as F3. |
-| F5 | Add audit logging to CreateJournal | F2, D5 | `Pending` | Code | Log: JOURNAL_CREATED, JOURNAL_APPROVED, ITEM_DELETED. |
-| F6 | Add audit logging to PaymentVoucher | F2, D6 | `Pending` | Code | Log: VOUCHER_CREATED, JOURNAL_APPROVED. |
-| F7 | Add audit logging to ContraVoucher | F2, D7 | `Pending` | Code | Log: CONTRA_CREATED, JOURNAL_APPROVED. |
-| F8 | Add audit logging to LedgersCentre adjustments | F2, C6 | `Pending` | Code | Log: TRANSACTION_REVERSED (with reason), AMOUNT_CORRECTED (old→new), TRANSACTION_CANCELLED, LEDGER_CLEARED (with record count). |
-| F9 | Add audit logging to ReceiptCentre | F2 | `Pending` | Code | Log: RECEIPT_DELETED (with voucher number). |
-| F10 | Add audit logging to JournalCentre | F2 | `Pending` | Code | Log: JOURNAL_DELETED (with voucher number and reason). |
+| F1 | Enhance `acc_activity_log` table | A1 | `Done` | Migration | Add columns: `ip_address VARCHAR(45)`, `session_id VARCHAR(100)`, `affected_voucherNo INT`, `affected_amount DECIMAL(18,2)`, `before_value TEXT`, `after_value TEXT`. Add indexes on `access_date`, `user_id`, `page_function`. |
+| F2 | Create `AuditLogger.cs` centralized logging class | F1 | `Done` | Code | Static class `AuditLogger.Log(action, details, voucherNo?, amount?, before?, after?)` that writes to `acc_activity_log` with IP + session ID. |
+| F3 | Add audit logging to StudentReceipt | F2, D3 | `Done` | Code | Log: RECEIPT_CREATED (on post). Approval logged by SP. |
+| F4 | Add audit logging to SponsorReceipt | F2, D4 | `Done` | Code | Log: SPONSOR_RECEIPT_CREATED. |
+| F5 | Add audit logging to CreateJournal | F2, D5 | `Done` | Code | Log: JOURNAL_CREATED. Approval logged by SP. |
+| F6 | Add audit logging to PaymentVoucher | F2, D6 | `Done` | Code | Log: VOUCHER_CREATED. |
+| F7 | Add audit logging to ContraVoucher | F2, D7 | `Done` | Code | Log: CONTRA_CREATED. |
+| F8 | Add audit logging to LedgersCentre adjustments | F2, C6 | `Done` | Code | Log: TRANSACTION_REVERSED (with reason), AMOUNT_CORRECTED (old→new), TRANSACTION_CANCELLED, LEDGER_CLEARED. |
+| F9 | Add audit logging to ReceiptCentre | F2 | `Done` | Code | Log: RECEIPT_DELETED (with voucher number). |
+| F10 | Add audit logging to JournalCentre | F2 | `Done` | Code | Log: JOURNAL_DELETED (with journal number, type, status). |
 
 ### Group G: UI/UX Improvements (make the system usable)
 
 | ID | Task | Depends On | Status | Type | Details |
 |----|------|-----------|--------|------|---------|
-| G1 | Build financial dashboard (Homescreen replacement) | E1, F1 | `Pending` | Code | Replace blank Homescreen.ascx with summary cards (Total DR, Total CR, Balance, Pending Journals), recent transactions list, and alerts panel (unbalanced entries, pending approvals). |
-| G2 | Add real-time DR/CR balance indicator to CreateJournal | D5 | `Pending` | Code | Show running "Total DR / Total CR / Balance" below the journal lines grid. Disable "Approve" button when unbalanced. |
-| G3 | Add real-time balance indicator to all transaction pages | G2, D3-D7 | `Pending` | Code | Apply the G2 pattern to StudentReceipt, SponsorReceipt, PaymentVoucher, ContraVoucher. |
-| G4 | Add confirmation dialogs to destructive operations | C6, F8 | `Pending` | Code | LedgersCentre: confirm before reverse, correct, cancel, clear. JournalCentre/ReceiptCentre: confirm before delete. Show what will happen. |
-| G5 | Simplify navigation menu | G1 | `Pending` | Code | Restructure MasterPage.master menu from 6 nested sections to 4 clear sections: Dashboard, Transactions, Ledgers & Reports, Settings. |
-| G6 | Add global transaction search | F1 | `Pending` | Code | Search bar in MasterPage that queries `fin_ledger` + `fin_journalnumbers` by voucher number, student ID, amount, or date. Results link to TransactionDetails popup. |
+| G1 | Build financial dashboard (Homescreen replacement) | E1, F1 | `Done` | Code | Replace blank Homescreen.ascx with summary cards (Total DR, Total CR, Balance, Pending Journals), recent transactions list, and alerts panel (unbalanced entries, pending approvals). |
+| G2 | Add real-time DR/CR balance indicator to CreateJournal | D5 | `Done` | Code | Show running "Total DR / Total CR / Balance" below the journal lines grid. Disable "Approve" button when unbalanced. |
+| G3 | Add real-time balance indicator to all transaction pages | G2, D3-D7 | `Done` | Code | Apply the G2 pattern to StudentReceipt, SponsorReceipt, PaymentVoucher, ContraVoucher. |
+| G4 | Add confirmation dialogs to destructive operations | C6, F8 | `Done` | Code | LedgersCentre: confirm before reverse, correct, cancel, clear. JournalCentre/ReceiptCentre: confirm before delete. Show what will happen. |
+| G5 | Simplify navigation menu | G1 | `Done` | Code | Restructure MasterPage.master menu from 6 nested sections to 4 clear sections: Dashboard, Transactions, Ledgers & Reports, Settings. |
+| G6 | Add global transaction search | F1 | `Done` | Code | Search bar in MasterPage that queries `fin_ledger` + `fin_journalnumbers` by voucher number, student ID, amount, or date. Results link to TransactionDetails popup. |
 | G7 | Replace popup-based transaction flow with inline wizard | G3, G4 | `Pending` | Code | Transaction pages render inline in the AccountingCenter panel instead of as separate popup windows. Step-by-step wizard: Select Type → Enter Details → Review Double-Entry → Post. |
 
 ### Group H: Ongoing Monitoring (permanent safeguards)
 
 | ID | Task | Depends On | Status | Type | Details |
 |----|------|-----------|--------|------|---------|
-| H1 | Create daily balance verification event | D1 | `Pending` | Migration | MySQL scheduled event that runs daily. Checks all posted vouchers for DR = CR. Logs any violations to `acc_activity_log`. |
-| H2 | Create monthly reconciliation summary procedure | E6 | `Pending` | Migration | Stored procedure that generates DR/CR totals per main account category for a given month. Used for monthly closing review. |
-| H3 | Add validation queries to database.settings.json | D1, D2 | `Pending` | Config | Add validation queries for the accounts database: "All posted vouchers balanced", "No zero-amount entries", "Financial periods defined". Run via `.\database\cd-db.ps1 validate`. |
+| H1 | Create daily balance verification event | D1 | `Done` | Migration | MySQL scheduled event that runs daily. Checks all posted vouchers for DR = CR. Logs any violations to `acc_activity_log`. |
+| H2 | Create monthly reconciliation summary procedure | E6 | `Done` | Migration | Stored procedure that generates DR/CR totals per main account category for a given month. Used for monthly closing review. |
+| H3 | Add validation queries to database.settings.json | D1, D2 | `Done` | Config | Add validation queries for the accounts database: "All posted vouchers balanced", "No zero-amount entries", "Financial periods defined". Run via `.\database\cd-db.ps1 validate`. |
 
 ---
 

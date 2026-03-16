@@ -58,6 +58,22 @@
         {
           "name": "Accounts schema contains tables",
           "sql": "SELECT COUNT(*) AS total_tables FROM information_schema.tables WHERE table_schema = DATABASE();"
+        },
+        {
+          "name": "All posted vouchers balanced (DR = CR)",
+          "sql": "SELECT COUNT(*) AS unbalanced_count FROM (SELECT voucherNo, SUM(CASE WHEN transactionType='DR' THEN transaction_amount ELSE 0 END) AS dr, SUM(CASE WHEN transactionType='CR' THEN transaction_amount ELSE 0 END) AS cr FROM fin_ledger l JOIN fin_journalnumbers j ON j.JournalNo = l.voucherNo WHERE j.PostStatus='Posted' GROUP BY voucherNo HAVING ABS(dr - cr) > 0.005) t;"
+        },
+        {
+          "name": "No zero-amount ledger entries",
+          "sql": "SELECT COUNT(*) AS zero_amount_count FROM fin_ledger WHERE transaction_amount = 0;"
+        },
+        {
+          "name": "Financial periods defined",
+          "sql": "SELECT COUNT(*) AS period_count FROM fin_financial_years;"
+        },
+        {
+          "name": "At least one open financial period",
+          "sql": "SELECT COUNT(*) AS open_periods FROM fin_financial_years WHERE status = 'Open';"
         }
       ]
     },

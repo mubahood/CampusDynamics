@@ -77,13 +77,66 @@
         
           <dx:ASPxMenu ID="ASPxMenu1" runat="server" Width="100%" ItemImagePosition="Top">
               <Items>
-                  <dx:MenuItem Name="Dashboard" Text="Dashboard" 
-                      NavigateUrl="~/MyApplications.aspx">
+                  <dx:MenuItem Name="Dashboard" Text="Dashboard"
+                      NavigateUrl="~/COOPERP/accounts/AccountingCenter.aspx">
                       <Image Url="~/COOPERP/images/application-icon.png">
                       </Image>
                   </dx:MenuItem>
-                  <dx:MenuItem 
-                      Text="Accounts Settings">
+                  <dx:MenuItem Text="Transactions">
+                      <Items>
+                          <dx:MenuItem Text="Vouchers Centre"
+                              NavigateUrl="~/COOPERP/accounts/AccountingCenter.aspx?pid=4">
+                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="Payment Vouchers"
+                              NavigateUrl="~/COOPERP/accounts/AccountingCenter.aspx?pid=4&amp;j=Payment">
+                              <Image Url="~/COOPERP/images/money-coin.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem NavigateUrl="~/COOPERP/accounts/AccountLedger.aspx"
+                              Text="Account Ledgers">
+                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem NavigateUrl="~/COOPERP/accounts/BudgetManager.aspx" Text="Budget Management">
+                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
+                              </Image>
+                          </dx:MenuItem>
+                      </Items>
+                      <Image Url="~/COOPERP/images/clipboard-invoice.png">
+                      </Image>
+                  </dx:MenuItem>
+                  <dx:MenuItem Text="Ledgers &amp; Reports">
+                      <Items>
+                          <dx:MenuItem NavigateUrl="~/COOPERP/accounts/GLDrillDown.aspx" Text="General Ledger">
+                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="Cash Book"
+                              NavigateUrl="~/COOPERP/accounts/CashBook.aspx">
+                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="Bank Reconciliation"
+                              NavigateUrl="~/COOPERP/accounts/BankReconciliation.aspx">
+                              <Image Url="~/COOPERP/images/clipboard--pencil.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="Financial Documents"
+                              NavigateUrl="~/COOPERP/accounts/AccountingCenter.aspx?pid=7">
+                              <Image Url="~/COOPERP/images/reports-stack.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem NavigateUrl="~/COOPERP/accounts/AccountingCenter.aspx?pid=8" Text="Escalated Transactions">
+                              <Image Url="~/COOPERP/images/sticky-notes-pin.png">
+                              </Image>
+                          </dx:MenuItem>
+                      </Items>
+                      <Image Url="~/COOPERP/images/tick-button.png">
+                      </Image>
+                  </dx:MenuItem>
+                  <dx:MenuItem Text="Settings">
                       <Items>
                           <dx:MenuItem Text="Company Information" NavigateUrl="~/COOPERP/accounts/CompanyInfo.aspx">
                               <Image Url="~/COOPERP/images/clipboard-list.png">
@@ -101,68 +154,37 @@
                       <Image Url="~/COOPERP/images/hammer-screwdriver.png">
                       </Image>
                   </dx:MenuItem>
-                  <dx:MenuItem NavigateUrl="~/COOPERP/accounts/BudgetManager.aspx" Text="Budget Management">
-                      <Image Url="~/COOPERP/images/clipboard-invoice.png">
-                      </Image>
-                  </dx:MenuItem>
-                  <dx:MenuItem Text=" Vouchers &amp; Account Ledgers">
-                      <Items>
-                          <dx:MenuItem NavigateUrl="~/COOPERP/accounts/GLDrillDown.aspx" Text="General Ledger">
-                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
-                              </Image>
-                          </dx:MenuItem>
-                          <dx:MenuItem 
-                              Text="Supplier Info" ClientVisible="False">
-                              <Image Url="~/COOPERP/images/user.png">
-                              </Image>
-                          </dx:MenuItem>
-                          <dx:MenuItem Text=" Vouchers Centre" 
-                              NavigateUrl="~/COOPERP/accounts/AccountingCenter.aspx?pid=4">
-                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
-                              </Image>
-                          </dx:MenuItem>
-                          <dx:MenuItem NavigateUrl="~/COOPERP/accounts/AccountLedger.aspx" 
-                              Text="Account Ledgers">
-                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
-                              </Image>
-                          </dx:MenuItem>
-                          <dx:MenuItem Text="Payment Vouchers" NavigateUrl="~/COOPERP/accounts/AccountingCenter.aspx?pid=4&amp;j=Payment">
-                              <Image Url="~/COOPERP/images/money-coin.png">
-                              </Image>
-                          </dx:MenuItem>
-                      </Items>
-                      <Image Url="~/COOPERP/images/clipboard-invoice.png">
-                      </Image>
-                  </dx:MenuItem>
-                  <dx:MenuItem Text="Audits &amp; Bank Reconciliation">
-                      <Items>
-                          <dx:MenuItem Text="Cash Book Centre" NavigateUrl="~/COOPERP/accounts/CashBook.aspx">
-                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
-                              </Image>
-                          </dx:MenuItem>
-                          <dx:MenuItem Text="Reconciliation Centre" NavigateUrl="~/COOPERP/accounts/BankReconciliation.aspx">
-                              <Image Url="~/COOPERP/images/clipboard--pencil.png">
-                              </Image>
-                          </dx:MenuItem>
-                          <dx:MenuItem NavigateUrl="~/COOPERP/accounts/AccountingCenter.aspx?pid=8" Text="Escalated Transactions">
-                              <Image Url="~/COOPERP/images/sticky-notes-pin.png">
-                              </Image>
-                          </dx:MenuItem>
-                      </Items>
-                      <Image Url="~/COOPERP/images/tick-button.png">
-                      </Image>
-                  </dx:MenuItem>
-                  <dx:MenuItem Text="Financial Documents" 
-                      NavigateUrl="~/COOPERP/accounts/AccountingCenter.aspx?pid=7">
-                      <Image Url="~/COOPERP/images/reports-stack.png">
-                      </Image>
-                  </dx:MenuItem>
               </Items>
               <SubMenuItemStyle>
                   <Paddings Padding="10px" />
               </SubMenuItemStyle>
           </dx:ASPxMenu>
         
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div style="background:#e8f4fd;border-bottom:1px solid #bee5f5;padding:5px 10px;display:flex;align-items:center;gap:8px;font-size:12px;">
+                        <span style="color:#05275C;font-weight:600;white-space:nowrap;">&#128269; Search Transactions:</span>
+                        <input id="txnSearchBox" type="text" placeholder="Voucher no, account code, or description…"
+                            style="flex:1;max-width:400px;padding:4px 8px;border:1px solid #bee5f5;border-radius:3px;font-size:12px;"
+                            onkeydown="if(event.key==='Enter'){cdTxnSearch();}" />
+                        <input type="button" value="Search" onclick="cdTxnSearch();"
+                            style="padding:4px 14px;background:#05275C;color:#fff;border:none;border-radius:3px;font-size:12px;cursor:pointer;" />
+                    </div>
+                    <dx:ASPxPopupControl ID="pop_txnSearch" runat="server" ClientInstanceName="pop_txnSearch"
+                        HeaderText="Transaction Search Results" Modal="True" CloseAction="CloseButton"
+                        PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter"
+                        Width="860px" Height="480px">
+                    </dx:ASPxPopupControl>
+                    <script type="text/javascript">
+                        function cdTxnSearch() {
+                            var q = encodeURIComponent(document.getElementById('txnSearchBox').value || '');
+                            if (!q) return;
+                            pop_txnSearch.SetContentUrl('TxnSearch.aspx?q=' + q);
+                            pop_txnSearch.Show();
+                        }
+                    </script>
                 </td>
             </tr>
             <tr>

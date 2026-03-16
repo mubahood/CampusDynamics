@@ -325,7 +325,7 @@
                                             <tr>
                                                 <td class="auto-style7">Adjustment:</td>
                                                 <td>
-                                                    <dx:ASPxComboBox ID="txtType" runat="server" AutoPostBack="True" Height="35px" SelectedIndex="0" Width="100%">
+                                                    <dx:ASPxComboBox ID="txtType" runat="server" ClientInstanceName="cboAdjType" AutoPostBack="True" Height="35px" SelectedIndex="0" Width="100%">
                                                         <Items>
                                                             <dx:ListEditItem Selected="True" Text="Reverse Transaction" Value="Reverse Transaction" />
                                                             <dx:ListEditItem Text="Correct Amount" Value="Correct Amount" />
@@ -354,12 +354,11 @@
                                                 <td>
                                                     <dx:ASPxButton ID="cmdProcess" runat="server" Height="35px" OnClick="cmdProcess_Click" Text="Process Adjustment" Width="100%">
                                                         <ClientSideEvents Click="function(s, e) {
-	e.processOnServer = confirm('Process Adjustment?');
-if(e.processOnServer==true)
-{
-panel_billling.Show();
-}
-  }" />
+    var op = cboAdjType.GetValue() || 'adjustment';
+    var msg = 'Process ' + op + ' on the selected transaction(s)?\n\nThis action will modify ledger records and cannot be easily undone.';
+    e.processOnServer = confirm(msg);
+    if (e.processOnServer) { panel_billling.Show(); }
+}" />
                                                         <Image IconID="tasks_edittask_16x16">
                                                         </Image>
                                                     </dx:ASPxButton>

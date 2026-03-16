@@ -91,7 +91,7 @@ public partial class COOPERP_accounts_JournalDisplay : System.Web.UI.Page
             if (HttpContext.Current.User.IsInRole("Administrator") || HttpContext.Current.User.IsInRole("Bursar"))
             {
                 fin_journalnumbersTableAdapter LEDGER = new fin_journalnumbersTableAdapter();
-                lbl_msg.Text = LEDGER.fin_ApproveJournal(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name,rb_openingBalance.SelectedItem.ToString()).ToString();
+                lbl_msg.Text = LEDGER.fin_ApproveJournal_Safe(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name,rb_openingBalance.SelectedItem.ToString()).ToString();
                 gvParticulars.DataBind();
                 ButtonManager();
             }
@@ -100,7 +100,11 @@ public partial class COOPERP_accounts_JournalDisplay : System.Web.UI.Page
                 lbl_msg.Text = "Sorry. Only Bursar Approve Journals. See Your Bursar";
             }
         }
-        catch (Exception) { }
+        catch (Exception ex)
+        {
+            // B5 FIX: Show approval error instead of swallowing silently
+            lbl_msg.Text = "Approval Error: " + ex.Message;
+        }
         pop_messagebox.ShowOnPageLoad = true;
     }
 
@@ -137,7 +141,10 @@ public partial class COOPERP_accounts_JournalDisplay : System.Web.UI.Page
                 gvParticulars.SettingsEditing.Mode = DevExpress.Web.GridViewEditingMode.Batch;
             }
         }
-        catch (Exception) { }
+        catch (Exception)
+        {
+            // B5 FIX: ButtonManager failure is non-critical
+        }
     }
     protected void gvParticulars_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
     {

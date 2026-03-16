@@ -9,6 +9,9 @@ public partial class COOPERP_accounts_TransactionDetails : System.Web.UI.Page
 {
     protected void Page_Load(object sender, EventArgs e)
     {
-        lbl_header.Text = "TRANSACTION DETAILS FOR VOUCHER NO: "+Session["Vno"];
+        // Accept vno from query string (e.g. from TxnSearch) or from Session
+        if (!string.IsNullOrEmpty(Request.QueryString["vno"]))
+            Session["Vno"] = Request.QueryString["vno"];
+        lbl_header.Text = "TRANSACTION DETAILS FOR VOUCHER NO: " + Session["Vno"];
     }
 }
