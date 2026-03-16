@@ -406,6 +406,7 @@
                 <asp:Button ID="btnCancelApproval" runat="server" Text="Cancel" CssClass="er-batch-btn er-batch-btn--danger" OnClick="btnCancelApproval_Click" OnClientClick="return confirm('Cancel approval for selected students?');" Enabled="false" />
                 <asp:Button ID="btnPrintSheet" runat="server" Text="Print" CssClass="er-batch-btn" OnClick="btnPrintSheet_Click" />
                 <asp:Button ID="btnExportExcel" runat="server" Text="Excel" CssClass="er-batch-btn" OnClick="btnExportExcel_Click" />
+                <asp:Button ID="btnDeleteSelected" runat="server" Text="Delete Selected" CssClass="er-batch-btn er-batch-btn--danger" OnClick="btnDeleteSelected_Click" OnClientClick="return confirm('Are you sure you want to delete the selected results? This cannot be undone.');" />
             </div>
             <asp:Label ID="lblMessage" runat="server" CssClass="er-message" style="margin-left: 20px; font-weight: bold;"></asp:Label>
         </div>

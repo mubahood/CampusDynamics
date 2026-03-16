@@ -817,8 +817,24 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     protected void gvResults_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
     {
         int id = Convert.ToInt32(e.Keys["ID"]);
+        int affected = DeleteResultById(id);
         
-        // Check if result is approved - block deletion of approved results
+        if (affected > 0)
+            ShowMessage("Result deleted successfully.", "success");
+        else if (affected == 0)
+            ShowMessage("Record not found or already deleted.", "warning");
+        // affected == -1 means it was approved and blocked
+        
+        e.Cancel = true;
+        LoadStats();
+        BindGrid();
+    }
+    
+    /// <summary>
+    /// Deletes a single result by ID. Returns rows affected, 0 if not found, -1 if blocked (approved).
+    /// </summary>
+    private int DeleteResultById(int id)
+    {
         try
         {
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
@@ -848,9 +864,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                 if (approvedBy != "-" && !string.IsNullOrEmpty(approvedBy))
                 {
                     ShowMessage("Cannot delete approved result for " + regno + " (" + courseId + "). Cancel approval first.", "error");
-                    e.Cancel = true;
-                    BindGrid();
-                    return;
+                    return -1;
                 }
                 
                 // Delete the record
@@ -858,32 +872,67 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                 using (MySqlCommand deleteCmd = new MySqlCommand(deleteSql, conn))
                 {
                     deleteCmd.Parameters.AddWithValue("@id", id);
-                    int affected = deleteCmd.ExecuteNonQuery();
-                    
-                    if (affected > 0)
-                        ShowMessage("Result deleted: " + regno + " - " + courseId, "success");
-                    else
-                        ShowMessage("Record not found or already deleted.", "warning");
+                    return deleteCmd.ExecuteNonQuery();
                 }
             }
         }
         catch (Exception ex)
         {
             ShowMessage("Error deleting result: " + ex.Message, "error");
+            return 0;
+        }
+    }
+    
+    protected void btnDeleteSelected_Click(object sender, EventArgs e)
+    {
+        int count = 0;
+        int blocked = 0;
+        
+        List<object> selectedIds = gvResults.GetSelectedFieldValues("ID");
+        
+        if (selectedIds.Count == 0)
+        {
+            ShowMessage("No records selected. Use the checkboxes to select records to delete.", "warning");
+            return;
         }
         
-        e.Cancel = true; // Cancel default handling since we did it manually
+        foreach (object id in selectedIds)
+        {
+            int result = DeleteResultById(Convert.ToInt32(id));
+            if (result > 0) count++;
+            else if (result == -1) blocked++;
+        }
+        
+        string msg = "";
+        if (count > 0) msg += count + " result(s) deleted. ";
+        if (blocked > 0) msg += blocked + " approved result(s) skipped (cancel approval first).";
+        if (count == 0 && blocked == 0) msg = "No records were deleted.";
+        
+        ShowMessage(msg, count > 0 ? "success" : "warning");
+        
+        gvResults.Selection.UnselectAll();
         LoadStats();
         BindGrid();
     }
     
     protected void gvResults_BatchUpdate(object sender, DevExpress.Web.Data.ASPxDataBatchUpdateEventArgs e)
     {
-        // Handle batch updates
+        // Handle batch updates (mark edits)
         foreach (var args in e.UpdateValues)
         {
             UpdateResultRow(args);
         }
+        
+        // Handle batch deletes (the delete button in Batch mode only fires here, not RowDeleting)
+        int deleteCount = 0;
+        foreach (var args in e.DeleteValues)
+        {
+            int id = Convert.ToInt32(args.Keys["ID"]);
+            deleteCount += DeleteResultById(id);
+        }
+        
+        if (deleteCount > 0)
+            ShowMessage(deleteCount + " result(s) deleted successfully.", "success");
         
         LoadStats();
         BindGrid();
