@@ -45,45 +45,53 @@ public partial class COOPERP_NewScreens_AcademicResults : System.Web.UI.Page
         ddlProgramme.Items.Clear();
         ddlProgramme.Items.Add(new ListItem("-- All Programmes --", ""));
         
-        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        try
         {
-            conn.Open();
-            string username = HttpContext.Current.User.Identity.Name;
-            
-            // Get user's assigned programmes
-            using (MySqlCommand cmd = new MySqlCommand("myaspnet_GetMyProgrammes", conn))
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@usr", username);
-                using (MySqlDataReader reader = cmd.ExecuteReader())
+                conn.Open();
+                string username = HttpContext.Current.User.Identity.Name;
+                
+                // Try to get user's assigned programmes
+                try
                 {
-                    while (reader.Read())
+                    using (MySqlCommand cmd = new MySqlCommand("myaspnet_GetMyProgrammes", conn))
                     {
-                        string code = reader["progcode"].ToString();
-                        string name = reader["progname"].ToString();
-                        ddlProgramme.Items.Add(new ListItem(code + " - " + name, code));
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        cmd.Parameters.AddWithValue("@usr", username);
+                        using (MySqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                string code = reader["progcode"].ToString();
+                                string name = reader["progname"].ToString();
+                                ddlProgramme.Items.Add(new ListItem(code + " - " + name, code));
+                            }
+                        }
                     }
                 }
-            }
-            
-            // If no programmes found via permissions, load all
-            if (ddlProgramme.Items.Count == 1)
-            {
-                string sql = "SELECT progcode, progname FROM acad_programme ORDER BY progname";
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                catch { /* stored procedure may not exist - fall through to load all */ }
+                
+                // If no programmes found via permissions, load all
+                if (ddlProgramme.Items.Count == 1)
                 {
-                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    string sql = "SELECT progcode, progname FROM acad_programme ORDER BY progname";
+                    using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                     {
-                        while (reader.Read())
+                        using (MySqlDataReader reader = cmd.ExecuteReader())
                         {
-                            string code = reader["progcode"].ToString();
-                            string name = reader["progname"].ToString();
-                            ddlProgramme.Items.Add(new ListItem(code + " - " + name, code));
+                            while (reader.Read())
+                            {
+                                string code = reader["progcode"].ToString();
+                                string name = reader["progname"].ToString();
+                                ddlProgramme.Items.Add(new ListItem(code + " - " + name, code));
+                            }
                         }
                     }
                 }
             }
         }
+        catch { /* Don't let programme loading failure prevent page from loading */ }
     }
     
     private void LoadAcademicYears()
@@ -283,7 +291,7 @@ public partial class COOPERP_NewScreens_AcademicResults : System.Web.UI.Page
                     r.CreditUnits, r.score, r.grade, r.gradept, r.gpa,
                     r.result_comment,
                     CONCAT(COALESCE(s.firstname, ''), ' ', COALESCE(s.othername, '')) as stud_name,
-                    COALESCE(s.progcode, '') as progcode
+                    COALESCE(s.progid, '') as progcode
                     FROM acad_results r
                     LEFT JOIN acad_student s ON r.regno = s.regno
                     LEFT JOIN acad_course c ON r.courseid = c.courseID
@@ -353,7 +361,7 @@ public partial class COOPERP_NewScreens_AcademicResults : System.Web.UI.Page
         if (!string.IsNullOrEmpty(searchTerm))
             conditions.Add("(" + alias + ".regno LIKE @search OR s.firstname LIKE @search OR s.othername LIKE @search OR CONCAT(s.firstname, ' ', COALESCE(s.othername, '')) LIKE @search)");
         if (!string.IsNullOrEmpty(progValue))
-            conditions.Add("s.progcode = @prog");
+            conditions.Add("s.progid = @prog");
         if (!string.IsNullOrEmpty(acadValue))
             conditions.Add(alias + ".acad = @acad");
         if (!string.IsNullOrEmpty(yearValue))
