@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -7,9 +9,84 @@ using System.Text;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using MySql.Data.MySqlClient;
 
 public partial class UserControls_Security_SystemApplications : System.Web.UI.UserControl
 {
+    /// <summary>
+    /// Returns true if the string looks like a real email address
+    /// (has text before and after the '@').
+    /// </summary>
+    private static bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrEmpty(email)) return false;
+        email = email.Trim();
+        int at = email.IndexOf('@');
+        // Must have something before '@' and a dot somewhere after it
+        return at > 0 && at < email.Length - 1 && email.IndexOf('.', at) > at;
+    }
+
+    /// <summary>
+    /// Search every known email source for the given login username.
+    /// Order: 1) my_aspnet_userphone.emails
+    ///        2) my_aspnet_membership.Email   (via my_aspnet_users)
+    ///        3) hrm_employee.emp_email       (via hrm_employee.usernames)
+    ///        4) hrm_staff.Email              (via hrm_employee.EMP_CODE)
+    /// Returns the first valid email found, or empty string.
+    /// </summary>
+    private string FindUserEmail(string username)
+    {
+        try
+        {
+            string connStr = ConfigurationManager.ConnectionStrings["schoolMISConnectionString"].ConnectionString;
+            using (MySqlConnection conn = new MySqlConnection(connStr))
+            {
+                conn.Open();
+
+                // One query, four LEFT JOINs – grab every possible email in a single round trip
+                string sql =
+                    "SELECT p.emails, m.Email, e.emp_email, s.Email AS staff_email "
+                  + "FROM my_aspnet_users u "
+                  + "LEFT JOIN my_aspnet_userphone  p ON u.name     = p.username "
+                  + "LEFT JOIN my_aspnet_membership m ON u.id       = m.userId "
+                  + "LEFT JOIN hrm_employee         e ON u.name     = e.usernames "
+                  + "LEFT JOIN hrm_staff            s ON e.EMP_CODE = s.staffCode "
+                  + "WHERE u.name = @uname LIMIT 1";
+
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@uname", username);
+                    using (MySqlDataReader rdr = cmd.ExecuteReader())
+                    {
+                        if (rdr.Read())
+                        {
+                            // Walk through columns in priority order
+                            for (int i = 0; i < rdr.FieldCount; i++)
+                            {
+                                if (rdr.IsDBNull(i)) continue;
+                                string val = rdr.GetString(i).Trim();
+                                // userphone.emails can hold comma-separated list; take the first valid one
+                                if (val.Contains(","))
+                                {
+                                    foreach (string part in val.Split(','))
+                                    {
+                                        if (IsValidEmail(part.Trim()))
+                                            return part.Trim();
+                                    }
+                                }
+                                else if (IsValidEmail(val))
+                                {
+                                    return val;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception) { /* swallow – caller will show the existing error message */ }
+        return string.Empty;
+    }
     protected void Page_Load(object sender, EventArgs e)
     {
       Page.Form.DefaultButton = cmdVerify.UniqueID;
@@ -132,8 +209,9 @@ public partial class UserControls_Security_SystemApplications : System.Web.UI.Us
         else
         {
             // --- Email path ---
-            object emailObj = USR.GetUserEmail(username);
-            string Email = (emailObj != null) ? emailObj.ToString() : "";
+            // Search all known email sources: userphone, membership, employee, staff
+            string Email = FindUserEmail(username);
+
             if (string.IsNullOrEmpty(Email))
             {
                 lbl_comment.ForeColor = System.Drawing.Color.Red;
@@ -163,7 +241,7 @@ public partial class UserControls_Security_SystemApplications : System.Web.UI.Us
             {
                 responseValue = "Error! [" + ex.Message + "]";
             }
-            lbl_comment.Text = responseValue + ". Your email is: [" + Email.Substring(0, Math.Min(5, Email.Length)) + "...]";
+            lbl_comment.Text = responseValue + ". Your email is: [" + Email + "]";
         }
     }
 }

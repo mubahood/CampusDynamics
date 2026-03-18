@@ -14,16 +14,19 @@ public partial class API_RegistrationManager : System.Web.UI.Page
     {
         PortalContentTableAdapters.acad_course_registrationTableAdapter CS = new PortalContentTableAdapters.acad_course_registrationTableAdapter();
         lbl_study_details.Text = string.Format("{0}, SEM|QTER {1} | YEAR {2}", Request["acadyear"], Request["sem"], Request["cyear"]);
-        lbl_regStat.Text = "" + Request["regstat"];
-        if (Request["regstat"] == "REGISTERED")
+        if (!IsPostBack)
         {
-            lbl_reg_comment.Text = "REGISTRATION DONE";
-            cmdRegister.Visible = false;
-        }
-        else
-        {
-            lbl_reg_comment.Text = "REGISTRATION PENDING";
-            cmdRegister.Visible = true;
+            lbl_regStat.Text = "" + Request["regstat"];
+            if (Request["regstat"] == "REGISTERED" || Request["regstat"] == "LATE REGISTERED")
+            {
+                lbl_reg_comment.Text = "REGISTRATION DONE";
+                cmdRegister.Visible = false;
+            }
+            else
+            {
+                lbl_reg_comment.Text = "REGISTRATION PENDING";
+                cmdRegister.Visible = true;
+            }
         }
         lbl_bal_comment.Text = CS.GetCurrentBalance(Request["reg"]).ToString();
 
@@ -85,16 +88,21 @@ public partial class API_RegistrationManager : System.Web.UI.Page
             {
                 PortalContentTableAdapters.acad_StudentRegistrationTableAdapter REG = new PortalContentTableAdapters.acad_StudentRegistrationTableAdapter();
                 string comm=REG.ProcessRegister(Request["reg"], Request["acadyear"], int.Parse(Request["sem"]), HttpContext.Current.User.Identity.Name).ToString();
-                if(comm.Contains("1 Bill")) comm="Registration Completed Successfully";
-                // Auto-bill student after registration
-                fin_GetStudentFeesTrackListTableAdapter BILLING = new fin_GetStudentFeesTrackListTableAdapter();
-                BILLING.fin_Autobilling(Request["reg"], Request["acadyear"], int.Parse(Request["sem"]), "REG", HttpContext.Current.User.Identity.Name, "-");
-                BILLING.fin_Autobilling(Request["reg"], Request["acadyear"], int.Parse(Request["sem"]), "ACCOMO", HttpContext.Current.User.Identity.Name, "-");
-                // --- Update labels and button dynamically ---
-                lbl_regStat.Text = "REGISTERED";
-                lbl_reg_comment.Text = "REGISTRATION DONE";
-                cmdRegister.Visible = false;
-                lbl_msg.Text = comm;
+                if(comm.Contains("Registration Completed") || comm.Contains("Registration Done"))
+                {
+                    // Procedure handles billing internally — do not call fin_Autobilling here
+                    lbl_regStat.Text = "REGISTERED";
+                    lbl_reg_comment.Text = "REGISTRATION DONE";
+                    cmdRegister.Visible = false;
+                    lbl_msg.Text = "Registration Completed Successfully";
+                    // Refresh the portal grid in the opener window so it reflects the new REGISTERED status
+                    Page.ClientScript.RegisterStartupScript(this.GetType(), "refreshOpener",
+                        "<script type='text/javascript'>if(window.opener && !window.opener.closed){ window.opener.location.reload(); }</script>");
+                }
+                else
+                {
+                    lbl_msg.Text = comm;
+                }
                 pop_messagebox.ShowOnPageLoad = true;
             }
             else

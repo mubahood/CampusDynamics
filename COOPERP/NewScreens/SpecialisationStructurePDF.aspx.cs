@@ -52,7 +52,7 @@ public partial class COOPERP_NewScreens_SpecialisationStructurePDF : System.Web.
     {
         if (!IsPostBack)
         {
-            // PDF download mode â€” stream a real generated PDF and end the response
+            // PDF download mode -- stream a real generated PDF and end the response
             if (Request.QueryString["download"] == "1")
             {
                 GeneratePdfDownload();
@@ -182,7 +182,7 @@ public partial class COOPERP_NewScreens_SpecialisationStructurePDF : System.Web.
         {
             SpecInfo info = GetSpecInfo(id);
             DataTable dt  = info != null ? GetAllCoursesForSpec(id) : new DataTable();
-            if (info == null) info = new SpecInfo { SpecId = id, SpecName = "(Not found â€” ID " + id + ")" };
+            if (info == null) info = new SpecInfo { SpecId = id, SpecName = "(Not found -- ID " + id + ")" };
             specList.Add(Tuple.Create(info, dt));
             grandCourse += dt.Rows.Count;
             grandCU     += CalcCU(dt);

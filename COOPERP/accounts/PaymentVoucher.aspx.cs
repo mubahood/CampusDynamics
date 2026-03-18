@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.Linq;
-using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -91,24 +90,18 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
             string refNo = txtRefNo.Text.Trim();
 
-            // C4 FIX: Wrap all DB writes in TransactionScope — either all succeed or all roll back
-            using (TransactionScope scope = new TransactionScope())
-            {
-                // B1 FIX: CR entry must ALWAYS be created (double-entry rule: every DR must have a CR)
-                // Previously skipped CR when rb_payeetype.SelectedIndex != 0 (Multiple Payee)
-                LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtAccount.Value.ToString(),
-                "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text, "CR", refNo);
+            // B1 FIX: CR entry must ALWAYS be created (double-entry rule: every DR must have a CR)
+            // Previously skipped CR when rb_payeetype.SelectedIndex != 0 (Multiple Payee)
+            LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtAccount.Value.ToString(),
+            "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text, "CR", refNo);
 
-                LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtPayees.Value.ToString(),
-                txtPayees.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid thru " + txtAccount.Text, "DR", refNo);
+            LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtPayees.Value.ToString(),
+            txtPayees.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid thru " + txtAccount.Text, "DR", refNo);
 
-                string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtAccount.Text;
-                int JNO = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
+            string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtAccount.Text;
+            int JNO = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
 
-                JN.UpdateJournalAmounts(decimal.Parse(txtAmount.Text.Replace(",", "")), decimal.Parse(txtAmount.Text.Replace(",", "")), JNO.ToString());
-
-                scope.Complete();
-            }
+            JN.UpdateJournalAmounts(decimal.Parse(txtAmount.Text.Replace(",", "")), decimal.Parse(txtAmount.Text.Replace(",", "")), JNO.ToString());
 
             gvParticulars.DataBind();
             gvDetails.DataBind();

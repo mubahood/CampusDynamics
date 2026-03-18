@@ -1,4 +1,4 @@
-<%@ Master Language="C#" AutoEventWireup="true" CodeFile="MasterPage.master.cs" Inherits="OPAC_MasterPage" %>
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeFile="MasterPage.master.cs" Inherits="OPAC_MasterPage" %>
 
 <%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
 
@@ -11,7 +11,7 @@
   <title>Campus Dynamics :: Higher Education ERP</title>
   <meta name="description" content="website description" />
   <meta name="keywords" content="Campus Dynamics ERP OPAC, IUIU Library" />
-  <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
   <link rel="stylesheet" type="text/css" href="~/COOPERP/css/style.css" runat="server" />
   <link rel="shortcut icon" href="~/COOPERP/images/tinylogo.gif" />
     <style type="text/css">

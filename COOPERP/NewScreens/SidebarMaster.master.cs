@@ -58,6 +58,49 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             case "newstudentinfo":
                 title = "Student Records";
                 break;
+            // Finance Module
+            case "financedashboard":
+                title = "Finance Dashboard";
+                break;
+            case "chartofaccounts":
+                title = "Chart of Accounts";
+                break;
+            case "generalledger":
+                title = "General Ledger";
+                break;
+            case "journalentries":
+                title = "Journal Entries";
+                break;
+            case "paymentvouchers":
+                title = "Payment Vouchers";
+                break;
+            case "studentreceipts":
+                title = "Student Receipts";
+                break;
+            case "contravouchers":
+                title = "Contra Vouchers";
+                break;
+            case "trialbalance":
+                title = "Trial Balance";
+                break;
+            case "incomestatement":
+                title = "Income Statement";
+                break;
+            case "balancesheet":
+                title = "Balance Sheet";
+                break;
+            case "financialperiods":
+                title = "Financial Periods";
+                break;
+            case "ledgercategories":
+                title = "Ledger Categories";
+                break;
+            case "financeaudittrail":
+                title = "Finance Audit Trail";
+                break;
+            case "suppliermanagement":
+                title = "Supplier Management";
+                break;
             default:
                 title = pageName.Replace("New", "").Replace("_", " ");
                 break;

@@ -6,7 +6,6 @@ using System.Web.UI;
 using System.Web.UI.WebControls;
 using Systems.Settings.SD;
 using CoopERPDataTableAdapters;
-using System.Transactions;
 
 public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserControl
 {
@@ -107,19 +106,14 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
             }
             else
             {
-                // C6 FIX: Wrap multi-row reversal in TransactionScope
-                using (TransactionScope scope = new TransactionScope())
+                for (int i = 0; i < noRows; i++)
                 {
-                    for (int i = 0; i < noRows; i++)
+                    if (gvLedger.Selection.IsRowSelected(i))
                     {
-                        if (gvLedger.Selection.IsRowSelected(i))
-                        {
-                            ADJ.fin_TransactionReversal(int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString()),
-                                HttpContext.Current.User.Identity.Name, txt_reason.Text);
-                            counter++;
-                        }
+                        ADJ.fin_TransactionReversal(int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString()),
+                            HttpContext.Current.User.Identity.Name, txt_reason.Text);
+                        counter++;
                     }
-                    scope.Complete();
                 }
                 lbl_msgbox.Text = counter + " transactions reversed successfully";
                 // F8: Audit log — transaction reversal
@@ -134,44 +128,38 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
         
         else if (txtType.Text.Contains("Correct Amount"))
         {
-            // C6 FIX: Wrap corrections in TransactionScope
-            using (TransactionScope scope = new TransactionScope())
+            for (int i = 0; i < noRows; i++)
             {
-                for (int i = 0; i < noRows; i++)
+                if (gvLedger.Selection.IsRowSelected(i))
                 {
-                    if (gvLedger.Selection.IsRowSelected(i))
+                    string details = gvLedger.GetRowValues(i, "particulars").ToString(), vno = gvLedger.GetRowValues(i, "voucherno").ToString();
+                    DateTime Tdate = DateTime.Parse(gvLedger.GetRowValues(i, "transactiondate").ToString());
+                    if (Tdate == DateTime.Today)
                     {
-                        string details = gvLedger.GetRowValues(i, "particulars").ToString(), vno = gvLedger.GetRowValues(i, "voucherno").ToString();
-                        DateTime Tdate = DateTime.Parse(gvLedger.GetRowValues(i, "transactiondate").ToString());
-                        if (Tdate == DateTime.Today)
+                        if (HttpContext.Current.User.IsInRole("Bursar"))
                         {
-                            if (HttpContext.Current.User.IsInRole("Bursar"))
-                            {
-                                string oldAmount = gvLedger.GetRowValues(i, "transaction_amount").ToString();
-                                ADJ.fin_UpdatePayAmount(vno, HttpContext.Current.User.Identity.Name, double.Parse(txtNewAmount.Text.Replace(",", "")));
-                                // F8: Audit log — amount corrected
-                                AuditLogger.Log("AMOUNT_CORRECTED",
-                                    string.Format("VoucherNo={0}", vno),
-                                    int.Parse(vno),
-                                    decimal.Parse(txtNewAmount.Text.Replace(",", "")),
-                                    oldAmount,
-                                    txtNewAmount.Text);
-                                lbl_msgbox.Text = "Pay Amount Correction completed";
-                            }
-                            else
-                            {
-                                lbl_msgbox.Text = "Sorry! Only Bursar can make amounts corrections";
-                                return; // exits without scope.Complete() — rolls back
-                            }
+                            string oldAmount = gvLedger.GetRowValues(i, "transaction_amount").ToString();
+                            ADJ.fin_UpdatePayAmount(vno, HttpContext.Current.User.Identity.Name, double.Parse(txtNewAmount.Text.Replace(",", "")));
+                            // F8: Audit log — amount corrected
+                            AuditLogger.Log("AMOUNT_CORRECTED",
+                                string.Format("VoucherNo={0}", vno),
+                                int.Parse(vno),
+                                decimal.Parse(txtNewAmount.Text.Replace(",", "")),
+                                oldAmount,
+                                txtNewAmount.Text);
+                            lbl_msgbox.Text = "Pay Amount Correction completed";
                         }
                         else
                         {
-                            lbl_msgbox.Text = "Sorry! Only today's transaction amounts can be corrected";
-                            return; // exits without scope.Complete() — rolls back
+                            lbl_msgbox.Text = "Sorry! Only Bursar can make amounts corrections";
+                            break;
                         }
                     }
+                    else
+                    {
+                        lbl_msgbox.Text = "Sorry! Only today's transaction amounts can be corrected";
+                    }
                 }
-                scope.Complete();
             }
 
             pop_msgbox.ShowOnPageLoad = true;
@@ -180,32 +168,27 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
         else if (txtType.Text.Contains("Cancel Transaction"))
         {
             lbl_msgbox.Text = "No Transaction selected";
-            // C6 FIX: Wrap multi-row cancellation in TransactionScope
-            using (TransactionScope scope = new TransactionScope())
+            for (int i = 0; i < noRows; i++)
             {
-                for (int i = 0; i < noRows; i++)
+                if (gvLedger.Selection.IsRowSelected(i))
                 {
-                    if (gvLedger.Selection.IsRowSelected(i))
+                    string details = gvLedger.GetRowValues(i, "particulars").ToString();
+                    if (HttpContext.Current.User.IsInRole("Bursar"))
                     {
-                        string details = gvLedger.GetRowValues(i, "particulars").ToString();
-                        if (HttpContext.Current.User.IsInRole("Bursar"))
-                        {
-                            int cancelVno = int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString());
-                            ADJ.CancelTransaction(cancelVno);
-                            counter++;
-                            // F8: Audit log — transaction cancelled
-                            AuditLogger.Log("TRANSACTION_CANCELLED",
-                                string.Format("VoucherNo={0}", cancelVno), cancelVno);
-                            lbl_msgbox.Text = counter + " transaction(s) cancelled successfully";
-                        }
-                        else
-                        {
-                            lbl_msgbox.Text = "Sorry! only Bursar can cancel transactions";
-                            return; // exits without scope.Complete() — rolls back
-                        }
+                        int cancelVno = int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString());
+                        ADJ.CancelTransaction(cancelVno);
+                        counter++;
+                        // F8: Audit log — transaction cancelled
+                        AuditLogger.Log("TRANSACTION_CANCELLED",
+                            string.Format("VoucherNo={0}", cancelVno), cancelVno);
+                        lbl_msgbox.Text = counter + " transaction(s) cancelled successfully";
+                    }
+                    else
+                    {
+                        lbl_msgbox.Text = "Sorry! only Bursar can cancel transactions";
+                        break;
                     }
                 }
-                scope.Complete();
             }
 
             pop_msgbox.ShowOnPageLoad = true;

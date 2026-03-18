@@ -1,4 +1,4 @@
-<%@ Master Language="C#" AutoEventWireup="true" CodeFile="MasterPage.master.cs" Inherits="OPAC_MasterPage" %>
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeFile="MasterPage.master.cs" Inherits="OPAC_MasterPage" %>
 
 <%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
 
@@ -11,7 +11,7 @@
   <title>Campus Dynamics ERP :: Higher Education ERP Solution</title>
   <meta name="description" content="website description" />
   <meta name="keywords" content="Academica ERP OPAC" />
-  <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
   <link rel="stylesheet" type="text/css" href="~/COOPERP/css/style.css" />
   <link rel="shortcut icon" href="~/COOPERP/images/tinylogo.gif" />
     <style type="text/css">
@@ -166,7 +166,7 @@
                 <td>
                     <div style="background:#e8f4fd;border-bottom:1px solid #bee5f5;padding:5px 10px;display:flex;align-items:center;gap:8px;font-size:12px;">
                         <span style="color:#05275C;font-weight:600;white-space:nowrap;">&#128269; Search Transactions:</span>
-                        <input id="txnSearchBox" type="text" placeholder="Voucher no, account code, or description…"
+                        <input id="txnSearchBox" type="text" placeholder="Voucher no, account code, or descriptionâ€¦"
                             style="flex:1;max-width:400px;padding:4px 8px;border:1px solid #bee5f5;border-radius:3px;font-size:12px;"
                             onkeydown="if(event.key==='Enter'){cdTxnSearch();}" />
                         <input type="button" value="Search" onclick="cdTxnSearch();"

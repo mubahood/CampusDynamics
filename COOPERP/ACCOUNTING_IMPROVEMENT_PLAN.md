@@ -274,18 +274,18 @@ These fix the most dangerous active bugs. They must come after Group A because t
 | B12 | Add financial period validation to ContraVoucher | A4 | `Done` | Code | `ContraVoucher.aspx.cs` — same pattern as B9. |
 | B13 | Add financial period validation to LedgersCentre | A4 | `Done` | Code | `LedgersCentre.ascx.cs` — blocks ALL ledger operations (reverse, correct, cancel, clear) outside open period. Added `using CoopERPDataTableAdapters`. |
 
-### Group C: Transaction Atomicity (wrap all multi-step writes in DB transactions)
+### Group C: Transaction Atomicity & Input Validation
 
-This group makes every financial operation atomic — either ALL steps succeed, or NONE do. This prevents the orphaned/partial records that are the root cause of most data corruption. Depends on Group B because we need the bugs fixed before wrapping them in transactions.
+> **IMPORTANT — TransactionScope Removed:** C1-C6 originally added `System.Transactions.TransactionScope` wrappers. However, MySQL Connector/NET 6.6.7 does **not** support ambient transactions properly — each `TableAdapter` opens its own connection, causing MSDTC promotion and **complete connection-pool exhaustion** ("All pooled connections were in use and max pool size was reached"). All TransactionScope code was subsequently **removed** from all 6 files and the `System.Transactions` assembly was removed from web.config. Atomicity is now enforced at the **database level** via `fin_ApproveJournal_Safe` (Group D) and ledger validation triggers (A5, D8, D9). C7 input validation remains in place.
 
 | ID | Task | Depends On | Status | Type | Details |
 |----|------|-----------|--------|------|---------|
-| C1 | Add TransactionScope to StudentReceipt.AddNewItem_Click | B5, B9 | `Done` | Code | Wrapped `AddJournalDetails(CR)`, `AddJournalDetails(DR)`, `UpdateParticulars`, `UpdateJournalAmounts` in `TransactionScope`. Added `using System.Transactions` and `System.Transactions` assembly to web.config. |
-| C2 | Add TransactionScope to SponsorReceipt.AddNewItem_Click | B10 | `Done` | Code | Same pattern as C1. |
-| C3 | Add TransactionScope to CreateJournal.cmdCreateNew_Click | B7 | `Done` | Code | Wrapped `fin_CreateJournal` + `UpdateRefNo` in TransactionScope. |
-| C4 | Add TransactionScope to PaymentVoucher.AddNewItem_Click | B1, B6, B11 | `Done` | Code | Same pattern as C1. |
-| C5 | Add TransactionScope to ContraVoucher.AddNewItem_Click | B12 | `Done` | Code | Same pattern as C1. |
-| C6 | Add TransactionScope to LedgersCentre.cmdProcess_Click | B3, B4, B13 | `Done` | Code | Wrapped reversal loop, correction loop, cancellation loop each in own TransactionScope. Return without Complete() on auth failure = automatic rollback. |
+| C1 | ~~Add TransactionScope to StudentReceipt.AddNewItem_Click~~ | B5, B9 | `Reverted` | Code | Originally wrapped in TransactionScope. **Removed** — MySQL Connector/NET 6.6.7 causes pool exhaustion. DB-level protections (D1/D2/D8/D9) provide atomicity. |
+| C2 | ~~Add TransactionScope to SponsorReceipt.AddNewItem_Click~~ | B10 | `Reverted` | Code | Same — TransactionScope removed. |
+| C3 | ~~Add TransactionScope to CreateJournal.cmdCreateNew_Click~~ | B7 | `Reverted` | Code | Same — TransactionScope removed. |
+| C4 | ~~Add TransactionScope to PaymentVoucher.AddNewItem_Click~~ | B1, B6, B11 | `Reverted` | Code | Same — TransactionScope removed. |
+| C5 | ~~Add TransactionScope to ContraVoucher.AddNewItem_Click~~ | B12 | `Reverted` | Code | Same — TransactionScope removed. |
+| C6 | ~~Add TransactionScope to LedgersCentre.cmdProcess_Click~~ | B3, B4, B13 | `Reverted` | Code | Same — TransactionScope removed. |
 | C7 | Add input validation to all transaction pages | C1, C2, C3, C4, C5 | `Done` | Code | Added non-empty account/payee checks + `decimal.TryParse` + range (>0, <10B UGX) to StudentReceipt, SponsorReceipt, PaymentVoucher, ContraVoucher. CreateJournal: account + transaction type checks. |
 
 ### Group D: Double-Entry Enforcement at Database Level (make it impossible to create bad data)
@@ -428,3 +428,15 @@ Now that we've stopped creating new bad data (Groups B-D), we repair the existin
 4. **All repairs logged** in `fin_repair_log` with before/after values (Tasks E1-E6)
 5. **All database changes through migrations** — auditable, reversible, tracked in `cd_schema_migrations`
 6. **Backward compatible** — existing stored procedures continue to work until explicitly replaced
+
+---
+
+## Post-Plan Fixes (discovered during implementation)
+
+| Fix | Migration | Details |
+|-----|-----------|---------|
+| Trial Balance `accNo` overflow (batch 1) | `20260317_015527__accounts__widen_accno_params_in_functions` | Account code `AC-RECONCILE-DIFF` (17 chars, created during E2 repair) exceeded `CHAR(15)` parameter in 3 functions: `fin_GetPeriodBalance`, `fin_GetOpeningBalance`, `fin_GetTrialBalanceGroup`. Widened all to `CHAR(25)`. |
+| Trial Balance `accNo` overflow (batch 2) | `20260317_020703__accounts__widen_remaining_accno_params` | 3 additional functions also had `CHAR(15)` account code params: `fin_GetPeriodOpeningBalance`, `fin_GetChartAccountLegderType`, `fin_GetVoucherAccountNames`. Widened all to `CHAR(25)`. |
+| `fin_ApproveJournal_Safe` missing posting logic | `20260317_003239__accounts__fix_approve_journal_safe_add_posting_logic` | Original D2 implementation only validated and set PostStatus but never copied entries from `fin_journal_details` to `fin_ledger`. Fixed by merging original posting logic with new validation. |
+| E5/E6 wrong JOIN in repair migration | `20260317_003734__accounts__fix_e5_e6_wrong_join_and_rerun_repair` | Original E5 used `j.JournalNo = l.voucherNo` (wrong) instead of `j.GL_VoucherNo = l.voucherNo`. Fixed and re-ran repair: 2,869 voided, 34 repaired, 0 PENDING_REVIEW remaining. |
+| TransactionScope connection pool exhaustion | *(code revert, no migration)* | MySQL Connector/NET 6.6.7 does not support `TransactionScope` — promotes to MSDTC, drains connection pool. All TransactionScope code removed from C1-C6 files. `System.Transactions` assembly removed from web.config. |

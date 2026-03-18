@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.Linq;
-using System.Transactions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -33,24 +32,18 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
         // Get user input for RefNo
         string refNo = txtRefNo.Text.Trim();
 
-        // C3 FIX: Wrap journal creation + ref update in TransactionScope
-        using (TransactionScope scope = new TransactionScope())
+        // Create the journal
+        fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
+        JN.fin_CreateJournal(txtType.Text, DateTime.Today, HttpContext.Current.User.Identity.Name);
+
+        gvParticulars.DataBind();
+        int journalNo = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
+        Session["jno"] = journalNo;
+
+        if (!string.IsNullOrWhiteSpace(refNo) && refNo != "-")
         {
-            // Create the journal
-            fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
-            JN.fin_CreateJournal(txtType.Text, DateTime.Today, HttpContext.Current.User.Identity.Name);
-
-            gvParticulars.DataBind();
-            int journalNo = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
-            Session["jno"] = journalNo;
-
-            if (!string.IsNullOrWhiteSpace(refNo) && refNo != "-")
-            {
-                // Update the RefNo for this JournalNo
-                JN.UpdateRefNo(refNo, journalNo);
-            }
-
-            scope.Complete();
+            // Update the RefNo for this JournalNo
+            JN.UpdateRefNo(refNo, journalNo);
         }
 
         // F5: Audit log — journal created
@@ -250,7 +243,7 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
         catch (Exception)
         {
             // B7 FIX: ButtonManager failure is non-critical — default to Create New
-            cmdApproveJournal.Text = "Create New";
+            cmdCreateNew.Text = "Create New";
         }
     }
 
@@ -322,8 +315,13 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
     {
         if (string.IsNullOrWhiteSpace(txtRefNo.Text)) return;
 
+        object jnoValue = gvParticulars.GetRowValues(0, "JournalNo");
+        if (jnoValue == null && Session["jno"] != null)
+            jnoValue = Session["jno"];
+        if (jnoValue == null) return;
+
         fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
-        int journalNo = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
+        int journalNo = int.Parse(jnoValue.ToString());
 
         JN.UpdateRefNo(txtRefNo.Text.Trim(), journalNo);
     }
