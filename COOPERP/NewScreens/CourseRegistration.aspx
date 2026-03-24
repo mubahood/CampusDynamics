@@ -183,9 +183,141 @@
         .cr-message--error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .cr-message--info { background: #cce5ff; color: #004085; border: 1px solid #b8daff; }
         
+        /* Quick Edit Modal */
+        .qe-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 10000;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 40px;
+        }
+        .qe-overlay.show { display: flex; }
+        .qe-modal {
+            background: #fff;
+            width: 640px;
+            max-width: 95vw;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        }
+        .qe-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            background: #174DA4;
+            color: #fff;
+        }
+        .qe-header__title {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .qe-header__close {
+            background: none; border: none; color: #fff;
+            font-size: 18px; cursor: pointer; padding: 0 4px;
+            line-height: 1;
+        }
+        .qe-header__close:hover { opacity: 0.7; }
+        .qe-body { padding: 12px 16px; }
+        .qe-section {
+            margin-bottom: 12px;
+        }
+        .qe-section__title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #174DA4;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+        }
+        .qe-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 14px;
+        }
+        .qe-field {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .qe-field--full { grid-column: 1 / -1; }
+        .qe-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .qe-input, .qe-select {
+            border: 1px solid #ddd;
+            padding: 5px 8px;
+            font-size: 12px;
+            background: #fff;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .qe-input:focus, .qe-select:focus {
+            border-color: #174DA4;
+            outline: none;
+        }
+        .qe-input[readonly] {
+            background: #f5f5f5;
+            color: #666;
+        }
+        .qe-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            border-top: 1px solid #e0e0e0;
+            background: #f8f9fa;
+        }
+        .qe-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 14px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid #ddd;
+            background: #fff;
+            cursor: pointer;
+        }
+        .qe-btn:hover { background: #e9ecef; }
+        .qe-btn--primary { background: #174DA4; color: #fff; border-color: #174DA4; }
+        .qe-btn--primary:hover { background: #0d3a7d; }
+        .qe-btn--success { background: #28a745; color: #fff; border-color: #28a745; }
+        .qe-btn--success:hover { background: #218838; }
+        .qe-btn--link { background:none; border:none; color:#174DA4; text-decoration:underline; padding:6px 4px; }
+        .qe-btn--link:hover { color:#0d3a7d; }
+        .qe-msg {
+            padding: 6px 10px;
+            font-size: 11px;
+            margin-bottom: 8px;
+            display: none;
+        }
+        .qe-msg.show { display: block; }
+        .qe-msg--ok { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .qe-msg--err { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .qe-status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .qe-status-badge--active { background: #d4edda; color: #155724; }
+        .qe-status-badge--inactive { background: #f8d7da; color: #721c24; }
+        .qe-status-badge--deferred { background: #fff3cd; color: #856404; }
+
         /* Print Styles */
         @media print {
-            .cr-batch-bar, .cr-filter-row, .cr-retake-panel { display: none !important; }
+            .cr-batch-bar, .cr-filter-row, .cr-retake-panel, .qe-overlay { display: none !important; }
         }
     </style>
 </asp:Content>
@@ -318,11 +450,14 @@
                     </dx:GridViewCommandColumn>
                     <dx:GridViewDataTextColumn FieldName="regno" Caption="Reg No" VisibleIndex="1" Width="120px">
                         <Settings AllowAutoFilter="true" />
+                        <DataItemTemplate>
+                            <a href="javascript:void(0)" onclick="openQuickEdit('<%# Container.Text %>')" title="Quick Edit" style="color:#174DA4;text-decoration:underline;cursor:pointer;"><%# Container.Text %></a>
+                        </DataItemTemplate>
                     </dx:GridViewDataTextColumn>
                     <dx:GridViewDataTextColumn FieldName="stud_name" Caption="Student Name" VisibleIndex="2">
                         <Settings AllowAutoFilter="true" />
                     </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="spec" Caption="Specialisation" VisibleIndex="3" Width="200px">
+                    <dx:GridViewDataTextColumn FieldName="spec_name" Caption="Specialisation" VisibleIndex="3" Width="200px">
                     </dx:GridViewDataTextColumn>
                     <dx:GridViewDataTextColumn FieldName="course_status" Caption="Course Status" VisibleIndex="4" Width="100px">
                         <DataItemTemplate>
@@ -344,6 +479,190 @@
     <!-- Loading Panel -->
     <dx:ASPxLoadingPanel ID="lpLoading" runat="server" ClientInstanceName="lpLoading" Modal="true" Text="Processing...">
     </dx:ASPxLoadingPanel>
+
+    <!-- ═══ Quick Edit Modal ═══ -->
+    <div class="qe-overlay" id="qeOverlay">
+        <div class="qe-modal">
+            <div class="qe-header">
+                <span class="qe-header__title" id="qeTitle">Quick Edit Student</span>
+                <button type="button" class="qe-header__close" onclick="closeQuickEdit()">&times;</button>
+            </div>
+            <div class="qe-body">
+                <div class="qe-msg" id="qeMsg"></div>
+
+                <asp:HiddenField ID="hfQeRegNo" runat="server" />
+                <asp:Button ID="btnQeLoad" runat="server" OnClick="btnQeLoad_Click" style="display:none" />
+
+                <!-- Personal Information -->
+                <div class="qe-section">
+                    <div class="qe-section__title">Personal Information</div>
+                    <div class="qe-grid">
+                        <div class="qe-field">
+                            <span class="qe-label">Reg No</span>
+                            <input type="text" id="qeRegNo" class="qe-input" readonly />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Entry No</span>
+                            <input type="text" id="qeEntryNo" class="qe-input" readonly />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">First Name</span>
+                            <asp:TextBox ID="txtQeFirstName" runat="server" CssClass="qe-input" />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Other Names</span>
+                            <asp:TextBox ID="txtQeOtherName" runat="server" CssClass="qe-input" />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Gender</span>
+                            <asp:DropDownList ID="ddlQeGender" runat="server" CssClass="qe-select">
+                                <asp:ListItem Value="MALE" Text="Male" />
+                                <asp:ListItem Value="FEMALE" Text="Female" />
+                                <asp:ListItem Value="OTHER" Text="Other" />
+                            </asp:DropDownList>
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Date of Birth</span>
+                            <asp:TextBox ID="txtQeDOB" runat="server" CssClass="qe-input" TextMode="Date" />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">NIN (National ID)</span>
+                            <asp:TextBox ID="txtQeNIN" runat="server" CssClass="qe-input" MaxLength="30" />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Phone</span>
+                            <asp:TextBox ID="txtQePhone" runat="server" CssClass="qe-input" />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Email</span>
+                            <asp:TextBox ID="txtQeEmail" runat="server" CssClass="qe-input" />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Nationality</span>
+                            <asp:TextBox ID="txtQeNationality" runat="server" CssClass="qe-input" />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Religion</span>
+                            <asp:DropDownList ID="ddlQeReligion" runat="server" CssClass="qe-select">
+                                <asp:ListItem Value="-" Text="--" />
+                                <asp:ListItem Value="CATHOLIC" Text="Catholic" />
+                                <asp:ListItem Value="PROTESTANT" Text="Protestant" />
+                                <asp:ListItem Value="MUSLIM" Text="Muslim" />
+                                <asp:ListItem Value="SDA" Text="SDA" />
+                                <asp:ListItem Value="ORTHODOX" Text="Orthodox" />
+                                <asp:ListItem Value="PENTECOSTAL" Text="Pentecostal" />
+                                <asp:ListItem Value="OTHER" Text="Other" />
+                            </asp:DropDownList>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Academic Information -->
+                <div class="qe-section">
+                    <div class="qe-section__title">Academic Information</div>
+                    <div class="qe-grid">
+                        <div class="qe-field">
+                            <span class="qe-label">Programme</span>
+                            <input type="text" id="qeProgDisplay" class="qe-input" readonly />
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Specialisation</span>
+                            <asp:DropDownList ID="ddlQeSpec" runat="server" CssClass="qe-select">
+                            </asp:DropDownList>
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Session</span>
+                            <asp:DropDownList ID="ddlQeSession" runat="server" CssClass="qe-select">
+                            </asp:DropDownList>
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Campus</span>
+                            <asp:DropDownList ID="ddlQeCampus" runat="server" CssClass="qe-select">
+                            </asp:DropDownList>
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Entry Year</span>
+                            <asp:DropDownList ID="ddlQeEntryYear" runat="server" CssClass="qe-select">
+                            </asp:DropDownList>
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Entry Method</span>
+                            <asp:DropDownList ID="ddlQeEntryMethod" runat="server" CssClass="qe-select">
+                                <asp:ListItem Value="DIRECT" Text="Direct" />
+                                <asp:ListItem Value="MATURE" Text="Mature" />
+                                <asp:ListItem Value="DIPLOMA" Text="Diploma" />
+                                <asp:ListItem Value="TRANSFER" Text="Transfer" />
+                            </asp:DropDownList>
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Intake</span>
+                            <asp:DropDownList ID="ddlQeIntakeEdit" runat="server" CssClass="qe-select">
+                                <asp:ListItem Value="AUGUST" Text="August" />
+                                <asp:ListItem Value="JANUARY" Text="January" />
+                                <asp:ListItem Value="FEBRUARY" Text="February" />
+                                <asp:ListItem Value="MARCH" Text="March" />
+                                <asp:ListItem Value="APRIL" Text="April" />
+                                <asp:ListItem Value="MAY" Text="May" />
+                                <asp:ListItem Value="JUNE" Text="June" />
+                                <asp:ListItem Value="JULY" Text="July" />
+                                <asp:ListItem Value="SEPTEMBER" Text="September" />
+                                <asp:ListItem Value="OCTOBER" Text="October" />
+                                <asp:ListItem Value="NOVEMBER" Text="November" />
+                                <asp:ListItem Value="DECEMBER" Text="December" />
+                            </asp:DropDownList>
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Billing System</span>
+                            <asp:DropDownList ID="ddlQeBilling" runat="server" CssClass="qe-select">
+                            </asp:DropDownList>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="qe-section">
+                    <div class="qe-section__title">Status</div>
+                    <div class="qe-grid">
+                        <div class="qe-field">
+                            <span class="qe-label">Student Status</span>
+                            <asp:DropDownList ID="ddlQeStatus" runat="server" CssClass="qe-select">
+                                <asp:ListItem Value="ACTIVE" Text="Active" />
+                                <asp:ListItem Value="INACTIVE" Text="Inactive" />
+                                <asp:ListItem Value="DEFERRED" Text="Deferred" />
+                                <asp:ListItem Value="SUSPENDED" Text="Suspended" />
+                                <asp:ListItem Value="EXPELLED" Text="Expelled" />
+                                <asp:ListItem Value="GRADUATED" Text="Graduated" />
+                                <asp:ListItem Value="DEAD" Text="Dead" />
+                            </asp:DropDownList>
+                        </div>
+                        <div class="qe-field">
+                            <span class="qe-label">Admission Status</span>
+                            <asp:DropDownList ID="ddlQeNewStatus" runat="server" CssClass="qe-select">
+                                <asp:ListItem Value="ADMITTED" Text="Admitted" />
+                                <asp:ListItem Value="REGISTERED" Text="Registered" />
+                                <asp:ListItem Value="GRADUATED" Text="Graduated" />
+                                <asp:ListItem Value="DROPPED" Text="Dropped" />
+                            </asp:DropDownList>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="qe-footer">
+                <div style="display:flex; gap:6px;">
+                    <asp:Button ID="btnQeFullEdit" runat="server" Text="Open Full Edit" CssClass="qe-btn qe-btn--link"
+                        OnClientClick="openFullEdit(); return false;" />
+                    <button type="button" class="qe-btn qe-btn--link" style="color:#28a745;" onclick="printResults()">Print Results</button>
+                </div>
+                <div style="display:flex; gap:6px;">
+                    <button type="button" class="qe-btn" onclick="closeQuickEdit()">Cancel</button>
+                    <asp:Button ID="btnQeSave" runat="server" Text="Save Changes" CssClass="qe-btn qe-btn--success"
+                        OnClick="btnQeSave_Click" OnClientClick="return validateQuickEdit();" />
+                </div>
+            </div>
+            <asp:Button ID="btnPrintResults" runat="server" OnClick="btnPrintResults_Click" style="display:none" />
+        </div>
+    </div>
     
     <script type="text/javascript">
         function toggleFilters() {
@@ -372,5 +691,64 @@
             document.getElementById('filterRow').classList.add('show');
             document.querySelector('.cr-filter-toggle').classList.add('active');
         });
+
+        // ═══ Quick Edit Modal ═════════════════════════════════
+        function openQuickEdit(regno) {
+            if (!regno) return;
+            document.getElementById('qeMsg').className = 'qe-msg';
+            document.getElementById('qeMsg').innerHTML = '';
+            // Set hidden field for server-side
+            document.getElementById('<%= hfQeRegNo.ClientID %>').value = regno;
+            // Fire callback to load student data
+            document.getElementById('<%= btnQeLoad.ClientID %>').click();
+        }
+
+        function showQuickEditModal() {
+            document.getElementById('qeOverlay').classList.add('show');
+        }
+
+        function closeQuickEdit() {
+            document.getElementById('qeOverlay').classList.remove('show');
+        }
+
+        function validateQuickEdit() {
+            var fn = document.getElementById('<%= txtQeFirstName.ClientID %>');
+            if (!fn || !fn.value.trim()) {
+                qeShowMsg('First Name is required.', 'err');
+                return false;
+            }
+            var ph = document.getElementById('<%= txtQePhone.ClientID %>');
+            if (!ph || !ph.value.trim()) {
+                qeShowMsg('Phone number is required.', 'err');
+                return false;
+            }
+            return true;
+        }
+
+        function qeShowMsg(msg, type) {
+            var el = document.getElementById('qeMsg');
+            el.className = 'qe-msg show qe-msg--' + type;
+            el.innerHTML = msg;
+        }
+
+        function openFullEdit() {
+            var rn = document.getElementById('<%= hfQeRegNo.ClientID %>').value;
+            if (rn) {
+                var url = 'NewStudentRegistration.aspx?edit=' + encodeURIComponent(rn);
+                window.open(url, 'FullEdit', 'width=1100,height=750,scrollbars=yes,resizable=yes');
+            }
+        }
+
+        function printResults() {
+            var rn = document.getElementById('<%= hfQeRegNo.ClientID %>').value;
+            if (!rn) return;
+            document.getElementById('<%= btnPrintResults.ClientID %>').click();
+        }
+
+        // Wire up grid row double-click for quick edit
+        function onGridFocusedRowChanged(s, e) {
+            var key = s.GetFocusedRowKey();
+            if (key) openQuickEdit(key);
+        }
     </script>
 </asp:Content>

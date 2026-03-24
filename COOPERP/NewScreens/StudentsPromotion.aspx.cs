@@ -22,7 +22,7 @@ public partial class COOPERP_NewScreens_StudentsPromotion : System.Web.UI.Page
             LoadProgrammes();
             
             // Set default academic year and semester
-            string defaultYear = GetCurrentAcademicYear();
+            string defaultYear = AcademicYearHelper.GetCurrentAcademicYear();
             if (ddlAcadYear.Items.FindByValue(defaultYear) != null)
                 ddlAcadYear.SelectedValue = defaultYear;
             
@@ -38,28 +38,17 @@ public partial class COOPERP_NewScreens_StudentsPromotion : System.Web.UI.Page
         }
     }
     
-    private string GetCurrentAcademicYear()
-    {
-        int year = DateTime.Now.Year;
-        int month = DateTime.Now.Month;
-        
-        // If we're in the second half of the year, the academic year is current/next
-        if (month >= 8)
-            return string.Format("{0}/{1}", year, year + 1);
-        else
-            return string.Format("{0}/{1}", year - 1, year);
-    }
+    // Academic year logic centralised in AcademicYearHelper
     
     private void LoadAcademicYears()
     {
-        ddlAcadYear.Items.Clear();
+        AcademicYearHelper.PopulateDropDown(ddlAcadYear, false, false);
+        // Also populate the new academic year dropdown (includes +2 years for promotion)
         ddlNewAcadYear.Items.Clear();
-        
         int currentYear = DateTime.Now.Year;
         for (int i = currentYear + 2; i >= currentYear - 10; i--)
         {
             string acadYear = string.Format("{0}/{1}", i, i + 1);
-            ddlAcadYear.Items.Add(new ListItem(acadYear, acadYear));
             ddlNewAcadYear.Items.Add(new ListItem(acadYear, acadYear));
         }
     }

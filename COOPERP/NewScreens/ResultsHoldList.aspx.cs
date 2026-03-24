@@ -70,19 +70,9 @@ public partial class COOPERP_NewScreens_ResultsHoldList : System.Web.UI.Page
         catch { }
         
         // Set current academic year as default
-        string currentYear = GetCurrentAcademicYear();
+        string currentYear = AcademicYearHelper.GetCurrentAcademicYear();
         if (ddlAcadYear.Items.FindByValue(currentYear) != null)
             ddlAcadYear.SelectedValue = currentYear;
-    }
-    
-    private string GetCurrentAcademicYear()
-    {
-        int year = DateTime.Now.Year;
-        int month = DateTime.Now.Month;
-        if (month >= 8)
-            return string.Format("{0}/{1}", year, year + 1);
-        else
-            return string.Format("{0}/{1}", year - 1, year);
     }
     
     private void LoadProgrammes()

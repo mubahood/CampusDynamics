@@ -1261,7 +1261,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         string logoPath = Server.MapPath("~/COOPERP/images/welcomelogo.png");
         
         // Get academic year
-        string academicYear = GetCurrentAcademicYear();
+        string academicYear = AcademicYearHelper.GetCurrentAcademicYear();
         
         // Colors
         System.Drawing.Color brandColor = System.Drawing.Color.FromArgb(23, 77, 164);
@@ -1719,43 +1719,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     }
     
     /// <summary>
-    /// Gets the current academic year from acad_calender or derives from current date.
+    /// Gets the current academic year - centralised in AcademicYearHelper.
     /// </summary>
-    private string GetCurrentAcademicYear()
-    {
-        string academicYear = "";
-        try
-        {
-            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
-            {
-                conn.Open();
-                // Try to get from academic calendar
-                using (MySqlCommand cmd = new MySqlCommand("SELECT academic_year FROM acad_calender WHERE is_current = 1 LIMIT 1", conn))
-                {
-                    object result = cmd.ExecuteScalar();
-                    if (result != null && result != DBNull.Value)
-                    {
-                        academicYear = result.ToString();
-                    }
-                }
-            }
-        }
-        catch { }
-        
-        // Fallback: derive from current date
-        if (string.IsNullOrEmpty(academicYear))
-        {
-            int year = DateTime.Now.Year;
-            int month = DateTime.Now.Month;
-            // Academic year typically starts in August/September
-            if (month >= 8)
-                academicYear = string.Format("{0}/{1}", year, year + 1);
-            else
-                academicYear = string.Format("{0}/{1}", year - 1, year);
-        }
-        
-        return academicYear;
-    }
     
     /// <summary>
     /// Normalizes a specialization name so that equivalent text variants group together.
@@ -3537,6 +3502,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             litSession.Text = GetSafeString(reader, "studsesion", "-");
                             litCampus.Text = GetSafeString(reader, "campus_name", "-");
                             litIntake.Text = GetSafeString(reader, "intake", "-");
+                            
+                            // Full Edit link
+                            lnkFullEdit.HRef = "NewStudentRegistration.aspx?edit=" + Server.UrlEncode(regno)
+                                + "&returnUrl=" + Server.UrlEncode("NewStudentInfo.aspx?status=ALL&search=" + Server.UrlEncode(regno));
                             
                             // Profile Photo
                             string photoFile = GetSafeString(reader, "photofile");

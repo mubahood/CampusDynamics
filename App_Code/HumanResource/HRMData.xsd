@@ -654,7 +654,7 @@ FROM            hrm_emp_contracts</CommandText>
               <DbSource ConnectionRef="vacConnectionString (Web.config)" DbObjectName="" DbObjectType="Unknown" FillMethodModifier="Public" FillMethodName="FillBy_ValidEmployees" GenerateMethods="Both" GenerateShortCommands="true" GeneratorGetMethodName="GetDataBy_ValidEmployees" GeneratorSourceName="FillBy_ValidEmployees" GetMethodModifier="Public" GetMethodName="GetDataBy_ValidEmployees" QueryType="Rowset" ScalarCallRetval="System.Object, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" UseOptimisticConcurrency="true" UserGetMethodName="GetDataBy_ValidEmployees" UserSourceName="FillBy_ValidEmployees">
                 <SelectCommand>
                   <DbCommand CommandType="Text" ModifiedByUser="true">
-                    <CommandText>SELECT       emp_name, c.*
+                    <CommandText>SELECT       emp_name, c.ID, c.empID, c.contractStart, c.contractEnd, c.jobID, c.departmentID, c.comments, c.contractStatus, c.payscale, c.fixedamount
 FROM            hrm_emp_contracts c JOIN hrm_employee e ON c.empID=e.empID  WHERE contractStatus='VALID' GROUP BY empID
 UNION
 SELECT '-',0, 0, '2010-01-01','2010-01-01', 0, 0, '-', '-', 0, 0
@@ -666,7 +666,7 @@ ORDER BY TRIM(emp_name) </CommandText>
               <DbSource ConnectionRef="vacConnectionString (Web.config)" DbObjectType="Unknown" FillMethodModifier="Public" FillMethodName="ValidContracts" GenerateMethods="Both" GenerateShortCommands="true" GeneratorGetMethodName="GetValidContracts" GeneratorSourceName="ValidContracts" GetMethodModifier="Public" GetMethodName="GetValidContracts" QueryType="Rowset" ScalarCallRetval="System.Object, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" UseOptimisticConcurrency="true" UserGetMethodName="GetValidContracts" UserSourceName="ValidContracts">
                 <SelectCommand>
                   <DbCommand CommandType="Text" ModifiedByUser="true">
-                    <CommandText>SELECT       emp_name, c.*
+                    <CommandText>SELECT       emp_name, c.ID, c.empID, c.contractStart, c.contractEnd, c.jobID, c.departmentID, c.comments, c.contractStatus, c.payscale, c.fixedamount
 FROM            hrm_emp_contracts c JOIN hrm_employee e ON c.empID=e.empID  WHERE contractStatus='VALID'</CommandText>
                     <Parameters />
                   </DbCommand>

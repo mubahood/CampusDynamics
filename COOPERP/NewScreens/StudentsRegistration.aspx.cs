@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.Text;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -13,395 +14,1152 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     {
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
     }
-    
+
+    private string AcctConnStr
+    {
+        get
+        {
+            var cs = ConfigurationManager.ConnectionStrings["accountsConnectionString"];
+            return cs != null ? cs.ConnectionString
+                : "server=localhost;User Id=root;password=24thdecember1977;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True;charset=utf8";
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PAGE LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════
+
     protected void Page_Load(object sender, EventArgs e)
     {
         if (!IsPostBack)
         {
             LoadAcademicYears();
             LoadProgrammes();
-            
-            // Set default academic year and semester
-            string defaultYear = GetCurrentAcademicYear();
-            if (ddlAcadYear.Items.FindByValue(defaultYear) != null)
-                ddlAcadYear.SelectedValue = defaultYear;
-            
-            // Default to semester 1
-            ddlSemester.SelectedValue = "1";
-            
+            // Filter defaults: show everything
+            ddlAcadYear.SelectedValue = "";
+            ddlSemester.SelectedValue = "";
+            // Form defaults: current period
+            ddlAddSemester.SelectedValue = AcademicYearHelper.GetCurrentSemester().ToString();
             UpdateDisplayLabels();
             LoadStats();
             BindGrid();
         }
     }
-    
-    private string GetCurrentAcademicYear()
-    {
-        int year = DateTime.Now.Year;
-        int month = DateTime.Now.Month;
-        
-        // If we're in the second half of the year, the academic year is current/next
-        if (month >= 8)
-            return string.Format("{0}/{1}", year, year + 1);
-        else
-            return string.Format("{0}/{1}", year - 1, year);
-    }
-    
+
+    // ═══════════════════════════════════════════════════════════════════
+    // HELPERS — Academic Year / Semester (centralised in AcademicYearHelper)
+    // ═══════════════════════════════════════════════════════════════════
+
     private void LoadAcademicYears()
     {
-        ddlAcadYear.Items.Clear();
-        
-        int currentYear = DateTime.Now.Year;
-        for (int i = currentYear + 1; i >= currentYear - 10; i--)
-        {
-            string acadYear = string.Format("{0}/{1}", i, i + 1);
-            ddlAcadYear.Items.Add(new ListItem(acadYear, acadYear));
-        }
+        // Main filter dropdown (with "All" option)
+        AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, false);
+
+        // Form dropdown (no "All" option, default to current year)
+        AcademicYearHelper.PopulateDropDown(ddlAddAcadYear, false, true);
     }
-    
+
     private void LoadProgrammes()
     {
         ddlProgramme.Items.Clear();
-        ddlProgramme.Items.Add(new ListItem("-- All Programmes --", ""));
-        
-        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        ddlProgramme.Items.Add(new ListItem("All Programmes", ""));
+        try
         {
-            conn.Open();
-            string sql = "SELECT progcode, progname FROM acad_programme ORDER BY progname";
-            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            using (var conn = new MySqlConnection(ConnectionString))
             {
-                using (MySqlDataReader reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        string code = reader["progcode"].ToString();
-                        string name = reader["progname"].ToString();
-                        ddlProgramme.Items.Add(new ListItem(code + " - " + name, code));
-                    }
-                }
+                conn.Open();
+                using (var cmd = new MySqlCommand("SELECT progcode, progname FROM acad_programme ORDER BY progname", conn))
+                using (var rdr = cmd.ExecuteReader())
+                    while (rdr.Read())
+                        ddlProgramme.Items.Add(new ListItem(
+                            rdr["progcode"] + " — " + rdr["progname"], rdr["progcode"].ToString()));
             }
         }
+        catch { /* non-fatal */ }
     }
-    
+
     private void UpdateDisplayLabels()
     {
-        litAcadYearDisplay.Text = ddlAcadYear.SelectedValue;
-        litSemesterDisplay.Text = ddlSemester.SelectedValue;
+        string yr  = string.IsNullOrEmpty(ddlAcadYear.SelectedValue) ? "All Years"    : ddlAcadYear.SelectedValue;
+        string sem = string.IsNullOrEmpty(ddlSemester.SelectedValue) ? "All Semesters" : "Sem " + ddlSemester.SelectedValue;
+        litAcadYearDisplay.Text = yr;
+        litSemesterDisplay.Text = sem;
+        litAcadContext.Text = string.Format(
+            "<span style='font-size:11px;color:#174DA4;background:rgba(23,77,164,.08);padding:4px 10px;border-radius:10px;font-weight:600;'>{0} &nbsp;·&nbsp; {1}</span>",
+            Server.HtmlEncode(yr), Server.HtmlEncode(sem));
     }
-    
+
+    private string GetCurrentUser()
+    {
+        if (Session["username"] != null && Session["username"].ToString().Trim() != "")
+            return Session["username"].ToString().Trim();
+        if (HttpContext.Current.User.Identity.IsAuthenticated)
+            return HttpContext.Current.User.Identity.Name;
+        return "system";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STATS
+    // ═══════════════════════════════════════════════════════════════════
+
     private void LoadStats()
     {
         string acadYear = ddlAcadYear.SelectedValue;
-        int semester = int.Parse(ddlSemester.SelectedValue);
-        
-        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        string semester = ddlSemester.SelectedValue;
+
+        var sb = new StringBuilder(@"
+            SELECT
+                COUNT(*)                                                          AS total,
+                SUM(CASE WHEN r.regstatus = 'UNREGISTERED'    THEN 1 ELSE 0 END)  AS unregistered,
+                SUM(CASE WHEN r.regstatus = 'REGISTERED'      THEN 1 ELSE 0 END)  AS registered,
+                SUM(CASE WHEN r.regstatus = 'LATE REGISTERED' THEN 1 ELSE 0 END)  AS late_reg,
+                SUM(CASE WHEN r.regstatus = 'CLEARED'         THEN 1 ELSE 0 END)  AS cleared,
+                SUM(CASE WHEN r.regstatus = 'DISCONTINUED'    THEN 1 ELSE 0 END)  AS discontinued,
+                SUM(CASE WHEN r.regstatus = 'HALTED'          THEN 1 ELSE 0 END)  AS halted,
+                SUM(CASE WHEN r.regstatus = 'DEAD YEAR'       THEN 1 ELSE 0 END)  AS dead_year,
+                SUM(CASE WHEN b.bill_count > 0 THEN 1 ELSE 0 END)                 AS billed,
+                SUM(CASE WHEN b.bill_count IS NULL OR b.bill_count = 0 THEN 1 ELSE 0 END) AS not_billed
+            FROM acad_registration r
+            LEFT JOIN (
+                SELECT regno, acadyear, semester, COUNT(*) AS bill_count
+                FROM campus_dynamics_accounts.fin_studentfeestracking
+                WHERE trans_type = 'Bill'
+                GROUP BY regno, acadyear, semester
+            ) b ON b.regno = r.regno AND b.acadyear = r.acad_year AND b.semester = r.semester
+            WHERE 1=1");
+
+        var parms = new List<MySqlParameter>();
+        if (!string.IsNullOrEmpty(acadYear)) { sb.Append(" AND r.acad_year = @ay");  parms.Add(new MySqlParameter("@ay", acadYear)); }
+        if (!string.IsNullOrEmpty(semester)) { sb.Append(" AND r.semester  = @sem"); parms.Add(new MySqlParameter("@sem", SafeInt(semester, 1))); }
+
+        try
         {
-            conn.Open();
-            
-            // Count by status
-            string sql = @"SELECT 
-                           SUM(CASE WHEN regstatus = 'UNREGISTERED' THEN 1 ELSE 0 END) as unregistered,
-                           SUM(CASE WHEN regstatus = 'REGISTERED' OR regstatus = 'LATE REGISTERED' THEN 1 ELSE 0 END) as registered,
-                           SUM(CASE WHEN regstatus = 'CLEARED' THEN 1 ELSE 0 END) as cleared,
-                           COUNT(*) as total
-                           FROM acad_registration 
-                           WHERE acad_year = @acadYear AND semester = @semester";
-            
-            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            using (var conn = new MySqlConnection(ConnectionString))
             {
-                cmd.Parameters.AddWithValue("@acadYear", acadYear);
-                cmd.Parameters.AddWithValue("@semester", semester);
-                
-                using (MySqlDataReader reader = cmd.ExecuteReader())
+                conn.Open();
+                using (var cmd = new MySqlCommand(sb.ToString(), conn))
                 {
-                    if (reader.Read())
+                    foreach (var p in parms) cmd.Parameters.Add(p);
+                    using (var rdr = cmd.ExecuteReader())
                     {
-                        litUnregistered.Text = (reader["unregistered"] != DBNull.Value ? reader["unregistered"].ToString() : "0");
-                        litRegistered.Text = (reader["registered"] != DBNull.Value ? reader["registered"].ToString() : "0");
-                        litCleared.Text = (reader["cleared"] != DBNull.Value ? reader["cleared"].ToString() : "0");
-                        litTotal.Text = (reader["total"] != DBNull.Value ? reader["total"].ToString() : "0");
+                        if (rdr.Read())
+                        {
+                            litTotal.Text          = SafeStr(rdr["total"]);
+                            litUnregistered.Text   = SafeStr(rdr["unregistered"]);
+                            litRegistered.Text     = SafeStr(rdr["registered"]);
+                            litLateRegistered.Text = SafeStr(rdr["late_reg"]);
+                            litCleared.Text        = SafeStr(rdr["cleared"]);
+                            litDiscontinued.Text   = SafeStr(rdr["discontinued"]);
+                            litHalted.Text         = SafeStr(rdr["halted"]);
+                            litDeadYear.Text       = SafeStr(rdr["dead_year"]);
+                            litBilled.Text         = SafeStr(rdr["billed"]);
+                            litNotBilled.Text      = SafeStr(rdr["not_billed"]);
+                        }
                     }
                 }
             }
         }
+        catch { /* non-fatal */ }
     }
-    
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BIND GRID
+    // ═══════════════════════════════════════════════════════════════════
+
     private void BindGrid()
     {
+        string search = (txtSearch.Text ?? "").Trim();
+
+        // Apply page size
+        int pageSize = SafeInt(ddlPageSize.SelectedValue, 50);
+        if (pageSize > 0) gvRegistration.SettingsPager.PageSize = pageSize;
+
+        var sb = new StringBuilder(@"
+            SELECT
+                r.ID,
+                r.regno,
+                r.acad_year,
+                r.semester,
+                r.regstatus,
+                r.studyyear,
+                CASE WHEN r.id_cardStatus = 'ISSUED' THEN 'ISSUED' ELSE 'NOT ISSUED' END AS id_cardStatus,
+                CASE WHEN r.residence_status = 'RESIDENT' THEN 'RESIDENT' ELSE 'NON-RESIDENT' END AS residence_status,
+                COALESCE(r.examClearance, 'UNCLEARED')       AS examClearance,
+                CASE WHEN r.examClearanceDate IS NULL OR r.examClearanceDate = '0000-00-00'
+                     THEN '' ELSE DATE_FORMAT(r.examClearanceDate,'%d %b %Y') END AS examClearanceDate,
+                COALESCE(r.registeredBy, '') AS registeredBy,
+                COALESCE(r.clearedBy, '')    AS clearedBy,
+                TRIM(CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,''))) AS student_name,
+                COALESCE(s.progid, '')       AS progcode,
+                COALESCE(p.progname, '')     AS progname,
+                CASE WHEN b.bill_count > 0 THEN 'BILLED' ELSE 'NOT BILLED' END AS billing_status,
+                COALESCE(b.total_billed, 0)  AS total_billed,
+                COALESCE(b.total_paid, 0)    AS total_paid
+            FROM acad_registration r
+            LEFT JOIN acad_student s   ON r.regno  = s.regno
+            LEFT JOIN acad_programme p ON s.progid = p.progcode
+            LEFT JOIN (
+                SELECT regno, acadyear, semester,
+                    COUNT(CASE WHEN trans_type = 'Bill' THEN 1 END) AS bill_count,
+                    SUM(CASE WHEN trans_type = 'Bill' THEN amount ELSE 0 END) AS total_billed,
+                    SUM(CASE WHEN trans_type = 'Payment' THEN amount ELSE 0 END) AS total_paid
+                FROM campus_dynamics_accounts.fin_studentfeestracking
+                GROUP BY regno, acadyear, semester
+            ) b ON b.regno = r.regno AND b.acadyear = r.acad_year AND b.semester = r.semester
+            WHERE 1=1");
+
+        var parameters = new List<MySqlParameter>();
+
+        // Year / semester — only filter when not "All"
         string acadYear = ddlAcadYear.SelectedValue;
-        int semester = int.Parse(ddlSemester.SelectedValue);
-        
-        string sql = @"SELECT r.ID, r.regno, r.acad_year, r.semester, r.regstatus, r.studyyear,
-                       r.id_cardStatus, r.residence_status, r.examClearance, r.examClearanceDate,
-                       r.registeredBy, r.clearedBy,
-                       CONCAT(s.firstname, ' ', COALESCE(s.othername, '')) as student_name,
-                       s.progid as progcode
-                       FROM acad_registration r
-                       LEFT JOIN acad_student s ON r.regno = s.regno
-                       WHERE r.acad_year = @acadYear AND r.semester = @semester";
-        
-        // Apply filters
+        string semStr   = ddlSemester.SelectedValue;
+        if (!string.IsNullOrEmpty(acadYear)) { sb.Append(" AND r.acad_year = @acadYear"); parameters.Add(new MySqlParameter("@acadYear", acadYear)); }
+        if (!string.IsNullOrEmpty(semStr))   { sb.Append(" AND r.semester  = @semester"); parameters.Add(new MySqlParameter("@semester", SafeInt(semStr, 1))); }
+
+        // Other filters
         if (!string.IsNullOrEmpty(ddlStudyYear.SelectedValue))
-            sql += " AND r.studyyear = @studyYear";
-        
-        if (!string.IsNullOrEmpty(ddlRegStatus.SelectedValue))
-            sql += " AND r.regstatus = @regStatus";
-        
-        if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))
-            sql += " AND s.progid = @programme";
-        
-        sql += " ORDER BY s.firstname, s.othername";
-        
-        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
-            conn.Open();
-            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            sb.Append(" AND r.studyyear = @studyYear");
+            parameters.Add(new MySqlParameter("@studyYear", SafeInt(ddlStudyYear.SelectedValue, 0)));
+        }
+        if (!string.IsNullOrEmpty(ddlRegStatus.SelectedValue))
+        {
+            sb.Append(" AND r.regstatus = @regStatus");
+            parameters.Add(new MySqlParameter("@regStatus", ddlRegStatus.SelectedValue));
+        }
+        if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))
+        {
+            sb.Append(" AND s.progid = @programme");
+            parameters.Add(new MySqlParameter("@programme", ddlProgramme.SelectedValue));
+        }
+        if (!string.IsNullOrEmpty(ddlExamClearance.SelectedValue))
+        {
+            sb.Append(" AND r.examClearance = @examClear");
+            parameters.Add(new MySqlParameter("@examClear", ddlExamClearance.SelectedValue));
+        }
+        if (!string.IsNullOrEmpty(ddlIDCard.SelectedValue))
+        {
+            if (ddlIDCard.SelectedValue == "ISSUED")
+                sb.Append(" AND r.id_cardStatus = 'ISSUED'");
+            else
+                sb.Append(" AND (r.id_cardStatus IS NULL OR r.id_cardStatus != 'ISSUED')");
+        }
+        if (!string.IsNullOrEmpty(ddlResidence.SelectedValue))
+        {
+            if (ddlResidence.SelectedValue == "RESIDENT")
+                sb.Append(" AND r.residence_status = 'RESIDENT'");
+            else
+                sb.Append(" AND r.residence_status != 'RESIDENT'");
+        }
+        if (!string.IsNullOrEmpty(ddlBilling.SelectedValue))
+        {
+            if (ddlBilling.SelectedValue == "BILLED")
+                sb.Append(" AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=r.regno AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
+            else
+                sb.Append(" AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=r.regno AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
+        }
+        if (!string.IsNullOrEmpty(search))
+        {
+            sb.Append(" AND (r.regno LIKE @search OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @search OR s.progid LIKE @search)");
+            parameters.Add(new MySqlParameter("@search", "%" + search + "%"));
+        }
+
+        sb.Append(" ORDER BY s.firstname, s.othername, r.regno");
+
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
             {
-                cmd.Parameters.AddWithValue("@acadYear", acadYear);
-                cmd.Parameters.AddWithValue("@semester", semester);
-                
-                if (!string.IsNullOrEmpty(ddlStudyYear.SelectedValue))
-                    cmd.Parameters.AddWithValue("@studyYear", int.Parse(ddlStudyYear.SelectedValue));
-                
-                if (!string.IsNullOrEmpty(ddlRegStatus.SelectedValue))
-                    cmd.Parameters.AddWithValue("@regStatus", ddlRegStatus.SelectedValue);
-                
-                if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))
-                    cmd.Parameters.AddWithValue("@programme", ddlProgramme.SelectedValue);
-                
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
+                conn.Open();
+                using (var cmd = new MySqlCommand(sb.ToString(), conn))
                 {
-                    DataTable dt = new DataTable();
-                    da.Fill(dt);
-                    gvRegistration.DataSource = dt;
-                    gvRegistration.DataBind();
+                    foreach (var p in parameters) cmd.Parameters.Add(p);
+                    using (var da = new MySqlDataAdapter(cmd))
+                    {
+                        var dt = new DataTable();
+                        da.Fill(dt);
+                        int count = dt.Rows.Count;
+                        lblRecordCount.Text  = count.ToString("N0") + " record" + (count != 1 ? "s" : "");
+                        litFooterCount.Text  = count.ToString("N0") + " record" + (count != 1 ? "s" : "");
+                        gvRegistration.DataSource = dt;
+                        gvRegistration.DataBind();
+                    }
                 }
             }
         }
-    }
-    
-    protected string GetStatusClass(string status)
-    {
-        switch (status.ToUpper())
+        catch (Exception ex)
         {
-            case "UNREGISTERED": return "unregistered";
-            case "REGISTERED": return "registered";
-            case "CLEARED": return "cleared";
-            case "DISCONTINUED": return "discontinued";
+            ShowToast(false, "Error loading data: " + ex.Message);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // TEMPLATE HELPERS — visibility in DataItemTemplate
+    // ═══════════════════════════════════════════════════════════════════
+
+    protected string ShowIf(object val, string match)
+    {
+        return val != null && val.ToString().Equals(match, StringComparison.OrdinalIgnoreCase)
+            ? "" : "display:none;";
+    }
+    protected string ShowIfIn(object val, string options)
+    {
+        if (val == null) return "display:none;";
+        foreach (var opt in options.Split('|'))
+            if (opt.Trim().Equals(val.ToString().Trim(), StringComparison.OrdinalIgnoreCase))
+                return "";
+        return "display:none;";
+    }
+    protected string ShowIfNot(object val, string match)
+    {
+        return val == null || !val.ToString().Equals(match, StringComparison.OrdinalIgnoreCase)
+            ? "" : "display:none;";
+    }
+    protected string ShowIfNotIn(object val, string options)
+    {
+        if (val == null) return "";
+        foreach (var opt in options.Split('|'))
+            if (opt.Trim().Equals(val.ToString().Trim(), StringComparison.OrdinalIgnoreCase))
+                return "display:none;";
+        return "";
+    }
+
+    protected string GetStatusClass(string s)
+    {
+        switch ((s ?? "").ToUpper().Trim())
+        {
+            case "UNREGISTERED":    return "unreg";
+            case "REGISTERED":      return "reg";
             case "LATE REGISTERED": return "late";
-            case "HALTED": return "halted";
-            case "DEAD YEAR": return "deadyear";
-            default: return "";
+            case "CLEARED":         return "cleared";
+            case "DISCONTINUED":    return "discont";
+            case "HALTED":          return "halted";
+            case "DEAD YEAR":       return "dead";
+            default:                return "unreg";
         }
     }
-    
-    protected string GetClearanceClass(string status)
+    protected string GetClearanceClass(string s)
     {
-        switch (status.ToUpper())
+        switch ((s ?? "").ToUpper().Trim())
         {
-            case "CLEARED": return "cleared";
-            case "PRINTED": return "registered";
-            case "UNCLEARED": return "unregistered";
-            default: return "";
+            case "CLEARED":   return "cleared";
+            case "PRINTED":   return "printed";
+            default:          return "uncleared";
         }
     }
-    
-    // Filter change handlers
-    protected void ddlAcadYear_SelectedIndexChanged(object sender, EventArgs e)
+    protected string GetIDCardClass(string s)
     {
+        switch ((s ?? "").ToUpper().Trim())
+        {
+            case "ISSUED":
+            case "PRINTED": return "issued";
+            default:        return "notissued";
+        }
+    }
+    protected string GetBillingClass(string s)
+    {
+        return (s ?? "").ToUpper().Trim() == "BILLED" ? "billed" : "notbilled";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FILTER CHANGE HANDLERS
+    // ═══════════════════════════════════════════════════════════════════
+
+    protected void btnSearch_Click(object sender, EventArgs e)                   { BindGrid(); }
+
+    protected void ddlAcadYear_SelectedIndexChanged(object sender, EventArgs e)   { UpdateDisplayLabels(); LoadStats(); BindGrid(); }
+    protected void ddlSemester_SelectedIndexChanged(object sender, EventArgs e)   { UpdateDisplayLabels(); LoadStats(); BindGrid(); }
+    protected void ddlStudyYear_SelectedIndexChanged(object sender, EventArgs e)  { BindGrid(); }
+    protected void ddlRegStatus_SelectedIndexChanged(object sender, EventArgs e)  { BindGrid(); }
+    protected void ddlProgramme_SelectedIndexChanged(object sender, EventArgs e)  { BindGrid(); }
+    protected void ddlExamClearance_SelectedIndexChanged(object sender, EventArgs e) { BindGrid(); }
+    protected void ddlIDCard_SelectedIndexChanged(object sender, EventArgs e)     { BindGrid(); }
+    protected void ddlResidence_SelectedIndexChanged(object sender, EventArgs e)  { BindGrid(); }
+    protected void ddlBilling_SelectedIndexChanged(object sender, EventArgs e)    { BindGrid(); }
+    protected void txtSearch_TextChanged(object sender, EventArgs e)              { /* handled by btnSearch_Click */ }
+    protected void ddlPageSize_Changed(object sender, EventArgs e)               { BindGrid(); }
+
+    protected void btnReset_Click(object sender, EventArgs e)
+    {
+        txtSearch.Text                 = "";
+        ddlAcadYear.SelectedValue      = "";
+        ddlSemester.SelectedValue      = "";
+        ddlStudyYear.SelectedValue     = "";
+        ddlRegStatus.SelectedValue     = "";
+        ddlProgramme.SelectedValue     = "";
+        ddlExamClearance.SelectedValue = "";
+        ddlIDCard.SelectedValue        = "";
+        ddlResidence.SelectedValue     = "";
+        ddlBilling.SelectedValue       = "";
+        // Preserve ddlPageSize (user preference)
         UpdateDisplayLabels();
         LoadStats();
         BindGrid();
     }
-    
-    protected void ddlSemester_SelectedIndexChanged(object sender, EventArgs e)
-    {
-        UpdateDisplayLabels();
-        LoadStats();
-        BindGrid();
-    }
-    
-    protected void ddlStudyYear_SelectedIndexChanged(object sender, EventArgs e)
-    {
-        BindGrid();
-    }
-    
-    protected void ddlRegStatus_SelectedIndexChanged(object sender, EventArgs e)
-    {
-        BindGrid();
-    }
-    
-    protected void ddlProgramme_SelectedIndexChanged(object sender, EventArgs e)
-    {
-        BindGrid();
-    }
-    
-    protected void btnRefresh_Click(object sender, EventArgs e)
-    {
-        LoadStats();
-        BindGrid();
-    }
-    
-    // Individual action buttons
+    protected void btnRefresh_Click(object sender, EventArgs e) { LoadStats(); BindGrid(); }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // INDIVIDUAL ACTIONS
+    // ═══════════════════════════════════════════════════════════════════
+
     protected void btnRegister_Click(object sender, EventArgs e)
     {
-        LinkButton btn = (LinkButton)sender;
-        int id = int.Parse(btn.CommandArgument);
-        
-        RegisterStudent(id);
-        ShowMessage("Student registered successfully.");
-        LoadStats();
-        BindGrid();
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        if (DoSetStatus(id, "REGISTERED", "registeredBy", "regstatus", "UNREGISTERED"))
+        {
+            AutoBillStudent(id);
+            ShowToast(true, "Student registered & billed successfully.");
+        }
+        else
+            ShowToast(false, "Could not register student. They may already be registered.");
+        LoadStats(); BindGrid();
     }
-    
+
+    protected void btnLateRegister_Click(object sender, EventArgs e)
+    {
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        if (DoSetStatus(id, "LATE REGISTERED", "registeredBy", "regstatus", "UNREGISTERED"))
+        {
+            AutoBillStudent(id);
+            ShowToast(true, "Student late-registered & billed successfully.");
+        }
+        else
+            ShowToast(false, "Could not late-register student. Check their current status.");
+        LoadStats(); BindGrid();
+    }
+
     protected void btnClear_Click(object sender, EventArgs e)
     {
-        LinkButton btn = (LinkButton)sender;
-        int id = int.Parse(btn.CommandArgument);
-        
-        ClearStudent(id);
-        ShowMessage("Student cleared for exams successfully.");
-        LoadStats();
-        BindGrid();
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        if (ClearStudent(id))
+            ShowToast(true, "Student cleared for exams.");
+        else
+            ShowToast(false, "Could not clear student. They must be Registered or Late Registered first.");
+        LoadStats(); BindGrid();
     }
-    
+
+    protected void btnUndoClear_Click(object sender, EventArgs e)
+    {
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                const string sql = @"UPDATE acad_registration
+                    SET regstatus='REGISTERED', examClearance='UNCLEARED',
+                        examClearanceDate=NULL, clearedBy=NULL
+                    WHERE ID=@id AND examClearance='CLEARED'";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    bool ok = cmd.ExecuteNonQuery() > 0;
+                    ShowToast(ok, ok ? "Exam clearance undone. Student reverted to Registered."
+                                    : "Could not undo clearance.");
+                }
+            }
+        }
+        catch (Exception ex) { ShowToast(false, "Error: " + ex.Message); }
+        LoadStats(); BindGrid();
+    }
+
     protected void btnUnregister_Click(object sender, EventArgs e)
     {
-        LinkButton btn = (LinkButton)sender;
-        int id = int.Parse(btn.CommandArgument);
-        
-        UnregisterStudent(id);
-        ShowMessage("Student registration undone.");
-        LoadStats();
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                const string sql = @"UPDATE acad_registration
+                    SET regstatus='UNREGISTERED', registeredBy=NULL
+                    WHERE ID=@id AND regstatus IN ('REGISTERED','LATE REGISTERED')";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    bool ok = cmd.ExecuteNonQuery() > 0;
+                    ShowToast(ok, ok ? "Registration undone." : "Could not undo registration.");
+                }
+            }
+        }
+        catch (Exception ex) { ShowToast(false, "Error: " + ex.Message); }
+        LoadStats(); BindGrid();
+    }
+
+    protected void btnDiscontinue_Click(object sender, EventArgs e)
+    {
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        if (ForceStatus(id, "DISCONTINUED"))
+            ShowToast(true, "Student marked as Discontinued.");
+        else
+            ShowToast(false, "Could not update status.");
+        LoadStats(); BindGrid();
+    }
+
+    protected void btnHalt_Click(object sender, EventArgs e)
+    {
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        if (ForceStatus(id, "HALTED"))
+            ShowToast(true, "Student registration halted.");
+        else
+            ShowToast(false, "Could not halt registration.");
+        LoadStats(); BindGrid();
+    }
+
+    protected void btnDeadYear_Click(object sender, EventArgs e)
+    {
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        if (ForceStatus(id, "DEAD YEAR"))
+            ShowToast(true, "Marked as Dead Year.");
+        else
+            ShowToast(false, "Could not update status.");
+        LoadStats(); BindGrid();
+    }
+
+    protected void btnReactivate_Click(object sender, EventArgs e)
+    {
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                const string sql = @"UPDATE acad_registration
+                    SET regstatus='UNREGISTERED', registeredBy=NULL, examClearance='UNCLEARED'
+                    WHERE ID=@id AND regstatus IN ('DISCONTINUED','HALTED','DEAD YEAR')";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    bool ok = cmd.ExecuteNonQuery() > 0;
+                    ShowToast(ok, ok ? "Student reactivated to Unregistered." : "Could not reactivate student.");
+                }
+            }
+        }
+        catch (Exception ex) { ShowToast(false, "Error: " + ex.Message); }
+        LoadStats(); BindGrid();
+    }
+
+    protected void btnIssueIDCard_Click(object sender, EventArgs e)
+    {
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                const string sql = "UPDATE acad_registration SET id_cardStatus='ISSUED' WHERE ID=@id";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    bool ok = cmd.ExecuteNonQuery() > 0;
+                    ShowToast(ok, ok ? "ID card marked as Issued." : "Could not update ID card status.");
+                }
+            }
+        }
+        catch (Exception ex) { ShowToast(false, "Error: " + ex.Message); }
         BindGrid();
     }
-    
-    // Batch actions
-    protected void btnBatchRegister_Click(object sender, EventArgs e)
+
+    protected void btnRevokeIDCard_Click(object sender, EventArgs e)
     {
-        List<object> selectedKeys = gvRegistration.GetSelectedFieldValues("ID");
-        int count = 0;
-        
-        foreach (object key in selectedKeys)
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                const string sql = "UPDATE acad_registration SET id_cardStatus='NOT ISSUED' WHERE ID=@id";
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    bool ok = cmd.ExecuteNonQuery() > 0;
+                    ShowToast(ok, ok ? "ID card revoked." : "Could not revoke ID card.");
+                }
+            }
+        }
+        catch (Exception ex) { ShowToast(false, "Error: " + ex.Message); }
+        BindGrid();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BATCH ACTIONS
+    // ═══════════════════════════════════════════════════════════════════
+
+    protected void btnBatchRegister_Click(object sender, EventArgs e)          { RunBatch("register");     }
+    protected void btnBatchLateRegister_Click(object sender, EventArgs e)      { RunBatch("late");         }
+    protected void btnBatchClear_Click(object sender, EventArgs e)             { RunBatch("clear");        }
+    protected void btnBatchUndoReg_Click(object sender, EventArgs e)           { RunBatch("undoreg");      }
+    protected void btnBatchUndoClear_Click(object sender, EventArgs e)         { RunBatch("undoclear");    }
+    protected void btnBatchDiscontinue_Click(object sender, EventArgs e)       { RunBatch("discontinue"); }
+    protected void btnBatchHalt_Click(object sender, EventArgs e)              { RunBatch("halt");         }
+    protected void btnBatchDeadYear_Click(object sender, EventArgs e)          { RunBatch("deadyear");     }
+    protected void btnBatchReactivate_Click(object sender, EventArgs e)        { RunBatch("reactivate");   }
+
+    private void RunBatch(string action)
+    {
+        var keys = gvRegistration.GetSelectedFieldValues("ID");
+        if (keys == null || keys.Count == 0)
+        {
+            ShowToast(false, "No students selected.");
+            return;
+        }
+        int processed = 0, skipped = 0;
+        foreach (object key in keys)
         {
             int id = Convert.ToInt32(key);
-            if (RegisterStudent(id))
-                count++;
+            bool ok = false;
+            switch (action)
+            {
+                case "register":    ok = DoSetStatus(id, "REGISTERED",     "registeredBy", "regstatus", "UNREGISTERED"); if (ok) AutoBillStudent(id);  break;
+                case "late":        ok = DoSetStatus(id, "LATE REGISTERED","registeredBy", "regstatus", "UNREGISTERED"); if (ok) AutoBillStudent(id);  break;
+                case "clear":       ok = ClearStudent(id);  break;
+                case "undoreg":     ok = BatchUndoReg(id);  break;
+                case "undoclear":   ok = BatchUndoClear(id); break;
+                case "discontinue": ok = ForceStatus(id, "DISCONTINUED"); break;
+                case "halt":        ok = ForceStatus(id, "HALTED");       break;
+                case "deadyear":    ok = ForceStatus(id, "DEAD YEAR");    break;
+                case "reactivate":  ok = BatchReactivate(id);             break;
+            }
+            if (ok) processed++; else skipped++;
         }
-        
         gvRegistration.Selection.UnselectAll();
-        ShowMessage(string.Format("{0} student(s) registered successfully.", count));
+        string msg = processed + " student(s) updated.";
+        if (skipped > 0) msg += " " + skipped + " skipped (status ineligible).";
+        ShowToast(processed > 0, msg);
         LoadStats();
         BindGrid();
     }
-    
-    protected void btnBatchClear_Click(object sender, EventArgs e)
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ADD REGISTRATION MODAL
+    // ═══════════════════════════════════════════════════════════════════
+
+    protected void btnDoAddReg_Click(object sender, EventArgs e)
     {
-        List<object> selectedKeys = gvRegistration.GetSelectedFieldValues("ID");
-        int count = 0;
-        
-        foreach (object key in selectedKeys)
+        string regno     = (txtAddRegNo.Text ?? "").Trim();
+        string acadYear  = ddlAddAcadYear.SelectedValue;
+        int    semester  = SafeInt(ddlAddSemester.SelectedValue, 1);
+        int    studyYear = SafeInt(ddlAddStudyYear.SelectedValue, 1);
+        string status    = ddlAddStatus.SelectedValue;
+        string residence = ddlAddResidence.SelectedValue;
+
+        if (string.IsNullOrEmpty(regno))
         {
-            int id = Convert.ToInt32(key);
-            if (ClearStudent(id))
-                count++;
+            ShowAddRegError("Please enter a registration number.");
+            return;
         }
-        
-        gvRegistration.Selection.UnselectAll();
-        ShowMessage(string.Format("{0} student(s) cleared for exams.", count));
+        if (string.IsNullOrEmpty(acadYear))
+        {
+            ShowAddRegError("Please select an academic year.");
+            return;
+        }
+        if (semester < 1 || semester > 3)
+        {
+            ShowAddRegError("Please select a valid semester.");
+            return;
+        }
+
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+
+                // Check student exists
+                long sc = 0;
+                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_student WHERE regno=@r", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    sc = (long)cmd.ExecuteScalar();
+                }
+                if (sc == 0)
+                {
+                    ShowAddRegError("Student with registration number \"" + Server.HtmlEncode(regno) + "\" was not found in student records.");
+                    return;
+                }
+
+                // Check duplicate
+                long dc = 0;
+                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_registration WHERE regno=@r AND acad_year=@y AND semester=@s", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    cmd.Parameters.AddWithValue("@y", acadYear);
+                    cmd.Parameters.AddWithValue("@s", semester);
+                    dc = (long)cmd.ExecuteScalar();
+                }
+                if (dc > 0)
+                {
+                    ShowAddRegError(string.Format(
+                        "Student {0} already has a registration record for {1}, Semester {2}. Duplicate entries are not allowed.",
+                        Server.HtmlEncode(regno), acadYear, semester));
+                    return;
+                }
+
+                // Insert
+                const string insertSql = @"
+                    INSERT INTO acad_registration
+                        (regno, acad_year, semester, studyyear, regstatus,
+                         id_cardStatus, residence_status, examClearance, registeredBy)
+                    VALUES
+                        (@regno, @year, @sem, @studyYear, @status,
+                         'UNPRINTED', @res, 'UNCLEARED', @user)";
+                using (var cmd = new MySqlCommand(insertSql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@regno",     regno);
+                    cmd.Parameters.AddWithValue("@year",      acadYear);
+                    cmd.Parameters.AddWithValue("@sem",       semester);
+                    cmd.Parameters.AddWithValue("@studyYear", studyYear);
+                    cmd.Parameters.AddWithValue("@status",    status);
+                    cmd.Parameters.AddWithValue("@res",       residence);
+                    cmd.Parameters.AddWithValue("@user",      GetCurrentUser());
+                    cmd.ExecuteNonQuery();
+                }
+
+                // Auto-bill if status is REGISTERED or LATE REGISTERED
+                if (status == "REGISTERED" || status == "LATE REGISTERED")
+                {
+                    long newId = 0;
+                    using (var cmd2 = new MySqlCommand(
+                        "SELECT ID FROM acad_registration WHERE regno=@r AND acad_year=@y AND semester=@s LIMIT 1", conn))
+                    {
+                        cmd2.Parameters.AddWithValue("@r", regno);
+                        cmd2.Parameters.AddWithValue("@y", acadYear);
+                        cmd2.Parameters.AddWithValue("@s", semester);
+                        object val = cmd2.ExecuteScalar();
+                        if (val != null) newId = Convert.ToInt64(val);
+                    }
+                    if (newId > 0) AutoBillStudent((int)newId);
+                }
+            }
+
+            // Close modal and show toast
+            ScriptManager.RegisterStartupScript(this, GetType(), "closeAdd", "closeModal('addRegModal');", true);
+            txtAddRegNo.Text = "";
+            ShowToast(true, "Registration record added for " + regno + ".");
+            LoadStats();
+            BindGrid();
+        }
+        catch (Exception ex)
+        {
+            ShowAddRegError("Unexpected error: " + ex.Message);
+        }
+    }
+
+    private void ShowAddRegError(string msg)
+    {
+        addRegResult.Visible    = true;
+        addRegResult.Attributes["class"] = "hr-result hr-result--err";
+        litAddRegResult.Text    = Server.HtmlEncode(msg);
+        // Re-open modal
+        ScriptManager.RegisterStartupScript(this, GetType(), "reopenAdd", "openAddRegModal();", true);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CHANGE STATUS MODAL
+    // ═══════════════════════════════════════════════════════════════════
+
+    protected void btnDoChangeStatus_Click(object sender, EventArgs e)
+    {
+        int id = SafeInt(hdnCSID.Value, 0);
+        if (id <= 0) { ShowToast(false, "Invalid record ID."); return; }
+
+        string newStatus = ddlNewStatus.SelectedValue;
+        if (string.IsNullOrEmpty(newStatus)) { ShowToast(false, "Please select a status."); return; }
+
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                string sql = "UPDATE acad_registration SET regstatus=@s WHERE ID=@id";
+                // Also clear/set related fields based on new status
+                if (newStatus == "CLEARED")
+                    sql = "UPDATE acad_registration SET regstatus=@s, examClearance='CLEARED', examClearanceDate=NOW(), clearedBy=@user WHERE ID=@id";
+                else if (newStatus == "REGISTERED" || newStatus == "LATE REGISTERED")
+                    sql = "UPDATE acad_registration SET regstatus=@s, registeredBy=@user WHERE ID=@id";
+                else if (newStatus == "UNREGISTERED")
+                    sql = "UPDATE acad_registration SET regstatus=@s, registeredBy=NULL, examClearance='UNCLEARED' WHERE ID=@id";
+
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@s",    newStatus);
+                    cmd.Parameters.AddWithValue("@id",   id);
+                    cmd.Parameters.AddWithValue("@user", GetCurrentUser());
+                    bool ok = cmd.ExecuteNonQuery() > 0;
+                    if (ok && (newStatus == "REGISTERED" || newStatus == "LATE REGISTERED"))
+                        AutoBillStudent(id);
+                    ScriptManager.RegisterStartupScript(this, GetType(), "closecs", "closeModal('changeStatusModal');", true);
+                    ShowToast(ok, ok ? "Status changed to " + newStatus + "." : "No changes made.");
+                }
+            }
+        }
+        catch (Exception ex) { ShowToast(false, "Error: " + ex.Message); }
         LoadStats();
         BindGrid();
     }
-    
-    private bool RegisterStudent(int id)
+
+    // ═══════════════════════════════════════════════════════════════════
+    // EXPORT CSV
+    // ═══════════════════════════════════════════════════════════════════
+
+    protected void btnExportCsv_Click(object sender, EventArgs e)
+    {
+        string acadYear = ddlAcadYear.SelectedValue;
+        string semStr   = ddlSemester.SelectedValue;
+        string search   = (txtSearch.Text ?? "").Trim();
+
+        var sb = new StringBuilder(@"
+            SELECT r.regno,
+                TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
+                COALESCE(s.progid,'') AS progcode,
+                COALESCE(p.progname,'') AS progname,
+                r.studyyear, r.regstatus,
+                COALESCE(r.examClearance,'UNCLEARED') AS examClearance,
+                CASE WHEN r.id_cardStatus = 'ISSUED' THEN 'ISSUED' ELSE 'NOT ISSUED' END AS id_cardStatus,
+                CASE WHEN r.residence_status = 'RESIDENT' THEN 'RESIDENT' ELSE 'NON-RESIDENT' END AS residence_status,
+                COALESCE(r.registeredBy,'') AS registeredBy,
+                COALESCE(r.clearedBy,'') AS clearedBy,
+                CASE WHEN r.examClearanceDate IS NULL OR r.examClearanceDate='0000-00-00'
+                     THEN '' ELSE DATE_FORMAT(r.examClearanceDate,'%Y-%m-%d') END AS examClearanceDate,
+                r.acad_year, r.semester,
+                CASE WHEN b.bill_count > 0 THEN 'BILLED' ELSE 'NOT BILLED' END AS billing_status,
+                COALESCE(b.total_billed, 0) AS total_billed,
+                COALESCE(b.total_paid, 0)   AS total_paid
+            FROM acad_registration r
+            LEFT JOIN acad_student s ON r.regno=s.regno
+            LEFT JOIN acad_programme p ON s.progid=p.progcode
+            LEFT JOIN (
+                SELECT regno, acadyear, semester,
+                    COUNT(CASE WHEN trans_type='Bill' THEN 1 END) AS bill_count,
+                    SUM(CASE WHEN trans_type='Bill' THEN amount ELSE 0 END) AS total_billed,
+                    SUM(CASE WHEN trans_type='Payment' THEN amount ELSE 0 END) AS total_paid
+                FROM campus_dynamics_accounts.fin_studentfeestracking
+                GROUP BY regno, acadyear, semester
+            ) b ON b.regno=r.regno AND b.acadyear=r.acad_year AND b.semester=r.semester
+            WHERE 1=1");
+
+        var parameters = new List<MySqlParameter>();
+        if (!string.IsNullOrEmpty(acadYear)) { sb.Append(" AND r.acad_year=@acadYear"); parameters.Add(new MySqlParameter("@acadYear", acadYear)); }
+        if (!string.IsNullOrEmpty(semStr))   { sb.Append(" AND r.semester=@semester");  parameters.Add(new MySqlParameter("@semester", SafeInt(semStr, 1))); }
+        if (!string.IsNullOrEmpty(ddlStudyYear.SelectedValue))     { sb.Append(" AND r.studyyear=@sy"); parameters.Add(new MySqlParameter("@sy", SafeInt(ddlStudyYear.SelectedValue, 0))); }
+        if (!string.IsNullOrEmpty(ddlRegStatus.SelectedValue))     { sb.Append(" AND r.regstatus=@rs"); parameters.Add(new MySqlParameter("@rs", ddlRegStatus.SelectedValue)); }
+        if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))     { sb.Append(" AND s.progid=@prog"); parameters.Add(new MySqlParameter("@prog", ddlProgramme.SelectedValue)); }
+        if (!string.IsNullOrEmpty(ddlExamClearance.SelectedValue)) { sb.Append(" AND r.examClearance=@ec"); parameters.Add(new MySqlParameter("@ec", ddlExamClearance.SelectedValue)); }
+        if (!string.IsNullOrEmpty(ddlIDCard.SelectedValue))        { if (ddlIDCard.SelectedValue == "ISSUED") sb.Append(" AND r.id_cardStatus='ISSUED'"); else sb.Append(" AND (r.id_cardStatus IS NULL OR r.id_cardStatus!='ISSUED')"); }
+        if (!string.IsNullOrEmpty(ddlResidence.SelectedValue))     { if (ddlResidence.SelectedValue == "RESIDENT") sb.Append(" AND r.residence_status='RESIDENT'"); else sb.Append(" AND r.residence_status!='RESIDENT'"); }
+        if (!string.IsNullOrEmpty(ddlBilling.SelectedValue))        { if (ddlBilling.SelectedValue == "BILLED") sb.Append(" AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=r.regno AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); else sb.Append(" AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=r.regno AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); }
+        if (!string.IsNullOrEmpty(search))                         { sb.Append(" AND (r.regno LIKE @s OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @s)"); parameters.Add(new MySqlParameter("@s", "%" + search + "%")); }
+        sb.Append(" ORDER BY s.firstname, s.othername, r.regno");
+
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(sb.ToString(), conn))
+                {
+                    foreach (var p in parameters) cmd.Parameters.Add(p);
+                    using (var da = new MySqlDataAdapter(cmd))
+                    {
+                        var dt = new DataTable();
+                        da.Fill(dt);
+
+                        var csv = new StringBuilder();
+                        csv.AppendLine("Reg No,Student Name,Programme Code,Programme Name,Study Year,Reg Status,Exam Clearance,ID Card,Residence,Billing Status,Total Billed,Total Paid,Registered By,Cleared By,Clearance Date,Academic Year,Semester");
+                        foreach (DataRow row in dt.Rows)
+                        {
+                            csv.AppendLine(string.Join(",",
+                                CsvEsc(row["regno"]), CsvEsc(row["student_name"]),
+                                CsvEsc(row["progcode"]), CsvEsc(row["progname"]),
+                                CsvEsc(row["studyyear"]), CsvEsc(row["regstatus"]),
+                                CsvEsc(row["examClearance"]), CsvEsc(row["id_cardStatus"]),
+                                CsvEsc(row["residence_status"]),
+                                CsvEsc(row["billing_status"]),
+                                CsvEsc(row["total_billed"]), CsvEsc(row["total_paid"]),
+                                CsvEsc(row["registeredBy"]),
+                                CsvEsc(row["clearedBy"]), CsvEsc(row["examClearanceDate"]),
+                                CsvEsc(row["acad_year"]), CsvEsc(row["semester"])));
+                        }
+
+                        string yearPart = string.IsNullOrEmpty(acadYear) ? "all" : acadYear.Replace("/", "_");
+                        string semPart  = string.IsNullOrEmpty(semStr)   ? "all" : "sem" + semStr;
+                        string filename = string.Format("registration_{0}_{1}.csv", yearPart, semPart);
+                        Response.Clear();
+                        Response.ContentType = "text/csv";
+                        Response.AddHeader("Content-Disposition", "attachment; filename=" + filename);
+                        Response.Write(csv.ToString());
+                        Response.End();
+                    }
+                }
+            }
+        }
+        catch (Exception ex) { ShowToast(false, "Export failed: " + ex.Message); }
+    }
+
+    private string CsvEsc(object val)
+    {
+        string s = (val == null || val == DBNull.Value) ? "" : val.ToString();
+        if (s.Contains(",") || s.Contains("\"") || s.Contains("\n"))
+            return "\"" + s.Replace("\"", "\"\"") + "\"";
+        return s;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GRID EVENTS
+    // ═══════════════════════════════════════════════════════════════════
+
+    protected void gvRegistration_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
+    {
+        e.Cell.Style["vertical-align"] = "middle";
+
+        // Programme tooltip
+        if (e.DataColumn.FieldName == "progcode")
+        {
+            object progname = e.GetValue("progname");
+            if (progname != null && progname.ToString().Trim() != "")
+                e.Cell.Attributes["title"] = progname.ToString();
+        }
+    }
+
+    protected void gvRegistration_HtmlRowPrepared(object sender, DevExpress.Web.ASPxGridViewTableRowEventArgs e)
+    {
+        if (e.RowType != DevExpress.Web.GridViewRowType.Data) return;
+        string status = (e.GetValue("regstatus") ?? "").ToString();
+        switch (status.ToUpper())
+        {
+            case "LATE REGISTERED": e.Row.CssClass = "rg-row-late";    break;
+            case "CLEARED":         e.Row.CssClass = "rg-row-cleared"; break;
+            case "DISCONTINUED":    e.Row.CssClass = "rg-row-discont"; break;
+            case "HALTED":          e.Row.CssClass = "rg-row-halted";  break;
+            case "DEAD YEAR":       e.Row.CssClass = "rg-row-dead";    break;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // DATABASE OPERATION PRIMITIVES
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Sets regstatus to newStatus and updates an auditing column, but only if the
+    /// current regstatus matches the allowed value.
+    /// </summary>
+    private bool DoSetStatus(int id, string newStatus, string auditCol, string condCol, string condVal)
     {
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            using (var conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = @"UPDATE acad_registration 
-                               SET regstatus = 'REGISTERED', registeredBy = @user 
-                               WHERE ID = @id AND regstatus = 'UNREGISTERED'";
-                
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                string sql = string.Format(
+                    "UPDATE acad_registration SET regstatus=@s, {0}=@user WHERE ID=@id AND {1}=@cond",
+                    auditCol, condCol);
+                using (var cmd = new MySqlCommand(sql, conn))
                 {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    cmd.Parameters.AddWithValue("@user", HttpContext.Current.User.Identity.Name);
+                    cmd.Parameters.AddWithValue("@s",    newStatus);
+                    cmd.Parameters.AddWithValue("@user", GetCurrentUser());
+                    cmd.Parameters.AddWithValue("@id",   id);
+                    cmd.Parameters.AddWithValue("@cond", condVal);
                     return cmd.ExecuteNonQuery() > 0;
                 }
             }
         }
-        catch
-        {
-            return false;
-        }
+        catch { return false; }
     }
-    
+
+    /// <summary>
+    /// Auto-bill a student after registration. Safe to call multiple times
+    /// — the SP has a pre-check that skips if already billed.
+    /// </summary>
+    private void AutoBillStudent(int regId)
+    {
+        try
+        {
+            string regno = "", acadYear = "";
+            int semester = 0;
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    "SELECT regno, acad_year, semester FROM acad_registration WHERE ID=@id LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", regId);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (!rdr.Read()) return;
+                        regno    = rdr["regno"].ToString();
+                        acadYear = rdr["acad_year"].ToString();
+                        semester = Convert.ToInt32(rdr["semester"]);
+                    }
+                }
+            }
+            if (string.IsNullOrEmpty(regno)) return;
+
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand("fin_AutoBillOnRegistration", conn))
+                {
+                    cmd.CommandType = System.Data.CommandType.StoredProcedure;
+                    cmd.CommandTimeout = 120;
+                    cmd.Parameters.AddWithValue("@p_regno",    regno);
+                    cmd.Parameters.AddWithValue("@p_acadyear", acadYear);
+                    cmd.Parameters.AddWithValue("@p_semester",  semester);
+                    cmd.Parameters.AddWithValue("@p_user",     GetCurrentUser());
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        while (rdr.NextResult()) { }
+                    }
+                }
+            }
+        }
+        catch { /* billing failure should not block registration */ }
+    }
+
     private bool ClearStudent(int id)
     {
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            using (var conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = @"UPDATE acad_registration 
-                               SET regstatus = 'CLEARED', examClearance = 'CLEARED', 
-                                   examClearanceDate = @date, clearedBy = @user 
-                               WHERE ID = @id AND regstatus IN ('REGISTERED', 'LATE REGISTERED')";
-                
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                const string sql = @"UPDATE acad_registration
+                    SET regstatus='CLEARED', examClearance='CLEARED',
+                        examClearanceDate=NOW(), clearedBy=@user
+                    WHERE ID=@id AND regstatus IN ('REGISTERED','LATE REGISTERED')";
+                using (var cmd = new MySqlCommand(sql, conn))
                 {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    cmd.Parameters.AddWithValue("@date", DateTime.Now);
-                    cmd.Parameters.AddWithValue("@user", HttpContext.Current.User.Identity.Name);
+                    cmd.Parameters.AddWithValue("@id",   id);
+                    cmd.Parameters.AddWithValue("@user", GetCurrentUser());
                     return cmd.ExecuteNonQuery() > 0;
                 }
             }
         }
-        catch
-        {
-            return false;
-        }
+        catch { return false; }
     }
-    
-    private bool UnregisterStudent(int id)
+
+    private bool ForceStatus(int id, string newStatus)
     {
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            using (var conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = @"UPDATE acad_registration 
-                               SET regstatus = 'UNREGISTERED', registeredBy = '-'
-                               WHERE ID = @id AND regstatus = 'REGISTERED'";
-                
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                using (var cmd = new MySqlCommand("UPDATE acad_registration SET regstatus=@s WHERE ID=@id", conn))
+                {
+                    cmd.Parameters.AddWithValue("@s",  newStatus);
+                    cmd.Parameters.AddWithValue("@id", id);
+                    return cmd.ExecuteNonQuery() > 0;
+                }
+            }
+        }
+        catch { return false; }
+    }
+
+    private bool BatchUndoReg(int id)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    "UPDATE acad_registration SET regstatus='UNREGISTERED', registeredBy=NULL WHERE ID=@id AND regstatus IN ('REGISTERED','LATE REGISTERED')", conn))
                 {
                     cmd.Parameters.AddWithValue("@id", id);
                     return cmd.ExecuteNonQuery() > 0;
                 }
             }
         }
-        catch
+        catch { return false; }
+    }
+
+    private bool BatchUndoClear(int id)
+    {
+        try
         {
-            return false;
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    "UPDATE acad_registration SET regstatus='REGISTERED', examClearance='UNCLEARED', examClearanceDate=NULL, clearedBy=NULL WHERE ID=@id AND examClearance='CLEARED'", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    return cmd.ExecuteNonQuery() > 0;
+                }
+            }
         }
+        catch { return false; }
     }
-    
-    private void ShowMessage(string message)
+
+    private bool BatchReactivate(int id)
     {
-        litMessage.Text = message;
-        popMessage.ShowOnPageLoad = true;
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    "UPDATE acad_registration SET regstatus='UNREGISTERED', registeredBy=NULL, examClearance='UNCLEARED' WHERE ID=@id AND regstatus IN ('DISCONTINUED','HALTED','DEAD YEAR')", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    return cmd.ExecuteNonQuery() > 0;
+                }
+            }
+        }
+        catch { return false; }
     }
-    
-    protected void gvRegistration_CustomButtonCallback(object sender, DevExpress.Web.ASPxGridViewCustomButtonCallbackEventArgs e)
+
+    // ═══════════════════════════════════════════════════════════════════
+    // UTILITIES
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void ShowToast(bool success, string message)
     {
-        // Handle custom button callbacks if needed
+        string js = string.Format("showToast({0},'{1}');",
+            success ? "true" : "false",
+            message.Replace("'", "\\'").Replace("\r", "").Replace("\n", ""));
+        ScriptManager.RegisterStartupScript(this, GetType(), "toast_" + Guid.NewGuid().ToString("N"), js, true);
     }
-    
-    protected void gvRegistration_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
+
+    private int GetLinkButtonID(object sender)
     {
-        e.Cell.Style["vertical-align"] = "middle";
+        var btn = sender as LinkButton;
+        if (btn == null) return 0;
+        int id;
+        return int.TryParse(btn.CommandArgument, out id) ? id : 0;
+    }
+
+    private int SafeInt(string val, int def = 0)
+    {
+        int r; return int.TryParse(val, out r) ? r : def;
+    }
+    private int SafeInt(object val, int def = 0)
+    {
+        if (val == null || val == DBNull.Value) return def;
+        int r; return int.TryParse(val.ToString(), out r) ? r : def;
+    }
+    private string SafeStr(object val)
+    {
+        if (val == null || val == DBNull.Value) return "0";
+        string s = val.ToString().Trim();
+        return string.IsNullOrEmpty(s) ? "0" : s;
+    }
+
+    /// <summary>Escape a value for safe inclusion inside a JS single-quoted string literal.</summary>
+    protected string JsEncode(object val)
+    {
+        string s = (val == null || val == DBNull.Value) ? "" : val.ToString();
+        return s.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "");
     }
 }

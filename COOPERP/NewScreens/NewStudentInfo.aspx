@@ -849,7 +849,12 @@
             </h2>
             
             <!-- Batch Operations Button -->
-            <div class="cd-batch-ops">
+            <div style="display:flex;gap:8px;align-items:center;">
+                <a href="NewStudentRegistration.aspx?returnUrl=NewStudentInfo.aspx%3Fstatus%3DALL" class="cd-btn cd-btn--primary cd-btn--sm" style="text-decoration:none;background:#00695c;border-color:#00695c;display:inline-flex;align-items:center;gap:5px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                    Register New Student
+                </a>
+                <div class="cd-batch-ops">
                 <button type="button" class="cd-btn cd-btn--primary cd-btn--sm" onclick="toggleBatchMenu(event)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                     Batch Operations
@@ -885,6 +890,7 @@
                         Export NCHE Student Data
                     </a>
                 </div>
+            </div>
             </div>
         </div>
         
@@ -1242,6 +1248,14 @@
                                                 Edit
                                             </button>
                                         </li>
+                                        <li class="cd-action-popover__item">
+                                            <a class="cd-action-popover__btn" style="color:#e65100;font-weight:600;" 
+                                               href='<%# "NewStudentRegistration.aspx?edit=" + HttpUtility.UrlEncode((Eval("regno") ?? "").ToString()) + "&returnUrl=" + HttpUtility.UrlEncode("NewStudentInfo.aspx?status=ALL&search=" + HttpUtility.UrlEncode((Eval("regno") ?? "").ToString())) %>'
+                                               data-regno='<%# Eval("regno") %>'>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e65100" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                                Full Edit
+                                            </a>
+                                        </li>
                                         <li class="cd-action-popover__divider"></li>
                                         <li class="cd-action-popover__item">
                                             <button type="button" class="cd-action-popover__btn cd-action-popover__btn--password" 
@@ -1300,7 +1314,7 @@
             <dx:PopupControlContentControl runat="server">
                 <asp:Panel ID="pnlProfileContent" runat="server" CssClass="sp-profile-container">
                     <!-- Profile Header -->
-                    <div class="sp-profile-header">
+                    <div class="sp-profile-header" style="display:flex;align-items:flex-start;">
                         <div class="sp-profile-photo-wrap">
                             <asp:Image ID="imgProfilePhoto" runat="server" CssClass="sp-profile-photo" />
                             <asp:Image ID="imgProfileSignature" runat="server" CssClass="sp-profile-signature" Visible="false" />
@@ -1328,6 +1342,14 @@
                                     <span class="sp-quick-stat__value"><asp:Literal ID="litIntake" runat="server" /></span>
                                 </div>
                             </div>
+                            <!-- Full Edit Button -->
+                        </div>
+                        <div style="margin-left:auto;flex-shrink:0;padding-top:4px;">
+                            <a id="lnkFullEdit" runat="server" class="nsr-btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#e65100;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;border:none;white-space:nowrap;"
+                               title="Open full edit form for this student">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                Full Edit
+                            </a>
                         </div>
                     </div>
                     

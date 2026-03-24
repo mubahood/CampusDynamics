@@ -214,7 +214,7 @@ public partial class COOPERP_NewScreens_StudentResultsView : System.Web.UI.Page
 
     private void LoadAcademicYears()
     {
-        string regno = ViewState["CurrentRegNo"]?.ToString() ?? "";
+        string regno = ViewState["CurrentRegNo"] == null ? "" : ViewState["CurrentRegNo"].ToString();
         
         using (MySqlConnection conn = new MySqlConnection(connStr))
         {
@@ -246,7 +246,7 @@ public partial class COOPERP_NewScreens_StudentResultsView : System.Web.UI.Page
 
     private void LoadCumulativeStats()
     {
-        string regno = ViewState["CurrentRegNo"]?.ToString() ?? "";
+        string regno = ViewState["CurrentRegNo"] == null ? "" : ViewState["CurrentRegNo"].ToString();
         
         using (MySqlConnection conn = new MySqlConnection(connStr))
         {
@@ -292,9 +292,9 @@ public partial class COOPERP_NewScreens_StudentResultsView : System.Web.UI.Page
 
     private void LoadSemesters()
     {
-        string regno = ViewState["CurrentRegNo"]?.ToString() ?? "";
-        string acadYear = ViewState["CurrentAcadYear"]?.ToString() ?? "";
-        string currentSem = ViewState["CurrentSemester"]?.ToString() ?? "";
+        string regno = ViewState["CurrentRegNo"] == null ? "" : ViewState["CurrentRegNo"].ToString();
+        string acadYear = ViewState["CurrentAcadYear"] == null ? "" : ViewState["CurrentAcadYear"].ToString();
+        string currentSem = ViewState["CurrentSemester"] == null ? "" : ViewState["CurrentSemester"].ToString();
         
         using (MySqlConnection conn = new MySqlConnection(connStr))
         {
@@ -372,9 +372,9 @@ public partial class COOPERP_NewScreens_StudentResultsView : System.Web.UI.Page
 
     private void LoadResults()
     {
-        string regno = ViewState["CurrentRegNo"]?.ToString() ?? "";
-        string acadYear = ViewState["CurrentAcadYear"]?.ToString() ?? "";
-        string semester = ViewState["CurrentSemester"]?.ToString() ?? "";
+        string regno = ViewState["CurrentRegNo"] == null ? "" : ViewState["CurrentRegNo"].ToString();
+        string acadYear = ViewState["CurrentAcadYear"] == null ? "" : ViewState["CurrentAcadYear"].ToString();
+        string semester = ViewState["CurrentSemester"] == null ? "" : ViewState["CurrentSemester"].ToString();
         
         using (MySqlConnection conn = new MySqlConnection(connStr))
         {
@@ -446,7 +446,7 @@ public partial class COOPERP_NewScreens_StudentResultsView : System.Web.UI.Page
         {
             int credits = row["credit_hours"] != DBNull.Value ? Convert.ToInt32(row["credit_hours"]) : 0;
             double mark = row["finalmark"] != DBNull.Value ? Convert.ToDouble(row["finalmark"]) : 0;
-            string approvedBy = row["approved_by"]?.ToString() ?? "-";
+            string approvedBy = row["approved_by"] == null || row["approved_by"] == DBNull.Value ? "-" : row["approved_by"].ToString();
 
             // Only count released results
             if (approvedBy != "-" && approvedBy != "HELD")
@@ -523,13 +523,13 @@ public partial class COOPERP_NewScreens_StudentResultsView : System.Web.UI.Page
 
     protected void btnExport_Click(object sender, EventArgs e)
     {
-        string regno = ViewState["CurrentRegNo"]?.ToString() ?? "student";
+        string regno = ViewState["CurrentRegNo"] == null ? "student" : ViewState["CurrentRegNo"].ToString();
         gvExporter.WriteXlsxToResponse("Results_" + regno + "_" + DateTime.Now.ToString("yyyyMMdd"));
     }
 
     protected void btnPrintTranscript_Click(object sender, EventArgs e)
     {
-        string regno = ViewState["CurrentRegNo"]?.ToString() ?? "";
+        string regno = ViewState["CurrentRegNo"] == null ? "" : ViewState["CurrentRegNo"].ToString();
         // Redirect to transcript report page
         Response.Redirect("~/COOPERP/XtraReports/StudentTranscript.aspx?regno=" + regno);
     }

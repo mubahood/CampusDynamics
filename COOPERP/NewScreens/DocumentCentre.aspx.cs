@@ -41,28 +41,18 @@ public partial class COOPERP_NewScreens_DocumentCentre : System.Web.UI.Page
             }
         }
 
-        // Load Academic Years (programmatically)
-        ddlAcadYear.Items.Clear();
-        int currentYear = DateTime.Now.Year;
-        for (int i = currentYear + 1; i >= currentYear - 10; i--)
-        {
-            string acadYear = string.Format("{0}/{1}", i, i + 1);
-            ddlAcadYear.Items.Add(new ListItem(acadYear, acadYear));
-        }
+        // Load Academic Years from centralised helper
+        AcademicYearHelper.PopulateDropDown(ddlAcadYear, false, false);
 
         // Load Entry Years
-        ddlEntryYear.Items.Clear();
-        ddlEntryYear.Items.Add(new ListItem("-- All --", ""));
-        for (int i = currentYear; i >= currentYear - 10; i--)
-        {
-            ddlEntryYear.Items.Add(new ListItem(i.ToString(), i.ToString()));
-        }
+        AcademicYearHelper.PopulateEntryYearDropDown(ddlEntryYear);
+        ddlEntryYear.Items.Insert(0, new ListItem("-- All --", ""));
     }
 
     protected void SetDefaultValues()
     {
         // Set default academic year
-        string defaultYear = GetCurrentAcademicYear();
+        string defaultYear = AcademicYearHelper.GetCurrentAcademicYear();
         if (ddlAcadYear.Items.FindByValue(defaultYear) != null)
         {
             ddlAcadYear.SelectedValue = defaultYear;
@@ -73,17 +63,7 @@ public partial class COOPERP_NewScreens_DocumentCentre : System.Web.UI.Page
         litSemesterDisplay.Text = ddlSemester.SelectedValue;
     }
 
-    private string GetCurrentAcademicYear()
-    {
-        int year = DateTime.Now.Year;
-        int month = DateTime.Now.Month;
-
-        // If we're in the second half of the year (August onwards), the academic year is current/next
-        if (month >= 8)
-            return string.Format("{0}/{1}", year, year + 1);
-        else
-            return string.Format("{0}/{1}", year - 1, year);
-    }
+    // Academic year logic centralised in AcademicYearHelper
 
     protected void ddlAcadYear_SelectedIndexChanged(object sender, EventArgs e)
     {

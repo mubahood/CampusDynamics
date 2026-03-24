@@ -1,9 +1,5 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
 using System.Web.UI;
-using System.Web.UI.WebControls;
 using Systems.Settings.SD;
 
 public partial class COOPERP_fonts_Locker : System.Web.UI.UserControl
@@ -11,31 +7,35 @@ public partial class COOPERP_fonts_Locker : System.Web.UI.UserControl
     protected void Page_Load(object sender, EventArgs e)
     {
         Licensing.Settings();
-        lbl_lock.Text = Licensing.LicenceComment;
-        pop_newlicense.ShowOnPageLoad = true;
+        // lbl_lock is hidden — just kept to avoid breaking any external reference
     }
+
     protected void cmdActivate_Click(object sender, EventArgs e)
     {
-
-        Licensing LIC = new Licensing();
-        string comm = LIC.UpdateLicense(txtLicenseCode.Text);
-        lbl_comment.Text = comm;
-        if (!comm.Contains("Invalid"))
+        string code = txtLicenseCode.Text.Trim();
+        if (string.IsNullOrEmpty(code))
         {
-            cmdActivate.Text = "Login";
+            lbl_comment.Text = "Please enter your activation code.";
+            lbl_comment.CssClass = "lk-feedback--err";
+            return;
         }
-        
-    }
-   
-    protected void cmdEnterLicense_Click(object sender, EventArgs e)
-    {
-        if (cmdActivate.Text == "Login")
+
+        Licensing lic = new Licensing();
+        string result = lic.UpdateLicense(code);
+
+        if (result.Contains("Error") || result.Contains("Invalid"))
         {
-            Response.Redirect("~/Default.aspx");
+            lbl_comment.Text = "Invalid or unrecognised activation code. Please check and try again, or contact Newline Technologies.";
+            lbl_comment.CssClass = "lk-feedback--err";
         }
         else
         {
-            pop_newlicense.ShowOnPageLoad = true;
+            lbl_comment.Text = result + " — Redirecting to login...";
+            lbl_comment.CssClass = "lk-feedback--ok";
+
+            // Redirect after 2 seconds so the user sees the success message
+            ScriptManager.RegisterStartupScript(this, GetType(), "redir",
+                "setTimeout(function(){ window.location.replace('/Default.aspx'); }, 2000);", true);
         }
     }
 }

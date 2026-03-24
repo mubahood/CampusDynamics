@@ -79,7 +79,7 @@ public partial class COOPERP_NewScreens_ResearchMarksheets : System.Web.UI.Page
             }
 
             // Set current academic year
-            string currentAcadYear = GetCurrentAcademicYear();
+            string currentAcadYear = AcademicYearHelper.GetCurrentAcademicYear();
             if (!string.IsNullOrEmpty(currentAcadYear) && ddlAcadYear.Items.FindByValue(currentAcadYear) != null)
             {
                 ddlAcadYear.SelectedValue = currentAcadYear;
@@ -119,26 +119,7 @@ public partial class COOPERP_NewScreens_ResearchMarksheets : System.Web.UI.Page
         }
     }
 
-    private string GetCurrentAcademicYear()
-    {
-        try
-        {
-            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
-            {
-                conn.Open();
-                string query = "SELECT acad_year FROM academic_calendar WHERE is_current = '1' LIMIT 1";
-                using (MySqlCommand cmd = new MySqlCommand(query, conn))
-                {
-                    object result = cmd.ExecuteScalar();
-                    return result != null ? result.ToString() : "";
-                }
-            }
-        }
-        catch
-        {
-            return "";
-        }
-    }
+    // Academic year logic centralised in AcademicYearHelper
 
     private void LoadStats()
     {

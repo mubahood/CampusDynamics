@@ -178,7 +178,7 @@
 </style>
 </asp:Content>
 
-<asp:Content ID="MainContent" ContentPlaceHolderID="MainContent" runat="server">
+<asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 <div>
 
     <%-- ── Page Header ──────────────────────────────────────────────── --%>

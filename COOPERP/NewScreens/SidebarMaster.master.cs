@@ -101,6 +101,10 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             case "suppliermanagement":
                 title = "Supplier Management";
                 break;
+            // System Configuration
+            case "academicyears":
+                title = "Academic Years";
+                break;
             default:
                 title = pageName.Replace("New", "").Replace("_", " ");
                 break;
@@ -110,26 +114,8 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
     }
     
     /// <summary>
-    /// Gets the current academic year based on the date.
-    /// Academic year runs from approximately August to July.
-    /// Example: In January 2026, current academic year is 2025/2026
+    /// Gets the current academic year — now centralised in AcademicYearHelper.
     /// </summary>
-    private string GetCurrentAcademicYear()
-    {
-        int year = DateTime.Now.Year;
-        int month = DateTime.Now.Month;
-        
-        // If we're in months Jan-July, academic year started previous calendar year
-        // If we're in months Aug-Dec, academic year started this calendar year
-        if (month >= 8) // August onwards = new academic year
-        {
-            return year + "/" + (year + 1);
-        }
-        else // January to July = academic year that started last year
-        {
-            return (year - 1) + "/" + year;
-        }
-    }
     
     private void LoadAcademicYears()
     {
@@ -138,16 +124,16 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
         // Add empty option first
         ddlAcademicYear.Items.Add(new System.Web.UI.WebControls.ListItem("-", ""));
         
-        string currentAcadYear = GetCurrentAcademicYear();
+        string currentAcadYear = AcademicYearHelper.GetCurrentAcademicYear();
         
         try
         {
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                // Get years from database, filter to not show future academic years
+                // Get active years from acad_acadyears, filter to not show future academic years
                 using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT DISTINCT acadyear FROM acad_acadyears WHERE acadyear <= @currentYear ORDER BY acadyear DESC", conn))
+                    "SELECT acadyear FROM acad_acadyears WHERE status = 'Active' AND acadyear <= @currentYear ORDER BY acadyear DESC", conn))
                 {
                     cmd.Parameters.AddWithValue("@currentYear", currentAcadYear);
                     using (MySqlDataReader reader = cmd.ExecuteReader())

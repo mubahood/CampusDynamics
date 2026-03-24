@@ -79,15 +79,7 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
         }
     }
     
-    private string GetCurrentAcademicYear()
-    {
-        int year = DateTime.Now.Year;
-        int month = DateTime.Now.Month;
-        if (month >= 8)
-            return string.Format("{0}/{1}", year, year + 1);
-        else
-            return string.Format("{0}/{1}", year - 1, year);
-    }
+    // Academic year logic centralised in AcademicYearHelper
     
     private void LoadCampuses()
     {

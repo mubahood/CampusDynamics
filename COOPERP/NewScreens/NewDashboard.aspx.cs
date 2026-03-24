@@ -20,16 +20,7 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
         }
     }
     
-    private string GetCurrentAcademicYear()
-    {
-        int year = DateTime.Now.Year;
-        int month = DateTime.Now.Month;
-        
-        if (month >= 8)
-            return year + "/" + (year + 1);
-        else
-            return (year - 1) + "/" + year;
-    }
+    // Academic year logic centralised in AcademicYearHelper
     
     private void LoadDashboardStats()
     {
@@ -39,7 +30,7 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
             {
                 conn.Open();
                 
-                string currentYear = GetCurrentAcademicYear();
+                string currentYear = AcademicYearHelper.GetCurrentAcademicYear();
                 lblCurrentYear.Text = currentYear;
                 
                 // ========== STUDENT METRICS ==========

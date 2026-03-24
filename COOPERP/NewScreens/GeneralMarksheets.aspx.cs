@@ -123,21 +123,13 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
                 ddlAcadYear.Items.Add(new ListItem(acadYear, acadYear));
         }
         
-        string defaultYear = GetCurrentAcademicYear();
+        string defaultYear = AcademicYearHelper.GetCurrentAcademicYear();
         ListItem item = ddlAcadYear.Items.FindByValue(defaultYear);
         if (item != null)
             ddlAcadYear.SelectedValue = defaultYear;
     }
     
-    private string GetCurrentAcademicYear()
-    {
-        int year = DateTime.Now.Year;
-        int month = DateTime.Now.Month;
-        if (month >= 8)
-            return string.Format("{0}/{1}", year, year + 1);
-        else
-            return string.Format("{0}/{1}", year - 1, year);
-    }
+    // Academic year logic centralised in AcademicYearHelper
     
     private void LoadCampuses()
     {

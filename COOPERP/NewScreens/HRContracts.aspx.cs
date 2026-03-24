@@ -25,6 +25,7 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
         }
         BindGrid();
         LoadStats();
+        EmitEmployeeAutoFillScript();
     }
 
     #region Dropdowns
@@ -46,7 +47,12 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
 
     private void LoadFormDropdowns()
     {
-        DataTable dtEmp = ExecuteQuery("SELECT empID, CONCAT(emp_name, ' [', IFNULL(EMP_CODE,''), ']') AS display FROM hrm_employee ORDER BY emp_name");
+        // Employees — include their last contract's job/dept for JS auto-fill
+        DataTable dtEmp = ExecuteQuery(@"
+            SELECT empID,
+                   CONCAT(emp_name, ' [', IFNULL(EMP_CODE,''), ']') AS display
+            FROM hrm_employee
+            ORDER BY emp_name");
         ddlContractEmployee.Items.Clear();
         ddlContractEmployee.Items.Add(new ListItem("-- Select Employee --", ""));
         foreach (DataRow r in dtEmp.Rows)
@@ -71,6 +77,38 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
             ddlContractScale.Items.Add(new ListItem(r["display"].ToString(), r["ID"].ToString()));
     }
 
+    /// <summary>
+    /// Emits a JS object mapping empID -> { jobID, deptID } from their most recent contract,
+    /// so the Add-Contract modal can auto-fill Position and Department when an employee is picked.
+    /// </summary>
+    private void EmitEmployeeAutoFillScript()
+    {
+        DataTable dt = ExecuteQuery(@"
+            SELECT e.empID,
+                   COALESCE(
+                       (SELECT c.jobID FROM hrm_emp_contracts c
+                        WHERE c.empID = e.empID ORDER BY c.ID DESC LIMIT 1),
+                       0) AS lastJobID,
+                   COALESCE(
+                       (SELECT c.departmentID FROM hrm_emp_contracts c
+                        WHERE c.empID = e.empID ORDER BY c.ID DESC LIMIT 1),
+                       0) AS lastDeptID
+            FROM hrm_employee e");
+
+        var sb = new StringBuilder("var employeeDefaults={");
+        bool first = true;
+        foreach (DataRow r in dt.Rows)
+        {
+            if (!first) sb.Append(",");
+            first = false;
+            sb.AppendFormat("'{0}':{{jobID:'{1}',deptID:'{2}'}}",
+                r["empID"], r["lastJobID"], r["lastDeptID"]);
+        }
+        sb.Append("};");
+
+        ScriptManager.RegisterStartupScript(this, GetType(), "empDefaults", sb.ToString(), true);
+    }
+
     #endregion
 
     #region Stats
@@ -80,9 +118,11 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
         DataTable dt = ExecuteQuery(@"
             SELECT
                 COUNT(*) AS total_count,
-                SUM(CASE WHEN contractStatus='VALID' THEN 1 ELSE 0 END) AS valid_count,
-                SUM(CASE WHEN contractStatus='EXPIRED' THEN 1 ELSE 0 END) AS expired_count,
-                SUM(CASE WHEN contractStatus='VALID' AND contractEnd BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY) THEN 1 ELSE 0 END) AS expiring_count
+                SUM(CASE WHEN contractStatus='VALID'    THEN 1 ELSE 0 END) AS valid_count,
+                SUM(CASE WHEN contractStatus='EXPIRED'  THEN 1 ELSE 0 END) AS expired_count,
+                SUM(CASE WHEN contractStatus='VALID'
+                         AND contractEnd BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 90 DAY)
+                         THEN 1 ELSE 0 END) AS expiring_count
             FROM hrm_emp_contracts");
 
         DataTable dtNoContract = ExecuteQuery(@"
@@ -97,9 +137,9 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
             litExpired.Text = SafeInt(r["expired_count"]).ToString();
 
             int expiring = SafeInt(r["expiring_count"]);
-            litExpiring.Text = expiring.ToString();
+            litExpiring.Text         = expiring.ToString();
             pnlExpiryWarning.Visible = expiring > 0;
-            litExpiryCount.Text = expiring.ToString();
+            litExpiryCount.Text      = expiring.ToString();
         }
 
         if (dtNoContract.Rows.Count > 0)
@@ -122,47 +162,65 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
         string dept   = ddlFilterDept.SelectedValue;
         string status = ddlFilterStatus.SelectedValue;
         string job    = ddlFilterJob.SelectedValue;
+        string type   = ddlFilterType.SelectedValue;
 
-        StringBuilder sql = new StringBuilder();
-        sql.Append(@"SELECT c.ID AS contractID, c.contractStart, c.contractEnd, c.contractStatus,
-            c.comments, c.fixedamount, c.payscale AS payscale_edit,
-            e.empID, e.EMP_CODE, e.emp_name,
-            j.jobname, d.dept_name, ps.scale_name,
-            IFNULL(ps.basicpay, c.fixedamount) AS basicpay,
-            DATEDIFF(c.contractEnd, CURDATE()) AS days_remaining
-        FROM hrm_emp_contracts c
-        JOIN hrm_employee e ON e.empID = c.empID
-        LEFT JOIN hrm_jobs j ON j.ID = c.jobID
-        LEFT JOIN hrm_departments d ON d.ID = c.departmentID
-        LEFT JOIN hrm_payscales ps ON ps.ID = c.payscale
-        WHERE 1=1 ");
+        var sql = new StringBuilder();
+        sql.Append(@"
+            SELECT c.ID AS contractID, c.contractStart, c.contractEnd, c.contractStatus,
+                   c.contract_type, c.comments, c.fixedamount, c.payscale AS payscale_edit,
+                   e.empID, e.EMP_CODE, e.emp_name,
+                   j.jobname, d.dept_name, ps.scale_name,
+                   IFNULL(ps.basicpay, c.fixedamount) AS basicpay,
+                   DATEDIFF(c.contractEnd, CURDATE()) AS days_remaining
+            FROM hrm_emp_contracts c
+            JOIN hrm_employee e      ON e.empID    = c.empID
+            LEFT JOIN hrm_jobs j         ON j.ID       = c.jobID
+            LEFT JOIN hrm_departments d  ON d.ID       = c.departmentID
+            LEFT JOIN hrm_payscales ps   ON ps.ID      = c.payscale
+            WHERE 1=1");
 
         var parms = new List<MySqlParameter>();
 
         if (!string.IsNullOrEmpty(search))
         {
-            sql.Append(" AND (e.emp_name LIKE @search OR e.EMP_CODE LIKE @search) ");
+            sql.Append(" AND (e.emp_name LIKE @search OR e.EMP_CODE LIKE @search)");
             parms.Add(new MySqlParameter("@search", "%" + search + "%"));
         }
         if (!string.IsNullOrEmpty(dept))
         {
-            sql.Append(" AND c.departmentID = @dept ");
+            sql.Append(" AND c.departmentID = @dept");
             parms.Add(new MySqlParameter("@dept", dept));
         }
         if (!string.IsNullOrEmpty(status))
         {
-            sql.Append(" AND c.contractStatus = @status ");
+            sql.Append(" AND c.contractStatus = @status");
             parms.Add(new MySqlParameter("@status", status));
         }
         if (!string.IsNullOrEmpty(job))
         {
-            sql.Append(" AND c.jobID = @job ");
+            sql.Append(" AND c.jobID = @job");
             parms.Add(new MySqlParameter("@job", job));
         }
+        if (!string.IsNullOrEmpty(type))
+        {
+            sql.Append(" AND c.contract_type = @ctype");
+            parms.Add(new MySqlParameter("@ctype", type));
+        }
 
-        sql.Append(" ORDER BY c.contractEnd DESC ");
+        sql.Append(" ORDER BY c.contractEnd DESC");
 
         DataTable dt = ExecuteQuery(sql.ToString(), parms.ToArray());
+
+        // Apply selected page size
+        int pageSize;
+        if (int.TryParse(ddlPageSize.SelectedValue, out pageSize) && pageSize > 0)
+            gvContracts.SettingsPager.PageSize = pageSize;
+
+        // Update record count displays
+        string countText = dt.Rows.Count.ToString();
+        litFilterCount.Text    = countText;
+        litFilterCountTop.Text = countText;
+
         gvContracts.DataSource = dt;
         gvContracts.DataBind();
     }
@@ -184,10 +242,7 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
             if (DateTime.TryParse(endObj.ToString(), out endDate))
             {
                 int days = (endDate - DateTime.Today).Days;
-                if (days <= 90)
-                    e.Row.CssClass += " ct-row-expiring";
-                else
-                    e.Row.CssClass += " ct-row-valid";
+                e.Row.CssClass += days <= 90 ? " ct-row-expiring" : " ct-row-valid";
             }
         }
         else
@@ -207,21 +262,23 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
         object startVal  = e.NewValues["contractStart"];
         object endVal    = e.NewValues["contractEnd"];
         string status    = e.NewValues["contractStatus"] != null ? e.NewValues["contractStatus"].ToString() : "VALID";
-        string comments  = e.NewValues["comments"]  != null ? e.NewValues["comments"].ToString()  : "";
+        string ctype     = e.NewValues["contract_type"]  != null ? e.NewValues["contract_type"].ToString()  : "FULL TIME";
+        string comments  = e.NewValues["comments"]       != null ? e.NewValues["comments"].ToString()       : "";
         object payscale  = e.NewValues["payscale_edit"];
         object fixedAmt  = e.NewValues["fixedamount"];
 
         ExecuteNonQuery(@"UPDATE hrm_emp_contracts SET
-            contractStart=@start, contractEnd=@end, contractStatus=@status,
+            contractStart=@start, contractEnd=@end, contractStatus=@status, contract_type=@ctype,
             comments=@comments, payscale=@scale, fixedamount=@fixed
             WHERE ID=@id",
-            new MySqlParameter("@start",    startVal != null ? (object)Convert.ToDateTime(startVal) : DBNull.Value),
-            new MySqlParameter("@end",      endVal   != null ? (object)Convert.ToDateTime(endVal)   : DBNull.Value),
-            new MySqlParameter("@status",   status),
-            new MySqlParameter("@comments", comments),
-            new MySqlParameter("@scale",    payscale != null && payscale.ToString() != "" ? (object)Convert.ToInt32(payscale) : DBNull.Value),
-            new MySqlParameter("@fixed",    fixedAmt != null && fixedAmt.ToString() != "" ? (object)Convert.ToDecimal(fixedAmt) : DBNull.Value),
-            new MySqlParameter("@id",       contractID));
+            new MySqlParameter("@start",   startVal != null ? (object)Convert.ToDateTime(startVal) : DBNull.Value),
+            new MySqlParameter("@end",     endVal   != null ? (object)Convert.ToDateTime(endVal)   : DBNull.Value),
+            new MySqlParameter("@status",  status),
+            new MySqlParameter("@ctype",   ctype),
+            new MySqlParameter("@comments",comments),
+            new MySqlParameter("@scale",   payscale != null && payscale.ToString() != "" ? (object)Convert.ToInt32(payscale)  : DBNull.Value),
+            new MySqlParameter("@fixed",   fixedAmt != null && fixedAmt.ToString() != "" ? (object)Convert.ToDecimal(fixedAmt): DBNull.Value),
+            new MySqlParameter("@id",      contractID));
 
         e.Cancel = true;
         gvContracts.CancelEdit();
@@ -232,7 +289,8 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
     protected void gvContracts_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
     {
         int contractID = Convert.ToInt32(e.Keys["contractID"]);
-        ExecuteNonQuery("DELETE FROM hrm_emp_contracts WHERE ID=@id", new MySqlParameter("@id", contractID));
+        ExecuteNonQuery("DELETE FROM hrm_emp_contracts WHERE ID=@id",
+            new MySqlParameter("@id", contractID));
 
         e.Cancel = true;
         gvContracts.CancelEdit();
@@ -250,9 +308,30 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
         string jobID  = ddlContractJob.SelectedValue;
         string deptID = ddlContractDept.SelectedValue;
 
-        if (string.IsNullOrEmpty(empID) || string.IsNullOrEmpty(jobID) || string.IsNullOrEmpty(deptID))
+        if (string.IsNullOrEmpty(empID) || empID == "")
         {
-            ShowResult("addContractResult", "addContractModal", "Employee, Position, and Department are required.", false);
+            ShowResult("addContractResult", "addContractModal", "Please select an employee.", false);
+            return;
+        }
+        if (string.IsNullOrEmpty(jobID))
+        {
+            ShowResult("addContractResult", "addContractModal", "Please select a position.", false);
+            return;
+        }
+        if (string.IsNullOrEmpty(deptID))
+        {
+            ShowResult("addContractResult", "addContractModal", "Please select a department.", false);
+            return;
+        }
+
+        // Prevent more than one contract per employee
+        DataTable existingCheck = ExecuteQuery(
+            "SELECT COUNT(*) AS cnt FROM hrm_emp_contracts WHERE empID=@eid AND contractStatus='VALID'",
+            new MySqlParameter("@eid", empID));
+        if (SafeInt(existingCheck.Rows[0]["cnt"]) > 0)
+        {
+            ShowResult("addContractResult", "addContractModal",
+                "This employee already has an active contract. Use 'Renew Contract' on the existing record to extend it.", false);
             return;
         }
 
@@ -268,26 +347,31 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
             return;
         }
 
-        string  scaleVal = ddlContractScale.SelectedValue;
-        decimal fixedAmount;
-        if (!decimal.TryParse(txtContractFixed.Text, out fixedAmount)) fixedAmount = 0;
+        string  ctype     = rbPartTime.Checked ? "PART TIME" : "FULL TIME";
+        string  scaleVal  = ddlContractScale.SelectedValue;
+        decimal fixedAmt;
+        if (!decimal.TryParse(txtContractFixed.Text, out fixedAmt)) fixedAmt = 0;
 
         ExecuteNonQuery(@"INSERT INTO hrm_emp_contracts
-            (empID, contractStart, contractEnd, jobID, departmentID, payscale, fixedamount, comments, contractStatus)
-            VALUES (@eid,@start,@end,@job,@dept,@scale,@fixed,@comments,'VALID')",
+            (empID, contractStart, contractEnd, jobID, departmentID, payscale, fixedamount, comments, contractStatus, contract_type)
+            VALUES (@eid,@start,@end,@job,@dept,@scale,@fixed,@comments,'VALID',@ctype)",
             new MySqlParameter("@eid",      empID),
             new MySqlParameter("@start",    startDate),
             new MySqlParameter("@end",      endDate),
             new MySqlParameter("@job",      jobID),
             new MySqlParameter("@dept",     deptID),
             new MySqlParameter("@scale",    !string.IsNullOrEmpty(scaleVal) ? (object)Convert.ToInt32(scaleVal) : DBNull.Value),
-            new MySqlParameter("@fixed",    fixedAmount),
-            new MySqlParameter("@comments", txtContractComments.Text.Trim()));
+            new MySqlParameter("@fixed",    fixedAmt),
+            new MySqlParameter("@comments", txtContractComments.Text.Trim()),
+            new MySqlParameter("@ctype",    ctype));
 
+        // Reset form
         txtContractStart.Text    = "";
         txtContractEnd.Text      = "";
         txtContractComments.Text = "";
         txtContractFixed.Text    = "0";
+        rbFullTime.Checked       = true;
+        rbPartTime.Checked       = false;
 
         BindGrid();
         LoadStats();
@@ -323,8 +407,12 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
             return;
         }
 
-        // Copy job/dept/scale from the original contract
-        DataTable orig = ExecuteQuery("SELECT jobID, departmentID, payscale, fixedamount FROM hrm_emp_contracts WHERE ID=@id",
+        string ctype = ddlRenewType.SelectedValue;
+        if (string.IsNullOrEmpty(ctype)) ctype = "FULL TIME";
+
+        // Copy job/dept/scale from original
+        DataTable orig = ExecuteQuery(
+            "SELECT jobID, departmentID, payscale, fixedamount FROM hrm_emp_contracts WHERE ID=@id",
             new MySqlParameter("@id", contractIDStr));
         if (orig.Rows.Count == 0)
         {
@@ -339,16 +427,17 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
 
         // Insert renewal
         ExecuteNonQuery(@"INSERT INTO hrm_emp_contracts
-            (empID, contractStart, contractEnd, jobID, departmentID, payscale, fixedamount, comments, contractStatus)
-            VALUES (@eid,@start,@end,@job,@dept,@scale,@fixed,@comments,'VALID')",
+            (empID, contractStart, contractEnd, jobID, departmentID, payscale, fixedamount, comments, contractStatus, contract_type)
+            VALUES (@eid,@start,@end,@job,@dept,@scale,@fixed,@comments,'VALID',@ctype)",
             new MySqlParameter("@eid",      empID),
             new MySqlParameter("@start",    startDate),
             new MySqlParameter("@end",      endDate),
             new MySqlParameter("@job",      oc["jobID"]),
             new MySqlParameter("@dept",     oc["departmentID"]),
-            new MySqlParameter("@scale",    oc["payscale"] != DBNull.Value ? oc["payscale"] : DBNull.Value),
+            new MySqlParameter("@scale",    oc["payscale"]    != DBNull.Value ? oc["payscale"]    : DBNull.Value),
             new MySqlParameter("@fixed",    oc["fixedamount"] != DBNull.Value ? oc["fixedamount"] : (object)0m),
-            new MySqlParameter("@comments", txtRenewComments.Text.Trim()));
+            new MySqlParameter("@comments", txtRenewComments.Text.Trim()),
+            new MySqlParameter("@ctype",    ctype));
 
         BindGrid();
         LoadStats();
@@ -359,17 +448,98 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
 
     #endregion
 
-    #region Filter Events
+    #region Batch Operations
+
+    protected void btnBatchExpire_Click(object sender, EventArgs e)
+    {
+        string[] ids = GetBatchIDs();
+        if (ids.Length == 0) return;
+
+        foreach (string id in ids)
+        {
+            int cid;
+            if (int.TryParse(id.Trim(), out cid))
+                ExecuteNonQuery("UPDATE hrm_emp_contracts SET contractStatus='EXPIRED' WHERE ID=@id",
+                    new MySqlParameter("@id", cid));
+        }
+
+        hdnBatchIDs.Value = "";
+        BindGrid();
+        LoadStats();
+    }
+
+    protected void btnBatchDelete_Click(object sender, EventArgs e)
+    {
+        string[] ids = GetBatchIDs();
+        if (ids.Length == 0) return;
+
+        foreach (string id in ids)
+        {
+            int cid;
+            if (int.TryParse(id.Trim(), out cid))
+                ExecuteNonQuery("DELETE FROM hrm_emp_contracts WHERE ID=@id",
+                    new MySqlParameter("@id", cid));
+        }
+
+        hdnBatchIDs.Value = "";
+        BindGrid();
+        LoadStats();
+    }
+
+    protected void btnBatchStatus_Click(object sender, EventArgs e)
+    {
+        string[] ids    = GetBatchIDs();
+        string   status = (hdnBatchStatus.Value ?? "").Trim().ToUpper();
+
+        string[] allowed = { "VALID", "EXPIRED", "TERMINATED", "RESIGNED" };
+        if (ids.Length == 0 || string.IsNullOrEmpty(status) || !Array.Exists(allowed, s => s == status))
+            return;
+
+        foreach (string id in ids)
+        {
+            int cid;
+            if (int.TryParse(id.Trim(), out cid))
+                ExecuteNonQuery("UPDATE hrm_emp_contracts SET contractStatus=@status WHERE ID=@id",
+                    new MySqlParameter("@status", status),
+                    new MySqlParameter("@id",     cid));
+        }
+
+        hdnBatchIDs.Value    = "";
+        hdnBatchStatus.Value = "";
+        BindGrid();
+        LoadStats();
+    }
+
+    private string[] GetBatchIDs()
+    {
+        string raw = hdnBatchIDs.Value ?? "";
+        if (string.IsNullOrEmpty(raw)) return new string[0];
+        return raw.Split(new char[]{','}, StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    #endregion
+
+    #region Filter & Pager Events
 
     protected void ddlFilter_Changed(object sender, EventArgs e) { BindGrid(); }
     protected void btnSearch_Click(object sender, EventArgs e)    { BindGrid(); }
 
+    protected void ddlPageSize_Changed(object sender, EventArgs e)
+    {
+        int size;
+        if (int.TryParse(ddlPageSize.SelectedValue, out size) && size > 0)
+            gvContracts.SettingsPager.PageSize = size;
+        BindGrid();
+    }
+
     protected void btnReset_Click(object sender, EventArgs e)
     {
-        txtSearch.Text = "";
+        txtSearch.Text                = "";
         ddlFilterDept.SelectedIndex   = 0;
         ddlFilterStatus.SelectedIndex = 0;
         ddlFilterJob.SelectedIndex    = 0;
+        ddlFilterType.SelectedIndex   = 0;
+        // keep ddlPageSize as-is (user preference)
         BindGrid();
     }
 
@@ -377,10 +547,17 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
 
     #region Template Helpers
 
+    protected string GetContractTypeBadge(object type)
+    {
+        string t   = (type != null && type != DBNull.Value) ? type.ToString() : "FULL TIME";
+        string css = t == "PART TIME" ? "ct-type--part" : "ct-type--full";
+        return string.Format("<span class='ct-type {0}'>{1}</span>", css, HttpUtility.HtmlEncode(t));
+    }
+
     protected string GetStatusBadge(object status)
     {
         if (status == null || status == DBNull.Value) return "<span class='hr-badge hr-badge--none'>NONE</span>";
-        string s = status.ToString().ToUpper();
+        string s   = status.ToString().ToUpper();
         string css = s == "VALID"      ? "hr-badge--valid"
                    : s == "EXPIRED"    ? "hr-badge--expired"
                    : s == "TERMINATED" ? "hr-badge--terminated"
@@ -416,37 +593,32 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
         return val.ToString();
     }
 
-    protected string GetActionButtonsHtml(object contractID, object empNameObj, object statusObj, object empIDObj)
+    protected string GetActionButtonsHtml(object contractID, object empNameObj, object statusObj, object empIDObj, object contractTypeObj)
     {
-        string id      = contractID.ToString();
-        string empID   = empIDObj != null ? empIDObj.ToString() : "";
-        string empName = (empNameObj != null ? empNameObj.ToString() : "").Replace("'", "\\'");
-        string status  = (statusObj  != null ? statusObj.ToString()  : "").ToUpper();
+        string id           = contractID.ToString();
+        string empID        = empIDObj        != null ? empIDObj.ToString()        : "";
+        string empName      = (empNameObj     != null ? empNameObj.ToString()      : "").Replace("'", "\\'");
+        string status       = (statusObj      != null ? statusObj.ToString()       : "").ToUpper();
+        string contractType = (contractTypeObj != null ? contractTypeObj.ToString() : "FULL TIME").Replace("'", "\\'");
 
-        string dotsSvg   = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='5' r='1'/><circle cx='12' cy='12' r='1'/><circle cx='12' cy='19' r='1'/></svg>";
-        string editSvg   = "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M12 20h9'/><path d='M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'/></svg>";
-        string delSvg    = "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><polyline points='3 6 5 6 21 6'/><path d='M19 6l-1 14H6L5 6'/><path d='M10 11v6'/><path d='M14 11v6'/><path d='M9 6V4h6v2'/></svg>";
-        string renewSvg  = "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><polyline points='23 4 23 10 17 10'/><polyline points='1 20 1 14 7 14'/><path d='M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15'/></svg>";
-
-        // Build end-date string for the renew modal info panel
-        string endDateDisplay = "";
-        try
-        {
-            // We'll just pass the contractID; JS has no end date — skip for simplicity
-        }
-        catch { }
+        string dotsSvg  = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='5' r='1'/><circle cx='12' cy='12' r='1'/><circle cx='12' cy='19' r='1'/></svg>";
+        string editSvg  = "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M12 20h9'/><path d='M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'/></svg>";
+        string delSvg   = "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><polyline points='3 6 5 6 21 6'/><path d='M19 6l-1 14H6L5 6'/><path d='M10 11v6'/><path d='M14 11v6'/><path d='M9 6V4h6v2'/></svg>";
+        string renewSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><polyline points='23 4 23 10 17 10'/><polyline points='1 20 1 14 7 14'/><path d='M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15'/></svg>";
 
         string renewItem = "";
         if (status == "VALID" || status == "EXPIRED")
         {
-            renewItem = "<li class='cd-action-popover__item'>" +
+            renewItem =
+                "<li class='cd-action-popover__item'>" +
                 "<button type='button' class='cd-action-popover__btn cd-action-popover__btn--success' " +
-                "onclick='openRenewModal(" + id + "," + "\"" + empID + "\"" + "," + "\"" + empName + "\"" + ",\"\")'>" +
+                "onclick='openRenewModal(" + id + ",\"" + empID + "\",\"" + empName + "\",\"\",\"" + contractType + "\")'>" +
                 renewSvg + " Renew Contract</button></li>" +
                 "<li class='cd-action-popover__divider'></li>";
         }
 
-        return "<div class='cd-action-wrapper'>" +
+        return
+            "<div class='cd-action-wrapper'>" +
             "<button type='button' class='cd-action-trigger' onclick='toggleActionPopover(this,event)'>" + dotsSvg + "</button>" +
             "<div class='cd-action-popover'><ul class='cd-action-popover__menu'>" +
             "<li class='cd-action-popover__item'><button type='button' class='cd-action-popover__btn' onclick='gridEdit(\"gvContracts\"," + id + ")'>" + editSvg + " Edit</button></li>" +
@@ -462,9 +634,11 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
     private void ShowResult(string resultId, string modalId, string message, bool success)
     {
         string css = success ? "hr-result hr-result--ok" : "hr-result hr-result--err";
-        ScriptManager.RegisterStartupScript(this, GetType(), "res" + resultId,
-            string.Format("(function(){{var r=document.getElementById('{0}');r.className='{1}';r.innerHTML='{2}';document.getElementById('{3}').style.display='flex';}})()",
-                resultId, css, HttpUtility.JavaScriptStringEncode(message), modalId), true);
+        ScriptManager.RegisterStartupScript(this, GetType(), "res_" + resultId,
+            string.Format(
+                "(function(){{var r=document.getElementById('{0}');r.className='{1}';r.innerHTML='{2}';document.getElementById('{3}').style.display='flex';}})()",
+                resultId, css, HttpUtility.JavaScriptStringEncode(message), modalId),
+            true);
     }
 
     private DataTable ExecuteQuery(string sql, params MySqlParameter[] parms)
