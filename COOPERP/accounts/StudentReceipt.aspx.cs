@@ -1,4 +1,4 @@
-using CoopERPDataTableAdapters;
+﻿using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -103,7 +103,7 @@ public partial class COOPERP_accounts_StudentReceipt : System.Web.UI.Page
             gvDetails.DataBind();
             UpdateBalanceIndicator();
             lbl_msg.Text = "Receipt Details Added Successfully";
-            // F3: Audit log — receipt created
+            // F3: Audit log - receipt created
             AuditLogger.Log("RECEIPT_CREATED",
                 string.Format("StudentAccount={0}, Bank={1}", txtAccount.Value, txtPayee.Value),
                 int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()),
@@ -230,7 +230,7 @@ public partial class COOPERP_accounts_StudentReceipt : System.Web.UI.Page
         }
         catch (Exception)
         {
-            // B5 FIX: ButtonManager failure is non-critical — default to Create New
+            // B5 FIX: ButtonManager failure is non-critical - default to Create New
             cmdApproveJournal.Text = "Create New";
         }
     }

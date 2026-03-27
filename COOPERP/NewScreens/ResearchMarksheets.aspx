@@ -4,8 +4,13 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
     <style type="text/css">
-        /* Stats Bar - Compact Inline */
-        .rm-stats-bar {
+/* ---- CD Page Header ---- */
+.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.cd-page-header__left { display:flex; align-items:center; gap:12px; }
+.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+        /* Stats Bar - Compact Inline */ {
             display: flex;
             gap: 4px;
             margin-bottom: 10px;
@@ -19,7 +24,7 @@
             padding: 5px 12px;
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 4px;
+            border-radius: 0;
             font-size: 11px;
         }
         .rm-stat-item__label { color: #666; }
@@ -39,7 +44,7 @@
             font-weight: 500;
             background: #fff;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 0;
             cursor: pointer;
             color: #495057;
         }
@@ -53,7 +58,7 @@
             padding: 12px 15px;
             background: #f8f9fa;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 4px;
             margin-bottom: 10px;
             flex-wrap: wrap;
             align-items: center;
@@ -71,7 +76,7 @@
             font-size: 11px;
             min-width: 120px;
             background: #fff;
-            border-radius: 4px;
+            border-radius: 0;
         }
         .rm-filter-select:focus { border-color: #174DA4; outline: none; box-shadow: 0 0 0 2px rgba(23,77,164,0.1); }
         
@@ -83,7 +88,7 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.3px;
-            border-radius: 3px;
+            border-radius: 0;
         }
         .rm-status-badge--pending { background: #fff3cd; color: #856404; }
         .rm-status-badge--submitted { background: #cce5ff; color: #004085; }
@@ -95,8 +100,7 @@
         .cd-card {
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-radius: 4px;
         }
         .cd-card__body { padding: 0; }
         
@@ -104,7 +108,7 @@
         .rm-grid { border-collapse: collapse; }
         .rm-grid .dxgvHeader td,
         .rm-grid .dxgvHeader_Glass td {
-            background: linear-gradient(to bottom, #f8f9fa, #e9ecef) !important;
+            background: #f5f7fa !important;
             font-size: 10px !important;
             font-weight: 600 !important;
             text-transform: uppercase !important;
@@ -138,10 +142,10 @@
             justify-content: space-between;
             align-items: center;
             padding: 8px 12px;
-            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+            background: #f5f7fa;
             border-bottom: 1px solid #e0e0e0;
             gap: 10px;
-            border-radius: 6px 6px 0 0;
+            border-radius: 0;
         }
         .rm-batch-actions {
             display: flex;
@@ -157,7 +161,7 @@
             font-weight: 500;
             background: #fff;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 0;
             cursor: pointer;
             color: #495057;
             transition: all 0.15s ease;
@@ -178,7 +182,7 @@
             font-size: 11px;
             margin-bottom: 10px;
             display: none;
-            border-radius: 4px;
+            border-radius: 0;
         }
         .rm-message.show { display: block; }
         .rm-message--success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -195,7 +199,7 @@
             height: 24px;
             background: #e3f2fd;
             border: 1px solid #90caf9;
-            border-radius: 4px;
+            border-radius: 0;
             color: #174DA4;
             cursor: pointer;
             transition: all 0.15s;
@@ -213,6 +217,18 @@
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </div>
+        <div>
+            <div class="cd-page-header__title">Research Marksheets</div>
+            <div class="cd-page-header__sub">Generate research and postgraduate programme marksheets</div>
+        </div>
+    </div>
+</div>
     <!-- Stats Bar -->
     <div class="rm-stats-bar">
         <div class="rm-stat-item">

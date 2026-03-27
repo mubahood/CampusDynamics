@@ -5,25 +5,14 @@
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
     <style type="text/css">
         /* Page Header */
-        .ea-page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #174DA4;
-        }
-        .ea-page-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #174DA4;
-            margin: 0;
-        }
-        .ea-page-subtitle {
-            font-size: 11px;
-            color: #666;
-            margin-top: 2px;
-        }
+        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
+        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+        .cd-page-header__right { display:flex; gap:8px; align-items:center; }
+        .cd-page-header .ea-btn--primary { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3); }
+        .cd-page-header .ea-btn--primary:hover { background:rgba(255,255,255,.25); color:#fff; }
         
         /* Stats Summary */
         .ea-stats-bar {
@@ -40,7 +29,7 @@
             padding: 6px 12px;
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 4px;
+            border-radius: 0;
             font-size: 11px;
         }
         .ea-stat-item__label { color: #666; }
@@ -55,7 +44,7 @@
         .ea-filter-panel {
             background: #f8f9fa;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 4px;
             padding: 12px;
             margin-bottom: 12px;
         }
@@ -82,7 +71,7 @@
             font-size: 11px;
             min-width: 140px;
             background: #fff;
-            border-radius: 4px;
+            border-radius: 0;
         }
         .ea-filter-select:focus { border-color: #174DA4; outline: none; box-shadow: 0 0 0 2px rgba(23,77,164,0.1); }
         
@@ -101,7 +90,7 @@
             font-size: 11px;
             font-weight: 600;
             border: none;
-            border-radius: 4px;
+            border-radius: 0;
             cursor: pointer;
             transition: all 0.15s ease;
         }
@@ -126,7 +115,7 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.3px;
-            border-radius: 3px;
+            border-radius: 0;
         }
         .ea-badge--pending { background: #fff3cd; color: #856404; }
         .ea-badge--approved { background: #d4edda; color: #155724; }
@@ -140,7 +129,7 @@
             font-weight: 700;
             min-width: 35px;
             text-align: center;
-            border-radius: 3px;
+            border-radius: 0;
         }
         .ea-mark-cell--pass { background: #d4edda; color: #155724; }
         .ea-mark-cell--fail { background: #f8d7da; color: #721c24; }
@@ -149,14 +138,13 @@
         .ea-card {
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-radius: 4px;
         }
         .ea-card__header {
             padding: 10px 15px;
-            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+            background: #f5f7fa;
             border-bottom: 1px solid #e0e0e0;
-            border-radius: 6px 6px 0 0;
+            border-radius: 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -223,7 +211,7 @@
         .ea-grid { border-collapse: collapse; }
         .ea-grid .dxgvHeader td,
         .ea-grid .dxgvHeader_Glass td {
-            background: linear-gradient(to bottom, #f8f9fa, #e9ecef) !important;
+            background: #f5f7fa !important;
             font-size: 10px !important;
             font-weight: 600 !important;
             color: #495057 !important;
@@ -288,12 +276,17 @@
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
     <!-- Page Header -->
-    <div class="ea-page-header">
-        <div>
-            <h1 class="ea-page-title">Exam Approval & Printing</h1>
-            <div class="ea-page-subtitle">Approve exam results and print marksheets</div>
+    <div class="cd-page-header">
+        <div class="cd-page-header__left">
+            <div class="cd-page-header__icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <div>
+                <div class="cd-page-header__title">Exam Approval</div>
+                <div class="cd-page-header__sub">Review and approve student exam eligibility and registrations</div>
+            </div>
         </div>
-        <div>
+        <div class="cd-page-header__right">
             <asp:Label ID="lblCurrentUser" runat="server" CssClass="ea-badge ea-badge--approved"></asp:Label>
         </div>
     </div>

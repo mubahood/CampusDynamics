@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master"
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master"
     AutoEventWireup="true" CodeFile="HRPayroll.aspx.cs"
     Inherits="COOPERP_NewScreens_HRPayroll"
     Title="Payroll Management - Campus Dynamics" %>
@@ -7,7 +7,6 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* ── Page header ─────────────────────────────────────────── */
 .pr-page-header {
     display: flex;
     align-items: center;
@@ -44,7 +43,7 @@
     align-items: center;
 }
 
-/* ── Stats cards ─────────────────────────────────────────── */
+/* -- Stats cards ------------------------------------------- */
 .ct-stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -76,7 +75,7 @@
 .ct-stat-card.green  .sc-value { color: #16a34a; }
 .ct-stat-card.grey   .sc-value { color: #6b7280; }
 
-/* ── Filter bar ──────────────────────────────────────────── */
+/* -- Filter bar -------------------------------------------- */
 .ct-filters {
     display: flex;
     align-items: center;
@@ -105,7 +104,7 @@
     color: #666;
 }
 
-/* ── Batch toolbar ───────────────────────────────────────── */
+/* -- Batch toolbar ----------------------------------------- */
 .ct-batch-toolbar {
     display: flex;
     align-items: center;
@@ -117,7 +116,7 @@
     border-radius: 4px;
 }
 
-/* ── Buttons ─────────────────────────────────────────────── */
+/* -- Buttons ----------------------------------------------- */
 .hr-btn {
     display: inline-flex;
     align-items: center;
@@ -144,7 +143,7 @@
 .hr-btn--outline:hover  { background: #f0f4fa; }
 .hr-btn--sm { padding: 4px 10px; font-size: 11px; }
 
-/* ── Status badges ───────────────────────────────────────── */
+/* -- Status badges ----------------------------------------- */
 .ps-badge {
     display: inline-block;
     padding: 2px 8px;
@@ -157,7 +156,7 @@
 .ps-badge--processed { background: #dcfce7; color: #14532d; }
 .ps-badge--cancelled { background: #f3f4f6; color: #4b5563; }
 
-/* ── Target type badge ───────────────────────────────────── */
+/* -- Target type badge ------------------------------------- */
 .pr-target-badge {
     display: inline-block;
     padding: 2px 7px;
@@ -171,11 +170,8 @@
 .pr-target-badge--department { background: #f3e8ff; color: #581c87; }
 .pr-target-badge--employee   { background: #fce7f3; color: #831843; }
 
-/* ── Action popover ──────────────────────────────────────── */
-.cd-action-wrapper {
-    position: relative;
-    display: inline-block;
-}
+/* -- Action popover ---------------------------------------- */
+.cd-action-wrapper { position: relative; display: inline-block; }
 .cd-action-btn {
     background: #f0f4fa;
     border: 1px solid #cdd3de;
@@ -187,20 +183,8 @@
     line-height: 1;
 }
 .cd-action-btn:hover { background: #dce4f0; }
-.cd-action-popover {
-    display: none;
-    position: absolute;
-    right: 0;
-    top: calc(100% + 3px);
-    background: #fff;
-    border: 1px solid #cdd3de;
-    border-radius: 4px;
-    min-width: 170px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-    z-index: 200;
-    overflow: hidden;
-}
-.cd-action-popover.is-open { display: block; }
+/* Override sidebar.css !important so is-open class can show the popover */
+.cd-action-popover.is-open { display: block !important; }
 .cd-action-popover a,
 .cd-action-popover button {
     display: flex;
@@ -224,7 +208,7 @@
 .cd-action-popover .pop-danger { color: #dc3545; }
 .cd-action-popover .pop-danger:hover { background: #fef5f5; }
 
-/* ── Modal overlay / modal ───────────────────────────────── */
+/* -- Modal overlay / modal --------------------------------- */
 .hr-modal-overlay {
     display: none;
     position: fixed;
@@ -282,7 +266,7 @@
     gap: 8px;
 }
 
-/* ── Form fields inside modal ────────────────────────────── */
+/* -- Form fields inside modal ------------------------------ */
 .hr-form-group {
     margin-bottom: 14px;
 }
@@ -324,7 +308,7 @@
     margin-top: 3px;
 }
 
-/* ── Payroll details panel ───────────────────────────────── */
+/* -- Payroll details panel --------------------------------- */
 .pr-details-panel {
     margin-top: 18px;
     background: #fff;
@@ -356,7 +340,7 @@
     margin-bottom: 14px;
 }
 
-/* ── Summary grid inside details ─────────────────────────── */
+/* -- Summary grid inside details --------------------------- */
 .ps-summary-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -388,7 +372,7 @@
     color: #05275C;
 }
 
-/* ── Alert area ──────────────────────────────────────────── */
+/* -- Alert area -------------------------------------------- */
 .ps-alert {
     padding: 10px 14px;
     border-radius: 3px;
@@ -400,7 +384,7 @@
 .ps-alert--success { background: #f0fdf4; border-color: #16a34a; color: #14532d; }
 .ps-alert--danger  { background: #fef5f5; border-color: #dc3545; color: #7f1d1d; }
 
-/* ── Progress / generate state ───────────────────────────── */
+/* -- Progress / generate state ----------------------------- */
 .pr-generating {
     display: flex;
     align-items: center;
@@ -420,7 +404,7 @@
 }
 @keyframes pr-spin { to { transform: rotate(360deg); } }
 
-/* ── Modal result areas ──────────────────────────────────── */
+/* -- Modal result areas ------------------------------------ */
 #addResult,
 #processResult {
     margin-top: 10px;
@@ -428,7 +412,7 @@
     min-height: 0;
 }
 
-/* ── Grid currency/centre helpers ────────────────────────── */
+/* -- Grid currency/centre helpers -------------------------- */
 .col-currency {
     font-weight: 700;
     color: #16a34a;
@@ -444,19 +428,19 @@
     color: #555;
 }
 
-/* ── Period display cells ────────────────────────────────── */
+/* -- Period display cells ---------------------------------- */
 .pr-period { font-weight: 600; color: #05275C; }
 .pr-period__year { font-size: 11px; color: #888; }
 
-/* ── Target badge short-form aliases (used in code) ─────── */
+/* -- Target badge short-form aliases (used in code) ------- */
 .pr-target-badge--dept { background: #f3e8ff; color: #581c87; }
 .pr-target-badge--emp  { background: #fce7f3; color: #831843; }
 
-/* ── Details grid row status colors ─────────────────────── */
+/* -- Details grid row status colors ----------------------- */
 tr.ps-row--approved td { background: #f0fdf4 !important; }
 tr.ps-row--rejected td { background: #fef5f5 !important; }
 
-/* ── Responsive ──────────────────────────────────────────── */
+/* -- Responsive -------------------------------------------- */
 @media (max-width: 900px) {
     .ct-stats { grid-template-columns: repeat(2,1fr); }
     .ps-summary-grid { grid-template-columns: repeat(2,1fr); }
@@ -479,8 +463,11 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
 <asp:Button ID="btnViewPayroll" runat="server" style="display:none" OnClick="btnViewPayroll_Click" />
 <asp:Button ID="btnGenPayroll"  runat="server" style="display:none" OnClick="btnGenPayroll_Click" />
 <asp:Button ID="btnDoAction"    runat="server" style="display:none" OnClick="btnDoAction_Click" />
+<asp:HiddenField ID="hdnBatchIDs"    runat="server" />
+<asp:HiddenField ID="hdnBatchAction" runat="server" />
+<asp:Button ID="btnBatchAction" runat="server" style="display:none" OnClick="btnBatchAction_Click" />
 
-<!-- ── Page header ──────────────────────────────────────── -->
+<!-- -- Page header ---------------------------------------- -->
 <div class="pr-page-header">
     <div class="ph-left">
         <svg class="ph-icon" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -506,7 +493,7 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
     </div>
 </div>
 
-<!-- ── Stats ────────────────────────────────────────────── -->
+<!-- -- Stats ---------------------------------------------- -->
 <div class="ct-stats">
     <div class="ct-stat-card amber">
         <span class="sc-label">Total Payrolls (Year)</span>
@@ -526,7 +513,7 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
     </div>
 </div>
 
-<!-- ── Filter bar ───────────────────────────────────────── -->
+<!-- -- Filter bar ----------------------------------------- -->
 <div class="ct-filters">
     <label>Year:</label>
     <asp:DropDownList ID="ddlPayrollYear" runat="server" CssClass="hr-select"
@@ -549,7 +536,19 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
     <span class="filter-count"><asp:Literal ID="litFilterCount" runat="server" /></span>
 </div>
 
-<!-- ── Main payrolls grid ────────────────────────────────── -->
+<!-- -- Batch toolbar -------------------------------------- -->
+<div id="batchToolbar" class="ct-batch-toolbar" style="display:none">
+    <span id="batchCount" style="font-size:12px;font-weight:600;color:#174DA4;margin-right:6px;"></span>
+    <button type="button" class="hr-btn hr-btn--primary hr-btn--sm" onclick="batchOp('GENERATE')">
+        <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+        Generate Payslips
+    </button>
+    <button type="button" class="hr-btn hr-btn--amber hr-btn--sm" onclick="batchOp('CANCEL')">Cancel Selected</button>
+    <button type="button" class="hr-btn hr-btn--danger hr-btn--sm" onclick="batchOp('DELETE')">Delete Selected</button>
+    <button type="button" class="hr-btn hr-btn--outline hr-btn--sm" onclick="clearBatchSelection()">&#10005; Clear</button>
+</div>
+
+<!-- -- Main payrolls grid ---------------------------------- -->
 <dx:ASPxGridView ID="gvPayrolls" runat="server"
     KeyFieldName="ID"
     EnableCallBacks="false"
@@ -559,6 +558,18 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
     <SettingsPager PageSize="20" />
     <Settings ShowFilterRow="false" />
     <Columns>
+        <dx:GridViewDataTextColumn Caption=" " Width="34">
+            <HeaderTemplate>
+                <input type="checkbox" id="chkSelectAll" onclick="selectAllRows(this)" style="cursor:pointer;margin:0;" title="Select all" />
+            </HeaderTemplate>
+            <DataItemTemplate>
+                <input type="checkbox" class="row-check"
+                       value='<%# Eval("ID") %>'
+                       data-status='<%# Eval("payroll_status") %>'
+                       onclick="updateBatchToolbar()"
+                       style="cursor:pointer;margin:0;" />
+            </DataItemTemplate>
+        </dx:GridViewDataTextColumn>
         <dx:GridViewDataTextColumn FieldName="ID" Visible="false" />
 
         <dx:GridViewDataTextColumn FieldName="payroll_title" Caption="Payroll Title" Width="200">
@@ -617,7 +628,7 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
     </Columns>
 </dx:ASPxGridView>
 
-<!-- ── Payroll details panel ─────────────────────────────── -->
+<!-- -- Payroll details panel ------------------------------- -->
 <asp:Panel ID="pnlPayrollDetails" runat="server" Visible="false" CssClass="pr-details-panel">
     <div class="pr-details-header">
         <h3>
@@ -699,6 +710,8 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
             Width="100%">
             <SettingsEditing Mode="PopupEditForm" />
             <Columns>
+                <dx:GridViewCommandColumn ShowEditButton="true" ShowCancelButton="true" ShowUpdateButton="true"
+                    Width="60" Caption="" ButtonType="Link" />
                 <dx:GridViewDataTextColumn FieldName="ID"     Visible="false" />
                 <dx:GridViewDataTextColumn FieldName="status" Visible="false" />
 
@@ -754,9 +767,9 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
     </div>
 </asp:Panel>
 
-<!-- ══════════════════════════════════════════════════════════
+<!-- ==========================================================
      CREATE PAYROLL MODAL
-     ══════════════════════════════════════════════════════════ -->
+     ========================================================== -->
 <div class="hr-modal-overlay" id="createPayrollModal">
     <div class="hr-modal">
         <div class="hr-modal-header">
@@ -794,51 +807,50 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
                 </div>
                 <div class="hr-form-group">
                     <label>Year <span style="color:#dc3545">*</span></label>
-                    <asp:TextBox ID="txtPayrollYear" runat="server" CssClass="hr-input"
-                        TextMode="Number" MaxLength="4"
-                        onchange="autoTitle()" onkeyup="autoTitle()" />
+                    <asp:DropDownList ID="ddlCreateYear" runat="server" CssClass="hr-select"
+                        onchange="autoTitle()" style="width:100%;" />
                 </div>
             </div>
 
             <div class="hr-form-group">
                 <label>Target Type <span style="color:#dc3545">*</span></label>
                 <asp:DropDownList ID="ddlTargetType" runat="server" CssClass="hr-select"
-                    AutoPostBack="true" OnSelectedIndexChanged="ddlTargetType_Changed">
+                    onchange="updateTargetPanel(this.value)">
                     <asp:ListItem Value="ALL"        Text="All Active Employees" />
                     <asp:ListItem Value="DEPARTMENT" Text="Specific Departments" />
                     <asp:ListItem Value="EMPLOYEE"   Text="Specific Employees" />
                 </asp:DropDownList>
             </div>
 
-            <asp:Panel ID="pnlTargetDept" runat="server" Visible="false" CssClass="hr-form-group">
+            <div id="divTargetDept" class="hr-form-group" style="display:none">
                 <label>Select Departments</label>
                 <asp:ListBox ID="lstTargetDepts" runat="server"
                     SelectionMode="Multiple" Height="120"
                     CssClass="hr-input" style="height:120px;" />
                 <div class="hr-form-hint">Hold Ctrl to select multiple</div>
-            </asp:Panel>
+            </div>
 
-            <asp:Panel ID="pnlTargetEmp" runat="server" Visible="false" CssClass="hr-form-group">
+            <div id="divTargetEmp" class="hr-form-group" style="display:none">
                 <label>Select Employees</label>
                 <asp:ListBox ID="lstTargetEmps" runat="server"
                     SelectionMode="Multiple" Height="120"
                     CssClass="hr-input" style="height:120px;" />
                 <div class="hr-form-hint">Hold Ctrl to select multiple</div>
-            </asp:Panel>
+            </div>
 
             <div class="hr-form-row">
                 <div class="hr-form-group">
                     <label>Include Deductions</label>
                     <asp:DropDownList ID="ddlIncludeDeductions" runat="server" CssClass="hr-select">
-                        <asp:ListItem Value="YES" Text="YES — Include" />
-                        <asp:ListItem Value="NO"  Text="NO — Exclude" />
+                        <asp:ListItem Value="YES" Text="YES - Include" />
+                        <asp:ListItem Value="NO"  Text="NO - Exclude" />
                     </asp:DropDownList>
                 </div>
                 <div class="hr-form-group">
                     <label>Include Allowances</label>
                     <asp:DropDownList ID="ddlIncludeAllowances" runat="server" CssClass="hr-select">
-                        <asp:ListItem Value="YES" Text="YES — Include" />
-                        <asp:ListItem Value="NO"  Text="NO — Exclude" />
+                        <asp:ListItem Value="YES" Text="YES - Include" />
+                        <asp:ListItem Value="NO"  Text="NO - Exclude" />
                     </asp:DropDownList>
                 </div>
             </div>
@@ -863,9 +875,9 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════
+<!-- ==========================================================
      PROCESS CONFIRMATION MODAL
-     ══════════════════════════════════════════════════════════ -->
+     ========================================================== -->
 <div class="hr-modal-overlay" id="processConfirmModal">
     <div class="hr-modal">
         <div class="hr-modal-header">
@@ -889,44 +901,48 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
     </div>
 </div>
 
-<!-- ── JavaScript ────────────────────────────────────────── -->
+<!-- -- JavaScript ------------------------------------------ -->
 <script type="text/javascript">
-// Modal helpers
+/* ---- Action popover (same pattern as HRContracts.aspx) ---- */
+function toggleActionPopover(btn, evt) {
+    evt.stopPropagation();
+    var pop = btn.nextElementSibling;
+    var isOpen = pop.classList.contains('is-open');
+    closeAllActionPopovers();
+    if (!isOpen) pop.classList.add('is-open');
+}
+function closeAllActionPopovers() {
+    document.querySelectorAll('.cd-action-popover.is-open').forEach(function(p){ p.classList.remove('is-open'); });
+}
+document.addEventListener('click', closeAllActionPopovers);
+
+function updateTargetPanel(val) {
+    document.getElementById('divTargetDept').style.display = (val === 'DEPARTMENT') ? 'block' : 'none';
+    document.getElementById('divTargetEmp').style.display  = (val === 'EMPLOYEE')   ? 'block' : 'none';
+}
+
+/* ---- Modal helpers ---- */
 function openCreateModal(){
     document.getElementById('createPayrollModal').style.display='flex';
+    var ddl = document.getElementById('<%= ddlTargetType.ClientID %>');
+    if (ddl) updateTargetPanel(ddl.value);
     autoTitle();
 }
-function closeCreateModal(){document.getElementById('createPayrollModal').style.display='none';}
+function closeCreateModal(){ document.getElementById('createPayrollModal').style.display='none'; }
 function openProcessModal(id){
     document.getElementById('<%= hdnGeneratePayrollID.ClientID %>').value=id;
     document.getElementById('<%= btnGenPayroll.ClientID %>').click();
 }
-function closeProcessModal(){document.getElementById('processConfirmModal').style.display='none';}
+function closeProcessModal(){ document.getElementById('processConfirmModal').style.display='none'; }
 
-// Action popovers
-function toggleActionPopover(btn,evt){
-    evt.stopPropagation();
-    var pop=btn.nextElementSibling;
-    var isOpen=pop.classList.contains('is-open');
-    closeAllPopovers();
-    if(!isOpen) pop.classList.add('is-open');
-}
-function closeAllPopovers(){
-    document.querySelectorAll('.cd-action-popover.is-open').forEach(function(p){
-        p.classList.remove('is-open');
-    });
-}
-document.addEventListener('click',closeAllPopovers);
-
-// View payroll details
+/* ---- Payroll actions ---- */
 function viewPayrollDetails(id){
+    closeAllActionPopovers();
     document.getElementById('<%= hdnSelectedPayrollID.ClientID %>').value=id;
     document.getElementById('<%= btnViewPayroll.ClientID %>').click();
 }
-
-// Payroll actions
 function doAction(id, type){
-    closeAllPopovers();
+    closeAllActionPopovers();
     var msg = type==='APPROVE'    ? 'Approve and permanently lock this payroll?'
             : type==='CANCEL'     ? 'Cancel this payroll? This cannot be undone.'
             : type==='DELETE'     ? 'Permanently delete this payroll and all its payslips?'
@@ -938,24 +954,65 @@ function doAction(id, type){
     document.getElementById('<%= btnDoAction.ClientID %>').click();
 }
 
-// Auto-generate title when month/year changes
+/* ---- Auto-title ---- */
 function autoTitle(){
     var mn=document.getElementById('<%= ddlPayrollMonth.ClientID %>');
-    var yr=document.getElementById('<%= txtPayrollYear.ClientID %>');
+    var yr=document.getElementById('<%= ddlCreateYear.ClientID %>');
     var tt=document.getElementById('<%= txtPayrollTitle.ClientID %>');
-    if(!mn||!yr||!tt||tt.value) return;
+    if(!mn||!yr||!tt) return;
+    if(tt.value && tt.value.indexOf('Payroll') < 0) return;
     var months=['','January','February','March','April','May','June',
                 'July','August','September','October','November','December'];
     var m=parseInt(mn.value)||0; var y=yr.value||'';
     if(m&&y) tt.value=months[m]+' '+y+' Payroll';
 }
 
-// Close modals on overlay click / Escape
+/* ---- Batch operations ---- */
+function selectAllRows(chk) {
+    document.querySelectorAll('.row-check').forEach(function(c){ c.checked = chk.checked; });
+    updateBatchToolbar();
+}
+function updateBatchToolbar() {
+    var checked = document.querySelectorAll('.row-check:checked');
+    var toolbar  = document.getElementById('batchToolbar');
+    var countEl  = document.getElementById('batchCount');
+    toolbar.style.display = checked.length > 0 ? 'flex' : 'none';
+    countEl.textContent   = checked.length + ' selected';
+}
+function clearBatchSelection() {
+    document.querySelectorAll('.row-check').forEach(function(c){ c.checked = false; });
+    var ca = document.getElementById('chkSelectAll'); if (ca) ca.checked = false;
+    document.getElementById('batchToolbar').style.display = 'none';
+}
+function batchOp(action) {
+    var ids = Array.from(document.querySelectorAll('.row-check:checked')).map(function(c){ return c.value; }).join(',');
+    if (!ids) return;
+    var n = ids.split(',').length;
+    var msg = action === 'GENERATE' ? 'Generate payslips for ' + n + ' payroll(s)?\nOnly PENDING ones will be processed.'
+            : action === 'CANCEL'   ? 'Cancel '  + n + ' payroll(s)? Only PENDING ones will be affected.'
+            :                         'Delete '  + n + ' payroll(s)? Only PENDING ones can be deleted.';
+    if (!confirm(msg)) return;
+    document.getElementById('<%= hdnBatchIDs.ClientID %>').value    = ids;
+    document.getElementById('<%= hdnBatchAction.ClientID %>').value = action;
+    document.getElementById('<%= btnBatchAction.ClientID %>').click();
+}
+
+/* ---- Toast notification ---- */
+function showToast(msg, type){
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:20px;right:20px;z-index:99999;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.2);opacity:1;transition:opacity .4s;';
+    t.style.background = type==='success' ? '#16a34a' : type==='danger' ? '#dc3545' : type==='warning' ? '#d97706' : '#174DA4';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },400); },3000);
+}
+
+/* ---- Close modals on overlay click / Escape ---- */
 document.querySelectorAll('.hr-modal-overlay').forEach(function(o){
-    o.addEventListener('click',function(e){if(e.target===o){o.style.display='none';}});
+    o.addEventListener('click',function(e){ if(e.target===o) o.style.display='none'; });
 });
 document.addEventListener('keydown',function(e){
-    if(e.key==='Escape'){closeCreateModal();closeProcessModal();}
+    if(e.key==='Escape'){ closeCreateModal(); closeProcessModal(); }
 });
 </script>
 

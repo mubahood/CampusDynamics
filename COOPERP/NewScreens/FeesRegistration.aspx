@@ -1,25 +1,25 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="FeesRegistration.aspx.cs" Inherits="COOPERP_NewScreens_FeesRegistration" Title="Fee Registration - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="FeesRegistration.aspx.cs" Inherits="COOPERP_NewScreens_FeesRegistration" Title="Fee Registration - Campus Dynamics" %>
 
 <%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* ===== FEES MODULE — STUDENT REGISTRATION ============================= */
+/* ===== FEES MODULE - STUDENT REGISTRATION ============================= */
 
-/* ── Page Header (matches fm-page-header across fees module) ── */
+/* -- Page Header (matches fm-page-header across fees module) -- */
 .fm-page-header { display:flex;align-items:center;justify-content:space-between;padding:14px 0 12px;margin-bottom:16px;border-bottom:2px solid #174DA4;flex-wrap:wrap;gap:10px; }
 .fm-page-header__left { display:flex;align-items:center;gap:12px;min-width:0; }
 .fm-page-header__icon { width:42px;height:42px;background:linear-gradient(135deg,#00695c 0%,#00897b 100%);display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,105,92,.2); }
 .fm-page-header__title { font-size:18px;font-weight:800;color:#1a1a2e;margin:0;line-height:1.2;letter-spacing:-.2px; }
 .fm-page-header__sub { font-size:11px;color:#999;margin-top:2px; }
 
-/* ── Tabs ──────────────────────────────────────────── */
+/* -- Tabs -------------------------------------------- */
 .fm-tabs { display:flex;gap:0;border-bottom:2px solid #e4e8f0;margin-bottom:16px;overflow-x:auto; }
 .fm-tab { padding:10px 20px;font-size:12px;font-weight:600;color:#777;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;display:flex;align-items:center;gap:6px;transition:all .15s;text-decoration:none; }
 .fm-tab:hover { color:#174DA4;background:rgba(23,77,164,.03); }
 .fm-tab--active { color:#174DA4;border-bottom-color:#174DA4;font-weight:700; }
 
-/* ── Stats Dashboard ────────────────────────────────── */
+/* -- Stats Dashboard ---------------------------------- */
 .rg-stats-dashboard { margin-bottom:14px;display:flex;flex-direction:column;gap:10px; }
 .rg-stats-section__header { display:flex;align-items:center;gap:8px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#aaa;font-weight:700;padding:0 2px 6px; }
 .rg-stats-section__header svg { opacity:.45;flex-shrink:0; }
@@ -28,7 +28,7 @@
 .rg-stats-reg { display:grid;grid-template-columns:1.6fr repeat(7,1fr);gap:8px; }
 .rg-stats-billing { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
 
-/* ── Stat Card ─────────────────────────────────────── */
+/* -- Stat Card --------------------------------------- */
 .rg-stat { background:#fff;border:1px solid #e4e8f0;padding:11px 14px;display:flex;align-items:center;gap:10px;border-radius:8px;cursor:pointer;position:relative;overflow:hidden;transition:all .2s cubic-bezier(.4,0,.2,1); }
 .rg-stat::after { content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--stat-accent,#ccc);border-radius:8px 0 0 8px;transition:width .2s; }
 .rg-stat:hover { box-shadow:0 4px 20px rgba(0,0,0,.07);transform:translateY(-2px);border-color:rgba(23,77,164,.12); }
@@ -64,13 +64,13 @@
 .rg-badge--notbilled { background:#fff3cd;color:#856404; }
 .rg-billing-amt { font-size:9px;color:#888;display:block;margin-top:1px;white-space:nowrap; }
 
-/* ── Card ──────────────────────────────────────────── */
+/* -- Card -------------------------------------------- */
 .cd-card { background:#fff;border:1px solid #e4e8f0;border-radius:10px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.04); }
 .cd-card__header { display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #e4e8f0;background:#fafbfc;flex-wrap:wrap;gap:6px; }
 .cd-card__title { font-size:13px;font-weight:700;color:#1a1a1a;display:flex;align-items:center;gap:7px; }
 .cd-card__meta { font-size:10px;color:#174DA4;font-weight:600;background:rgba(23,77,164,.06);padding:3px 12px;border-radius:12px;white-space:nowrap; }
 
-/* ── Filter Bar ────────────────────────────────────── */
+/* -- Filter Bar -------------------------------------- */
 .ct-filters { background:#f8f9fb;border-bottom:1px solid #e4e8f0;padding:10px 14px; }
 .ct-filters__top { display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap; }
 .ct-search-wrap { position:relative;flex:1;min-width:200px;max-width:380px; }
@@ -86,7 +86,7 @@
 .ct-filter-select:focus { border-color:#174DA4;box-shadow:0 0 0 3px rgba(23,77,164,.08);outline:none; }
 .ct-filter-sep { width:1px;height:32px;background:#e0e4ea;align-self:flex-end;margin:0 4px; }
 
-/* ── Buttons ───────────────────────────────────────── */
+/* -- Buttons ----------------------------------------- */
 .hr-btn { padding:7px 15px;font-size:11px;font-weight:600;border:none;cursor:pointer;border-radius:8px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;line-height:1.4;transition:background .15s,box-shadow .15s,transform .1s;text-decoration:none; }
 .hr-btn:active { transform:scale(.97); }
 .hr-btn--primary { background:#174DA4;color:#fff; } .hr-btn--primary:hover { background:#0f3a7d;box-shadow:0 2px 8px rgba(23,77,164,.2); }
@@ -98,14 +98,14 @@
 .hr-btn--outline { background:#fff;color:#174DA4;border:1px solid #174DA4; } .hr-btn--outline:hover { background:#174DA4;color:#fff;box-shadow:0 2px 8px rgba(23,77,164,.2); }
 .hr-btn--sm { padding:5px 12px;font-size:10px; }
 
-/* ── Batch Toolbar ─────────────────────────────────── */
+/* -- Batch Toolbar ----------------------------------- */
 .rg-batch-bar { display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;background:#fffbe6;border-top:1px solid #e4e8f0;border-bottom:2px solid #ffc107; }
 .rg-batch-bar.show { display:flex; }
 .rg-batch-info { display:flex;align-items:center;gap:5px;font-size:11px;color:#6d4c00;white-space:nowrap; }
 .rg-batch-info strong { font-size:13px;font-weight:700;color:#b45309; }
 .rg-batch-sep { width:1px;height:24px;background:#e0c060;margin:0 2px;flex-shrink:0; }
 
-/* ── Status Badges ─────────────────────────────────── */
+/* -- Status Badges ----------------------------------- */
 .rg-badge { display:inline-block;padding:3px 9px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-radius:4px;white-space:nowrap; }
 .rg-badge--unreg { background:#fff3cd;color:#856404; }
 .rg-badge--reg { background:#d4edda;color:#155724; }
@@ -119,7 +119,7 @@
 .rg-badge--issued { background:#d4edda;color:#155724; }
 .rg-badge--notissued { background:#e9ecef;color:#6c757d; }
 
-/* ── Action Popover ────────────────────────────────── */
+/* -- Action Popover ---------------------------------- */
 .cd-action-wrapper { position:relative;display:inline-block; }
 .cd-action-trigger { background:none;border:1px solid #ddd;border-radius:5px;padding:3px 7px;cursor:pointer;color:#555;display:inline-flex;align-items:center;transition:border-color .15s,background .15s; }
 .cd-action-trigger:hover { border-color:#174DA4;color:#174DA4;background:#f0f4ff; }
@@ -140,7 +140,7 @@
 .cd-action-popover__divider { height:1px;background:#f0f0f0;margin:3px 0; }
 .cd-card,.cd-card__body,.dxgvCSD,.dxgvControl_Glass,.dxgvTable_Glass,.dxgvDataRow_Glass td,td.rg-action-cell { overflow:visible !important; }
 
-/* ── Grid Tweaks ───────────────────────────────────── */
+/* -- Grid Tweaks ------------------------------------- */
 .dxgvControl_Glass { border:none !important; }
 .dxgvHeader_Glass td { font-size:10px !important;text-transform:uppercase !important;letter-spacing:.4px !important;background:#f5f7fa !important;color:#666 !important;border-bottom:2px solid #e4e8f0 !important;padding:9px 10px !important;font-weight:600 !important; }
 .dxgvDataRow_Glass td,.dxgvDataRowAlt_Glass td { font-size:11px !important;padding:8px 10px !important;border-bottom:1px solid #f2f3f5 !important;vertical-align:middle !important; }
@@ -153,11 +153,11 @@
 .rg-row-halted td { background:#fff9f0 !important; }
 .rg-row-dead td { background:#f8f8f8 !important; }
 
-/* ── Grid Footer ───────────────────────────────────── */
+/* -- Grid Footer ------------------------------------- */
 .rg-grid-footer { display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:#fafbfc;border-top:1px solid #e4e8f0;font-size:11px;color:#666;flex-wrap:wrap;gap:6px; }
 .rg-grid-footer strong { color:#174DA4; }
 
-/* ── Modal ─────────────────────────────────────────── */
+/* -- Modal ------------------------------------------- */
 .hr-modal-overlay { display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.48);z-index:10000;align-items:center;justify-content:center;padding:16px;box-sizing:border-box; }
 .hr-modal-overlay.open { display:flex; }
 .hr-modal { background:#fff;width:540px;max-width:100%;max-height:calc(100vh - 32px);overflow:hidden;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.22);display:flex;flex-direction:column;animation:rgModalIn .2s ease; }
@@ -218,7 +218,7 @@
 <asp:Button ID="btnDoNewStudent"       runat="server" style="display:none;" OnClick="btnDoNewStudent_Click" />
 <asp:Button ID="btnBatchBill"          runat="server" style="display:none;" OnClick="btnBatchBill_Click" />
 
-<!-- ═══════ PAGE HEADER ═══════════════════════════════════════════════ -->
+<!-- ======= PAGE HEADER =============================================== -->
 <div class="fm-page-header">
     <div class="fm-page-header__left">
         <div class="fm-page-header__icon">
@@ -251,7 +251,7 @@
     </div>
 </div>
 
-<!-- ═══════ TAB NAVIGATION ═══════════════════════════════════════════ -->
+<!-- ======= TAB NAVIGATION =========================================== -->
 <div class="fm-tabs">
     <a class="fm-tab" href="FeesManagement.aspx">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
@@ -271,7 +271,7 @@
     </a>
 </div>
 
-<!-- ═══════ STATS DASHBOARD ═══════════════════════════════════════════ -->
+<!-- ======= STATS DASHBOARD =========================================== -->
 <div class="rg-stats-dashboard">
     <div class="rg-stats-section">
         <div class="rg-stats-section__header">
@@ -335,7 +335,7 @@
     </div>
 </div>
 
-<!-- ═══════ MAIN CARD ═════════════════════════════════════════════════ -->
+<!-- ======= MAIN CARD ================================================= -->
 <div class="cd-card">
     <div class="ct-filters">
         <div class="ct-filters__top">
@@ -484,7 +484,7 @@
     </div>
 </div>
 
-<!-- ═══════ ADD REGISTRATION MODAL ═══════════════════════════════════ -->
+<!-- ======= ADD REGISTRATION MODAL =================================== -->
 <div class="hr-modal-overlay" id="addRegModal">
     <div class="hr-modal" style="width:500px;">
         <div class="hr-modal__header"><span>Add Student to Semester</span><button class="hr-modal__close" onclick="closeModal('addRegModal')" type="button">&times;</button></div>
@@ -501,7 +501,7 @@
                 <div class="hr-form-group"><label class="hr-form-label">Study Year <span class="req">*</span></label><asp:DropDownList ID="ddlAddStudyYear" runat="server" CssClass="hr-form-select"><asp:ListItem Value="1" Text="Year 1" /><asp:ListItem Value="2" Text="Year 2" /><asp:ListItem Value="3" Text="Year 3" /><asp:ListItem Value="4" Text="Year 4" /><asp:ListItem Value="5" Text="Year 5" /></asp:DropDownList><div class="hr-form-hint">Year of study in their programme.</div></div>
                 <div class="hr-form-group"><label class="hr-form-label">Residence Status</label><asp:DropDownList ID="ddlAddResidence" runat="server" CssClass="hr-form-select"><asp:ListItem Value="NON RESIDENT" Text="Non-Resident" /><asp:ListItem Value="RESIDENT" Text="Resident (Halls)" /></asp:DropDownList></div>
             </div>
-            <div class="hr-form-group"><label class="hr-form-label">Initial Registration Status</label><asp:DropDownList ID="ddlAddStatus" runat="server" CssClass="hr-form-select"><asp:ListItem Value="UNREGISTERED" Text="Unregistered — pending student registration" /><asp:ListItem Value="REGISTERED" Text="Registered — mark as already registered" /><asp:ListItem Value="LATE REGISTERED" Text="Late Registered — registered after deadline" /></asp:DropDownList></div>
+            <div class="hr-form-group"><label class="hr-form-label">Initial Registration Status</label><asp:DropDownList ID="ddlAddStatus" runat="server" CssClass="hr-form-select"><asp:ListItem Value="UNREGISTERED" Text="Unregistered - pending student registration" /><asp:ListItem Value="REGISTERED" Text="Registered - mark as already registered" /><asp:ListItem Value="LATE REGISTERED" Text="Late Registered - registered after deadline" /></asp:DropDownList></div>
             <div id="addRegResult" runat="server" class="hr-result" visible="false"><asp:Literal ID="litAddRegResult" runat="server" /></div>
         </div>
         <div class="hr-modal__footer">
@@ -511,7 +511,7 @@
     </div>
 </div>
 
-<!-- ═══════ CHANGE STATUS MODAL ═══════════════════════════════════════ -->
+<!-- ======= CHANGE STATUS MODAL ======================================= -->
 <div class="hr-modal-overlay" id="changeStatusModal">
     <div class="hr-modal" style="width:460px;">
         <div class="hr-modal__header"><span>Change Registration Status</span><button class="hr-modal__close" onclick="closeModal('changeStatusModal')" type="button">&times;</button></div>
@@ -531,7 +531,7 @@
     </div>
 </div>
 
-<!-- ═══════ REGISTER NEW STUDENT MODAL ════════════════════════════════ -->
+<!-- ======= REGISTER NEW STUDENT MODAL ================================ -->
 <div class="hr-modal-overlay" id="newStudentModal">
     <div class="hr-modal" style="width:820px;">
         <div class="hr-modal__header" style="background:linear-gradient(135deg,#00695c 0%,#00897b 100%);">
@@ -776,7 +776,7 @@
     </div>
 </div>
 
-<!-- ═══════ TOAST NOTIFICATION ════════════════════════════════════════ -->
+<!-- ======= TOAST NOTIFICATION ======================================== -->
 <div id="regToast" class="rg-toast"><svg id="regToastIcon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg><span id="regToastMsg"></span></div>
 
 <script type="text/javascript">

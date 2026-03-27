@@ -12,16 +12,12 @@
         .rad-container { padding: 0; font-size: 11px; }
         
         /* Page Header */
-        .rad-page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid #174DA4;
-        }
-        .rad-page-header__title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin: 0; }
-        .rad-page-header__subtitle { font-size: 10px; color: #6c757d; margin-top: 2px; }
+        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
+        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+        .cd-page-header__right { display:flex; gap:8px; align-items:center; }
         
         /* Filter Bar */
         .rad-filter-bar {
@@ -29,8 +25,8 @@
             gap: 12px;
             align-items: center;
             padding: 12px 15px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 6px;
+            background: #f5f7fa;
+            border-radius: 4px;
             margin-bottom: 15px;
             flex-wrap: wrap;
         }
@@ -48,7 +44,7 @@
             padding: 6px 10px;
             font-size: 11px;
             border: 1px solid #ced4da;
-            border-radius: 4px;
+            border-radius: 0;
             background: #fff;
         }
         .rad-filter-select:focus { border-color: #174DA4; outline: none; }
@@ -62,7 +58,7 @@
             font-size: 11px;
             font-weight: 500;
             border: 1px solid transparent;
-            border-radius: 4px;
+            border-radius: 0;
             cursor: pointer;
             transition: all 0.15s ease;
             text-decoration: none;
@@ -86,7 +82,7 @@
         .rad-kpi-card {
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 4px;
             padding: 16px;
             text-align: center;
             position: relative;
@@ -100,11 +96,11 @@
             right: 0;
             height: 4px;
         }
-        .rad-kpi-card--pass::before { background: linear-gradient(90deg, #28a745, #20c997); }
-        .rad-kpi-card--fail::before { background: linear-gradient(90deg, #dc3545, #e83e8c); }
-        .rad-kpi-card--avg::before { background: linear-gradient(90deg, #17a2b8, #6f42c1); }
-        .rad-kpi-card--students::before { background: linear-gradient(90deg, #174DA4, #20c997); }
-        .rad-kpi-card--courses::before { background: linear-gradient(90deg, #ffc107, #fd7e14); }
+        .rad-kpi-card--pass::before { background: #28a745; }
+        .rad-kpi-card--fail::before { background: #dc3545; }
+        .rad-kpi-card--avg::before { background: #17a2b8; }
+        .rad-kpi-card--students::before { background: #174DA4; }
+        .rad-kpi-card--courses::before { background: #ffc107; }
         
         .rad-kpi-card__value { font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
         .rad-kpi-card--pass .rad-kpi-card__value { color: #28a745; }
@@ -139,7 +135,7 @@
         .rad-chart-card {
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 4px;
             overflow: hidden;
         }
         .rad-chart-card--full { grid-column: span 2; }
@@ -150,7 +146,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px 16px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: #f5f7fa;
             border-bottom: 1px solid #e0e0e0;
         }
         .rad-chart-card__title { font-size: 12px; font-weight: 600; color: #1a1a2e; }
@@ -178,13 +174,13 @@
             flex: 1;
             height: 24px;
             background: #e9ecef;
-            border-radius: 4px;
+            border-radius: 0;
             overflow: hidden;
             position: relative;
         }
         .rad-grade-bar__fill {
             height: 100%;
-            border-radius: 4px;
+            border-radius: 0;
             display: flex;
             align-items: center;
             padding-left: 8px;
@@ -215,7 +211,7 @@
         .rad-perf-table th {
             text-align: left;
             padding: 10px 8px;
-            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+            background: #f5f7fa;
             border-bottom: 2px solid #174DA4;
             font-weight: 600;
             color: #495057;
@@ -314,9 +310,9 @@
             font-weight: 700;
             flex-shrink: 0;
         }
-        .rad-top-list__rank--1 { background: linear-gradient(135deg, #ffd700, #ffb300); color: #5d4a00; }
-        .rad-top-list__rank--2 { background: linear-gradient(135deg, #c0c0c0, #a0a0a0); color: #404040; }
-        .rad-top-list__rank--3 { background: linear-gradient(135deg, #cd7f32, #a05a2c); color: #fff; }
+        .rad-top-list__rank--1 { background: #ffd700; color: #5d4a00; }
+        .rad-top-list__rank--2 { background: #c0c0c0; color: #404040; }
+        .rad-top-list__rank--3 { background: #cd7f32; color: #fff; }
         .rad-top-list__rank--other { background: #e9ecef; color: #495057; }
         .rad-top-list__content { flex: 1; }
         .rad-top-list__name { font-weight: 600; color: #1a1a2e; }
@@ -325,8 +321,8 @@
         
         /* Export Panel */
         .rad-export-panel {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-radius: 8px;
+            background: #05275C;
+            border-radius: 4px;
             padding: 16px;
             display: flex;
             align-items: center;
@@ -343,7 +339,7 @@
             padding: 8px 16px;
             font-size: 11px;
             font-weight: 500;
-            border-radius: 4px;
+            border-radius: 0;
             border: none;
             cursor: pointer;
             display: inline-flex;
@@ -359,12 +355,17 @@
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
     <div class="rad-container">
         <!-- Page Header -->
-        <div class="rad-page-header">
-            <div>
-                <h1 class="rad-page-header__title">📊 Results Analytics Dashboard</h1>
-                <p class="rad-page-header__subtitle">Comprehensive analysis of academic performance across programmes and courses</p>
+        <div class="cd-page-header">
+            <div class="cd-page-header__left">
+                <div class="cd-page-header__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                </div>
+                <div>
+                    <div class="cd-page-header__title">Results Analytics</div>
+                    <div class="cd-page-header__sub">In-depth analysis of academic performance and grade distribution</div>
+                </div>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div class="cd-page-header__right">
                 <asp:HyperLink ID="lnkBack" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" CssClass="rad-btn rad-btn--outline">
                     ← Back to Results
                 </asp:HyperLink>

@@ -103,6 +103,13 @@
                                         <span>Register New Student</span>
                                     </asp:HyperLink>
                                 </li>
+                                <!-- Portal Onboarding Status -->
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkPortalOnboarding" runat="server" NavigateUrl="~/COOPERP/NewScreens/PortalOnboarding.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                        <span>Portal Onboarding</span>
+                                    </asp:HyperLink>
+                                </li>
                                 <li style="border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 10px;"></li>
                                 <!-- Student Specialisations -->
                                 <li class="cd-sidebar__subitem">
@@ -511,7 +518,14 @@
                         
                         <!-- Human Resource Management -->
                         <li class="cd-sidebar__heading">Human Resource</li>
-                        
+
+                        <li class="cd-sidebar__item">
+                            <asp:HyperLink ID="lnkHRDashboard" runat="server" NavigateUrl="~/COOPERP/NewScreens/HRDashboard.aspx" CssClass="cd-sidebar__link">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+                                <span>HR Dashboard</span>
+                            </asp:HyperLink>
+                        </li>
+
                         <li class="cd-sidebar__item cd-sidebar__item--has-submenu">
                             <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
@@ -545,13 +559,18 @@
                                     </asp:HyperLink>
                                 </li>
                                 <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkHRDeductions" runat="server" NavigateUrl="~/COOPERP/NewScreens/HRDeductions.aspx" CssClass="cd-sidebar__sublink">
-                                        <span>Deduction Records</span>
+                                    <asp:HyperLink ID="lnkHRPayslips" runat="server" NavigateUrl="~/COOPERP/NewScreens/HRPayslips.aspx" CssClass="cd-sidebar__sublink">
+                                        <span>Payslips</span>
                                     </asp:HyperLink>
                                 </li>
                                 <li class="cd-sidebar__subitem">
                                     <asp:HyperLink ID="lnkHRAllowances" runat="server" NavigateUrl="~/COOPERP/NewScreens/HRAllowances.aspx" CssClass="cd-sidebar__sublink">
                                         <span>Allowance Records</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkHRDeductions" runat="server" NavigateUrl="~/COOPERP/NewScreens/HRDeductions.aspx" CssClass="cd-sidebar__sublink">
+                                        <span>Deduction Records</span>
                                     </asp:HyperLink>
                                 </li>
                             </ul>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -34,9 +34,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         "Other"
     };
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Page_Load
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     protected void Page_Load(object sender, EventArgs e)
     {
@@ -62,9 +62,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         LoadStats();
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Dropdowns
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     private void LoadFilterDropdowns()
     {
@@ -103,9 +103,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         if (li != null) li.Selected = true;
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Stats
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     private void LoadStats()
     {
@@ -130,12 +130,12 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
                 litCancelled.Text  = SafeInt(r["cnt_cancelled"]).ToString();
             }
         }
-        catch { /* table may not yet exist — leave default "0" values */ }
+        catch { /* table may not yet exist - leave default "0" values */ }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Grid Binding
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     private void BindGrid()
     {
@@ -223,9 +223,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         else if (status == "CANCELLED") e.Row.CssClass = "pr-row-cancelled";
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Grid Editing (inline popup)
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     protected void gvDeductions_RowUpdating(object sender, DevExpress.Web.Data.ASPxDataUpdatingEventArgs e)
     {
@@ -299,9 +299,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         LoadStats();
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Add Single Deduction
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     protected void btnAddDeduction_Click(object sender, EventArgs e)
     {
@@ -329,7 +329,7 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         int year;
         if (!int.TryParse(txtAddYear.Text, out year) || year < 2020 || year > 2099)
         {
-            ShowResult("addResult", "addDeductionModal", "Please enter a valid year (2020–2099).", false);
+            ShowResult("addResult", "addDeductionModal", "Please enter a valid year (2020-2099).", false);
             return;
         }
 
@@ -374,9 +374,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
             "document.getElementById('addDeductionModal').style.display='none';", true);
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Batch / Recurring Deductions
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     protected void btnBatchCreate_Click(object sender, EventArgs e)
     {
@@ -419,7 +419,7 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         int startYear;
         if (!int.TryParse(txtBatchStartYear.Text, out startYear) || startYear < 2020 || startYear > 2099)
         {
-            ShowResult("batchResult", "batchDeductionModal", "Please enter a valid start year (2020–2099).", false);
+            ShowResult("batchResult", "batchDeductionModal", "Please enter a valid start year (2020-2099).", false);
             return;
         }
 
@@ -474,9 +474,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
             true);
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Batch Toolbar Actions
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     protected void btnBatchDelete_Click(object sender, EventArgs e)
     {
@@ -523,9 +523,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         return raw.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Filter & Pager Events
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     protected void ddlFilter_Changed(object sender, EventArgs e) { BindGrid(); }
     protected void btnSearch_Click(object sender, EventArgs e)   { BindGrid(); }
@@ -548,9 +548,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         BindGrid();
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Template Helpers  (called from <%# %> bindings in ASPX)
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     protected string GetStatusBadge(object status)
     {
@@ -590,7 +590,7 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         string deleteItem = !isSettled
             ? "<li class='cd-action-popover__item'><button type='button' class='cd-action-popover__btn cd-action-popover__btn--danger' " +
               "onclick='gridDelete(\"gvDeductions\"," + id + ")'>" + delSvg + " Delete</button></li>"
-            : "<li class='cd-action-popover__item'><button type='button' class='cd-action-popover__btn' disabled style='opacity:.4;cursor:default;'>" + delSvg + " Settled — locked</button></li>";
+            : "<li class='cd-action-popover__item'><button type='button' class='cd-action-popover__btn' disabled style='opacity:.4;cursor:default;'>" + delSvg + " Settled - locked</button></li>";
 
         return
             "<div class='cd-action-wrapper'>" +
@@ -619,7 +619,7 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
     protected string GetPayrollRef(object titleObj, object paymentDateObj)
     {
         if (titleObj == null || titleObj == DBNull.Value)
-            return "<span style='color:#bbb;font-size:10px;font-style:italic;'>—</span>";
+            return "<span style='color:#bbb;font-size:10px;font-style:italic;'>-</span>";
 
         string title = titleObj.ToString();
         string date  = (paymentDateObj != null && paymentDateObj != DBNull.Value)
@@ -637,9 +637,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         return s.Length <= maxLen ? HttpUtility.HtmlEncode(s) : HttpUtility.HtmlEncode(s.Substring(0, maxLen)) + "…";
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Helper: show result message in modal
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     private void ShowResult(string resultId, string modalId, string message, bool success)
     {
@@ -654,9 +654,9 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
             true);
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  Data Helpers
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     private string GetNewValue(System.Collections.Specialized.IOrderedDictionary dict, string key)
     {

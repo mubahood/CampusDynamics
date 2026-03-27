@@ -1,16 +1,16 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master"
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master"
     AutoEventWireup="true" CodeFile="HRConfig.aspx.cs"
     Inherits="COOPERP_NewScreens_HRConfig"
     Title="HR System Configuration - Campus Dynamics" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* ═══════════════════════════════════════════════════════════════
-   HR SYSTEM CONFIGURATION — page styles
+/* ===============================================================
+   HR SYSTEM CONFIGURATION - page styles
    Follows the NewScreens design system (primary #174DA4, 13 px base)
-   ═══════════════════════════════════════════════════════════════ */
+   =============================================================== */
 
-/* ── Page header ─────────────────────────────────────────────── */
+/* -- Page header ----------------------------------------------- */
 .hrc-page-header {
     display: flex; align-items: center; justify-content: space-between;
     flex-wrap: wrap; gap: 8px;
@@ -25,7 +25,7 @@
 .hrc-page-title   { font-size: 16px; font-weight: 700; color: #1a1a2e; }
 .hrc-page-sub     { font-size: 11px; color: #666; margin-top: 1px; }
 
-/* ── Last-updated banner ──────────────────────────────────────── */
+/* -- Last-updated banner ---------------------------------------- */
 .hrc-updated-bar {
     display: flex; align-items: center; gap: 8px;
     padding: 8px 14px; background: #e8f0fe;
@@ -33,7 +33,7 @@
     font-size: 11px; color: #174DA4;
 }
 
-/* ── Section card ─────────────────────────────────────────────── */
+/* -- Section card ----------------------------------------------- */
 .hrc-card {
     background: #fff; border: 1px solid #e0e0e0;
     border-top: 3px solid #174DA4; margin-bottom: 18px;
@@ -47,7 +47,7 @@
 .hrc-card__desc  { font-size: 11px; color: #888; margin-left: auto; }
 .hrc-card__body  { padding: 16px; }
 
-/* ── Info notice ─────────────────────────────────────────────── */
+/* -- Info notice ----------------------------------------------- */
 .hrc-notice {
     display: flex; align-items: flex-start; gap: 8px;
     padding: 9px 12px; background: #fffbea;
@@ -56,7 +56,7 @@
     line-height: 1.5;
 }
 
-/* ── PAYE bracket table ───────────────────────────────────────── */
+/* -- PAYE bracket table ----------------------------------------- */
 .hrc-bracket-table { width: 100%; border-collapse: collapse; }
 .hrc-bracket-table th {
     font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
@@ -79,7 +79,7 @@
 }
 .hrc-rate-badge--zero { color: #383d41; background: #e2e3e5; }
 
-/* ── Form grid ───────────────────────────────────────────────── */
+/* -- Form grid ------------------------------------------------- */
 .hrc-form-grid   { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
 .hrc-form-grid2  { display: grid; grid-template-columns: repeat(2,1fr); gap: 14px; }
 .hrc-form-grid4  { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
@@ -110,11 +110,11 @@
 .hrc-input--rate { width: 90px; text-align: right; }
 .hrc-input--amount { text-align: right; }
 
-/* ── Toggle row (Yes/No + rate) ──────────────────────────────── */
+/* -- Toggle row (Yes/No + rate) -------------------------------- */
 .hrc-toggle-row  { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .hrc-toggle-row .hrc-form-group { flex-shrink: 0; }
 
-/* ── Buttons ─────────────────────────────────────────────────── */
+/* -- Buttons --------------------------------------------------- */
 .hrc-actions {
     display: flex; align-items: center; justify-content: flex-end;
     gap: 10px; padding: 14px 18px;
@@ -135,7 +135,7 @@
 .hrc-btn--ghost:hover { background: #ebebeb; }
 .hrc-btn--danger  { background: #dc3545; color: #fff; }
 
-/* ── Result message ─────────────────────────────────────────── */
+/* -- Result message ------------------------------------------- */
 .hrc-result {
     display: none; padding: 10px 14px;
     font-size: 12px; font-weight: 600; border-left: 4px solid;
@@ -144,7 +144,7 @@
 .hrc-result--ok  { display: flex; background: #d4edda; border-color: #28a745; color: #155724; }
 .hrc-result--err { display: flex; background: #f8d7da; border-color: #dc3545; color: #721c24; }
 
-/* ── Misc ────────────────────────────────────────────────────── */
+/* -- Misc ------------------------------------------------------ */
 .hrc-suffix { font-size: 11px; color: #888; white-space: nowrap; align-self: center; padding: 0 4px; }
 .hrc-input-wrap { display: flex; align-items: center; gap: 4px; }
 
@@ -161,7 +161,7 @@
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 
-<!-- ── Page Header ─────────────────────────────────────────────── -->
+<!-- -- Page Header ----------------------------------------------- -->
 <div class="hrc-page-header">
     <div class="hrc-page-header__left">
         <div class="hrc-page-header__icon">
@@ -177,7 +177,7 @@
     </div>
 </div>
 
-<!-- ── Last Updated Banner ────────────────────────────────────── -->
+<!-- -- Last Updated Banner -------------------------------------- -->
 <asp:Panel ID="pnlLastUpdated" runat="server" Visible="false" CssClass="hrc-updated-bar">
     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
          fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/>
@@ -185,21 +185,21 @@
     <span><asp:Literal ID="litLastUpdated" runat="server" /></span>
 </asp:Panel>
 
-<!-- ── Result ──────────────────────────────────────────────────── -->
+<!-- -- Result ---------------------------------------------------- -->
 <div id="divResult" class="hrc-result" runat="server">
     <asp:Literal ID="litResult" runat="server" />
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SECTION 1 — PAYE TAX BRACKETS
-     ═══════════════════════════════════════════════════════════ -->
+<!-- ===========================================================
+     SECTION 1 - PAYE TAX BRACKETS
+     =========================================================== -->
 <div class="hrc-card">
     <div class="hrc-card__header">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
              fill="none" stroke="#174DA4" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/>
             <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         <span class="hrc-card__title">PAYE Tax Brackets</span>
-        <span class="hrc-card__desc">Monthly taxable income ranges &amp; rates — Uganda URA (Pay As You Earn)</span>
+        <span class="hrc-card__desc">Monthly taxable income ranges &amp; rates - Uganda URA (Pay As You Earn)</span>
     </div>
     <div class="hrc-card__body">
         <div class="hrc-notice">
@@ -208,7 +208,7 @@
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             All amounts are in <strong>Uganda Shillings (UGX)</strong> per month. Brackets are applied progressively.
-            Bracket 5 has no upper limit (the "To" field is disabled). Tax in each bracket = (income in bracket) × rate %.
+            Bracket 5 has no upper limit (the "To" field is disabled). Tax in each bracket = (income in bracket) x rate %.
         </div>
 
         <table class="hrc-bracket-table">
@@ -298,7 +298,7 @@
                     </td>
                     <td>
                         <asp:TextBox ID="txtPayeB5Max" runat="server" Text="" CssClass="hrc-input hrc-input--amount"
-                            ReadOnly="true" ToolTip="Top bracket — no upper limit" placeholder="∞  (no limit)" />
+                            ReadOnly="true" ToolTip="Top bracket - no upper limit" placeholder="(no limit)" />
                     </td>
                     <td>
                         <div class="hrc-input-wrap">
@@ -312,14 +312,14 @@
             </tbody>
         </table>
         <p style="font-size:10px;color:#aaa;margin:8px 0 0;padding-left:2px">
-            * "From" values for brackets 2–5 are automatically set to (previous bracket Max + 1) on save.
+            * "From" values for brackets 2-5 are automatically set to (previous bracket Max + 1) on save.
         </p>
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SECTION 2 — STATUTORY CONTRIBUTIONS
-     ═══════════════════════════════════════════════════════════ -->
+<!-- ===========================================================
+     SECTION 2 - STATUTORY CONTRIBUTIONS
+     =========================================================== -->
 <div class="hrc-card">
     <div class="hrc-card__header">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -343,7 +343,7 @@
                     <asp:TextBox ID="txtNssfEmployer" runat="server" Text="10" CssClass="hrc-input hrc-input--rate" />
                     <span class="hrc-suffix">% of basic pay</span>
                 </div>
-                <span class="hrc-hint">Institution's contribution — not deducted from salary (for reporting only)</span>
+                <span class="hrc-hint">Institution's contribution - not deducted from salary (for reporting only)</span>
             </div>
             <div class="hrc-form-group">
                 <!-- spacer -->
@@ -351,8 +351,8 @@
             <div class="hrc-form-group">
                 <label class="hrc-label">Charge Kabaka Contribution?</label>
                 <asp:DropDownList ID="ddlChargeKabaka" runat="server" CssClass="hrc-select">
-                    <asp:ListItem Value="Yes">Yes — deduct Kabaka tithe</asp:ListItem>
-                    <asp:ListItem Value="No">No — do not deduct</asp:ListItem>
+                    <asp:ListItem Value="Yes">Yes - deduct Kabaka tithe</asp:ListItem>
+                    <asp:ListItem Value="No">No - do not deduct</asp:ListItem>
                 </asp:DropDownList>
                 <span class="hrc-hint">Buganda Kingdom tithe (applies to Baganda employees)</span>
             </div>
@@ -368,9 +368,9 @@
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SECTION 3 — LOCAL SERVICE TAX
-     ═══════════════════════════════════════════════════════════ -->
+<!-- ===========================================================
+     SECTION 3 - LOCAL SERVICE TAX
+     =========================================================== -->
 <div class="hrc-card">
     <div class="hrc-card__header">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -385,8 +385,8 @@
             <div class="hrc-form-group">
                 <label class="hrc-label">Charge Local Service Tax?</label>
                 <asp:DropDownList ID="ddlChargeLocalTax" runat="server" CssClass="hrc-select">
-                    <asp:ListItem Value="No">No — do not charge LST</asp:ListItem>
-                    <asp:ListItem Value="Yes">Yes — deduct local service tax</asp:ListItem>
+                    <asp:ListItem Value="No">No - do not charge LST</asp:ListItem>
+                    <asp:ListItem Value="Yes">Yes - deduct local service tax</asp:ListItem>
                 </asp:DropDownList>
                 <span class="hrc-hint">Uganda LST is levied by local governments on employment income</span>
             </div>
@@ -402,9 +402,9 @@
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SECTION 4 — LEAVE ENTITLEMENTS
-     ═══════════════════════════════════════════════════════════ -->
+<!-- ===========================================================
+     SECTION 4 - LEAVE ENTITLEMENTS
+     =========================================================== -->
 <div class="hrc-card">
     <div class="hrc-card__header">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -413,7 +413,7 @@
             <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/></svg>
         <span class="hrc-card__title">Default Leave Entitlements</span>
-        <span class="hrc-card__desc">Calendar days per year — used when allocating leave for new employees</span>
+        <span class="hrc-card__desc">Calendar days per year - used when allocating leave for new employees</span>
     </div>
     <div class="hrc-card__body">
         <div class="hrc-form-grid4">
@@ -453,9 +453,9 @@
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SECTION 5 — EMPLOYMENT POLICIES
-     ═══════════════════════════════════════════════════════════ -->
+<!-- ===========================================================
+     SECTION 5 - EMPLOYMENT POLICIES
+     =========================================================== -->
 <div class="hrc-card">
     <div class="hrc-card__header">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -507,7 +507,7 @@
                 <label class="hrc-label">Overtime Rate Multiplier <span class="hrc-req">*</span></label>
                 <div class="hrc-input-wrap">
                     <asp:TextBox ID="txtOvertime" runat="server" Text="1.5" CssClass="hrc-input hrc-input--rate" />
-                    <span class="hrc-suffix">× hourly rate</span>
+                    <span class="hrc-suffix">x hourly rate</span>
                 </div>
                 <span class="hrc-hint">E.g. 1.5 = time-and-a-half. Uganda Employment Act min = 1.5</span>
             </div>
@@ -523,9 +523,9 @@
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SECTION 6 — WORKING HOURS
-     ═══════════════════════════════════════════════════════════ -->
+<!-- ===========================================================
+     SECTION 6 - WORKING HOURS
+     =========================================================== -->
 <div class="hrc-card">
     <div class="hrc-card__header">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -557,7 +557,7 @@
     </div>
 </div>
 
-<!-- ── Sticky Save Bar ─────────────────────────────────────────── -->
+<!-- -- Sticky Save Bar ------------------------------------------- -->
 <div class="hrc-actions">
     <asp:Button ID="btnReset" runat="server" Text="Reset to Defaults" CssClass="hrc-btn hrc-btn--ghost"
         OnClick="btnReset_Click"
@@ -567,7 +567,7 @@
 </div>
 
 <script>
-// ── Live PAYE bracket preview ────────────────────────────────
+// -- Live PAYE bracket preview --------------------------------
 (function () {
     var rateFields = [
         { rateId: '<%= txtPayeB1Rate.ClientID %>', pvId: 'pvB1', zero: true },

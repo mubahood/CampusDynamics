@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master"
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master"
     AutoEventWireup="true" CodeFile="HRAllowances.aspx.cs"
     Inherits="COOPERP_NewScreens_HRAllowances"
     Title="Payroll Allowance Records - Campus Dynamics" %>
@@ -8,7 +8,7 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* ══ Allowances page — shares payroll-records base styles ═══ */
+/* == Allowances page - shares payroll-records base styles === */
 .pr-page-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:12px 18px;background:#fff;border-bottom:2px solid #28a745;margin-bottom:14px;}
 .pr-page-header__left{display:flex;align-items:center;gap:10px;}
 .pr-page-icon{width:36px;height:36px;background:#eef2fb;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -67,7 +67,7 @@
 .pr-badge--settled{background:#c3e6cb;color:#155724;}
 .pr-badge--cancelled{background:#e2e3e5;color:#383d41;}
 
-/* Type badge — green scheme */
+/* Type badge - green scheme */
 .pr-type{display:inline-block;padding:1px 7px;font-size:10px;font-weight:600;background:#f0fff4;color:#155724;border:1px solid #c3e6cb;}
 
 /* Period */
@@ -151,7 +151,7 @@
 <asp:Button ID="btnBatchDelete" runat="server" style="display:none;" OnClick="btnBatchDelete_Click" />
 <asp:Button ID="btnBatchCancel" runat="server" style="display:none;" OnClick="btnBatchCancel_Click" />
 
-<!-- ── Page Header ──────────────────────────────────────────── -->
+<!-- -- Page Header -------------------------------------------- -->
 <div class="pr-page-header">
     <div class="pr-page-header__left">
         <div class="pr-page-icon">
@@ -179,7 +179,7 @@
     </div>
 </div>
 
-<!-- ── Stats ───────────────────────────────────────────────── -->
+<!-- -- Stats ------------------------------------------------- -->
 <div class="ct-stats">
     <div class="ct-stat ct-stat--amber">
         <div class="ct-stat__icon">
@@ -219,7 +219,7 @@
     </div>
 </div>
 
-<!-- ── Filter Bar ──────────────────────────────────────────── -->
+<!-- -- Filter Bar -------------------------------------------- -->
 <div class="ct-filters">
     <div class="ct-filters__top">
         <div class="ct-search-wrap">
@@ -274,7 +274,7 @@
     </div>
 </div>
 
-<!-- ── Count bar + batch toolbar ──────────────────────────── -->
+<!-- -- Count bar + batch toolbar ---------------------------- -->
 <div class="pr-count-bar">
     <span><asp:Literal ID="litFilterCount" runat="server" Text="0" /> record(s) shown</span>
 </div>
@@ -295,7 +295,7 @@
     <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="clearBatchSelection()">Clear</button>
 </div>
 
-<!-- ── Grid ───────────────────────────────────────────────── -->
+<!-- -- Grid ------------------------------------------------- -->
 <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e0e0e0;">
 <dx:ASPxGridView ID="gvAllowances" runat="server" Width="100%" ClientInstanceName="gvAllowances"
     KeyFieldName="id" EnableCallBacks="true" Theme="Glass"
@@ -357,7 +357,7 @@
                     <dx:ListEditItem Text="Hardship Allowance"      Value="Hardship Allowance" />
                     <dx:ListEditItem Text="Annual Bonus"            Value="Annual Bonus" />
                     <dx:ListEditItem Text="Performance Bonus"       Value="Performance Bonus" />
-                    <dx:ListEditItem Text="Responsibility Allowance"Value="Responsibility Allowance" />
+                    <dx:ListEditItem Text="Responsibility Allowance" Value="Responsibility Allowance" />
                     <dx:ListEditItem Text="Uniform / Clothing"      Value="Uniform / Clothing" />
                     <dx:ListEditItem Text="Meal Allowance"          Value="Meal Allowance" />
                     <dx:ListEditItem Text="Overtime Pay"            Value="Overtime Pay" />
@@ -444,9 +444,9 @@
 </dx:ASPxGridView>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════
+<!-- ============================================================
      MODAL: Add Single Allowance
-     ════════════════════════════════════════════════════════════ -->
+     ============================================================ -->
 <div class="hr-modal-overlay" id="addAllowanceModal">
     <div class="hr-modal">
         <div class="hr-modal__header">
@@ -526,9 +526,9 @@
     </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════
+<!-- ============================================================
      MODAL: Batch / Recurring Allowances
-     ════════════════════════════════════════════════════════════ -->
+     ============================================================ -->
 <div class="hr-modal-overlay" id="batchAllowanceModal">
     <div class="hr-modal hr-modal--wide">
         <div class="hr-modal__header">
@@ -599,12 +599,12 @@
                 <div class="hr-form-group hr-form-group--full">
                     <label class="hr-label">Description / Notes</label>
                     <asp:TextBox ID="txtBatchDescription" runat="server" CssClass="hr-textarea" TextMode="MultiLine" Rows="2"
-                        placeholder="E.g. Monthly transport — {n} of 12" />
+                        placeholder="E.g. Monthly transport - {n} of 12" />
                     <span class="hr-hint">Use <strong>{n}</strong> as a placeholder for month number (e.g. 1, 2, 3…)</span>
                 </div>
             </div>
             <div class="batch-preview">
-                <div class="batch-preview__title">Preview — months to be created:</div>
+                <div class="batch-preview__title">Preview - months to be created:</div>
                 <div id="batchPreviewList" class="batch-preview__list">
                     <span class="batch-preview__empty">Fill in the fields above to preview</span>
                 </div>
@@ -620,12 +620,12 @@
 <script>
 var MONTHS_ARR=['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
 
-/* ── Action popovers ── */
+/* -- Action popovers -- */
 function toggleActionPopover(btn,evt){evt.stopPropagation();var pop=btn.nextElementSibling;var isOpen=pop.classList.contains('is-open');closeAllPopovers();if(!isOpen)pop.classList.add('is-open');}
 function closeAllPopovers(){document.querySelectorAll('.cd-action-popover.is-open').forEach(function(p){p.classList.remove('is-open');});}
 document.addEventListener('click',closeAllPopovers);
 
-/* ── Modals ── */
+/* -- Modals -- */
 function openAddModal(){
     document.getElementById('addAllowanceModal').style.display='flex';
     var r=document.getElementById('addResult');r.innerHTML='';r.className='hr-result';
@@ -644,7 +644,7 @@ document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){closeAddModal();closeBatchModal();}
 });
 
-/* ── Grid helpers (DX v16.1) ── */
+/* -- Grid helpers (DX v16.1) -- */
 function gridFindIndex(gName,key){
     var g=window[gName];var c=g.GetVisibleRowsOnPage();
     for(var i=0;i<c;i++)if(String(g.GetRowKey(i))===String(key))return i;
@@ -657,7 +657,7 @@ function gridDelete(gName,key){
     var idx=gridFindIndex(gName,key);if(idx>=0)window[gName].DeleteRow(idx);
 }
 
-/* ── Single row cancel (reuses batch cancel handler) ── */
+/* -- Single row cancel (reuses batch cancel handler) -- */
 function singleCancel(id){
     closeAllPopovers();
     if(!confirm('Mark this allowance as CANCELLED?'))return;
@@ -665,7 +665,7 @@ function singleCancel(id){
     document.getElementById('<%= btnBatchCancel.ClientID %>').click();
 }
 
-/* ── Batch toolbar ── */
+/* -- Batch toolbar -- */
 function updateBatchToolbar(){
     var checked=document.querySelectorAll('.ct-row-check:checked');
     var all=document.querySelectorAll('.ct-row-check');
@@ -696,7 +696,7 @@ function doBatchDelete(){
     document.getElementById('<%= btnBatchDelete.ClientID %>').click();
 }
 
-/* ── Batch preview ── */
+/* -- Batch preview -- */
 function updateBatchPreview(){
     var pv=document.getElementById('batchPreviewList');if(!pv)return;
     var selEl=document.getElementById('<%= ddlBatchStartMonth.ClientID %>');
@@ -720,7 +720,7 @@ function updateBatchPreview(){
     if(n)n.addEventListener('input',updateBatchPreview);
 })();
 
-/* ── Search on Enter ── */
+/* -- Search on Enter -- */
 (function(){
     var sb=document.getElementById('<%= txtSearch.ClientID %>');
     if(sb)sb.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();document.getElementById('<%= btnSearch.ClientID %>').click();}});

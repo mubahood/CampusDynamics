@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="PaymentVouchers.aspx.cs" Inherits="COOPERP_NewScreens_PaymentVouchers" Title="Payment Vouchers - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="PaymentVouchers.aspx.cs" Inherits="COOPERP_NewScreens_PaymentVouchers" Title="Payment Vouchers - Campus Dynamics" %>
 <%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="HeadContent" Runat="Server">
@@ -110,7 +110,7 @@
     <asp:Panel ID="pnlDetail" runat="server" Visible="false">
         <div class="pv-section">
             <div class="pv-section__header">
-                Voucher #<asp:Label ID="lblVoucherNo" runat="server" /> — 
+                Voucher #<asp:Label ID="lblVoucherNo" runat="server" /> - 
                 Status: <asp:Label ID="lblVoucherStatus" runat="server" />
             </div>
             <div style="padding:0;">

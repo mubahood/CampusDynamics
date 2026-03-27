@@ -996,12 +996,11 @@
                                 <dx:GridViewColumnLayoutItem ColumnName="studPhone"></dx:GridViewColumnLayoutItem>
                                 <dx:GridViewColumnLayoutItem ColumnName="email"></dx:GridViewColumnLayoutItem>
                                 <dx:GridViewColumnLayoutItem ColumnName="home_dist"></dx:GridViewColumnLayoutItem>
+                                <dx:GridViewColumnLayoutItem ColumnName="national_id"></dx:GridViewColumnLayoutItem>
                             </Items>
                         </dx:GridViewLayoutGroup>
                         <dx:GridViewLayoutGroup Caption="Academic Information" ColCount="2" ColSpan="2">
                             <Items>
-                                <dx:GridViewColumnLayoutItem ColumnName="progid"></dx:GridViewColumnLayoutItem>
-                                <dx:GridViewColumnLayoutItem ColumnName="specialisation"></dx:GridViewColumnLayoutItem>
                                 <dx:GridViewColumnLayoutItem ColumnName="entryyear"></dx:GridViewColumnLayoutItem>
                                 <dx:GridViewColumnLayoutItem ColumnName="intake"></dx:GridViewColumnLayoutItem>
                                 <dx:GridViewColumnLayoutItem ColumnName="studsesion"></dx:GridViewColumnLayoutItem>
@@ -1148,15 +1147,30 @@
                         <CellStyle Font-Size="10px" />
                     </dx:GridViewDataTextColumn>
                     
+                    <dx:GridViewDataTextColumn Caption="Registered" FieldName="is_registered" VisibleIndex="19" Width="70px" ReadOnly="True">
+                        <EditFormSettings Visible="False" />
+                        <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
+                        <CellStyle HorizontalAlign="Center" />
+                        <DataItemTemplate>
+                            <%# Eval("is_registered").ToString() == "Yes" 
+                                ? "<span style='color:#28a745;font-weight:bold;'>&#10004; Yes</span>" 
+                                : "<span style='color:#dc3545;'>&#10008; No</span>" %>
+                        </DataItemTemplate>
+                    </dx:GridViewDataTextColumn>
+                    
                     <dx:GridViewDataTextColumn Caption="Programme" FieldName="progname" VisibleIndex="50" Visible="False" ReadOnly="True">
                         <EditFormSettings Visible="False" />
                     </dx:GridViewDataTextColumn>
                     
                     <dx:GridViewDataComboBoxColumn Caption="Programme" FieldName="progid" VisibleIndex="51" Visible="False">
-                        <EditFormSettings Visible="True" />
+                        <EditFormSettings Visible="False" />
                     </dx:GridViewDataComboBoxColumn>
                     
                     <dx:GridViewDataTextColumn Caption="Specialisation" FieldName="specialisation" VisibleIndex="52" Width="100px" Visible="False">
+                        <EditFormSettings Visible="False" />
+                    </dx:GridViewDataTextColumn>
+                    
+                    <dx:GridViewDataTextColumn Caption="NIN" FieldName="national_id" VisibleIndex="52" Visible="False">
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataTextColumn>
                     
@@ -1184,22 +1198,22 @@
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataComboBoxColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Session" FieldName="studsesion" VisibleIndex="19" Width="55px">
+                    <dx:GridViewDataTextColumn Caption="Session" FieldName="studsesion" VisibleIndex="20" Width="55px">
                         <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
                         <CellStyle HorizontalAlign="Center" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Campus" FieldName="campus_name" VisibleIndex="20" Width="80px">
+                    <dx:GridViewDataTextColumn Caption="Campus" FieldName="campus_name" VisibleIndex="21" Width="80px">
                         <HeaderStyle Font-Size="11px" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Old Status" FieldName="stud_status" VisibleIndex="21" Width="70px" ReadOnly="True">
+                    <dx:GridViewDataTextColumn Caption="Old Status" FieldName="stud_status" VisibleIndex="22" Width="70px" ReadOnly="True">
                         <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
                         <CellStyle HorizontalAlign="Center" ForeColor="#999999" />
                         <EditFormSettings Visible="False" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataComboBoxColumn Caption="Status" FieldName="new_status" VisibleIndex="22" Width="75px">
+                    <dx:GridViewDataComboBoxColumn Caption="Status" FieldName="new_status" VisibleIndex="23" Width="75px">
                         <PropertiesComboBox>
                             <Items>
                                 <dx:ListEditItem Text="ADMITTED" Value="ADMITTED" />
@@ -1214,19 +1228,19 @@
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataComboBoxColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Campus Code" FieldName="studCampus" VisibleIndex="24" Visible="False">
+                    <dx:GridViewDataTextColumn Caption="Campus Code" FieldName="studCampus" VisibleIndex="25" Visible="False">
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Grading System" FieldName="gradSystemID" VisibleIndex="25" Visible="False">
+                    <dx:GridViewDataTextColumn Caption="Grading System" FieldName="gradSystemID" VisibleIndex="26" Visible="False">
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn FieldName="photofile" Visible="False" VisibleIndex="26">
+                    <dx:GridViewDataTextColumn FieldName="photofile" Visible="False" VisibleIndex="27">
                         <EditFormSettings Visible="False" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn VisibleIndex="27" Caption=" " Width="40px" 
+                    <dx:GridViewDataTextColumn VisibleIndex="28" Caption=" " Width="40px" 
                         Settings-AllowSort="False" Settings-AllowAutoFilter="False">
                         <DataItemTemplate>
                             <div class="cd-action-wrapper">

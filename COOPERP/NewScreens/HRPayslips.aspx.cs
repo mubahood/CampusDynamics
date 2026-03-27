@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -17,7 +17,7 @@ public partial class COOPERP_NewScreens_HRPayslips : System.Web.UI.Page
 
     private string ConnStr
     {
-        get { return ConfigurationManager.ConnectionStrings["MySqlConn"].ConnectionString; }
+        get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
     }
 
     private DataTable ExecuteQuery(string sql, params MySqlParameter[] prms)
@@ -108,12 +108,60 @@ public partial class COOPERP_NewScreens_HRPayslips : System.Web.UI.Page
             "<div class=\"hr-alert hr-alert--{0}\">{1}</div>", type, message);
     }
 
+    private void EnsurePayslipsTableExists()
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(@"
+                    CREATE TABLE IF NOT EXISTS hrm_payslips (
+                        ID INT NOT NULL AUTO_INCREMENT,
+                        payroll_id INT NOT NULL,
+                        empID INT NOT NULL,
+                        payroll_year INT NOT NULL,
+                        payroll_month INT NOT NULL,
+                        payroll_month_name ENUM('JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
+                            'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER') NOT NULL,
+                        basic_pay DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        gross_salary DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        total_allowances DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        allowance_amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        allowance_details TEXT NULL,
+                        total_deductions DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        deduction_amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        deduction_details TEXT NULL,
+                        paye DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        nssf DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        kabaka_contribution DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        local_tax DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        net_salary DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        status ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+                        date_generated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        approved_by VARCHAR(100) NULL,
+                        date_approved DATETIME NULL,
+                        rejection_reason TEXT NULL,
+                        PRIMARY KEY (ID),
+                        UNIQUE KEY uq_payslip_payroll_emp (payroll_id, empID),
+                        INDEX idx_ps_payroll (payroll_id),
+                        INDEX idx_ps_emp (empID),
+                        INDEX idx_ps_status (status),
+                        INDEX idx_ps_period (payroll_year, payroll_month)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", conn))
+                    cmd.ExecuteNonQuery();
+            }
+        }
+        catch { }
+    }
+
     // =====================================================================
     // SECTION 2: Page_Load
     // =====================================================================
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        EnsurePayslipsTableExists();
         if (!IsPostBack)
         {
             LoadFilterDropdowns();
@@ -333,7 +381,7 @@ public partial class COOPERP_NewScreens_HRPayslips : System.Web.UI.Page
     }
 
     // =====================================================================
-    // SECTION 6: btnExecuteSlipAction_Click — handles APPROVE from popover
+    // SECTION 6: btnExecuteSlipAction_Click - handles APPROVE from popover
     // =====================================================================
 
     protected void btnExecuteSlipAction_Click(object sender, EventArgs e)
@@ -597,7 +645,7 @@ public partial class COOPERP_NewScreens_HRPayslips : System.Web.UI.Page
             html.AppendFormat("<div><strong>Staff #:</strong> {0}</div>", HttpUtility.HtmlEncode(empCode));
             html.AppendFormat("<div><strong>Payroll:</strong> {0}</div>", HttpUtility.HtmlEncode(payrollTitle));
             html.AppendFormat("<div><strong>Generated:</strong> {0}</div>",
-                dateGenerated != DateTime.MinValue ? dateGenerated.ToString("dd MMM yyyy") : "—");
+                dateGenerated != DateTime.MinValue ? dateGenerated.ToString("dd MMM yyyy") : "-");
             html.Append("</div>");
             html.Append("</div>"); // end payslip-print__header
 
@@ -820,11 +868,11 @@ public partial class COOPERP_NewScreens_HRPayslips : System.Web.UI.Page
 
     protected string FormatDate(object val)
     {
-        if (val == null || val == DBNull.Value) return "—";
+        if (val == null || val == DBNull.Value) return "-";
         DateTime dt;
         if (DateTime.TryParse(val.ToString(), out dt))
             return dt.ToString("dd MMM yyyy");
-        return "—";
+        return "-";
     }
 
     protected string TruncStr(object val, int maxLen)

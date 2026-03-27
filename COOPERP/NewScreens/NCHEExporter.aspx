@@ -1,14 +1,12 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="NCHEExporter.aspx.cs" Inherits="COOPERP_NewScreens_NCHEExporter" Title="NCHE Student Data Export - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="NCHEExporter.aspx.cs" Inherits="COOPERP_NewScreens_NCHEExporter" Title="NCHE Student Data Export - Campus Dynamics" %>
 
 <%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style type="text/css">
 
-/* ── NCHE Exporter — page-scoped styles ─────────────────────────────── */
-
 .nche-header {
-    background: linear-gradient(135deg, #05275C 0%, #0a3a7a 100%);
+    background: #05275C;
     border-bottom: 4px solid #c9a227;
     padding: 22px 28px;
     display: flex;
@@ -53,10 +51,10 @@
     align-self: flex-start;
 }
 
-/* ── Body wrapper ───────────────────────────────────────────────────── */
+/* -- Body wrapper ----------------------------------------------------- */
 .nche-body { padding: 22px 26px 40px; }
 
-/* ── Info strip ─────────────────────────────────────────────────────── */
+/* -- Info strip ------------------------------------------------------- */
 .nche-info-strip {
     background: #fffbee;
     border: 1px solid #ead98a;
@@ -84,7 +82,7 @@
     letter-spacing: 0.3px;
 }
 
-/* ── Filter card ─────────────────────────────────────────────────────── */
+/* -- Filter card ------------------------------------------------------- */
 .nche-filter-card {
     background: #fff;
     border: 1px solid #e0e5ed;
@@ -148,7 +146,7 @@
 .nche-btn-clear:hover { background: #f5f7fa; }
 .nche-count-lbl { margin-left: auto; }
 
-/* ── Grid card ──────────────────────────────────────────────────────── */
+/* -- Grid card -------------------------------------------------------- */
 .nche-grid-card {
     background: #fff;
     border: 1px solid #e0e5ed;
@@ -181,7 +179,7 @@
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 <div>
 
-    <%-- ── Page Header ──────────────────────────────────────────────── --%>
+    <%-- -- Page Header ------------------------------------------------ --%>
     <div class="nche-header">
         <div class="nche-header-icon">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
@@ -201,7 +199,7 @@
 
     <div class="nche-body">
 
-        <%-- ── Required columns notice ──────────────────────────────── --%>
+        <%-- -- Required columns notice -------------------------------- --%>
         <div class="nche-info-strip">
             <strong>NCHE Required Data Columns (10 fields per student record):</strong>
             <div class="nche-cols-list">
@@ -218,7 +216,7 @@
             </div>
         </div>
 
-        <%-- ── Filter card ───────────────────────────────────────────── --%>
+        <%-- -- Filter card --------------------------------------------- --%>
         <div class="nche-filter-card">
             <div class="nche-filter-card-title">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -293,7 +291,7 @@
             </div>
         </div>
 
-        <%-- ── Preview grid ──────────────────────────────────────────── --%>
+        <%-- -- Preview grid -------------------------------------------- --%>
         <div class="nche-grid-card">
             <div class="nche-grid-header">
                 <h3>

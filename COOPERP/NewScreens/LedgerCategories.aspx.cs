@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Web.UI;
 using MySql.Data.MySqlClient;
@@ -60,7 +60,7 @@ public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
 
                     if (!string.IsNullOrEmpty(editId))
                     {
-                        // Update mode — SP may accept @ltID for updates
+                        // Update mode - SP may accept @ltID for updates
                         cmd.Parameters.AddWithValue("@ltID", int.Parse(editId));
                     }
 

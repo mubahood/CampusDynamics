@@ -1,12 +1,12 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="HRContracts.aspx.cs" Inherits="COOPERP_NewScreens_HRContracts" Title="Contract Management - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="HRContracts.aspx.cs" Inherits="COOPERP_NewScreens_HRContracts" Title="Contract Management - Campus Dynamics" %>
 
 <%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* ===== CONTRACT MANAGEMENT — RESPONSIVE ===== */
+/* ===== CONTRACT MANAGEMENT - RESPONSIVE ===== */
 
-/* ── Page Header ─────────────────────────────────────── */
+/* -- Page Header --------------------------------------- */
 .ct-page-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 0 10px; margin-bottom: 14px;
@@ -22,7 +22,7 @@
 .ct-page-header__title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin: 0; line-height: 1.2; }
 .ct-page-header__sub   { font-size: 11px; color: #888; margin-top: 1px; }
 
-/* ── Stats Row ───────────────────────────────────────── */
+/* -- Stats Row ----------------------------------------- */
 .ct-stats {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -46,7 +46,7 @@
 .ct-stat--amber .ct-stat__icon { background: #fff8e1; } .ct-stat--amber .ct-stat__val { color: #e67e00; }
 .ct-stat--grey  .ct-stat__icon { background: #f0f0f0; } .ct-stat--grey  .ct-stat__val { color: #555; }
 
-/* ── Expiry Banner ───────────────────────────────────── */
+/* -- Expiry Banner ------------------------------------- */
 .ct-banner {
     display: flex; align-items: center; gap: 10px;
     background: #fff8e1; border: 1px solid #ffe082; border-left: 4px solid #ffc107;
@@ -58,7 +58,7 @@
 .ct-banner a { color: #174DA4; font-weight: 600; text-decoration: none; margin-left: 6px; }
 .ct-banner a:hover { text-decoration: underline; }
 
-/* ── Card ────────────────────────────────────────────── */
+/* -- Card ---------------------------------------------- */
 .cd-card { background: #fff; border: 1px solid #e4e8f0; margin-bottom: 12px; border-radius: 6px; overflow: hidden; }
 .cd-card__header {
     display: flex; align-items: center; justify-content: space-between;
@@ -68,7 +68,7 @@
 .cd-card__title { font-size: 13px; font-weight: 700; color: #1a1a1a; display: flex; align-items: center; gap: 7px; }
 .cd-card__meta  { font-size: 10px; color: #174DA4; font-weight: 600; background: rgba(23,77,164,.08); padding: 3px 10px; border-radius: 10px; white-space: nowrap; }
 
-/* ── Filter Bar ──────────────────────────────────────── */
+/* -- Filter Bar ---------------------------------------- */
 .ct-filters { background: #f8f9fa; border-bottom: 1px solid #e4e8f0; padding: 8px 12px; }
 .ct-filters__top {
     display: flex; align-items: center; gap: 6px;
@@ -105,7 +105,7 @@
 .ct-filter-select:focus { border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.10); outline: none; }
 .ct-filter-sep { width: 1px; height: 32px; background: #e0e0e0; align-self: flex-end; margin: 0 2px; }
 
-/* ── Buttons ─────────────────────────────────────────── */
+/* -- Buttons ------------------------------------------- */
 .hr-btn {
     padding: 6px 13px; font-size: 11px; font-weight: 600;
     border: none; cursor: pointer; border-radius: 6px;
@@ -122,7 +122,7 @@
 .hr-btn--amber   { background: #e67e00; color: #fff; }  .hr-btn--amber:hover  { background: #b45309; }
 .hr-btn--sm      { padding: 5px 11px; font-size: 10px; }
 
-/* ── Badges ──────────────────────────────────────────── */
+/* -- Badges -------------------------------------------- */
 .hr-badge { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; border-radius: 3px; }
 .hr-badge--valid      { background: #d4edda; color: #155724; }
 .hr-badge--expired    { background: #f8d7da; color: #721c24; }
@@ -130,12 +130,12 @@
 .hr-badge--resigned   { background: #fff3cd; color: #856404; }
 .hr-badge--none       { background: #e9ecef; color: #6c757d; }
 
-/* ── Contract type badge ─────────────────────────────── */
+/* -- Contract type badge ------------------------------- */
 .ct-type { display: inline-block; padding: 2px 7px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; border-radius: 3px; }
 .ct-type--full { background: #e8f0fc; color: #174DA4; }
 .ct-type--part { background: #fff3cd; color: #856404; }
 
-/* ── Days remaining pill ─────────────────────────────── */
+/* -- Days remaining pill ------------------------------- */
 .ct-days { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; font-size: 10px; font-weight: 700; border-radius: 3px; }
 .ct-days--ok     { background: #d4edda; color: #155724; }
 .ct-days--warn   { background: #fff3cd; color: #856404; }
@@ -143,13 +143,13 @@
 .ct-days--over   { background: #dc3545; color: #fff; }
 .ct-days--na     { color: #bbb; font-size: 10px; }
 
-/* ── Row colouring ───────────────────────────────────── */
+/* -- Row colouring ------------------------------------- */
 .ct-row-valid    td { background: #fff    !important; }
 .ct-row-expiring td { background: #fffdf0 !important; }
 .ct-row-expired  td { background: #fff6f6 !important; }
 .ct-row-other    td { background: #fafafa !important; }
 
-/* ── Batch Toolbar ───────────────────────────────────── */
+/* -- Batch Toolbar ------------------------------------- */
 .ct-batch-toolbar {
     display: none; align-items: center; gap: 8px; flex-wrap: wrap;
     padding: 8px 14px; background: #fffbe6;
@@ -161,7 +161,7 @@
 .ct-batch-status-wrap { display: flex; align-items: center; gap: 5px; }
 .ct-row-check   { cursor: pointer; width: 14px; height: 14px; accent-color: #174DA4; vertical-align: middle; }
 
-/* ── Action popover ──────────────────────────────────── */
+/* -- Action popover ------------------------------------ */
 .cd-action-wrapper { position: relative; display: inline-block; }
 .cd-action-trigger {
     background: none; border: 1px solid #ddd; border-radius: 5px;
@@ -189,7 +189,7 @@
 .cd-action-popover__btn--success:hover        { background: #e6f4ea; color: #28a745; }
 .cd-action-popover__divider                   { height: 1px; background: #f0f0f0; margin: 3px 0; }
 
-/* ── Modal ───────────────────────────────────────────── */
+/* -- Modal --------------------------------------------- */
 .hr-modal-overlay {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,.48); z-index: 10000;
@@ -226,7 +226,7 @@
 }
 .hr-modal__section:first-child { margin-top: 0; }
 
-/* ── Form ────────────────────────────────────────────── */
+/* -- Form ---------------------------------------------- */
 .hr-form-group  { margin-bottom: 10px; }
 .hr-form-label  { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #555; font-weight: 600; margin-bottom: 3px; }
 .hr-form-label .req { color: #dc3545; margin-left: 2px; }
@@ -247,12 +247,12 @@
 .hr-result--err { background: #fdecea; color: #b91c1c; border-left: 3px solid #dc3545; display: block; }
 .hr-result--ok  { background: #e6f4ea; color: #155724; border-left: 3px solid #28a745; display: block; }
 
-/* ── Radio group ─────────────────────────────────────── */
+/* -- Radio group --------------------------------------- */
 .ct-radio-group  { display: flex; gap: 16px; padding: 4px 0; }
 .ct-radio-option { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
 .ct-radio-option input[type=radio] { cursor: pointer; accent-color: #174DA4; width: 14px; height: 14px; }
 
-/* ── Grid tweaks ─────────────────────────────────────── */
+/* -- Grid tweaks --------------------------------------- */
 .dxgvControl_Glass { border: none !important; }
 .dxgvHeader_Glass td {
     font-size: 10px !important; text-transform: uppercase !important;
@@ -268,7 +268,7 @@
 .dxgvDataRowAlt_Glass:hover td { background: #f0f4ff !important; }
 .dxgvPagerBar_Glass { background: #fafbfc !important; border-top: 1px solid #e4e8f0 !important; font-size: 11px !important; }
 
-/* ── RESPONSIVE ──────────────────────────────────────── */
+/* -- RESPONSIVE ---------------------------------------- */
 @media (max-width: 1100px) {
     .ct-stats { grid-template-columns: repeat(3, 1fr); }
     .ct-stat:last-child { grid-column: span 3; }

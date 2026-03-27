@@ -4,6 +4,12 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
     <style type="text/css">
+        /* ---- Page Header ---- */
+        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
+        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
         /* ID Cards Stats - Compact Inline */
         .idcard-stats-bar {
             display: flex;
@@ -237,6 +243,18 @@
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        </div>
+        <div>
+            <div class="cd-page-header__title">Student ID Cards</div>
+            <div class="cd-page-header__sub">Generate and track student identity card production</div>
+        </div>
+    </div>
+</div>
     <!-- Stats Bar (Compact Inline) -->
     <div class="idcard-stats-bar">
         <div class="idcard-stat-item idcard-stat-item--pending">

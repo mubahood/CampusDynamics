@@ -2,9 +2,28 @@
 <%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="HeadContent" Runat="Server">
+<style type="text/css">
+.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.cd-page-header__left { display:flex; align-items:center; gap:12px; }
+.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+</style>
 </asp:Content>
 
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </div>
+        <div>
+            <div class="cd-page-header__title">Programme Courses</div>
+            <div class="cd-page-header__sub">Define and manage courses assigned to each programme</div>
+        </div>
+    </div>
+</div>
     <div class="cd-card">
         <div class="cd-card__header">
             <h3 class="cd-card__title">

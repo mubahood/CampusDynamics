@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -25,9 +25,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // PAGE LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected override void OnInit(EventArgs e)
     {
@@ -58,9 +58,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // HELPERS — Academic Year / Semester (centralised in AcademicYearHelper)
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
+    // HELPERS - Academic Year / Semester (centralised in AcademicYearHelper)
+    // ===================================================================
 
     private void LoadAcademicYears()
     {
@@ -84,7 +84,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                 using (var rdr = cmd.ExecuteReader())
                     while (rdr.Read())
                         ddlProgramme.Items.Add(new ListItem(
-                            rdr["progcode"] + " — " + rdr["progname"], rdr["progcode"].ToString()));
+                            rdr["progcode"] + " - " + rdr["progname"], rdr["progcode"].ToString()));
             }
         }
         catch { /* non-fatal */ }
@@ -92,9 +92,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
 
     private void LoadNewStudentDropdowns()
     {
-        // Programmes (for new student form — separate from filter)
+        // Programmes (for new student form - separate from filter)
         ddlNewStudProgramme.Items.Clear();
-        ddlNewStudProgramme.Items.Add(new ListItem("— Select Programme —", ""));
+        ddlNewStudProgramme.Items.Add(new ListItem("- Select Programme -", ""));
         try
         {
             using (var conn = new MySqlConnection(ConnectionString))
@@ -105,7 +105,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                 using (var rdr = cmd.ExecuteReader())
                     while (rdr.Read())
                         ddlNewStudProgramme.Items.Add(new ListItem(
-                            rdr["progcode"] + " — " + rdr["progname"],
+                            rdr["progcode"] + " - " + rdr["progname"],
                             rdr["progcode"].ToString()));
             }
         }
@@ -202,9 +202,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         return "system";
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // STATS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     private void LoadStats()
     {
@@ -266,9 +266,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         catch { /* non-fatal */ }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // BIND GRID
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     private void BindGrid()
     {
@@ -394,9 +394,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // TEMPLATE HELPERS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected string ShowIf(object val, string match)
     {
@@ -462,9 +462,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         return (s ?? "").ToUpper().Trim() == "BILLED" ? "billed" : "notbilled";
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // FILTER CHANGE HANDLERS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnSearch_Click(object sender, EventArgs e)                   { LoadStats(); BindGrid(); }
     protected void ddlAcadYear_SelectedIndexChanged(object sender, EventArgs e)   { UpdateDisplayLabels(); LoadStats(); BindGrid(); }
@@ -497,9 +497,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
     }
     protected void btnRefresh_Click(object sender, EventArgs e) { LoadStats(); BindGrid(); }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // INDIVIDUAL ACTIONS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnRegister_Click(object sender, EventArgs e)
     {
@@ -691,9 +691,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         BindGrid();
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // BATCH ACTIONS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnBatchRegister_Click(object sender, EventArgs e)          { RunBatch("register");     }
     protected void btnBatchLateRegister_Click(object sender, EventArgs e)      { RunBatch("late");         }
@@ -756,9 +756,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         BindGrid();
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // ADD REGISTRATION MODAL
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnDoAddReg_Click(object sender, EventArgs e)
     {
@@ -777,6 +777,14 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         if (string.IsNullOrEmpty(acadYear))
         {
             ShowAddRegError("Please select an academic year.");
+            return;
+        }
+        // Enforce current academic year only
+        if (!AcademicYearHelper.IsCurrentAcademicYear(acadYear))
+        {
+            ShowAddRegError(string.Format(
+                "Registration is only allowed for the current academic year ({0}). You selected {1}.",
+                AcademicYearHelper.GetCurrentYearDisplay(), acadYear));
             return;
         }
         if (semester < 1 || semester > 3)
@@ -876,13 +884,17 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         ScriptManager.RegisterStartupScript(this, GetType(), "reopenAdd", "openAddRegModal();", true);
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // REGISTER NEW STUDENT MODAL
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
+
+    // ===================================================================
+    // REGISTER NEW STUDENT MODAL
+    // ===================================================================
 
     protected void btnDoNewStudent_Click(object sender, EventArgs e)
     {
-        // ── Gather all form values ──
+        // -- Gather all form values --
         string title        = ddlNewStudTitle.SelectedValue;
         string fullName     = (txtNewStudName.Text ?? "").Trim().ToUpper();
         string gender       = ddlNewStudGender.SelectedValue;
@@ -920,7 +932,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
 
         bool registerNow    = chkRegisterNow.Checked;
 
-        // ── Validation ──
+        // -- Validation --
         if (string.IsNullOrEmpty(fullName))
         { ShowNewStudentError("Please enter the student's full name."); return; }
         if (string.IsNullOrEmpty(programme))
@@ -935,6 +947,16 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         { ShowNewStudentError("Please select an entry year."); return; }
         if (string.IsNullOrEmpty(billing))
         { ShowNewStudentError("Please select a billing system."); return; }
+
+        // Enforce current academic year — entry year must match
+        int parsedEntryYear = SafeInt(entryYear, 0);
+        if (parsedEntryYear > 0 && !AcademicYearHelper.IsCurrentEntryYear(parsedEntryYear))
+        {
+            ShowNewStudentError(string.Format(
+                "Registration is only allowed for the current academic year ({0}). Entry year {1} does not match.",
+                AcademicYearHelper.GetCurrentYearDisplay(), entryYear));
+            return;
+        }
 
         // Parse date of birth (default 1980-01-01 if not provided)
         DateTime birthDate = new DateTime(1980, 1, 1);
@@ -954,7 +976,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
             {
                 conn.Open();
 
-                // ── Step 1: Generate entry number ──────────────────
+                // -- Step 1: Generate entry number ------------------
                 string entryNo = "";
                 using (var cmd = new MySqlCommand(
                     "SELECT acad_ApplicNoGenerator(@yr) AS eno", conn))
@@ -969,7 +991,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                     return;
                 }
 
-                // ── Step 2: Insert into acad_applications ──────────
+                // -- Step 2: Insert into acad_applications ----------
                 const string insertAppSql = @"
                     INSERT INTO acad_applications (
                         stud_entry_no, stud_name, stud_sex, stud_nationality, stud_religion,
@@ -1028,7 +1050,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                     cmd.ExecuteNonQuery();
                 }
 
-                // ── Step 3: Insert applicant choice (admitted) ─────
+                // -- Step 3: Insert applicant choice (admitted) -----
                 const string insertChoiceSql = @"
                     INSERT INTO acad_applicant_choices
                         (stud_entry_no, Choice, prog_id, adm_status, adm_session, sub_comb)
@@ -1042,7 +1064,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                     cmd.ExecuteNonQuery();
                 }
 
-                // ── Step 4: Generate registration number ───────────
+                // -- Step 4: Generate registration number -----------
                 string regNo = "-";
                 using (var cmd = new MySqlCommand(
                     "SELECT acad_RegNoCreator(@eno) AS regno", conn))
@@ -1052,7 +1074,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                     if (result != null) regNo = result.ToString();
                 }
 
-                // ── Step 5: Update stud_reg_no in applications ─────
+                // -- Step 5: Update stud_reg_no in applications -----
                 if (regNo != "-" && !string.IsNullOrEmpty(regNo))
                 {
                     using (var cmd = new MySqlCommand(
@@ -1065,7 +1087,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                     }
                 }
 
-                // ── Step 6: Register applicant (acad_student + acad_registration) ──
+                // -- Step 6: Register applicant (acad_student + acad_registration) --
                 using (var cmd = new MySqlCommand("acad_RegisterApplicant", conn))
                 {
                     cmd.CommandType = System.Data.CommandType.StoredProcedure;
@@ -1075,7 +1097,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                     cmd.ExecuteNonQuery();
                 }
 
-                // ── Step 7: Update billing system on acad_student ──
+                // -- Step 7: Update billing system on acad_student --
                 using (var cmd = new MySqlCommand(
                     "UPDATE acad_student SET billingID=@bid WHERE regno=@eno", conn))
                 {
@@ -1084,7 +1106,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                     cmd.ExecuteNonQuery();
                 }
 
-                // ── Step 8: Immediate registration + auto-billing ──
+                // -- Step 8: Immediate registration + auto-billing --
                 if (registerNow)
                 {
                     using (var cmd = new MySqlCommand(
@@ -1107,7 +1129,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                     if (regId > 0) AutoBillStudent(regId);
                 }
 
-                // ── Success ────────────────────────────────────────
+                // -- Success ----------------------------------------
                 ScriptManager.RegisterStartupScript(this, GetType(), "closeNewStud",
                     "closeModal('newStudentModal');", true);
 
@@ -1115,7 +1137,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                     "Student created! Entry No: {0}, Reg No: {1}",
                     entryNo, regNo);
                 if (registerNow)
-                    successMsg += " — Registered & billed.";
+                    successMsg += " - Registered & billed.";
                 ShowToast(true, successMsg);
 
                 // Clear form fields
@@ -1158,9 +1180,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
             "openNewStudentModal();", true);
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // CHANGE STATUS MODAL
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnDoChangeStatus_Click(object sender, EventArgs e)
     {
@@ -1201,9 +1223,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         BindGrid();
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // EXPORT CSV
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnExportCsv_Click(object sender, EventArgs e)
     {
@@ -1307,9 +1329,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         return s;
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // GRID EVENTS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void gvRegistration_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
     {
@@ -1336,9 +1358,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // DATABASE OPERATION PRIMITIVES
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     private bool DoSetStatus(int id, string newStatus, string auditCol, string condCol, string condVal)
     {
@@ -1365,7 +1387,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
 
     /// <summary>
     /// Auto-bill a student after registration. Safe to call multiple times
-    /// — the SP has a pre-check that skips if already billed.
+    /// - the SP has a pre-check that skips if already billed.
     /// </summary>
     private void AutoBillStudent(int regId)
     {
@@ -1393,7 +1415,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
             if (string.IsNullOrEmpty(regno)) return;
 
             // Call the auto-billing SP on accounts DB
-            // Must use ExecuteReader — the SP returns result sets from
+            // Must use ExecuteReader - the SP returns result sets from
             // SELECT fin_TermlyItemBillingFN(...) that must be consumed.
             using (var conn = new MySqlConnection(AcctConnStr))
             {
@@ -1417,16 +1439,16 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
     }
 
     /// <summary>
-    /// Explicit billing action — calls fin_Autobilling directly (not the
+    /// Explicit billing action - calls fin_Autobilling directly (not the
     /// wrapper SP that blocks on registration status).  Returns a result
     /// string:  "" = success,  otherwise a human-readable error message.
-    /// Safe to call multiple times — fin_TermlyItemBillingFN pre-checks.
+    /// Safe to call multiple times - fin_TermlyItemBillingFN pre-checks.
     /// </summary>
     private string BillStudentExplicit(int regId)
     {
         try
         {
-            // ── 1. Read registration row ─────────────────────────────
+            // -- 1. Read registration row -----------------------------
             string regno = "", acadYear = "", regStatus = "", resStatus = "";
             int semester = 0;
             using (var conn = new MySqlConnection(ConnectionString))
@@ -1449,7 +1471,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
             }
             if (string.IsNullOrEmpty(regno)) return "Registration record has no reg number.";
 
-            // ── 2. Read student profile ──────────────────────────────
+            // -- 2. Read student profile ------------------------------
             string progid = "", session = "";
             int billingID = 0, entryYear = 0;
             using (var conn = new MySqlConnection(ConnectionString))
@@ -1470,7 +1492,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                 }
             }
 
-            // ── 3. Check that a fee schedule actually exists ─────────
+            // -- 3. Check that a fee schedule actually exists ---------
             int schedCount = 0;
             using (var conn = new MySqlConnection(AcctConnStr))
             {
@@ -1491,7 +1513,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                      + " / BillingID " + billingID + " / EntryYear " + entryYear
                      + ".  Add rows in Fee Pay Schedule first.";
 
-            // ── 4. Count existing bills before calling SP ────────────
+            // -- 4. Count existing bills before calling SP ------------
             int billsBefore = 0;
             using (var conn = new MySqlConnection(AcctConnStr))
             {
@@ -1506,7 +1528,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                 }
             }
 
-            // ── 5. Call fin_Autobilling directly for REG fees ────────
+            // -- 5. Call fin_Autobilling directly for REG fees --------
             //    (bypasses the registration-status gate in the wrapper SP
             //     so staff can explicitly bill any student in the grid)
             using (var conn = new MySqlConnection(AcctConnStr))
@@ -1529,7 +1551,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                 }
             }
 
-            // ── 5b. ACCOMO billing if resident ───────────────────────
+            // -- 5b. ACCOMO billing if resident -----------------------
             if (resStatus == "RESIDENT")
             {
                 using (var conn = new MySqlConnection(AcctConnStr))
@@ -1553,7 +1575,7 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
                 }
             }
 
-            // ── 6. Verify billing actually happened ──────────────────
+            // -- 6. Verify billing actually happened ------------------
             int billsAfter = 0;
             using (var conn = new MySqlConnection(AcctConnStr))
             {
@@ -1569,10 +1591,17 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
             }
 
             if (billsAfter > billsBefore)
-                return "";  // success — new bills created
+                return "";  // success - new bills created
             if (billsAfter > 0)
-                return "";  // already billed — that's fine
-            return "SP executed but no bills created — check fee schedule match.";
+                return "";  // already billed - that's fine
+            return "SP executed but no bills created - check fee schedule match.";
+        }
+        catch (MySqlException mex)
+        {
+            // MySQL error 1062 = duplicate key — DB-level uniqueness constraint
+            // prevented a duplicate bill. This is safe — student is already billed.
+            if (mex.Number == 1062) return "";
+            return "Error: " + mex.Message;
         }
         catch (Exception ex) { return "Error: " + ex.Message; }
     }
@@ -1694,9 +1723,9 @@ public partial class COOPERP_NewScreens_FeesRegistration : System.Web.UI.Page
         catch { return false; }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // UTILITIES
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     private void ShowToast(bool success, string message)
     {

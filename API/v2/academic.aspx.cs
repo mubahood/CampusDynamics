@@ -438,31 +438,44 @@ public partial class API_v2_academic : System.Web.UI.Page
             string regResult = REG.ProcessRegister(regno, acad_year, semester, regno).ToString();
 
             // Auto-billing via stored procedure on accounts DB
-            ApiHelper.QueryAccounts(
-                "CALL fin_Autobilling(@reg, @acad, @sems, @typ, @usr, @csid)",
-                new MySqlParameter("@reg", regno),
-                new MySqlParameter("@acad", acad_year),
-                new MySqlParameter("@sems", semester),
-                new MySqlParameter("@typ", "REG"),
-                new MySqlParameter("@usr", regno),
-                new MySqlParameter("@csid", "-")
-            );
-            ApiHelper.QueryAccounts(
-                "CALL fin_Autobilling(@reg, @acad, @sems, @typ, @usr, @csid)",
-                new MySqlParameter("@reg", regno),
-                new MySqlParameter("@acad", acad_year),
-                new MySqlParameter("@sems", semester),
-                new MySqlParameter("@typ", "ACCOMO"),
-                new MySqlParameter("@usr", regno),
-                new MySqlParameter("@csid", "-")
-            );
+            // Wrapped separately so billing duplicates (error 1062) don't
+            // block the registration success response.
+            bool billingOk = true;
+            try
+            {
+                ApiHelper.QueryAccounts(
+                    "CALL fin_Autobilling(@reg, @acad, @sems, @typ, @usr, @csid)",
+                    new MySqlParameter("@reg", regno),
+                    new MySqlParameter("@acad", acad_year),
+                    new MySqlParameter("@sems", semester),
+                    new MySqlParameter("@typ", "REG"),
+                    new MySqlParameter("@usr", regno),
+                    new MySqlParameter("@csid", "-")
+                );
+                ApiHelper.QueryAccounts(
+                    "CALL fin_Autobilling(@reg, @acad, @sems, @typ, @usr, @csid)",
+                    new MySqlParameter("@reg", regno),
+                    new MySqlParameter("@acad", acad_year),
+                    new MySqlParameter("@sems", semester),
+                    new MySqlParameter("@typ", "ACCOMO"),
+                    new MySqlParameter("@usr", regno),
+                    new MySqlParameter("@csid", "-")
+                );
+            }
+            catch (MySqlException mex)
+            {
+                // Error 1062 = duplicate key — student already billed for this
+                // semester. This is safe to ignore (DB prevented a duplicate bill).
+                if (mex.Number != 1062) billingOk = false;
+            }
+            catch { billingOk = false; }
 
             ApiHelper.Success(Response, new Dictionary<string, object>
             {
                 { "registration_result", regResult },
                 { "acad_year", acad_year },
                 { "semester", semester },
-                { "billing_processed", true }
+                { "billing_processed", billingOk }
             }, "Semester registration completed");
         }
         catch (Exception ex)

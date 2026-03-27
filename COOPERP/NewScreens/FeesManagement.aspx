@@ -1,419 +1,1055 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="FeesManagement.aspx.cs" Inherits="COOPERP_NewScreens_FeesManagement" Title="Fees Management Dashboard - Campus Dynamics" %>
+<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="FeesManagement.aspx.cs" Inherits="COOPERP_NewScreens_FeesManagement" Title="Fees Dashboard - Campus Dynamics" %>
 <%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* ===== FEES MANAGEMENT DASHBOARD ======================================= */
+/* =====================================================================
+   FEES DASHBOARD — Redesigned 2026-03-26
+   Prefix: fd- (fees dashboard) | fm- (page header/nav) | fs- (shared)
+   Scoped: ENROLLED students only (registered & active)
+   Benchmark: FeesStructure.aspx
+   ===================================================================== */
 
-/* ── Page Header ─────────────────────────────────── */
+/* ---- Searchable select widget ---- */
+.cd-srch-wrap  { position: relative; display: block; }
+.cd-srch-input { width: 100%; box-sizing: border-box; cursor: text; }
+.cd-srch-panel {
+    display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 600;
+    background: #fff; border: 1px solid #cdd3de;
+    max-height: 220px; overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
+.cd-srch-item {
+    padding: 6px 10px; font-size: 11px; color: #333;
+    cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cd-srch-item:hover, .cd-srch-item--hover { background: #f0f4fc; color: #05275C; }
+.cd-srch-item--sel     { background: rgba(5,39,92,.06); color: #05275C; font-weight: 600; }
+.cd-srch-item--empty   { color: #aaa; font-style: italic; cursor: default; }
+.cd-srch-item--placeholder { color: #888; }
+
+/* ---- Page header ---- */
 .fm-page-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 0 12px; margin-bottom: 16px;
-    border-bottom: 2px solid #174DA4;
-    flex-wrap: wrap; gap: 10px;
+    background: #05275C; color: #fff;
+    padding: 14px 20px; border-bottom: 3px solid #041d45;
 }
-.fm-page-header__left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.fm-page-header__left { display: flex; align-items: center; gap: 12px; }
 .fm-page-header__icon {
-    width: 42px; height: 42px;
-    background: linear-gradient(135deg, #00695c 0%, #00897b 100%);
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 10px; flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0,105,92,.2);
+    width: 40px; height: 40px; background: rgba(255,255,255,.12);
+    border-radius: 4px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
 }
-.fm-page-header__title { font-size: 18px; font-weight: 800; color: #1a1a2e; margin: 0; line-height: 1.2; letter-spacing: -.2px; }
-.fm-page-header__sub   { font-size: 11px; color: #999; margin-top: 2px; }
+.fm-page-header__title { font-size: 16px; font-weight: 700; }
+.fm-page-header__sub   { font-size: 12px; opacity: .75; margin-top: 2px; }
 
-/* ── Tab Navigation ──────────────────────────────── */
-.fm-tabs {
-    display: flex; gap: 0; border-bottom: 2px solid #e4e8f0;
-    margin-bottom: 16px; overflow-x: auto;
+/* ---- Tab navigation ---- */
+.fm-tabs { display: flex; gap: 2px; background: #f0f2f5; border-bottom: 2px solid #e0e5ed; padding: 0 20px; }
+.fm-tab  {
+    padding: 9px 16px; font-size: 12px; font-weight: 500; color: #555;
+    text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -2px;
+    white-space: nowrap; display: flex; align-items: center; gap: 5px;
 }
-.fm-tab {
-    padding: 10px 20px; font-size: 12px; font-weight: 600;
-    color: #777; cursor: pointer; border: none; background: none;
-    border-bottom: 2px solid transparent; margin-bottom: -2px;
-    white-space: nowrap; display: flex; align-items: center; gap: 6px;
-    transition: all .15s;
-}
-.fm-tab:hover { color: #174DA4; background: rgba(23,77,164,.03); }
-.fm-tab--active {
-    color: #174DA4; border-bottom-color: #174DA4;
-    font-weight: 700;
-}
-.fm-tab__badge {
-    font-size: 9px; font-weight: 700; background: rgba(23,77,164,.08);
-    color: #174DA4; padding: 2px 7px; border-radius: 10px;
-}
+.fm-tab:hover { color: #05275C; }
+.fm-tab--active { color: #05275C; border-bottom-color: #05275C; font-weight: 600; }
 
-/* ── Stats Dashboard ─────────────────────────────── */
-.fm-hero-row {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 12px; margin-bottom: 16px;
-}
-.fm-hero {
-    background: #fff; border: 1px solid #e4e8f0;
-    padding: 18px 20px; border-radius: 10px;
-    position: relative; overflow: hidden;
-    transition: all .2s cubic-bezier(.4,0,.2,1);
-}
-.fm-hero::after {
-    content: ''; position: absolute;
-    left: 0; top: 0; bottom: 0; width: 4px;
-    background: var(--hero-accent, #ccc);
-    border-radius: 10px 0 0 10px;
-}
-.fm-hero:hover { box-shadow: 0 4px 20px rgba(0,0,0,.06); transform: translateY(-2px); }
-.fm-hero__label { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: #999; font-weight: 600; margin-bottom: 6px; }
-.fm-hero__val { font-size: 26px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.fm-hero__sub { font-size: 11px; color: #888; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
-.fm-hero__sub svg { width: 12px; height: 12px; }
-.fm-hero--billed   { --hero-accent: #00897b; } .fm-hero--billed   .fm-hero__val { color: #00695c; }
-.fm-hero--paid     { --hero-accent: #2e7d32; } .fm-hero--paid     .fm-hero__val { color: #2e7d32; }
-.fm-hero--balance  { --hero-accent: #e65100; } .fm-hero--balance  .fm-hero__val { color: #e65100; }
-.fm-hero--students { --hero-accent: #174DA4; } .fm-hero--students .fm-hero__val { color: #174DA4; }
+/* ---- Content wrapper ---- */
+.fd-content { padding: 16px 20px 20px; }
 
-/* ── Semester Drill-down  ────────────────────────── */
-.fm-section { margin-bottom: 16px; }
-.fm-section__header {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+/* ---- Filter bar ---- */
+.fd-filter-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    background: #fff; padding: 10px 14px; border: 1px solid #e0e5ed;
+    margin-bottom: 16px;
+}
+.fd-filter-grp { display: flex; flex-direction: column; gap: 3px; }
+.fd-filter-grp__label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .4px; color: #555;
+}
+.fs-filter-select {
+    padding: 6px 8px; border: 1px solid #cdd3de; font-size: 12px;
+    border-radius: 0; min-width: 170px; background: #fff; color: #333;
+}
+.fs-filter-select:focus { border-color: #174DA4; outline: none; }
+.fd-filter-note {
+    margin-left: auto; font-size: 10px; color: #16a34a; font-weight: 600;
+    display: flex; align-items: center; gap: 5px;
+    background: #e6f4ea; padding: 5px 10px; border: 1px solid #c3e6cb;
+}
+.fd-filter-note svg { flex-shrink: 0; }
+
+/* ---- KPI Hero Cards ---- */
+.fd-hero { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 18px; }
+.fd-kpi {
+    background: #fff; border: 1px solid #e0e5ed; padding: 16px 18px;
+    position: relative; overflow: hidden; transition: border-color .15s;
+}
+.fd-kpi:hover { border-color: #cdd3de; }
+.fd-kpi::before {
+    content: ''; position: absolute; left: 0; top: 0; width: 3px; height: 100%;
+}
+.fd-kpi--enrolled::before { background: #05275C; }
+.fd-kpi--billed::before   { background: #174DA4; }
+.fd-kpi--paid::before      { background: #16a34a; }
+.fd-kpi--balance::before   { background: #c62828; }
+.fd-kpi__top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.fd-kpi__label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+    color: #888; font-weight: 700;
+}
+.fd-kpi__icon {
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+}
+.fd-kpi__icon--enrolled { background: rgba(5,39,92,.07); color: #05275C; }
+.fd-kpi__icon--billed   { background: rgba(23,77,164,.07); color: #174DA4; }
+.fd-kpi__icon--paid     { background: rgba(22,163,74,.07); color: #16a34a; }
+.fd-kpi__icon--balance  { background: rgba(198,40,40,.07); color: #c62828; }
+.fd-kpi__value {
+    font-size: 22px; font-weight: 800; line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.fd-kpi__value--navy  { color: #05275C; }
+.fd-kpi__value--blue  { color: #174DA4; }
+.fd-kpi__value--green { color: #16a34a; }
+.fd-kpi__value--red   { color: #c62828; }
+.fd-kpi__sub {
+    font-size: 10px; color: #aaa; margin-top: 6px;
+    display: flex; align-items: center; gap: 4px;
+}
+.fd-kpi__sub svg { flex-shrink: 0; }
+.fd-kpi__currency { font-size: 11px; font-weight: 600; color: #999; margin-right: 2px; }
+
+/* ---- Section headers ---- */
+.fd-section-hdr {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
     font-size: 10px; text-transform: uppercase; letter-spacing: .8px;
-    color: #aaa; font-weight: 700;
+    color: #888; font-weight: 700;
 }
-.fm-section__line { flex: 1; height: 1px; background: #eef0f4; }
+.fd-section-hdr__line { flex: 1; height: 1px; background: #e0e5ed; }
 
-.fm-breakdown-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+/* ---- Chart panels ---- */
+.fd-chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.fd-chart-panel {
+    background: #fff; border: 1px solid #e0e5ed; overflow: hidden;
 }
-.fm-semester-card {
-    background: #fff; border: 1px solid #e4e8f0; border-radius: 10px;
-    padding: 16px 18px; transition: box-shadow .2s;
-}
-.fm-semester-card:hover { box-shadow: 0 3px 14px rgba(0,0,0,.05); }
-.fm-semester-card__head {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 10px;
-}
-.fm-semester-card__title { font-size: 12px; font-weight: 700; color: #1a1a2e; }
-.fm-semester-card__badge { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
-.fm-semester-card__badge--ok { background: #e6f4ea; color: #155724; }
-.fm-semester-card__badge--warn { background: #fff3cd; color: #856404; }
-.fm-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 11px; }
-.fm-row__label { color: #888; }
-.fm-row__val { font-weight: 700; color: #333; font-variant-numeric: tabular-nums; }
-.fm-row__val--green { color: #2e7d32; }
-.fm-row__val--red   { color: #dc3545; }
-.fm-row__val--amber { color: #e65100; }
-
-/* Progress bar */
-.fm-progress { height: 6px; background: #eef1f5; border-radius: 3px; margin-top: 8px; overflow: hidden; }
-.fm-progress__fill { height: 100%; border-radius: 3px; transition: width .8s cubic-bezier(.4,0,.2,1); }
-.fm-progress__fill--green { background: linear-gradient(90deg, #66bb6a, #2e7d32); }
-.fm-progress__fill--amber { background: linear-gradient(90deg, #ffb74d, #e65100); }
-.fm-progress__fill--red   { background: linear-gradient(90deg, #ef5350, #c62828); }
-.fm-progress-label { font-size: 9px; color: #999; margin-top: 3px; text-align: right; font-weight: 600; }
-
-/* ── Billing Items Table ─────────────────────────── */
-.fm-table-card {
-    background: #fff; border: 1px solid #e4e8f0;
-    border-radius: 10px; overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0,0,0,.03);
-}
-.fm-table-card__header {
-    padding: 12px 16px; border-bottom: 1px solid #e4e8f0; background: #fafbfc;
+.fd-chart-panel__header {
+    padding: 11px 16px; border-bottom: 1px solid #e0e5ed; background: #f5f7fa;
     display: flex; align-items: center; justify-content: space-between;
 }
-.fm-table-card__title { font-size: 13px; font-weight: 700; color: #1a1a2e; display: flex; align-items: center; gap: 6px; }
-.fm-table-card__meta { font-size: 10px; color: #174DA4; font-weight: 600; background: rgba(23,77,164,.06); padding: 3px 10px; border-radius: 10px; }
+.fd-chart-panel__title {
+    font-size: 12px; font-weight: 600; color: #1a1a2e;
+    display: flex; align-items: center; gap: 6px;
+}
+.fd-chart-panel__title svg { flex-shrink: 0; }
+.fd-chart-panel__meta { font-size: 10px; color: #888; }
+.fd-chart-panel__body { padding: 16px; }
 
-.fm-table { width: 100%; border-collapse: collapse; }
-.fm-table th {
-    font-size: 10px; text-transform: uppercase; letter-spacing: .4px;
-    color: #888; font-weight: 600; padding: 10px 14px; text-align: left;
-    border-bottom: 2px solid #e8ecf2; background: #f8f9fb;
+/* ---- Donut + Revenue layout ---- */
+.fd-donut-layout { display: grid; grid-template-columns: 280px 1fr; gap: 14px; margin-bottom: 18px; }
+.fd-donut-wrap {
+    background: #fff; border: 1px solid #e0e5ed; padding: 20px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.fm-table td {
-    font-size: 11px; padding: 9px 14px; color: #333;
-    border-bottom: 1px solid #f2f3f5; vertical-align: middle;
+.fd-donut-title {
+    font-size: 12px; font-weight: 600; color: #1a1a2e; margin-bottom: 16px;
+    text-transform: uppercase; letter-spacing: .5px;
 }
-.fm-table tbody tr:hover td { background: #f5f8ff; }
-.fm-table .fm-code { font-family: 'Courier New', monospace; font-size: 10px; color: #174DA4; font-weight: 600; background: rgba(23,77,164,.06); padding: 2px 6px; border-radius: 3px; }
+.fd-donut-canvas { display: block; margin: 0 auto; }
+.fd-donut-legend { display: flex; gap: 18px; margin-top: 16px; justify-content: center; }
+.fd-donut-legend__item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #555; font-weight: 600; }
+.fd-donut-legend__dot { width: 8px; height: 8px; flex-shrink: 0; }
+.fd-donut-legend__dot--paid { background: #16a34a; }
+.fd-donut-legend__dot--bal  { background: #e0e0e0; }
 
-/* ── Year Trend Table ────────────────────────────── */
-.fm-trend-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 14px;
+/* ---- Horizontal bars (fee type breakdown) ---- */
+.fd-hbar-list { display: flex; flex-direction: column; gap: 14px; }
+.fd-hbar-row { display: grid; grid-template-columns: 90px 1fr 110px; gap: 10px; align-items: center; }
+.fd-hbar-label { font-size: 11px; font-weight: 600; color: #555; text-align: right; }
+.fd-hbar-track { height: 22px; background: #f0f2f5; overflow: hidden; position: relative; }
+.fd-hbar-fill {
+    height: 100%; transition: width .6s ease;
+    display: flex; align-items: center; padding-left: 6px; min-width: 2px;
 }
+.fd-hbar-fill--navy { background: #05275C; }
+.fd-hbar-fill--blue { background: #174DA4; }
+.fd-hbar-fill--amber { background: #d97706; }
+.fd-hbar-pct { font-size: 9px; color: #fff; font-weight: 700; white-space: nowrap; }
+.fd-hbar-value { font-size: 11px; font-weight: 700; color: #1a1a2e; text-align: right; font-variant-numeric: tabular-nums; }
 
-/* ── Filter Bar ──────────────────────────────────── */
-.fm-filter-bar {
-    display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;
-    padding: 10px 0; margin-bottom: 8px;
+/* ---- Semester detail cards ---- */
+.fd-sem-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 18px; }
+.fd-sem-card {
+    border: 1px solid #e0e5ed; padding: 14px; background: #fff;
+    transition: border-color .15s;
 }
-.fm-filter-grp { display: flex; flex-direction: column; gap: 3px; }
-.fm-filter-grp__label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #999; font-weight: 600; }
-.fm-filter-select {
-    border: 1px solid #dde1e6; border-radius: 8px;
-    padding: 6px 10px; font-size: 11px; background: #fff; color: #333;
-    cursor: pointer; min-width: 130px;
-    transition: border-color .15s, box-shadow .15s;
+.fd-sem-card:hover { border-color: #cdd3de; }
+.fd-sem-card__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.fd-sem-card__title { font-size: 12px; font-weight: 600; color: #1a1a2e; }
+.fd-sem-card__badge {
+    font-size: 10px; font-weight: 600; padding: 3px 7px;
+    text-transform: uppercase; letter-spacing: .3px;
 }
-.fm-filter-select:focus { border-color: #174DA4; box-shadow: 0 0 0 3px rgba(23,77,164,.08); outline: none; }
+.fd-sem-card__badge--ok   { background: #e6f4ea; color: #155724; border: 1px solid #c3e6cb; }
+.fd-sem-card__badge--warn { background: #fff8e1; color: #b45309; border: 1px solid #fcd34d; }
+.fd-sem-card__badge--red  { background: #fef5f5; color: #dc3545; border: 1px solid #f5c6cb; }
+.fd-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 11px; border-bottom: 1px solid #f0f2f5; }
+.fd-row:last-of-type { border-bottom: none; }
+.fd-row__label { color: #888; }
+.fd-row__val   { font-weight: 600; color: #1a1a2e; font-variant-numeric: tabular-nums; }
+.fd-row__val--green { color: #155724; }
+.fd-row__val--red   { color: #dc3545; }
+.fd-row__val--amber { color: #b45309; }
+.fd-progress { height: 5px; background: #e8e8e8; margin-top: 10px; overflow: hidden; }
+.fd-progress__fill { height: 100%; transition: width .6s ease; }
+.fd-progress__fill--green { background: #16a34a; }
+.fd-progress__fill--amber { background: #d97706; }
+.fd-progress__fill--red   { background: #dc3545; }
+.fd-progress-label { font-size: 9px; color: #888; margin-top: 3px; text-align: right; font-weight: 600; }
 
-/* ── Responsive ──────────────────────────────────── */
-@media (max-width: 1100px) {
-    .fm-hero-row { grid-template-columns: repeat(2, 1fr); }
-    .fm-breakdown-grid { grid-template-columns: 1fr 1fr; }
-    .fm-trend-grid { grid-template-columns: 1fr; }
+/* ---- Shared table/card classes ---- */
+.fs-card         { background: #fff; border: 1px solid #e0e5ed; overflow: hidden; margin-bottom: 16px; }
+.fs-card__header { display: flex; align-items: center; justify-content: space-between; padding: 11px 16px; border-bottom: 1px solid #e0e5ed; background: #f5f7fa; }
+.fs-card__title  { font-size: 12px; font-weight: 600; color: #1a1a2e; display: flex; align-items: center; gap: 6px; }
+.fs-card__meta   { font-size: 11px; color: #888; }
+.fs-table          { width: 100%; border-collapse: collapse; font-size: 11px; }
+.fs-table thead tr { background: #f5f7fa; }
+.fs-table th {
+    padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .4px; color: #555;
+    border-bottom: 2px solid #e0e5ed; white-space: nowrap;
+}
+.fs-table td { padding: 9px 12px; border-bottom: 1px solid #e0e5ed; color: #1a1a2e; vertical-align: middle; }
+.fs-table tbody tr:hover td { background: #f9fafc; }
+.fs-table tbody tr:last-child td { border-bottom: none; }
+.fs-code {
+    font-family: Consolas, "Courier New", monospace; font-size: 11px; font-weight: 600;
+    background: rgba(23,77,164,.07); border: 1px solid rgba(23,77,164,.15);
+    color: #174DA4; padding: 2px 6px;
+}
+.fs-badge            { font-size: 10px; font-weight: 600; padding: 3px 7px; text-transform: uppercase; letter-spacing: .3px; }
+.fs-badge--green     { background: #e6f4ea; color: #155724; border: 1px solid #c3e6cb; }
+.fs-badge--amber     { background: #fff8e1; color: #b45309; border: 1px solid #fcd34d; }
+.fs-badge--red       { background: #fef5f5; color: #dc3545; border: 1px solid #f5c6cb; }
+.fs-badge--primary   { background: rgba(5,39,92,.08); color: #05275C; border: 1px solid rgba(5,39,92,.2); }
+
+/* ---- Programme revenue inline bar ---- */
+.fd-prog-bar { height: 6px; background: #f0f2f5; overflow: hidden; min-width: 80px; }
+.fd-prog-bar__fill { height: 100%; background: #174DA4; transition: width .6s ease; }
+
+/* ---- Anomaly cards ---- */
+.fd-anomaly-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; padding: 14px; }
+.fd-anomaly {
+    border: 1px solid #e0e5ed; padding: 14px; background: #fff;
+    border-left: 4px solid #e0e5ed;
+}
+.fd-anomaly--ok     { border-left-color: #16a34a; }
+.fd-anomaly--warn   { border-left-color: #d97706; }
+.fd-anomaly--danger { border-left-color: #dc3545; }
+.fd-anomaly__icon {
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid #e0e5ed; margin-bottom: 10px;
+}
+.fd-anomaly--ok     .fd-anomaly__icon { background: #e6f4ea; border-color: #c3e6cb; }
+.fd-anomaly--warn   .fd-anomaly__icon { background: #fff8e1; border-color: #fcd34d; }
+.fd-anomaly--danger .fd-anomaly__icon { background: #fef5f5; border-color: #f5c6cb; }
+.fd-anomaly__label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: #888; margin-bottom: 4px; }
+.fd-anomaly__val   { font-size: 20px; font-weight: 700; color: #1a1a2e; line-height: 1; margin-bottom: 4px; }
+.fd-anomaly--ok     .fd-anomaly__val { color: #155724; }
+.fd-anomaly--warn   .fd-anomaly__val { color: #b45309; }
+.fd-anomaly--danger .fd-anomaly__val { color: #dc3545; }
+.fd-anomaly__hint { font-size: 11px; color: #888; line-height: 1.5; }
+
+/* ---- Entrance animation ---- */
+@keyframes fdFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.fd-hero > * { animation: fdFadeIn .35s ease both; }
+.fd-hero > *:nth-child(2) { animation-delay: .05s; }
+.fd-hero > *:nth-child(3) { animation-delay: .1s; }
+.fd-hero > *:nth-child(4) { animation-delay: .15s; }
+
+/* ---- Responsive ---- */
+@media (max-width: 1200px) {
+    .fd-donut-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 1000px) {
+    .fd-hero      { grid-template-columns: repeat(2,1fr); }
+    .fd-chart-row { grid-template-columns: 1fr; }
+    .fd-sem-grid  { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 700px) {
-    .fm-hero-row { grid-template-columns: 1fr; }
-    .fm-breakdown-grid { grid-template-columns: 1fr; }
-    .fm-tabs { gap: 0; }
-    .fm-tab { padding: 8px 14px; font-size: 11px; }
-    .fm-anomaly-row { grid-template-columns: 1fr; }
+    .fd-content      { padding: 12px; }
+    .fd-hero         { grid-template-columns: 1fr; }
+    .fd-sem-grid     { grid-template-columns: 1fr; }
+    .fd-anomaly-grid { grid-template-columns: 1fr; }
+    .fm-tabs         { overflow-x: auto; }
+    .fm-tab          { padding: 8px 12px; font-size: 11px; }
+    .fd-hbar-row     { grid-template-columns: 70px 1fr 80px; }
+    .fd-donut-layout { grid-template-columns: 1fr; }
 }
 
-/* ── Anomaly Alerts ──────────────────────────────── */
-.fm-anomaly-row {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 12px; margin-bottom: 16px;
+/* ---- YoY Trend indicators ---- */
+.fd-kpi__trend {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 600; margin-top: 4px;
 }
-.fm-anomaly {
-    background: #fff; border: 1px solid #e4e8f0;
-    padding: 16px 18px; border-radius: 10px;
-    position: relative; overflow: hidden;
-    transition: all .2s cubic-bezier(.4,0,.2,1);
-}
-.fm-anomaly::after {
-    content: ''; position: absolute;
-    left: 0; top: 0; bottom: 0; width: 4px;
-    border-radius: 10px 0 0 10px;
-}
-.fm-anomaly:hover { box-shadow: 0 4px 20px rgba(0,0,0,.06); transform: translateY(-2px); }
-.fm-anomaly__icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-.fm-anomaly__label { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: #999; font-weight: 600; margin-bottom: 4px; }
-.fm-anomaly__val { font-size: 22px; font-weight: 800; line-height: 1.1; margin-bottom: 4px; }
-.fm-anomaly__hint { font-size: 10px; color: #999; line-height: 1.4; }
-.fm-anomaly--warn    { border-color: #ffe0b2; } .fm-anomaly--warn::after { background: #e65100; }
-.fm-anomaly--warn .fm-anomaly__val { color: #e65100; }
-.fm-anomaly--warn .fm-anomaly__icon { background: #fff3e0; }
-.fm-anomaly--danger  { border-color: #ffcdd2; } .fm-anomaly--danger::after { background: #dc3545; }
-.fm-anomaly--danger .fm-anomaly__val { color: #dc3545; }
-.fm-anomaly--danger .fm-anomaly__icon { background: #ffebee; }
-.fm-anomaly--ok      { border-color: #c8e6c9; } .fm-anomaly--ok::after { background: #2e7d32; }
-.fm-anomaly--ok .fm-anomaly__val { color: #2e7d32; }
-.fm-anomaly--ok .fm-anomaly__icon { background: #e8f5e9; }
+.fd-trend--up   { color: #16a34a; }
+.fd-trend--down { color: #dc3545; }
+.fd-trend--flat { color: #999; }
 
-/* ── Paid but Unregistered Table ─────────────────── */
-.fm-paid-unreg-badge {
-    display: inline-block; font-size: 9px; font-weight: 700;
-    padding: 2px 8px; border-radius: 4px;
+/* ---- Print / Export button ---- */
+.fd-print-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 14px; border: 1px solid rgba(255,255,255,.25);
+    background: rgba(255,255,255,.08); color: #fff;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+    border-radius: 0; transition: background .15s;
+    font-family: inherit;
 }
-.fm-paid-unreg-badge--unreg { background: #ffebee; color: #dc3545; }
-.fm-paid-unreg-badge--other { background: #fff3e0; color: #e65100; }
+.fd-print-btn:hover { background: rgba(255,255,255,.18); }
+
+/* ---- Print media ---- */
+@media print {
+    .fm-tabs, .fd-print-btn, .cd-srch-wrap, .fd-filter-note { display: none !important; }
+    .fm-page-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .fd-content { padding: 10px !important; }
+    .fd-kpi, .fd-chart-panel, .fs-card, .fd-sem-card, .fd-anomaly { break-inside: avoid; }
+    .fd-hero { grid-template-columns: repeat(4,1fr) !important; }
+    .fd-chart-row { grid-template-columns: 1fr 1fr !important; }
+    .fd-sem-grid { grid-template-columns: repeat(3,1fr) !important; }
+    canvas { max-width: 100% !important; }
+}
 </style>
 </asp:Content>
 
+
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 
-<!-- ═══════ PAGE HEADER ═══════════════════════════════════════════════ -->
+<!-- ======= PAGE HEADER =========================================== -->
 <div class="fm-page-header">
     <div class="fm-page-header__left">
         <div class="fm-page-header__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </div>
         <div>
-            <div class="fm-page-header__title">Fees Management</div>
-            <div class="fm-page-header__sub">Billing, payments, fee structures &amp; student account overview</div>
+            <div class="fm-page-header__title">Fees Dashboard</div>
+            <div class="fm-page-header__sub">Financial overview &mdash; enrolled students only</div>
         </div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+    <div style="display:flex;align-items:center;gap:10px;">
         <asp:Literal ID="litAcadContext" runat="server" />
+        <button type="button" class="fd-print-btn" onclick="window.print();" title="Print Dashboard Report">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print
+        </button>
     </div>
 </div>
 
-<!-- ═══════ TAB NAVIGATION ═══════════════════════════════════════════ -->
+<!-- ======= TAB NAVIGATION ======================================== -->
 <div class="fm-tabs">
     <a class="fm-tab fm-tab--active" href="FeesManagement.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         Dashboard
     </a>
     <a class="fm-tab" href="FeesTransactions.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
         Transactions
     </a>
     <a class="fm-tab" href="FeesStructure.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Fee Structure &amp; Settings
     </a>
     <a class="fm-tab" href="FeesRegistration.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Registration
     </a>
 </div>
 
-<!-- ═══════ FILTERS ═══════════════════════════════════════════════════ -->
-<div class="fm-filter-bar">
-    <div class="fm-filter-grp">
-        <label class="fm-filter-grp__label">Academic Year</label>
-        <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="fm-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlAcadYear_SelectedIndexChanged" />
+<div class="fd-content">
+
+<!-- ======= FILTER BAR ============================================ -->
+<div class="fd-filter-bar">
+    <div class="fd-filter-grp">
+        <label class="fd-filter-grp__label">Academic Year</label>
+        <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="fs-filter-select"
+            AutoPostBack="true" OnSelectedIndexChanged="ddlAcadYear_SelectedIndexChanged" />
     </div>
-    <div class="fm-filter-grp">
-        <label class="fm-filter-grp__label">Billing System</label>
-        <asp:DropDownList ID="ddlBillingSystem" runat="server" CssClass="fm-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlBillingSystem_SelectedIndexChanged">
-            <asp:ListItem Value="" Text="All Systems" />
+    <div class="fd-filter-grp">
+        <label class="fd-filter-grp__label">Semester</label>
+        <asp:DropDownList ID="ddlSemester" runat="server" CssClass="fs-filter-select"
+            AutoPostBack="true" OnSelectedIndexChanged="ddlSemester_SelectedIndexChanged">
+            <asp:ListItem Text="All Semesters" Value="" />
+            <asp:ListItem Text="Semester 1" Value="1" />
+            <asp:ListItem Text="Semester 2" Value="2" />
         </asp:DropDownList>
     </div>
-</div>
-
-<!-- ═══════ HERO STATS ═══════════════════════════════════════════════ -->
-<div class="fm-hero-row">
-    <div class="fm-hero fm-hero--billed">
-        <div class="fm-hero__label">Total Billed</div>
-        <div class="fm-hero__val"><asp:Literal ID="litTotalBilled" runat="server" Text="0" /></div>
-        <div class="fm-hero__sub">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"></path></svg>
-            <asp:Literal ID="litBillCount" runat="server" Text="0 invoices" />
-        </div>
-    </div>
-    <div class="fm-hero fm-hero--paid">
-        <div class="fm-hero__label">Total Paid</div>
-        <div class="fm-hero__val"><asp:Literal ID="litTotalPaid" runat="server" Text="0" /></div>
-        <div class="fm-hero__sub">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <asp:Literal ID="litPayCount" runat="server" Text="0 payments" />
-        </div>
-    </div>
-    <div class="fm-hero fm-hero--balance">
-        <div class="fm-hero__label">Outstanding Balance</div>
-        <div class="fm-hero__val"><asp:Literal ID="litBalance" runat="server" Text="0" /></div>
-        <div class="fm-hero__sub">
-            <asp:Literal ID="litCollectionRate" runat="server" Text="0% collection rate" />
-        </div>
-    </div>
-    <div class="fm-hero fm-hero--students">
-        <div class="fm-hero__label">Students Billed</div>
-        <div class="fm-hero__val"><asp:Literal ID="litStudentsBilled" runat="server" Text="0" /></div>
-        <div class="fm-hero__sub">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-            <asp:Literal ID="litStudentsUnbilled" runat="server" Text="0 not billed" />
-        </div>
+    <div class="fd-filter-note">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Enrolled students only (registered &amp; active)
     </div>
 </div>
 
-<!-- ═══════ SEMESTER BREAKDOWN ═══════════════════════════════════════ -->
-<div class="fm-section">
-    <div class="fm-section__header">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-        Semester Breakdown
-        <span class="fm-section__line"></span>
-    </div>
-    <div class="fm-breakdown-grid">
-        <asp:Literal ID="litSemesterCards" runat="server" />
-    </div>
-</div>
-
-<!-- ═══════ TABLES ROW ═══════════════════════════════════════════════ -->
-<div class="fm-trend-grid">
-    <!-- Billing Items Summary -->
-    <div class="fm-table-card">
-        <div class="fm-table-card__header">
-            <div class="fm-table-card__title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                Billing Items Revenue
-            </div>
-            <div class="fm-table-card__meta"><asp:Literal ID="litItemCount" runat="server" Text="0 items" /></div>
-        </div>
-        <div style="overflow-x:auto;">
-            <table class="fm-table">
-                <thead><tr><th>Item</th><th>Account</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th></tr></thead>
-                <tbody>
-                    <asp:Literal ID="litItemRows" runat="server" />
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Year Trend -->
-    <div class="fm-table-card">
-        <div class="fm-table-card__header">
-            <div class="fm-table-card__title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                Year-over-Year Trend
+<!-- ======= HERO KPI CARDS ======================================== -->
+<div class="fd-hero">
+    <!-- Enrolled Students -->
+    <div class="fd-kpi fd-kpi--enrolled">
+        <div class="fd-kpi__top">
+            <div class="fd-kpi__label">Enrolled Students</div>
+            <div class="fd-kpi__icon fd-kpi__icon--enrolled">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
         </div>
-        <div style="overflow-x:auto;">
-            <table class="fm-table">
-                <thead><tr><th>Academic Year</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Collection %</th></tr></thead>
-                <tbody>
-                    <asp:Literal ID="litYearRows" runat="server" />
-                </tbody>
-            </table>
+        <div class="fd-kpi__value fd-kpi__value--navy"><asp:Literal ID="litStatEnrolled" runat="server" Text="0" /></div>
+        <div class="fd-kpi__sub">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            registered &amp; active in selected year
+        </div>
+        <asp:Literal ID="litTrendEnrolled" runat="server" />
+    </div>
+    <!-- Total Billed -->
+    <div class="fd-kpi fd-kpi--billed">
+        <div class="fd-kpi__top">
+            <div class="fd-kpi__label">Total Billed</div>
+            <div class="fd-kpi__icon fd-kpi__icon--billed">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/></svg>
+            </div>
+        </div>
+        <div class="fd-kpi__value fd-kpi__value--blue"><asp:Literal ID="litStatBilled" runat="server" Text="UGX 0" /></div>
+        <div class="fd-kpi__sub">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/></svg>
+            <asp:Literal ID="litStatBillCount" runat="server" Text="0 invoices" />
+        </div>
+        <asp:Literal ID="litTrendBilled" runat="server" />
+    </div>
+    <!-- Total Paid -->
+    <div class="fd-kpi fd-kpi--paid">
+        <div class="fd-kpi__top">
+            <div class="fd-kpi__label">Total Paid (Income)</div>
+            <div class="fd-kpi__icon fd-kpi__icon--paid">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+        </div>
+        <div class="fd-kpi__value fd-kpi__value--green"><asp:Literal ID="litStatPaid" runat="server" Text="UGX 0" /></div>
+        <div class="fd-kpi__sub">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <asp:Literal ID="litStatPayCount" runat="server" Text="0 payments" />
+        </div>
+        <asp:Literal ID="litTrendPaid" runat="server" />
+    </div>
+    <!-- Outstanding Balance -->
+    <div class="fd-kpi fd-kpi--balance">
+        <div class="fd-kpi__top">
+            <div class="fd-kpi__label">Outstanding Balance</div>
+            <div class="fd-kpi__icon fd-kpi__icon--balance">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+        </div>
+        <div class="fd-kpi__value fd-kpi__value--red"><asp:Literal ID="litStatBalance" runat="server" Text="UGX 0" /></div>
+        <div class="fd-kpi__sub">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <asp:Literal ID="litStatCollRate" runat="server" Text="0% collection rate" />
+        </div>
+        <asp:Literal ID="litTrendBalance" runat="server" />
+    </div>
+</div>
+
+<!-- ======= COLLECTION & REVENUE ANALYTICS ======================== -->
+<div class="fd-section-hdr">
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Collection &amp; Revenue Analytics
+    <span class="fd-section-hdr__line"></span>
+</div>
+
+<div class="fd-donut-layout">
+    <!-- LEFT: Collection Donut -->
+    <div class="fd-donut-wrap">
+        <div class="fd-donut-title">Collection Rate</div>
+        <canvas id="cvDonut" class="fd-donut-canvas" width="180" height="180"></canvas>
+        <div class="fd-donut-legend">
+            <div class="fd-donut-legend__item"><span class="fd-donut-legend__dot fd-donut-legend__dot--paid"></span>Paid</div>
+            <div class="fd-donut-legend__item"><span class="fd-donut-legend__dot fd-donut-legend__dot--bal"></span>Outstanding</div>
+        </div>
+    </div>
+    <!-- RIGHT: Revenue by Fee Type -->
+    <div class="fd-chart-panel">
+        <div class="fd-chart-panel__header">
+            <div class="fd-chart-panel__title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Revenue by Fee Type
+            </div>
+            <div class="fd-chart-panel__meta">enrolled students only</div>
+        </div>
+        <div class="fd-chart-panel__body">
+            <div class="fd-hbar-list">
+                <asp:Literal ID="litFeeTypeBars" runat="server" />
+            </div>
         </div>
     </div>
 </div>
 
-<!-- ═══════ TOP DEBTORS ═════════════════════════════════════════════ -->
-<div class="fm-section" style="margin-top:16px;">
-    <div class="fm-section__header">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        Top 15 Outstanding Balances
-        <span class="fm-section__line"></span>
+<!-- ======= CHARTS ROW ============================================ -->
+<div class="fd-chart-row">
+    <!-- Monthly Payments -->
+    <div class="fd-chart-panel">
+        <div class="fd-chart-panel__header">
+            <div class="fd-chart-panel__title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Monthly Payments
+            </div>
+            <div class="fd-chart-panel__meta">payments by month</div>
+        </div>
+        <div class="fd-chart-panel__body">
+            <div style="position:relative;width:100%;"><canvas id="cvMonthly"></canvas></div>
+        </div>
     </div>
-    <div class="fm-table-card">
-        <div style="overflow-x:auto;">
-            <table class="fm-table">
-                <thead><tr><th>Reg No</th><th>Student Name</th><th>Programme</th><th style="text-align:right">Billed</th><th style="text-align:right">Paid</th><th style="text-align:right">Balance</th></tr></thead>
-                <tbody>
-                    <asp:Literal ID="litDebtorRows" runat="server" />
-                </tbody>
-            </table>
+    <!-- Semester Comparison -->
+    <div class="fd-chart-panel">
+        <div class="fd-chart-panel__header">
+            <div class="fd-chart-panel__title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Semester Comparison
+            </div>
+            <div class="fd-chart-panel__meta">billed vs paid</div>
+        </div>
+        <div class="fd-chart-panel__body">
+            <div style="position:relative;width:100%;"><canvas id="cvSemester"></canvas></div>
         </div>
     </div>
 </div>
 
-<!-- ═══════ BILLING ANOMALIES ═══════════════════════════════════════ -->
-<div class="fm-section" style="margin-top:16px;">
-    <div class="fm-section__header">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        Billing Anomalies &amp; Data Integrity
-        <span class="fm-section__line"></span>
+<!-- ======= SEMESTER BREAKDOWN ==================================== -->
+<div class="fd-section-hdr">
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Semester Breakdown
+    <span class="fd-section-hdr__line"></span>
+</div>
+<div class="fd-sem-grid">
+    <asp:Literal ID="litSemesterCards" runat="server" />
+</div>
+
+<!-- ======= PROGRAMME REVENUE ===================================== -->
+<div class="fd-section-hdr">
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    Top Programmes by Revenue
+    <span class="fd-section-hdr__line"></span>
+</div>
+<div class="fs-card">
+    <div class="fs-card__header">
+        <div class="fs-card__title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Programme Revenue
+        </div>
+        <div class="fs-card__meta"><asp:Literal ID="litProgCount" runat="server" Text="0 programmes" /></div>
     </div>
-    <div class="fm-anomaly-row">
+    <div style="overflow-x:auto;">
+        <table class="fs-table">
+            <thead><tr>
+                <th>Programme</th>
+                <th style="text-align:right">Students</th>
+                <th style="text-align:right">Total Billed</th>
+                <th style="text-align:right">Total Paid</th>
+                <th style="min-width:100px;">Collection</th>
+                <th style="text-align:right">Rate</th>
+            </tr></thead>
+            <tbody><asp:Literal ID="litProgRows" runat="server" /></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ======= TOP DEBTORS ========================================== -->
+<div class="fd-section-hdr">
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Top 15 Outstanding Balances (Enrolled)
+    <span class="fd-section-hdr__line"></span>
+</div>
+<div class="fs-card">
+    <div style="overflow-x:auto;">
+        <table class="fs-table">
+            <thead><tr>
+                <th>Reg No</th><th>Student Name</th><th>Programme</th>
+                <th style="text-align:right">Billed</th>
+                <th style="text-align:right">Paid</th>
+                <th style="text-align:right">Balance</th>
+            </tr></thead>
+            <tbody><asp:Literal ID="litDebtorRows" runat="server" /></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ======= DATA INTEGRITY ======================================== -->
+<div class="fd-section-hdr">
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Data Integrity &amp; Anomalies
+    <span class="fd-section-hdr__line"></span>
+</div>
+<div class="fs-card">
+    <div class="fd-anomaly-grid">
         <asp:Literal ID="litAnomalyCards" runat="server" />
     </div>
 </div>
 
-<!-- ═══════ PAID BUT UNREGISTERED ═══════════════════════════════════ -->
+<!-- ======= PAID BUT UNREGISTERED ================================ -->
 <asp:Panel ID="pnlPaidUnregistered" runat="server" Visible="false">
-<div class="fm-section" style="margin-top:16px;">
-    <div class="fm-section__header">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e65100" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        Paid in Last 30 Days but Not Registered (Current Semester)
-        <span class="fm-section__line"></span>
+<div class="fd-section-hdr" style="margin-top:4px;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Paid in Last 30 Days &mdash; Not Yet Registered
+    <span class="fd-section-hdr__line"></span>
+</div>
+<div class="fs-card">
+    <div class="fs-card__header">
+        <div class="fs-card__title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            Students with Payments but No Registration
+        </div>
+        <div class="fs-card__meta"><asp:Literal ID="litPaidUnregCount" runat="server" Text="0 students" /></div>
     </div>
-    <div class="fm-table-card">
-        <div class="fm-table-card__header">
-            <div class="fm-table-card__title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e65100" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                Students with Payments but No Registration
-            </div>
-            <div class="fm-table-card__meta"><asp:Literal ID="litPaidUnregCount" runat="server" Text="0 students" /></div>
-        </div>
-        <div style="overflow-x:auto; max-height:400px; overflow-y:auto;">
-            <table class="fm-table">
-                <thead><tr>
-                    <th>Reg No</th><th>Student Name</th><th>Programme</th>
-                    <th style="text-align:right">Total Paid (30d)</th><th>Status</th><th>Last Payment</th>
-                </tr></thead>
-                <tbody>
-                    <asp:Literal ID="litPaidUnregRows" runat="server" />
-                </tbody>
-            </table>
-        </div>
+    <div style="overflow-x:auto; max-height:400px; overflow-y:auto;">
+        <table class="fs-table">
+            <thead><tr>
+                <th>Reg No</th><th>Student Name</th><th>Programme</th>
+                <th style="text-align:right">Total Paid (30d)</th><th>Status</th><th>Last Payment</th>
+            </tr></thead>
+            <tbody><asp:Literal ID="litPaidUnregRows" runat="server" /></tbody>
+        </table>
     </div>
 </div>
 </asp:Panel>
+
+</div><!-- /fd-content -->
+
+<!-- Hidden fields for chart data -->
+<asp:HiddenField ID="hfDonutPaid" runat="server" Value="0" />
+<asp:HiddenField ID="hfDonutBal" runat="server" Value="0" />
+<asp:HiddenField ID="hfMonthLabels" runat="server" Value="" />
+<asp:HiddenField ID="hfMonthValues" runat="server" Value="" />
+<asp:HiddenField ID="hfSemLabels" runat="server" Value="" />
+<asp:HiddenField ID="hfSemBilled" runat="server" Value="" />
+<asp:HiddenField ID="hfSemPaid" runat="server" Value="" />
+
+<!-- Chart.js v4 via CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+// ============================================================
+// FEES DASHBOARD — Chart.js Interactive Charts & Searchable Select
+// ============================================================
+(function () {
+    'use strict';
+
+    // ---- Hidden field IDs (resolved server-side) ----
+    var hfDonutPaidId  = '<%= hfDonutPaid.ClientID %>';
+    var hfDonutBalId   = '<%= hfDonutBal.ClientID %>';
+    var hfMonthLabId   = '<%= hfMonthLabels.ClientID %>';
+    var hfMonthValId   = '<%= hfMonthValues.ClientID %>';
+    var hfSemLabId     = '<%= hfSemLabels.ClientID %>';
+    var hfSemBillId    = '<%= hfSemBilled.ClientID %>';
+    var hfSemPaidId    = '<%= hfSemPaid.ClientID %>';
+
+    // ---- Helpers ----
+    function getVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+    function parseNums(csv) {
+        if (!csv) return [];
+        var arr = csv.split(','), out = [];
+        for (var i = 0; i < arr.length; i++) out.push(parseFloat(arr[i]) || 0);
+        return out;
+    }
+    function parseLabels(csv) { return csv ? csv.split(',') : []; }
+    function fmtUGX(v) {
+        if (v >= 1e9) return 'UGX ' + (v / 1e9).toFixed(1) + 'B';
+        if (v >= 1e6) return 'UGX ' + (v / 1e6).toFixed(1) + 'M';
+        if (v >= 1e3) return 'UGX ' + (v / 1e3).toFixed(0) + 'K';
+        return 'UGX ' + v.toFixed(0);
+    }
+    function fmtAxis(v) {
+        if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+        if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+        if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+        return v.toFixed(0);
+    }
+    var FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+    // Global Chart.js defaults
+    if (typeof Chart !== 'undefined') {
+        Chart.defaults.font.family = FONT;
+        Chart.defaults.font.size = 11;
+        Chart.defaults.animation.duration = 800;
+        Chart.defaults.animation.easing = 'easeOutQuart';
+    }
+
+    // ============================================================
+    // DONUT CHART — Collection Rate (Chart.js Doughnut)
+    // ============================================================
+    function initDonut() {
+        var canvas = document.getElementById('cvDonut');
+        if (!canvas || typeof Chart === 'undefined') return;
+        var paid = parseFloat(getVal(hfDonutPaidId)) || 0;
+        var bal  = parseFloat(getVal(hfDonutBalId)) || 0;
+        var total = paid + bal;
+        var pct = total > 0 ? Math.round(paid / total * 100) : 0;
+
+        // Center text plugin
+        var centerTextPlugin = {
+            id: 'centerText',
+            afterDraw: function (chart) {
+                var ctx = chart.ctx;
+                var w = chart.width, h = chart.height;
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 28px ' + FONT;
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillText(pct + '%', w / 2, h / 2 - 6);
+                ctx.font = '600 9px ' + FONT;
+                ctx.fillStyle = '#888';
+                ctx.fillText('COLLECTED', w / 2, h / 2 + 14);
+                ctx.restore();
+            }
+        };
+
+        new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: ['Paid', 'Outstanding'],
+                datasets: [{
+                    data: total > 0 ? [paid, bal] : [0, 1],
+                    backgroundColor: total > 0 ? ['#16a34a', '#e8e8e8'] : ['#e8e8e8', '#e8e8e8'],
+                    hoverBackgroundColor: total > 0 ? ['#15803d', '#d0d0d0'] : ['#e8e8e8', '#e8e8e8'],
+                    borderWidth: 0,
+                    borderRadius: 0
+                }]
+            },
+            options: {
+                cutout: '72%',
+                responsive: false,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: total > 0,
+                        backgroundColor: '#1a1a2e',
+                        titleFont: { weight: '600', size: 11 },
+                        bodyFont: { size: 11 },
+                        padding: 10,
+                        cornerRadius: 2,
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.label + ': ' + fmtUGX(ctx.parsed);
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    animateRotate: true,
+                    duration: 1000
+                }
+            },
+            plugins: [centerTextPlugin]
+        });
+    }
+
+    // ============================================================
+    // BAR CHART — Monthly Payments (Chart.js Bar)
+    // ============================================================
+    function initMonthly() {
+        var canvas = document.getElementById('cvMonthly');
+        if (!canvas || typeof Chart === 'undefined') return;
+        var labels = parseLabels(getVal(hfMonthLabId));
+        var values = parseNums(getVal(hfMonthValId));
+
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: labels.length > 0 ? labels : ['No data'],
+                datasets: [{
+                    label: 'Payments Received',
+                    data: values.length > 0 ? values : [0],
+                    backgroundColor: 'rgba(23,77,164,0.85)',
+                    hoverBackgroundColor: '#05275C',
+                    borderWidth: 0,
+                    borderRadius: 0,
+                    maxBarThickness: 46
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 5 } },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#888', font: { size: 10, weight: '500' } },
+                        border: { color: '#e0e5ed' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f0f2f5', drawBorder: false },
+                        ticks: {
+                            color: '#aaa',
+                            font: { size: 9 },
+                            callback: function (v) { return fmtAxis(v); },
+                            maxTicksLimit: 6
+                        },
+                        border: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1a1a2e',
+                        titleFont: { weight: '600', size: 11 },
+                        bodyFont: { size: 11 },
+                        padding: 10,
+                        cornerRadius: 2,
+                        callbacks: {
+                            label: function (ctx) {
+                                return 'Paid: ' + fmtUGX(ctx.parsed.y);
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 900,
+                    easing: 'easeOutQuart'
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+
+        // Set fixed height on container
+        canvas.parentElement.style.height = '240px';
+    }
+
+    // ============================================================
+    // GROUPED BAR — Semester Comparison (Chart.js Bar)
+    // ============================================================
+    function initSemester() {
+        var canvas = document.getElementById('cvSemester');
+        if (!canvas || typeof Chart === 'undefined') return;
+        var labels = parseLabels(getVal(hfSemLabId));
+        var billed = parseNums(getVal(hfSemBillId));
+        var paid   = parseNums(getVal(hfSemPaidId));
+        var semLabels = [];
+        for (var i = 0; i < labels.length; i++) semLabels.push('Semester ' + labels[i]);
+
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: semLabels.length > 0 ? semLabels : ['No data'],
+                datasets: [
+                    {
+                        label: 'Billed',
+                        data: billed.length > 0 ? billed : [0],
+                        backgroundColor: '#05275C',
+                        hoverBackgroundColor: '#041d45',
+                        borderWidth: 0,
+                        borderRadius: 0,
+                        maxBarThickness: 42
+                    },
+                    {
+                        label: 'Paid',
+                        data: paid.length > 0 ? paid : [0],
+                        backgroundColor: '#16a34a',
+                        hoverBackgroundColor: '#15803d',
+                        borderWidth: 0,
+                        borderRadius: 0,
+                        maxBarThickness: 42
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 5 } },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#888', font: { size: 10, weight: '500' } },
+                        border: { color: '#e0e5ed' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f0f2f5', drawBorder: false },
+                        ticks: {
+                            color: '#aaa',
+                            font: { size: 9 },
+                            callback: function (v) { return fmtAxis(v); },
+                            maxTicksLimit: 6
+                        },
+                        border: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'start',
+                        labels: {
+                            boxWidth: 10,
+                            boxHeight: 10,
+                            padding: 14,
+                            font: { size: 10, weight: '600' },
+                            color: '#555',
+                            usePointStyle: false
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1a2e',
+                        titleFont: { weight: '600', size: 11 },
+                        bodyFont: { size: 11 },
+                        padding: 10,
+                        cornerRadius: 2,
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.dataset.label + ': ' + fmtUGX(ctx.parsed.y);
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 900,
+                    easing: 'easeOutQuart'
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+
+        // Set fixed height on container
+        canvas.parentElement.style.height = '240px';
+    }
+
+    // ============================================================
+    // SEARCHABLE SELECT WIDGET
+    // ============================================================
+    function initSearchable(sel) {
+        if (!sel || sel.dataset.srchInit) return;
+        sel.dataset.srchInit = '1';
+
+        var wrap = document.createElement('div');
+        wrap.className = 'cd-srch-wrap';
+        sel.parentNode.insertBefore(wrap, sel);
+        wrap.appendChild(sel);
+        sel.style.display = 'none';
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'fs-filter-select cd-srch-input';
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+
+        var panel = document.createElement('div');
+        panel.className = 'cd-srch-panel';
+
+        wrap.appendChild(input);
+        wrap.appendChild(panel);
+
+        function syncDisplay() {
+            var idx = sel.selectedIndex;
+            var opt = (idx >= 0) ? sel.options[idx] : null;
+            if (opt && opt.value !== '') {
+                input.value = opt.text;
+                input.placeholder = '';
+            } else {
+                input.value = '';
+                input.placeholder = opt ? opt.text : '\u2014 select \u2014';
+            }
+        }
+        syncDisplay();
+
+        function buildList(filter) {
+            panel.innerHTML = '';
+            var q = (filter || '').toLowerCase().trim();
+            var opts = sel.options;
+            var added = 0;
+            for (var i = 0; i < opts.length; i++) {
+                var o = opts[i];
+                if (q && o.text.toLowerCase().indexOf(q) < 0 && o.value.toLowerCase().indexOf(q) < 0) continue;
+                var el = document.createElement('div');
+                el.className = 'cd-srch-item';
+                if (o.value === '') el.className += ' cd-srch-item--placeholder';
+                if (o.value === sel.value) el.className += ' cd-srch-item--sel';
+                el.textContent = o.text;
+                el.dataset.v = o.value;
+                el.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    choose(this.dataset.v);
+                });
+                panel.appendChild(el);
+                added++;
+            }
+            if (added === 0) {
+                var em = document.createElement('div');
+                em.className = 'cd-srch-item cd-srch-item--empty';
+                em.textContent = 'No matches';
+                panel.appendChild(em);
+            }
+            panel.style.display = 'block';
+        }
+
+        function choose(val) {
+            sel.value = val;
+            syncDisplay();
+            panel.style.display = 'none';
+            var ev = document.createEvent('Event');
+            ev.initEvent('change', true, true);
+            sel.dispatchEvent(ev);
+        }
+
+        function openPanel() { buildList(input.value); }
+        function closePanel() { panel.style.display = 'none'; }
+
+        input.addEventListener('focus', openPanel);
+        input.addEventListener('input', function () { buildList(this.value); });
+        input.addEventListener('blur',  function () { setTimeout(closePanel, 180); });
+        input.addEventListener('keydown', function (e) {
+            var items = panel.querySelectorAll('.cd-srch-item:not(.cd-srch-item--empty)');
+            var active = panel.querySelector('.cd-srch-item--hover');
+            if (e.key === 'ArrowDown' || e.keyCode === 40) {
+                e.preventDefault();
+                var next = active ? active.nextElementSibling : items[0];
+                if (active) active.classList.remove('cd-srch-item--hover');
+                if (next && next.className.indexOf('cd-srch-item--empty') < 0) {
+                    next.classList.add('cd-srch-item--hover');
+                    next.scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === 'ArrowUp' || e.keyCode === 38) {
+                e.preventDefault();
+                var prev = active ? active.previousElementSibling : items[items.length - 1];
+                if (active) active.classList.remove('cd-srch-item--hover');
+                if (prev && prev.className.indexOf('cd-srch-item--empty') < 0) {
+                    prev.classList.add('cd-srch-item--hover');
+                    prev.scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === 'Enter' || e.keyCode === 13) {
+                e.preventDefault();
+                if (active) choose(active.dataset.v);
+            } else if (e.key === 'Escape' || e.keyCode === 27) {
+                closePanel();
+            }
+        });
+    }
+
+    // ============================================================
+    // INIT ALL
+    // ============================================================
+    function initAll() {
+        initDonut();
+        initMonthly();
+        initSemester();
+        var sels = document.querySelectorAll('select.fs-filter-select');
+        for (var i = 0; i < sels.length; i++) initSearchable(sels[i]);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAll);
+    } else {
+        // Slight delay to ensure layout is ready for Chart.js responsive sizing
+        setTimeout(initAll, 50);
+    }
+}());
+</script>
 
 </asp:Content>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -13,6 +13,16 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     private string ConnectionString
     {
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
+    }
+
+    private string AcctConnStr
+    {
+        get
+        {
+            var cs = ConfigurationManager.ConnectionStrings["accountsConnectionString"];
+            return cs != null ? cs.ConnectionString
+                : "server=localhost;User Id=root;password=24thdecember1977;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True;charset=utf8";
+        }
     }
     
     protected void Page_Load(object sender, EventArgs e)
@@ -77,7 +87,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 BindGrid();
             }
             // Button clicks (Register, Remove, Retake) handle BindGrid themselves
-            // after their work — don't call it here or it would wipe checkbox selections.
+            // after their work - don't call it here or it would wipe checkbox selections.
         }
     }
     
@@ -459,20 +469,33 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             BindGrid();
             return;
         }
-        
+
+        // Enforce semester active status — block registration if the semester is closed
+        int semNumReg;
+        if (!int.TryParse(ddlSemester.SelectedValue, out semNumReg) || !AcademicYearHelper.IsSemesterActive(semNumReg))
+        {
+            ShowMessage(string.Format(
+                "Semester {0} is not currently open for course registration. " +
+                "An administrator must set Semester {0} as active on the Academic Years page before registration can proceed.",
+                ddlSemester.SelectedValue), "error");
+            LoadStats();
+            BindGrid();
+            return;
+        }
+
         int count = 0;
         int skipped = 0;
         List<string> errors = new List<string>();
         string username = HttpContext.Current.User.Identity.Name;
-        
+
         try
         {
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                
+
                 List<object> selectedRows = gvCourseReg.GetSelectedFieldValues("regno");
-                
+
                 if (selectedRows.Count == 0)
                 {
                     ShowMessage("No students selected. Please tick the checkboxes next to students you want to register.", "error");
@@ -480,7 +503,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     BindGrid();
                     return;
                 }
-                
+
                 foreach (object row in selectedRows)
                 {
                     string regno = row.ToString();
@@ -664,7 +687,20 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         
         string regno = txtRetakeRegNo.Text.Trim();
         string username = HttpContext.Current.User.Identity.Name;
-        
+
+        // Enforce semester active status — block retake registration if semester is closed
+        int semNumRtk;
+        if (!int.TryParse(ddlSemester.SelectedValue, out semNumRtk) || !AcademicYearHelper.IsSemesterActive(semNumRtk))
+        {
+            ShowMessage(string.Format(
+                "Semester {0} is not currently open for course registration. " +
+                "An administrator must set Semester {0} as active on the Academic Years page before registration can proceed.",
+                ddlSemester.SelectedValue), "error");
+            LoadStats();
+            BindGrid();
+            return;
+        }
+
         try
         {
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
@@ -756,16 +792,12 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         litMessage.Text = message;
     }
     
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  QUICK EDIT MODAL
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     
     private void LoadQuickEditDropdowns()
     {
-        // Specialisations
-        ddlQeSpec.Items.Clear();
-        ddlQeSpec.Items.Add(new ListItem("-- None --", ""));
-        
         // Sessions
         ddlQeSession.Items.Clear();
         
@@ -774,26 +806,20 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         
         // Entry Years
         ddlQeEntryYear.Items.Clear();
+        ddlQeEntryYear.Items.Add(new ListItem("-- Select Year --", ""));
         int cy = DateTime.Now.Year;
         for (int y = cy + 1; y >= cy - 20; y--)
             ddlQeEntryYear.Items.Add(new ListItem(y.ToString(), y.ToString()));
         
-        // Billing
+        // Billing (from accounts database)
         ddlQeBilling.Items.Clear();
+        ddlQeBilling.Items.Add(new ListItem("-- Select --", ""));
         
         try
         {
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                
-                // Specialisations (active, non-dash)
-                using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT spec_id, spec, prog_id FROM acad_specialisation WHERE spec != '-' AND is_active='Active' ORDER BY spec", conn))
-                using (MySqlDataReader rdr = cmd.ExecuteReader())
-                    while (rdr.Read())
-                        ddlQeSpec.Items.Add(new ListItem(
-                            rdr["spec"].ToString(), rdr["spec_id"].ToString()));
                 
                 // Sessions
                 using (MySqlCommand cmd = new MySqlCommand(
@@ -811,13 +837,22 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         ddlQeCampus.Items.Add(new ListItem(
                             rdr["campus_name"].ToString(), rdr["campus_code"].ToString()));
                 
-                // Billing
+            }
+        }
+        catch { }
+        
+        // Billing systems (separate database)
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
                 using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT billingID, billingName FROM acc_billing_system ORDER BY billingName", conn))
+                    "SELECT ID, bs_name FROM fin_billing_systems ORDER BY bs_name", conn))
                 using (MySqlDataReader rdr = cmd.ExecuteReader())
                     while (rdr.Read())
                         ddlQeBilling.Items.Add(new ListItem(
-                            rdr["billingName"].ToString(), rdr["billingID"].ToString()));
+                            rdr["bs_name"].ToString(), rdr["ID"].ToString()));
             }
         }
         catch { }
@@ -834,15 +869,13 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             {
                 conn.Open();
                 
-                string sql = @"SELECT s.regno, s.entryno, s.firstname, s.othername, s.gender,
-                                      s.dob, s.national_id, s.studPhone, s.email, s.nationality,
-                                      s.religion, s.progid, s.specialisation, s.studsesion,
-                                      s.studCampus, s.entryyear, s.entrymethod, s.intake,
-                                      s.billingID, s.stud_status, s.new_status,
-                                      p.prog_name
-                               FROM acad_student s
-                               LEFT JOIN acad_programme p ON s.progid = p.prog_code
-                               WHERE s.regno = @rn LIMIT 1";
+                string sql = @"SELECT regno, entryno, firstname, othername, gender,
+                                      dob, national_id, studPhone, email, nationality,
+                                      religion, progid, studsesion,
+                                      studCampus, entryyear, entrymethod, intake,
+                                      billingID, stud_status, new_status, home_dist
+                               FROM acad_student
+                               WHERE regno = @rn LIMIT 1";
                 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
@@ -851,17 +884,13 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     {
                         if (!rdr.Read())
                         {
-                            ScriptManager.RegisterStartupScript(this, GetType(), "qeErr",
-                                "qeShowMsg('Student not found: " + regno.Replace("'", "") + "','err');showQuickEditModal();", true);
+                            QeMsg("Student not found: " + regno, "err");
                             return;
                         }
                         
                         // Populate read-only fields via JS
                         string regNoVal = rdr["regno"].ToString();
                         string entryNoVal = rdr["entryno"] != DBNull.Value ? rdr["entryno"].ToString() : "-";
-                        string progDisplay = rdr["progid"].ToString();
-                        if (rdr["prog_name"] != DBNull.Value && rdr["prog_name"].ToString() != "")
-                            progDisplay = rdr["progid"].ToString() + " - " + rdr["prog_name"].ToString();
                         
                         // Personal fields
                         txtQeFirstName.Text = rdr["firstname"] != DBNull.Value ? rdr["firstname"].ToString() : "";
@@ -885,37 +914,13 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         txtQePhone.Text = rdr["studPhone"] != DBNull.Value ? rdr["studPhone"].ToString() : "";
                         txtQeEmail.Text = rdr["email"] != DBNull.Value ? rdr["email"].ToString() : "";
                         txtQeNationality.Text = rdr["nationality"] != DBNull.Value ? rdr["nationality"].ToString() : "";
+                        txtQeDistrict.Text = rdr["home_dist"] != DBNull.Value ? rdr["home_dist"].ToString() : "";
                         
                         string religion = rdr["religion"] != DBNull.Value ? rdr["religion"].ToString() : "-";
                         if (ddlQeReligion.Items.FindByValue(religion) != null)
                             ddlQeReligion.SelectedValue = religion;
                         
                         // Academic fields
-                        // Specialisation: DB stores spec_id as string. Try numeric match first.
-                        string specVal = rdr["specialisation"] != DBNull.Value ? rdr["specialisation"].ToString() : "";
-                        bool specFound = false;
-                        int specIdNum;
-                        if (int.TryParse(specVal, out specIdNum) && specIdNum > 0)
-                        {
-                            if (ddlQeSpec.Items.FindByValue(specIdNum.ToString()) != null)
-                            {
-                                ddlQeSpec.SelectedValue = specIdNum.ToString();
-                                specFound = true;
-                            }
-                        }
-                        if (!specFound)
-                        {
-                            // Try matching by name (for text-based data)
-                            foreach (ListItem item in ddlQeSpec.Items)
-                            {
-                                if (item.Text == specVal)
-                                {
-                                    ddlQeSpec.SelectedValue = item.Value;
-                                    break;
-                                }
-                            }
-                        }
-                        
                         string session = rdr["studsesion"] != DBNull.Value ? rdr["studsesion"].ToString() : "";
                         if (ddlQeSession.Items.FindByValue(session) != null)
                             ddlQeSession.SelectedValue = session;
@@ -968,12 +973,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         // Set JS-side fields and show modal
                         string jsRegNo = regNoVal.Replace("'", "\\'");
                         string jsEntryNo = entryNoVal.Replace("'", "\\'");
-                        string jsProg = progDisplay.Replace("'", "\\'");
                         
                         ScriptManager.RegisterStartupScript(this, GetType(), "qeShow",
                             "document.getElementById('qeRegNo').value='" + jsRegNo + "';" +
                             "document.getElementById('qeEntryNo').value='" + jsEntryNo + "';" +
-                            "document.getElementById('qeProgDisplay').value='" + jsProg + "';" +
                             "document.getElementById('qeTitle').innerText='Quick Edit: " + jsRegNo + "';" +
                             "showQuickEditModal();", true);
                     }
@@ -982,8 +985,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         }
         catch (Exception ex)
         {
-            ScriptManager.RegisterStartupScript(this, GetType(), "qeErr",
-                "qeShowMsg('Error loading student: " + ex.Message.Replace("'", "") + "','err');showQuickEditModal();", true);
+            QeMsg("Error loading student: " + ex.Message, "err");
         }
     }
     
@@ -992,28 +994,37 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         string regno = (hfQeRegNo.Value ?? "").Trim();
         if (string.IsNullOrEmpty(regno))
         {
-            ScriptManager.RegisterStartupScript(this, GetType(), "qeErr",
-                "qeShowMsg('No student selected.','err');showQuickEditModal();", true);
+            QeMsg("No student selected.", "err");
             return;
         }
         
         try
         {
+            // --- Gather & sanitise all form values ---
             string firstName = (txtQeFirstName.Text ?? "").Trim().ToUpper();
             string otherName = (txtQeOtherName.Text ?? "").Trim().ToUpper();
-            string gender = ddlQeGender.SelectedValue;
+            string gender = ddlQeGender.SelectedValue ?? "MALE";
             string dobStr = (txtQeDOB.Text ?? "").Trim();
             string nin = (txtQeNIN.Text ?? "").Trim().ToUpper();
             string phone = (txtQePhone.Text ?? "").Trim();
             string email = (txtQeEmail.Text ?? "").Trim();
             string nationality = (txtQeNationality.Text ?? "").Trim().ToUpper();
-            string religion = ddlQeReligion.SelectedValue;
-            string session = ddlQeSession.SelectedValue;
-            string entryMethod = ddlQeEntryMethod.SelectedValue;
-            string intake = ddlQeIntakeEdit.SelectedValue;
-            string studStatus = ddlQeStatus.SelectedValue;
-            string newStatus = ddlQeNewStatus.SelectedValue;
+            string district = (txtQeDistrict.Text ?? "").Trim().ToUpper();
+            string religion = ddlQeReligion.SelectedValue ?? "-";
+            string session = ddlQeSession.SelectedValue ?? "";
+            string entryMethod = ddlQeEntryMethod.SelectedValue ?? "DIRECT";
+            string intake = ddlQeIntakeEdit.SelectedValue ?? "AUGUST";
+            string studStatus = ddlQeStatus.SelectedValue ?? "ACTIVE";
+            string newStatus = ddlQeNewStatus.SelectedValue ?? "ADMITTED";
             
+            // --- Validation ---
+            if (string.IsNullOrEmpty(firstName))
+            { QeMsg("First Name is required.", "err"); return; }
+            if (string.IsNullOrEmpty(phone))
+            { QeMsg("Phone number is required.", "err"); return; }
+            if (string.IsNullOrEmpty(session))
+            { QeMsg("Please select a Study Session.", "err"); return; }
+
             // Campus: dropdown value "01" → int 1 for DB
             int campusInt = 1;
             string campusVal = ddlQeCampus.SelectedValue;
@@ -1034,18 +1045,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 int.TryParse(billVal, out billingId);
             if (billingId <= 0) billingId = 1;
             
-            // Resolve specialisation: spec_id → plain text name
-            string specName = "";
-            string specIdStr = ddlQeSpec.SelectedValue;
-            int specId;
-            if (int.TryParse(specIdStr, out specId) && specId > 0)
-            {
-                ListItem specItem = ddlQeSpec.Items.FindByValue(specIdStr);
-                if (specItem != null)
-                    specName = specItem.Text;
-            }
-            
-            // Parse DOB
+            // Parse DOB safely
             DateTime dob = new DateTime(1980, 1, 1);
             if (!string.IsNullOrEmpty(dobStr))
             {
@@ -1053,18 +1053,16 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 if (DateTime.TryParse(dobStr, out parsed))
                     dob = parsed;
             }
-            
-            if (string.IsNullOrEmpty(firstName))
-            {
-                ScriptManager.RegisterStartupScript(this, GetType(), "qeErr",
-                    "qeShowMsg('First Name is required.','err');showQuickEditModal();", true);
-                return;
-            }
-            
+
+            // Default empty fields
+            if (string.IsNullOrEmpty(nationality)) nationality = "UGANDAN";
+            if (string.IsNullOrEmpty(district)) district = "UGANDA";
+
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
                 
+                // --- UPDATE acad_student ---
                 string sql = @"UPDATE acad_student SET
                     firstname      = @firstName,
                     othername      = @otherName,
@@ -1075,7 +1073,6 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     email          = @email,
                     nationality    = @nationality,
                     religion       = @religion,
-                    specialisation = @specName,
                     studsesion     = @session,
                     studCampus     = @campus,
                     entryyear      = @entryYear,
@@ -1083,11 +1080,13 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     intake         = @intake,
                     billingID      = @billingId,
                     stud_status    = @studStatus,
-                    new_status     = @newStatus
+                    new_status     = @newStatus,
+                    home_dist      = @district
                 WHERE regno = @regno";
                 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
+                    cmd.CommandTimeout = 30;
                     cmd.Parameters.AddWithValue("@firstName",   firstName);
                     cmd.Parameters.AddWithValue("@otherName",   otherName);
                     cmd.Parameters.AddWithValue("@gender",      gender);
@@ -1097,7 +1096,6 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     cmd.Parameters.AddWithValue("@email",       email);
                     cmd.Parameters.AddWithValue("@nationality", nationality);
                     cmd.Parameters.AddWithValue("@religion",    religion);
-                    cmd.Parameters.AddWithValue("@specName",    specName);
                     cmd.Parameters.AddWithValue("@session",     session);
                     cmd.Parameters.AddWithValue("@campus",      campusInt);
                     cmd.Parameters.AddWithValue("@entryYear",   entryYear);
@@ -1106,13 +1104,69 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     cmd.Parameters.AddWithValue("@billingId",   billingId);
                     cmd.Parameters.AddWithValue("@studStatus",  studStatus);
                     cmd.Parameters.AddWithValue("@newStatus",   newStatus);
+                    cmd.Parameters.AddWithValue("@district",    district);
                     cmd.Parameters.AddWithValue("@regno",       regno);
-                    cmd.ExecuteNonQuery();
+                    int rows = cmd.ExecuteNonQuery();
+                    if (rows == 0)
+                    {
+                        QeMsg("Student record not found. It may have been deleted.", "err");
+                        return;
+                    }
                 }
+
+                // --- Also update acad_applications if record exists ---
+                try
+                {
+                    string entryNo = "";
+                    using (MySqlCommand cmd2 = new MySqlCommand(
+                        "SELECT entryno FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                    {
+                        cmd2.Parameters.AddWithValue("@r", regno);
+                        object val = cmd2.ExecuteScalar();
+                        if (val != null && val != DBNull.Value)
+                            entryNo = val.ToString();
+                    }
+
+                    if (!string.IsNullOrEmpty(entryNo) && entryNo != "-")
+                    {
+                        using (MySqlCommand cmd3 = new MySqlCommand(@"
+                            UPDATE acad_applications SET
+                                stud_name        = @name,
+                                stud_sex         = @sex,
+                                stud_nationality = @nationality,
+                                stud_religion    = @religion,
+                                stud_phone       = @phone,
+                                stud_email       = @email,
+                                stud_birthdate   = @dob,
+                                stud_campus      = @campus,
+                                stud_intake      = @intake,
+                                national_id      = @nin,
+                                home_district    = @district,
+                                billingID        = @billingId
+                            WHERE stud_entry_no = @eno", conn))
+                        {
+                            cmd3.CommandTimeout = 15;
+                            cmd3.Parameters.AddWithValue("@name",        firstName + " " + otherName);
+                            cmd3.Parameters.AddWithValue("@sex",         gender);
+                            cmd3.Parameters.AddWithValue("@nationality", nationality);
+                            cmd3.Parameters.AddWithValue("@religion",    religion);
+                            cmd3.Parameters.AddWithValue("@phone",       phone);
+                            cmd3.Parameters.AddWithValue("@email",       email);
+                            cmd3.Parameters.AddWithValue("@dob",         dob);
+                            cmd3.Parameters.AddWithValue("@campus",      campusVal ?? "01");
+                            cmd3.Parameters.AddWithValue("@intake",      intake);
+                            cmd3.Parameters.AddWithValue("@nin",         nin);
+                            cmd3.Parameters.AddWithValue("@district",    district);
+                            cmd3.Parameters.AddWithValue("@billingId",   billingId);
+                            cmd3.Parameters.AddWithValue("@eno",         entryNo);
+                            cmd3.ExecuteNonQuery();
+                        }
+                    }
+                }
+                catch { /* application sync failure should not block save */ }
             }
             
-            ScriptManager.RegisterStartupScript(this, GetType(), "qeOk",
-                "qeShowMsg('Student updated successfully.','ok');showQuickEditModal();", true);
+            QeMsg("Student updated successfully.", "ok");
             
             // Refresh the grid to show updated data
             LoadStats();
@@ -1120,9 +1174,16 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         }
         catch (Exception ex)
         {
-            ScriptManager.RegisterStartupScript(this, GetType(), "qeErr",
-                "qeShowMsg('Error saving: " + ex.Message.Replace("'", "").Replace("\\", "") + "','err');showQuickEditModal();", true);
+            QeMsg("Error saving: " + ex.Message, "err");
         }
+    }
+
+    /// <summary>Show a message inside the quick-edit modal.</summary>
+    private void QeMsg(string msg, string type)
+    {
+        string safeMsg = msg.Replace("'", "").Replace("\\", "").Replace("\r", "").Replace("\n", " ");
+        ScriptManager.RegisterStartupScript(this, GetType(), "qeMsg",
+            "qeShowMsg('" + safeMsg + "','" + type + "');showQuickEditModal();", true);
     }
 
     protected void btnPrintResults_Click(object sender, EventArgs e)

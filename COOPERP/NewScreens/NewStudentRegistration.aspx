@@ -1,17 +1,26 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="NewStudentRegistration.aspx.cs" Inherits="COOPERP_NewScreens_NewStudentRegistration" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="NewStudentRegistration.aspx.cs" Inherits="COOPERP_NewScreens_NewStudentRegistration" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* ═══════════════════════════════════════════════════════════════════
-   NEW STUDENT REGISTRATION — Standalone Page Styles
-   ═══════════════════════════════════════════════════════════════════ */
+/* ===================================================================
+   CD PAGE HEADER
+   =================================================================== */
+.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.cd-page-header__left { display:flex; align-items:center; gap:12px; }
+.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
 
-/* ── Layout ──────────────────────────────────────── */
+/* ===================================================================
+   NEW STUDENT REGISTRATION - Standalone Page Styles
+   =================================================================== */
+
+/* -- Layout ---------------------------------------- */
 .nsr-page { max-width: 960px; margin: 0 auto; }
 
 .nsr-header {
-    background: linear-gradient(135deg, #174DA4 0%, #2563eb 100%);
-    color: #fff; border-radius: 10px 10px 0 0; padding: 18px 24px;
+    background: #05275C;
+    color: #fff; border-radius: 0; padding: 18px 24px;
     display: flex; align-items: center; justify-content: space-between;
 }
 .nsr-header h1 { margin: 0; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
@@ -19,10 +28,10 @@
 
 .nsr-body {
     background: #fff; border: 1px solid #e0e0e0; border-top: none;
-    border-radius: 0 0 10px 10px; padding: 24px 28px 20px;
+    border-radius: 0; padding: 24px 28px 20px;
 }
 
-/* ── Section headers ─────────────────────────────── */
+/* -- Section headers ------------------------------- */
 .nsr-section {
     font-size: 10px; text-transform: uppercase; letter-spacing: .7px;
     color: #174DA4; font-weight: 700; padding: 8px 0 5px;
@@ -32,21 +41,15 @@
 .nsr-section:first-child { margin-top: 0; }
 .nsr-section svg { flex-shrink: 0; }
 
-/* Collapsible section toggle */
-.nsr-section--toggle { cursor: pointer; user-select: none; }
-.nsr-section--toggle:hover { color: #2563eb; }
-.nsr-toggle-icon { font-size: 9px; transition: transform .2s; }
-.nsr-section--toggle.open .nsr-toggle-icon { transform: rotate(90deg); }
-.nsr-collapsible { display: none; }
-.nsr-collapsible.open { display: block; }
 
-/* ── Form grid layouts ───────────────────────────── */
+
+/* -- Form grid layouts ----------------------------- */
 .nsr-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .nsr-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
 .nsr-row4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
 .nsr-row-title { display: grid; grid-template-columns: 130px 1fr; gap: 14px; }
 
-/* ── Form controls ───────────────────────────────── */
+/* -- Form controls --------------------------------- */
 .nsr-group { margin-bottom: 12px; }
 .nsr-label {
     display: block; font-size: 11px; text-transform: uppercase;
@@ -54,32 +57,32 @@
 }
 .nsr-label .req { color: #dc3545; margin-left: 2px; }
 .nsr-input, .nsr-select {
-    width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px;
+    width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 0;
     font-size: 13px; box-sizing: border-box; background: #fff;
-    transition: border-color .15s, box-shadow .15s;
+    transition: border-color .15s;
 }
 .nsr-input:focus, .nsr-select:focus {
-    border-color: #174DA4; box-shadow: 0 0 0 3px rgba(23,77,164,.10); outline: none;
+    border-color: #174DA4; outline: none;
 }
 .nsr-input:disabled, .nsr-select:disabled { background: #f5f5f5; color: #999; }
 .nsr-hint { font-size: 10px; color: #888; margin-top: 3px; }
 .nsr-textarea { min-height: 60px; resize: vertical; }
 
-/* ── Checkbox ────────────────────────────────────── */
+/* -- Checkbox -------------------------------------- */
 .nsr-check-label {
     display: flex; align-items: center; gap: 8px; cursor: pointer;
     font-size: 13px; font-weight: 600; color: #333; padding: 8px 0;
 }
 .nsr-check-label input[type="checkbox"] { width: 16px; height: 16px; }
 
-/* ── Footer ──────────────────────────────────────── */
+/* -- Footer ---------------------------------------- */
 .nsr-footer {
     display: flex; justify-content: space-between; align-items: center;
     padding: 16px 0 0; border-top: 1px solid #e4e8f0; margin-top: 20px;
 }
 .nsr-btn {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 9px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    padding: 9px 18px; border-radius: 0; font-size: 13px; font-weight: 600;
     border: none; cursor: pointer; transition: all .15s;
 }
 .nsr-btn--primary { background: #174DA4; color: #fff; }
@@ -90,9 +93,9 @@
 .nsr-btn--ghost:hover { background: #f5f5f5; }
 .nsr-btn:disabled { opacity: .55; cursor: not-allowed; }
 
-/* ── Alert bar ───────────────────────────────────── */
+/* -- Alert bar ------------------------------------- */
 .nsr-alert {
-    display: none; padding: 10px 14px; border-radius: 6px;
+    display: none; padding: 10px 14px; border-radius: 0;
     font-size: 13px; margin: 12px 0; position: relative;
 }
 .nsr-alert--err { background: #fdecea; color: #b91c1c; border-left: 4px solid #dc3545; display: block; }
@@ -102,7 +105,7 @@
     background: none; border: none; font-size: 18px; cursor: pointer; color: inherit; opacity: .6;
 }
 
-/* ── Loading spinner ─────────────────────────────── */
+/* -- Loading spinner ------------------------------- */
 .nsr-loading {
     display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3);
     border-top-color: #fff; border-radius: 50%; animation: nsrSpin .6s linear infinite;
@@ -110,13 +113,13 @@
 }
 @keyframes nsrSpin { to { transform: rotate(360deg); } }
 
-/* ── Cascading dropdown indicator ────────────────── */
+/* -- Cascading dropdown indicator ------------------ */
 .nsr-select--loading { background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="%23ccc" stroke-width="3" fill="none" stroke-dasharray="31" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" dur="0.6s" from="0 12 12" to="360 12 12" repeatCount="indefinite"/></circle></svg>'); background-repeat: no-repeat; background-position: right 8px center; }
 
-/* ── Success result card ─────────────────────────── */
+/* -- Success result card --------------------------- */
 .nsr-result-card {
-    background: linear-gradient(135deg, #e6f4ea 0%, #f0fdf0 100%);
-    border: 1px solid #a5d6a7; border-radius: 10px; padding: 20px 24px;
+    background: #f0fdf4;
+    border: 1px solid #a5d6a7; border-radius: 4px; padding: 20px 24px;
     text-align: center; display: none;
 }
 .nsr-result-card.show { display: block; }
@@ -124,7 +127,7 @@
 .nsr-result-card .nsr-result-detail { font-size: 13px; color: #333; margin: 4px 0; }
 .nsr-result-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
 
-/* ── Responsive ──────────────────────────────────── */
+/* -- Responsive ------------------------------------ */
 @media (max-width: 768px) {
     .nsr-row2, .nsr-row3, .nsr-row4, .nsr-row-title { grid-template-columns: 1fr; }
     .nsr-body { padding: 16px; }
@@ -135,6 +138,19 @@
 </asp:Content>
 
 <asp:Content ID="BodyContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        </div>
+        <div>
+            <div class="cd-page-header__title">New Student Registration</div>
+            <div class="cd-page-header__sub">Register a new student into the university system</div>
+        </div>
+    </div>
+</div>
 
 <!-- Hidden postback triggers -->
 <asp:Button ID="btnSubmitRegistration" runat="server" style="display:none;" OnClick="btnSubmitRegistration_Click" />
@@ -153,7 +169,7 @@
 
 <div class="nsr-page">
 
-    <!-- ═══════ HEADER ════════════════════════════════════════════════ -->
+    <!-- ======= HEADER ================================================ -->
     <div class="nsr-header">
         <div>
             <h1>
@@ -168,7 +184,7 @@
         </a>
     </div>
 
-    <!-- ═══════ FORM BODY ═════════════════════════════════════════════ -->
+    <!-- ======= FORM BODY ============================================= -->
     <div class="nsr-body" id="formContainer">
 
         <!-- Alert Area -->
@@ -177,7 +193,7 @@
             <button type="button" class="nsr-alert__close" onclick="this.parentElement.style.display='none';">&times;</button>
         </div>
 
-        <!-- ── 1. PERSONAL INFORMATION ────────────────────────────── -->
+        <!-- -- 1. PERSONAL INFORMATION ------------------------------ -->
         <div class="nsr-section">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             Personal Information
@@ -265,7 +281,7 @@
             </div>
         </div>
 
-        <!-- ── 2. ACADEMIC DETAILS ────────────────────────────────── -->
+        <!-- -- 2. ACADEMIC DETAILS ---------------------------------- -->
         <div class="nsr-section">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>
             Academic Details
@@ -357,7 +373,7 @@
             </div>
         </div>
 
-        <!-- ── 3. ADDRESS & CONTACT ───────────────────────────────── -->
+        <!-- -- 3. ADDRESS & CONTACT --------------------------------- -->
         <div class="nsr-section">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
             Address &amp; Contact
@@ -383,7 +399,7 @@
             </div>
         </div>
 
-        <!-- ── 4. SPONSOR & NEXT OF KIN ───────────────────────────── -->
+        <!-- -- 4. SPONSOR & NEXT OF KIN ----------------------------- -->
         <div class="nsr-section">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             Sponsor &amp; Next of Kin
@@ -426,14 +442,12 @@
             </div>
         </div>
 
-        <!-- ── 5. EDUCATION BACKGROUND (collapsible) ──────────────── -->
-        <div class="nsr-section nsr-section--toggle" id="eduToggle" onclick="toggleSection('eduSection', this)">
+        <!-- -- 5. EDUCATION BACKGROUND -------------------------------- -->
+        <div class="nsr-section">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-            Education Background
-            <span class="nsr-toggle-icon">&#9654;</span>
-            <span style="font-size:9px;color:#888;font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px;">(optional &mdash; click to expand)</span>
+            Education Background <span style="font-size:9px;color:#888;font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px;">(optional)</span>
         </div>
-        <div class="nsr-collapsible" id="eduSection">
+        <div>
             <div class="nsr-row2">
                 <div class="nsr-group">
                     <label class="nsr-label">O-Level School</label>
@@ -456,7 +470,7 @@
             </div>
         </div>
 
-        <!-- ── 6. REGISTRATION OPTIONS ────────────────────────────── -->
+        <!-- -- 6. REGISTRATION OPTIONS ------------------------------ -->
         <asp:Panel ID="pnlRegistrationOptions" runat="server">
         <div class="nsr-section">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -472,7 +486,7 @@
         </div>
         </asp:Panel>
 
-        <!-- ── FOOTER ─────────────────────────────────────────────── -->
+        <!-- -- FOOTER ----------------------------------------------- -->
         <div class="nsr-footer">
             <div>
                 <button type="button" class="nsr-btn nsr-btn--ghost" onclick="resetForm()">
@@ -490,7 +504,7 @@
         </div>
     </div>
 
-    <!-- ═══════ SUCCESS CARD (shown after registration) ═══════════════ -->
+    <!-- ======= SUCCESS CARD (shown after registration) =============== -->
     <div class="nsr-result-card" id="successCard">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
         <h3 id="successTitle">Student Registered Successfully!</h3>
@@ -510,14 +524,14 @@
     </div>
 </div>
 
-<!-- ═══════ JAVASCRIPT ═════════════════════════════════════════════════ -->
+<!-- ======= JAVASCRIPT ================================================= -->
 <script type="text/javascript">
 
-// ── Programme data cache (loaded from server on page load) ──────────
+// -- Programme data cache (loaded from server on page load) ----------
 var allProgrammes = <%= GetProgrammesJson() %>;
 var allSpecialisations = <%= GetSpecialisationsJson() %>;
 
-// ── On page load: apply faculty filter and restore programme selection ──
+// -- On page load: apply faculty filter and restore programme selection --
 (function initDropdowns() {
     // If there's a saved faculty value (from hidden field on postback), filter programmes
     var hfFac  = document.getElementById('<%= hfFaculty.ClientID %>');
@@ -555,7 +569,7 @@ var allSpecialisations = <%= GetSpecialisationsJson() %>;
     }
 })();
 
-// ── Cascading: Faculty → Programme ──────────────────────────────────
+// -- Cascading: Faculty → Programme ----------------------------------
 function onFacultyChange(sel) {
     var ddlProg = document.getElementById('<%= ddlProgramme.ClientID %>');
     filterProgrammes(sel.value, ddlProg);
@@ -564,7 +578,7 @@ function onFacultyChange(sel) {
     filterSpecialisations('', ddlSpec);
 }
 
-// ── Cascading: Programme → Specialisation ───────────────────────────
+// -- Cascading: Programme → Specialisation ---------------------------
 function onProgrammeChange(sel) {
     var ddlSpec = document.getElementById('<%= ddlSpecialisation.ClientID %>');
     filterSpecialisations(sel.value, ddlSpec);
@@ -603,21 +617,7 @@ function filterProgrammes(fac, ddlProg) {
     }
 }
 
-// ── Collapsible sections ────────────────────────────────────────────
-function toggleSection(sectionId, toggleEl) {
-    var sec = document.getElementById(sectionId);
-    if (!sec) return;
-    var isOpen = sec.className.indexOf('open') >= 0;
-    if (isOpen) {
-        sec.className = sec.className.replace(/\bopen\b/g, '').trim();
-        toggleEl.className = toggleEl.className.replace(/\bopen\b/g, '').trim();
-    } else {
-        sec.className = (sec.className + ' open').trim();
-        toggleEl.className = (toggleEl.className + ' open').trim();
-    }
-}
-
-// ── Client-side validation ──────────────────────────────────────────
+// -- Client-side validation ------------------------------------------
 function validateForm() {
     var errors = [];
     var fullName = document.getElementById('<%= txtFullName.ClientID %>');
@@ -655,7 +655,7 @@ function validateForm() {
     return errors;
 }
 
-// ── Submit registration ─────────────────────────────────────────────
+// -- Submit registration ---------------------------------------------
 function submitRegistration() {
     var errors = validateForm();
     if (errors.length > 0) {
@@ -696,7 +696,7 @@ function copyToHidden(ddlId, hfId) {
     if (ddl && hf) hf.value = ddl.value;
 }
 
-// ── Show/hide alert ─────────────────────────────────────────────────
+// -- Show/hide alert -------------------------------------------------
 function showAlert(msg, type) {
     var box = document.getElementById('<%= alertBox.ClientID %>');
     if (!box) return;
@@ -705,7 +705,7 @@ function showAlert(msg, type) {
     box.innerHTML = msg + '<button type="button" class="nsr-alert__close" onclick="this.parentElement.style.display=\'none\';">&times;</button>';
 }
 
-// ── Reset form ──────────────────────────────────────────────────────
+// -- Reset form ------------------------------------------------------
 function resetForm() {
     var inputs = document.querySelectorAll('.nsr-input');
     for (var i = 0; i < inputs.length; i++) {
@@ -741,7 +741,7 @@ function resetForm() {
     if (res) res.value = 'UGANDA';
 }
 
-// ── Go back ─────────────────────────────────────────────────────────
+// -- Go back ---------------------------------------------------------
 function goBack() {
     var returnUrl = document.getElementById('<%= hfReturnUrl.ClientID %>');
     if (returnUrl && returnUrl.value) {
@@ -751,68 +751,71 @@ function goBack() {
     }
 }
 
-// ── Edit mode detection ──────────────────────────────────────────────
+// -- Edit mode detection ----------------------------------------------
 var isEditMode = (function() {
     var hf = document.getElementById('<%= hfEditRegNo.ClientID %>');
     return hf && hf.value && hf.value.length > 0;
 })();
-var btnIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg> ';
-var btnLabel = isEditMode ? 'Update Student' : 'Register Student';
 
-// ── Success: show card, hide form ───────────────────────────────────
-function showSuccess(entryNo, regNo, registered) {
-    document.getElementById('formContainer').style.display = 'none';
-    var card = document.getElementById('successCard');
-    card.style.display = 'block';
-    card.className = 'nsr-result-card show';
-    if (isEditMode) {
-        document.getElementById('successTitle').innerHTML = 'Student Updated Successfully!';
-        document.getElementById('successEntryNo').innerHTML = '<strong>Reg No:</strong> ' + regNo;
-        document.getElementById('successRegNo').innerHTML = '';
-        document.getElementById('successExtra').innerHTML = 'All student details have been saved.';
-    } else {
-        document.getElementById('successEntryNo').innerHTML = '<strong>Entry No:</strong> ' + entryNo;
-        document.getElementById('successRegNo').innerHTML = '<strong>Reg No:</strong> ' + regNo;
-        if (registered) {
-            document.getElementById('successExtra').innerHTML = 'Student has been registered and auto-billed for the first semester.';
-        }
-    }
-    // Link to student record
-    var lnk = document.getElementById('lnkViewStudent');
-    if (lnk) {
-        lnk.href = 'NewStudentInfo.aspx?status=ALL&search=' + encodeURIComponent(regNo);
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// ── Register another student ────────────────────────────────────────
-function registerAnother() {
-    if (isEditMode) {
-        goBack();
-        return;
-    }
-    document.getElementById('formContainer').style.display = 'block';
-    document.getElementById('successCard').style.display = 'none';
-    document.getElementById('successCard').className = 'nsr-result-card';
-    resetForm();
-
-    // Re-enable button
+if (isEditMode) {
     var btn = document.getElementById('btnSubmit');
     if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = btnIcon + btnLabel;
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> ' + document.getElementById('<%= litSubmitBtnText.ClientID %>').innerHTML;
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    var backLink = document.getElementById('btnBackLink');
+    if (backLink) backLink.href = 'javascript:history.back()';
 }
 
-// ── Re-enable submit button on postback error ───────────────────────
+// -- Show success card -----------------------------------------------
+function showSuccess(entryNo, regNo, registered) {
+    var form = document.getElementById('formContainer');
+    var card = document.getElementById('successCard');
+    if (form) form.style.display = 'none';
+    if (card) card.style.display = 'block';
+    card.className = 'nsr-result-card show';
+
+    var titleEl = document.getElementById('successTitle');
+    var entryEl = document.getElementById('successEntryNo');
+    var regEl   = document.getElementById('successRegNo');
+    var extraEl = document.getElementById('successExtra');
+
+    if (isEditMode) {
+        if (titleEl) titleEl.innerText = 'Student Updated Successfully!';
+        if (entryEl) entryEl.innerHTML = '<strong>Entry No:</strong> ' + entryNo;
+        if (regEl) regEl.innerHTML = '<strong>Reg No:</strong> ' + regNo;
+        if (extraEl) extraEl.innerHTML = '';
+        var actionBtn = document.getElementById('btnSuccessAction');
+        if (actionBtn) { actionBtn.innerHTML = 'Back to Student Record'; actionBtn.onclick = function() { history.back(); }; }
+    } else {
+        if (titleEl) titleEl.innerText = registered ? 'Student Registered & Billed!' : 'Student Record Created!';
+        if (entryEl) entryEl.innerHTML = '<strong>Entry No:</strong> ' + entryNo;
+        if (regEl) regEl.innerHTML = '<strong>Reg No:</strong> ' + regNo;
+        if (extraEl) extraEl.innerHTML = registered ? 'Auto-billing has been applied for the first semester.' : 'Student has been created but not yet registered.';
+    }
+
+    var viewLink = document.getElementById('lnkViewStudent');
+    if (viewLink && regNo && regNo !== '-') {
+        viewLink.href = 'StudentProfile.aspx?regno=' + encodeURIComponent(regNo);
+        viewLink.style.display = '';
+    }
+}
+
+// -- Re-enable submit button after error ----------------------------
 function reEnableSubmit() {
     var btn = document.getElementById('btnSubmit');
-    if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = btnIcon + btnLabel;
+    if (!btn) return;
+    btn.disabled = false;
+    if (isEditMode) {
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Update Student';
+    } else {
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg> Register Student';
     }
 }
 
+// -- Register another ------------------------------------------------
+function registerAnother() {
+    window.location.href = 'NewStudentRegistration.aspx';
+}
 </script>
+
 </asp:Content>

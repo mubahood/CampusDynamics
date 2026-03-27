@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="HRLeaveManagement.aspx.cs" Inherits="COOPERP_NewScreens_HRLeaveManagement" Title="Leave Management - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="HRLeaveManagement.aspx.cs" Inherits="COOPERP_NewScreens_HRLeaveManagement" Title="Leave Management - Campus Dynamics" %>
 
 <%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
@@ -94,7 +94,7 @@
     <div class="cd-card__header">
         <div class="cd-card__title">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-            Leave Overview — <asp:Literal ID="litCurrentYear" runat="server" />
+            Leave Overview - <asp:Literal ID="litCurrentYear" runat="server" />
         </div>
         <div style="display:flex;gap:6px;">
             <button type="button" class="hr-btn hr-btn--primary hr-btn--sm" onclick="openAllocateModal()">

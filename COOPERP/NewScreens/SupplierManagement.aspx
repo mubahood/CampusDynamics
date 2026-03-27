@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="SupplierManagement.aspx.cs" Inherits="COOPERP_NewScreens_SupplierManagement" Title="Supplier Management - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="SupplierManagement.aspx.cs" Inherits="COOPERP_NewScreens_SupplierManagement" Title="Supplier Management - Campus Dynamics" %>
 <%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="HeadContent" Runat="Server">
@@ -52,7 +52,7 @@
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
 
     <div class="sm-page-intro">
-        <strong>Supplier Management</strong> — Maintain a register of all suppliers / vendors used in payment vouchers.
+        <strong>Supplier Management</strong> - Maintain a register of all suppliers / vendors used in payment vouchers.
     </div>
 
     <!-- Message Panel -->

@@ -1,4 +1,4 @@
-using CoopERPDataTableAdapters;
+﻿using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -46,7 +46,7 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
             JN.UpdateRefNo(refNo, journalNo);
         }
 
-        // F5: Audit log — journal created
+        // F5: Audit log - journal created
         int newJournalNo = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
         AuditLogger.Log("JOURNAL_CREATED",
             string.Format("JournalNo={0}, Type={1}, Ref={2}", newJournalNo, txtType.Text, refNo),
@@ -242,7 +242,7 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
         }
         catch (Exception)
         {
-            // B7 FIX: ButtonManager failure is non-critical — default to Create New
+            // B7 FIX: ButtonManager failure is non-critical - default to Create New
             cmdCreateNew.Text = "Create New";
         }
     }
@@ -257,7 +257,7 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
         UpdateBalanceIndicator();
     }
 
-    // G2: DR/CR balance indicator — updates after every DataBind on the details grid
+    // G2: DR/CR balance indicator - updates after every DataBind on the details grid
     private void UpdateBalanceIndicator()
     {
         try

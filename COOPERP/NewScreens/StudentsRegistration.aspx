@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="StudentsRegistration.aspx.cs" Inherits="COOPERP_NewScreens_StudentsRegistration" Title="Student Registration - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="StudentsRegistration.aspx.cs" Inherits="COOPERP_NewScreens_StudentsRegistration" Title="Student Registration - Campus Dynamics" %>
 
 <%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
@@ -6,25 +6,17 @@
 <style>
 /* ===== STUDENT REGISTRATION MODULE ===================================== */
 
-/* ── Page Header ───────────────────────────────────── */
-.rg-page-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 0 12px; margin-bottom: 16px;
-    border-bottom: 2px solid #174DA4;
-    flex-wrap: wrap; gap: 10px;
-}
-.rg-page-header__left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.rg-page-header__icon {
-    width: 40px; height: 40px;
-    background: linear-gradient(135deg, #174DA4 0%, #2563eb 100%);
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 10px; flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(23,77,164,.2);
-}
-.rg-page-header__title { font-size: 17px; font-weight: 800; color: #1a1a2e; margin: 0; line-height: 1.2; letter-spacing: -.2px; }
-.rg-page-header__sub   { font-size: 11px; color: #999; margin-top: 2px; }
+/* -- Page Header ------------------------------------- */
+.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.cd-page-header__left { display:flex; align-items:center; gap:12px; }
+.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+.cd-page-header__right { display:flex; gap:8px; align-items:center; }
+.cd-page-header .hr-btn--primary { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3); }
+.cd-page-header .hr-btn--primary:hover { background:rgba(255,255,255,.25); color:#fff; }
 
-/* ── Stats Dashboard ────────────────────────────────── */
+/* -- Stats Dashboard ---------------------------------- */
 .rg-stats-dashboard {
     margin-bottom: 14px;
     display: flex; flex-direction: column; gap: 10px;
@@ -50,43 +42,42 @@
     gap: 8px;
 }
 
-/* ── Stat Card ─────────────────────────────────────── */
+/* -- Stat Card --------------------------------------- */
 .rg-stat {
     background: #fff; border: 1px solid #e4e8f0;
     padding: 11px 14px; display: flex; align-items: center; gap: 10px;
-    border-radius: 8px; cursor: pointer; position: relative; overflow: hidden;
+    border-radius: 4px; cursor: pointer; position: relative; overflow: hidden;
     transition: all .2s cubic-bezier(.4,0,.2,1);
 }
 .rg-stat::after {
     content: ''; position: absolute;
     left: 0; top: 0; bottom: 0; width: 3px;
     background: var(--stat-accent, #ccc);
-    border-radius: 8px 0 0 8px;
+    border-radius: 4px 0 0 4px;
     transition: width .2s;
 }
 .rg-stat:hover {
-    box-shadow: 0 4px 20px rgba(0,0,0,.07);
-    transform: translateY(-2px); border-color: rgba(23,77,164,.12);
+    border-color: rgba(23,77,164,.12);
 }
 .rg-stat:hover::after { width: 5px; }
 .rg-stat:active { transform: translateY(0); }
-.rg-stat__icon { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 8px; }
+.rg-stat__icon { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 4px; }
 .rg-stat__info { min-width: 0; }
 .rg-stat__val  { font-size: 20px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .rg-stat__label{ font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #888; margin-top: 2px; white-space: nowrap; }
 
 /* Hero card (Total) */
 .rg-stat--hero {
-    background: linear-gradient(135deg, #174DA4 0%, #2563eb 100%);
+    background: #05275C;
     border: none; color: #fff;
 }
 .rg-stat--hero::after { display: none; }
 .rg-stat--hero .rg-stat__icon {
-    background: rgba(255,255,255,.15); width: 42px; height: 42px; border-radius: 10px;
+    background: rgba(255,255,255,.15); width: 42px; height: 42px; border-radius: 4px;
 }
 .rg-stat--hero .rg-stat__val  { color: #fff; font-size: 28px; }
 .rg-stat--hero .rg-stat__label { color: rgba(255,255,255,.7); font-size: 10px; }
-.rg-stat--hero:hover { box-shadow: 0 6px 24px rgba(23,77,164,.25); }
+.rg-stat--hero:hover { }
 
 /* Color themes */
 .rg-stat--grey   { --stat-accent: #9e9e9e; }
@@ -132,17 +123,17 @@
 .rg-badge--notbilled { background: #fff3cd; color: #856404; }
 .rg-billing-amt { font-size: 9px; color: #888; display: block; margin-top: 1px; white-space: nowrap; }
 
-/* ── Card ──────────────────────────────────────────── */
-.cd-card { background: #fff; border: 1px solid #e4e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+/* -- Card -------------------------------------------- */
+.cd-card { background: #fff; border: 1px solid #e4e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
 .cd-card__header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 10px 16px; border-bottom: 1px solid #e4e8f0; background: #fafbfc;
     flex-wrap: wrap; gap: 6px;
 }
 .cd-card__title { font-size: 13px; font-weight: 700; color: #1a1a1a; display: flex; align-items: center; gap: 7px; }
-.cd-card__meta  { font-size: 10px; color: #174DA4; font-weight: 600; background: rgba(23,77,164,.06); padding: 3px 12px; border-radius: 12px; white-space: nowrap; }
+.cd-card__meta  { font-size: 10px; color: #174DA4; font-weight: 600; background: rgba(23,77,164,.06); padding: 3px 12px; border-radius: 0; white-space: nowrap; }
 
-/* ── Filter Bar ────────────────────────────────────── */
+/* -- Filter Bar -------------------------------------- */
 .ct-filters { background: #f8f9fb; border-bottom: 1px solid #e4e8f0; padding: 10px 14px; }
 .ct-filters__top {
     display: flex; align-items: center; gap: 8px;
@@ -152,7 +143,7 @@
 .ct-search-wrap svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #999; pointer-events: none; }
 .ct-search-box {
     width: 100%; padding: 7px 12px 7px 32px;
-    border: 1px solid #dde1e6; border-radius: 8px;
+    border: 1px solid #dde1e6; border-radius: 0;
     font-size: 12px; background: #fff;
     transition: border-color .15s, box-shadow .15s;
     box-sizing: border-box;
@@ -161,7 +152,7 @@
 .ct-search-box::placeholder { color: #aaa; }
 .ct-filters__count {
     font-size: 11px; color: #174DA4; font-weight: 600; white-space: nowrap;
-    background: rgba(23,77,164,.06); padding: 5px 13px; border-radius: 12px;
+    background: rgba(23,77,164,.06); padding: 5px 13px; border-radius: 0;
     margin-left: auto;
 }
 .ct-filters__row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
@@ -171,7 +162,7 @@
     letter-spacing: .5px; font-weight: 600;
 }
 .ct-filter-select {
-    border: 1px solid #dde1e6; border-radius: 8px;
+    border: 1px solid #dde1e6; border-radius: 0;
     padding: 6px 10px; font-size: 11px; background: #fff; color: #333;
     transition: border-color .15s, box-shadow .15s;
     cursor: pointer; min-width: 110px;
@@ -179,26 +170,26 @@
 .ct-filter-select:focus { border-color: #174DA4; box-shadow: 0 0 0 3px rgba(23,77,164,.08); outline: none; }
 .ct-filter-sep { width: 1px; height: 32px; background: #e0e4ea; align-self: flex-end; margin: 0 4px; }
 
-/* ── Buttons ───────────────────────────────────────── */
+/* -- Buttons ----------------------------------------- */
 .hr-btn {
     padding: 7px 15px; font-size: 11px; font-weight: 600;
-    border: none; cursor: pointer; border-radius: 8px;
+    border: none; cursor: pointer; border-radius: 0;
     display: inline-flex; align-items: center; gap: 6px;
     white-space: nowrap; line-height: 1.4;
-    transition: background .15s, box-shadow .15s, transform .1s;
+    transition: background .15s, transform .1s;
     text-decoration: none;
 }
 .hr-btn:active { transform: scale(.97); }
-.hr-btn--primary { background: #174DA4; color: #fff; }  .hr-btn--primary:hover { background: #0f3a7d; box-shadow: 0 2px 8px rgba(23,77,164,.2); }
-.hr-btn--success { background: #28a745; color: #fff; }  .hr-btn--success:hover { background: #218838; box-shadow: 0 2px 8px rgba(40,167,69,.2); }
-.hr-btn--danger  { background: #dc3545; color: #fff; }  .hr-btn--danger:hover  { background: #c82333; box-shadow: 0 2px 8px rgba(220,53,69,.2); }
-.hr-btn--amber   { background: #e67e00; color: #fff; }  .hr-btn--amber:hover   { background: #b45309; box-shadow: 0 2px 8px rgba(230,126,0,.2); }
-.hr-btn--orange  { background: #e65100; color: #fff; }  .hr-btn--orange:hover  { background: #bf360c; box-shadow: 0 2px 8px rgba(230,81,0,.2); }
+.hr-btn--primary { background: #174DA4; color: #fff; }  .hr-btn--primary:hover { background: #0f3a7d; }
+.hr-btn--success { background: #28a745; color: #fff; }  .hr-btn--success:hover { background: #218838; }
+.hr-btn--danger  { background: #dc3545; color: #fff; }  .hr-btn--danger:hover  { background: #c82333; }
+.hr-btn--amber   { background: #e67e00; color: #fff; }  .hr-btn--amber:hover   { background: #b45309; }
+.hr-btn--orange  { background: #e65100; color: #fff; }  .hr-btn--orange:hover  { background: #bf360c; }
 .hr-btn--ghost   { background: transparent; color: #555; border: 1px solid #dde1e6; } .hr-btn--ghost:hover { border-color: #174DA4; color: #174DA4; background: rgba(23,77,164,.03); }
-.hr-btn--outline { background: #fff; color: #174DA4; border: 1px solid #174DA4; } .hr-btn--outline:hover { background: #174DA4; color: #fff; box-shadow: 0 2px 8px rgba(23,77,164,.2); }
+.hr-btn--outline { background: #fff; color: #174DA4; border: 1px solid #174DA4; } .hr-btn--outline:hover { background: #174DA4; color: #fff; }
 .hr-btn--sm      { padding: 5px 12px; font-size: 10px; }
 
-/* ── Batch Toolbar ─────────────────────────────────── */
+/* -- Batch Toolbar ----------------------------------- */
 .rg-batch-bar {
     display: none; align-items: center; gap: 8px; flex-wrap: wrap;
     padding: 8px 14px; background: #fffbe6;
@@ -209,7 +200,7 @@
 .rg-batch-info strong { font-size: 13px; font-weight: 700; color: #b45309; }
 .rg-batch-sep  { width: 1px; height: 24px; background: #e0c060; margin: 0 2px; flex-shrink: 0; }
 
-/* ── Status Badges ─────────────────────────────────── */
+/* -- Status Badges ----------------------------------- */
 .rg-badge {
     display: inline-block; padding: 3px 9px;
     font-size: 9px; font-weight: 700;
@@ -228,10 +219,10 @@
 .rg-badge--issued    { background: #d4edda; color: #155724; }
 .rg-badge--notissued { background: #e9ecef; color: #6c757d; }
 
-/* ── Action Popover ────────────────────────────────── */
+/* -- Action Popover ---------------------------------- */
 .cd-action-wrapper { position: relative; display: inline-block; }
 .cd-action-trigger {
-    background: none; border: 1px solid #ddd; border-radius: 5px;
+    background: none; border: 1px solid #ddd; border-radius: 0;
     padding: 3px 7px; cursor: pointer; color: #555;
     display: inline-flex; align-items: center;
     transition: border-color .15s, background .15s;
@@ -240,7 +231,7 @@
 .cd-action-popover {
     display: none; position: absolute; right: 0; top: calc(100% + 4px);
     z-index: 9999; background: #fff; border: 1px solid #e4e8f0;
-    border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.12); min-width: 180px;
+    border-radius: 0; min-width: 180px;
 }
 .cd-action-popover.is-open { display: block; }
 .cd-action-popover__section {
@@ -264,14 +255,9 @@
 .cd-action-popover__btn--amber:hover     { background: #fff8e1; color: #e67e00; }
 .cd-action-popover__btn svg { width: 13px; height: 13px; flex-shrink: 0; }
 .cd-action-popover__divider { height: 1px; background: #f0f0f0; margin: 3px 0; }
+.cd-card,.cd-card__body,.dxgvCSD,.dxgvControl_Glass,.dxgvTable_Glass,.dxgvDataRow_Glass td,td.rg-action-cell { overflow: visible !important; }
 
-/* Ensure popovers float above grid */
-.cd-card, .cd-card__body,
-.dxgvCSD, .dxgvControl_Glass,
-.dxgvTable_Glass, .dxgvDataRow_Glass td,
-td.rg-action-cell { overflow: visible !important; }
-
-/* ── Grid Tweaks ───────────────────────────────────── */
+/* -- Grid Tweaks ------------------------------------- */
 .dxgvControl_Glass { border: none !important; }
 .dxgvHeader_Glass td {
     font-size: 10px !important; text-transform: uppercase !important;
@@ -295,7 +281,7 @@ td.rg-action-cell { overflow: visible !important; }
 .rg-row-halted  td { background: #fff9f0 !important; }
 .rg-row-dead    td { background: #f8f8f8 !important; }
 
-/* ── Grid Footer ───────────────────────────────────── */
+/* -- Grid Footer ------------------------------------- */
 .rg-grid-footer {
     display: flex; justify-content: space-between; align-items: center;
     padding: 8px 14px; background: #fafbfc;
@@ -304,7 +290,7 @@ td.rg-action-cell { overflow: visible !important; }
 }
 .rg-grid-footer strong { color: #174DA4; }
 
-/* ── Modal ─────────────────────────────────────────── */
+/* -- Modal ------------------------------------------- */
 .hr-modal-overlay {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,.48); z-index: 10000;
@@ -315,16 +301,16 @@ td.rg-action-cell { overflow: visible !important; }
 .hr-modal {
     background: #fff; width: 540px; max-width: 100%;
     max-height: calc(100vh - 32px); overflow: hidden;
-    border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.22);
+    border-radius: 2px; box-shadow: 0 20px 60px rgba(0,0,0,.22);
     display: flex; flex-direction: column;
     animation: rgModalIn .2s ease;
 }
 @keyframes rgModalIn { from { opacity: 0; transform: translateY(-12px) scale(.98); } to { opacity: 1; transform: none; } }
 .hr-modal__header {
-    background: linear-gradient(135deg, #174DA4 0%, #2563eb 100%); color: #fff; padding: 13px 18px;
+    background: #05275C; color: #fff; padding: 13px 18px;
     font-size: 14px; font-weight: 700;
     display: flex; align-items: center; justify-content: space-between;
-    flex-shrink: 0; border-radius: 12px 12px 0 0;
+    flex-shrink: 0; border-radius: 0;
 }
 .hr-modal__close { background: none; border: none; color: rgba(255,255,255,.8); font-size: 22px; cursor: pointer; line-height: 1; padding: 0 2px; }
 .hr-modal__close:hover { color: #fff; }
@@ -332,7 +318,7 @@ td.rg-action-cell { overflow: visible !important; }
 .hr-modal__footer{
     padding: 10px 16px; border-top: 1px solid #e4e8f0;
     display: flex; justify-content: flex-end; gap: 8px;
-    flex-shrink: 0; background: #fafbfc; border-radius: 0 0 8px 8px;
+    flex-shrink: 0; background: #fafbfc; border-radius: 0;
 }
 .hr-modal__section {
     font-size: 9px; text-transform: uppercase; letter-spacing: .6px;
@@ -341,25 +327,25 @@ td.rg-action-cell { overflow: visible !important; }
 }
 .hr-modal__section:first-child { margin-top: 0; }
 
-/* ── Form ──────────────────────────────────────────── */
+/* -- Form -------------------------------------------- */
 .hr-form-group  { margin-bottom: 10px; }
 .hr-form-label  { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #555; font-weight: 600; margin-bottom: 3px; }
 .hr-form-label .req { color: #dc3545; margin-left: 2px; }
 .hr-form-input, .hr-form-select, .hr-form-textarea {
     width: 100%; padding: 6px 9px; border: 1px solid #ccc;
-    border-radius: 5px; font-size: 12px; box-sizing: border-box; background: #fff;
+    border-radius: 0; font-size: 12px; box-sizing: border-box; background: #fff;
     transition: border-color .15s, box-shadow .15s;
 }
 .hr-form-input:focus, .hr-form-select:focus, .hr-form-textarea:focus { border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.10); outline: none; }
 .hr-form-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .hr-form-hint { font-size: 10px; color: #888; margin-top: 2px; }
-.hr-result { margin-top: 8px; font-size: 12px; padding: 7px 11px; display: none; border-radius: 5px; }
+.hr-result { margin-top: 8px; font-size: 12px; padding: 7px 11px; display: none; border-radius: 0; }
 .hr-result--err { background: #fdecea; color: #b91c1c; border-left: 3px solid #dc3545; display: block; }
 .hr-result--ok  { background: #e6f4ea; color: #155724; border-left: 3px solid #28a745; display: block; }
 
-/* ── Student Info Block (in modals) ────────────────── */
+/* -- Student Info Block (in modals) ------------------ */
 .rg-student-info {
-    background: #f5f7fa; border: 1px solid #e4e8f0; border-radius: 5px;
+    background: #f5f7fa; border: 1px solid #e4e8f0; border-radius: 4px;
     padding: 10px 14px; margin-bottom: 12px;
     font-size: 12px; display: flex; gap: 16px; flex-wrap: wrap;
 }
@@ -367,12 +353,11 @@ td.rg-action-cell { overflow: visible !important; }
 .rg-student-info__label { font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: #888; font-weight: 600; }
 .rg-student-info__value { font-weight: 700; color: #1a1a2e; font-size: 12px; }
 
-/* ── Toast ─────────────────────────────────────────── */
+/* -- Toast ------------------------------------------- */
 .rg-toast {
     position: fixed; bottom: 24px; right: 24px;
-    padding: 11px 18px; border-radius: 6px;
+    padding: 11px 18px; border-radius: 0;
     font-size: 12px; font-weight: 600; z-index: 20000;
-    box-shadow: 0 4px 16px rgba(0,0,0,.18);
     transform: translateY(20px); opacity: 0;
     transition: transform .25s, opacity .25s;
     pointer-events: none; max-width: 360px;
@@ -383,7 +368,7 @@ td.rg-action-cell { overflow: visible !important; }
 .rg-toast--error   { background: #dc3545; color: #fff; }
 .rg-toast--info    { background: #174DA4; color: #fff; }
 
-/* ── Responsive ────────────────────────────────────── */
+/* -- Responsive -------------------------------------- */
 @media (max-width: 1400px) {
     .rg-stats-reg { grid-template-columns: repeat(4, 1fr); }
     .rg-stat--hero { grid-column: span 1; }
@@ -399,7 +384,7 @@ td.rg-action-cell { overflow: visible !important; }
 @media (max-width: 700px)  {
     .rg-stats-reg { grid-template-columns: 1fr 1fr; }
     .rg-stats-billing { grid-template-columns: 1fr; }
-    .rg-page-header { flex-direction: column; align-items: flex-start; }
+    .cd-page-header { flex-direction: column; align-items: flex-start; }
     .ct-filter-grp { flex: 1 1 140px; }
     .ct-filter-select { min-width: 0; width: 100%; }
     .ct-filter-sep { display: none; }
@@ -418,7 +403,7 @@ td.rg-action-cell { overflow: visible !important; }
     .hr-modal__footer .hr-btn { width: 100%; justify-content: center; }
 }
 @media print {
-    .rg-batch-bar, .ct-filters, .rg-page-header .hr-btn { display: none !important; }
+    .rg-batch-bar, .ct-filters, .cd-page-header .hr-btn { display: none !important; }
 }
 </style>
 </asp:Content>
@@ -436,16 +421,17 @@ td.rg-action-cell { overflow: visible !important; }
 <asp:Button ID="btnBatchHalt"          runat="server" style="display:none;" OnClick="btnBatchHalt_Click" />
 <asp:Button ID="btnBatchDeadYear"      runat="server" style="display:none;" OnClick="btnBatchDeadYear_Click" />
 <asp:Button ID="btnBatchReactivate"    runat="server" style="display:none;" OnClick="btnBatchReactivate_Click" />
+<asp:Button ID="btnBatchDelete"        runat="server" style="display:none;" OnClick="btnBatchDelete_Click" />
 <asp:Button ID="btnDoAddReg"           runat="server" style="display:none;" OnClick="btnDoAddReg_Click" />
 <asp:Button ID="btnDoChangeStatus"     runat="server" style="display:none;" OnClick="btnDoChangeStatus_Click" />
 <asp:Button ID="btnExportCsv"          runat="server" style="display:none;" OnClick="btnExportCsv_Click" />
 <asp:Button ID="btnReset"              runat="server" style="display:none;" OnClick="btnReset_Click" />
 <asp:Button ID="btnRefresh"            runat="server" style="display:none;" OnClick="btnRefresh_Click" />
 
-<!-- ═══════ PAGE HEADER ═══════════════════════════════════════════════ -->
-<div class="rg-page-header">
-    <div class="rg-page-header__left">
-        <div class="rg-page-header__icon">
+<!-- ======= PAGE HEADER =============================================== -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                 <circle cx="9" cy="7" r="4"></circle>
@@ -454,24 +440,24 @@ td.rg-action-cell { overflow: visible !important; }
             </svg>
         </div>
         <div>
-            <div class="rg-page-header__title">Student Registration</div>
-            <div class="rg-page-header__sub">Academic year enrolment, exam clearance &amp; ID card management</div>
+            <div class="cd-page-header__title">Student Registration</div>
+            <div class="cd-page-header__sub">Manage student registration status and academic year enrollment</div>
         </div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+    <div class="cd-page-header__right">
         <asp:Literal ID="litAcadContext" runat="server" />
-        <button type="button" class="hr-btn hr-btn--outline hr-btn--sm" onclick="openAddRegModal()">
+        <button type="button" class="hr-btn hr-btn--primary hr-btn--sm" onclick="openAddRegModal()">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Add Registration
         </button>
-        <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="document.getElementById('<%= btnExportCsv.ClientID %>').click()">
+        <button type="button" class="hr-btn hr-btn--primary hr-btn--sm" onclick="document.getElementById('<%=btnExportCsv.ClientID%>').click()">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             Export CSV
         </button>
     </div>
 </div>
 
-<!-- ═══════ STATS DASHBOARD ═══════════════════════════════════════════ -->
+<!-- ======= STATS DASHBOARD =========================================== -->
 <div class="rg-stats-dashboard">
 
     <!-- Registration Overview -->
@@ -570,7 +556,7 @@ td.rg-action-cell { overflow: visible !important; }
 
 </div>
 
-<!-- ═══════ MAIN CARD ═════════════════════════════════════════════════ -->
+<!-- ======= MAIN CARD ================================================= -->
 <div class="cd-card">
 
     <!-- Filter Bar -->
@@ -705,6 +691,11 @@ td.rg-action-cell { overflow: visible !important; }
         <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="doBatch('deadyear')">Dead Year</button>
         <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="doBatch('reactivate')">Reactivate</button>
         <div class="rg-batch-sep"></div>
+        <button type="button" class="hr-btn hr-btn--danger hr-btn--sm" onclick="doBatch('delete')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Delete
+        </button>
+        <div class="rg-batch-sep"></div>
         <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="gvRegistration.UnselectRows(); updateBatchBar();" style="color:#888;">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             Clear Selection
@@ -819,7 +810,7 @@ td.rg-action-cell { overflow: visible !important; }
                         </button>
                         <div class="cd-action-popover">
 
-                            <%-- ── Registration Actions ── --%>
+                            <%-- -- Registration Actions -- --%>
                             <div class="cd-action-popover__section">Registration</div>
                             <ul class="cd-action-popover__menu">
                                 <li class="cd-action-popover__item" style='<%# ShowIf(Eval("regstatus"),"UNREGISTERED") %>'>
@@ -864,7 +855,7 @@ td.rg-action-cell { overflow: visible !important; }
                                 </li>
                             </ul>
 
-                            <%-- ── Special Status ── --%>
+                            <%-- -- Special Status -- --%>
                             <div class="cd-action-popover__section" style='<%# ShowIfNotIn(Eval("regstatus"),"DISCONTINUED|DEAD YEAR|HALTED") %>'>Special Status</div>
                             <ul class="cd-action-popover__menu">
                                 <li class="cd-action-popover__item" style='<%# ShowIfNotIn(Eval("regstatus"),"DISCONTINUED|DEAD YEAR") %>'>
@@ -901,7 +892,7 @@ td.rg-action-cell { overflow: visible !important; }
                                 </li>
                             </ul>
 
-                            <%-- ── ID Card ── --%>
+                            <%-- -- ID Card -- --%>
                             <div class="cd-action-popover__section">ID Card</div>
                             <ul class="cd-action-popover__menu">
                                 <li class="cd-action-popover__item" style='<%# ShowIfNot(Eval("id_cardStatus"),"ISSUED") %>'>
@@ -922,7 +913,7 @@ td.rg-action-cell { overflow: visible !important; }
                                 </li>
                             </ul>
 
-                            <%-- ── Change Status (generic) ── --%>
+                            <%-- -- Change Status (generic) -- --%>
                             <div class="cd-action-popover__divider"></div>
                             <ul class="cd-action-popover__menu">
                                 <li class="cd-action-popover__item">
@@ -931,6 +922,19 @@ td.rg-action-cell { overflow: visible !important; }
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                         Change Status...
                                     </button>
+                                </li>
+                            </ul>
+
+                            <%-- -- Delete Registration -- --%>
+                            <div class="cd-action-popover__divider"></div>
+                            <ul class="cd-action-popover__menu">
+                                <li class="cd-action-popover__item">
+                                    <asp:LinkButton ID="btnDeleteReg" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--danger"
+                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnDeleteReg_Click"
+                                        OnClientClick="return confirm('DELETE this registration record permanently?\n\nThis cannot be undone. Continue?');">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                        Delete Registration
+                                    </asp:LinkButton>
                                 </li>
                             </ul>
 
@@ -954,7 +958,7 @@ td.rg-action-cell { overflow: visible !important; }
     </div>
 </div>
 
-<!-- ═══════ ADD REGISTRATION MODAL ═══════════════════════════════════ -->
+<!-- ======= ADD REGISTRATION MODAL =================================== -->
 <div class="hr-modal-overlay" id="addRegModal">
     <div class="hr-modal" style="width:500px;">
         <div class="hr-modal__header">
@@ -963,7 +967,7 @@ td.rg-action-cell { overflow: visible !important; }
         </div>
         <div class="hr-modal__body">
 
-            <%-- ── Registration Period ── --%>
+            <%-- -- Registration Period -- --%>
             <div class="hr-modal__section">Registration Period</div>
             <div class="hr-form-row">
                 <div class="hr-form-group">
@@ -982,7 +986,7 @@ td.rg-action-cell { overflow: visible !important; }
                 </div>
             </div>
 
-            <%-- ── Student ── --%>
+            <%-- -- Student -- --%>
             <div class="hr-modal__section">Student</div>
             <div class="hr-form-group">
                 <label class="hr-form-label">Registration Number <span class="req">*</span></label>
@@ -990,7 +994,7 @@ td.rg-action-cell { overflow: visible !important; }
                 <div class="hr-form-hint">Must match exactly as it appears in student records.</div>
             </div>
 
-            <%-- ── Enrolment Details ── --%>
+            <%-- -- Enrolment Details -- --%>
             <div class="hr-modal__section">Enrolment Details</div>
             <div class="hr-form-row">
                 <div class="hr-form-group">
@@ -1015,9 +1019,9 @@ td.rg-action-cell { overflow: visible !important; }
             <div class="hr-form-group">
                 <label class="hr-form-label">Initial Registration Status</label>
                 <asp:DropDownList ID="ddlAddStatus" runat="server" CssClass="hr-form-select">
-                    <asp:ListItem Value="UNREGISTERED"    Text="Unregistered — pending student registration" />
-                    <asp:ListItem Value="REGISTERED"      Text="Registered — mark as already registered" />
-                    <asp:ListItem Value="LATE REGISTERED" Text="Late Registered — registered after deadline" />
+                    <asp:ListItem Value="UNREGISTERED"    Text="Unregistered - pending student registration" />
+                    <asp:ListItem Value="REGISTERED"      Text="Registered - mark as already registered" />
+                    <asp:ListItem Value="LATE REGISTERED" Text="Late Registered - registered after deadline" />
                 </asp:DropDownList>
             </div>
 
@@ -1035,7 +1039,7 @@ td.rg-action-cell { overflow: visible !important; }
     </div>
 </div>
 
-<!-- ═══════ CHANGE STATUS MODAL ═══════════════════════════════════════ -->
+<!-- ======= CHANGE STATUS MODAL ======================================= -->
 <div class="hr-modal-overlay" id="changeStatusModal">
     <div class="hr-modal" style="width:460px;">
         <div class="hr-modal__header">
@@ -1046,15 +1050,15 @@ td.rg-action-cell { overflow: visible !important; }
             <div class="rg-student-info" id="csStudentInfo">
                 <div class="rg-student-info__item">
                     <span class="rg-student-info__label">Student</span>
-                    <span class="rg-student-info__value" id="csStudentName">—</span>
+                    <span class="rg-student-info__value" id="csStudentName">-</span>
                 </div>
                 <div class="rg-student-info__item">
                     <span class="rg-student-info__label">Reg No</span>
-                    <span class="rg-student-info__value" id="csRegNo">—</span>
+                    <span class="rg-student-info__value" id="csRegNo">-</span>
                 </div>
                 <div class="rg-student-info__item">
                     <span class="rg-student-info__label">Current Status</span>
-                    <span class="rg-student-info__value" id="csCurrentStatus">—</span>
+                    <span class="rg-student-info__value" id="csCurrentStatus">-</span>
                 </div>
             </div>
             <div class="hr-form-group">
@@ -1080,14 +1084,14 @@ td.rg-action-cell { overflow: visible !important; }
     </div>
 </div>
 
-<!-- ═══════ TOAST NOTIFICATION ════════════════════════════════════════ -->
+<!-- ======= TOAST NOTIFICATION ======================================== -->
 <div id="regToast" class="rg-toast">
     <svg id="regToastIcon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
     <span id="regToastMsg"></span>
 </div>
 
 <script type="text/javascript">
-// ── Search — Enter key triggers Search button ────────────────────────
+// -- Search - Enter key triggers Search button ------------------------
 document.addEventListener('DOMContentLoaded', function() {
     var tb = document.getElementById('<%= txtSearch.ClientID %>');
     if (tb) {
@@ -1100,7 +1104,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ── Action Popover ────────────────────────────────────────────────────
+// -- Action Popover ----------------------------------------------------
 function closeAllActionPopovers() {
     document.querySelectorAll('.cd-action-popover.is-open').forEach(function(p) {
         p.classList.remove('is-open');
@@ -1108,14 +1112,15 @@ function closeAllActionPopovers() {
 }
 function toggleActionPopover(btn, e) {
     e.stopPropagation();
-    var popover = btn.nextElementSibling;
-    var wasOpen = popover.classList.contains('is-open');
+    var p = btn.nextElementSibling;
+    if (!p) return;
+    var wasOpen = p.classList.contains('is-open');
     closeAllActionPopovers();
-    if (!wasOpen) popover.classList.add('is-open');
+    if (!wasOpen) p.classList.add('is-open');
 }
 document.addEventListener('click', function() { closeAllActionPopovers(); });
 
-// ── Batch Toolbar ──────────────────────────────────────────────────
+// -- Batch Toolbar --------------------------------------------------
 function updateBatchBar() {
     var count = gvRegistration.GetSelectedRowCount();
     var bar   = document.getElementById('batchBar');
@@ -1124,7 +1129,7 @@ function updateBatchBar() {
     else            { bar.classList.remove('show'); }
 }
 
-// ── Batch Actions ──────────────────────────────────────────────────
+// -- Batch Actions --------------------------------------------------
 var _batchBtnMap = {
     'register'   : '<%= btnBatchRegister.ClientID %>',
     'late'       : '<%= btnBatchLateRegister.ClientID %>',
@@ -1134,7 +1139,8 @@ var _batchBtnMap = {
     'discontinue': '<%= btnBatchDiscontinue.ClientID %>',
     'halt'       : '<%= btnBatchHalt.ClientID %>',
     'deadyear'   : '<%= btnBatchDeadYear.ClientID %>',
-    'reactivate' : '<%= btnBatchReactivate.ClientID %>'
+    'reactivate' : '<%= btnBatchReactivate.ClientID %>',
+    'delete'     : '<%= btnBatchDelete.ClientID %>'
 };
 var _batchMsgs = {
     'register'   : 'Register selected students?',
@@ -1145,7 +1151,8 @@ var _batchMsgs = {
     'discontinue': 'DISCONTINUE selected students? This is significant and cannot be undone easily.',
     'halt'       : 'Halt registration for selected students?',
     'deadyear'   : 'Mark selected students as Dead Year?',
-    'reactivate' : 'Reactivate selected students (reset to Unregistered)?'
+    'reactivate' : 'Reactivate selected students (reset to Unregistered)?',
+    'delete'     : 'PERMANENTLY DELETE registration records for selected students? This cannot be undone!'
 };
 function doBatch(action) {
     var count = gvRegistration.GetSelectedRowCount();
@@ -1155,7 +1162,7 @@ function doBatch(action) {
     document.getElementById(_batchBtnMap[action]).click();
 }
 
-// ── Stat-card quick filter ──────────────────────────────────────────
+// -- Stat-card quick filter ------------------------------------------
 function filterByStatus(status) {
     var ddl = document.getElementById('<%= ddlRegStatus.ClientID %>');
     if (ddl) { ddl.value = status; __doPostBack('<%= ddlRegStatus.UniqueID %>', ''); }
@@ -1169,7 +1176,7 @@ function filterByBilling(status) {
     if (ddl) { ddl.value = status; __doPostBack('<%= ddlBilling.UniqueID %>', ''); }
 }
 
-// ── Modals ─────────────────────────────────────────────────────────
+// -- Modals ---------------------------------------------------------
 function openAddRegModal() {
     var err = document.getElementById('<%= addRegResult.ClientID %>');
     if (err) err.style.display = 'none';
@@ -1195,7 +1202,7 @@ document.addEventListener('click', function(e) {
     });
 });
 
-// ── Toast ──────────────────────────────────────────────────────────
+// -- Toast ----------------------------------------------------------
 function showToast(success, message) {
     var toast = document.getElementById('regToast');
     toast.className = 'rg-toast rg-toast--' + (success ? 'success' : 'error');
@@ -1204,7 +1211,7 @@ function showToast(success, message) {
     setTimeout(function() { toast.classList.remove('show'); }, 4500);
 }
 
-// ── Billing progress bars ──────────────────────────────────────────
+// -- Billing progress bars ------------------------------------------
 (function initBillingBars() {
     function update() {
         var heroEl = document.querySelector('.rg-stat--hero .rg-stat__val');

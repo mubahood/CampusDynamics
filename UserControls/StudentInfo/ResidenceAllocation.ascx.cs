@@ -77,6 +77,16 @@ public partial class UserControls_StudentInfo_ResidenceAllocation : System.Web.U
                         }
                         catch (Exception ex)
                         {
+                            // MySQL error 1062 = duplicate key — student already
+                            // billed for accommodation. Safe to skip and continue.
+                            var mex = ex as MySql.Data.MySqlClient.MySqlException;
+                            if (mex == null && ex.InnerException != null)
+                                mex = ex.InnerException as MySql.Data.MySqlClient.MySqlException;
+                            if (mex != null && mex.Number == 1062)
+                            {
+                                counter++;
+                                continue;
+                            }
                             lbl_set_hall_comm.Text = "Error! " + ex.Message + " On Reg No: " + regno;
                             break;
                         }

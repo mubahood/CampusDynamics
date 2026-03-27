@@ -12,23 +12,19 @@
         .rhl-container { padding: 0; font-size: 11px; }
         
         /* Page Header */
-        .rhl-page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid #dc3545;
-        }
-        .rhl-page-header__title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin: 0; }
-        .rhl-page-header__subtitle { font-size: 10px; color: #6c757d; margin-top: 2px; }
+        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
+        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+        .cd-page-header__right { display:flex; gap:8px; align-items:center; }
         
         /* Alert Banner */
         .rhl-alert-banner {
-            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            background: #f8d7da;
             border: 1px solid #f5c6cb;
             border-left: 4px solid #dc3545;
-            border-radius: 6px;
+            border-radius: 0;
             padding: 12px 18px;
             margin-bottom: 15px;
             display: flex;
@@ -60,7 +56,7 @@
         .rhl-stat-card {
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 4px;
             padding: 14px 18px;
             position: relative;
             overflow: hidden;
@@ -95,7 +91,7 @@
         .rhl-reason-card {
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 4px;
             padding: 12px 14px;
             display: flex;
             align-items: center;
@@ -103,12 +99,12 @@
             cursor: pointer;
             transition: all 0.15s ease;
         }
-        .rhl-reason-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); transform: translateY(-1px); }
+        .rhl-reason-card:hover { background: #fafafa; }
         .rhl-reason-card.active { border-color: #dc3545; background: #fff5f5; }
         .rhl-reason-card__icon {
             width: 32px;
             height: 32px;
-            border-radius: 6px;
+            border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -128,7 +124,7 @@
         .rhl-filter-panel {
             background: #f8f9fa;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 4px;
             padding: 12px 15px;
             margin-bottom: 12px;
         }
@@ -153,7 +149,7 @@
             padding: 6px 10px;
             font-size: 11px;
             border: 1px solid #ced4da;
-            border-radius: 4px;
+            border-radius: 0;
             background: #fff;
             min-width: 140px;
         }
@@ -168,7 +164,7 @@
             font-size: 11px;
             font-weight: 500;
             border: 1px solid transparent;
-            border-radius: 4px;
+            border-radius: 0;
             cursor: pointer;
             transition: all 0.15s ease;
             text-decoration: none;
@@ -191,8 +187,8 @@
             justify-content: space-between;
             align-items: center;
             padding: 10px 14px;
-            background: linear-gradient(135deg, #721c24 0%, #5a1418 100%);
-            border-radius: 6px 6px 0 0;
+            background: #721c24;
+            border-radius: 0;
             gap: 10px;
         }
         .rhl-batch-bar__left, .rhl-batch-bar__right {
@@ -220,7 +216,7 @@
         /* Grid Styles */
         .rhl-grid { border-collapse: collapse; width: 100%; }
         .rhl-grid .dxgvHeader td {
-            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%) !important;
+            background: #f5f7fa !important;
             font-size: 10px !important;
             font-weight: 600 !important;
             text-transform: uppercase !important;
@@ -304,12 +300,17 @@
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
     <div class="rhl-container">
         <!-- Page Header -->
-        <div class="rhl-page-header">
-            <div>
-                <h1 class="rhl-page-header__title">⚠️ Held Results Management</h1>
-                <p class="rhl-page-header__subtitle">Manage results that are on hold and pending review before release</p>
+        <div class="cd-page-header">
+            <div class="cd-page-header__left">
+                <div class="cd-page-header__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <div>
+                    <div class="cd-page-header__title">Results Hold List</div>
+                    <div class="cd-page-header__sub">Manage students with holds preventing results release</div>
+                </div>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div class="cd-page-header__right">
                 <asp:HyperLink ID="lnkBack" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" CssClass="rhl-btn rhl-btn--outline">
                     ← Back to Results
                 </asp:HyperLink>

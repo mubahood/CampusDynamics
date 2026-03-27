@@ -263,10 +263,38 @@ public static class AcademicYearHelper
     }
 
     /// <summary>
+    /// Ensures the three semester_X_is_active columns exist on acad_acadyears.
+    /// Runs ALTER TABLE automatically the first time it is needed (MySQL 5.6 compatible).
+    /// </summary>
+    private static void EnsureSemesterColumns(MySqlConnection conn)
+    {
+        // Check whether the column already exists
+        using (MySqlCommand chk = new MySqlCommand(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'acad_acadyears' " +
+            "AND COLUMN_NAME = 'semester_1_is_active'", conn))
+        {
+            int exists = Convert.ToInt32(chk.ExecuteScalar());
+            if (exists > 0) return;   // already present — nothing to do
+        }
+
+        // Add all three columns (MySQL 5.6 — no IF NOT EXISTS on ALTER)
+        using (MySqlCommand alter = new MySqlCommand(
+            "ALTER TABLE acad_acadyears " +
+            "ADD COLUMN semester_1_is_active ENUM('Yes','No') NOT NULL DEFAULT 'No', " +
+            "ADD COLUMN semester_2_is_active ENUM('Yes','No') NOT NULL DEFAULT 'No', " +
+            "ADD COLUMN semester_3_is_active ENUM('Yes','No') NOT NULL DEFAULT 'No'", conn))
+        {
+            alter.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>
     /// Adds a new academic year. Returns empty string on success, error message on failure.
     /// </summary>
     public static string AddAcademicYear(string acadyear, DateTime startDate, DateTime endDate,
-        int semesterCount, string description, string status, string createdBy)
+        int semesterCount, string description, string status, string createdBy,
+        string sem1Active = "No", string sem2Active = "No", string sem3Active = "No")
     {
         string err = ValidateAcademicYear(acadyear, startDate, endDate);
         if (!string.IsNullOrEmpty(err)) return err;
@@ -286,18 +314,41 @@ public static class AcademicYearHelper
                 }
 
                 using (MySqlCommand cmd = new MySqlCommand(@"
-                    INSERT INTO acad_acadyears (acadyear, start_date, end_date, semester_count, description, status, created_date, modified_by)
-                    VALUES (@ay, @sd, @ed, @sc, @desc, @st, NOW(), @by)", conn))
+                    INSERT INTO acad_acadyears
+                        (acadyear, start_date, end_date, semester_count,
+                         description, status, created_date, modified_by)
+                    VALUES
+                        (@ay, @sd, @ed, @sc, @desc, @st, NOW(), @by)", conn))
                 {
-                    cmd.Parameters.AddWithValue("@ay", acadyear);
-                    cmd.Parameters.AddWithValue("@sd", startDate);
-                    cmd.Parameters.AddWithValue("@ed", endDate);
-                    cmd.Parameters.AddWithValue("@sc", semesterCount);
+                    cmd.Parameters.AddWithValue("@ay",   acadyear);
+                    cmd.Parameters.AddWithValue("@sd",   startDate);
+                    cmd.Parameters.AddWithValue("@ed",   endDate);
+                    cmd.Parameters.AddWithValue("@sc",   semesterCount);
                     cmd.Parameters.AddWithValue("@desc", string.IsNullOrEmpty(description) ? (object)DBNull.Value : description);
-                    cmd.Parameters.AddWithValue("@st", status);
-                    cmd.Parameters.AddWithValue("@by", createdBy);
+                    cmd.Parameters.AddWithValue("@st",   status);
+                    cmd.Parameters.AddWithValue("@by",   createdBy);
                     cmd.ExecuteNonQuery();
                 }
+
+                // Auto-create semester columns if they don't exist, then save values.
+                try
+                {
+                    EnsureSemesterColumns(conn);
+                    using (MySqlCommand semCmd = new MySqlCommand(@"
+                        UPDATE acad_acadyears
+                        SET semester_1_is_active = @s1,
+                            semester_2_is_active = @s2,
+                            semester_3_is_active = @s3
+                        WHERE acadyear = @ay", conn))
+                    {
+                        semCmd.Parameters.AddWithValue("@ay", acadyear);
+                        semCmd.Parameters.AddWithValue("@s1", sem1Active == "Yes" ? "Yes" : "No");
+                        semCmd.Parameters.AddWithValue("@s2", sem2Active == "Yes" ? "Yes" : "No");
+                        semCmd.Parameters.AddWithValue("@s3", sem3Active == "Yes" ? "Yes" : "No");
+                        semCmd.ExecuteNonQuery();
+                    }
+                }
+                catch { /* DB permission error — semester columns not saved */ }
             }
             return "";
         }
@@ -311,7 +362,8 @@ public static class AcademicYearHelper
     /// Updates an existing academic year. Returns empty string on success.
     /// </summary>
     public static string UpdateAcademicYear(int id, string acadyear, DateTime startDate, DateTime endDate,
-        int semesterCount, string description, string status, string modifiedBy)
+        int semesterCount, string description, string status, string modifiedBy,
+        string sem1Active = "No", string sem2Active = "No", string sem3Active = "No")
     {
         string err = ValidateAcademicYear(acadyear, startDate, endDate);
         if (!string.IsNullOrEmpty(err)) return err;
@@ -333,21 +385,46 @@ public static class AcademicYearHelper
 
                 using (MySqlCommand cmd = new MySqlCommand(@"
                     UPDATE acad_acadyears SET
-                        acadyear = @ay, start_date = @sd, end_date = @ed,
-                        semester_count = @sc, description = @desc, status = @st,
-                        modified_date = NOW(), modified_by = @by
+                        acadyear              = @ay,
+                        start_date            = @sd,
+                        end_date              = @ed,
+                        semester_count        = @sc,
+                        description           = @desc,
+                        status                = @st,
+                        modified_date         = NOW(),
+                        modified_by           = @by
                     WHERE ID = @id", conn))
                 {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    cmd.Parameters.AddWithValue("@ay", acadyear);
-                    cmd.Parameters.AddWithValue("@sd", startDate);
-                    cmd.Parameters.AddWithValue("@ed", endDate);
-                    cmd.Parameters.AddWithValue("@sc", semesterCount);
+                    cmd.Parameters.AddWithValue("@id",   id);
+                    cmd.Parameters.AddWithValue("@ay",   acadyear);
+                    cmd.Parameters.AddWithValue("@sd",   startDate);
+                    cmd.Parameters.AddWithValue("@ed",   endDate);
+                    cmd.Parameters.AddWithValue("@sc",   semesterCount);
                     cmd.Parameters.AddWithValue("@desc", string.IsNullOrEmpty(description) ? (object)DBNull.Value : description);
-                    cmd.Parameters.AddWithValue("@st", status);
-                    cmd.Parameters.AddWithValue("@by", modifiedBy);
+                    cmd.Parameters.AddWithValue("@st",   status);
+                    cmd.Parameters.AddWithValue("@by",   modifiedBy);
                     cmd.ExecuteNonQuery();
                 }
+
+                // Auto-create semester columns if they don't exist, then save values.
+                try
+                {
+                    EnsureSemesterColumns(conn);
+                    using (MySqlCommand semCmd = new MySqlCommand(@"
+                        UPDATE acad_acadyears
+                        SET semester_1_is_active = @s1,
+                            semester_2_is_active = @s2,
+                            semester_3_is_active = @s3
+                        WHERE ID = @id", conn))
+                    {
+                        semCmd.Parameters.AddWithValue("@id", id);
+                        semCmd.Parameters.AddWithValue("@s1", sem1Active == "Yes" ? "Yes" : "No");
+                        semCmd.Parameters.AddWithValue("@s2", sem2Active == "Yes" ? "Yes" : "No");
+                        semCmd.Parameters.AddWithValue("@s3", sem3Active == "Yes" ? "Yes" : "No");
+                        semCmd.ExecuteNonQuery();
+                    }
+                }
+                catch { /* DB permission error — semester columns not saved */ }
             }
             return "";
         }
@@ -499,5 +576,111 @@ public static class AcademicYearHelper
         int y1, y2;
         if (!int.TryParse(parts[0], out y1) || !int.TryParse(parts[1], out y2)) return false;
         return y2 == y1 + 1;
+    }
+
+    // ───────────────────────────────────────────────────────────
+    //  SEMESTER ACTIVE STATUS
+    // ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns true if the given semester number (1, 2 or 3) is marked as active
+    /// on the current academic year row in acad_acadyears.
+    /// Defaults to false when the column is absent or the DB is unavailable.
+    /// </summary>
+    public static bool IsSemesterActive(int semesterNum)
+    {
+        if (semesterNum < 1 || semesterNum > 3) return false;
+        string colName = "semester_" + semesterNum + "_is_active";
+        string acadYear = GetCurrentAcademicYear();
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                string sql = "SELECT " + colName + " FROM acad_acadyears WHERE acadyear = @ay LIMIT 1";
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@ay", acadYear);
+                    object result = cmd.ExecuteScalar();
+                    if (result != null && result != DBNull.Value)
+                        return result.ToString() == "Yes";
+                }
+            }
+        }
+        catch { /* fallback: false */ }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns a human-readable comma-separated list of active semesters
+    /// for the given academic year (e.g. "Sem 1, Sem 2").
+    /// Pass null to use the current academic year.
+    /// Returns "None" when no semesters are active.
+    /// </summary>
+    public static string GetActiveSemestersDisplay(string acadYear = null)
+    {
+        if (string.IsNullOrEmpty(acadYear))
+            acadYear = GetCurrentAcademicYear();
+
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    @"SELECT semester_1_is_active, semester_2_is_active, semester_3_is_active
+                      FROM acad_acadyears WHERE acadyear = @ay LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@ay", acadYear);
+                    using (MySqlDataReader rdr = cmd.ExecuteReader())
+                    {
+                        if (rdr.Read())
+                        {
+                            var active = new System.Collections.Generic.List<string>();
+                            if (rdr["semester_1_is_active"].ToString() == "Yes") active.Add("Sem 1");
+                            if (rdr["semester_2_is_active"].ToString() == "Yes") active.Add("Sem 2");
+                            if (rdr["semester_3_is_active"].ToString() == "Yes") active.Add("Sem 3");
+                            return active.Count > 0 ? string.Join(", ", active.ToArray()) : "None";
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+        return "-";
+    }
+
+    // ───────────────────────────────────────────────────────────
+    //  REGISTRATION YEAR ENFORCEMENT
+    // ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns true if the given academic year matches the current academic year.
+    /// Used to enforce that registrations can only be created for the current year.
+    /// </summary>
+    public static bool IsCurrentAcademicYear(string acadYear)
+    {
+        if (string.IsNullOrEmpty(acadYear)) return false;
+        string current = GetCurrentAcademicYear();
+        return string.Equals(acadYear.Trim(), current.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Converts an entry year integer (e.g. 2025) to an academic year string ("2025/2026")
+    /// and checks if it matches the current academic year.
+    /// </summary>
+    public static bool IsCurrentEntryYear(int entryYear)
+    {
+        string acadYear = string.Format("{0}/{1}", entryYear, entryYear + 1);
+        return IsCurrentAcademicYear(acadYear);
+    }
+
+    /// <summary>
+    /// Returns the current academic year string for use in error messages.
+    /// </summary>
+    public static string GetCurrentYearDisplay()
+    {
+        string cur = GetCurrentAcademicYear();
+        return !string.IsNullOrEmpty(cur) ? cur : "(not set)";
     }
 }

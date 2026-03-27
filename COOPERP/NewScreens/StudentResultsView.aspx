@@ -12,16 +12,12 @@
         .srv-container { padding: 0; font-size: 11px; }
         
         /* Page Header */
-        .srv-page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid #174DA4;
-        }
-        .srv-page-header__title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin: 0; }
-        .srv-page-header__subtitle { font-size: 10px; color: #6c757d; margin-top: 2px; }
+        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
+        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+        .cd-page-header__right { display:flex; gap:8px; align-items:center; }
         
         /* Search Bar */
         .srv-search-bar {
@@ -29,8 +25,8 @@
             gap: 12px;
             align-items: center;
             padding: 15px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 8px;
+            background: #f5f7fa;
+            border-radius: 4px;
             margin-bottom: 15px;
         }
         .srv-search-input {
@@ -38,7 +34,7 @@
             padding: 10px 15px;
             font-size: 12px;
             border: 2px solid #ced4da;
-            border-radius: 6px;
+            border-radius: 0;
             transition: border-color 0.15s ease;
         }
         .srv-search-input:focus { border-color: #174DA4; outline: none; }
@@ -53,7 +49,7 @@
             font-size: 11px;
             font-weight: 500;
             border: 1px solid transparent;
-            border-radius: 6px;
+            border-radius: 0;
             cursor: pointer;
             transition: all 0.15s ease;
             text-decoration: none;
@@ -77,11 +73,11 @@
         .srv-profile-card {
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 4px;
             overflow: hidden;
         }
         .srv-profile-card__header {
-            background: linear-gradient(135deg, #174DA4 0%, #0d3a7d 100%);
+            background: #05275C;
             padding: 20px;
             color: #fff;
             text-align: center;
@@ -123,7 +119,7 @@
         .srv-profile-stat {
             padding: 16px;
             text-align: center;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: #f5f7fa;
         }
         .srv-profile-stat:first-child { border-right: 1px solid #e0e0e0; }
         .srv-profile-stat__value { font-size: 22px; font-weight: 700; color: #174DA4; line-height: 1; }
@@ -133,7 +129,7 @@
         .srv-results-panel {
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 4px;
             overflow: hidden;
         }
         .srv-results-panel__header {
@@ -141,7 +137,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 12px 16px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: #f5f7fa;
             border-bottom: 1px solid #e0e0e0;
         }
         .srv-results-panel__title { font-size: 13px; font-weight: 600; color: #1a1a2e; }
@@ -183,7 +179,7 @@
         .srv-results-table th {
             text-align: left;
             padding: 10px 12px;
-            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+            background: #f5f7fa;
             border-bottom: 2px solid #174DA4;
             font-weight: 600;
             color: #495057;
@@ -209,11 +205,11 @@
             font-size: 12px;
             font-weight: 700;
         }
-        .srv-grade--a { background: linear-gradient(135deg, #28a745, #20c997); color: #fff; }
-        .srv-grade--b { background: linear-gradient(135deg, #17a2b8, #6f42c1); color: #fff; }
-        .srv-grade--c { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #5d4a00; }
-        .srv-grade--d { background: linear-gradient(135deg, #6c757d, #495057); color: #fff; }
-        .srv-grade--f { background: linear-gradient(135deg, #dc3545, #e83e8c); color: #fff; }
+        .srv-grade--a { background: #22c55e; color: #fff; }
+        .srv-grade--b { background: #84cc16; color: #fff; }
+        .srv-grade--c { background: #eab308; color: #5d4a00; }
+        .srv-grade--d { background: #f97316; color: #fff; }
+        .srv-grade--f { background: #ef4444; color: #fff; }
         
         /* Mark Progress */
         .srv-mark-bar {
@@ -258,7 +254,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 16px;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: #05275C;
             color: #fff;
         }
         .srv-summary__item {
@@ -304,12 +300,17 @@
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
     <div class="srv-container">
         <!-- Page Header -->
-        <div class="srv-page-header">
-            <div>
-                <h1 class="srv-page-header__title">👤 Student Results View</h1>
-                <p class="srv-page-header__subtitle">Comprehensive view of individual student academic performance</p>
+        <div class="cd-page-header">
+            <div class="cd-page-header__left">
+                <div class="cd-page-header__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="12" y1="7" x2="16" y2="7"/><line x1="12" y1="11" x2="16" y2="11"/></svg>
+                </div>
+                <div>
+                    <div class="cd-page-header__title">Student Results View</div>
+                    <div class="cd-page-header__sub">View individual student academic results and transcripts</div>
+                </div>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div class="cd-page-header__right">
                 <asp:HyperLink ID="lnkBack" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" CssClass="srv-btn srv-btn--outline">
                     ← Back to Results
                 </asp:HyperLink>

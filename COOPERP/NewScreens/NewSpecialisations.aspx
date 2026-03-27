@@ -1,8 +1,14 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="NewSpecialisations.aspx.cs" Inherits="COOPERP_NewScreens_NewSpecialisations" Title="Specialisations - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="NewSpecialisations.aspx.cs" Inherits="COOPERP_NewScreens_NewSpecialisations" Title="Specialisations - Campus Dynamics" %>
 <%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="HeadContent" Runat="Server">
     <style>
+        /* ---- Page Header ---- */
+        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
+        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
         /* =============================================
            POPUP & MODAL STYLING
            ============================================= */
@@ -827,6 +833,18 @@
 </asp:Content>
 
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+        </div>
+        <div>
+            <div class="cd-page-header__title">Specialisations</div>
+            <div class="cd-page-header__sub">Manage academic programme specialisation tracks</div>
+        </div>
+    </div>
+</div>
     <div class="cd-card">
         <div class="cd-card__header">
             <h3 class="cd-card__title">
@@ -1825,7 +1843,7 @@
             }
         }
         
-        /** Collect IDs, confirm and submit — called via OnClientClick */
+        /** Collect IDs, confirm and submit - called via OnClientClick */
         function collectAndConfirmStructureDelete(btn) {
             var checked = document.querySelectorAll('.struct-chk:checked');
             if (checked.length === 0) {
@@ -1863,7 +1881,7 @@
         });
 
         // =====================================================
-        // BATCH OPERATIONS — Main Specialisations Grid
+        // BATCH OPERATIONS - Main Specialisations Grid
         // =====================================================
         function toggleSelectAll(cb) {
             var rows = document.querySelectorAll('.spec-row-chk');
@@ -1909,66 +1927,25 @@
         }
 
         // =====================================================
-        // SMART FILTER BAR — client-side helpers
+        // SMART FILTER BAR - client-side helpers
         // =====================================================
         (function () {
             var txt  = document.getElementById('<%= txtFilterSearch.ClientID %>');
             var xBtn = document.getElementById('btnClearSearchX');
 
             function syncX() {
-                if (xBtn) xBtn.style.display = (txt && txt.value.length > 0) ? '' : 'none';
+                if (xBtn) xBtn.style.display = txt && txt.value ? 'block' : 'none';
             }
             if (txt) {
                 txt.addEventListener('input', syncX);
-                // Enter key fires Search button
-                txt.addEventListener('keydown', function (e) {
-                    if (e.key === 'Enter' || e.keyCode === 13) {
-                        e.preventDefault();
-                        var btn = document.getElementById('<%= btnApplySearch.ClientID %>');
-                        if (btn) btn.click();
-                    }
-                });
                 syncX();
-            }
-
-            // Visually highlight selects that have a non-empty value
-            function highlightSelects() {
-                var sels = document.querySelectorAll('.sfilter-select');
-                for (var i = 0; i < sels.length; i++) {
-                    if (sels[i].value && sels[i].value !== '')
-                        sels[i].classList.add('sf-active');
-                    else
-                        sels[i].classList.remove('sf-active');
-                }
-            }
-            highlightSelects();
-            var ddls = document.querySelectorAll('.sfilter-select');
-            for (var j = 0; j < ddls.length; j++) {
-                ddls[j].addEventListener('change', highlightSelects);
             }
         })();
 
         function clearFilterSearchJS() {
             var txt = document.getElementById('<%= txtFilterSearch.ClientID %>');
-            if (txt) { txt.value = ''; txt.focus(); }
-            var x = document.getElementById('btnClearSearchX');
-            if (x) x.style.display = 'none';
+            if (txt) { txt.value = ''; txt.form.submit(); }
         }
-
-        // Update "showing N–M of T" info next to per-page selector
-        (function () {
-            var ddl   = document.getElementById('<%= ddlPageSize.ClientID %>');
-            var total = parseInt('<%= lblTotalCount.Text %>') || 0;
-            var span  = document.getElementById('spanPageInfo');
-            if (!ddl || !span) return;
-            function refresh() {
-                var ps = parseInt(ddl.value);
-                if (!ps || ps <= 0) { span.textContent = '(showing all ' + total + ')'; return; }
-                var pages = Math.ceil(total / ps);
-                span.textContent = pages + ' page' + (pages === 1 ? '' : 's');
-            }
-            ddl.addEventListener('change', refresh);
-            refresh();
-        })();
     </script>
+
 </asp:Content>

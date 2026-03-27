@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -47,7 +47,7 @@ public partial class COOPERP_NewScreens_HRContracts : System.Web.UI.Page
 
     private void LoadFormDropdowns()
     {
-        // Employees — include their last contract's job/dept for JS auto-fill
+        // Employees - include their last contract's job/dept for JS auto-fill
         DataTable dtEmp = ExecuteQuery(@"
             SELECT empID,
                    CONCAT(emp_name, ' [', IFNULL(EMP_CODE,''), ']') AS display

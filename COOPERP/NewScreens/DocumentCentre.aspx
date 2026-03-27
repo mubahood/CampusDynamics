@@ -3,6 +3,12 @@
 
 <asp:Content ID="Content1" ContentPlaceHolderID="HeadContent" runat="Server">
 <style type="text/css">
+/* ---- Page Header ---- */
+.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.cd-page-header__left { display:flex; align-items:center; gap:12px; }
+.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
 /* Document Centre Module Styles - dc- prefix */
 .dc-container { padding: 8px; font-size: 11px; }
 .dc-header { margin-bottom: 6px; }
@@ -99,10 +105,18 @@ function selectDocType(element, value) {
 
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="Server">
 <div class="dc-container">
-    <div class="dc-header">
-        <h1 class="dc-title">Document Centre</h1>
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        </div>
+        <div>
+            <div class="cd-page-header__title">Document Centre</div>
+            <div class="cd-page-header__sub">Generate and manage student academic documents</div>
+        </div>
     </div>
-    
+</div>
     <!-- Stats Bar with Filter Toggle -->
     <div class="dc-stats-bar">
         <div class="dc-stat dc-stat--primary">

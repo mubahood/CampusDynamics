@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -11,9 +11,9 @@ using DevExpress.Web;
 
 public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
 {
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 1: Infrastructure
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private string ConnStr
     {
@@ -91,9 +91,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         return int.TryParse(val.ToString(), out i) ? i : 0;
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 2: PayrollConfig (PRESERVED EXACTLY from existing code)
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private struct PayrollConfig
     {
@@ -156,7 +156,7 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
         catch
         {
-            // hrm_config not yet created — use defaults
+            // hrm_config not yet created - use defaults
         }
         return def;
     }
@@ -201,29 +201,209 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         return Math.Round(paye, 0);
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 3: Page_Load
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        EnsureTablesExist();
+
+        // Always repopulate year dropdown (ViewState disabled on master page).
+        // Restore whatever the user had selected via the posted form value.
+        string postedYear = Request.Form[ddlPayrollYear.UniqueID];
+        LoadYearDropdown(postedYear);
+
         if (!IsPostBack)
         {
-            LoadYearDropdown();
-            LoadStats();
             LoadCreateModalDropdowns();
-            txtPayrollYear.Text = DateTime.Today.Year.ToString();
+            LoadCreateYearDropdown();
             ddlPayrollMonth.SelectedValue = DateTime.Today.Month.ToString();
         }
         BindPayrollGrid();
         LoadStats();
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Section 4: LoadYearDropdown
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
+    // Auto-create all HR payroll tables on first use
+    // -----------------------------------------------------------------
+    private void EnsureTablesExist()
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
 
-    private void LoadYearDropdown()
+                // hrm_config
+                ExecuteNonQueryWithConn(conn, @"
+                    CREATE TABLE IF NOT EXISTS hrm_config (
+                        id INT NOT NULL DEFAULT 1,
+                        paye_b1_min DECIMAL(15,2) NOT NULL DEFAULT 0,
+                        paye_b1_max DECIMAL(15,2) NOT NULL DEFAULT 235000,
+                        paye_b1_rate DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+                        paye_b2_min DECIMAL(15,2) NOT NULL DEFAULT 235001,
+                        paye_b2_max DECIMAL(15,2) NOT NULL DEFAULT 335000,
+                        paye_b2_rate DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+                        paye_b3_min DECIMAL(15,2) NOT NULL DEFAULT 335001,
+                        paye_b3_max DECIMAL(15,2) NOT NULL DEFAULT 410000,
+                        paye_b3_rate DECIMAL(5,2) NOT NULL DEFAULT 20.00,
+                        paye_b4_min DECIMAL(15,2) NOT NULL DEFAULT 410001,
+                        paye_b4_max DECIMAL(15,2) NOT NULL DEFAULT 10000000,
+                        paye_b4_rate DECIMAL(5,2) NOT NULL DEFAULT 30.00,
+                        paye_b5_min DECIMAL(15,2) NOT NULL DEFAULT 10000001,
+                        paye_b5_max DECIMAL(15,2) NULL,
+                        paye_b5_rate DECIMAL(5,2) NOT NULL DEFAULT 40.00,
+                        nssf_employee_rate DECIMAL(5,2) NOT NULL DEFAULT 5.00,
+                        nssf_employer_rate DECIMAL(5,2) NOT NULL DEFAULT 10.00,
+                        should_charge_kabaka ENUM('YES','NO') NOT NULL DEFAULT 'YES',
+                        kabaka_rate DECIMAL(5,2) NOT NULL DEFAULT 1.00,
+                        should_charge_local_tax ENUM('YES','NO') NOT NULL DEFAULT 'NO',
+                        local_tax_rate DECIMAL(5,2) NOT NULL DEFAULT 1.00,
+                        default_annual_leave_days INT NOT NULL DEFAULT 30,
+                        default_maternity_leave_days INT NOT NULL DEFAULT 60,
+                        default_paternity_leave_days INT NOT NULL DEFAULT 4,
+                        default_sick_leave_days INT NOT NULL DEFAULT 30,
+                        financial_year_start_month TINYINT NOT NULL DEFAULT 7,
+                        probation_period_months INT NOT NULL DEFAULT 3,
+                        notice_period_days INT NOT NULL DEFAULT 30,
+                        overtime_rate_multiplier DECIMAL(4,2) NOT NULL DEFAULT 1.50,
+                        gratuity_rate DECIMAL(5,2) NOT NULL DEFAULT 5.00,
+                        working_days_per_month INT NOT NULL DEFAULT 22,
+                        working_hours_per_day INT NOT NULL DEFAULT 8,
+                        last_updated DATETIME NULL,
+                        updated_by VARCHAR(100) NULL,
+                        PRIMARY KEY (id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                ExecuteNonQueryWithConn(conn, "INSERT IGNORE INTO hrm_config (id) VALUES (1)");
+
+                // hrm_payslips
+                ExecuteNonQueryWithConn(conn, @"
+                    CREATE TABLE IF NOT EXISTS hrm_payslips (
+                        ID INT NOT NULL AUTO_INCREMENT,
+                        payroll_id INT NOT NULL,
+                        empID INT NOT NULL,
+                        payroll_year INT NOT NULL,
+                        payroll_month INT NOT NULL,
+                        payroll_month_name ENUM('JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
+                            'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER') NOT NULL,
+                        basic_pay DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        gross_salary DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        total_allowances DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        allowance_amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        allowance_details TEXT NULL,
+                        total_deductions DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        deduction_amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        deduction_details TEXT NULL,
+                        paye DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        nssf DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        kabaka_contribution DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        local_tax DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        net_salary DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        status ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+                        date_generated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        approved_by VARCHAR(100) NULL,
+                        date_approved DATETIME NULL,
+                        rejection_reason TEXT NULL,
+                        PRIMARY KEY (ID),
+                        UNIQUE KEY uq_payslip_payroll_emp (payroll_id, empID),
+                        INDEX idx_ps_payroll (payroll_id),
+                        INDEX idx_ps_emp (empID),
+                        INDEX idx_ps_status (status),
+                        INDEX idx_ps_period (payroll_year, payroll_month)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                // hrm_deduction_records
+                ExecuteNonQueryWithConn(conn, @"
+                    CREATE TABLE IF NOT EXISTS hrm_deduction_records (
+                        id INT NOT NULL AUTO_INCREMENT,
+                        empID INT NOT NULL,
+                        deduction_type VARCHAR(100) NOT NULL,
+                        amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        description TEXT NULL,
+                        date_recorded DATE NOT NULL,
+                        status ENUM('PENDING','SETTLED','CANCELLED') NOT NULL DEFAULT 'PENDING',
+                        to_deduct_month ENUM('JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
+                            'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER') NOT NULL,
+                        to_deduct_year INT NOT NULL,
+                        payment_date DATE NULL,
+                        payroll_id INT NULL,
+                        recorded_by VARCHAR(100) NULL,
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (id),
+                        INDEX idx_ded_emp_period (empID, to_deduct_month, to_deduct_year),
+                        INDEX idx_ded_status (status),
+                        INDEX idx_ded_payroll (payroll_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                // hrm_allowance_records
+                ExecuteNonQueryWithConn(conn, @"
+                    CREATE TABLE IF NOT EXISTS hrm_allowance_records (
+                        id INT NOT NULL AUTO_INCREMENT,
+                        empID INT NOT NULL,
+                        allowance_type VARCHAR(100) NOT NULL,
+                        amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        description TEXT NULL,
+                        date_recorded DATE NOT NULL,
+                        status ENUM('PENDING','SETTLED','CANCELLED') NOT NULL DEFAULT 'PENDING',
+                        to_add_month ENUM('JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
+                            'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER') NOT NULL,
+                        to_add_year INT NOT NULL,
+                        payment_date DATE NULL,
+                        payroll_id INT NULL,
+                        recorded_by VARCHAR(100) NULL,
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (id),
+                        INDEX idx_alw_emp_period (empID, to_add_month, to_add_year),
+                        INDEX idx_alw_status (status),
+                        INDEX idx_alw_payroll (payroll_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                // Extend hrm_payroll with new columns (safe per-column checks)
+                AddColumnIfMissing(conn, "hrm_payroll", "payroll_status",
+                    "ENUM('PENDING','PROCESSED','CANCELLED') NOT NULL DEFAULT 'PENDING' AFTER payroll_date");
+                AddColumnIfMissing(conn, "hrm_payroll", "target_type",
+                    "ENUM('ALL','DEPARTMENT','EMPLOYEE') NOT NULL DEFAULT 'ALL'");
+                AddColumnIfMissing(conn, "hrm_payroll", "target_ids", "TEXT NULL");
+                AddColumnIfMissing(conn, "hrm_payroll", "should_include_deductions",
+                    "ENUM('YES','NO') NOT NULL DEFAULT 'YES'");
+                AddColumnIfMissing(conn, "hrm_payroll", "should_include_allowances",
+                    "ENUM('YES','NO') NOT NULL DEFAULT 'YES'");
+                AddColumnIfMissing(conn, "hrm_payroll", "date_processed", "DATETIME NULL");
+                AddColumnIfMissing(conn, "hrm_payroll", "processed_by", "VARCHAR(100) NULL");
+                AddColumnIfMissing(conn, "hrm_payroll", "payroll_comments", "TEXT NULL");
+            }
+        }
+        catch { /* silently ignore — tables will cause SQL errors on first use if truly missing */ }
+    }
+
+    private void AddColumnIfMissing(MySqlConnection conn, string table, string column, string definition)
+    {
+        try
+        {
+            using (MySqlCommand check = new MySqlCommand(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS " +
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @t AND COLUMN_NAME = @c", conn))
+            {
+                check.Parameters.AddWithValue("@t", table);
+                check.Parameters.AddWithValue("@c", column);
+                long exists = Convert.ToInt64(check.ExecuteScalar());
+                if (exists == 0)
+                {
+                    using (MySqlCommand alter = new MySqlCommand(
+                        "ALTER TABLE `" + table + "` ADD COLUMN `" + column + "` " + definition, conn))
+                        alter.ExecuteNonQuery();
+                }
+            }
+        }
+        catch { }
+    }
+
+    // -----------------------------------------------------------------
+    // Section 4: LoadYearDropdown
+    // -----------------------------------------------------------------
+
+    private void LoadYearDropdown(string restoreValue = null)
     {
         int currentYear = DateTime.Today.Year;
         DataTable dt = ExecuteQuery("SELECT DISTINCT payroll_year FROM hrm_payroll ORDER BY payroll_year DESC");
@@ -243,14 +423,16 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         foreach (int y in years)
             ddlPayrollYear.Items.Add(new ListItem(y.ToString(), y.ToString()));
 
-        // Default to current year
-        ListItem cur = ddlPayrollYear.Items.FindByValue(currentYear.ToString());
-        if (cur != null) cur.Selected = true;
+        // Restore posted selection (null = first load → default to current year;
+        // empty string = user chose "All Years" → keep empty)
+        string selectVal = (restoreValue == null) ? currentYear.ToString() : restoreValue;
+        ListItem toSelect = ddlPayrollYear.Items.FindByValue(selectVal);
+        if (toSelect != null) toSelect.Selected = true;
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 5: LoadStats
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void LoadStats()
     {
@@ -292,9 +474,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 6: LoadCreateModalDropdowns
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void LoadCreateModalDropdowns()
     {
@@ -316,9 +498,18 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
             lstTargetEmps.Items.Add(new ListItem(r["display"].ToString(), r["empID"].ToString()));
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    private void LoadCreateYearDropdown()
+    {
+        int currentYear = DateTime.Today.Year;
+        ddlCreateYear.Items.Clear();
+        for (int y = currentYear; y >= currentYear - 10; y--)
+            ddlCreateYear.Items.Add(new ListItem(y.ToString(), y.ToString()));
+        ddlCreateYear.SelectedValue = currentYear.ToString();
+    }
+
+    // -----------------------------------------------------------------
     // Section 7: BindPayrollGrid
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void BindPayrollGrid()
     {
@@ -359,45 +550,52 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         gvPayrolls.DataBind();
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 8: btnCreatePayroll_Click
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void btnCreatePayroll_Click(object sender, EventArgs e)
     {
         string title = txtPayrollTitle.Text.Trim();
         if (string.IsNullOrEmpty(title))
         {
-            ShowModalError("createPayrollModal", "createResult", "Payroll title is required.");
+            ShowModalError("createPayrollModal", "addResult", "Payroll title is required.");
             return;
         }
 
         int month = SafeInt(ddlPayrollMonth.SelectedValue);
-        int year;
-        if (!int.TryParse(txtPayrollYear.Text.Trim(), out year) || year < 2000 || year > 2099)
+        int year  = SafeInt(ddlCreateYear.SelectedValue);
+        if (year < 2000 || year > 2099)
         {
-            ShowModalError("createPayrollModal", "createResult", "Please enter a valid 4-digit year.");
+            ShowModalError("createPayrollModal", "addResult", "Please select a valid year.");
             return;
         }
 
         string targetType = ddlTargetType.SelectedValue;
         if (string.IsNullOrEmpty(targetType)) targetType = "ALL";
 
-        // Build target_ids
+        // Build target_ids — read via Request.Form because listboxes are only
+        // populated on !IsPostBack and Items will be empty on submit postback.
         string targetIds = "";
         if (targetType == "DEPARTMENT")
         {
-            var ids = new List<string>();
-            foreach (ListItem item in lstTargetDepts.Items)
-                if (item.Selected) ids.Add(item.Value);
-            targetIds = string.Join(",", ids);
+            string[] posted = Request.Form.GetValues(lstTargetDepts.UniqueID);
+            targetIds = posted != null ? string.Join(",", posted) : "";
+            if (string.IsNullOrEmpty(targetIds))
+            {
+                ShowModalError("createPayrollModal", "addResult", "Please select at least one department.");
+                return;
+            }
         }
         else if (targetType == "EMPLOYEE")
         {
-            var ids = new List<string>();
-            foreach (ListItem item in lstTargetEmps.Items)
-                if (item.Selected) ids.Add(item.Value);
-            targetIds = string.Join(",", ids);
+            string[] posted = Request.Form.GetValues(lstTargetEmps.UniqueID);
+            targetIds = posted != null ? string.Join(",", posted) : "";
+            if (string.IsNullOrEmpty(targetIds))
+            {
+                ShowModalError("createPayrollModal", "addResult", "Please select at least one employee.");
+                return;
+            }
         }
 
         string inclDed   = ddlIncludeDeductions.SelectedValue;
@@ -434,25 +632,79 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
         catch (Exception ex)
         {
-            ShowModalError("createPayrollModal", "createResult",
+            ShowModalError("createPayrollModal", "addResult",
                 "Error creating payroll: " + ex.Message);
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Section 9: ddlTargetType_Changed
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
+    // Section 9: btnBatchAction_Click
+    // -----------------------------------------------------------------
 
-    protected void ddlTargetType_Changed(object sender, EventArgs e)
+    protected void btnBatchAction_Click(object sender, EventArgs e)
     {
-        string val = ddlTargetType.SelectedValue;
-        pnlTargetDept.Visible = (val == "DEPARTMENT");
-        pnlTargetEmp.Visible  = (val == "EMPLOYEE");
+        string rawIDs = hdnBatchIDs.Value.Trim();
+        string action = hdnBatchAction.Value.Trim().ToUpper();
+        if (string.IsNullOrEmpty(rawIDs) || string.IsNullOrEmpty(action)) return;
+
+        string[] idArr = rawIDs.Split(new char[]{','}, StringSplitOptions.RemoveEmptyEntries);
+        int processed = 0, skipped = 0;
+        var errors = new List<string>();
+        PayrollConfig cfg = action == "GENERATE" ? LoadPayrollConfig() : default(PayrollConfig);
+
+        foreach (string idStr in idArr)
+        {
+            int pid;
+            if (!int.TryParse(idStr.Trim(), out pid)) continue;
+            try
+            {
+                DataTable dtSt = ExecuteQuery(
+                    "SELECT payroll_status FROM hrm_payroll WHERE ID=@id",
+                    new MySqlParameter("@id", pid));
+                if (dtSt.Rows.Count == 0 ||
+                    dtSt.Rows[0]["payroll_status"].ToString().ToUpper() != "PENDING")
+                { skipped++; continue; }
+
+                switch (action)
+                {
+                    case "GENERATE":
+                        GeneratePayslipsForPayroll(pid, cfg);
+                        processed++;
+                        break;
+                    case "CANCEL":
+                        ExecuteNonQuery(
+                            "UPDATE hrm_payroll SET payroll_status='CANCELLED' WHERE ID=@id AND payroll_status='PENDING'",
+                            new MySqlParameter("@id", pid));
+                        processed++;
+                        break;
+                    case "DELETE":
+                        ExecuteNonQuery(
+                            "DELETE FROM hrm_payslips WHERE payroll_id=@id AND status!='APPROVED'",
+                            new MySqlParameter("@id", pid));
+                        ExecuteNonQuery(
+                            "DELETE FROM hrm_payroll WHERE ID=@id AND payroll_status='PENDING'",
+                            new MySqlParameter("@id", pid));
+                        processed++;
+                        break;
+                }
+            }
+            catch (Exception ex) { errors.Add("#" + pid + ": " + ex.Message); }
+        }
+
+        BindPayrollGrid();
+        LoadStats();
+        pnlPayrollDetails.Visible = false;
+
+        string summary = processed + " processed" + (skipped > 0 ? ", " + skipped + " skipped" : "");
+        string toastType = errors.Count > 0 ? "warning" : "success";
+        ScriptManager.RegisterStartupScript(this, GetType(), "batchDone",
+            "showToast('" + HttpUtility.JavaScriptStringEncode("Batch " + action.ToLower() + ": " + summary) + "','" + toastType + "');clearBatchSelection();",
+            true);
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 10: btnViewPayroll_Click
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void btnViewPayroll_Click(object sender, EventArgs e)
     {
@@ -467,9 +719,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
             true);
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 11: ShowPayrollDetails
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void ShowPayrollDetails(int payrollID)
     {
@@ -556,9 +808,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 12: BindPayrollDetailsGrid
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void BindPayrollDetailsGrid(int payrollID)
     {
@@ -579,9 +831,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         gvPayrollDetails.DataBind();
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Section 13: btnGenPayroll_Click — opens the process confirm modal
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
+    // Section 13: btnGenPayroll_Click - opens the process confirm modal
+    // -----------------------------------------------------------------
 
     protected void btnGenPayroll_Click(object sender, EventArgs e)
     {
@@ -681,9 +933,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 14: btnConfirmProcess_Click
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void btnConfirmProcess_Click(object sender, EventArgs e)
     {
@@ -712,9 +964,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 15: GeneratePayslipsForPayroll
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void GeneratePayslipsForPayroll(int payrollID, PayrollConfig cfg)
     {
@@ -737,7 +989,7 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         string payrollMonthName = (payrollMonth >= 1 && payrollMonth <= 12)
             ? MONTH_NAMES[payrollMonth] : "";
 
-        // Delete PENDING/REJECTED payslips — preserve APPROVED
+        // Delete PENDING/REJECTED payslips - preserve APPROVED
         ExecuteNonQuery(
             "DELETE FROM hrm_payslips WHERE payroll_id=@id AND status IN ('PENDING','REJECTED')",
             new MySqlParameter("@id", payrollID));
@@ -751,7 +1003,7 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
 
         foreach (int empID in targetEmps)
         {
-            // Check for existing APPROVED payslip — preserve it
+            // Check for existing APPROVED payslip - preserve it
             DataTable dtApproved = ExecuteQuery(
                 "SELECT ID, basic_pay, gross_salary, total_allowances, paye, nssf, " +
                 "kabaka_contribution, local_tax, total_deductions, net_salary " +
@@ -802,7 +1054,7 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
 
             if (basicPay <= 0) continue;
 
-            // ── Standard allowances ─────────────────────────────────
+            // -- Standard allowances ---------------------------------
             decimal stdAllowances = 0m;
             var allowanceDetails  = new List<string>();
 
@@ -823,7 +1075,7 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
                 allowanceDetails.Add(a["dedall_name"].ToString() + ":" + Math.Round(final, 0).ToString("F0"));
             }
 
-            // ── Ad-hoc allowances ───────────────────────────────────
+            // -- Ad-hoc allowances -----------------------------------
             decimal adHocAllowanceAmount = 0m;
             if (inclAllowances && !string.IsNullOrEmpty(payrollMonthName))
             {
@@ -848,7 +1100,7 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
 
             decimal totalAllowances = stdAllowances + adHocAllowanceAmount;
 
-            // ── Standard deductions ─────────────────────────────────
+            // -- Standard deductions ---------------------------------
             decimal nonStatDeductions = 0m;
             var deductionDetails      = new List<string>();
 
@@ -869,7 +1121,7 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
                 deductionDetails.Add(d["dedall_name"].ToString() + ":" + Math.Round(final, 0).ToString("F0"));
             }
 
-            // ── Ad-hoc deductions ───────────────────────────────────
+            // -- Ad-hoc deductions -----------------------------------
             decimal adHocDeductionAmount = 0m;
             if (inclDeductions && !string.IsNullOrEmpty(payrollMonthName))
             {
@@ -892,7 +1144,7 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
                 catch { /* table may not exist */ }
             }
 
-            // ── Statutory calculations ──────────────────────────────
+            // -- Statutory calculations ------------------------------
             decimal grossPay = basicPay + totalAllowances;
             decimal nssf     = Math.Round(basicPay * cfg.NssfEmployeeRate / 100, 0);
             decimal kabaka   = cfg.ChargeKabaka   ? Math.Round(basicPay * cfg.KabakaRate   / 100, 0) : 0m;
@@ -1004,9 +1256,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
             new MySqlParameter("@pid",   payrollID));
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 16: ResolveTargetEmployees
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private List<int> ResolveTargetEmployees(int payrollID)
     {
@@ -1098,9 +1350,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         return result;
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 17: btnDoAction_Click
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void btnDoAction_Click(object sender, EventArgs e)
     {
@@ -1139,9 +1391,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 18: ApprovePayroll
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void ApprovePayroll(int payrollID)
     {
@@ -1191,9 +1443,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 19: CancelPayroll
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void CancelPayroll(int payrollID)
     {
@@ -1227,9 +1479,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 20: DeletePayroll
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void DeletePayroll(int payrollID)
     {
@@ -1293,9 +1545,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 21: gvPayrolls_RowDeleting
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void gvPayrolls_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
     {
@@ -1305,9 +1557,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         gvPayrolls.CancelEdit();
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 22: gvPayrollDetails_RowUpdating
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void gvPayrollDetails_RowUpdating(object sender, DevExpress.Web.Data.ASPxDataUpdatingEventArgs e)
     {
@@ -1392,18 +1644,18 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
     protected void gvPayrollDetails_HtmlRowCreated(object sender, DevExpress.Web.ASPxGridViewTableRowEventArgs e)
     {
         if (e.RowType != DevExpress.Web.GridViewRowType.Data) return;
-        System.Data.DataRowView drv = e.GetRow() as System.Data.DataRowView;
-        if (drv == null) return;
-        string status = (drv["status"] == DBNull.Value) ? "" : drv["status"].ToString().ToUpper();
+        DevExpress.Web.ASPxGridView grid = (DevExpress.Web.ASPxGridView)sender;
+        object statusVal = grid.GetRowValues(e.VisibleIndex, "status");
+        string status = (statusVal == null || statusVal == DBNull.Value) ? "" : statusVal.ToString().ToUpper();
         if (status == "APPROVED")
             e.Row.CssClass = "ps-row--approved";
         else if (status == "REJECTED")
             e.Row.CssClass = "ps-row--rejected";
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 23: btnApprovePayroll_Click / btnCancelPayroll_Click
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void btnApprovePayroll_Click(object sender, EventArgs e)
     {
@@ -1422,18 +1674,18 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         ShowPayrollDetails(payrollID);
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 24: btnCloseDetails_Click
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void btnCloseDetails_Click(object sender, EventArgs e)
     {
         pnlPayrollDetails.Visible = false;
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 25: Filter event handlers
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected void ddlPayrollYear_Changed(object sender, EventArgs e)
     {
@@ -1453,9 +1705,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         LoadStats();
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 26: Template Helpers
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     protected string FormatCurrency(object val)
     {
@@ -1531,20 +1783,20 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         sb.Append("<button type='button' class='cd-action-btn' onclick='toggleActionPopover(this,event)' title='Actions'>&#8942;</button>");
         sb.Append("<div class='cd-action-popover'>");
 
-        // View Details — always
-        sb.Append("<button type='button' onclick='closeAllPopovers();viewPayrollDetails(" + pid + ")'>" + icoEye + " View Details</button>");
+        // View Details - always
+        sb.Append("<button type='button' onclick='closeAllActionPopovers();viewPayrollDetails(" + pid + ")'>" + icoEye + " View Details</button>");
 
-        // Generate — PENDING only
+        // Generate - PENDING only
         if (status == "PENDING")
-            sb.Append("<button type='button' onclick='closeAllPopovers();openProcessModal(" + pid + ")'>" + icoPlay + " Generate Payslips</button>");
+            sb.Append("<button type='button' onclick='closeAllActionPopovers();openProcessModal(" + pid + ")'>" + icoPlay + " Generate Payslips</button>");
 
-        // View Payslips — always
+        // View Payslips - always
         sb.Append("<a href='HRPayslips.aspx?payroll_id=" + pid + "'>" + icoList + " View Payslips</a>");
 
         if (status == "PENDING")
         {
-            sb.Append("<button type='button' onclick='closeAllPopovers();doAction(" + pid + ",\"CANCEL\")'>" + icoX + " Cancel Payroll</button>");
-            sb.Append("<button type='button' class='pop-danger' onclick='closeAllPopovers();doAction(" + pid + ",\"DELETE\")'>" + icoTrash + " Delete</button>");
+            sb.Append("<button type='button' onclick='closeAllActionPopovers();doAction(" + pid + ",\"CANCEL\")'>" + icoX + " Cancel Payroll</button>");
+            sb.Append("<button type='button' class='pop-danger' onclick='closeAllActionPopovers();doAction(" + pid + ",\"DELETE\")'>" + icoTrash + " Delete</button>");
         }
         else if (status == "PROCESSED")
         {
@@ -1566,9 +1818,9 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
             HttpUtility.JavaScriptStringEncode(message) + "','" + type + "');", true);
     }
 
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
     // Section 27: ShowModalError
-    // ─────────────────────────────────────────────────────────────────
+    // -----------------------------------------------------------------
 
     private void ShowModalError(string modalId, string resultId, string message)
     {

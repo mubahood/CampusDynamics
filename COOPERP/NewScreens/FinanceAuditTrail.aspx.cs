@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Web.UI;
 using MySql.Data.MySqlClient;
@@ -61,7 +61,7 @@ public partial class COOPERP_NewScreens_FinanceAuditTrail : System.Web.UI.Page
         using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
-            // Try to query acc_activity_log — column names may vary
+            // Try to query acc_activity_log - column names may vary
             string sql = @"SELECT * FROM acc_activity_log 
                            WHERE activity_date >= @sd AND activity_date < @ed 
                            ORDER BY activity_date DESC LIMIT 500";

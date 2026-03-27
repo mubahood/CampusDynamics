@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Configuration;
 using System.Web;
 using System.Web.UI;
@@ -36,21 +36,21 @@ public partial class COOPERP_fonts_lg : System.Web.UI.UserControl
                 if (mu != null && mu.IsLockedOut) mu.UnlockUser();
 
                 // Replicate exactly what Login1_LoggedIn does
-                FormsAuthentication.SetAuthCookie(resolved, false);
+                FormsAuthentication.SetAuthCookie(resolved, true); // persistent cookie — survives browser close
                 Session["username"] = resolved;
                 string key = resolved + password;
                 HttpContext.Current.Cache.Insert(key, Session.SessionID, null,
-                    DateTime.MaxValue, TimeSpan.FromDays(30),
+                    DateTime.MaxValue, TimeSpan.FromDays(365),
                     System.Web.Caching.CacheItemPriority.NotRemovable, null);
                 Session["usernm"] = key;
 
                 Response.Redirect("~/MyApplications.aspx");
             }
-            // else: wrong password — fall through, Login control will show its own error
+            // else: wrong password - fall through, Login control will show its own error
         }
         else
         {
-            // Direct username typed (or nothing resolved) — let Login control proceed normally
+            // Direct username typed (or nothing resolved) - let Login control proceed normally
             Session["username"] = input;
         }
     }
@@ -59,10 +59,14 @@ public partial class COOPERP_fonts_lg : System.Web.UI.UserControl
     {
         // Reached only when the user typed their actual membership username directly
         Session["username"] = Login1.UserName;
+
+        // Issue a persistent forms-auth cookie so the user stays logged in across browser restarts
+        FormsAuthentication.SetAuthCookie(Login1.UserName, true);
+
         System.Web.UI.WebControls.Login senderLogin = sender as System.Web.UI.WebControls.Login;
         string key = senderLogin.UserName + senderLogin.Password;
         HttpContext.Current.Cache.Insert(key, Session.SessionID, null,
-            DateTime.MaxValue, TimeSpan.FromDays(30),
+            DateTime.MaxValue, TimeSpan.FromDays(365),
             System.Web.Caching.CacheItemPriority.NotRemovable, null);
         Session["usernm"] = key;
     }
@@ -76,7 +80,7 @@ public partial class COOPERP_fonts_lg : System.Web.UI.UserControl
     {
         if (string.IsNullOrEmpty(input)) return input;
 
-        // 1. Direct membership username — fast path, no DB
+        // 1. Direct membership username - fast path, no DB
         if (Membership.GetUser(input) != null)
             return input;
 
@@ -125,8 +129,8 @@ public partial class COOPERP_fonts_lg : System.Web.UI.UserControl
                 }
             }
         }
-        catch { /* DB failure — fall through */ }
+        catch { /* DB failure - fall through */ }
 
-        return input; // nothing found — return original
+        return input; // nothing found - return original
     }
 }

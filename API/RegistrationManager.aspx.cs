@@ -90,7 +90,15 @@ public partial class API_RegistrationManager : System.Web.UI.Page
                 string comm=REG.ProcessRegister(Request["reg"], Request["acadyear"], int.Parse(Request["sem"]), HttpContext.Current.User.Identity.Name).ToString();
                 if(comm.Contains("Registration Completed") || comm.Contains("Registration Done"))
                 {
-                    // Procedure handles billing internally — do not call fin_Autobilling here
+                    // Auto-bill student after successful registration
+                    try
+                    {
+                        fin_GetStudentFeesTrackListTableAdapter BILLING = new fin_GetStudentFeesTrackListTableAdapter();
+                        BILLING.fin_Autobilling(Request["reg"], Request["acadyear"], int.Parse(Request["sem"]), "REG", HttpContext.Current.User.Identity.Name, "-");
+                        BILLING.fin_Autobilling(Request["reg"], Request["acadyear"], int.Parse(Request["sem"]), "ACCOMO", HttpContext.Current.User.Identity.Name, "-");
+                    }
+                    catch { /* billing failure must not block registration UI */ }
+
                     lbl_regStat.Text = "REGISTERED";
                     lbl_reg_comment.Text = "REGISTRATION DONE";
                     cmdRegister.Visible = false;

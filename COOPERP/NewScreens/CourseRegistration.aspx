@@ -4,6 +4,12 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
     <style type="text/css">
+        /* ---- Page Header ---- */
+        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
+        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
         /* Stats Bar - Compact Inline */
         .cr-stats-bar {
             display: flex;
@@ -323,6 +329,18 @@
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+        </div>
+        <div>
+            <div class="cd-page-header__title">Course Registration</div>
+            <div class="cd-page-header__sub">Manage student exam eligibility and module registration</div>
+        </div>
+    </div>
+</div>
     <!-- Stats Bar -->
     <div class="cr-stats-bar">
         <div class="cr-stat-item">
@@ -480,7 +498,7 @@
     <dx:ASPxLoadingPanel ID="lpLoading" runat="server" ClientInstanceName="lpLoading" Modal="true" Text="Processing...">
     </dx:ASPxLoadingPanel>
 
-    <!-- ═══ Quick Edit Modal ═══ -->
+    <!-- === Quick Edit Modal === -->
     <div class="qe-overlay" id="qeOverlay">
         <div class="qe-modal">
             <div class="qe-header">
@@ -542,6 +560,10 @@
                             <asp:TextBox ID="txtQeNationality" runat="server" CssClass="qe-input" />
                         </div>
                         <div class="qe-field">
+                            <span class="qe-label">District</span>
+                            <asp:TextBox ID="txtQeDistrict" runat="server" CssClass="qe-input" />
+                        </div>
+                        <div class="qe-field">
                             <span class="qe-label">Religion</span>
                             <asp:DropDownList ID="ddlQeReligion" runat="server" CssClass="qe-select">
                                 <asp:ListItem Value="-" Text="--" />
@@ -561,15 +583,6 @@
                 <div class="qe-section">
                     <div class="qe-section__title">Academic Information</div>
                     <div class="qe-grid">
-                        <div class="qe-field">
-                            <span class="qe-label">Programme</span>
-                            <input type="text" id="qeProgDisplay" class="qe-input" readonly />
-                        </div>
-                        <div class="qe-field">
-                            <span class="qe-label">Specialisation</span>
-                            <asp:DropDownList ID="ddlQeSpec" runat="server" CssClass="qe-select">
-                            </asp:DropDownList>
-                        </div>
                         <div class="qe-field">
                             <span class="qe-label">Session</span>
                             <asp:DropDownList ID="ddlQeSession" runat="server" CssClass="qe-select">
@@ -692,7 +705,7 @@
             document.querySelector('.cr-filter-toggle').classList.add('active');
         });
 
-        // ═══ Quick Edit Modal ═════════════════════════════════
+        // === Quick Edit Modal =================================
         function openQuickEdit(regno) {
             if (!regno) return;
             document.getElementById('qeMsg').className = 'qe-msg';
@@ -722,6 +735,23 @@
                 qeShowMsg('Phone number is required.', 'err');
                 return false;
             }
+            var sess = document.getElementById('<%= ddlQeSession.ClientID %>');
+            if (!sess || !sess.value) {
+                qeShowMsg('Please select a Study Session.', 'err');
+                return false;
+            }
+            // Email format (optional field)
+            var em = document.getElementById('<%= txtQeEmail.ClientID %>');
+            if (em && em.value.trim()) {
+                var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!re.test(em.value.trim())) {
+                    qeShowMsg('Invalid email address format.', 'err');
+                    return false;
+                }
+            }
+            // Disable save button to prevent double-click
+            var btn = document.getElementById('<%= btnQeSave.ClientID %>');
+            if (btn) { btn.disabled = true; btn.value = 'Saving...'; }
             return true;
         }
 
@@ -729,6 +759,9 @@
             var el = document.getElementById('qeMsg');
             el.className = 'qe-msg show qe-msg--' + type;
             el.innerHTML = msg;
+            // Re-enable save button after server response
+            var btn = document.getElementById('<%= btnQeSave.ClientID %>');
+            if (btn) { btn.disabled = false; btn.value = 'Save Changes'; }
         }
 
         function openFullEdit() {

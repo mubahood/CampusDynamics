@@ -1,4 +1,4 @@
-using CoopERPDataTableAdapters;
+﻿using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -107,7 +107,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             gvDetails.DataBind();
             UpdateBalanceIndicator();
             lbl_msg.Text = "Voucher Details Added Successfully";
-            // F6: Audit log — payment voucher created
+            // F6: Audit log - payment voucher created
             AuditLogger.Log("VOUCHER_CREATED",
                 string.Format("PaymentAccount={0}, Payee={1}", txtAccount.Value, txtPayees.Value),
                 int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()),
@@ -236,7 +236,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
         }
         catch (Exception)
         {
-            // B6 FIX: ButtonManager failure is non-critical — default to Create New
+            // B6 FIX: ButtonManager failure is non-critical - default to Create New
             cmdApproveJournal.Text = "Create New";
         }
     }

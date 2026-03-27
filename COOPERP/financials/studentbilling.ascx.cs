@@ -58,6 +58,17 @@ public partial class UserControls_financials_studentbilling : System.Web.UI.User
                 }
                 catch (Exception ex)
                 {
+                    // MySQL error 1062 = duplicate key — student already billed
+                    // for this semester. Safe to skip and continue processing.
+                    var mex = ex as MySql.Data.MySqlClient.MySqlException;
+                    if (mex == null && ex.InnerException != null)
+                        mex = ex.InnerException as MySql.Data.MySqlClient.MySqlException;
+                    if (mex != null && mex.Number == 1062)
+                    {
+                        Counter++;
+                        Comm = Counter + " Students Auto Billed Successfully";
+                        continue;
+                    }
                     Comm = "Error! " + ex.Message + " On Reg No: " + regno;
                     break;
                 }

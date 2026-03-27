@@ -1,4 +1,4 @@
-using CoopERPDataTableAdapters;
+﻿using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -180,7 +180,7 @@ public partial class COOPERP_accounts_ViewJournal : System.Web.UI.Page
         }
         catch (Exception)
         {
-            // B5 FIX: ButtonManager failure is non-critical — default to safe state
+            // B5 FIX: ButtonManager failure is non-critical - default to safe state
             cmdApproveJournal.Text = "Create Receipt";
         }
     }

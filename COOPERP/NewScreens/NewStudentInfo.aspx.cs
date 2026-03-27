@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -787,7 +787,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 
                 // ============================================================
                 // Step 4: Get ALL student results grouped by studyyear + semester
-                //         (total count — includes F grades — for the 6+ auto-pass rule)
+                //         (total count - includes F grades - for the 6+ auto-pass rule)
                 // ============================================================
                 string allResultsSql = @"SELECT studyyear, semester, COUNT(*) as total_count 
                                          FROM acad_results 
@@ -867,7 +867,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     //         (student hasn't reached this year+semester yet)
                     if (totalResults == 0)
                     {
-                        continue; // don't count, don't fail — future semester
+                        continue; // don't count, don't fail - future semester
                     }
                     
                     validatedSlots++;
@@ -876,10 +876,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     //         auto-pass regardless of curriculum requirement
                     if (totalResults >= 6)
                     {
-                        continue; // auto-pass — heavy course load
+                        continue; // auto-pass - heavy course load
                     }
                     
-                    // Rule 4: Normal comparison — passed results vs required CORE count
+                    // Rule 4: Normal comparison - passed results vs required CORE count
                     if (passedResults < required)
                     {
                         allSemestersPassed = false;
@@ -1725,7 +1725,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// <summary>
     /// Normalizes a specialization name so that equivalent text variants group together.
     /// Handles: case, separators (& → AND), whitespace, and parenthetical spacing.
-    /// IMPORTANT: Subject order is preserved — "GEOGRAPHY AND HISTORY" is a different
+    /// IMPORTANT: Subject order is preserved - "GEOGRAPHY AND HISTORY" is a different
     /// specialization from "HISTORY AND GEOGRAPHY" (first subject = primary/major).
     /// </summary>
     private string NormalizeSpecializationName(string name)
@@ -1751,7 +1751,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         n = n.Trim();
         
-        // Trim individual parts but do NOT reorder — subject order is significant
+        // Trim individual parts but do NOT reorder - subject order is significant
         string[] parts = n.Split(new string[] { " AND " }, StringSplitOptions.RemoveEmptyEntries);
         for (int i = 0; i < parts.Length; i++)
             parts[i] = parts[i].Trim();
@@ -1866,7 +1866,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 }
                 else
                 {
-                    // Student has a valid spec_id — look it up directly
+                    // Student has a valid spec_id - look it up directly
                     string specSql = @"SELECT spec, COALESCE(is_fully_set, 'No') AS is_fully_set 
                                        FROM acad_specialisation WHERE spec_id = @specId";
                     using (MySqlCommand cmd = new MySqlCommand(specSql, conn))
@@ -1924,7 +1924,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         string logoPath = Server.MapPath("~/COOPERP/images/welcomelogo.png");
         
         // Group by spec_id (the database primary key) to ensure each specialization
-        // is displayed EXACTLY as it exists in acad_specialisation — no fabrication, no merging.
+        // is displayed EXACTLY as it exists in acad_specialisation - no fabrication, no merging.
         // Students with no specialization (null/0/-/empty) group together under key "0".
         var specializationGroups = data.AsEnumerable()
             .GroupBy(r => {
@@ -2137,7 +2137,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 // ========== SPECIALIZATION SECTIONS ==========
                 foreach (var specGroup in specializationGroups)
                 {
-                    // Use the EXACT spec name from acad_specialisation — no fabrication
+                    // Use the EXACT spec name from acad_specialisation - no fabrication
                     string specName;
                     if (specGroup.Key == "0")
                     {
@@ -3177,20 +3177,25 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         DataTable dt = new DataTable();
         try
         {
+            // Resolve current academic year once for the registration check
+            string currentAcadYear = AcademicYearHelper.GetCurrentAcademicYear();
+            
             string sql = @"SELECT s.regno, s.entryno, s.firstname, s.othername, s.gender, s.dob, 
                            s.nationality, s.religion, s.studPhone, s.email, s.home_dist, 
-                           s.progid, p.progcode, p.progname, s.specialisation, 
-                           COALESCE(sp.spec, '-') AS spec_name,
+                           s.national_id, s.progid, p.progcode, p.progname, s.specialisation, 
+                           COALESCE(sp.spec, NULLIF(TRIM(s.specialisation), ''), '-') AS spec_name,
                            s.entryyear, s.intake, 
                            s.studsesion, s.studCampus, s.gradSystemID, s.photofile, s.stud_status, s.new_status,
                            COALESCE(c.campus_name, s.studCampus, '-') AS campus_name,
                            COALESCE(s.has_passed, 'No') AS has_passed,
                            COALESCE(s.is_curriculum_fully_set, 'No') AS is_curriculum_fully_set,
-                           s.fail_reason
+                           s.fail_reason,
+                           IF(r_curr.regno IS NOT NULL, 'Yes', 'No') AS is_registered
                            FROM acad_student s
                            LEFT JOIN acad_programme p ON s.progid = p.progcode
                            LEFT JOIN acad_specialisation sp ON s.specialisation = sp.spec_id
                            LEFT JOIN acad_campuses c ON s.studCampus = c.campus_code
+                           LEFT JOIN (SELECT DISTINCT regno FROM acad_registration WHERE acad_year = @currentAcadYear) r_curr ON s.regno = r_curr.regno
                            WHERE 1=1 ";
             
             // --- Search filter: partial match across key columns ---
@@ -3254,6 +3259,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 conn.Open();
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
+                    cmd.CommandTimeout = 60;
+                    
+                    // Current academic year for registration check
+                    cmd.Parameters.AddWithValue("@currentAcadYear", !string.IsNullOrEmpty(currentAcadYear) ? currentAcadYear : "0000/0000");
+                    
                     if (!string.IsNullOrEmpty(searchTerm))
                         cmd.Parameters.AddWithValue("@search", "%" + searchTerm + "%");
                     
@@ -3380,11 +3390,45 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     {
         try
         {
+            // Validate required key
+            object regnoKey = e.Keys["regno"];
+            if (regnoKey == null || string.IsNullOrEmpty(regnoKey.ToString().Trim()))
+                throw new Exception("Student regno is missing.");
+            
+            string regno = regnoKey.ToString().Trim();
+            
+            // Trim helper – safely gets a trimmed string from the new values
+            // (Programme & Specialisation are intentionally excluded – use Full Edit)
+            string firstname   = (e.NewValues["firstname"] ?? "").ToString().Trim();
+            string othername   = (e.NewValues["othername"] ?? "").ToString().Trim();
+            string gender      = (e.NewValues["gender"] ?? "").ToString().Trim();
+            object dob         = e.NewValues["dob"] ?? DBNull.Value;
+            string nationality = (e.NewValues["nationality"] ?? "").ToString().Trim();
+            string religion    = (e.NewValues["religion"] ?? "").ToString().Trim();
+            string phone       = (e.NewValues["studPhone"] ?? "").ToString().Trim();
+            string email       = (e.NewValues["email"] ?? "").ToString().Trim();
+            string district    = (e.NewValues["home_dist"] ?? "").ToString().Trim();
+            string nin         = (e.NewValues["national_id"] ?? "").ToString().Trim();
+            string entryyear   = (e.NewValues["entryyear"] ?? "").ToString().Trim();
+            string intake      = (e.NewValues["intake"] ?? "").ToString().Trim();
+            string session     = (e.NewValues["studsesion"] ?? "").ToString().Trim();
+            string campus      = (e.NewValues["studCampus"] ?? "").ToString().Trim();
+            string gradsystem  = (e.NewValues["gradSystemID"] ?? "").ToString().Trim();
+            string newstatus   = (e.NewValues["new_status"] ?? "ADMITTED").ToString().Trim();
+            
+            // Basic validation
+            if (string.IsNullOrEmpty(firstname))
+                throw new Exception("First name is required.");
+            
+            // Validate email format if provided
+            if (!string.IsNullOrEmpty(email) && !email.Contains("@"))
+                throw new Exception("Invalid email format.");
+            
             string sql = @"UPDATE acad_student SET 
                            firstname=@firstname, othername=@othername, gender=@gender, 
                            dob=@dob, nationality=@nationality, religion=@religion,
                            studPhone=@phone, email=@email, home_dist=@district,
-                           progid=@progid, specialisation=@spec, entryyear=@entryyear,
+                           national_id=@nin, entryyear=@entryyear,
                            intake=@intake, studsesion=@session, studCampus=@campus,
                            gradSystemID=@gradsystem, new_status=@newstatus
                            WHERE regno=@regno";
@@ -3394,26 +3438,28 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 conn.Open();
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
-                    cmd.Parameters.AddWithValue("@regno", e.Keys["regno"]);
-                    cmd.Parameters.AddWithValue("@firstname", e.NewValues["firstname"] ?? "");
-                    cmd.Parameters.AddWithValue("@othername", e.NewValues["othername"] ?? "");
-                    cmd.Parameters.AddWithValue("@gender", e.NewValues["gender"] ?? "");
-                    cmd.Parameters.AddWithValue("@dob", e.NewValues["dob"] ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@nationality", e.NewValues["nationality"] ?? "");
-                    cmd.Parameters.AddWithValue("@religion", e.NewValues["religion"] ?? "");
-                    cmd.Parameters.AddWithValue("@phone", e.NewValues["studPhone"] ?? "");
-                    cmd.Parameters.AddWithValue("@email", e.NewValues["email"] ?? "");
-                    cmd.Parameters.AddWithValue("@district", e.NewValues["home_dist"] ?? "");
-                    cmd.Parameters.AddWithValue("@progid", e.NewValues["progid"] ?? "");
-                    cmd.Parameters.AddWithValue("@spec", e.NewValues["specialisation"] ?? "");
-                    cmd.Parameters.AddWithValue("@entryyear", e.NewValues["entryyear"] ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@intake", e.NewValues["intake"] ?? "");
-                    cmd.Parameters.AddWithValue("@session", e.NewValues["studsesion"] ?? "");
-                    cmd.Parameters.AddWithValue("@campus", e.NewValues["studCampus"] ?? "");
-                    cmd.Parameters.AddWithValue("@gradsystem", e.NewValues["gradSystemID"] ?? "");
-                    cmd.Parameters.AddWithValue("@newstatus", e.NewValues["new_status"] ?? "ADMITTED");
+                    cmd.CommandTimeout = 30;
+                    cmd.Parameters.AddWithValue("@regno", regno);
+                    cmd.Parameters.AddWithValue("@firstname", firstname);
+                    cmd.Parameters.AddWithValue("@othername", othername);
+                    cmd.Parameters.AddWithValue("@gender", gender);
+                    cmd.Parameters.AddWithValue("@dob", dob);
+                    cmd.Parameters.AddWithValue("@nationality", nationality);
+                    cmd.Parameters.AddWithValue("@religion", religion);
+                    cmd.Parameters.AddWithValue("@phone", phone);
+                    cmd.Parameters.AddWithValue("@email", email);
+                    cmd.Parameters.AddWithValue("@district", district);
+                    cmd.Parameters.AddWithValue("@nin", nin);
+                    cmd.Parameters.AddWithValue("@entryyear", string.IsNullOrEmpty(entryyear) ? (object)DBNull.Value : entryyear);
+                    cmd.Parameters.AddWithValue("@intake", intake);
+                    cmd.Parameters.AddWithValue("@session", session);
+                    cmd.Parameters.AddWithValue("@campus", campus);
+                    cmd.Parameters.AddWithValue("@gradsystem", gradsystem);
+                    cmd.Parameters.AddWithValue("@newstatus", newstatus);
                     
-                    cmd.ExecuteNonQuery();
+                    int rows = cmd.ExecuteNonQuery();
+                    if (rows == 0)
+                        throw new Exception("No student found with regno " + regno + ". Update had no effect.");
                 }
             }
             

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -32,7 +32,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
 
     /// <summary>
     /// Ensures the acad_programmecourses unique key includes specialisation_id.
-    /// Without this, each course can only exist once per programme — so setting courses
+    /// Without this, each course can only exist once per programme - so setting courses
     /// for one specialisation would steal/delete them from another. The correct key allows
     /// each specialisation to have its own copy of a course.
     /// </summary>
@@ -112,7 +112,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                 }
             }
         }
-        catch { /* Already migrated or table structure differs — safe to ignore */ }
+        catch { /* Already migrated or table structure differs - safe to ignore */ }
     }
 
     protected void cmdAddNew_Click(object sender, EventArgs e)
@@ -296,7 +296,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
 
     private void BatchPrintPDF(List<int> ids)
     {
-        // Open batch PDF in new tab — SpecialisationStructurePDF.aspx handles batchIds param
+        // Open batch PDF in new tab - SpecialisationStructurePDF.aspx handles batchIds param
         string url = "SpecialisationStructurePDF.aspx?batchIds=" + string.Join(",", ids);
         ScriptManager.RegisterStartupScript(this, GetType(), "batchPdf",
             "window.open('" + url + "', '_blank');", true);
@@ -559,7 +559,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         int size;
         if (int.TryParse(ddlPageSize.SelectedValue, out size))
         {
-            // 0 means "All" — DevExpress uses a very large number to show all rows
+            // 0 means "All" - DevExpress uses a very large number to show all rows
             gvMain.SettingsPager.PageSize = size > 0 ? size : 999999;
             gvMain.PageIndex = 0;
             gvMain.DataBind();
@@ -906,7 +906,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                     }
                     catch (MySqlException ex)
                     {
-                        // Duplicate entry — treat as skip (safety net if duplicate check missed due to CHAR padding)
+                        // Duplicate entry - treat as skip (safety net if duplicate check missed due to CHAR padding)
                         if (ex.Number == 1062)
                             totalSkipped++;
                         else
@@ -971,7 +971,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
         string idsRaw = hdnDeleteIds.Value;
         hdnDeleteIds.Value = ""; // clear so it doesn't re-trigger on refresh
 
-        // Parse integer IDs only — reject anything that isn't a plain integer
+        // Parse integer IDs only - reject anything that isn't a plain integer
         List<int> ids = new List<int>();
         if (!string.IsNullOrEmpty(idsRaw))
         {
@@ -1420,7 +1420,7 @@ public partial class COOPERP_NewScreens_NewSpecialisations : System.Web.UI.Page
                         }
                     }
                     
-                    // Course is not in this specialisation — mark ready
+                    // Course is not in this specialisation - mark ready
                     // (If it exists under another specialisation for the same programme,
                     //  the Apply step will reassign it to this specialisation.)
                     course.Status = "Ready";

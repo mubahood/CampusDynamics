@@ -12,16 +12,12 @@
         .ral-container { padding: 0; font-size: 11px; }
         
         /* Page Header */
-        .ral-page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid #174DA4;
-        }
-        .ral-page-header__title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin: 0; }
-        .ral-page-header__subtitle { font-size: 10px; color: #6c757d; margin-top: 2px; }
+        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
+        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+        .cd-page-header__right { display:flex; gap:8px; align-items:center; }
         
         /* Stats Row */
         .ral-stats-row {
@@ -33,7 +29,7 @@
             flex: 1;
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 4px;
             padding: 14px 18px;
             position: relative;
             overflow: hidden;
@@ -62,7 +58,7 @@
         .ral-filter-panel {
             background: #f8f9fa;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 4px;
             padding: 12px 15px;
             margin-bottom: 12px;
         }
@@ -87,7 +83,7 @@
             padding: 6px 10px;
             font-size: 11px;
             border: 1px solid #ced4da;
-            border-radius: 4px;
+            border-radius: 0;
             background: #fff;
             min-width: 140px;
         }
@@ -105,7 +101,7 @@
             font-size: 11px;
             font-weight: 500;
             border: 1px solid transparent;
-            border-radius: 4px;
+            border-radius: 0;
             cursor: pointer;
             transition: all 0.15s ease;
         }
@@ -121,7 +117,7 @@
         .ral-grid-card {
             background: #fff;
             border: 1px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 4px;
             overflow: hidden;
         }
         .ral-grid-header {
@@ -129,7 +125,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 10px 15px;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: #05275C;
             color: #fff;
         }
         .ral-grid-header__title { font-size: 12px; font-weight: 600; }
@@ -138,7 +134,7 @@
         /* Grid Styles */
         .ral-grid { border-collapse: collapse; width: 100%; }
         .ral-grid .dxgvHeader td {
-            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%) !important;
+            background: #f5f7fa !important;
             font-size: 10px !important;
             font-weight: 600 !important;
             text-transform: uppercase !important;
@@ -161,7 +157,7 @@
             font-size: 9px;
             font-weight: 600;
             text-transform: uppercase;
-            border-radius: 12px;
+            border-radius: 0;
         }
         .ral-action-badge--approve { background: #cce5ff; color: #004085; }
         .ral-action-badge--release { background: #d4edda; color: #155724; }
@@ -275,12 +271,17 @@
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
     <div class="ral-container">
         <!-- Page Header -->
-        <div class="ral-page-header">
-            <div>
-                <h1 class="ral-page-header__title">Results Audit Log</h1>
-                <p class="ral-page-header__subtitle">Complete history of all results actions - approvals, releases, holds, and modifications</p>
+        <div class="cd-page-header">
+            <div class="cd-page-header__left">
+                <div class="cd-page-header__icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                </div>
+                <div>
+                    <div class="cd-page-header__title">Results Audit Log</div>
+                    <div class="cd-page-header__sub">Track all changes and updates made to academic results</div>
+                </div>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div class="cd-page-header__right">
                 <asp:HyperLink ID="lnkBack" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" CssClass="ral-btn ral-btn--outline">
                     ← Back to Results
                 </asp:HyperLink>

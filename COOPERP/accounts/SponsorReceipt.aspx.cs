@@ -1,4 +1,4 @@
-using CoopERPDataTableAdapters;
+﻿using CoopERPDataTableAdapters;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -103,7 +103,7 @@ public partial class COOPERP_accounts_SponsorReceipt : System.Web.UI.Page
             gvDetails.DataBind();
             UpdateBalanceIndicator();
             lbl_msg.Text = "Receipt Details Added Successfully";
-            // F4: Audit log — sponsor receipt created
+            // F4: Audit log - sponsor receipt created
             AuditLogger.Log("SPONSOR_RECEIPT_CREATED",
                 string.Format("SponsorAccount={0}, Bank={1}", txtAccount.Value, txtPayee.Value),
                 int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()),

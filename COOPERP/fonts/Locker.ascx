@@ -1,17 +1,17 @@
-<%@ Control Language="C#" AutoEventWireup="true" CodeFile="Locker.ascx.cs" Inherits="COOPERP_fonts_Locker" %>
+﻿<%@ Control Language="C#" AutoEventWireup="true" CodeFile="Locker.ascx.cs" Inherits="COOPERP_fonts_Locker" %>
 <%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
 
-/* ── Full-page shell ── */
+/* -- Full-page shell -- */
 .ntl-lock{
     position:fixed;inset:0;display:flex;z-index:99999;
     background:#06111f;
 }
 
-/* ── Animated background orbs ── */
+/* -- Animated background orbs -- */
 .ntl-orbs{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .ntl-orb{
     position:absolute;border-radius:50%;filter:blur(80px);opacity:.18;
@@ -25,7 +25,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     100%{transform:translate(30px,20px) scale(1.08)}
 }
 
-/* ── Left brand panel ── */
+/* -- Left brand panel -- */
 .ntl-left{
     flex:0 0 420px;display:flex;flex-direction:column;justify-content:space-between;
     padding:40px 36px;position:relative;z-index:1;
@@ -106,7 +106,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 }
 .ntl-left-footer a{color:rgba(3,157,225,.6);text-decoration:none}
 
-/* ── Right content panel ── */
+/* -- Right content panel -- */
 .ntl-right{
     flex:1;display:flex;flex-direction:column;overflow-y:auto;
     position:relative;z-index:1;background:rgba(255,255,255,.97);
@@ -182,7 +182,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .ntl-right-footer__copy strong{color:#039DE1}
 .ntl-right-footer__addr{font-size:9px;color:#bbb;text-align:right}
 
-/* ── RESPONSIVE ── */
+/* -- RESPONSIVE -- */
 @media(max-width:900px){
     .ntl-lock{flex-direction:column;overflow-y:auto;overflow-x:hidden}
     .ntl-left{
@@ -216,7 +216,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         <div class="ntl-orb ntl-orb-3"></div>
     </div>
 
-    <!-- ══ LEFT BRAND PANEL ══ -->
+    <!-- == LEFT BRAND PANEL == -->
     <div class="ntl-left">
 
         <!-- Logo -->
@@ -254,7 +254,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
         <!-- Contact details (desktop) -->
         <div>
             <div class="ntl-contacts">
-                <div class="ntl-contacts-title">Reach Us — Restore Access Now</div>
+                <div class="ntl-contacts-title">Reach Us - Restore Access Now</div>
 
                 <div class="ntl-contact">
                     <div class="ntl-contact__dot">
@@ -335,7 +335,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
     </div>
     <!-- /left -->
 
-    <!-- ══ RIGHT CONTENT PANEL ══ -->
+    <!-- == RIGHT CONTENT PANEL == -->
     <div class="ntl-right">
         <div class="ntl-right-accent"></div>
 
@@ -362,8 +362,8 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
             <!-- Notice -->
             <div class="ntl-notice">
                 <strong>Dear Valued Client,</strong><br/>
-                Your Campus Dynamics software license has expired and all system access — including
-                staff portals, student portals, and administrative modules — has been temporarily
+                Your Campus Dynamics software license has expired and all system access - including
+                staff portals, student portals, and administrative modules - has been temporarily
                 suspended. Please contact <strong>Newline Technologies Limited</strong> as soon as
                 possible to renew your license and restore full access for your institution.
                 We are available and ready to assist you promptly.

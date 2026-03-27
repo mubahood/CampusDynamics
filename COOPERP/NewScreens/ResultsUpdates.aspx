@@ -3,6 +3,12 @@
 
 <asp:Content ID="Content1" ContentPlaceHolderID="HeadContent" runat="Server">
 <style type="text/css">
+/* ---- Page Header ---- */
+.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.cd-page-header__left { display:flex; align-items:center; gap:12px; }
+.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
 /* Results Updates Module Styles - ru- prefix */
 .ru-container { padding: 8px; font-size: 11px; }
 .ru-header { margin-bottom: 6px; }
@@ -399,10 +405,18 @@ function exportSummaryReportPdf() {
 
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="Server">
 <div class="ru-container">
-    <div class="ru-header">
-        <h1 class="ru-title">Results Updates</h1>
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </div>
+        <div>
+            <div class="cd-page-header__title">Results Updates</div>
+            <div class="cd-page-header__sub">Track and manage batch result updates and corrections</div>
+        </div>
     </div>
-    
+</div>
     <!-- Stats Bar with Filter Toggle -->
     <div class="ru-stats-bar">
         <div class="ru-stat ru-stat--primary">

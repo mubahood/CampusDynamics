@@ -1,54 +1,45 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="AcademicYears.aspx.cs" Inherits="COOPERP_NewScreens_AcademicYears" Title="Academic Years - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="AcademicYears.aspx.cs" Inherits="COOPERP_NewScreens_AcademicYears" Title="Academic Years - Campus Dynamics" %>
 <%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
 /* ===== ACADEMIC YEARS MANAGEMENT ======================================= */
 
-/* ── Page Header ─────────────────────────────────── */
-.ay-page-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 0 12px; margin-bottom: 16px;
-    border-bottom: 2px solid #174DA4;
-    flex-wrap: wrap; gap: 10px;
-}
-.ay-page-header__left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.ay-page-header__icon {
-    width: 42px; height: 42px;
-    background: linear-gradient(135deg, #5c35a4 0%, #7e57c2 100%);
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 10px; flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(92,53,164,.2);
-}
-.ay-page-header__title { font-size: 18px; font-weight: 800; color: #1a1a2e; margin: 0; line-height: 1.2; letter-spacing: -.2px; }
-.ay-page-header__sub   { font-size: 11px; color: #999; margin-top: 2px; }
+/* -- Page Header ----------------------------------- */
+.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.cd-page-header__left { display:flex; align-items:center; gap:12px; }
+.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
+.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+.cd-page-header__right { display:flex; gap:8px; align-items:center; }
 
-/* ── Stats Row ───────────────────────────────────── */
+/* -- Stats Row ------------------------------------- */
 .ay-stats-row {
-    display: grid; grid-template-columns: repeat(4, 1fr);
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 12px; margin-bottom: 18px;
 }
 .ay-stat {
     background: #fff; border: 1px solid #e4e8f0;
-    padding: 16px 18px; border-radius: 10px;
+    padding: 16px 18px; border-radius: 4px;
     position: relative; overflow: hidden;
-    transition: all .2s;
+    transition: background .2s;
 }
 .ay-stat::after {
     content: ''; position: absolute;
     left: 0; top: 0; bottom: 0; width: 4px;
     background: var(--stat-accent, #ccc);
-    border-radius: 10px 0 0 10px;
+    border-radius: 4px 0 0 4px;
 }
-.ay-stat:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); transform: translateY(-1px); }
+.ay-stat:hover { background: #f9fafc; }
 .ay-stat__label { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: #999; font-weight: 600; margin-bottom: 4px; }
 .ay-stat__val { font-size: 24px; font-weight: 800; line-height: 1.1; }
 .ay-stat--total   { --stat-accent: #174DA4; } .ay-stat--total   .ay-stat__val { color: #174DA4; }
 .ay-stat--active  { --stat-accent: #2e7d32; } .ay-stat--active  .ay-stat__val { color: #2e7d32; }
 .ay-stat--current { --stat-accent: #e65100; } .ay-stat--current .ay-stat__val { color: #e65100; }
 .ay-stat--finance { --stat-accent: #00695c; } .ay-stat--finance .ay-stat__val { color: #00695c; }
+.ay-stat--sem     { --stat-accent: #6a1b9a; } .ay-stat--sem     .ay-stat__val { color: #6a1b9a; font-size:14px; font-weight:700; }
 
-/* ── Toolbar ─────────────────────────────────────── */
+/* -- Toolbar --------------------------------------- */
 .ay-toolbar {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 14px; gap: 10px; flex-wrap: wrap;
@@ -58,7 +49,7 @@
 
 .ay-btn {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border-radius: 7px; border: 1px solid #dde1e8;
+    padding: 8px 16px; border-radius: 0; border: 1px solid #dde1e8;
     font-size: 12px; font-weight: 600; cursor: pointer;
     background: #fff; color: #333; transition: all .15s;
 }
@@ -71,19 +62,19 @@
 .ay-btn--danger:hover  { background: #d32f2f; }
 .ay-btn svg { width: 14px; height: 14px; }
 
-/* ── Alert / Toast ───────────────────────────────── */
+/* -- Alert / Toast --------------------------------- */
 .ay-alert {
-    padding: 12px 16px; border-radius: 8px; margin-bottom: 14px;
+    padding: 12px 16px; border-radius: 0; margin-bottom: 14px;
     font-size: 12px; font-weight: 500; display: none;
     border: 1px solid transparent;
 }
 .ay-alert--success { display: block; background: #e8f5e9; border-color: #a5d6a7; color: #2e7d32; }
 .ay-alert--error   { display: block; background: #ffebee; border-color: #ef9a9a; color: #c62828; }
 
-/* ── Grid Wrapper ────────────────────────────────── */
+/* -- Grid Wrapper ---------------------------------- */
 .ay-grid-wrap {
     background: #fff; border: 1px solid #e4e8f0;
-    border-radius: 10px; overflow: hidden;
+    border-radius: 4px; overflow: hidden;
 }
 .ay-grid-wrap .dxgvControl_Office2010Blue { border: none !important; }
 .ay-grid-wrap .dxgvHeader_Office2010Blue {
@@ -106,17 +97,17 @@
 .ay-grid-wrap .dxgvFooter_Office2010Blue { background: #f7f8fb !important; border-top: 2px solid #e4e8f0 !important; padding: 8px 12px !important; }
 .ay-grid-wrap .dxgvPagerBottomPanel_Office2010Blue { background: #f7f8fb !important; border-top: 1px solid #e4e8f0 !important; padding: 8px !important; }
 
-/* ── Status Badge ────────────────────────────────── */
+/* -- Status Badge ---------------------------------- */
 .ay-badge {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    padding: 3px 10px; border-radius: 0; font-size: 11px; font-weight: 600;
 }
 .ay-badge--active   { background: #e8f5e9; color: #2e7d32; }
 .ay-badge--inactive { background: #f5f5f5; color: #999; }
 .ay-badge--current  { background: #e3f2fd; color: #174DA4; }
 .ay-badge--finance  { background: #e0f2f1; color: #00695c; }
 
-/* ── Modal ───────────────────────────────────────── */
+/* -- Modal ----------------------------------------- */
 .ay-modal-overlay {
     display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,.4); z-index: 9999;
@@ -124,9 +115,9 @@
 }
 .ay-modal-overlay.open { display: flex; }
 .ay-modal {
-    background: #fff; border-radius: 12px; width: 580px; max-width: 94vw;
+    background: #fff; border-radius: 2px; width: 580px; max-width: 94vw;
     max-height: 90vh; overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
 }
 .ay-modal__header {
     display: flex; align-items: center; justify-content: space-between;
@@ -135,7 +126,7 @@
 .ay-modal__title { font-size: 15px; font-weight: 700; color: #1a1a2e; }
 .ay-modal__close {
     width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
-    border: none; background: #f5f5f5; border-radius: 50%; cursor: pointer;
+    border: none; background: #f5f5f5; border-radius: 0; cursor: pointer;
     color: #666; transition: all .15s;
 }
 .ay-modal__close:hover { background: #e0e0e0; }
@@ -143,27 +134,26 @@
 .ay-modal__footer {
     display: flex; align-items: center; justify-content: flex-end; gap: 8px;
     padding: 14px 22px; border-top: 1px solid #e4e8f0; background: #fafbfc;
-    border-radius: 0 0 12px 12px;
 }
 
-/* ── Form Fields ─────────────────────────────────── */
+/* -- Form Fields ----------------------------------- */
 .ay-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
 .ay-form-group { margin-bottom: 0; }
 .ay-form-group--full { grid-column: 1 / -1; }
 .ay-form-label { display: block; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
 .ay-form-input {
     width: 100%; padding: 8px 12px; border: 1px solid #dde1e8;
-    border-radius: 6px; font-size: 13px; color: #333;
+    border-radius: 0; font-size: 13px; color: #333;
     background: #fff; transition: border-color .15s;
     box-sizing: border-box;
 }
-.ay-form-input:focus { border-color: #174DA4; outline: none; box-shadow: 0 0 0 3px rgba(23,77,164,.08); }
+.ay-form-input:focus { border-color: #174DA4; outline: none; }
 select.ay-form-input { cursor: pointer; }
 
 /* auto-fill year 2 */
 .ay-year-display { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700; color: #174DA4; padding: 6px 0; }
 
-/* ── Responsive ──────────────────────────────────── */
+/* -- Responsive ------------------------------------ */
 @media (max-width: 900px) {
     .ay-stats-row { grid-template-columns: repeat(2, 1fr); }
     .ay-form-row { grid-template-columns: 1fr; }
@@ -177,18 +167,18 @@ select.ay-form-input { cursor: pointer; }
 
 <asp:Content ID="BodyContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 
-<!-- ═══════ PAGE HEADER ═══════ -->
-<div class="ay-page-header">
-    <div class="ay-page-header__left">
-        <div class="ay-page-header__icon">
+<!-- ======= PAGE HEADER ======= -->
+<div class="cd-page-header">
+    <div class="cd-page-header__left">
+        <div class="cd-page-header__icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
         </div>
         <div>
-            <div class="ay-page-header__title">Academic Years</div>
-            <div class="ay-page-header__sub">Manage academic &amp; financial year settings</div>
+            <div class="cd-page-header__title">Academic Years</div>
+            <div class="cd-page-header__sub">Manage academic &amp; financial year settings</div>
         </div>
     </div>
-    <div>
+    <div class="cd-page-header__right">
         <button type="button" class="ay-btn ay-btn--primary" onclick="openAddModal();">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Add Academic Year
@@ -196,7 +186,7 @@ select.ay-form-input { cursor: pointer; }
     </div>
 </div>
 
-<!-- ═══════ STATS ROW ═══════ -->
+<!-- ======= STATS ROW ======= -->
 <div class="ay-stats-row">
     <div class="ay-stat ay-stat--total">
         <div class="ay-stat__label">Total Years</div>
@@ -208,18 +198,22 @@ select.ay-form-input { cursor: pointer; }
     </div>
     <div class="ay-stat ay-stat--current">
         <div class="ay-stat__label">Current Academic Year</div>
-        <div class="ay-stat__val"><asp:Literal ID="litCurrentAcad" runat="server" Text="—" /></div>
+        <div class="ay-stat__val"><asp:Literal ID="litCurrentAcad" runat="server" Text="-" /></div>
     </div>
     <div class="ay-stat ay-stat--finance">
         <div class="ay-stat__label">Current Financial Year</div>
-        <div class="ay-stat__val"><asp:Literal ID="litCurrentFin" runat="server" Text="—" /></div>
+        <div class="ay-stat__val"><asp:Literal ID="litCurrentFin" runat="server" Text="-" /></div>
+    </div>
+    <div class="ay-stat ay-stat--sem">
+        <div class="ay-stat__label">Active Semester(s)</div>
+        <div class="ay-stat__val"><asp:Literal ID="litActiveSems" runat="server" Text="None" /></div>
     </div>
 </div>
 
-<!-- ═══════ ALERT AREA ═══════ -->
+<!-- ======= ALERT AREA ======= -->
 <asp:Panel ID="pnlAlert" runat="server" CssClass="ay-alert" Visible="false"></asp:Panel>
 
-<!-- ═══════ TOOLBAR ═══════ -->
+<!-- ======= TOOLBAR ======= -->
 <div class="ay-toolbar">
     <div class="ay-toolbar__left">
         <span style="font-size:12px;color:#888;">
@@ -236,7 +230,7 @@ select.ay-form-input { cursor: pointer; }
     </div>
 </div>
 
-<!-- ═══════ GRID ═══════ -->
+<!-- ======= GRID ======= -->
 <div class="ay-grid-wrap">
     <dx:ASPxGridView ID="gridYears" runat="server" Width="100%" KeyFieldName="ID"
         AutoGenerateColumns="False" Theme="Office2010Blue"
@@ -258,11 +252,18 @@ select.ay-form-input { cursor: pointer; }
                 <CellStyle HorizontalAlign="Center" />
                 <HeaderStyle HorizontalAlign="Center" />
             </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn Caption="Semester Status" Width="160px">
+                <DataItemTemplate>
+                    <%# GetSemesterStatusHtml(Eval("semester_1_is_active"), Eval("semester_2_is_active"), Eval("semester_3_is_active"), Eval("semester_count")) %>
+                </DataItemTemplate>
+                <HeaderStyle HorizontalAlign="Center" />
+                <CellStyle HorizontalAlign="Center" />
+            </dx:GridViewDataTextColumn>
             <dx:GridViewDataTextColumn FieldName="is_current_year" Caption="Current Year" Width="100px">
                 <DataItemTemplate>
                     <%# Eval("is_current_year").ToString() == "Yes"
                             ? "<span class='ay-badge ay-badge--current'>&#10003; Current</span>"
-                            : "<span style='color:#bbb;font-size:11px;'>—</span>" %>
+                            : "<span style='color:#bbb;font-size:11px;'>-</span>" %>
                 </DataItemTemplate>
                 <HeaderStyle HorizontalAlign="Center" />
                 <CellStyle HorizontalAlign="Center" />
@@ -271,7 +272,7 @@ select.ay-form-input { cursor: pointer; }
                 <DataItemTemplate>
                     <%# Eval("is_current_financial_year").ToString() == "Yes"
                             ? "<span class='ay-badge ay-badge--finance'>&#10003; Financial</span>"
-                            : "<span style='color:#bbb;font-size:11px;'>—</span>" %>
+                            : "<span style='color:#bbb;font-size:11px;'>-</span>" %>
                 </DataItemTemplate>
                 <HeaderStyle HorizontalAlign="Center" />
                 <CellStyle HorizontalAlign="Center" />
@@ -285,7 +286,6 @@ select.ay-form-input { cursor: pointer; }
                 <HeaderStyle HorizontalAlign="Center" />
                 <CellStyle HorizontalAlign="Center" />
             </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="description" Caption="Description" />
             <dx:GridViewDataColumn Caption="Actions" Width="180px" UnboundType="String">
                 <DataItemTemplate>
                     <div style="display:flex;gap:4px;align-items:center;">
@@ -309,7 +309,7 @@ select.ay-form-input { cursor: pointer; }
     </dx:ASPxGridView>
 </div>
 
-<!-- ═══════ ADD / EDIT MODAL ═══════ -->
+<!-- ======= ADD / EDIT MODAL ======= -->
 <div class="ay-modal-overlay" id="modalOverlay">
     <div class="ay-modal">
         <div class="ay-modal__header">
@@ -324,7 +324,7 @@ select.ay-form-input { cursor: pointer; }
             <!-- Academic Year Preview -->
             <div style="text-align:center;margin-bottom:18px;">
                 <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:#999;font-weight:600;margin-bottom:4px;">ACADEMIC YEAR</div>
-                <div class="ay-year-display" id="yearPreview">—</div>
+                <div class="ay-year-display" id="yearPreview">-</div>
             </div>
 
             <div class="ay-form-row">
@@ -366,6 +366,38 @@ select.ay-form-input { cursor: pointer; }
                     </asp:DropDownList>
                 </div>
             </div>
+
+            <%-- ── Semester Active Status ──────────────────────── --%>
+            <div style="border:1px solid #e4e8f0;border-radius:4px;padding:14px 16px;margin-bottom:14px;">
+                <div style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Semester Active Status</div>
+                <div style="font-size:11px;color:#888;margin-bottom:12px;">Set a semester to <strong>Yes (Active)</strong> to open course registration for that semester. Set to <strong>No</strong> to block all course registrations in that semester.</div>
+                <div class="ay-form-row">
+                    <div class="ay-form-group">
+                        <label class="ay-form-label">Semester 1 Active</label>
+                        <asp:DropDownList ID="ddlSem1Active" runat="server" CssClass="ay-form-input">
+                            <asp:ListItem Text="No — Closed" Value="No" Selected="True" />
+                            <asp:ListItem Text="Yes — Open" Value="Yes" />
+                        </asp:DropDownList>
+                    </div>
+                    <div class="ay-form-group">
+                        <label class="ay-form-label">Semester 2 Active</label>
+                        <asp:DropDownList ID="ddlSem2Active" runat="server" CssClass="ay-form-input">
+                            <asp:ListItem Text="No — Closed" Value="No" Selected="True" />
+                            <asp:ListItem Text="Yes — Open" Value="Yes" />
+                        </asp:DropDownList>
+                    </div>
+                </div>
+                <div class="ay-form-row" style="margin-bottom:0;">
+                    <div class="ay-form-group">
+                        <label class="ay-form-label">Semester 3 Active</label>
+                        <asp:DropDownList ID="ddlSem3Active" runat="server" CssClass="ay-form-input">
+                            <asp:ListItem Text="No — Closed" Value="No" Selected="True" />
+                            <asp:ListItem Text="Yes — Open" Value="Yes" />
+                        </asp:DropDownList>
+                    </div>
+                    <div class="ay-form-group"></div>
+                </div>
+            </div>
             <div class="ay-form-row">
                 <div class="ay-form-group ay-form-group--full">
                     <label class="ay-form-label">Description (optional)</label>
@@ -391,7 +423,7 @@ select.ay-form-input { cursor: pointer; }
     </div>
 </div>
 
-<!-- ═══════ SET-CURRENT MODAL ═══════ -->
+<!-- ======= SET-CURRENT MODAL ======= -->
 <div class="ay-modal-overlay" id="setCurrentOverlay">
     <div class="ay-modal" style="width:420px;">
         <div class="ay-modal__header">

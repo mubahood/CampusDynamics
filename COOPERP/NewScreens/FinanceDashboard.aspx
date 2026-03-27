@@ -135,7 +135,7 @@
                     <ItemTemplate>
                         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;">
                             <span style="font-size:12px;color:#333;"><%# Eval("finacial_Year") %></span>
-                            <span style="font-size:11px;color:#666;"><%# Eval("start_date", "{0:dd MMM yyyy}") %> – <%# Eval("end_date", "{0:dd MMM yyyy}") %></span>
+                            <span style="font-size:11px;color:#666;"><%# Eval("start_date", "{0:dd MMM yyyy}") %> - <%# Eval("end_date", "{0:dd MMM yyyy}") %></span>
                             <span class='<%# Eval("status").ToString() == "Open" ? "fin-period-badge fin-period-badge--open" : "fin-period-badge fin-period-badge--closed" %>'><%# Eval("status") %></span>
                         </div>
                     </ItemTemplate>

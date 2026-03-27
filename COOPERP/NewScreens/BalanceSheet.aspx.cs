@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -154,12 +154,12 @@ public partial class COOPERP_NewScreens_BalanceSheet : System.Web.UI.Page
         if (diff < 0.01m)
         {
             pnlBalanceStatus.CssClass = "bs-status-banner bs-status-ok";
-            litBalanceStatus.Text = "&#10004; Balance Sheet is BALANCED — Assets = Liabilities + Equity.";
+            litBalanceStatus.Text = "&#10004; Balance Sheet is BALANCED - Assets = Liabilities + Equity.";
         }
         else
         {
             pnlBalanceStatus.CssClass = "bs-status-banner bs-status-err";
-            litBalanceStatus.Text = "&#9888; Balance Sheet is UNBALANCED — Difference of " + diff.ToString("N2") + " detected.";
+            litBalanceStatus.Text = "&#9888; Balance Sheet is UNBALANCED - Difference of " + diff.ToString("N2") + " detected.";
         }
 
         pnlReport.Visible = true;

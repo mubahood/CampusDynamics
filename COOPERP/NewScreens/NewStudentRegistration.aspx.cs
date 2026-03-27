@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -10,7 +10,7 @@ using MySql.Data.MySqlClient;
 
 public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.Page
 {
-    // ── Connection strings ──────────────────────────────────────────
+    // -- Connection strings ------------------------------------------
     private string ConnectionString
     {
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
@@ -26,7 +26,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         }
     }
 
-    // ── Programme cache (for JSON output to JS) ─────────────────────
+    // -- Programme cache (for JSON output to JS) ---------------------
     private List<ProgrammeItem> _programmeList;
 
     private class ProgrammeItem
@@ -36,7 +36,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         public string FacultyCode;
     }
 
-    // ── Specialisation cache (for JSON output to JS) ───────────────
+    // -- Specialisation cache (for JSON output to JS) ---------------
     private List<SpecialisationItem> _specList;
 
     private class SpecialisationItem
@@ -46,18 +46,18 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         public string Name;
     }
 
-    // ── Edit mode flag ────────────────────────────────────────────
+    // -- Edit mode flag --------------------------------------------
     private bool IsEditMode
     {
         get { return !string.IsNullOrEmpty(hfEditRegNo.Value); }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  PAGE LOAD
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     protected void Page_Load(object sender, EventArgs e)
     {
-        // ALWAYS reload dropdown items — ViewState is disabled on master page,
+        // ALWAYS reload dropdown items - ViewState is disabled on master page,
         // so dropdown items are lost on every postback. ASP.NET's second
         // ProcessPostData pass will restore user selections from posted form data
         // once the items are available.
@@ -72,7 +72,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
             if (!string.IsNullOrEmpty(returnUrl))
                 hfReturnUrl.Value = returnUrl;
 
-            // ── EDIT MODE: populate form with existing student data ──
+            // -- EDIT MODE: populate form with existing student data --
             string editRegNo = Request.QueryString["edit"];
             if (!string.IsNullOrEmpty(editRegNo))
             {
@@ -82,9 +82,9 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  DROPDOWN LOADING
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     private void LoadAllDropdownItems()
     {
         LoadFaculties();
@@ -99,7 +99,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         LoadNationalities();
     }
 
-    // ── Faculties ───────────────────────────────────────────────────
+    // -- Faculties ---------------------------------------------------
     private void LoadFaculties()
     {
         ddlFaculty.Items.Clear();
@@ -121,7 +121,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         catch { }
     }
 
-    // ── Programme master list (cached for JSON + server dropdown) ───
+    // -- Programme master list (cached for JSON + server dropdown) ---
     private void LoadProgrammeList()
     {
         if (_programmeList != null) return;
@@ -161,7 +161,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         }
     }
 
-    // ── Specialisations (Programme → Specialisation cascade) ────────
+    // -- Specialisations (Programme → Specialisation cascade) --------
     private void LoadSpecialisationList()
     {
         if (_specList != null) return;
@@ -201,7 +201,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         }
     }
 
-    // ── Campuses ────────────────────────────────────────────────────
+    // -- Campuses ----------------------------------------------------
     private void LoadCampuses()
     {
         ddlCampus.Items.Clear();
@@ -223,7 +223,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         catch { }
     }
 
-    // ── Study Sessions ──────────────────────────────────────────────
+    // -- Study Sessions ----------------------------------------------
     private void LoadSessions()
     {
         ddlSession.Items.Clear();
@@ -245,16 +245,17 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         catch { }
     }
 
-    // ── Entry Years ─────────────────────────────────────────────────
+    // -- Entry Years -------------------------------------------------
     private void LoadEntryYears()
     {
         ddlEntryYear.Items.Clear();
+        ddlEntryYear.Items.Add(new ListItem("-- Select Year --", ""));
         int currentYear = DateTime.Now.Year;
-        for (int y = currentYear + 1; y >= currentYear - 5; y--)
+        for (int y = currentYear + 1; y >= currentYear - 10; y--)
             ddlEntryYear.Items.Add(new ListItem(y.ToString(), y.ToString()));
     }
 
-    // ── Billing Systems ─────────────────────────────────────────────
+    // -- Billing Systems ---------------------------------------------
     private void LoadBillingSystems()
     {
         ddlBilling.Items.Clear();
@@ -276,7 +277,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         catch { }
     }
 
-    // ── Nationalities ───────────────────────────────────────────────
+    // -- Nationalities -----------------------------------------------
     private void LoadNationalities()
     {
         ddlNationality.Items.Clear();
@@ -297,14 +298,14 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         }
         catch
         {
-            // Fallback — add common nationalities
+            // Fallback - add common nationalities
             string[] common = { "KENYAN", "TANZANIAN", "RWANDAN", "CONGOLESE", "SOUTH SUDANESE", "BURUNDIAN", "SOMALI", "ETHIOPIAN", "NIGERIAN" };
             foreach (string n in common)
                 ddlNationality.Items.Add(new ListItem(n, n));
         }
     }
 
-    // ── Set defaults ────────────────────────────────────────────────
+    // -- Set defaults ------------------------------------------------
     private void SetDefaults()
     {
         int currentYear = DateTime.Now.Year;
@@ -349,9 +350,9 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         txtResCountry.Text = "UGANDA";
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  JSON OUTPUT — Programme data for cascading JS
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
+    //  JSON OUTPUT - Programme data for cascading JS
+    // ===============================================================
     public string GetProgrammesJson()
     {
         if (_programmeList == null) LoadProgrammeList();
@@ -371,9 +372,9 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         return sb.ToString();
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  JSON OUTPUT — Specialisation data for cascading JS
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
+    //  JSON OUTPUT - Specialisation data for cascading JS
+    // ===============================================================
     public string GetSpecialisationsJson()
     {
         if (_specList == null) LoadSpecialisationList();
@@ -399,9 +400,9 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("'", "\\'").Replace("\n", "").Replace("\r", "");
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  LOAD EXISTING STUDENT FOR EDIT MODE
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     private void LoadStudentForEdit(string regno)
     {
         try
@@ -433,14 +434,14 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                             return;
                         }
 
-                        // ── Page chrome ──
+                        // -- Page chrome --
                         litPageTitle.Text = "Edit Student";
                         litPageSubtitle.Text = "Editing record for <strong>" + Server.HtmlEncode(regno) + "</strong>";
                         litSubmitBtnText.Text = "Update Student";
                         litSuccessActionText.Text = "Back to Student Record";
                         pnlRegistrationOptions.Visible = false;
 
-                        // ── Personal Info ──
+                        // -- Personal Info --
                         string fname = SafeStr(rdr, "firstname");
                         string oname = SafeStr(rdr, "othername");
                         txtFullName.Text = (fname + " " + oname).Trim();
@@ -476,22 +477,22 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                         if (!string.IsNullOrEmpty(religion))
                             TrySelect(ddlReligion, religion);
 
-                        // Title — from applications if exists
+                        // Title - from applications if exists
                         string title = SafeStr(rdr, "app_title");
                         if (!string.IsNullOrEmpty(title))
                             TrySelect(ddlTitle, title);
 
-                        // Marital — from applications
+                        // Marital - from applications
                         string marital = SafeStr(rdr, "stud_mar_stat");
                         if (!string.IsNullOrEmpty(marital))
                             TrySelect(ddlMarital, marital);
 
-                        // Disability — from applications
+                        // Disability - from applications
                         string disability = SafeStr(rdr, "app_disability");
                         if (!string.IsNullOrEmpty(disability) && disability != "-")
                             txtDisability.Text = disability;
 
-                        // ── Academic Details ──
+                        // -- Academic Details --
                         string progId = SafeStr(rdr, "progid");
                         if (!string.IsNullOrEmpty(progId))
                         {
@@ -513,7 +514,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                             }
                         }
 
-                        // Specialisation — reverse lookup
+                        // Specialisation - reverse lookup
                         // DB may store spec_id as string ("22") or plain text name
                         string specVal = SafeStr(rdr, "specialisation");
                         if (!string.IsNullOrEmpty(specVal) && specVal != "-")
@@ -563,7 +564,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                             hfSession.Value = session;
                         }
 
-                        // Campus — studCampus stores int (1,2) but dropdown
+                        // Campus - studCampus stores int (1,2) but dropdown
                         // values are zero-padded campus_code strings ("01","02")
                         int campusCode = SafeInt(rdr["studCampus"], 0);
                         if (campusCode > 0)
@@ -602,7 +603,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                             hfBilling.Value = billingId.ToString();
                         }
 
-                        // ── Address & Contact (from applications) ──
+                        // -- Address & Contact (from applications) --
                         string addr = SafeStr(rdr, "stud_phy_address");
                         if (!string.IsNullOrEmpty(addr)) txtAddress.Text = addr;
 
@@ -615,7 +616,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                         string resCntry = SafeStr(rdr, "residence_country");
                         if (!string.IsNullOrEmpty(resCntry)) txtResCountry.Text = resCntry;
 
-                        // ── Sponsor & Kin (from applications) ──
+                        // -- Sponsor & Kin (from applications) --
                         string sponsor = SafeStr(rdr, "stud_sponsor");
                         if (!string.IsNullOrEmpty(sponsor)) txtSponsor.Text = sponsor;
 
@@ -631,7 +632,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                         string kinCon = SafeStr(rdr, "kin_contacts");
                         if (!string.IsNullOrEmpty(kinCon)) txtKinContact.Text = kinCon;
 
-                        // ── Education Background (from applications) ──
+                        // -- Education Background (from applications) --
                         string olSchool = SafeStr(rdr, "olevel_school");
                         if (!string.IsNullOrEmpty(olSchool)) txtOLevelSchool.Text = olSchool;
 
@@ -653,7 +654,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         }
     }
 
-    /// <summary>Safe string reader — returns "" for null/DBNull columns.</summary>
+    /// <summary>Safe string reader - returns "" for null/DBNull columns.</summary>
     private static string SafeStr(MySqlDataReader rdr, string col)
     {
         try
@@ -665,19 +666,19 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         catch { return ""; }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  REGISTRATION HANDLER — 8-step process
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
+    //  REGISTRATION HANDLER - 8-step process
+    // ===============================================================
     protected void btnSubmitRegistration_Click(object sender, EventArgs e)
     {
-        // ── EDIT MODE: route to update logic ────────────────────────
+        // -- EDIT MODE: route to update logic ------------------------
         if (IsEditMode)
         {
             UpdateExistingStudent();
             return;
         }
 
-        // ── Gather form values ──────────────────────────────────────
+        // -- Gather form values --------------------------------------
         // Use hidden-field fallback for dropdowns (ViewState is off,
         // and programme list may have been filtered client-side by JS)
         string title        = ddlTitle.SelectedValue;
@@ -719,7 +720,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
 
         bool registerNow    = chkRegisterNow.Checked;
 
-        // ── Server-side validation ──────────────────────────────────
+        // -- Server-side validation ----------------------------------
         if (string.IsNullOrEmpty(fullName))
         { ShowError("Please enter the student's full name."); return; }
         if (string.IsNullOrEmpty(programme))
@@ -734,6 +735,16 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         { ShowError("Please select an entry year."); return; }
         if (string.IsNullOrEmpty(billing))
         { ShowError("Please select a billing system."); return; }
+
+        // Enforce current academic year — entry year must match
+        int parsedEntryYear = SafeInt(entryYear, 0);
+        if (parsedEntryYear > 0 && !AcademicYearHelper.IsCurrentEntryYear(parsedEntryYear))
+        {
+            ShowError(string.Format(
+                "Registration is only allowed for the current academic year ({0}). Entry year {1} does not match.",
+                AcademicYearHelper.GetCurrentYearDisplay(), entryYear));
+            return;
+        }
 
         // Parse DOB
         DateTime birthDate = new DateTime(1980, 1, 1);
@@ -753,7 +764,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
             {
                 conn.Open();
 
-                // ── Step 1: Generate entry number ──────────────────
+                // -- Step 1: Generate entry number ------------------
                 string entryNo = "";
                 using (var cmd = new MySqlCommand(
                     "SELECT acad_ApplicNoGenerator(@yr) AS eno", conn))
@@ -768,7 +779,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     return;
                 }
 
-                // ── Step 2: Insert into acad_applications ──────────
+                // -- Step 2: Insert into acad_applications ----------
                 const string insertAppSql = @"
                     INSERT INTO acad_applications (
                         stud_entry_no, stud_name, stud_sex, stud_nationality, stud_religion,
@@ -828,7 +839,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     cmd.ExecuteNonQuery();
                 }
 
-                // ── Step 3: Insert applicant choice (admitted) ─────
+                // -- Step 3: Insert applicant choice (admitted) -----
                 const string insertChoiceSql = @"
                     INSERT INTO acad_applicant_choices
                         (stud_entry_no, Choice, prog_id, adm_status, adm_session, sub_comb)
@@ -843,7 +854,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     cmd.ExecuteNonQuery();
                 }
 
-                // ── Step 4: Generate registration number ───────────
+                // -- Step 4: Generate registration number -----------
                 string regNo = "-";
                 using (var cmd = new MySqlCommand(
                     "SELECT acad_RegNoCreator(@eno) AS regno", conn))
@@ -853,7 +864,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     if (result != null) regNo = result.ToString();
                 }
 
-                // ── Step 5: Update stud_reg_no in applications ─────
+                // -- Step 5: Update stud_reg_no in applications -----
                 if (regNo != "-" && !string.IsNullOrEmpty(regNo))
                 {
                     using (var cmd = new MySqlCommand(
@@ -866,7 +877,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     }
                 }
 
-                // ── Step 6: Register applicant (acad_student + acad_registration)
+                // -- Step 6: Register applicant (acad_student + acad_registration)
                 using (var cmd = new MySqlCommand("acad_RegisterApplicant", conn))
                 {
                     cmd.CommandType = CommandType.StoredProcedure;
@@ -876,30 +887,20 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     cmd.ExecuteNonQuery();
                 }
 
-                // ── Step 7: Update billing system + specialisation on acad_student
-                string specName = "";
+                // -- Step 7: Update billing system + specialisation on acad_student
+                // Store the spec_id (not the name) so the JOIN in listing pages works
                 int specId = SafeInt(specIdStr, 0);
-                if (specId > 0)
-                {
-                    using (var cmd = new MySqlCommand(
-                        "SELECT spec FROM acad_specialisation WHERE spec_id=@sid LIMIT 1", conn))
-                    {
-                        cmd.Parameters.AddWithValue("@sid", specId);
-                        object val = cmd.ExecuteScalar();
-                        if (val != null) specName = val.ToString();
-                    }
-                }
                 using (var cmd = new MySqlCommand(
                     "UPDATE acad_student SET billingID=@bid, specialisation=@spec, national_id=@nid WHERE regno=@rno", conn))
                 {
                     cmd.Parameters.AddWithValue("@bid", SafeInt(billing, 1));
-                    cmd.Parameters.AddWithValue("@spec", specName);
+                    cmd.Parameters.AddWithValue("@spec", specId > 0 ? specIdStr : "");
                     cmd.Parameters.AddWithValue("@nid", nationalId);
                     cmd.Parameters.AddWithValue("@rno", regNo);
                     cmd.ExecuteNonQuery();
                 }
 
-                // ── Step 8: Immediate registration + auto-billing ──
+                // -- Step 8: Immediate registration + auto-billing --
                 if (registerNow)
                 {
                     using (var cmd = new MySqlCommand(
@@ -921,7 +922,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     if (regId > 0) AutoBillStudent(regId);
                 }
 
-                // ── Success — show result via JS ───────────────────
+                // -- Success - show result via JS -------------------
                 string jsRegNow = registerNow ? "true" : "false";
                 ScriptManager.RegisterStartupScript(this, GetType(), "regSuccess",
                     string.Format("showSuccess('{0}','{1}',{2});",
@@ -934,9 +935,9 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  AUTO-BILLING
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     private void AutoBillStudent(int regId)
     {
         try
@@ -982,9 +983,9 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         catch { /* billing failure should not block registration */ }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  UPDATE EXISTING STUDENT (edit mode)
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     private void UpdateExistingStudent()
     {
         string regno = hfEditRegNo.Value;
@@ -994,7 +995,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
             return;
         }
 
-        // ── Gather form values (same as create) ──────────────────────
+        // -- Gather form values (same as create) ----------------------
         string title        = ddlTitle.SelectedValue;
         string fullName     = (txtFullName.Text ?? "").Trim().ToUpper();
         string gender       = ddlGender.SelectedValue;
@@ -1032,7 +1033,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         string aLevelSchool = (txtALevelSchool.Text ?? "").Trim();
         string aLevelIndex  = (txtALevelIndex.Text ?? "").Trim();
 
-        // ── Validation ─────────────────────────────────────────────
+        // -- Validation ---------------------------------------------
         if (string.IsNullOrEmpty(fullName))
         { ShowError("Please enter the student's full name."); return; }
         if (string.IsNullOrEmpty(programme))
@@ -1072,16 +1073,9 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         if (gender == "F") genderDb = "FEMALE";
         else if (gender == "OTHER") genderDb = "OTHER";
 
-        // Resolve specialisation name from ID
-        string specName = "";
+        // Store the spec_id (not the name) so the JOIN in listing pages works
         int specId = SafeInt(specIdStr, 0);
-        if (specId > 0 && _specList != null)
-        {
-            foreach (var sp in _specList)
-            {
-                if (sp.Id == specId) { specName = sp.Name; break; }
-            }
-        }
+        string specName = specId > 0 ? specIdStr : "";
 
         try
         {
@@ -1089,7 +1083,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
             {
                 conn.Open();
 
-                // ── Update acad_student ───────────────────────────
+                // -- Update acad_student ---------------------------
                 const string updateStudentSql = @"
                     UPDATE acad_student SET
                         firstname       = @firstName,
@@ -1136,7 +1130,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     cmd.ExecuteNonQuery();
                 }
 
-                // ── Get the student's entry number ───────────────
+                // -- Get the student's entry number ---------------
                 string entryNo = "";
                 using (var cmd = new MySqlCommand(
                     "SELECT entryno FROM acad_student WHERE regno=@r LIMIT 1", conn))
@@ -1147,7 +1141,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                         entryNo = val.ToString();
                 }
 
-                // ── Update acad_applications (if record exists) ──
+                // -- Update acad_applications (if record exists) --
                 if (!string.IsNullOrEmpty(entryNo) && entryNo != "-")
                 {
                     // Check if application record exists
@@ -1227,7 +1221,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                         }
                     }
 
-                    // ── Update acad_applicant_choices specialisation ──
+                    // -- Update acad_applicant_choices specialisation --
                     if (specId > 0)
                     {
                         using (var cmd = new MySqlCommand(
@@ -1241,7 +1235,7 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     }
                 }
 
-                // ── Success — show result via JS ───────────────────
+                // -- Success - show result via JS -------------------
                 ScriptManager.RegisterStartupScript(this, GetType(), "editSuccess",
                     string.Format("showSuccess('{0}','{1}',false);",
                         EscapeJs(entryNo), EscapeJs(regno)), true);
@@ -1253,9 +1247,9 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
     //  HELPERS
-    // ═══════════════════════════════════════════════════════════════
+    // ===============================================================
 
     /// <summary>
     /// Read selected value from dropdown, falling back to hidden field

@@ -339,6 +339,14 @@ public partial class COOPERP_NewScreens_StudentsPromotion : System.Web.UI.Page
         int newSemester = int.Parse(ddlNewSemester.SelectedValue);
         bool incrementYear = chkIncrementYear.Checked;
         
+        // Enforce current academic year only
+        if (!AcademicYearHelper.IsCurrentAcademicYear(newAcadYear))
+        {
+            throw new Exception(string.Format(
+                "Promotion is only allowed into the current academic year ({0}). You selected {1}.",
+                AcademicYearHelper.GetCurrentYearDisplay(), newAcadYear));
+        }
+        
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();

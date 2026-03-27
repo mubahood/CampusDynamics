@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Web.UI;
 using System.Data;
 using MySql.Data.MySqlClient;
@@ -101,6 +101,37 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             case "suppliermanagement":
                 title = "Supplier Management";
                 break;
+            // HR & Payroll Module
+            case "hrdashboard":
+                title = "HR & Payroll Dashboard";
+                break;
+            case "hremployees":
+                title = "Employee Directory";
+                break;
+            case "hrcontracts":
+                title = "Contracts";
+                break;
+            case "hrpayroll":
+                title = "Payroll Management";
+                break;
+            case "hrpayslips":
+                title = "Payslips";
+                break;
+            case "hrallowances":
+                title = "Allowance Records";
+                break;
+            case "hrdeductions":
+                title = "Deduction Records";
+                break;
+            case "hrleavemanagement":
+                title = "Leave Management";
+                break;
+            case "hrsettings":
+                title = "HR Settings";
+                break;
+            case "hrconfig":
+                title = "Payroll & Tax Config";
+                break;
             // System Configuration
             case "academicyears":
                 title = "Academic Years";
@@ -114,7 +145,7 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
     }
     
     /// <summary>
-    /// Gets the current academic year — now centralised in AcademicYearHelper.
+    /// Gets the current academic year - now centralised in AcademicYearHelper.
     /// </summary>
     
     private void LoadAcademicYears()

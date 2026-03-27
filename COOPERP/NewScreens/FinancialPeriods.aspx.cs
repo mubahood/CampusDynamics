@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Web.UI;
 using MySql.Data.MySqlClient;
@@ -181,7 +181,7 @@ public partial class COOPERP_NewScreens_FinancialPeriods : System.Web.UI.Page
 
     protected void gridPeriods_CustomButtonCallback(object sender, ASPxGridViewCustomButtonCallbackEventArgs e)
     {
-        // Not used — using template buttons instead
+        // Not used - using template buttons instead
     }
 
     private void ShowMessage(string msg, bool isSuccess)

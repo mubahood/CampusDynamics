@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Web.UI;
 using MySql.Data.MySqlClient;
@@ -78,13 +78,13 @@ public partial class COOPERP_NewScreens_TrialBalance : System.Web.UI.Page
         if (diff < 0.01m)
         {
             pnlBalanceStatus.CssClass = "tb-status-banner tb-status-ok";
-            litBalanceStatus.Text = "&#10004; Trial Balance is BALANCED — Total Debits equal Total Credits.";
+            litBalanceStatus.Text = "&#10004; Trial Balance is BALANCED - Total Debits equal Total Credits.";
             spanDiff.Attributes["class"] = "tb-summary-value tb-balanced";
         }
         else
         {
             pnlBalanceStatus.CssClass = "tb-status-banner tb-status-err";
-            litBalanceStatus.Text = "&#9888; Trial Balance is UNBALANCED — Difference of " + diff.ToString("N2") + " detected.";
+            litBalanceStatus.Text = "&#9888; Trial Balance is UNBALANCED - Difference of " + diff.ToString("N2") + " detected.";
             spanDiff.Attributes["class"] = "tb-summary-value tb-unbalanced";
         }
 

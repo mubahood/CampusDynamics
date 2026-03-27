@@ -16,11 +16,11 @@
         }
         
         .nche-header {
-            background: linear-gradient(135deg, #1f4e79 0%, #2d5fa3 50%, #1a3f63 100%);
+            background: #05275C;
             color: white;
             padding: 25px 25px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            border-bottom: 3px solid #041d45;
             position: relative;
             overflow: hidden;
         }
@@ -56,10 +56,9 @@
         
         .nche-criteria {
             background: #fff;
-            border: 1px solid #ddd;
+            border: 1px solid #e0e5ed;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         
         .nche-criteria > div:first-of-type {
@@ -100,8 +99,7 @@
         .criteria-field input:focus,
         .criteria-field select:focus {
             outline: none;
-            border-color: #1f4e79;
-            box-shadow: 0 0 0 2px rgba(31, 78, 121, 0.08);
+            border-color: #174DA4;
         }
         
         .nche-actions {
@@ -116,10 +114,9 @@
         
         .preview-section {
             background: #fff;
-            border: 1px solid #ddd;
+            border: 1px solid #e0e5ed;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         
         .preview-title {
@@ -162,7 +159,6 @@
             margin-bottom: 18px;
             font-size: 12px;
             color: #7d6608;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
         }
         
         .nche-info strong {

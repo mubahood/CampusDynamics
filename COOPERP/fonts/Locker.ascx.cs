@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Web.UI;
 using Systems.Settings.SD;
 
@@ -7,7 +7,7 @@ public partial class COOPERP_fonts_Locker : System.Web.UI.UserControl
     protected void Page_Load(object sender, EventArgs e)
     {
         Licensing.Settings();
-        // lbl_lock is hidden — just kept to avoid breaking any external reference
+        // lbl_lock is hidden - just kept to avoid breaking any external reference
     }
 
     protected void cmdActivate_Click(object sender, EventArgs e)
@@ -30,7 +30,7 @@ public partial class COOPERP_fonts_Locker : System.Web.UI.UserControl
         }
         else
         {
-            lbl_comment.Text = result + " — Redirecting to login...";
+            lbl_comment.Text = result + " - Redirecting to login...";
             lbl_comment.CssClass = "lk-feedback--ok";
 
             // Redirect after 2 seconds so the user sees the success message

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -25,16 +25,21 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // PAGE LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        // ALWAYS reload dropdown items — ViewState is disabled on master page,
+        // so dropdown items are lost on every postback. ASP.NET's second
+        // ProcessPostData pass will restore user selections from posted form
+        // data once the items are available.
+        LoadAcademicYears();
+        LoadProgrammes();
+
         if (!IsPostBack)
         {
-            LoadAcademicYears();
-            LoadProgrammes();
             // Filter defaults: show everything
             ddlAcadYear.SelectedValue = "";
             ddlSemester.SelectedValue = "";
@@ -46,9 +51,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // HELPERS — Academic Year / Semester (centralised in AcademicYearHelper)
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
+    // HELPERS - Academic Year / Semester (centralised in AcademicYearHelper)
+    // ===================================================================
 
     private void LoadAcademicYears()
     {
@@ -72,7 +77,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                 using (var rdr = cmd.ExecuteReader())
                     while (rdr.Read())
                         ddlProgramme.Items.Add(new ListItem(
-                            rdr["progcode"] + " — " + rdr["progname"], rdr["progcode"].ToString()));
+                            rdr["progcode"] + " - " + rdr["progname"], rdr["progcode"].ToString()));
             }
         }
         catch { /* non-fatal */ }
@@ -98,9 +103,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         return "system";
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // STATS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     private void LoadStats()
     {
@@ -162,9 +167,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         catch { /* non-fatal */ }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // BIND GRID
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     private void BindGrid()
     {
@@ -210,7 +215,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
         var parameters = new List<MySqlParameter>();
 
-        // Year / semester — only filter when not "All"
+        // Year / semester - only filter when not "All"
         string acadYear = ddlAcadYear.SelectedValue;
         string semStr   = ddlSemester.SelectedValue;
         if (!string.IsNullOrEmpty(acadYear)) { sb.Append(" AND r.acad_year = @acadYear"); parameters.Add(new MySqlParameter("@acadYear", acadYear)); }
@@ -293,9 +298,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // TEMPLATE HELPERS — visibility in DataItemTemplate
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
+    // TEMPLATE HELPERS - visibility in DataItemTemplate
+    // ===================================================================
 
     protected string ShowIf(object val, string match)
     {
@@ -361,9 +366,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         return (s ?? "").ToUpper().Trim() == "BILLED" ? "billed" : "notbilled";
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // FILTER CHANGE HANDLERS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnSearch_Click(object sender, EventArgs e)                   { BindGrid(); }
 
@@ -398,9 +403,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     }
     protected void btnRefresh_Click(object sender, EventArgs e) { LoadStats(); BindGrid(); }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // INDIVIDUAL ACTIONS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnRegister_Click(object sender, EventArgs e)
     {
@@ -592,9 +597,75 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         BindGrid();
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
+    // DELETE REGISTRATION
+    // ===================================================================
+
+    protected void btnDeleteReg_Click(object sender, EventArgs e)
+    {
+        int id = GetLinkButtonID(sender);
+        if (id <= 0) return;
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+
+                // Fetch the record details for the activity log
+                string regno = "", acadYear = "";
+                int semester = 0;
+                using (var cmd = new MySqlCommand(
+                    "SELECT regno, acad_year, semester FROM acad_registration WHERE ID=@id LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (rdr.Read())
+                        {
+                            regno    = rdr["regno"].ToString();
+                            acadYear = rdr["acad_year"].ToString();
+                            semester = Convert.ToInt32(rdr["semester"]);
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(regno))
+                {
+                    ShowToast(false, "Registration record not found.");
+                    return;
+                }
+
+                // Delete the registration record
+                using (var cmd = new MySqlCommand("DELETE FROM acad_registration WHERE ID=@id", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    bool ok = cmd.ExecuteNonQuery() > 0;
+                    if (ok)
+                    {
+                        // Log the deletion
+                        using (var logCmd = new MySqlCommand(
+                            "INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date) VALUES (@usr, 'Delete Registration', @par, 'Deleted registration record', NOW())", conn))
+                        {
+                            logCmd.Parameters.AddWithValue("@usr", GetCurrentUser());
+                            logCmd.Parameters.AddWithValue("@par", string.Format("{0} | {1} Sem {2}", regno, acadYear, semester));
+                            logCmd.ExecuteNonQuery();
+                        }
+                        ShowToast(true, string.Format("Registration deleted for {0} ({1} Sem {2}).", regno, acadYear, semester));
+                    }
+                    else
+                    {
+                        ShowToast(false, "Could not delete registration record.");
+                    }
+                }
+            }
+        }
+        catch (Exception ex) { ShowToast(false, "Delete failed: " + ex.Message); }
+        LoadStats(); BindGrid();
+    }
+
+    // ===================================================================
     // BATCH ACTIONS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnBatchRegister_Click(object sender, EventArgs e)          { RunBatch("register");     }
     protected void btnBatchLateRegister_Click(object sender, EventArgs e)      { RunBatch("late");         }
@@ -605,6 +676,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     protected void btnBatchHalt_Click(object sender, EventArgs e)              { RunBatch("halt");         }
     protected void btnBatchDeadYear_Click(object sender, EventArgs e)          { RunBatch("deadyear");     }
     protected void btnBatchReactivate_Click(object sender, EventArgs e)        { RunBatch("reactivate");   }
+    protected void btnBatchDelete_Click(object sender, EventArgs e)             { RunBatch("delete");       }
 
     private void RunBatch(string action)
     {
@@ -630,20 +702,21 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                 case "halt":        ok = ForceStatus(id, "HALTED");       break;
                 case "deadyear":    ok = ForceStatus(id, "DEAD YEAR");    break;
                 case "reactivate":  ok = BatchReactivate(id);             break;
+                case "delete":      ok = BatchDeleteReg(id);              break;
             }
             if (ok) processed++; else skipped++;
         }
         gvRegistration.Selection.UnselectAll();
-        string msg = processed + " student(s) updated.";
-        if (skipped > 0) msg += " " + skipped + " skipped (status ineligible).";
+        string msg = processed + (action == "delete" ? " registration(s) deleted." : " student(s) updated.");
+        if (skipped > 0) msg += " " + skipped + " skipped.";
         ShowToast(processed > 0, msg);
         LoadStats();
         BindGrid();
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // ADD REGISTRATION MODAL
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnDoAddReg_Click(object sender, EventArgs e)
     {
@@ -662,6 +735,14 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         if (string.IsNullOrEmpty(acadYear))
         {
             ShowAddRegError("Please select an academic year.");
+            return;
+        }
+        // Enforce current academic year only
+        if (!AcademicYearHelper.IsCurrentAcademicYear(acadYear))
+        {
+            ShowAddRegError(string.Format(
+                "Registration is only allowed for the current academic year ({0}). You selected {1}.",
+                AcademicYearHelper.GetCurrentYearDisplay(), acadYear));
             return;
         }
         if (semester < 1 || semester > 3)
@@ -761,13 +842,14 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         addRegResult.Visible    = true;
         addRegResult.Attributes["class"] = "hr-result hr-result--err";
         litAddRegResult.Text    = Server.HtmlEncode(msg);
-        // Re-open modal
-        ScriptManager.RegisterStartupScript(this, GetType(), "reopenAdd", "openAddRegModal();", true);
+        // Re-open modal WITHOUT hiding the error div
+        ScriptManager.RegisterStartupScript(this, GetType(), "reopenAdd",
+            "document.getElementById('addRegModal').classList.add('open');", true);
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // CHANGE STATUS MODAL
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnDoChangeStatus_Click(object sender, EventArgs e)
     {
@@ -809,9 +891,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         BindGrid();
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // EXPORT CSV
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void btnExportCsv_Click(object sender, EventArgs e)
     {
@@ -915,9 +997,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         return s;
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // GRID EVENTS
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     protected void gvRegistration_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
     {
@@ -946,9 +1028,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
     // DATABASE OPERATION PRIMITIVES
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     /// <summary>
     /// Sets regstatus to newStatus and updates an auditing column, but only if the
@@ -979,7 +1061,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
     /// <summary>
     /// Auto-bill a student after registration. Safe to call multiple times
-    /// — the SP has a pre-check that skips if already billed.
+    /// - the SP has a pre-check that skips if already billed.
     /// </summary>
     private void AutoBillStudent(int regId)
     {
@@ -1120,9 +1202,55 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         catch { return false; }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    private bool BatchDeleteReg(int id)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                // Fetch details for audit log
+                string regno = "", acadYear = "";
+                int semester = 0;
+                using (var cmd = new MySqlCommand("SELECT regno, acad_year, semester FROM acad_registration WHERE ID=@id LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (rdr.Read())
+                        {
+                            regno    = rdr["regno"].ToString();
+                            acadYear = rdr["acad_year"].ToString();
+                            semester = Convert.ToInt32(rdr["semester"]);
+                        }
+                    }
+                }
+                if (string.IsNullOrEmpty(regno)) return false;
+
+                using (var cmd = new MySqlCommand("DELETE FROM acad_registration WHERE ID=@id", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    bool ok = cmd.ExecuteNonQuery() > 0;
+                    if (ok)
+                    {
+                        using (var logCmd = new MySqlCommand(
+                            "INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date) VALUES (@usr, 'Batch Delete Registration', @par, 'Deleted registration record', NOW())", conn))
+                        {
+                            logCmd.Parameters.AddWithValue("@usr", GetCurrentUser());
+                            logCmd.Parameters.AddWithValue("@par", string.Format("{0} | {1} Sem {2}", regno, acadYear, semester));
+                            logCmd.ExecuteNonQuery();
+                        }
+                    }
+                    return ok;
+                }
+            }
+        }
+        catch { return false; }
+    }
+
+    // ===================================================================
     // UTILITIES
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
 
     private void ShowToast(bool success, string message)
     {

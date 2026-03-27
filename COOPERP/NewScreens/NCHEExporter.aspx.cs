@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Configuration;
 using System.Data;
 using System.Globalization;
@@ -7,7 +7,7 @@ using DevExpress.Web;
 
 /// <summary>
 /// NCHE Student Data Exporter
-/// Implements NCHE/GR/U/78 (9 February 2026) — national student admission number data submission.
+/// Implements NCHE/GR/U/78 (9 February 2026) - national student admission number data submission.
 /// Exports 10 required columns: S/N, Names, Sex, National ID No., Institutional Reg. No.,
 /// Programme Code, Programme Name, Award Level, Year of Study, Study Centre.
 /// </summary>
@@ -18,7 +18,7 @@ public partial class COOPERP_NewScreens_NCHEExporter : System.Web.UI.Page
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
     }
 
-    // ── Page lifecycle ────────────────────────────────────────────────────────
+    // -- Page lifecycle --------------------------------------------------------
 
     protected void Page_Load(object sender, EventArgs e)
     {
@@ -30,7 +30,7 @@ public partial class COOPERP_NewScreens_NCHEExporter : System.Web.UI.Page
         }
     }
 
-    // ── Filter population ─────────────────────────────────────────────────────
+    // -- Filter population -----------------------------------------------------
 
     private void PopulateYearFilter()
     {
@@ -58,7 +58,7 @@ public partial class COOPERP_NewScreens_NCHEExporter : System.Web.UI.Page
                 }
             }
         }
-        catch { /* non-fatal — dropdown just stays with "All Years" */ }
+        catch { /* non-fatal - dropdown just stays with "All Years" */ }
     }
 
     private void PopulateProgrammeFilter()
@@ -117,14 +117,14 @@ public partial class COOPERP_NewScreens_NCHEExporter : System.Web.UI.Page
         catch { }
     }
 
-    // ── Data loading ──────────────────────────────────────────────────────────
+    // -- Data loading ----------------------------------------------------------
 
     /// <summary>
     /// Queries acad_student + acad_programme + acad_campuses and returns a DataTable
     /// with exactly the 10 NCHE-required columns plus an auto-incremented S/N.
     /// Award level is derived from the programme name prefix (most reliable approach
     /// across different DB configurations).
-    /// National ID maps to acad_student.idno — ensure this column holds the government NIN.
+    /// National ID maps to acad_student.idno - ensure this column holds the government NIN.
     /// </summary>
     private DataTable LoadStudentData()
     {
@@ -257,7 +257,7 @@ public partial class COOPERP_NewScreens_NCHEExporter : System.Web.UI.Page
             total, total == 1 ? "" : "s");
     }
 
-    // ── Button handlers ───────────────────────────────────────────────────────
+    // -- Button handlers -------------------------------------------------------
 
     protected void btnLoad_Click(object sender, EventArgs e)
     {
@@ -277,13 +277,13 @@ public partial class COOPERP_NewScreens_NCHEExporter : System.Web.UI.Page
             return;
         }
 
-        // Bind full dataset to grid (no preview cap — export must include all rows)
+        // Bind full dataset to grid (no preview cap - export must include all rows)
         BindGrid(dt, previewOnly: false);
         UpdateCountLabel(dt.Rows.Count);
 
         string fileName = string.Format("NCHE_StudentData_MRU_{0}", DateTime.Now.ToString("yyyyMMdd_HHmm"));
         gvNCHE.WriteXlsxToResponse(fileName);
-        // Response ends here — browser downloads the .xlsx file
+        // Response ends here - browser downloads the .xlsx file
     }
 
     protected void btnClear_Click(object sender, EventArgs e)

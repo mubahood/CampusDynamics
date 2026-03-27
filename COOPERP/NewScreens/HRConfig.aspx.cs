@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -7,7 +7,7 @@ using System.Web.UI;
 using MySql.Data.MySqlClient;
 
 /// <summary>
-/// HRConfig — manages the single-row hrm_config table.
+/// HRConfig - manages the single-row hrm_config table.
 /// All payroll calculations (PAYE, NSSF, Kabaka, Local Tax) derive
 /// their rates from this page at runtime; changes here are immediately
 /// reflected the next time payroll is generated.
@@ -19,7 +19,7 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
     }
 
-    // ── Default values (mirrors DB column DEFAULTs) ──────────────────────────
+    // -- Default values (mirrors DB column DEFAULTs) --------------------------
     private static readonly decimal D_B1_MIN  = 0m,       D_B1_MAX  = 235000m,   D_B1_RATE  = 0m;
     private static readonly decimal D_B2_MIN  = 235001m,  D_B2_MAX  = 335000m,   D_B2_RATE  = 10m;
     private static readonly decimal D_B3_MIN  = 335001m,  D_B3_MAX  = 410000m,   D_B3_RATE  = 20m;
@@ -27,15 +27,67 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
     private static readonly decimal D_B5_MIN  = 10000001m,                        D_B5_RATE  = 40m;
     private static readonly decimal D_NSSF_EMP = 5m, D_NSSF_EMPR = 10m, D_KABAKA = 1m, D_LOCAL = 1m;
 
-    // ─────────────────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------------------
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        EnsureTableExists();
         if (!IsPostBack)
             LoadConfig();
     }
 
-    // ── Load config from DB into form controls ────────────────────────────────
+    // -- Auto-create hrm_config if it doesn't exist yet -----------------------
+    private void EnsureTableExists()
+    {
+        try
+        {
+            ExecuteNonQuery(@"
+                CREATE TABLE IF NOT EXISTS hrm_config (
+                    id                           INT           NOT NULL DEFAULT 1,
+                    paye_b1_min                  DECIMAL(15,2) NOT NULL DEFAULT 0,
+                    paye_b1_max                  DECIMAL(15,2) NOT NULL DEFAULT 235000,
+                    paye_b1_rate                 DECIMAL(5,2)  NOT NULL DEFAULT 0.00,
+                    paye_b2_min                  DECIMAL(15,2) NOT NULL DEFAULT 235001,
+                    paye_b2_max                  DECIMAL(15,2) NOT NULL DEFAULT 335000,
+                    paye_b2_rate                 DECIMAL(5,2)  NOT NULL DEFAULT 10.00,
+                    paye_b3_min                  DECIMAL(15,2) NOT NULL DEFAULT 335001,
+                    paye_b3_max                  DECIMAL(15,2) NOT NULL DEFAULT 410000,
+                    paye_b3_rate                 DECIMAL(5,2)  NOT NULL DEFAULT 20.00,
+                    paye_b4_min                  DECIMAL(15,2) NOT NULL DEFAULT 410001,
+                    paye_b4_max                  DECIMAL(15,2) NOT NULL DEFAULT 10000000,
+                    paye_b4_rate                 DECIMAL(5,2)  NOT NULL DEFAULT 30.00,
+                    paye_b5_min                  DECIMAL(15,2) NOT NULL DEFAULT 10000001,
+                    paye_b5_max                  DECIMAL(15,2) NULL,
+                    paye_b5_rate                 DECIMAL(5,2)  NOT NULL DEFAULT 40.00,
+                    nssf_employee_rate           DECIMAL(5,2)  NOT NULL DEFAULT 5.00,
+                    nssf_employer_rate           DECIMAL(5,2)  NOT NULL DEFAULT 10.00,
+                    should_charge_kabaka         ENUM('Yes','No') NOT NULL DEFAULT 'Yes',
+                    kabaka_rate                  DECIMAL(5,2)  NOT NULL DEFAULT 1.00,
+                    should_charge_local_tax      ENUM('Yes','No') NOT NULL DEFAULT 'No',
+                    local_tax_rate               DECIMAL(5,2)  NOT NULL DEFAULT 1.00,
+                    default_annual_leave_days    INT           NOT NULL DEFAULT 30,
+                    default_maternity_leave_days INT           NOT NULL DEFAULT 60,
+                    default_paternity_leave_days INT           NOT NULL DEFAULT 4,
+                    default_sick_leave_days      INT           NOT NULL DEFAULT 30,
+                    financial_year_start_month   TINYINT       NOT NULL DEFAULT 7,
+                    probation_period_months      INT           NOT NULL DEFAULT 3,
+                    notice_period_days           INT           NOT NULL DEFAULT 30,
+                    overtime_rate_multiplier     DECIMAL(4,2)  NOT NULL DEFAULT 1.50,
+                    gratuity_rate                DECIMAL(5,2)  NOT NULL DEFAULT 5.00,
+                    working_days_per_month       INT           NOT NULL DEFAULT 22,
+                    working_hours_per_day        INT           NOT NULL DEFAULT 8,
+                    last_updated                 DATETIME      NULL,
+                    updated_by                   VARCHAR(100)  NULL,
+                    PRIMARY KEY (id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // Seed the single config row with all defaults if it doesn't exist
+            ExecuteNonQuery("INSERT IGNORE INTO hrm_config (id) VALUES (1)");
+        }
+        catch { /* If creation also fails (permissions etc.), LoadConfig will surface the real error */ }
+    }
+
+    // -- Load config from DB into form controls --------------------------------
     private void LoadConfig()
     {
         DataTable dt;
@@ -43,10 +95,9 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
         {
             dt = ExecuteQuery("SELECT * FROM hrm_config WHERE id = 1");
         }
-        catch
+        catch (Exception ex)
         {
-            // Table may not exist yet; controls keep their HTML default values
-            ShowBanner("hrm_config table not found. Run sql/create_hrm_config.sql first, then reload this page.", false);
+            ShowBanner("Database error: " + ex.Message, false);
             btnSave.Enabled = false;
             return;
         }
@@ -119,12 +170,12 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
         }
     }
 
-    // ── Save ──────────────────────────────────────────────────────────────────
+    // -- Save ------------------------------------------------------------------
     protected void btnSave_Click(object sender, EventArgs e)
     {
         var errors = new List<string>();
 
-        // ── Parse & validate PAYE brackets ──────────────────────────────────
+        // -- Parse & validate PAYE brackets ----------------------------------
         decimal b1min, b1max, b1rate;
         decimal        b2max, b2rate;
         decimal        b3max, b3rate;
@@ -168,7 +219,7 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
             }
         }
 
-        // ── Parse & validate statutory rates ────────────────────────────────
+        // -- Parse & validate statutory rates --------------------------------
         decimal nssfEmp, nssfEmpr, kabakaRate, localRate;
         if (!TryRate(txtNssfEmployee.Text, "Employee NSSF rate", 0, 50,  errors, out nssfEmp))   { }
         if (!TryRate(txtNssfEmployer.Text, "Employer NSSF rate", 0, 50,  errors, out nssfEmpr))  { }
@@ -180,14 +231,14 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
         if (chargeKabaka   != "Yes" && chargeKabaka   != "No") errors.Add("Invalid Kabaka charge flag.");
         if (chargeLocalTax != "Yes" && chargeLocalTax != "No") errors.Add("Invalid local tax flag.");
 
-        // ── Leave ────────────────────────────────────────────────────────────
+        // -- Leave ------------------------------------------------------------
         int annualLeave, maternityLeave, paternityLeave, sickLeave;
         if (!TryDays(txtAnnualLeave.Text,    "Annual leave",    1, 365, errors, out annualLeave))    { }
         if (!TryDays(txtMaternityLeave.Text, "Maternity leave", 1, 365, errors, out maternityLeave)) { }
         if (!TryDays(txtPaternityLeave.Text, "Paternity leave", 0, 365, errors, out paternityLeave)) { }
         if (!TryDays(txtSickLeave.Text,      "Sick leave",      0, 365, errors, out sickLeave))      { }
 
-        // ── Policies ─────────────────────────────────────────────────────────
+        // -- Policies ---------------------------------------------------------
         int fyMonth, probation, noticeDays, workDays, workHours;
         decimal overtime, gratuity;
 
@@ -203,14 +254,14 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
             errors.Add("Overtime multiplier must be between 1.0 and 10.0.");
         if (!TryRate(txtGratuity.Text, "Gratuity rate", 0, 100, errors, out gratuity)) { }
 
-        // ── Abort on validation errors ───────────────────────────────────────
+        // -- Abort on validation errors ---------------------------------------
         if (errors.Count > 0)
         {
             ShowBanner("Please fix the following: " + string.Join(" | ", errors), false);
             return;
         }
 
-        // ── Upsert (replace the single row) ─────────────────────────────────
+        // -- Upsert (replace the single row) ---------------------------------
         string user = (HttpContext.Current.Session["ScreenName"] ?? "").ToString();
         if (string.IsNullOrEmpty(user))
             user = (HttpContext.Current.Session["username"] ?? "System").ToString();
@@ -293,7 +344,7 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
         }
     }
 
-    // ── Reset to factory defaults ─────────────────────────────────────────────
+    // -- Reset to factory defaults ---------------------------------------------
     protected void btnReset_Click(object sender, EventArgs e)
     {
         string user = (HttpContext.Current.Session["ScreenName"] ?? "").ToString();
@@ -332,7 +383,7 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
         }
     }
 
-    // ── Validation helpers ────────────────────────────────────────────────────
+    // -- Validation helpers ----------------------------------------------------
     private bool TryRate(string raw, string label, decimal min, decimal max,
                          List<string> errors, out decimal result)
     {
@@ -373,7 +424,7 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
         return true;
     }
 
-    // ── Display helpers ───────────────────────────────────────────────────────
+    // -- Display helpers -------------------------------------------------------
     private void ShowBanner(string message, bool success)
     {
         string css = success ? "hrc-result hrc-result--ok" : "hrc-result hrc-result--err";
@@ -405,7 +456,7 @@ public partial class COOPERP_NewScreens_HRConfig : System.Web.UI.Page
         return int.TryParse(val.ToString(), out i) ? i : 0;
     }
 
-    // ── DB helpers ────────────────────────────────────────────────────────────
+    // -- DB helpers ------------------------------------------------------------
     private static MySqlParameter P(string name, object value)
     {
         return new MySqlParameter(name, value ?? DBNull.Value);

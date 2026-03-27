@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -328,7 +328,7 @@ public partial class COOPERP_NewScreens_AcademicResults : System.Web.UI.Page
                         if (!string.IsNullOrEmpty(searchTerm))
                             msg += " for '" + searchTerm + "'";
                         if (dt.Rows.Count >= 5000)
-                            msg += " (limit reached — use filters to narrow down)";
+                            msg += " (limit reached - use filters to narrow down)";
                         lblMessage.Text = msg;
                         lblMessage.ForeColor = System.Drawing.Color.Green;
                     }
