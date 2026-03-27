@@ -1,6 +1,6 @@
 # Campus Dynamics EMIS — AI Assistant Reference
 > Working reference for every session. For full design specs see `NewScreens/DESIGN_SYSTEM.md`.
-> Last updated: 2026-03-25
+> Last updated: 2026-03-27
 
 ---
 
