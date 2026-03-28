@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.IO;
 using System.Text;
 using System.Web;
 using System.Web.UI;
@@ -31,6 +32,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        // Short-circuit for AJAX requests (preview / batch processing)
+        if (HandleAjaxRequest()) return;
+
         // ALWAYS reload dropdown items — ViewState is disabled on master page,
         // so dropdown items are lost on every postback. ASP.NET's second
         // ProcessPostData pass will restore user selections from posted form
@@ -40,11 +44,13 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
         if (!IsPostBack)
         {
-            // Filter defaults: show everything
-            ddlAcadYear.SelectedValue = "";
-            ddlSemester.SelectedValue = "";
+            // Filter defaults: current academic year + current semester
+            // ddlAcadYear already has current year selected by PopulateDropDown
+            int curSem = AcademicYearHelper.GetCurrentSemester();
+            if (curSem >= 1 && curSem <= 3)
+                ddlSemester.SelectedValue = curSem.ToString();
             // Form defaults: current period
-            ddlAddSemester.SelectedValue = AcademicYearHelper.GetCurrentSemester().ToString();
+            ddlAddSemester.SelectedValue = curSem.ToString();
             UpdateDisplayLabels();
             LoadStats();
             BindGrid();
@@ -57,8 +63,8 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
     private void LoadAcademicYears()
     {
-        // Main filter dropdown (with "All" option)
-        AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, false);
+        // Main filter dropdown (with "All" option, select current year)
+        AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, true);
 
         // Form dropdown (no "All" option, default to current year)
         AcademicYearHelper.PopulateDropDown(ddlAddAcadYear, false, true);
@@ -122,9 +128,10 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                 SUM(CASE WHEN r.regstatus = 'DISCONTINUED'    THEN 1 ELSE 0 END)  AS discontinued,
                 SUM(CASE WHEN r.regstatus = 'HALTED'          THEN 1 ELSE 0 END)  AS halted,
                 SUM(CASE WHEN r.regstatus = 'DEAD YEAR'       THEN 1 ELSE 0 END)  AS dead_year,
-                SUM(CASE WHEN b.bill_count > 0 THEN 1 ELSE 0 END)                 AS billed,
-                SUM(CASE WHEN b.bill_count IS NULL OR b.bill_count = 0 THEN 1 ELSE 0 END) AS not_billed
+                SUM(CASE WHEN s.new_status = 'ACTIVE' AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED') AND b.bill_count > 0 THEN 1 ELSE 0 END) AS billed,
+                SUM(CASE WHEN s.new_status = 'ACTIVE' AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED') AND (b.bill_count IS NULL OR b.bill_count = 0) THEN 1 ELSE 0 END) AS not_billed
             FROM acad_registration r
+            LEFT JOIN acad_student s ON s.regno = r.regno
             LEFT JOIN (
                 SELECT regno, acadyear, semester, COUNT(*) AS bill_count
                 FROM campus_dynamics_accounts.fin_studentfeestracking
@@ -149,16 +156,16 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                     {
                         if (rdr.Read())
                         {
-                            litTotal.Text          = SafeStr(rdr["total"]);
-                            litUnregistered.Text   = SafeStr(rdr["unregistered"]);
-                            litRegistered.Text     = SafeStr(rdr["registered"]);
-                            litLateRegistered.Text = SafeStr(rdr["late_reg"]);
-                            litCleared.Text        = SafeStr(rdr["cleared"]);
-                            litDiscontinued.Text   = SafeStr(rdr["discontinued"]);
-                            litHalted.Text         = SafeStr(rdr["halted"]);
-                            litDeadYear.Text       = SafeStr(rdr["dead_year"]);
-                            litBilled.Text         = SafeStr(rdr["billed"]);
-                            litNotBilled.Text      = SafeStr(rdr["not_billed"]);
+                            litTotal.Text          = FormatCount(rdr["total"]);
+                            litUnregistered.Text   = FormatCount(rdr["unregistered"]);
+                            litRegistered.Text     = FormatCount(rdr["registered"]);
+                            litLateRegistered.Text = FormatCount(rdr["late_reg"]);
+                            litCleared.Text        = FormatCount(rdr["cleared"]);
+                            litDiscontinued.Text   = FormatCount(rdr["discontinued"]);
+                            litHalted.Text         = FormatCount(rdr["halted"]);
+                            litDeadYear.Text       = FormatCount(rdr["dead_year"]);
+                            litBilled.Text         = FormatCount(rdr["billed"]);
+                            litNotBilled.Text      = FormatCount(rdr["not_billed"]);
                         }
                     }
                 }
@@ -386,9 +393,11 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
     protected void btnReset_Click(object sender, EventArgs e)
     {
-        txtSearch.Text                 = "";
-        ddlAcadYear.SelectedValue      = "";
-        ddlSemester.SelectedValue      = "";
+        txtSearch.Text = "";
+        // Reset to current academic year + semester (not "All")
+        AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, true);
+        int curSem = AcademicYearHelper.GetCurrentSemester();
+        ddlSemester.SelectedValue      = (curSem >= 1 && curSem <= 3) ? curSem.ToString() : "";
         ddlStudyYear.SelectedValue     = "";
         ddlRegStatus.SelectedValue     = "";
         ddlProgramme.SelectedValue     = "";
@@ -1108,6 +1117,224 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         catch { /* billing failure should not block registration */ }
     }
 
+    // ===================================================================
+    // REGISTER ALL — AJAX HANDLERS (preview + batch processing)
+    // ===================================================================
+
+    /// <summary>
+    /// Intercepts AJAX requests via ?action= querystring.
+    /// Returns true (short-circuit Page_Load) if an AJAX action was handled.
+    /// </summary>
+    private bool HandleAjaxRequest()
+    {
+        string action = Request.QueryString["action"];
+        if (string.IsNullOrEmpty(action)) return false;
+
+        Response.Clear();
+        Response.ContentType = "application/json";
+        Response.Cache.SetCacheability(HttpCacheability.NoCache);
+        try
+        {
+            switch (action)
+            {
+                case "preview_register_all": HandlePreviewRegisterAll(); break;
+                case "register_batch":       HandleRegisterBatch();      break;
+                default: Response.Write("{\"error\":\"Unknown action\"}"); break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"error\":\"" + JsEncode(ex.Message) + "\"}");
+        }
+        try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
+        return true;
+    }
+
+    /// <summary>
+    /// Returns JSON preview: student list, programme breakdown, year breakdown
+    /// for UNREGISTERED + ACTIVE students in current year+semester.
+    /// </summary>
+    private void HandlePreviewRegisterAll()
+    {
+        string curYear = AcademicYearHelper.GetCurrentAcademicYear();
+        int curSem = AcademicYearHelper.GetCurrentSemester();
+        if (string.IsNullOrEmpty(curYear) || curSem < 1)
+        {
+            Response.Write("{\"error\":\"Could not determine current academic year/semester.\"}");
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("{");
+        sb.AppendFormat("\"acadYear\":\"{0}\",\"semester\":{1},", JsEncode(curYear), curSem);
+
+        var allIds = new List<int>();
+        var students = new List<string>();
+        var progCounts = new Dictionary<string, int>();
+        var yearCounts = new Dictionary<int, int>();
+
+        using (var conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            const string sql = @"
+                SELECT r.ID, r.regno,
+                       TRIM(CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,''))) AS fullname,
+                       IFNULL(p.progname, s.progid) AS programme,
+                       r.studyyear
+                FROM acad_registration r
+                INNER JOIN acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
+                LEFT JOIN acad_programme p ON p.progcode = s.progid
+                WHERE r.acad_year = @ay AND r.semester = @sem
+                  AND r.regstatus = 'UNREGISTERED'
+                ORDER BY p.progname, s.firstname, s.othername";
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@ay", curYear);
+                cmd.Parameters.AddWithValue("@sem", curSem);
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        int id = Convert.ToInt32(rdr["ID"]);
+                        string prog = rdr["programme"].ToString().Trim();
+                        int yr = 0;
+                        int.TryParse(rdr["studyyear"].ToString(), out yr);
+
+                        allIds.Add(id);
+
+                        if (!progCounts.ContainsKey(prog)) progCounts[prog] = 0;
+                        progCounts[prog]++;
+                        if (!yearCounts.ContainsKey(yr)) yearCounts[yr] = 0;
+                        yearCounts[yr]++;
+
+                        // Preview detail limited to 200 rows
+                        if (students.Count < 200)
+                        {
+                            students.Add(string.Format(
+                                "{{\"id\":{0},\"r\":\"{1}\",\"n\":\"{2}\",\"p\":\"{3}\",\"y\":{4}}}",
+                                id,
+                                JsEncode(rdr["regno"].ToString().Trim()),
+                                JsEncode(rdr["fullname"].ToString().Trim()),
+                                JsEncode(prog),
+                                yr));
+                        }
+                    }
+                }
+            }
+        }
+
+        sb.AppendFormat("\"totalCount\":{0},", allIds.Count);
+
+        // IDs for processing
+        sb.Append("\"ids\":[");
+        for (int i = 0; i < allIds.Count; i++)
+        {
+            if (i > 0) sb.Append(",");
+            sb.Append(allIds[i]);
+        }
+        sb.Append("],");
+
+        // Programme breakdown
+        sb.Append("\"byProgramme\":[");
+        int pi = 0;
+        foreach (var kv in progCounts)
+        {
+            if (pi++ > 0) sb.Append(",");
+            sb.AppendFormat("{{\"p\":\"{0}\",\"c\":{1}}}", JsEncode(kv.Key), kv.Value);
+        }
+        sb.Append("],");
+
+        // Year breakdown
+        sb.Append("\"byYear\":[");
+        int yi = 0;
+        foreach (var kv in yearCounts)
+        {
+            if (yi++ > 0) sb.Append(",");
+            sb.AppendFormat("{{\"y\":{0},\"c\":{1}}}", kv.Key, kv.Value);
+        }
+        sb.Append("],");
+
+        // Students preview
+        sb.Append("\"students\":[");
+        sb.Append(string.Join(",", students.ToArray()));
+        sb.Append("]}");
+        Response.Write(sb.ToString());
+    }
+
+    /// <summary>
+    /// Processes a batch of registration IDs: registers + auto-bills each.
+    /// Accepts POST body: {"ids":[1,2,3,...]}
+    /// Returns JSON: {registered, billed, errors, results:[{id,s}]}
+    /// </summary>
+    private void HandleRegisterBatch()
+    {
+        string body;
+        using (var reader = new StreamReader(Request.InputStream))
+        {
+            body = reader.ReadToEnd();
+        }
+
+        // Parse ids from JSON body: {"ids":[1,2,3]}
+        int idsStart = body.IndexOf('[');
+        int idsEnd = body.IndexOf(']');
+        if (idsStart < 0 || idsEnd < 0 || idsEnd <= idsStart)
+        {
+            Response.Write("{\"error\":\"Invalid request body\"}");
+            return;
+        }
+        string idsStr = body.Substring(idsStart + 1, idsEnd - idsStart - 1);
+        var ids = new List<int>();
+        foreach (string s in idsStr.Split(','))
+        {
+            int id;
+            if (int.TryParse(s.Trim(), out id)) ids.Add(id);
+        }
+        if (ids.Count == 0) { Response.Write("{\"registered\":0,\"billed\":0,\"errors\":0,\"results\":[]}"); return; }
+
+        string user = GetCurrentUser();
+        int registered = 0, billed = 0, errors = 0;
+        var results = new List<string>();
+
+        foreach (int id in ids)
+        {
+            try
+            {
+                bool regOk = false;
+                using (var conn = new MySqlConnection(ConnectionString))
+                {
+                    conn.Open();
+                    using (var cmd = new MySqlCommand(
+                        @"UPDATE acad_registration SET regstatus='REGISTERED', registeredBy=@user
+                          WHERE ID=@id AND regstatus='UNREGISTERED'", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        cmd.Parameters.AddWithValue("@user", user);
+                        regOk = cmd.ExecuteNonQuery() > 0;
+                    }
+                }
+                if (regOk)
+                {
+                    registered++;
+                    try { AutoBillStudent(id); billed++; results.Add(string.Format("{{\"id\":{0},\"s\":\"ok\"}}", id)); }
+                    catch { results.Add(string.Format("{{\"id\":{0},\"s\":\"reg_ok_bill_fail\"}}", id)); }
+                }
+                else
+                {
+                    results.Add(string.Format("{{\"id\":{0},\"s\":\"skip\"}}", id));
+                }
+            }
+            catch (Exception ex)
+            {
+                errors++;
+                results.Add(string.Format("{{\"id\":{0},\"s\":\"error\",\"m\":\"{1}\"}}", id, JsEncode(ex.Message)));
+            }
+        }
+
+        Response.Write(string.Format(
+            "{{\"registered\":{0},\"billed\":{1},\"errors\":{2},\"results\":[{3}]}}",
+            registered, billed, errors, string.Join(",", results.ToArray())));
+    }
+
     private bool ClearStudent(int id)
     {
         try
@@ -1282,6 +1509,14 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         if (val == null || val == DBNull.Value) return "0";
         string s = val.ToString().Trim();
         return string.IsNullOrEmpty(s) ? "0" : s;
+    }
+
+    private string FormatCount(object val)
+    {
+        if (val == null || val == DBNull.Value) return "0";
+        long n;
+        if (long.TryParse(val.ToString(), out n)) return n.ToString("N0");
+        return val.ToString();
     }
 
     /// <summary>Escape a value for safe inclusion inside a JS single-quoted string literal.</summary>

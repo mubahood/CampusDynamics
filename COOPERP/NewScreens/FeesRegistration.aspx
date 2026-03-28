@@ -501,7 +501,7 @@
                 <div class="hr-form-group"><label class="hr-form-label">Study Year <span class="req">*</span></label><asp:DropDownList ID="ddlAddStudyYear" runat="server" CssClass="hr-form-select"><asp:ListItem Value="1" Text="Year 1" /><asp:ListItem Value="2" Text="Year 2" /><asp:ListItem Value="3" Text="Year 3" /><asp:ListItem Value="4" Text="Year 4" /><asp:ListItem Value="5" Text="Year 5" /></asp:DropDownList><div class="hr-form-hint">Year of study in their programme.</div></div>
                 <div class="hr-form-group"><label class="hr-form-label">Residence Status</label><asp:DropDownList ID="ddlAddResidence" runat="server" CssClass="hr-form-select"><asp:ListItem Value="NON RESIDENT" Text="Non-Resident" /><asp:ListItem Value="RESIDENT" Text="Resident (Halls)" /></asp:DropDownList></div>
             </div>
-            <div class="hr-form-group"><label class="hr-form-label">Initial Registration Status</label><asp:DropDownList ID="ddlAddStatus" runat="server" CssClass="hr-form-select"><asp:ListItem Value="UNREGISTERED" Text="Unregistered - pending student registration" /><asp:ListItem Value="REGISTERED" Text="Registered - mark as already registered" /><asp:ListItem Value="LATE REGISTERED" Text="Late Registered - registered after deadline" /></asp:DropDownList></div>
+            <div class="hr-form-group"><label class="hr-form-label">Initial Registration Status</label><asp:DropDownList ID="ddlAddStatus" runat="server" CssClass="hr-form-select"><asp:ListItem Value="REGISTERED" Text="Registered - mark as registered" Selected="True" /><asp:ListItem Value="LATE REGISTERED" Text="Late Registered - registered after deadline" /><asp:ListItem Value="UNREGISTERED" Text="Unregistered - pending student registration" /></asp:DropDownList></div>
             <div id="addRegResult" runat="server" class="hr-result" visible="false"><asp:Literal ID="litAddRegResult" runat="server" /></div>
         </div>
         <div class="hr-modal__footer">
@@ -758,7 +758,7 @@
             <div class="hr-modal__section">Registration Options</div>
             <div class="hr-form-group">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                    <asp:CheckBox ID="chkRegisterNow" runat="server" />
+                    <asp:CheckBox ID="chkRegisterNow" runat="server" Checked="true" />
                     <span style="font-size:12px;font-weight:600;color:#333;">Register student immediately upon creation</span>
                 </label>
                 <div class="hr-form-hint">If checked, the student will be marked as REGISTERED and auto-billed for their first semester.</div>

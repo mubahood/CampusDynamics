@@ -40,10 +40,6 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
 
     private string FormatCurrency(double amount)
     {
-        if (amount >= 1000000000)
-            return string.Format("UGX {0:F1}B", amount / 1000000000);
-        if (amount >= 1000000)
-            return string.Format("UGX {0:F1}M", amount / 1000000);
         return string.Format("UGX {0:N0}", amount);
     }
 
@@ -193,6 +189,8 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
             LoadProgrammeRevenue(yearFilter, semFilter);
             LoadTopDebtors(yearFilter, semFilter);
             LoadAnomalyStats(yearFilter, semFilter);
+            LoadLatestPayments(yearFilter, semFilter);
+            LoadLatestBillings(yearFilter, semFilter);
         }
         catch (Exception ex)
         {
@@ -445,6 +443,8 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
         var semLabels = new List<string>();
         var semBilled = new List<string>();
         var semPaid   = new List<string>();
+        var semBalance = new List<string>();
+        var semRate   = new List<string>();
 
         using (var conn = new MySqlConnection(AcctConnStr))
         {
@@ -499,6 +499,8 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                         semLabels.Add(sem.ToString());
                         semBilled.Add(b.ToString("F0"));
                         semPaid.Add(p.ToString("F0"));
+                        semBalance.Add(bal.ToString("F0"));
+                        semRate.Add(pct.ToString("F1"));
                     }
                 }
             }
@@ -510,6 +512,8 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
         hfSemLabels.Value  = string.Join(",", semLabels.ToArray());
         hfSemBilled.Value  = string.Join(",", semBilled.ToArray());
         hfSemPaid.Value    = string.Join(",", semPaid.ToArray());
+        hfSemBalance.Value = string.Join(",", semBalance.ToArray());
+        hfSemRate.Value    = string.Join(",", semRate.ToArray());
     }
 
     // ===================================================================
@@ -520,40 +524,61 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
     {
         string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
         var labels = new List<string>();
-        var values = new List<string>();
+        var payValues = new List<string>();
+        var billValues = new List<string>();
 
         using (var conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
+            // Past 12 months from today, with correlated subqueries for enrolled-only totals
             string sql = @"
-                SELECT DATE_FORMAT(ft.trans_date, '%b') AS month_label,
-                       MONTH(ft.trans_date) AS month_num,
-                       SUM(ft.amount) AS total
-                FROM fin_studentfeestracking ft" + ENROLLED_JOIN + @"
-                WHERE ft.trans_type = 'Payment'
-                  AND ft.acadyear = @ay" + ENROLLED_WHERE + semSql + @"
-                  AND ft.trans_date IS NOT NULL
-                GROUP BY month_label, month_num
-                ORDER BY month_num";
+                SELECT DATE_FORMAT(m.month_start, '%b-%y') AS month_label,
+                       m.month_start,
+                       (SELECT COALESCE(SUM(ft.amount),0)
+                        FROM fin_studentfeestracking ft
+                        INNER JOIN campus_dynamics.acad_student s ON s.regno = ft.regno AND s.new_status = 'ACTIVE'
+                        INNER JOIN campus_dynamics.acad_registration r ON r.regno = ft.regno AND r.acad_year = ft.acadyear
+                            AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                        WHERE ft.trans_type = 'Payment'
+                          AND DATE_FORMAT(ft.trans_date, '%Y-%m') = DATE_FORMAT(m.month_start, '%Y-%m')
+                          AND ft.trans_date IS NOT NULL" + semSql + @"
+                       ) AS total_paid,
+                       (SELECT COALESCE(SUM(ft2.amount),0)
+                        FROM fin_studentfeestracking ft2
+                        INNER JOIN campus_dynamics.acad_student s2 ON s2.regno = ft2.regno AND s2.new_status = 'ACTIVE'
+                        INNER JOIN campus_dynamics.acad_registration r2 ON r2.regno = ft2.regno AND r2.acad_year = ft2.acadyear
+                            AND r2.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                        WHERE ft2.trans_type = 'Bill'
+                          AND DATE_FORMAT(ft2.trans_date, '%Y-%m') = DATE_FORMAT(m.month_start, '%Y-%m')
+                          AND ft2.trans_date IS NOT NULL" + semSql.Replace("ft.", "ft2.") + @"
+                       ) AS total_billed
+                FROM (
+                    SELECT DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL n MONTH), '%Y-%m-01') AS month_start
+                    FROM (SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3
+                          UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7
+                          UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11) nums
+                ) m
+                ORDER BY m.month_start";
 
             using (var cmd = new MySqlCommand(sql, conn))
             {
-                cmd.CommandTimeout = 60;
-                cmd.Parameters.AddWithValue("@ay", yearFilter);
+                cmd.CommandTimeout = 120;
                 AddSemParam(cmd, semFilter);
                 using (var rdr = cmd.ExecuteReader())
                 {
                     while (rdr.Read())
                     {
                         labels.Add(rdr["month_label"].ToString());
-                        values.Add(Convert.ToDouble(rdr["total"]).ToString("F0"));
+                        payValues.Add(Convert.ToDouble(rdr["total_paid"]).ToString("F0"));
+                        billValues.Add(Convert.ToDouble(rdr["total_billed"]).ToString("F0"));
                     }
                 }
             }
         }
 
         hfMonthLabels.Value = string.Join(",", labels.ToArray());
-        hfMonthValues.Value = string.Join(",", values.ToArray());
+        hfMonthValues.Value = string.Join(",", payValues.ToArray());
+        hfMonthBillValues.Value = string.Join(",", billValues.ToArray());
     }
 
     // ===================================================================
@@ -925,5 +950,119 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
         {
             pnlPaidUnregistered.Visible = false;
         }
+    }
+
+    // ===================================================================
+    // 9. LATEST 20 PAYMENTS
+    // ===================================================================
+
+    private void LoadLatestPayments(string yearFilter, string semFilter)
+    {
+        string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
+        string sql = @"
+            SELECT ft.TID, ft.regno,
+                TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
+                ft.amount, ft.trans_date, ft.detail,
+                COALESCE(b.ItemName, ft.item_code) AS item_name
+            FROM fin_studentfeestracking ft" + ENROLLED_JOIN + @"
+            LEFT JOIN academicbillingitems b ON b.ItemCode = ft.item_code
+            WHERE ft.trans_type = 'Payment'
+              AND ft.acadyear = @ay" + ENROLLED_WHERE + semSql + @"
+            ORDER BY ft.TID DESC
+            LIMIT 20";
+
+        var rows = new StringBuilder();
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                cmd.Parameters.AddWithValue("@ay", yearFilter);
+                AddSemParam(cmd, semFilter);
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    int cnt = 0;
+                    while (rdr.Read())
+                    {
+                        cnt++;
+                        double amt = Convert.ToDouble(rdr["amount"]);
+                        string dt = "";
+                        if (rdr["trans_date"] != DBNull.Value)
+                            dt = Convert.ToDateTime(rdr["trans_date"]).ToString("dd MMM yyyy");
+
+                        rows.AppendFormat(
+                            "<tr><td style='font-weight:600;'>{0}</td><td>{1}</td>" +
+                            "<td>{2}</td>" +
+                            "<td style='text-align:right;font-weight:600;color:#155724;'>{3}</td>" +
+                            "<td style='font-size:10px;color:#888;'>{4}</td></tr>",
+                            Server.HtmlEncode(rdr["regno"].ToString()),
+                            Server.HtmlEncode(rdr["student_name"].ToString()),
+                            Server.HtmlEncode(rdr["item_name"].ToString()),
+                            FormatCurrency(amt), dt);
+                    }
+                    if (cnt == 0)
+                        rows.Append("<tr><td colspan='5' style='text-align:center;color:#aaa;padding:30px;font-size:12px;'>No payments found</td></tr>");
+                }
+            }
+        }
+        litLatestPayRows.Text = rows.ToString();
+    }
+
+    // ===================================================================
+    // 10. LATEST 20 BILLINGS
+    // ===================================================================
+
+    private void LoadLatestBillings(string yearFilter, string semFilter)
+    {
+        string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
+        string sql = @"
+            SELECT ft.TID, ft.regno,
+                TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
+                ft.amount, ft.trans_date, ft.detail,
+                COALESCE(b.ItemName, ft.item_code) AS item_name
+            FROM fin_studentfeestracking ft" + ENROLLED_JOIN + @"
+            LEFT JOIN academicbillingitems b ON b.ItemCode = ft.item_code
+            WHERE ft.trans_type = 'Bill'
+              AND ft.acadyear = @ay" + ENROLLED_WHERE + semSql + @"
+            ORDER BY ft.TID DESC
+            LIMIT 20";
+
+        var rows = new StringBuilder();
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                cmd.Parameters.AddWithValue("@ay", yearFilter);
+                AddSemParam(cmd, semFilter);
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    int cnt = 0;
+                    while (rdr.Read())
+                    {
+                        cnt++;
+                        double amt = Convert.ToDouble(rdr["amount"]);
+                        string dt = "";
+                        if (rdr["trans_date"] != DBNull.Value)
+                            dt = Convert.ToDateTime(rdr["trans_date"]).ToString("dd MMM yyyy");
+
+                        rows.AppendFormat(
+                            "<tr><td style='font-weight:600;'>{0}</td><td>{1}</td>" +
+                            "<td>{2}</td>" +
+                            "<td style='text-align:right;font-weight:600;color:#174DA4;'>{3}</td>" +
+                            "<td style='font-size:10px;color:#888;'>{4}</td></tr>",
+                            Server.HtmlEncode(rdr["regno"].ToString()),
+                            Server.HtmlEncode(rdr["student_name"].ToString()),
+                            Server.HtmlEncode(rdr["item_name"].ToString()),
+                            FormatCurrency(amt), dt);
+                    }
+                    if (cnt == 0)
+                        rows.Append("<tr><td colspan='5' style='text-align:center;color:#aaa;padding:30px;font-size:12px;'>No billings found</td></tr>");
+                }
+            }
+        }
+        litLatestBillRows.Text = rows.ToString();
     }
 }

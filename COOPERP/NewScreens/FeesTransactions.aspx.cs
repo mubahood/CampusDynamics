@@ -21,7 +21,8 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     protected void Page_Load(object sender, EventArgs e)
     {
         // AJAX student lookup — returns JSON, no page rendering
-        if (Request.QueryString["ajax"] == "lookup")
+        string ajaxAction = Request.QueryString["ajax"];
+        if (ajaxAction == "lookup" || ajaxAction == "search")
         {
             HandleStudentLookup();
             return;
@@ -41,6 +42,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         RestorePostedValue(ddlTransType);
         RestorePostedValue(ddlBillItem);
         RestorePostedValue(ddlPostStatus);
+        RestorePostedValue(ddlStudStatus);
         RestorePostedValue(ddlPageSize);
 
         if (!IsPostBack)
@@ -147,6 +149,28 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         StringBuilder where = new StringBuilder("WHERE 1=1");
         MySqlCommand cmd = new MySqlCommand();
 
+        // Student status filter — defaults to "Active" (enrolled students only)
+        string studStatus = "";
+        string postedStudStatus = Request.Form[ddlStudStatus.UniqueID];
+        if (!string.IsNullOrEmpty(postedStudStatus))
+            studStatus = postedStudStatus;
+        else if (!IsPostBack)
+            studStatus = "Active";  // default on first load
+        else
+            studStatus = ddlStudStatus.SelectedValue;
+
+        // Determine the JOIN type based on student status filter
+        string studentJoin;
+        if (!String.IsNullOrEmpty(studStatus))
+        {
+            studentJoin = "INNER JOIN campus_dynamics.acad_student s ON s.regno = t.regno AND UPPER(COALESCE(s.new_status,'')) = UPPER(@studStatus)";
+            cmd.Parameters.AddWithValue("@studStatus", studStatus);
+        }
+        else
+        {
+            studentJoin = "LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno";
+        }
+
         if (!String.IsNullOrEmpty(ddlAcadYear.SelectedValue))
         {
             where.Append(" AND t.acadyear = @yr");
@@ -191,8 +215,8 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                 SUM(CASE WHEN t.trans_type='Bill' THEN t.amount ELSE 0 END) AS bill_amt,
                 SUM(CASE WHEN t.trans_type='Payment' THEN t.amount ELSE 0 END) AS pay_amt
               FROM fin_studentfeestracking t
-              LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno
-              {0}", where.ToString());
+              {1}
+              {0}", where.ToString(), studentJoin);
 
         // Data query — no LIMIT; DX grid handles paging natively
         string dataSql = String.Format(
@@ -202,10 +226,10 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                      t.acadyear, t.semester, t.item_code,
                      COALESCE(b.ItemName, t.item_code) AS item_name
               FROM fin_studentfeestracking t
-              LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno
+              {1}
               LEFT JOIN academicbillingitems b ON b.ItemCode = t.item_code
               {0}
-              ORDER BY t.TID DESC", where.ToString());
+              ORDER BY t.TID DESC", where.ToString(), studentJoin);
 
         using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
         {
@@ -262,6 +286,8 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             ctx = ddlAcadYear.SelectedValue;
         if (!String.IsNullOrEmpty(ddlSemester.SelectedValue))
             ctx += " Sem " + ddlSemester.SelectedValue;
+        if (!String.IsNullOrEmpty(studStatus))
+            ctx += (ctx.Length > 0 ? " | " : "") + studStatus + " students";
         if (!String.IsNullOrEmpty(ctx))
             litAcadContext.Text = "<span class='ft-card__meta'>" + Server.HtmlEncode(ctx.Trim()) + "</span>";
         else
@@ -273,6 +299,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     protected void ddlTransType_SelectedIndexChanged(object sender, EventArgs e) { }
     protected void ddlBillItem_SelectedIndexChanged(object sender, EventArgs e) { }
     protected void ddlPostStatus_SelectedIndexChanged(object sender, EventArgs e) { }
+    protected void ddlStudStatus_SelectedIndexChanged(object sender, EventArgs e) { }
     protected void ddlPageSize_Changed(object sender, EventArgs e) { }
 
     protected void gvTransactions_PageIndexChanged(object sender, EventArgs e) { }
@@ -286,6 +313,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         ddlTransType.SelectedIndex = 0;
         ddlBillItem.SelectedIndex = 0;
         ddlPostStatus.SelectedIndex = 0;
+        ddlStudStatus.SelectedIndex = 0; // Reset to "Active" (first item)
         ddlPageSize.SelectedIndex = 0;
         txtSearch.Text = "";
         LoadTransactions();
@@ -296,6 +324,19 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         // Build WHERE (same as LoadTransactions)
         StringBuilder where = new StringBuilder("WHERE 1=1");
         MySqlCommand cmd = new MySqlCommand();
+
+        // Student status filter for export
+        string studStatus = ddlStudStatus.SelectedValue;
+        string studentJoin;
+        if (!String.IsNullOrEmpty(studStatus))
+        {
+            studentJoin = "INNER JOIN campus_dynamics.acad_student s ON s.regno = t.regno AND UPPER(COALESCE(s.new_status,'')) = UPPER(@studStatus)";
+            cmd.Parameters.AddWithValue("@studStatus", studStatus);
+        }
+        else
+        {
+            studentJoin = "LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno";
+        }
 
         if (!String.IsNullOrEmpty(ddlAcadYear.SelectedValue))
         {
@@ -335,10 +376,10 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                      t.trans_type, COALESCE(b.ItemName, t.item_code) AS item_name,
                      t.amount, t.detail, t.post_status, t.trans_date, t.acadyear, t.semester
               FROM fin_studentfeestracking t
-              LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno
+              {1}
               LEFT JOIN academicbillingitems b ON b.ItemCode = t.item_code
               {0}
-              ORDER BY t.TID DESC", where.ToString());
+              ORDER BY t.TID DESC", where.ToString(), studentJoin);
 
         DataTable dt = new DataTable();
         using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
@@ -393,10 +434,6 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
 
     private string FormatCurrency(decimal val)
     {
-        if (val >= 1000000000m)
-            return String.Format("UGX {0:N1}B", val / 1000000000m);
-        if (val >= 1000000m)
-            return String.Format("UGX {0:N1}M", val / 1000000m);
         return String.Format("UGX {0:N0}", val);
     }
 
@@ -414,10 +451,12 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         Response.Clear();
         Response.ContentType = "application/json";
 
-        string regno = (Request.QueryString["regno"] ?? "").Trim();
-        if (string.IsNullOrEmpty(regno))
+        string action = (Request.QueryString["ajax"] ?? "").Trim();
+        string query = (Request.QueryString["q"] ?? Request.QueryString["regno"] ?? "").Trim();
+
+        if (string.IsNullOrEmpty(query) || query.Length < 2)
         {
-            Response.Write("{\"found\":false}");
+            Response.Write("{\"results\":[]}");
             Response.End();
             return;
         }
@@ -427,40 +466,101 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(MainConnStr))
             {
                 conn.Open();
-                string sql = @"SELECT 
-                    TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
-                    COALESCE(p.programme,'N/A') AS programme,
-                    COALESCE(s.studsesion,'N/A') AS session_name
-                  FROM acad_student s
-                  LEFT JOIN acad_programme p ON p.progid = s.progid
-                  WHERE s.regno = @r
-                  LIMIT 1";
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+
+                // Powerful multi-field search: by reg number, student number, first name, other name, or full name
+                // Supports partial matching and multiple search terms
+                string[] terms = query.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                StringBuilder whereClause = new StringBuilder();
+                MySqlCommand cmd = new MySqlCommand();
+
+                // Include all students with a valid status (Active, Admitted, etc.)
+                // Only exclude blank/null status records
+                whereClause.Append("COALESCE(s.new_status,'') != ''");
+
+                if (terms.Length == 1)
                 {
-                    cmd.Parameters.AddWithValue("@r", regno);
-                    using (MySqlDataReader rdr = cmd.ExecuteReader())
+                    // Single term — search across all key fields
+                    whereClause.Append(@" AND (
+                        s.regno LIKE @q1 
+                        OR s.entryno LIKE @q1 
+                        OR s.firstname LIKE @q1 
+                        OR s.othername LIKE @q1 
+                        OR CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,'')) LIKE @q1
+                    )");
+                    cmd.Parameters.AddWithValue("@q1", "%" + terms[0] + "%");
+                }
+                else
+                {
+                    // Multiple terms — each term must match at least one field (AND logic)
+                    // This handles "John Doe" matching firstname=John AND othername=Doe
+                    for (int i = 0; i < terms.Length && i < 5; i++)
                     {
-                        if (rdr.Read())
-                        {
-                            string name = rdr["student_name"].ToString();
-                            string prog = rdr["programme"].ToString();
-                            string sess = rdr["session_name"].ToString();
-                            // Simple JSON (no framework dependency)
-                            Response.Write(String.Format(
-                                "{{\"found\":true,\"name\":\"{0}\",\"programme\":\"{1}\",\"session\":\"{2}\"}}",
-                                JsEsc(name), JsEsc(prog), JsEsc(sess)));
-                        }
-                        else
-                        {
-                            Response.Write("{\"found\":false}");
-                        }
+                        string pName = "@qt" + i;
+                        whereClause.Append(" AND ");
+                        whereClause.AppendFormat(@"(
+                            s.regno LIKE {0} 
+                            OR s.entryno LIKE {0} 
+                            OR s.firstname LIKE {0} 
+                            OR s.othername LIKE {0}
+                        )", pName);
+                        cmd.Parameters.AddWithValue(pName, "%" + terms[i] + "%");
                     }
                 }
+
+                string sql = String.Format(@"SELECT 
+                    s.regno,
+                    COALESCE(s.entryno, '') AS studno,
+                    TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
+                    COALESCE(p.progname, 'N/A') AS programme,
+                    COALESCE(s.studsesion, 'N/A') AS session_name,
+                    COALESCE(s.new_status, '') AS status
+                  FROM acad_student s
+                  LEFT JOIN acad_programme p ON p.progcode = s.progid
+                  WHERE {0}
+                  ORDER BY 
+                    CASE WHEN UPPER(COALESCE(s.new_status,'')) = 'ACTIVE' THEN 0
+                         WHEN UPPER(COALESCE(s.new_status,'')) = 'ADMITTED' THEN 1
+                         ELSE 2 END,
+                    CASE WHEN s.regno LIKE @qExact THEN 0
+                         WHEN s.regno LIKE @qStart THEN 1
+                         WHEN s.firstname LIKE @qStart THEN 2
+                         ELSE 3 END,
+                    s.firstname, s.othername
+                  LIMIT 15", whereClause.ToString());
+
+                cmd.CommandText = sql;
+                cmd.Connection = conn;
+                cmd.Parameters.AddWithValue("@qExact", query);
+                cmd.Parameters.AddWithValue("@qStart", query + "%");
+
+                StringBuilder json = new StringBuilder();
+                json.Append("{\"results\":[");
+                bool first = true;
+
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        if (!first) json.Append(",");
+                        first = false;
+                        json.AppendFormat(
+                            "{{\"regno\":\"{0}\",\"studno\":\"{1}\",\"name\":\"{2}\",\"programme\":\"{3}\",\"session\":\"{4}\",\"status\":\"{5}\"}}",
+                            JsEsc(rdr["regno"].ToString()),
+                            JsEsc(rdr["studno"].ToString()),
+                            JsEsc(rdr["student_name"].ToString()),
+                            JsEsc(rdr["programme"].ToString()),
+                            JsEsc(rdr["session_name"].ToString()),
+                            JsEsc(rdr["status"].ToString()));
+                    }
+                }
+
+                json.Append("]}");
+                Response.Write(json.ToString());
             }
         }
-        catch
+        catch (Exception ex)
         {
-            Response.Write("{\"found\":false}");
+            Response.Write("{\"results\":[],\"error\":\"" + JsEsc(ex.Message) + "\"}");
         }
 
         Response.End();
@@ -479,7 +579,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         RestorePostedValue(ddlTxPostStatus);
 
         // Gather values
-        string regno = txtTxRegNo.Text.Trim();
+        string regno = hfSelectedRegNo.Value.Trim();
         string transType = ddlTxTransType.SelectedValue;
         string billItemVal = ddlTxBillItem.SelectedValue;
         string amountStr = txtTxAmount.Text.Trim();
@@ -615,7 +715,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                 transType, amount.ToString("N0"), regno, itemText, acadYear, semester), true);
 
             // Clear modal fields
-            txtTxRegNo.Text = "";
+            hfSelectedRegNo.Value = "";
             txtTxAmount.Text = "";
             txtTxDetail.Text = "";
             ddlTxTransType.SelectedIndex = 0;

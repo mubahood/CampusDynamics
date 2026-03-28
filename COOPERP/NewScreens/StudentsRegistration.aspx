@@ -12,7 +12,7 @@
 .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
 .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
 .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
-.cd-page-header__right { display:flex; gap:8px; align-items:center; }
+.cd-page-header__right { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 .cd-page-header .hr-btn--primary { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3); }
 .cd-page-header .hr-btn--primary:hover { background:rgba(255,255,255,.25); color:#fff; }
 
@@ -405,6 +405,79 @@
 @media print {
     .rg-batch-bar, .ct-filters, .cd-page-header .hr-btn { display: none !important; }
 }
+
+/* -- Register All Modal ------------------------------ */
+.ra-phase { display: none; }
+.ra-summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.ra-summary__item {
+    flex: 1 1 100px; background: #f5f7fa; border: 1px solid #e4e8f0;
+    padding: 10px 14px; text-align: center; min-width: 90px;
+}
+.ra-summary__val { font-size: 20px; font-weight: 800; color: #05275C; line-height: 1.2; }
+.ra-summary__label { font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: #888; font-weight: 600; margin-top: 2px; }
+.ra-breakdown { margin-bottom: 12px; }
+.ra-breakdown__title {
+    font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #174DA4;
+    font-weight: 700; padding-bottom: 4px; border-bottom: 1px solid #e4e8f0; margin-bottom: 6px;
+}
+.ra-breakdown__row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; border-bottom: 1px solid #f5f5f5; }
+.ra-breakdown__label { color: #333; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
+.ra-breakdown__count { font-weight: 700; color: #05275C; flex-shrink: 0; }
+.ra-breakdowns { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 600px) { .ra-breakdowns { grid-template-columns: 1fr; } }
+.ra-table-wrap { max-height: 240px; overflow-y: auto; border: 1px solid #e4e8f0; }
+.ra-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.ra-table th {
+    background: #f5f7fa; color: #555; font-size: 9px; text-transform: uppercase;
+    letter-spacing: .3px; font-weight: 600; padding: 7px 10px; text-align: left;
+    border-bottom: 2px solid #e0e5ed; position: sticky; top: 0; z-index: 1;
+}
+.ra-table td { padding: 5px 10px; border-bottom: 1px solid #f0f2f5; color: #1a1a2e; }
+.ra-table tr:hover td { background: #f8f9fb; }
+.ra-loading { text-align: center; padding: 40px 20px; color: #888; }
+.ra-loading__spinner {
+    width: 32px; height: 32px; border: 3px solid #e4e8f0; border-top-color: #174DA4;
+    border-radius: 50%; animation: raSpinner .8s linear infinite; margin: 0 auto 12px;
+}
+@keyframes raSpinner { to { transform: rotate(360deg); } }
+.ra-progress-wrap { margin: 16px 0; }
+.ra-progress { height: 28px; background: #e9ecef; position: relative; overflow: hidden; }
+.ra-progress__fill {
+    height: 100%; background: linear-gradient(90deg, #16a34a, #22c55e);
+    transition: width .3s ease; position: relative;
+}
+.ra-progress__fill::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+    animation: raShimmer 1.5s infinite;
+}
+@keyframes raShimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.ra-progress__text {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #1a1a2e; z-index: 1;
+}
+.ra-live-stats { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0; }
+.ra-live-stat {
+    flex: 1 1 80px; text-align: center; padding: 8px; background: #f5f7fa; border: 1px solid #e4e8f0;
+}
+.ra-live-stat__val { font-size: 18px; font-weight: 800; color: #05275C; }
+.ra-live-stat--ok .ra-live-stat__val { color: #16a34a; }
+.ra-live-stat--bill .ra-live-stat__val { color: #174DA4; }
+.ra-live-stat--err .ra-live-stat__val { color: #dc3545; }
+.ra-live-stat__lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .3px; color: #888; font-weight: 600; margin-top: 2px; }
+.ra-log { max-height: 160px; overflow-y: auto; background: #1a1a2e; padding: 10px 12px; font-family: 'Consolas','Monaco',monospace; font-size: 10px; line-height: 1.7; }
+.ra-log__entry { color: #a0aec0; }
+.ra-log__entry--ok { color: #68d391; }
+.ra-log__entry--error { color: #fc8181; }
+.ra-log__entry--info { color: #63b3ed; }
+.ra-done-wrap { text-align: center; padding: 16px 0 8px; }
+.ra-done-icon {
+    width: 56px; height: 56px; margin: 0 auto 12px; background: #e6f4ea;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+.ra-done-title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+.ra-done-sub { font-size: 12px; color: #666; margin-bottom: 16px; }
 </style>
 </asp:Content>
 
@@ -449,6 +522,10 @@
         <button type="button" class="hr-btn hr-btn--primary hr-btn--sm" onclick="openAddRegModal()">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Add Registration
+        </button>
+        <button type="button" class="hr-btn hr-btn--sm" style="background:#16a34a;color:#fff;border:none;" onclick="openRegisterAllModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Register All Unregistered
         </button>
         <button type="button" class="hr-btn hr-btn--primary hr-btn--sm" onclick="document.getElementById('<%=btnExportCsv.ClientID%>').click()">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -540,7 +617,7 @@
                 <div class="rg-stat__icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#00695c" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                 </div>
-                <div class="rg-stat__info"><div class="rg-stat__val"><asp:Literal ID="litBilled" runat="server" Text="0" /></div><div class="rg-stat__label">Billed</div></div>
+                <div class="rg-stat__info"><div class="rg-stat__val"><asp:Literal ID="litBilled" runat="server" Text="0" /></div><div class="rg-stat__label">Billed (Enrolled)</div></div>
                 <div class="rg-billing-progress"><div class="rg-billing-progress__fill" id="billedBar" style="width:0%"></div></div>
             </div>
             <!-- Not Billed -->
@@ -548,7 +625,7 @@
                 <div class="rg-stat__icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4e342e" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                 </div>
-                <div class="rg-stat__info"><div class="rg-stat__val"><asp:Literal ID="litNotBilled" runat="server" Text="0" /></div><div class="rg-stat__label">Not Billed</div></div>
+                <div class="rg-stat__info"><div class="rg-stat__val"><asp:Literal ID="litNotBilled" runat="server" Text="0" /></div><div class="rg-stat__label">Not Billed (Enrolled)</div></div>
                 <div class="rg-billing-progress"><div class="rg-billing-progress__fill" id="notBilledBar" style="width:0%"></div></div>
             </div>
         </div>
@@ -1019,8 +1096,8 @@
             <div class="hr-form-group">
                 <label class="hr-form-label">Initial Registration Status</label>
                 <asp:DropDownList ID="ddlAddStatus" runat="server" CssClass="hr-form-select">
+                    <asp:ListItem Value="REGISTERED"      Text="Registered - mark as already registered" Selected="True" />
                     <asp:ListItem Value="UNREGISTERED"    Text="Unregistered - pending student registration" />
-                    <asp:ListItem Value="REGISTERED"      Text="Registered - mark as already registered" />
                     <asp:ListItem Value="LATE REGISTERED" Text="Late Registered - registered after deadline" />
                 </asp:DropDownList>
             </div>
@@ -1088,6 +1165,137 @@
 <div id="regToast" class="rg-toast">
     <svg id="regToastIcon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
     <span id="regToastMsg"></span>
+</div>
+
+<!-- ======= REGISTER ALL MODAL ======================================= -->
+<div class="hr-modal-overlay" id="registerAllModal">
+    <div class="hr-modal" style="width:680px;">
+        <div class="hr-modal__header">
+            <span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Register All Unregistered Students
+            </span>
+            <button class="hr-modal__close" onclick="closeRegisterAllModal()" type="button">&times;</button>
+        </div>
+        <div class="hr-modal__body" style="padding:16px;">
+
+            <!-- Phase: Loading -->
+            <div class="ra-phase" id="raPhase_loading" style="display:block;">
+                <div class="ra-loading">
+                    <div class="ra-loading__spinner"></div>
+                    <div>Loading preview data&hellip;</div>
+                </div>
+            </div>
+
+            <!-- Phase: Preview -->
+            <div class="ra-phase" id="raPhase_preview">
+                <div class="ra-summary">
+                    <div class="ra-summary__item">
+                        <div class="ra-summary__val" id="raTotalCount">0</div>
+                        <div class="ra-summary__label">Students to Register</div>
+                    </div>
+                    <div class="ra-summary__item">
+                        <div class="ra-summary__val" id="raAcadYear">-</div>
+                        <div class="ra-summary__label">Academic Year</div>
+                    </div>
+                    <div class="ra-summary__item">
+                        <div class="ra-summary__val" id="raSemester">-</div>
+                        <div class="ra-summary__label">Semester</div>
+                    </div>
+                </div>
+
+                <div class="ra-breakdowns">
+                    <div class="ra-breakdown">
+                        <div class="ra-breakdown__title">By Programme</div>
+                        <div id="raProgBreakdown" style="max-height:150px;overflow-y:auto;"></div>
+                    </div>
+                    <div class="ra-breakdown">
+                        <div class="ra-breakdown__title">By Study Year</div>
+                        <div id="raYearBreakdown"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top:14px;">
+                    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#174DA4;font-weight:700;margin-bottom:6px;">Student Preview</div>
+                    <div class="ra-table-wrap">
+                        <table class="ra-table">
+                            <thead><tr><th>#</th><th>Reg No</th><th>Name</th><th>Programme</th><th>Year</th></tr></thead>
+                            <tbody id="raStudentRows"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase: Processing -->
+            <div class="ra-phase" id="raPhase_processing">
+                <div style="font-size:13px;font-weight:600;color:#1a1a2e;margin-bottom:10px;">
+                    Processing registrations &amp; billing&hellip;
+                </div>
+                <div class="ra-progress-wrap">
+                    <div class="ra-progress">
+                        <div class="ra-progress__fill" id="raProgressFill" style="width:0%"></div>
+                        <div class="ra-progress__text" id="raProgressText">0%</div>
+                    </div>
+                </div>
+                <div class="ra-live-stats">
+                    <div class="ra-live-stat">
+                        <div class="ra-live-stat__val" id="raProcessed">0</div>
+                        <div class="ra-live-stat__lbl">Processed</div>
+                    </div>
+                    <div class="ra-live-stat" style="border-bottom:none;">
+                        <div class="ra-live-stat__val" style="color:#888;" id="raProcessTotal">0</div>
+                        <div class="ra-live-stat__lbl">Total</div>
+                    </div>
+                    <div class="ra-live-stat ra-live-stat--ok">
+                        <div class="ra-live-stat__val" id="raRegCount">0</div>
+                        <div class="ra-live-stat__lbl">Registered</div>
+                    </div>
+                    <div class="ra-live-stat ra-live-stat--bill">
+                        <div class="ra-live-stat__val" id="raBillCount">0</div>
+                        <div class="ra-live-stat__lbl">Billed</div>
+                    </div>
+                    <div class="ra-live-stat ra-live-stat--err">
+                        <div class="ra-live-stat__val" id="raErrCount">0</div>
+                        <div class="ra-live-stat__lbl">Errors</div>
+                    </div>
+                </div>
+                <div class="ra-log" id="raLog"></div>
+            </div>
+
+            <!-- Phase: Done -->
+            <div class="ra-phase" id="raPhase_done">
+                <div class="ra-done-wrap">
+                    <div class="ra-done-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                    <div class="ra-done-title">Registration Complete</div>
+                    <div class="ra-done-sub">All students have been processed successfully.</div>
+                </div>
+                <div class="ra-live-stats">
+                    <div class="ra-live-stat ra-live-stat--ok">
+                        <div class="ra-live-stat__val" id="raDoneReg">0</div>
+                        <div class="ra-live-stat__lbl">Registered</div>
+                    </div>
+                    <div class="ra-live-stat ra-live-stat--bill">
+                        <div class="ra-live-stat__val" id="raDoneBill">0</div>
+                        <div class="ra-live-stat__lbl">Billed</div>
+                    </div>
+                    <div class="ra-live-stat ra-live-stat--err">
+                        <div class="ra-live-stat__val" id="raDoneErr">0</div>
+                        <div class="ra-live-stat__lbl">Errors</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="hr-modal__footer" id="raFooter">
+            <button type="button" class="hr-btn hr-btn--ghost" id="raCancelBtn" onclick="closeRegisterAllModal()">Cancel</button>
+            <button type="button" class="hr-btn" id="raConfirmBtn" disabled
+                    style="background:#16a34a;color:#fff;border:none;" onclick="startRegisterAll()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Confirm &amp; Register All
+            </button>
+        </div>
+    </div>
 </div>
 
 <script type="text/javascript">
@@ -1196,9 +1404,12 @@ function openChangeStatusModal(id, name, regno, status) {
 
 // Close modal on overlay click
 document.addEventListener('click', function(e) {
-    ['addRegModal','changeStatusModal'].forEach(function(id) {
+    ['addRegModal','changeStatusModal','registerAllModal'].forEach(function(id) {
         var el = document.getElementById(id);
-        if (el && e.target === el) closeModal(id);
+        if (el && e.target === el) {
+            if (id === 'registerAllModal') { closeRegisterAllModal(); }
+            else { closeModal(id); }
+        }
     });
 });
 
@@ -1210,6 +1421,200 @@ function showToast(success, message) {
     setTimeout(function() { toast.classList.add('show'); }, 10);
     setTimeout(function() { toast.classList.remove('show'); }, 4500);
 }
+
+// -- Register All Modal (preview → process → done) -------------------
+var _ra = { ids: [], total: 0, processed: 0, registered: 0, billed: 0, errors: 0, running: false };
+var RA_BATCH = 15;
+
+function openRegisterAllModal() {
+    document.getElementById('registerAllModal').classList.add('open');
+    showRaPhase('loading');
+    _ra = { ids: [], total: 0, processed: 0, registered: 0, billed: 0, errors: 0, running: false };
+    document.getElementById('raConfirmBtn').disabled = true;
+    document.getElementById('raConfirmBtn').style.display = '';
+    document.getElementById('raCancelBtn').textContent = 'Cancel';
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', window.location.pathname + '?action=preview_register_all', true);
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            try {
+                var d = JSON.parse(xhr.responseText);
+                if (d.error) { raShowError(d.error); return; }
+                populateRaPreview(d);
+                showRaPhase('preview');
+            } catch(e) { raShowError('Failed to parse server response.'); }
+        } else { raShowError('Server error (' + xhr.status + '). Please try again.'); }
+    };
+    xhr.onerror = function() { raShowError('Network error. Check your connection.'); };
+    xhr.send();
+}
+
+function populateRaPreview(d) {
+    _ra.ids = d.ids;
+    _ra.total = d.totalCount;
+    document.getElementById('raTotalCount').textContent = d.totalCount.toLocaleString();
+    document.getElementById('raAcadYear').textContent = d.acadYear;
+    document.getElementById('raSemester').textContent = 'Sem ' + d.semester;
+
+    // Programme breakdown
+    var ph = '';
+    d.byProgramme.forEach(function(p) {
+        ph += '<div class="ra-breakdown__row"><span class="ra-breakdown__label">' + raEsc(p.p) + '</span><span class="ra-breakdown__count">' + p.c.toLocaleString() + '</span></div>';
+    });
+    document.getElementById('raProgBreakdown').innerHTML = ph || '<div style="color:#888;font-size:11px;">None</div>';
+
+    // Year breakdown
+    var yh = '';
+    d.byYear.sort(function(a,b){return a.y - b.y;}).forEach(function(y) {
+        yh += '<div class="ra-breakdown__row"><span class="ra-breakdown__label">Year ' + y.y + '</span><span class="ra-breakdown__count">' + y.c.toLocaleString() + '</span></div>';
+    });
+    document.getElementById('raYearBreakdown').innerHTML = yh || '<div style="color:#888;font-size:11px;">None</div>';
+
+    // Student table
+    var th = '';
+    d.students.forEach(function(s, i) {
+        th += '<tr><td>' + (i+1) + '</td><td style="font-weight:600;color:#05275C;">' + raEsc(s.r) + '</td><td>' + raEsc(s.n) + '</td><td>' + raEsc(s.p) + '</td><td>Year ' + s.y + '</td></tr>';
+    });
+    if (d.totalCount > d.students.length) {
+        th += '<tr><td colspan="5" style="text-align:center;color:#888;font-style:italic;padding:8px;">… and ' + (d.totalCount - d.students.length).toLocaleString() + ' more students</td></tr>';
+    }
+    document.getElementById('raStudentRows').innerHTML = th;
+
+    document.getElementById('raConfirmBtn').disabled = (d.totalCount === 0);
+}
+
+function startRegisterAll() {
+    if (_ra.running || _ra.ids.length === 0) return;
+    _ra.running = true;
+    _ra.processed = 0; _ra.registered = 0; _ra.billed = 0; _ra.errors = 0;
+
+    showRaPhase('processing');
+    document.getElementById('raConfirmBtn').style.display = 'none';
+    document.getElementById('raCancelBtn').textContent = 'Close (processing…)';
+    document.getElementById('raProcessTotal').textContent = _ra.total.toLocaleString();
+    document.getElementById('raProcessed').textContent = '0';
+    document.getElementById('raRegCount').textContent = '0';
+    document.getElementById('raBillCount').textContent = '0';
+    document.getElementById('raErrCount').textContent = '0';
+    raProgress(0);
+    document.getElementById('raLog').innerHTML = '';
+    raLog('info', 'Starting registration of ' + _ra.total.toLocaleString() + ' students in batches of ' + RA_BATCH + '…');
+    processRaBatch();
+}
+
+function processRaBatch() {
+    if (!_ra.running) { raLog('error', 'Processing cancelled.'); return; }
+    if (_ra.processed >= _ra.total) { finishRegisterAll(); return; }
+
+    var batch = _ra.ids.slice(_ra.processed, _ra.processed + RA_BATCH);
+    var batchNum = Math.floor(_ra.processed / RA_BATCH) + 1;
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', window.location.pathname + '?action=register_batch', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            try {
+                var d = JSON.parse(xhr.responseText);
+                if (d.error) { raLog('error', 'Batch error: ' + d.error); _ra.running = false; showRaDoneBtn(); return; }
+
+                _ra.processed += batch.length;
+                _ra.registered += d.registered;
+                _ra.billed += d.billed;
+                _ra.errors += d.errors;
+
+                document.getElementById('raProcessed').textContent = _ra.processed.toLocaleString();
+                document.getElementById('raRegCount').textContent = _ra.registered.toLocaleString();
+                document.getElementById('raBillCount').textContent = _ra.billed.toLocaleString();
+                document.getElementById('raErrCount').textContent = _ra.errors.toLocaleString();
+
+                var pct = Math.round(_ra.processed / _ra.total * 100);
+                raProgress(pct);
+
+                var msg = 'Batch ' + batchNum + ': ' + d.registered + ' registered, ' + d.billed + ' billed';
+                if (d.errors > 0) {
+                    msg += ', ' + d.errors + ' errors';
+                    // Log first error detail
+                    for (var ei = 0; ei < d.results.length; ei++) {
+                        if (d.results[ei].s === 'error' && d.results[ei].m) {
+                            raLog('error', 'ID ' + d.results[ei].id + ': ' + d.results[ei].m);
+                            break;
+                        }
+                    }
+                }
+                raLog(d.errors > 0 ? 'error' : 'ok', msg);
+
+                setTimeout(processRaBatch, 80);
+            } catch(e) { raLog('error', 'Parse error: ' + e.message); _ra.running = false; showRaDoneBtn(); }
+        } else { raLog('error', 'Server error (' + xhr.status + ')'); _ra.running = false; showRaDoneBtn(); }
+    };
+    xhr.onerror = function() { raLog('error', 'Network error.'); _ra.running = false; showRaDoneBtn(); };
+    xhr.send(JSON.stringify({ ids: batch }));
+}
+
+function finishRegisterAll() {
+    _ra.running = false;
+    raLog('ok', 'Complete — ' + _ra.registered.toLocaleString() + ' registered, ' + _ra.billed.toLocaleString() + ' billed, ' + _ra.errors + ' errors.');
+    raProgress(100);
+    showRaPhase('done');
+    document.getElementById('raDoneReg').textContent = _ra.registered.toLocaleString();
+    document.getElementById('raDoneBill').textContent = _ra.billed.toLocaleString();
+    document.getElementById('raDoneErr').textContent = _ra.errors.toLocaleString();
+    showRaDoneBtn();
+}
+
+function showRaDoneBtn() {
+    document.getElementById('raConfirmBtn').style.display = 'none';
+    document.getElementById('raCancelBtn').textContent = 'Close & Refresh';
+}
+
+function closeRegisterAllModal() {
+    if (_ra.running) {
+        if (!confirm('Processing is in progress. Stop and close?')) return;
+        _ra.running = false;
+    }
+    document.getElementById('registerAllModal').classList.remove('open');
+    // Refresh page if any students were processed
+    if (_ra.registered > 0 || _ra.processed > 0) {
+        __doPostBack('<%= btnRefresh.UniqueID %>', '');
+    }
+}
+
+function showRaPhase(phase) {
+    ['loading','preview','processing','done'].forEach(function(p) {
+        var el = document.getElementById('raPhase_' + p);
+        if (el) el.style.display = (p === phase) ? 'block' : 'none';
+    });
+}
+
+function raShowError(msg) {
+    showRaPhase('preview');
+    document.getElementById('raTotalCount').textContent = '0';
+    document.getElementById('raAcadYear').textContent = '-';
+    document.getElementById('raSemester').textContent = '-';
+    document.getElementById('raProgBreakdown').innerHTML = '';
+    document.getElementById('raYearBreakdown').innerHTML = '';
+    document.getElementById('raStudentRows').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#dc3545;padding:16px;">' + raEsc(msg) + '</td></tr>';
+    document.getElementById('raConfirmBtn').disabled = true;
+}
+
+function raProgress(pct) {
+    document.getElementById('raProgressFill').style.width = pct + '%';
+    document.getElementById('raProgressText').textContent = pct + '%';
+}
+
+function raLog(type, msg) {
+    var log = document.getElementById('raLog');
+    var el = document.createElement('div');
+    el.className = 'ra-log__entry ra-log__entry--' + type;
+    var now = new Date();
+    el.textContent = now.toLocaleTimeString() + ' — ' + msg;
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+}
+
+function raEsc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 // -- Billing progress bars ------------------------------------------
 (function initBillingBars() {

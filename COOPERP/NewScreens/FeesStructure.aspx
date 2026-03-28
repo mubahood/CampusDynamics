@@ -269,6 +269,15 @@
 .fs-action-menu__divider { height: 1px; background: #f0f0f0; margin: 3px 0; }
 .fs-action-menu__icon { width: 13px; height: 13px; flex-shrink: 0; }
 
+/* ---- Bill Unbilled Button ---- */
+.fs-bill-unbilled-btn {
+    padding: 5px 14px; font-size: 11px; font-weight: 700; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+    background: #dc3545; color: #fff; margin-left: auto;
+}
+.fs-bill-unbilled-btn:hover { background: #b91c2c; }
+.fs-bill-unbilled-btn svg { flex-shrink: 0; }
+
 /* ---- Batch bar ---- */
 .fs-batch-bar {
     display: none; position: sticky; bottom: 0; left: 0; right: 0; z-index: 90;
@@ -528,6 +537,10 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Batch Billing
     </button>
+    <button type="button" class="fs-bill-unbilled-btn" onclick="confirmBillUnbilled();" title="Auto-register and bill all unbilled students for this academic year">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Bill Unbilled Students
+    </button>
 </div>
 
 <!-- ======= PANEL: Programme Fee Structures (PRIMARY) ============== -->
@@ -573,7 +586,7 @@
             <div class="st-card__body">
                 <div class="st-card__value st-card__value--red"><asp:Literal ID="litStUnbilled" runat="server" Text="0" /></div>
                 <div class="st-card__label">Not Billed</div>
-                <div class="st-card__sub">active, enrolled, no bill</div>
+                <div class="st-card__sub">active, registered this year, no bill</div>
             </div>
         </div>
     </div>
@@ -1091,6 +1104,7 @@
     <asp:HiddenField ID="hfBillingPfId" runat="server" />
     <asp:Button ID="btnBBPreview" runat="server" OnClick="btnBBPreview_Click" />
     <asp:Button ID="btnBBExecute" runat="server" OnClick="btnBBExecute_Click" />
+    <asp:Button ID="btnBillUnbilled" runat="server" OnClick="btnBillUnbilled_Click" />
 </div>
 
 <!-- Modal: Process Billing -->
@@ -1541,6 +1555,14 @@ function bbExecuteBilling() {
     document.getElementById('bbProcessing').className = 'bb-progress bb-progress--visible';
     document.getElementById('btnBBExecute').disabled = true;
     __doPostBack('<%= btnBBExecute.UniqueID %>', '');
+}
+
+function confirmBillUnbilled() {
+    var cnt = document.querySelector('.st-card__value--red');
+    var n = cnt ? (parseInt(cnt.innerText.replace(/,/g,'')) || 0) : 0;
+    if (n === 0) { alert('There are no unbilled students.'); return; }
+    if (!confirm('This will auto-register ' + n + ' unbilled student(s) and create billing records.\n\nStudents with UNREGISTERED status will be set to REGISTERED.\nThis action CANNOT be undone.\n\nProceed?')) return;
+    __doPostBack('<%= btnBillUnbilled.UniqueID %>', '');
 }
 
 function openProcessBilling(pfId, progCode, progName) {

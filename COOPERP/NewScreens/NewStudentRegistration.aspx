@@ -479,7 +479,7 @@
 
         <div class="nsr-group">
             <label class="nsr-check-label">
-                <asp:CheckBox ID="chkRegisterNow" runat="server" />
+                <asp:CheckBox ID="chkRegisterNow" runat="server" Checked="true" />
                 Register student immediately upon creation
             </label>
             <div class="nsr-hint">If checked, the student will be marked as REGISTERED and auto-billed for their first semester.</div>

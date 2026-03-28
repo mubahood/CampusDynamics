@@ -362,7 +362,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     litStBilled.Text = billed.ToString("N0");
                 }
 
-                // Not billed: active students enrolled in active semesters but no Bill
+                // Not billed: active students enrolled (registered) in active semesters but no Bill
                 string unbilledSql = string.Format(@"
                     SELECT COUNT(DISTINCT r.regno)
                     FROM campus_dynamics.acad_registration r
@@ -1693,6 +1693,152 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
         public double UnbilledAmount { get; set; }
         public double BilledAmount { get; set; }
         public Dictionary<string, double[]> FeeLookup { get; set; }
+    }
+
+    // ================================================================
+    // BILL UNBILLED STUDENTS — Quick action
+    // ================================================================
+
+    protected void btnBillUnbilled_Click(object sender, EventArgs e)
+    {
+        hfActivePanel.Value = "prog-fees";
+
+        string acadYear = GetCurrentAcadYear();
+        string currentUser = GetCurrentUser();
+        if (string.IsNullOrEmpty(acadYear))
+        {
+            ScriptManager.RegisterStartupScript(this, GetType(), "buErr",
+                "showToast('No current academic year set.','error');", true);
+            return;
+        }
+        if (string.IsNullOrEmpty(currentUser)) currentUser = "SYSTEM";
+
+        string activeSemsCsv = GetActiveSemestersCsv(acadYear);
+        if (activeSemsCsv == "0")
+        {
+            ScriptManager.RegisterStartupScript(this, GetType(), "buErr",
+                "showToast('No active semesters for " + acadYear.Replace("'", "") + ".','error');", true);
+            return;
+        }
+
+        try
+        {
+            // 1. Auto-register UNREGISTERED students for this academic year
+            int autoRegistered = 0;
+            using (var conn = new MySqlConnection(MainConnStr))
+            {
+                conn.Open();
+                string updateSql = string.Format(
+                    @"UPDATE acad_registration r
+                      INNER JOIN acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
+                      SET r.regstatus = 'REGISTERED', r.registeredBy = @usr
+                      WHERE r.acad_year = @ay
+                        AND r.semester IN ({0})
+                        AND r.regstatus = 'UNREGISTERED'", activeSemsCsv);
+                using (var cmd = new MySqlCommand(updateSql, conn))
+                {
+                    cmd.CommandTimeout = 60;
+                    cmd.Parameters.AddWithValue("@ay", acadYear);
+                    cmd.Parameters.AddWithValue("@usr", currentUser);
+                    autoRegistered = cmd.ExecuteNonQuery();
+                }
+            }
+
+            // 2. Find all unbilled students (active + registered this year + no bill)
+            var toBill = new List<string[]>(); // each: [regno, semester]
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                string sql = string.Format(@"
+                    SELECT DISTINCT r.regno, r.semester
+                    FROM campus_dynamics.acad_registration r
+                    INNER JOIN campus_dynamics.acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
+                    WHERE r.acad_year = @ay
+                      AND r.semester IN ({0})
+                      AND NOT EXISTS(
+                          SELECT 1 FROM fin_studentfeestracking ft
+                          WHERE ft.regno = r.regno AND ft.acadyear = r.acad_year
+                            AND ft.semester = r.semester AND ft.trans_type = 'Bill'
+                      )", activeSemsCsv);
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.CommandTimeout = 120;
+                    cmd.Parameters.AddWithValue("@ay", acadYear);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        while (rdr.Read())
+                        {
+                            toBill.Add(new string[] {
+                                rdr["regno"].ToString().Trim(),
+                                rdr["semester"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (toBill.Count == 0)
+            {
+                string msg0 = "No unbilled students found.";
+                if (autoRegistered > 0) msg0 += " " + autoRegistered + " student(s) auto-registered.";
+                ScriptManager.RegisterStartupScript(this, GetType(), "buDone",
+                    "showToast('" + msg0.Replace("'", "\\'") + "','success');", true);
+                LoadStudentOverviewStats();
+                return;
+            }
+
+            // 3. Bill each student via fin_AutoBillOnRegistration SP
+            int billed = 0, errors = 0;
+            var errMsgs = new List<string>();
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                foreach (var stu in toBill)
+                {
+                    try
+                    {
+                        using (var cmd = new MySqlCommand("fin_AutoBillOnRegistration", conn))
+                        {
+                            cmd.CommandType = System.Data.CommandType.StoredProcedure;
+                            cmd.CommandTimeout = 30;
+                            cmd.Parameters.AddWithValue("@p_regno", stu[0]);
+                            cmd.Parameters.AddWithValue("@p_acadyear", acadYear);
+                            cmd.Parameters.AddWithValue("@p_semester", Convert.ToInt32(stu[1]));
+                            cmd.Parameters.AddWithValue("@p_user", currentUser);
+                            // SP returns result sets that must be consumed
+                            using (var rdr = cmd.ExecuteReader())
+                            {
+                                while (rdr.Read()) { }
+                                while (rdr.NextResult()) { while (rdr.Read()) { } }
+                            }
+                        }
+                        billed++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errors++;
+                        if (errMsgs.Count < 3)
+                            errMsgs.Add(stu[0] + ": " + ex.Message);
+                    }
+                }
+            }
+
+            // 4. Show result
+            string msg = billed + " student(s) billed successfully.";
+            if (autoRegistered > 0) msg += " " + autoRegistered + " auto-registered.";
+            if (errors > 0) msg += " " + errors + " error(s).";
+            string toastType = errors > 0 ? "warning" : "success";
+
+            ScriptManager.RegisterStartupScript(this, GetType(), "buDone",
+                "showToast('" + msg.Replace("'", "\\'") + "','" + toastType + "');", true);
+
+            LoadStudentOverviewStats();
+        }
+        catch (Exception ex)
+        {
+            ScriptManager.RegisterStartupScript(this, GetType(), "buErr",
+                "showToast('Error: " + ex.Message.Replace("'", "\\'").Replace("\n", " ").Replace("\r", "") + "','error');", true);
+        }
     }
 
     // ================================================================

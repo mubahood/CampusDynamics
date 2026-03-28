@@ -260,6 +260,9 @@
 .fd-anomaly--danger .fd-anomaly__val { color: #dc3545; }
 .fd-anomaly__hint { font-size: 11px; color: #888; line-height: 1.5; }
 
+/* ---- Latest transactions two-column ---- */
+.fd-latest-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+
 /* ---- Entrance animation ---- */
 @keyframes fdFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .fd-hero > * { animation: fdFadeIn .35s ease both; }
@@ -275,6 +278,7 @@
     .fd-hero      { grid-template-columns: repeat(2,1fr); }
     .fd-chart-row { grid-template-columns: 1fr; }
     .fd-sem-grid  { grid-template-columns: 1fr 1fr; }
+    .fd-latest-row { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
     .fd-content      { padding: 12px; }
@@ -493,9 +497,9 @@
         <div class="fd-chart-panel__header">
             <div class="fd-chart-panel__title">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                Monthly Payments
+                Monthly Payments &amp; Billing
             </div>
-            <div class="fd-chart-panel__meta">payments by month</div>
+            <div class="fd-chart-panel__meta">past 12 months</div>
         </div>
         <div class="fd-chart-panel__body">
             <div style="position:relative;width:100%;"><canvas id="cvMonthly"></canvas></div>
@@ -508,7 +512,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 Semester Comparison
             </div>
-            <div class="fd-chart-panel__meta">billed vs paid</div>
+            <div class="fd-chart-panel__meta">stacked revenue &amp; collection rate</div>
         </div>
         <div class="fd-chart-panel__body">
             <div style="position:relative;width:100%;"><canvas id="cvSemester"></canvas></div>
@@ -575,6 +579,53 @@
     </div>
 </div>
 
+<!-- ======= LATEST TRANSACTIONS ==================================== -->
+<div class="fd-section-hdr">
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+    Latest Transactions
+    <span class="fd-section-hdr__line"></span>
+</div>
+<div class="fd-latest-row">
+    <!-- Latest 20 Payments -->
+    <div class="fs-card">
+        <div class="fs-card__header">
+            <div class="fs-card__title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Latest 20 Payments
+            </div>
+            <div class="fs-card__meta" style="color:#16a34a;">income</div>
+        </div>
+        <div style="overflow-x:auto; max-height:420px; overflow-y:auto;">
+            <table class="fs-table">
+                <thead><tr>
+                    <th>Reg No</th><th>Student</th><th>Item</th>
+                    <th style="text-align:right">Amount</th><th>Date</th>
+                </tr></thead>
+                <tbody><asp:Literal ID="litLatestPayRows" runat="server" /></tbody>
+            </table>
+        </div>
+    </div>
+    <!-- Latest 20 Billings -->
+    <div class="fs-card">
+        <div class="fs-card__header">
+            <div class="fs-card__title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/></svg>
+                Latest 20 Billings
+            </div>
+            <div class="fs-card__meta" style="color:#174DA4;">invoices</div>
+        </div>
+        <div style="overflow-x:auto; max-height:420px; overflow-y:auto;">
+            <table class="fs-table">
+                <thead><tr>
+                    <th>Reg No</th><th>Student</th><th>Item</th>
+                    <th style="text-align:right">Amount</th><th>Date</th>
+                </tr></thead>
+                <tbody><asp:Literal ID="litLatestBillRows" runat="server" /></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <!-- ======= DATA INTEGRITY ======================================== -->
 <div class="fd-section-hdr">
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -621,9 +672,12 @@
 <asp:HiddenField ID="hfDonutBal" runat="server" Value="0" />
 <asp:HiddenField ID="hfMonthLabels" runat="server" Value="" />
 <asp:HiddenField ID="hfMonthValues" runat="server" Value="" />
+<asp:HiddenField ID="hfMonthBillValues" runat="server" Value="" />
 <asp:HiddenField ID="hfSemLabels" runat="server" Value="" />
 <asp:HiddenField ID="hfSemBilled" runat="server" Value="" />
 <asp:HiddenField ID="hfSemPaid" runat="server" Value="" />
+<asp:HiddenField ID="hfSemBalance" runat="server" Value="" />
+<asp:HiddenField ID="hfSemRate" runat="server" Value="" />
 
 <!-- Chart.js v4 via CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -639,9 +693,12 @@
     var hfDonutBalId   = '<%= hfDonutBal.ClientID %>';
     var hfMonthLabId   = '<%= hfMonthLabels.ClientID %>';
     var hfMonthValId   = '<%= hfMonthValues.ClientID %>';
+    var hfMonthBillId  = '<%= hfMonthBillValues.ClientID %>';
     var hfSemLabId     = '<%= hfSemLabels.ClientID %>';
     var hfSemBillId    = '<%= hfSemBilled.ClientID %>';
     var hfSemPaidId    = '<%= hfSemPaid.ClientID %>';
+    var hfSemBalId     = '<%= hfSemBalance.ClientID %>';
+    var hfSemRateId    = '<%= hfSemRate.ClientID %>';
 
     // ---- Helpers ----
     function getVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
@@ -653,10 +710,7 @@
     }
     function parseLabels(csv) { return csv ? csv.split(',') : []; }
     function fmtUGX(v) {
-        if (v >= 1e9) return 'UGX ' + (v / 1e9).toFixed(1) + 'B';
-        if (v >= 1e6) return 'UGX ' + (v / 1e6).toFixed(1) + 'M';
-        if (v >= 1e3) return 'UGX ' + (v / 1e3).toFixed(0) + 'K';
-        return 'UGX ' + v.toFixed(0);
+        return 'UGX ' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
     function fmtAxis(v) {
         if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
@@ -746,114 +800,46 @@
     }
 
     // ============================================================
-    // BAR CHART — Monthly Payments (Chart.js Bar)
+    // BAR + LINE CHART — Monthly Payments & Billing (past 12 months)
     // ============================================================
     function initMonthly() {
         var canvas = document.getElementById('cvMonthly');
         if (!canvas || typeof Chart === 'undefined') return;
-        var labels = parseLabels(getVal(hfMonthLabId));
-        var values = parseNums(getVal(hfMonthValId));
+        var labels   = parseLabels(getVal(hfMonthLabId));
+        var payVals  = parseNums(getVal(hfMonthValId));
+        var billVals = parseNums(getVal(hfMonthBillId));
 
         new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: labels.length > 0 ? labels : ['No data'],
-                datasets: [{
-                    label: 'Payments Received',
-                    data: values.length > 0 ? values : [0],
-                    backgroundColor: 'rgba(23,77,164,0.85)',
-                    hoverBackgroundColor: '#05275C',
-                    borderWidth: 0,
-                    borderRadius: 0,
-                    maxBarThickness: 46
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: { padding: { top: 5 } },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#888', font: { size: 10, weight: '500' } },
-                        border: { color: '#e0e5ed' }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: '#f0f2f5', drawBorder: false },
-                        ticks: {
-                            color: '#aaa',
-                            font: { size: 9 },
-                            callback: function (v) { return fmtAxis(v); },
-                            maxTicksLimit: 6
-                        },
-                        border: { display: false }
-                    }
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#1a1a2e',
-                        titleFont: { weight: '600', size: 11 },
-                        bodyFont: { size: 11 },
-                        padding: 10,
-                        cornerRadius: 2,
-                        callbacks: {
-                            label: function (ctx) {
-                                return 'Paid: ' + fmtUGX(ctx.parsed.y);
-                            }
-                        }
-                    }
-                },
-                animation: {
-                    duration: 900,
-                    easing: 'easeOutQuart'
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                }
-            }
-        });
-
-        // Set fixed height on container
-        canvas.parentElement.style.height = '240px';
-    }
-
-    // ============================================================
-    // GROUPED BAR — Semester Comparison (Chart.js Bar)
-    // ============================================================
-    function initSemester() {
-        var canvas = document.getElementById('cvSemester');
-        if (!canvas || typeof Chart === 'undefined') return;
-        var labels = parseLabels(getVal(hfSemLabId));
-        var billed = parseNums(getVal(hfSemBillId));
-        var paid   = parseNums(getVal(hfSemPaidId));
-        var semLabels = [];
-        for (var i = 0; i < labels.length; i++) semLabels.push('Semester ' + labels[i]);
-
-        new Chart(canvas, {
-            type: 'bar',
-            data: {
-                labels: semLabels.length > 0 ? semLabels : ['No data'],
                 datasets: [
                     {
-                        label: 'Billed',
-                        data: billed.length > 0 ? billed : [0],
-                        backgroundColor: '#05275C',
-                        hoverBackgroundColor: '#041d45',
-                        borderWidth: 0,
-                        borderRadius: 0,
-                        maxBarThickness: 42
-                    },
-                    {
-                        label: 'Paid',
-                        data: paid.length > 0 ? paid : [0],
-                        backgroundColor: '#16a34a',
+                        label: 'Payments',
+                        type: 'bar',
+                        data: payVals.length > 0 ? payVals : [0],
+                        backgroundColor: 'rgba(22,163,74,0.75)',
                         hoverBackgroundColor: '#15803d',
                         borderWidth: 0,
                         borderRadius: 0,
-                        maxBarThickness: 42
+                        maxBarThickness: 36,
+                        order: 2
+                    },
+                    {
+                        label: 'Bills',
+                        type: 'line',
+                        data: billVals.length > 0 ? billVals : [0],
+                        borderColor: '#05275C',
+                        backgroundColor: 'rgba(5,39,92,0.08)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#05275C',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 1.5,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        tension: 0.3,
+                        fill: true,
+                        order: 1
                     }
                 ]
             },
@@ -864,7 +850,7 @@
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { color: '#888', font: { size: 10, weight: '500' } },
+                        ticks: { color: '#888', font: { size: 9, weight: '500' }, maxRotation: 45, minRotation: 45 },
                         border: { color: '#e0e5ed' }
                     },
                     y: {
@@ -918,7 +904,154 @@
         });
 
         // Set fixed height on container
-        canvas.parentElement.style.height = '240px';
+        canvas.parentElement.style.height = '280px';
+    }
+
+    // ============================================================
+    // SEMESTER COMPARISON — Stacked Bar + Collection Rate Line
+    // ============================================================
+    function initSemester() {
+        var canvas = document.getElementById('cvSemester');
+        if (!canvas || typeof Chart === 'undefined') return;
+        var labels  = parseLabels(getVal(hfSemLabId));
+        var billed  = parseNums(getVal(hfSemBillId));
+        var paid    = parseNums(getVal(hfSemPaidId));
+        var balance = parseNums(getVal(hfSemBalId));
+        var rates   = parseNums(getVal(hfSemRateId));
+        var semLabels = [];
+        for (var i = 0; i < labels.length; i++) semLabels.push('Semester ' + labels[i]);
+
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: semLabels.length > 0 ? semLabels : ['No data'],
+                datasets: [
+                    {
+                        label: 'Paid',
+                        type: 'bar',
+                        data: paid.length > 0 ? paid : [0],
+                        backgroundColor: '#16a34a',
+                        hoverBackgroundColor: '#15803d',
+                        borderWidth: 0,
+                        borderRadius: 0,
+                        maxBarThickness: 48,
+                        stack: 'revenue',
+                        yAxisID: 'y',
+                        order: 3
+                    },
+                    {
+                        label: 'Outstanding',
+                        type: 'bar',
+                        data: balance.length > 0 ? balance : [0],
+                        backgroundColor: 'rgba(220,53,69,0.3)',
+                        hoverBackgroundColor: 'rgba(220,53,69,0.5)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(220,53,69,0.4)',
+                        borderRadius: 0,
+                        maxBarThickness: 48,
+                        stack: 'revenue',
+                        yAxisID: 'y',
+                        order: 2
+                    },
+                    {
+                        label: 'Collection Rate %',
+                        type: 'line',
+                        data: rates.length > 0 ? rates : [0],
+                        borderColor: '#d97706',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [4, 3],
+                        pointBackgroundColor: '#d97706',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        tension: 0.2,
+                        fill: false,
+                        yAxisID: 'y1',
+                        order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 5 } },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#888', font: { size: 10, weight: '500' } },
+                        border: { color: '#e0e5ed' }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        position: 'left',
+                        grid: { color: '#f0f2f5', drawBorder: false },
+                        ticks: {
+                            color: '#aaa',
+                            font: { size: 9 },
+                            callback: function (v) { return fmtAxis(v); },
+                            maxTicksLimit: 6
+                        },
+                        border: { display: false }
+                    },
+                    y1: {
+                        beginAtZero: true,
+                        max: 100,
+                        position: 'right',
+                        grid: { display: false },
+                        ticks: {
+                            color: '#d97706',
+                            font: { size: 9, weight: '600' },
+                            callback: function (v) { return v + '%'; },
+                            stepSize: 25
+                        },
+                        border: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'start',
+                        labels: {
+                            boxWidth: 10,
+                            boxHeight: 10,
+                            padding: 14,
+                            font: { size: 10, weight: '600' },
+                            color: '#555',
+                            usePointStyle: false
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1a2e',
+                        titleFont: { weight: '600', size: 11 },
+                        bodyFont: { size: 11 },
+                        padding: 10,
+                        cornerRadius: 2,
+                        callbacks: {
+                            label: function (ctx) {
+                                if (ctx.dataset.yAxisID === 'y1')
+                                    return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%';
+                                return ctx.dataset.label + ': ' + fmtUGX(ctx.parsed.y);
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 900,
+                    easing: 'easeOutQuart'
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+
+        // Set fixed height on container
+        canvas.parentElement.style.height = '280px';
     }
 
     // ============================================================

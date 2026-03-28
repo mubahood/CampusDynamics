@@ -13,12 +13,19 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        LoadAccountsCombo();
+        LoadJournals();
+
+        // Restore active journal detail if in session
+        if (Session["ActiveJournalNo"] != null && pnlJournalDetail.Visible)
+        {
+            LoadJournalDetail(Convert.ToInt32(Session["ActiveJournalNo"]));
+        }
+
         if (!IsPostBack)
         {
             txtStartDate.Text = DateTime.Today.AddMonths(-1).ToString("yyyy-MM-dd");
             txtEndDate.Text = DateTime.Today.ToString("yyyy-MM-dd");
-            LoadAccountsCombo();
-            LoadJournals();
         }
     }
 
@@ -205,7 +212,9 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
                         lblJournalType.Text = reader["journalType"].ToString();
                         lblJournalDate.Text = reader.GetDateTime("journalDate").ToString("dd MMM yyyy");
                         lblRefNo.Text = reader["RefNo"] != DBNull.Value ? reader["RefNo"].ToString() : "-";
-                        lblPostStatus.Text = reader["PostStatus"].ToString();
+                        string ps = reader["PostStatus"].ToString();
+                        string psCls = ps == "Approved" ? "fs-badge--green" : "fs-badge--amber";
+                        lblPostStatus.Text = "<span class='fs-badge " + psCls + "'>" + Server.HtmlEncode(ps) + "</span>";
 
                         // If already approved, hide add line and approve button
                         bool isNew = reader["PostStatus"].ToString() == "New";
@@ -238,11 +247,11 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
             }
             bool balanced = Math.Abs(totalDR - totalCR) < 0.01;
             if (balanced && dt.Rows.Count > 0)
-                lblBalanceIndicator.Text = "<span class='je-balance-indicator je-balance--ok'>BALANCED (DR=" + totalDR.ToString("N0") + " CR=" + totalCR.ToString("N0") + ")</span>";
+                lblBalanceIndicator.Text = "<span class='je-bal je-bal--ok'><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>BALANCED &mdash; DR " + totalDR.ToString("N0") + " &bull; CR " + totalCR.ToString("N0") + "</span>";
             else if (dt.Rows.Count > 0)
-                lblBalanceIndicator.Text = "<span class='je-balance-indicator je-balance--off'>UNBALANCED (DR=" + totalDR.ToString("N0") + " CR=" + totalCR.ToString("N0") + ")</span>";
+                lblBalanceIndicator.Text = "<span class='je-bal je-bal--off'><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><line x1='15' y1='9' x2='9' y2='15'/><line x1='9' y1='9' x2='15' y2='15'/></svg>UNBALANCED &mdash; DR " + totalDR.ToString("N0") + " &bull; CR " + totalCR.ToString("N0") + "</span>";
             else
-                lblBalanceIndicator.Text = "<span style='font-size:11px;color:#888;'>No lines added yet</span>";
+                lblBalanceIndicator.Text = "<span class='je-bal je-bal--empty'>No lines added yet</span>";
         }
     }
 
@@ -395,6 +404,9 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
 
     private void ShowMessage(string msg, bool success)
     {
-        lblMessage.Text = "<div class='je-msg " + (success ? "je-msg--success" : "je-msg--error") + "'>" + Server.HtmlEncode(msg) + "</div>";
+        string icon = success
+            ? "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>"
+            : "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><line x1='15' y1='9' x2='9' y2='15'/><line x1='9' y1='9' x2='15' y2='15'/></svg>";
+        lblMessage.Text = "<div class='je-msg " + (success ? "je-msg--success" : "je-msg--error") + "'>" + icon + Server.HtmlEncode(msg) + "</div>";
     }
 }
