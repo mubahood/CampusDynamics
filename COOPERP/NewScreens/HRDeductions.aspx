@@ -8,148 +8,223 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* == Shared payroll-records styles (deductions + allowances) === */
-.pr-page-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:12px 18px;background:#fff;border-bottom:2px solid #174DA4;margin-bottom:14px;}
-.pr-page-header__left{display:flex;align-items:center;gap:10px;}
-.pr-page-icon{width:36px;height:36px;background:#eef2fb;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.pr-page-title{font-size:15px;font-weight:700;color:#1a1a2e;}
-.pr-page-sub{font-size:11px;color:#666;margin-top:1px;}
-.pr-hdr-actions{display:flex;gap:8px;flex-wrap:wrap;}
+/* == Payroll Deduction Records - Modern Design System ===== */
+.pr-page-header { display: flex !important; align-items: center; justify-content: space-between; padding: 16px 0 14px; margin-bottom: 18px; border-bottom: 2px solid #05275C; flex-wrap: wrap; gap: 12px; }
+.pr-page-header__left { display: flex !important; align-items: center; gap: 14px; min-width: 0; }
+.pr-page-icon { width: 42px; height: 42px; background: linear-gradient(135deg, #05275C 0%, #041d45 100%); color: #fff; display: flex !important; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 4px; box-shadow: 0 2px 6px rgba(5,39,92,0.15); }
+.pr-page-title { font-size: 18px; font-weight: 700; color: #1a1a2e; line-height: 1.2; margin: 0; }
+.pr-page-sub { font-size: 12px; color: #666; margin-top: 3px; }
+.pr-hdr-actions { display: flex !important; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* Stats */
-.ct-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
-.ct-stat{background:#fff;border:1px solid #e0e0e0;border-top:3px solid;padding:12px 14px;display:flex;align-items:center;gap:10px;}
-.ct-stat--amber{border-top-color:#f59e0b;}.ct-stat--blue{border-top-color:#174DA4;}
-.ct-stat--green{border-top-color:#28a745;}.ct-stat--grey{border-top-color:#6c757d;}
-.ct-stat__icon{width:32px;height:32px;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.ct-stat--amber .ct-stat__icon{background:#fff3cd;}.ct-stat--blue .ct-stat__icon{background:#e8f0fe;}
-.ct-stat--green .ct-stat__icon{background:#d4edda;}.ct-stat--grey .ct-stat__icon{background:#e2e3e5;}
-.ct-stat__val{font-size:20px;font-weight:700;color:#1a1a2e;line-height:1.1;}
-.ct-stat__label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.3px;}
+.ct-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+.ct-stat { background: #fff; border: 1px solid #d0d5dd; padding: 14px 16px; display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: all .15s ease; }
+.ct-stat:hover { border-color: #05275C; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+.ct-stat::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--stat-c, #ccc); }
+.ct-stat__icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px; border-radius: 3px; }
+.ct-stat__val { font-size: 16px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ct-stat__label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #888; margin-top: 3px; font-weight: 600; }
+.ct-stat--amber { --stat-c: #f59e0b; } .ct-stat--amber .ct-stat__icon { background: #fff3e0; } .ct-stat--amber .ct-stat__val { color: #d97706; }
+.ct-stat--blue { --stat-c: #16a34a; } .ct-stat--blue .ct-stat__icon { background: #dcfce7; } .ct-stat--blue .ct-stat__val { color: #16a34a; }
+.ct-stat--green { --stat-c: #28a745; } .ct-stat--green .ct-stat__icon { background: #dcfce7; } .ct-stat--green .ct-stat__val { color: #28a745; }
+.ct-stat--grey { --stat-c: #6c757d; } .ct-stat--grey .ct-stat__icon { background: #f3f4f6; } .ct-stat--grey .ct-stat__val { color: #6c757d; }
 
 /* Filters */
-.ct-filters{background:#fff;border:1px solid #e0e0e0;border-bottom:none;padding:10px 14px;}
-.ct-filters__top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
-.ct-search-wrap{display:flex;align-items:center;gap:6px;flex:1 1 200px;min-width:140px;position:relative;}
-.ct-search-icon{position:absolute;left:8px;pointer-events:none;}
-.ct-search-box{height:30px;padding:0 8px 0 28px;border:1px solid #d0d5dd;font-size:11px;color:#333;width:100%;box-sizing:border-box;}
-.ct-filters__count{font-size:11px;color:#888;white-space:nowrap;margin-left:auto;}
-.ct-filters__row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.ct-filter-grp{display:flex;align-items:center;gap:5px;}
-.ct-filter-grp__label{font-size:10px;font-weight:600;color:#888;white-space:nowrap;}
-.ct-filter-select{height:28px;padding:0 6px;border:1px solid #d0d5dd;font-size:11px;color:#333;}
-.ct-filter-sep{width:1px;height:20px;background:#e0e0e0;flex-shrink:0;}
-
-/* Batch toolbar */
-.ct-batch-toolbar{display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px;background:#fffbe6;border-top:1px solid #ffe082;border-bottom:2px solid #ffc107;}
-.ct-batch-info{display:flex;align-items:center;gap:5px;font-size:11px;color:#6d4c00;white-space:nowrap;}
-.ct-batch-info strong{font-size:13px;font-weight:700;color:#b45309;}
-.ct-batch-sep{width:1px;height:24px;background:#e0c060;margin:0 2px;flex-shrink:0;}
-.ct-row-check{cursor:pointer;width:14px;height:14px;accent-color:#174DA4;vertical-align:middle;}
+.ct-filters { background: #fff; border: 1px solid #d0d5dd; overflow: hidden; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 14px; }
+.ct-filters__top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid #d0d5dd; background: #f8f9fb; }
+.ct-search-wrap { display: flex; align-items: center; gap: 6px; flex: 1 1 250px; min-width: 180px; position: relative; }
+.ct-search-icon { position: absolute; left: 10px; pointer-events: none; width: 16px; height: 16px; }
+.ct-search-box { height: 36px; padding: 8px 12px 8px 34px; border: 1px solid #d0d5dd; font-size: 12px; color: #333; width: 100%; box-sizing: border-box; border-radius: 3px; transition: all .15s ease; }
+.ct-search-box:focus { border-color: #05275C; outline: none; box-shadow: 0 0 0 2px rgba(5,39,92,0.1); background: #fff; }
+.ct-search-box::placeholder { color: #999; }
+.ct-filters__count { font-size: 11px; color: #999; white-space: nowrap; }
+.ct-filters__row { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; padding: 12px 16px; background: #f8f9fb; }
+.ct-filter-grp { display: flex; flex-direction: column; gap: 4px; }
+.ct-filter-grp__label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #666; font-weight: 600; }
+.ct-filter-select { border: 1px solid #d0d5dd; padding: 7px 10px; font-size: 12px; background: #fff; color: #333; cursor: pointer; min-width: 120px; border-radius: 3px; transition: all .15s ease; }
+.ct-filter-select:hover { border-color: #05275C; }
+.ct-filter-select:focus { border-color: #05275C; outline: none; box-shadow: 0 0 0 2px rgba(5,39,92,0.1); }
+.ct-filter-sep { width: 1px; height: 28px; background: #d0d5dd; margin: 0 4px; flex-shrink: 0; }
 
 /* Buttons */
-.hr-btn{display:inline-flex;align-items:center;gap:6px;padding:0 14px;height:32px;font-size:12px;font-weight:600;border:none;cursor:pointer;border-radius:0;white-space:nowrap;transition:background .15s;}
-.hr-btn--primary{background:#174DA4;color:#fff;}.hr-btn--primary:hover{background:#0f3a7d;}
-.hr-btn--success{background:#28a745;color:#fff;}.hr-btn--success:hover{background:#1e7e34;}
-.hr-btn--danger{background:#dc3545;color:#fff;}.hr-btn--danger:hover{background:#bd2130;}
-.hr-btn--amber{background:#f59e0b;color:#fff;}.hr-btn--amber:hover{background:#d97706;}
-.hr-btn--ghost{background:#fff;color:#333;border:1px solid #d0d5dd;}.hr-btn--ghost:hover{background:#f5f5f5;}
-.hr-btn--sm{height:28px;padding:0 10px;font-size:11px;}
+.hr-btn { display: inline-flex !important; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; min-height: 36px; font-size: 12px; font-weight: 600; white-space: nowrap; border: 1px solid transparent; border-radius: 3px; cursor: pointer; transition: all .15s ease; text-decoration: none; appearance: none; user-select: none; visibility: visible !important; }
+.hr-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.hr-btn:active:not(:disabled) { transform: translateY(0); }
+.hr-btn:focus { box-shadow: 0 0 0 3px rgba(5,39,92,0.15); outline: none; }
+.hr-btn:disabled { opacity: .6; cursor: not-allowed; }
+.hr-btn--primary { background: #05275C !important; color: #fff !important; border-color: #05275C !important; } .hr-btn--primary:hover:not(:disabled) { background: #041d45 !important; border-color: #041d45 !important; }
+.hr-btn--success { background: #16a34a !important; color: #fff !important; border-color: #16a34a !important; } .hr-btn--success:hover:not(:disabled) { background: #15803d !important; border-color: #15803d !important; }
+.hr-btn--danger { background: #16a34a !important; color: #fff !important; border-color: #16a34a !important; } .hr-btn--danger:hover:not(:disabled) { background: #15803d !important; border-color: #15803d !important; }
+.hr-btn--amber { background: #f59e0b !important; color: #fff !important; border-color: #f59e0b !important; } .hr-btn--amber:hover:not(:disabled) { background: #d97706 !important; border-color: #d97706 !important; }
+.hr-btn--ghost { background: transparent !important; border: 1px solid #d0d5dd !important; color: #666 !important; } .hr-btn--ghost:hover:not(:disabled) { background: #f5f7fa !important; border-color: #05275C !important; color: #05275C !important; }
+.hr-btn--sm { padding: 6px 10px; font-size: 10px; min-height: 32px; }
 
-/* Row coloring */
-.pr-row-pending td{background:#fffff5 !important;}
-.pr-row-settled td{background:#f6fff6 !important;}
-.pr-row-cancelled td{background:#f7f7f7 !important;opacity:.75;}
-
-/* Status badges */
-.pr-badge{display:inline-block;padding:2px 8px;font-size:10px;font-weight:700;border-radius:0;text-transform:uppercase;letter-spacing:.3px;}
-.pr-badge--pending{background:#fff3cd;color:#856404;}
-.pr-badge--settled{background:#d4edda;color:#155724;}
-.pr-badge--cancelled{background:#e2e3e5;color:#383d41;}
-
-/* Type badge */
-.pr-type{display:inline-block;padding:1px 7px;font-size:10px;font-weight:600;background:#fff0f0;color:#c0392b;border:1px solid #f5c6cb;}
-
-/* Period */
-.pr-period{font-size:11px;font-weight:700;color:#333;}
-.pr-period__year{font-size:10px;color:#888;}
-
-/* Payroll ref */
-.pr-payref{font-size:10px;color:#174DA4;font-style:italic;}
-
-/* Amount */
-.pr-amount{font-size:12px;font-weight:700;color:#c0392b;}
+/* Batch toolbar */
+.ct-batch-toolbar { display: none; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%); border-top: 2px solid #16a34a; border-bottom: 2px solid #16a34a; box-shadow: 0 2px 4px rgba(22,163,74,0.1); animation: slideDown .2s ease; }
+.ct-batch-info { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #15803d; white-space: nowrap; }
+.ct-batch-info strong { font-size: 13px; font-weight: 700; color: #15803d; }
+.ct-batch-sep { width: 1px; height: 26px; background: #a3e635; margin: 0 2px; flex-shrink: 0; }
+.ct-row-check { cursor: pointer; width: 16px; height: 16px; accent-color: #16a34a; vertical-align: middle; }
+.ct-row-check:focus { outline: 2px solid #05275C; outline-offset: 2px; }
 
 /* Action popover */
-.cd-action-wrapper{position:relative;display:inline-block;}
-.cd-action-trigger{background:none;border:none;cursor:pointer;padding:4px 6px;color:#888;border-radius:3px;display:flex;align-items:center;}
-.cd-action-trigger:hover{background:#f0f0f0;color:#333;}
-.cd-action-popover{display:none;position:absolute;right:0;top:100%;background:#fff;border:1px solid #e0e0e0;box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:999;min-width:160px;}
-.cd-action-popover.is-open{display:block;}
-.cd-action-popover__menu{list-style:none;margin:0;padding:4px 0;}
-.cd-action-popover__item{margin:0;}
-.cd-action-popover__btn{display:flex;align-items:center;gap:7px;padding:7px 14px;font-size:11px;font-weight:500;width:100%;background:none;border:none;cursor:pointer;color:#333;text-align:left;white-space:nowrap;}
-.cd-action-popover__btn:hover{background:#f5f7fa;}
-.cd-action-popover__btn--danger{color:#dc3545;}
-.cd-action-popover__btn--warning{color:#f59e0b;}
-.cd-action-popover__btn--success{color:#28a745;}
-.cd-action-popover__divider{height:1px;background:#e0e0e0;margin:4px 0;}
+.cd-action-wrapper { position: relative; display: inline-block; }
+.cd-action-trigger { background: none; border: none; cursor: pointer; padding: 6px 8px; color: #666; border-radius: 3px; display: flex; align-items: center; justify-content: center; transition: all .15s ease; width: 32px; height: 32px; }
+.cd-action-trigger:hover { background: #f0f0f0; color: #05275C; }
+.cd-action-trigger:focus { outline: none; box-shadow: 0 0 0 2px rgba(5,39,92,.15); }
+.cd-action-popover { display: none; position: absolute; right: -8px; top: calc(100% + 4px); background: #fff; border: 1px solid #d0d5dd; box-shadow: 0 6px 16px rgba(0,0,0,0.18); z-index: 9999; min-width: 180px; border-radius: 4px; overflow: hidden; }
+.cd-action-popover.is-open { display: block; animation: popoverSlide .2s ease; }
+@keyframes popoverSlide { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.cd-action-popover__menu { list-style: none; margin: 0; padding: 6px 0; }
+.cd-action-popover__item { margin: 0; }
+.cd-action-popover__btn { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12px; font-weight: 500; width: 100%; background: none; border: none; cursor: pointer; color: #333; text-align: left; white-space: nowrap; transition: all .15s ease; }
+.cd-action-popover__btn:hover { background: #f5f7fa; color: #05275C; }
+.cd-action-popover__btn:disabled { cursor: not-allowed; opacity: .6; }
+.cd-action-popover__btn--danger { color: #dc3545; }
+.cd-action-popover__btn--danger:hover { background: #fde8e8; color: #c82333; }
+.cd-action-popover__btn--warning { color: #f59e0b; }
+.cd-action-popover__btn--warning:hover { background: #fef3c7; color: #d97706; }
+.cd-action-popover__divider { height: 1px; background: #e0e0e0; margin: 4px 0; }
 
 /* Modal */
-.hr-modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;justify-content:center;align-items:flex-start;padding:30px 20px;overflow-y:auto;box-sizing:border-box;}
-.hr-modal{background:#fff;border:1px solid #e0e0e0;width:100%;max-width:560px;margin:auto;position:relative;}
-.hr-modal--wide{max-width:680px;}
-.hr-modal__header{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;background:#174DA4;color:#fff;}
-.hr-modal__title{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;}
-.hr-modal__close{background:none;border:none;font-size:20px;cursor:pointer;color:rgba(255,255,255,.8);padding:0 4px;line-height:1;}
-.hr-modal__close:hover{color:#fff;}
-.hr-modal__body{padding:16px;max-height:70vh;overflow-y:auto;}
-.hr-modal__footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid #e0e0e0;background:#fafafa;}
+.hr-modal-overlay { display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; background: rgba(0,0,0,.55) !important; z-index: 1000 !important; justify-content: center !important; align-items: flex-start !important; padding: 20px 15px !important; overflow-y: auto !important; box-sizing: border-box !important; animation: fadeIn .2s ease !important; }
+.hr-modal-overlay.is-open { display: flex !important; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.hr-modal { background: #fff !important; border: 1px solid #d0d5dd !important; width: 100% !important; max-width: 560px !important; margin: auto !important; position: relative !important; border-radius: 4px !important; box-shadow: 0 10px 40px rgba(0,0,0,0.15) !important; animation: slideIn .2s ease !important; display: flex !important; flex-direction: column !important; max-height: 90vh !important; }
+.hr-modal:before { content: '' !important; }
+@keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.hr-modal--wide { max-width: 680px; }
+.hr-modal__header { display: flex !important; align-items: center; justify-content: space-between; padding: 14px 18px; background: #05275C; color: #fff; border-radius: 4px 4px 0 0; }
+.hr-modal__title { font-size: 13px; font-weight: 700; display: flex !important; align-items: center; gap: 8px; }
+.hr-modal__close { background: none; border: none; font-size: 18px; cursor: pointer; color: rgba(255,255,255,.8); padding: 2px 4px; line-height: 1; transition: all .15s ease; border-radius: 2px; }
+.hr-modal__close:hover { color: #fff; background: rgba(255,255,255,.15); }
+.hr-modal__close:focus { outline: none; background: rgba(255,255,255,.15); }
+.hr-modal__body { display: block !important; padding: 18px; max-height: calc(92vh - 180px); overflow-y: auto; }
+.hr-modal__footer { display: flex !important; align-items: center; justify-content: flex-end; gap: 10px; padding: 12px 18px; border-top: 1px solid #e0e0e0; background: #f8f9fa !important; flex-shrink: 0; }
 
 /* Form */
-.hr-form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
-.hr-form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
-.hr-form-group{display:flex;flex-direction:column;gap:4px;}
-.hr-form-group--full{grid-column:span 2;}
-.hr-label{font-size:11px;font-weight:600;color:#333;}
-.hr-label span{color:#dc3545;}
-.hr-input,.hr-select{height:32px;padding:0 9px;border:1px solid #d0d5dd;font-size:12px;color:#1a1a2e;width:100%;box-sizing:border-box;}
-.hr-input:focus,.hr-select:focus{outline:none;border-color:#174DA4;}
-.hr-textarea{padding:8px 9px;border:1px solid #d0d5dd;font-size:12px;color:#1a1a2e;width:100%;box-sizing:border-box;resize:vertical;min-height:60px;}
-.hr-hint{font-size:10px;color:#999;margin-top:2px;}
-.hr-result{display:none;padding:8px 12px;font-size:11px;font-weight:600;margin-bottom:10px;border-left:3px solid;}
-.hr-result--ok{background:#d4edda;border-color:#28a745;color:#155724;display:block;}
-.hr-result--err{background:#f8d7da;border-color:#dc3545;color:#721c24;display:block;}
+.hr-form-row { display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; width: 100%; box-sizing: border-box; }
+.hr-form-row3 { display: grid !important; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; width: 100%; box-sizing: border-box; }
+.hr-form-group { display: flex !important; flex-direction: column; gap: 4px; min-width: 0; }
+.hr-form-group--full { grid-column: span 2 !important; }
+.hr-label { font-size: 11px; font-weight: 600; color: #333; display: block; }
+.hr-label span { color: #05275C; }
+.hr-input, .hr-select { height: 36px; padding: 7px 9px; border: 1px solid #d0d5dd; font-size: 12px; color: #1a1a2e; width: 100%; box-sizing: border-box; border-radius: 3px; transition: all .15s ease; display: block !important; }
+.hr-input:focus, .hr-select:focus { outline: none; border-color: #05275C; box-shadow: 0 0 0 2px rgba(5,39,92,0.1); background: #fff; }
+.hr-input::placeholder { color: #999; }
+.hr-textarea { padding: 8px 9px; border: 1px solid #d0d5dd; font-size: 12px; color: #1a1a2e; width: 100%; box-sizing: border-box; resize: vertical; min-height: 60px; border-radius: 3px; transition: all .15s ease; font-family: inherit; display: block !important; }
+.hr-textarea:focus { outline: none; border-color: #dc3545; box-shadow: 0 0 0 2px rgba(220,53,69,0.1); }
+.hr-textarea::placeholder { color: #999; }
+.hr-hint { font-size: 10px; color: #999; margin-top: 2px; font-weight: 500; }
+.hr-result { display: none; padding: 10px 12px; font-size: 11px; font-weight: 600; margin-bottom: 10px; border-left: 3px solid; border-radius: 2px; }
+.hr-result--ok { background: #dcfce7; border-color: #28a745; color: #155724; display: block; }
+.hr-result--err { background: #fde8e8; border-color: #dc3545; color: #8b1a1a; display: block; }
 
-/* Section label in modal */
-.hr-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#174DA4;border-bottom:1px solid #e8f0fe;padding-bottom:4px;margin:14px 0 10px;}
+/* Section label */
+.hr-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #05275C; border-bottom: 2px solid #d0d5dd; padding-bottom: 6px; margin: 16px 0 12px; }
 
 /* Batch preview */
-.batch-preview{margin-top:12px;}
-.batch-preview__title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#555;margin-bottom:6px;}
-.batch-preview__list{display:flex;flex-wrap:wrap;gap:5px;max-height:100px;overflow-y:auto;padding:2px;}
-.batch-preview__item{background:#fff0f0;color:#c0392b;font-size:10px;font-weight:600;padding:3px 8px;border:1px solid #f5c6cb;}
-.batch-preview__empty{font-size:11px;color:#aaa;font-style:italic;}
+.batch-preview { margin-top: 14px; padding-top: 14px; border-top: 1px solid #d0d5dd; }
+.batch-preview__title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #333; margin-bottom: 8px; }
+.batch-preview__list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding: 2px; }
+.batch-preview__item { background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 600; padding: 4px 10px; border: 1px solid #bbf7d0; border-radius: 3px; }
+.batch-preview__empty { font-size: 11px; color: #999; font-style: italic; }
 
 /* Count bar */
-.pr-count-bar{font-size:11px;color:#888;padding:5px 14px;background:#fafbfc;border:1px solid #e0e0e0;border-top:none;border-bottom:none;display:flex;align-items:center;justify-content:space-between;}
+.pr-count-bar { font-size: 11px; color: #888; padding: 10px 14px; background: #f8f9fb; border: 1px solid #d0d5dd; border-top: none; display: flex; align-items: center; justify-content: space-between; }
 
 /* DevExpress overrides */
-.dxgvControl_Glass{border:none !important;}
-.dxgvHeader_Glass td{font-size:10px !important;text-transform:uppercase !important;letter-spacing:.3px !important;background:#f5f7fa !important;color:#555 !important;}
-.dxgvDataRow_Glass td,.dxgvDataRowAlt_Glass td{font-size:11px !important;padding:5px 8px !important;}
+.dxgvControl_Glass { border: 1px solid #e0e5ed !important; }
+.dxgvHeader_Glass td { font-size: 10px !important; text-transform: uppercase !important; letter-spacing: .3px !important; background: #f5f7fa !important; color: #555 !important; border-bottom: 2px solid #e0e5ed !important; padding: 9px 12px !important; font-weight: 600 !important; }
+.dxgvDataRow_Glass td, .dxgvDataRowAlt_Glass td { font-size: 11px !important; color: #1a1a2e !important; padding: 8px 12px !important; border-bottom: 1px solid #f0f2f5 !important; vertical-align: middle !important; position: relative !important; }
+.dxgvDataRow_Glass:hover td, .dxgvDataRowAlt_Glass:hover td { background: #f8f9fb !important; }
+.dxgvFilterRow_Glass td { padding: 4px 6px !important; background: #fff !important; }
+.dxgvFilterRow_Glass input { border: 1px solid #e0e5ed !important; font-size: 11px !important; padding: 3px 6px !important; }
+.dxgvPagerBar_Glass { background: #f5f7fa !important; border-top: 1px solid #e0e5ed !important; padding: 6px 12px !important; }
+.dxgv td { overflow: visible !important; }
+.cd-action-wrapper { position: relative !important; z-index: 100; }
 
-@media(max-width:900px){.ct-stats{grid-template-columns:repeat(2,1fr);}}
-@media(max-width:560px){.hr-form-row,.hr-form-row3{grid-template-columns:1fr;}.hr-form-group--full{grid-column:span 1;}}
+/* Badges */
+.pr-badge { display: inline-block; padding: 4px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; border-radius: 3px; }
+.pr-badge--pending { background: #fef3c7; color: #92400e; }
+.pr-badge--settled { background: #dcfce7; color: #166534; }
+.pr-badge--cancelled { background: #e5e7eb; color: #374151; }
+
+/* Responsive */
+@media (max-width: 1200px) { .ct-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px) { .ct-stats { grid-template-columns: repeat(2, 1fr); } .ct-filters__row { gap: 8px; } .ct-filter-select { min-width: auto; flex: 1; } }
+@media (max-width: 768px) { .ct-stats { grid-template-columns: 1fr 1fr; } .pr-page-header__left { flex-wrap: wrap; width: 100%; } .pr-hdr-actions { width: 100%; } .ct-filters__row { gap: 6px; } .ct-filter-select { min-width: auto; flex: 1; } .hr-modal { width: 95vw; } .hr-form-row { gap: 8px; } .hr-btn { min-height: 38px; padding: 8px 12px; } .hr-btn--sm { min-height: 34px; padding: 6px 10px; } }
+@media (max-width: 600px) { .ct-stats { grid-template-columns: 1fr; } .pr-page-icon { width: 36px; height: 36px; font-size: 18px; } .pr-page-title { font-size: 15px; } .hr-modal { width: 98vw; border-radius: 8px; } .hr-modal__body { padding: 14px; } .hr-modal__footer { flex-direction: column-reverse; gap: 6px; } .hr-modal__footer .hr-btn { width: 100%; } .ct-filters__top { gap: 6px; } .ct-filters { padding: 8px 10px; } .ct-filter-select { padding: 8px 10px; font-size: 12px; min-width: 100px; } .ct-search-wrap { max-width: 100%; } .hr-form-row { gap: 8px; margin-bottom: 10px; } .hr-form-group { min-width: 100%; } .hr-input, .hr-select, .hr-textarea { padding: 8px 10px; } .hr-label { font-size: 11px; } .hr-btn { min-height: 40px; padding: 10px 14px; font-size: 12px; } .hr-btn--sm { min-height: 36px; padding: 8px 12px; font-size: 11px; } .pr-page-header { gap: 8px; } .ct-batch-toolbar { padding: 6px 10px; gap: 6px; } }
+
+/* ===== EMPLOYEE AUTOCOMPLETE ====================================== */
+.hr-ac { position: relative; flex: 1; }
+.hr-ac__input { width: 100%; border: 1px solid #d0d5dd; padding: 8px 32px 8px 10px; font-size: 12px; color: #1a1a2e; background: #fff; box-sizing: border-box; border-radius: 3px; transition: all .15s ease; }
+.hr-ac__input:focus { border-color: #05275C; outline: none; box-shadow: 0 0 0 2px rgba(5,39,92,0.1); background: #fff; }
+.hr-ac__input--selected { border-color: #16a34a; background: #f0fdf4; }
+.hr-ac__spinner { display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; border: 2px solid #e0e5ed; border-top-color: #05275C; animation: hrSpin .6s linear infinite; }
+.hr-ac__spinner--visible { display: block; }
+@keyframes hrSpin { to { transform: translateY(-50%) rotate(360deg); } }
+.hr-ac__clear { display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; border: none; background: #dc3545; color: #fff; font-size: 13px; line-height: 1; cursor: pointer; align-items: center; justify-content: center; border-radius: 2px; transition: all .15s ease; }
+.hr-ac__clear--visible { display: flex; }
+.hr-ac__clear:hover { background: #c82333; }
+.hr-ac__list { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 9999; background: #fff; border: 1px solid #05275C; border-radius: 3px; max-height: 280px; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.18); }
+.hr-ac__list--visible { display: block; }
+.hr-ac__item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f0f2f5; display: flex; align-items: center; gap: 10px; transition: background .1s ease; }
+.hr-ac__item:last-child { border-bottom: none; }
+.hr-ac__item:hover { background: #e8f0fc; }
+.hr-ac__item--active { background: #dbeafe; border-left: 2px solid #05275C; padding-left: 10px; }
+.hr-ac__avatar { width: 36px; height: 36px; background: #05275C; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; letter-spacing: .5px; border-radius: 2px; }
+.hr-ac__info { flex: 1; min-width: 0; }
+.hr-ac__name { font-size: 12px; font-weight: 700; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hr-ac__name mark { background: #fff3cd; color: #1a1a2e; padding: 0 2px; font-weight: 700; border-radius: 1px; }
+.hr-ac__meta { font-size: 10px; color: #888; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hr-ac__meta mark { background: #fff3cd; color: #888; padding: 0 2px; }
+.hr-ac__code { font-size: 10px; font-weight: 600; color: #05275C; white-space: nowrap; text-align: right; }
+.hr-ac__code mark { background: #fff3cd; color: #05275C; padding: 0 2px; font-weight: 700; }
+.hr-ac__empty { padding: 16px 12px; text-align: center; font-size: 12px; color: #999; }
+.hr-ac__hint { padding: 6px 12px; background: #f8f9fb; border-top: 1px solid #e0e5ed; font-size: 9px; color: #999; text-align: center; }
+
+/* Selected employee card */
+.hr-selected-emp { display: none; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; padding: 12px 14px; margin-bottom: 14px; }
+.hr-selected-emp--visible { display: flex; align-items: center; gap: 12px; animation: slideDown .2s ease; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.hr-selected-emp__avatar { width: 40px; height: 40px; background: #05275C; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 3px; }
+.hr-selected-emp__info { flex: 1; min-width: 0; }
+.hr-selected-emp__name { font-size: 13px; font-weight: 700; color: #05275C; line-height: 1.2; }
+.hr-selected-emp__detail { font-size: 11px; color: #555; margin-top: 2px; }
+.hr-selected-emp__code { font-size: 11px; font-weight: 700; color: #16a34a; background: #dcfce7; padding: 2px 8px; white-space: nowrap; border-radius: 2px; }
+.hr-selected-emp__remove { width: 24px; height: 24px; border: 1px solid #bbf7d0; background: #fff; color: #888; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 2px; transition: all .15s ease; }
+.hr-selected-emp__remove:hover { border-color: #dc3545; color: #dc3545; background: #fde8e8; }
+
+/* FORCE DISPLAY FOR ALL BUTTONS AND FORMS */
+.hr-btn, .hr-btn--primary, .hr-btn--danger, .hr-btn--ghost, .hr-btn--ghost, .hr-btn--sm { display: inline-flex !important; visibility: visible !important; }
+.hr-form-row, .hr-form-row3, .hr-form-group, .hr-label, .hr-input, .hr-select, .hr-textarea { display: block !important; visibility: visible !important; }
+.pr-page-header, .pr-hdr-actions { display: flex !important; visibility: visible !important; }
+.hr-modal-overlay { position: fixed !important; }
+.hr-modal { display: block !important; }
+
+/* ==== AGGRESSIVE MODAL OVERRIDES ======= */
+#addDeductionModal { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; background: rgba(0,0,0,.55) !important; z-index: 9999 !important; display: none !important; justify-content: center !important; align-items: flex-start !important; padding: 20px 15px !important; overflow-y: auto !important; box-sizing: border-box !important; pointer-events: auto !important; }
+#addDeductionModal.is-open { display: flex !important; pointer-events: auto !important; }
+#batchDeductionModal { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; background: rgba(0,0,0,.55) !important; z-index: 9999 !important; display: none !important; justify-content: center !important; align-items: flex-start !important; padding: 20px 15px !important; overflow-y: auto !important; box-sizing: border-box !important; pointer-events: auto !important; }
+#batchDeductionModal.is-open { display: flex !important; pointer-events: auto !important; }
+/* Grid z-index management */
+.dxgvControl_Glass { z-index: 1 !important; }
+#addDeductionModal .hr-modal, #batchDeductionModal .hr-modal { background: #ffffff !important; border: 1px solid #d0d5dd !important; border-radius: 4px !important; box-shadow: 0 10px 40px rgba(0,0,0,0.15) !important; display: flex !important; flex-direction: column !important; max-height: 90vh !important; width: 100% !important; max-width: 560px !important; z-index: 10000 !important; position: relative !important; pointer-events: auto !important; }
+#batchDeductionModal .hr-modal { max-width: 680px !important; }
+#addDeductionModal .hr-modal__header, #batchDeductionModal .hr-modal__header { display: flex !important; align-items: center !important; justify-content: space-between !important; padding: 14px 18px !important; background: #05275C !important; color: #ffffff !important; border-radius: 4px 4px 0 0 !important; border: none !important; pointer-events: auto !important; }
+#addDeductionModal .hr-modal__body, #batchDeductionModal .hr-modal__body { display: block !important; padding: 18px !important; max-height: calc(90vh - 140px) !important; overflow-y: auto !important; flex: 1 !important; pointer-events: auto !important; }
+#addDeductionModal .hr-modal__footer, #batchDeductionModal .hr-modal__footer { display: flex !important; align-items: center !important; justify-content: flex-end !important; gap: 10px !important; padding: 12px 18px !important; border-top: 1px solid #e0e0e0 !important; background: #f8f9fa !important; flex-shrink: 0 !important; pointer-events: auto !important; }
 </style>
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 
 <!-- Hidden batch controls -->
-<asp:HiddenField ID="hdnBatchIDs" runat="server" />
-<asp:Button ID="btnBatchDelete" runat="server" style="display:none;" OnClick="btnBatchDelete_Click" />
-<asp:Button ID="btnBatchCancel" runat="server" style="display:none;" OnClick="btnBatchCancel_Click" />
+<asp:HiddenField ID="hdnBatchIDs" runat="server" ClientIDMode="Static" />
+<asp:HiddenField ID="hfSelectedEmpID" runat="server" ClientIDMode="Static" />
+<asp:Button ID="btnBatchDelete" runat="server" style="display:none;" OnClick="btnBatchDelete_Click" ClientIDMode="Static" />
+<asp:Button ID="btnBatchCancel" runat="server" style="display:none;" OnClick="btnBatchCancel_Click" ClientIDMode="Static" />
 
 <!-- -- Page Header -------------------------------------------- -->
 <div class="pr-page-header">
@@ -224,10 +299,10 @@
     <div class="ct-filters__top">
         <div class="ct-search-wrap">
             <svg class="ct-search-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <asp:TextBox ID="txtSearch" runat="server" CssClass="ct-search-box" placeholder="Search by name or staff code…" />
+            <asp:TextBox ID="txtSearch" runat="server" CssClass="ct-search-box" placeholder="Search by name or staff code…" ClientIDMode="Static" />
         </div>
-        <asp:Button ID="btnSearch" runat="server" Text="Search" CssClass="hr-btn hr-btn--primary hr-btn--sm" OnClick="btnSearch_Click" />
-        <asp:Button ID="btnReset"  runat="server" Text="Reset"  CssClass="hr-btn hr-btn--ghost hr-btn--sm"   OnClick="btnReset_Click" />
+        <asp:Button ID="btnSearch" runat="server" Text="Search" CssClass="hr-btn hr-btn--primary hr-btn--sm" OnClick="btnSearch_Click" ClientIDMode="Static" />
+        <asp:Button ID="btnReset"  runat="server" Text="Reset"  CssClass="hr-btn hr-btn--ghost hr-btn--sm"   OnClick="btnReset_Click" ClientIDMode="Static" />
         <span class="ct-filters__count"><asp:Literal ID="litFilterCountTop" runat="server" Text="0" /> record(s)</span>
     </div>
     <div class="ct-filters__row">
@@ -250,7 +325,7 @@
         </div>
         <div class="ct-filter-grp">
             <span class="ct-filter-grp__label">Year</span>
-            <asp:TextBox ID="txtFilterYear" runat="server" CssClass="ct-filter-select" style="width:60px;" />
+            <asp:TextBox ID="txtFilterYear" runat="server" CssClass="ct-filter-select" style="width:60px;" ClientIDMode="Static" />
         </div>
         <div class="ct-filter-sep"></div>
         <div class="ct-filter-grp">
@@ -434,7 +509,7 @@
             </DataItemTemplate>
         </dx:GridViewDataTextColumn>
 
-        <dx:GridViewDataTextColumn Caption="" Width="42" EditFormSettings-Visible="False" Settings-AllowAutoFilter="False" Settings-AllowSort="False">
+        <dx:GridViewDataTextColumn Caption="" Width="80" EditFormSettings-Visible="False" Settings-AllowAutoFilter="False" Settings-AllowSort="False">
             <DataItemTemplate>
                 <%# GetActionHtml(Eval("id"), Eval("status")) %>
             </DataItemTemplate>
@@ -457,14 +532,30 @@
         </div>
         <div class="hr-modal__body">
             <div id="addResult" class="hr-result"></div>
-            <div class="hr-section-label">Employee &amp; Deduction</div>
+            <!-- Employee Autocomplete -->
             <div class="hr-form-row">
-                <div class="hr-form-group hr-form-group--full">
+                <div class="hr-form-group">
                     <label class="hr-label">Employee <span>*</span></label>
-                    <asp:DropDownList ID="ddlAddEmployee" runat="server" CssClass="hr-select" />
+                    <div class="hr-ac">
+                        <input type="text" id="acAddInput" class="hr-ac__input" placeholder="Search by name or staff #…" autocomplete="off" />
+                        <div id="acAddSpinner" class="hr-ac__spinner"></div>
+                        <button type="button" id="acAddClear" class="hr-ac__clear" title="Clear" onclick="DeductionAC.clearAdd()">&times;</button>
+                        <div id="acAddList" class="hr-ac__list"></div>
+                    </div>
                 </div>
             </div>
-            <div class="hr-form-row">
+            
+            <!-- Selected Employee Card -->
+            <div id="selectedEmpCardAdd" class="hr-selected-emp">
+                <div class="hr-selected-emp__avatar" id="empAvatarAdd">?</div>
+                <div class="hr-selected-emp__info" id="empInfoAdd">
+                    <div class="hr-selected-emp__name" id="empNameAdd"></div>
+                    <div class="hr-selected-emp__detail" id="empDetailAdd">Staff Code: <span id="empCodeAdd"></span></div>
+                </div>
+                <button type="button" class="hr-selected-emp__remove" title="Remove" onclick="DeductionAC.clearAdd()">&times;</button>
+            </div>
+            
+            <div class="hr-section-label">Deduction Details</div>
                 <div class="hr-form-group hr-form-group--full">
                     <label class="hr-label">Deduction Type <span>*</span></label>
                     <asp:DropDownList ID="ddlAddType" runat="server" CssClass="hr-select">
@@ -538,14 +629,30 @@
         </div>
         <div class="hr-modal__body">
             <div id="batchResult" class="hr-result"></div>
-            <div class="hr-section-label">Employee &amp; Deduction</div>
+            <!-- Employee Autocomplete -->
             <div class="hr-form-row">
-                <div class="hr-form-group hr-form-group--full">
+                <div class="hr-form-group">
                     <label class="hr-label">Employee <span>*</span></label>
-                    <asp:DropDownList ID="ddlBatchEmployee" runat="server" CssClass="hr-select" />
+                    <div class="hr-ac">
+                        <input type="text" id="acBatchInput" class="hr-ac__input" placeholder="Search by name or staff #…" autocomplete="off" />
+                        <div id="acBatchSpinner" class="hr-ac__spinner"></div>
+                        <button type="button" id="acBatchClear" class="hr-ac__clear" title="Clear" onclick="DeductionAC.clearBatch()">&times;</button>
+                        <div id="acBatchList" class="hr-ac__list"></div>
+                    </div>
                 </div>
             </div>
-            <div class="hr-form-row">
+            
+            <!-- Selected Employee Card -->
+            <div id="selectedEmpCardBatch" class="hr-selected-emp">
+                <div class="hr-selected-emp__avatar" id="empAvatarBatch">?</div>
+                <div class="hr-selected-emp__info" id="empInfoBatch">
+                    <div class="hr-selected-emp__name" id="empNameBatch"></div>
+                    <div class="hr-selected-emp__detail" id="empDetailBatch">Staff Code: <span id="empCodeBatch"></span></div>
+                </div>
+                <button type="button" class="hr-selected-emp__remove" title="Remove" onclick="DeductionAC.clearBatch()">&times;</button>
+            </div>
+            
+            <div class="hr-section-label">Deduction Details</div>
                 <div class="hr-form-group hr-form-group--full">
                     <label class="hr-label">Deduction Type <span>*</span></label>
                     <asp:DropDownList ID="ddlBatchType" runat="server" CssClass="hr-select">
@@ -570,7 +677,7 @@
                 </div>
                 <div class="hr-form-group">
                     <label class="hr-label">Number of Instalments <span>*</span></label>
-                    <asp:TextBox ID="txtBatchMonths" runat="server" CssClass="hr-input" TextMode="Number" Text="1" />
+                    <asp:TextBox ID="txtBatchMonths" runat="server" CssClass="hr-input" TextMode="Number" Text="1" ClientIDMode="Static" />
                     <span class="hr-hint">Max 60 months</span>
                 </div>
             </div>
@@ -578,7 +685,7 @@
             <div class="hr-form-row3">
                 <div class="hr-form-group">
                     <label class="hr-label">Start Month <span>*</span></label>
-                    <asp:DropDownList ID="ddlBatchStartMonth" runat="server" CssClass="hr-select" onchange="updateBatchPreview()">
+                    <asp:DropDownList ID="ddlBatchStartMonth" runat="server" CssClass="hr-select" onchange="updateBatchPreview()" ClientIDMode="Static">
                         <asp:ListItem>JANUARY</asp:ListItem><asp:ListItem>FEBRUARY</asp:ListItem>
                         <asp:ListItem>MARCH</asp:ListItem><asp:ListItem>APRIL</asp:ListItem>
                         <asp:ListItem>MAY</asp:ListItem><asp:ListItem>JUNE</asp:ListItem>
@@ -589,7 +696,7 @@
                 </div>
                 <div class="hr-form-group">
                     <label class="hr-label">Start Year <span>*</span></label>
-                    <asp:TextBox ID="txtBatchStartYear" runat="server" CssClass="hr-input" TextMode="Number" onchange="updateBatchPreview()" />
+                    <asp:TextBox ID="txtBatchStartYear" runat="server" CssClass="hr-input" TextMode="Number" onchange="updateBatchPreview()" ClientIDMode="Static" />
                 </div>
             </div>
             <div class="hr-form-row">
@@ -622,20 +729,40 @@ function toggleActionPopover(btn,evt){evt.stopPropagation();var pop=btn.nextElem
 function closeAllPopovers(){document.querySelectorAll('.cd-action-popover.is-open').forEach(function(p){p.classList.remove('is-open');});}
 document.addEventListener('click',closeAllPopovers);
 
-/* -- Modals -- */
+/* Modals - Modals */
 function openAddModal(){
-    document.getElementById('addDeductionModal').style.display='flex';
-    var r=document.getElementById('addResult');r.innerHTML='';r.className='hr-result';
+    var modal = document.getElementById('addDeductionModal');
+    if (modal) modal.classList.add('is-open');
+    // Suppress grid interactions
+    var grid = document.querySelector('.dxgvControl_Glass');
+    if (grid) grid.style.pointerEvents = 'none';
+    var r=document.getElementById('addResult');if(r){r.innerHTML='';r.className='hr-result';}
 }
-function closeAddModal(){document.getElementById('addDeductionModal').style.display='none';}
+function closeAddModal(){
+    var modal = document.getElementById('addDeductionModal');
+    if (modal) modal.classList.remove('is-open');
+    // Re-enable grid interactions
+    var grid = document.querySelector('.dxgvControl_Glass');
+    if (grid) grid.style.pointerEvents = 'auto';
+}
 function openBatchModal(){
-    document.getElementById('batchDeductionModal').style.display='flex';
-    var r=document.getElementById('batchResult');r.innerHTML='';r.className='hr-result';
+    var modal = document.getElementById('batchDeductionModal');
+    if (modal) modal.classList.add('is-open');
+    // Suppress grid interactions
+    var grid = document.querySelector('.dxgvControl_Glass');
+    if (grid) grid.style.pointerEvents = 'none';
+    var r=document.getElementById('batchResult');if(r){r.innerHTML='';r.className='hr-result';}
     updateBatchPreview();
 }
-function closeBatchModal(){document.getElementById('batchDeductionModal').style.display='none';}
+function closeBatchModal(){
+    var modal = document.getElementById('batchDeductionModal');
+    if (modal) modal.classList.remove('is-open');
+    // Re-enable grid interactions
+    var grid = document.querySelector('.dxgvControl_Glass');
+    if (grid) grid.style.pointerEvents = 'auto';
+}
 document.querySelectorAll('.hr-modal-overlay').forEach(function(o){
-    o.addEventListener('click',function(e){if(e.target===o)o.style.display='none';});
+    o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('is-open');});
 });
 document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){closeAddModal();closeBatchModal();}
@@ -660,8 +787,15 @@ function updateBatchToolbar(){
     var all=document.querySelectorAll('.ct-row-check');
     var tb=document.getElementById('batchToolbar');
     var cnt=document.getElementById('batchCount');
-    if(checked.length>0){tb.style.display='flex';cnt.textContent=checked.length;}
-    else tb.style.display='none';
+    if(checked.length>0){
+        tb.classList.add('toolbar-visible');
+        tb.style.display='flex';
+        cnt.textContent=checked.length;
+    }
+    else {
+        tb.classList.remove('toolbar-visible');
+        tb.style.display='none';
+    }
     var chk=document.getElementById('chkSelectAll');
     if(chk){chk.indeterminate=(checked.length>0&&checked.length<all.length);chk.checked=all.length>0&&checked.length===all.length;}
 }
@@ -707,6 +841,267 @@ function updateBatchPreview(){
 (function(){
     var n=document.getElementById('<%= txtBatchMonths.ClientID %>');
     if(n)n.addEventListener('input',updateBatchPreview);
+})();
+
+/* ===== EMPLOYEE AUTOCOMPLETE ============================================ */
+var DeductionAC = (function() {
+    var addInput, addList, addSpinner, addClear, batchInput, batchList, batchSpinner, batchClear;
+    var addTimer = null, batchTimer = null, addXhr = null, batchXhr = null;
+    var addActiveIdx = -1, batchActiveIdx = -1, addResults = [], batchResults = [];
+    var addSelected = null, batchSelected = null;
+    var DEBOUNCE = 250, MIN_CHARS = 1;
+
+    function init() {
+        addInput = document.getElementById('acAddInput');
+        addList = document.getElementById('acAddList');
+        addSpinner = document.getElementById('acAddSpinner');
+        addClear = document.getElementById('acAddClear');
+        batchInput = document.getElementById('acBatchInput');
+        batchList = document.getElementById('acBatchList');
+        batchSpinner = document.getElementById('acBatchSpinner');
+        batchClear = document.getElementById('acBatchClear');
+        if (!addInput) return;
+
+        addInput.addEventListener('input', function() { onInputAdd(); });
+        addInput.addEventListener('keydown', function(e) { onKeyDownAdd(e); });
+        addInput.addEventListener('focus', function() { if (addResults.length > 0 && !addSelected) showListAdd(); });
+        document.addEventListener('click', function(e) {
+            if (addInput && !addInput.contains(e.target) && !addList.contains(e.target)) hideListAdd();
+            if (batchInput && !batchInput.contains(e.target) && !batchList.contains(e.target)) hideListBatch();
+        });
+        addClear.addEventListener('click', clearAdd);
+        batchClear.addEventListener('click', clearBatch);
+
+        batchInput.addEventListener('input', function() { onInputBatch(); });
+        batchInput.addEventListener('keydown', function(e) { onKeyDownBatch(e); });
+        batchInput.addEventListener('focus', function() { if (batchResults.length > 0 && !batchSelected) showListBatch(); });
+    }
+
+    function onInputAdd() {
+        var q = addInput.value.trim();
+        if (addSelected) deselectAdd();
+        if (addTimer) clearTimeout(addTimer);
+        if (addXhr) { addXhr.abort(); addXhr = null; }
+        if (q.length < MIN_CHARS) { hideListAdd(); addResults = []; return; }
+        addTimer = setTimeout(function() { doSearchAdd(q); }, DEBOUNCE);
+    }
+
+    function onKeyDownAdd(e) {
+        if (!addList.classList.contains('hr-ac__list--visible')) {
+            if (e.keyCode === 40 && addResults.length > 0) { showListAdd(); e.preventDefault(); }
+            return;
+        }
+        if (e.keyCode === 40) { e.preventDefault(); addActiveIdx = Math.min(addActiveIdx + 1, addResults.length - 1); renderActiveAdd(); }
+        else if (e.keyCode === 38) { e.preventDefault(); addActiveIdx = Math.max(addActiveIdx - 1, 0); renderActiveAdd(); }
+        else if (e.keyCode === 13) { e.preventDefault(); if (addActiveIdx >= 0 && addActiveIdx < addResults.length) selectAdd(addResults[addActiveIdx]); }
+        else if (e.keyCode === 27) { hideListAdd(); }
+    }
+
+    function onInputBatch() {
+        var q = batchInput.value.trim();
+        if (batchSelected) deselectBatch();
+        if (batchTimer) clearTimeout(batchTimer);
+        if (batchXhr) { batchXhr.abort(); batchXhr = null; }
+        if (q.length < MIN_CHARS) { hideListBatch(); batchResults = []; return; }
+        batchTimer = setTimeout(function() { doSearchBatch(q); }, DEBOUNCE);
+    }
+
+    function onKeyDownBatch(e) {
+        if (!batchList.classList.contains('hr-ac__list--visible')) {
+            if (e.keyCode === 40 && batchResults.length > 0) { showListBatch(); e.preventDefault(); }
+            return;
+        }
+        if (e.keyCode === 40) { e.preventDefault(); batchActiveIdx = Math.min(batchActiveIdx + 1, batchResults.length - 1); renderActiveBatch(); }
+        else if (e.keyCode === 38) { e.preventDefault(); batchActiveIdx = Math.max(batchActiveIdx - 1, 0); renderActiveBatch(); }
+        else if (e.keyCode === 13) { e.preventDefault(); if (batchActiveIdx >= 0 && batchActiveIdx < batchResults.length) selectBatch(batchResults[batchActiveIdx]); }
+        else if (e.keyCode === 27) { hideListBatch(); }
+    }
+
+    function doSearchAdd(q) { doSearch(q, 'Add', function(r) { renderListAdd(q); }, function() { hideSpinnerAdd(); }, function(x) { addXhr = x; }, function() { showSpinnerAdd(); }); }
+    function doSearchBatch(q) { doSearch(q, 'Batch', function(r) { renderListBatch(q); }, function() { hideSpinnerBatch(); }, function(x) { batchXhr = x; }, function() { showSpinnerBatch(); }); }
+
+    function doSearch(q, context, onRender, onHideSpinner, setXhr, onShowSpinner) {
+        onShowSpinner();
+        var ctx = context === 'Add';
+        if (ctx && addXhr) addXhr.abort();
+        if (!ctx && batchXhr) batchXhr.abort();
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'HRDeductions.aspx?ajax=search_emp&q=' + encodeURIComponent(q), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            onHideSpinner();
+            if (xhr.status === 200) {
+                try {
+                    var response = xhr.responseText.trim();
+                    var braceCount = 0, endIdx = 0;
+                    for (var i = 0; i < response.length; i++) {
+                        if (response[i] === '{') braceCount++;
+                        if (response[i] === '}') braceCount--;
+                        if (braceCount === 0 && response[i] === '}') { endIdx = i + 1; break; }
+                    }
+                    var cleanResponse = response.substring(0, endIdx);
+                    var data = JSON.parse(cleanResponse);
+                    if (ctx) { addResults = data.results || []; addActiveIdx = -1; }
+                    else { batchResults = data.results || []; batchActiveIdx = -1; }
+                    onRender();
+                } catch(ex) { 
+                    if (ctx) addResults = []; 
+                    else batchResults = []; 
+                }
+            }
+        };
+        setXhr(xhr);
+        xhr.send();
+    }
+
+    function renderListAdd(query) { renderList(query, 'Add', addResults, function(i) { selectAdd(addResults[i]); }, function(i) { addActiveIdx = i; renderActiveAdd(); }); }
+    function renderListBatch(query) { renderList(query, 'Batch', batchResults, function(i) { selectBatch(batchResults[i]); }, function(i) { batchActiveIdx = i; renderActiveBatch(); }); }
+
+    function renderList(query, context, results, selectCb, activateCb) {
+        var list = context === 'Add' ? addList : batchList;
+        var activeIdx = context === 'Add' ? addActiveIdx : batchActiveIdx;
+        if (!list) return;
+        if (results.length === 0) {
+            list.innerHTML = '<div class="hr-ac__empty"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>No employees found</div>';
+            (context === 'Add' ? showListAdd : showListBatch)(); return;
+        }
+        try {
+            var html = '';
+            for (var i = 0; i < results.length; i++) {
+                var r = results[i];
+                var initials = getInitials(r.emp_name);
+                html += '<div class="hr-ac__item' + (i === activeIdx ? ' hr-ac__item--active' : '') + '" data-idx="' + i + '">' +
+                    '<div class="hr-ac__avatar">' + esc(initials) + '</div>' +
+                    '<div class="hr-ac__info">' +
+                    '<div class="hr-ac__name">' + highlight(r.emp_name, query) + '</div>' +
+                    '<div class="hr-ac__meta">' + (r.emp_position || 'Staff') + '</div>' +
+                    '</div>' +
+                    '<div class="hr-ac__code">' + highlight(r.EMP_CODE || '', query) + '</div>' +
+                    '</div>';
+            }
+            html += '<div class="hr-ac__hint">' + results.length + ' result' + (results.length !== 1 ? 's' : '') + '</div>';
+            list.innerHTML = html;
+
+            var items = list.querySelectorAll('.hr-ac__item');
+            for (var j = 0; j < items.length; j++) {
+                (function(idx) {
+                    items[idx].addEventListener('click', function() { selectCb(idx); });
+                    items[idx].addEventListener('mouseenter', function() { activateCb(idx); });
+                })(j);
+            }
+            (context === 'Add' ? showListAdd : showListBatch)();
+        } catch(ex) { }
+    }
+
+    function renderActiveAdd() { renderActive(addList, addActiveIdx); }
+    function renderActiveBatch() { renderActive(batchList, batchActiveIdx); }
+
+    function renderActive(list, activeIdx) {
+        var items = list.querySelectorAll('.hr-ac__item');
+        for (var i = 0; i < items.length; i++) items[i].className = 'hr-ac__item' + (i === activeIdx ? ' hr-ac__item--active' : '');
+        if (activeIdx >= 0 && items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+    }
+
+    function selectAdd(e) { selectEmployee(e, 'Add'); }
+    function selectBatch(e) { selectEmployee(e, 'Batch'); }
+
+    function selectEmployee(emp, context) {
+        if (context === 'Add') {
+            addSelected = emp;
+            addInput.value = emp.emp_name;
+            addInput.classList.add('hr-ac__input--selected');
+            hideListAdd();
+            document.getElementById('hfSelectedEmpID').value = emp.empID;
+            showSelectedEmpAdd(emp);
+        } else {
+            batchSelected = emp;
+            batchInput.value = emp.emp_name;
+            batchInput.classList.add('hr-ac__input--selected');
+            hideListBatch();
+            document.getElementById('hfSelectedEmpID').value = emp.empID;
+            showSelectedEmpBatch(emp);
+        }
+    }
+
+    function showSelectedEmpAdd(e) {
+        var card = document.getElementById('selectedEmpCardAdd');
+        document.getElementById('empAvatarAdd').textContent = getInitials(e.emp_name);
+        document.getElementById('empNameAdd').textContent = e.emp_name;
+        document.getElementById('empCodeAdd').textContent = e.EMP_CODE;
+        card.classList.add('hr-selected-emp--visible');
+    }
+
+    function showSelectedEmpBatch(e) {
+        var card = document.getElementById('selectedEmpCardBatch');
+        document.getElementById('empAvatarBatch').textContent = getInitials(e.emp_name);
+        document.getElementById('empNameBatch').textContent = e.emp_name;
+        document.getElementById('empCodeBatch').textContent = e.EMP_CODE;
+        card.classList.add('hr-selected-emp--visible');
+    }
+
+    function deselectAdd() { addSelected = null; hideListAdd(); }
+    function deselectBatch() { batchSelected = null; hideListBatch(); }
+
+    function clearAdd() {
+        addInput.value = '';
+        addInput.classList.remove('hr-ac__input--selected');
+        addSelected = null;
+        addResults = [];
+        addActiveIdx = -1;
+        document.getElementById('hfSelectedEmpID').value = '';
+        document.getElementById('selectedEmpCardAdd').classList.remove('hr-selected-emp--visible');
+        hideListAdd();
+        addInput.focus();
+    }
+
+    function clearBatch() {
+        batchInput.value = '';
+        batchInput.classList.remove('hr-ac__input--selected');
+        batchSelected = null;
+        batchResults = [];
+        batchActiveIdx = -1;
+        document.getElementById('hfSelectedEmpID').value = '';
+        document.getElementById('selectedEmpCardBatch').classList.remove('hr-selected-emp--visible');
+        hideListBatch();
+        batchInput.focus();
+    }
+
+    function showListAdd() { addList.classList.add('hr-ac__list--visible'); }
+    function hideListAdd() { addList.classList.remove('hr-ac__list--visible'); }
+    function showListBatch() { batchList.classList.add('hr-ac__list--visible'); }
+    function hideListBatch() { batchList.classList.remove('hr-ac__list--visible'); }
+
+    function showSpinnerAdd() { addSpinner.classList.add('hr-ac__spinner--visible'); }
+    function hideSpinnerAdd() { addSpinner.classList.remove('hr-ac__spinner--visible'); }
+    function showSpinnerBatch() { batchSpinner.classList.add('hr-ac__spinner--visible'); }
+    function hideSpinnerBatch() { batchSpinner.classList.remove('hr-ac__spinner--visible'); }
+
+    function getInitials(name) {
+        return name ? name.split(' ').map(function(w) { return w[0]; }).join('').substring(0, 2).toUpperCase() : '?';
+    }
+
+    function esc(s) { return String(s).replace(/[&<>"']/g, function(c) { return '&#' + c.charCodeAt(0) + ';'; }); }
+
+    function highlight(text, query) {
+        if (!query || !text) return text;
+        var regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        return text.replace(regex, '<mark>$1</mark>');
+    }
+
+    return {
+        init: init,
+        clearAdd: clearAdd,
+        clearBatch: clearBatch
+    };
+})();
+
+// Initialize autocomplete when DOM ready
+(function(){
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { DeductionAC.init(); });
+    } else {
+        DeductionAC.init();
+    }
 })();
 
 /* -- Single row cancel (reuses batch cancel handler) -- */

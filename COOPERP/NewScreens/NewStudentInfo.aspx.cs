@@ -4224,35 +4224,16 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     {
         try
         {
-            // Query fin_studentfeestracking directly — this is the source of truth
-            // for ALL billing and payment records (auto-billed AND manually created).
-            // The old stored procedure fin_GetStudentLedger only reads from the GL
-            // (fin_ledger) which doesn't include manually-created transactions.
-            string sql = @"SELECT 
-                    t.TID,
-                    DATE_FORMAT(t.trans_date, '%d/%m/%Y') AS formated_date,
-                    CONCAT('TXN-', t.TID) AS voucherNo,
-                    CASE 
-                        WHEN COALESCE(t.detail,'') != '' THEN t.detail
-                        ELSE COALESCE(b.ItemName, CONCAT('Item #', t.item_code))
-                    END AS particulars,
-                    CASE WHEN t.trans_type = 'Bill' THEN t.amount ELSE 0 END AS dr_amount,
-                    CASE WHEN t.trans_type = 'Payment' THEN t.amount ELSE 0 END AS cr_amount,
-                    t.acadyear,
-                    t.semester,
-                    t.trans_type,
-                    t.post_status
-                FROM fin_studentfeestracking t
-                LEFT JOIN academicbillingitems b ON b.ItemCode = t.item_code
-                WHERE t.regno = @reg
-                ORDER BY t.trans_date ASC, t.TID ASC";
-
+            // Use fin_GetStudentLedger stored procedure — reads from fin_ledger (GL),
+            // which is the canonical source of ALL transactions including manual
+            // bank deposits and journal adjustments that fin_studentfeestracking misses.
             DataTable dtFees = new DataTable();
             using (MySqlConnection conn = new MySqlConnection(AccountsConnectionString))
             {
                 conn.Open();
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                using (MySqlCommand cmd = new MySqlCommand("fin_GetStudentLedger", conn))
                 {
+                    cmd.CommandType = System.Data.CommandType.StoredProcedure;
                     cmd.CommandTimeout = 30;
                     cmd.Parameters.AddWithValue("@reg", regno);
                     using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))

@@ -505,17 +505,17 @@
             <div style="position:relative;width:100%;"><canvas id="cvMonthly"></canvas></div>
         </div>
     </div>
-    <!-- Semester Comparison -->
+    <!-- Daily Payments (Past 30 Days) -->
     <div class="fd-chart-panel">
         <div class="fd-chart-panel__header">
             <div class="fd-chart-panel__title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                Semester Comparison
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Daily Payments (Past 30 Days)
             </div>
-            <div class="fd-chart-panel__meta">stacked revenue &amp; collection rate</div>
+            <div class="fd-chart-panel__meta">daily payment volume</div>
         </div>
         <div class="fd-chart-panel__body">
-            <div style="position:relative;width:100%;"><canvas id="cvSemester"></canvas></div>
+            <div style="position:relative;width:100%;"><canvas id="cvDaily"></canvas></div>
         </div>
     </div>
 </div>
@@ -673,11 +673,8 @@
 <asp:HiddenField ID="hfMonthLabels" runat="server" Value="" />
 <asp:HiddenField ID="hfMonthValues" runat="server" Value="" />
 <asp:HiddenField ID="hfMonthBillValues" runat="server" Value="" />
-<asp:HiddenField ID="hfSemLabels" runat="server" Value="" />
-<asp:HiddenField ID="hfSemBilled" runat="server" Value="" />
-<asp:HiddenField ID="hfSemPaid" runat="server" Value="" />
-<asp:HiddenField ID="hfSemBalance" runat="server" Value="" />
-<asp:HiddenField ID="hfSemRate" runat="server" Value="" />
+<asp:HiddenField ID="hfDailyLabels" runat="server" Value="" />
+<asp:HiddenField ID="hfDailyValues" runat="server" Value="" />
 
 <!-- Chart.js v4 via CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -694,11 +691,8 @@
     var hfMonthLabId   = '<%= hfMonthLabels.ClientID %>';
     var hfMonthValId   = '<%= hfMonthValues.ClientID %>';
     var hfMonthBillId  = '<%= hfMonthBillValues.ClientID %>';
-    var hfSemLabId     = '<%= hfSemLabels.ClientID %>';
-    var hfSemBillId    = '<%= hfSemBilled.ClientID %>';
-    var hfSemPaidId    = '<%= hfSemPaid.ClientID %>';
-    var hfSemBalId     = '<%= hfSemBalance.ClientID %>';
-    var hfSemRateId    = '<%= hfSemRate.ClientID %>';
+    var hfDailyLabId   = '<%= hfDailyLabels.ClientID %>';
+    var hfDailyValId   = '<%= hfDailyValues.ClientID %>';
 
     // ---- Helpers ----
     function getVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
@@ -908,68 +902,27 @@
     }
 
     // ============================================================
-    // SEMESTER COMPARISON — Stacked Bar + Collection Rate Line
+    // DAILY PAYMENTS (PAST 30 DAYS) — Bar Chart
     // ============================================================
-    function initSemester() {
-        var canvas = document.getElementById('cvSemester');
+    function initDaily() {
+        var canvas = document.getElementById('cvDaily');
         if (!canvas || typeof Chart === 'undefined') return;
-        var labels  = parseLabels(getVal(hfSemLabId));
-        var billed  = parseNums(getVal(hfSemBillId));
-        var paid    = parseNums(getVal(hfSemPaidId));
-        var balance = parseNums(getVal(hfSemBalId));
-        var rates   = parseNums(getVal(hfSemRateId));
-        var semLabels = [];
-        for (var i = 0; i < labels.length; i++) semLabels.push('Semester ' + labels[i]);
+        var labels = parseLabels(getVal(hfDailyLabId));
+        var values = parseNums(getVal(hfDailyValId));
 
         new Chart(canvas, {
             type: 'bar',
             data: {
-                labels: semLabels.length > 0 ? semLabels : ['No data'],
+                labels: labels.length > 0 ? labels : ['No data'],
                 datasets: [
                     {
-                        label: 'Paid',
-                        type: 'bar',
-                        data: paid.length > 0 ? paid : [0],
+                        label: 'Daily Payments',
+                        data: values.length > 0 ? values : [0],
                         backgroundColor: '#16a34a',
                         hoverBackgroundColor: '#15803d',
                         borderWidth: 0,
                         borderRadius: 0,
-                        maxBarThickness: 48,
-                        stack: 'revenue',
-                        yAxisID: 'y',
-                        order: 3
-                    },
-                    {
-                        label: 'Outstanding',
-                        type: 'bar',
-                        data: balance.length > 0 ? balance : [0],
-                        backgroundColor: 'rgba(220,53,69,0.3)',
-                        hoverBackgroundColor: 'rgba(220,53,69,0.5)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(220,53,69,0.4)',
-                        borderRadius: 0,
-                        maxBarThickness: 48,
-                        stack: 'revenue',
-                        yAxisID: 'y',
-                        order: 2
-                    },
-                    {
-                        label: 'Collection Rate %',
-                        type: 'line',
-                        data: rates.length > 0 ? rates : [0],
-                        borderColor: '#d97706',
-                        backgroundColor: 'transparent',
-                        borderWidth: 2,
-                        borderDash: [4, 3],
-                        pointBackgroundColor: '#d97706',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2,
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        tension: 0.2,
-                        fill: false,
-                        yAxisID: 'y1',
-                        order: 1
+                        maxBarThickness: 32
                     }
                 ]
             },
@@ -980,32 +933,17 @@
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { color: '#888', font: { size: 10, weight: '500' } },
-                        border: { color: '#e0e5ed' }
+                        ticks: { color: '#888', font: { size: 9, weight: '500' } },
+                        border: { display: false }
                     },
                     y: {
-                        stacked: true,
                         beginAtZero: true,
-                        position: 'left',
                         grid: { color: '#f0f2f5', drawBorder: false },
                         ticks: {
                             color: '#aaa',
                             font: { size: 9 },
                             callback: function (v) { return fmtAxis(v); },
                             maxTicksLimit: 6
-                        },
-                        border: { display: false }
-                    },
-                    y1: {
-                        beginAtZero: true,
-                        max: 100,
-                        position: 'right',
-                        grid: { display: false },
-                        ticks: {
-                            color: '#d97706',
-                            font: { size: 9, weight: '600' },
-                            callback: function (v) { return v + '%'; },
-                            stepSize: 25
                         },
                         border: { display: false }
                     }
@@ -1032,8 +970,6 @@
                         cornerRadius: 2,
                         callbacks: {
                             label: function (ctx) {
-                                if (ctx.dataset.yAxisID === 'y1')
-                                    return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%';
                                 return ctx.dataset.label + ': ' + fmtUGX(ctx.parsed.y);
                             }
                         }
@@ -1171,7 +1107,7 @@
     function initAll() {
         initDonut();
         initMonthly();
-        initSemester();
+        initDaily();
         var sels = document.querySelectorAll('select.fs-filter-select');
         for (var i = 0; i < sels.length; i++) initSearchable(sels[i]);
     }

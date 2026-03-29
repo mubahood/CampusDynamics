@@ -1,6 +1,6 @@
 # Campus Dynamics EMIS — AI Assistant Reference
 > Working reference for every session. For full design specs see `NewScreens/DESIGN_SYSTEM.md`.
-> Last updated: 2026-03-27
+> Last updated: 2026-03-29
 
 ---
 
@@ -185,6 +185,9 @@ ScriptManager.RegisterStartupScript(this, GetType(), "err", js, true);
 | `BindGrid()` only in `if (!IsPostBack)` for DX grids | DX callbacks need data on every request (see §12) |
 | Use `acad_ProgramData` table | Old/wrong table — use `acad_programme` instead (see §11) |
 | Trust hidden fields for student identity on portal | Use `PortalHelper.GetRegno(this)` instead |
+| `<div>` without `id` as direct child of `form#form1` on standalone pages | Hidden by `form#form1 > div:not([id])` CSS rule in `login_modern.css` (see §15) |
+| `<%= %>` code render blocks inside `<asp:Login>` LayoutTemplate | Silently breaks entire template rendering — use plain paths instead |
+| Use `fin_studentfeestracking` for student ledger/balance display | Misses manual GL entries (bank deposits, journals) — use `fin_GetStudentLedger` stored proc instead (see §11) |
 
 ---
 
@@ -231,6 +234,9 @@ When in doubt about any UI decision, look at `FeesStructure.aspx` first.
 | Portal Profile | `CampusDynamics_Portal/Profile.aspx` | Student profile self-service |
 | Portal Coursework | `CampusDynamics_Portal/Coursework.aspx` | Coursework results |
 | Portal Notices | `CampusDynamics_Portal/Notices.aspx` | Announcements/notices |
+| Portal Forgot Pwd | `CampusDynamics_Portal/ForgotPassword.aspx` | Step 1: Identify user, send OTP |
+| Portal Verify Code | `CampusDynamics_Portal/VerifyCode.aspx` | Step 2: Enter & verify OTP |
+| Portal Reset Pwd | `CampusDynamics_Portal/ResetPassword.aspx` | Step 3: Set new password |
 
 ---
 
@@ -334,7 +340,7 @@ ORDER BY r.semester DESC LIMIT 1
 
 ### Financial Tables (in `campus_dynamics_accounts`)
 
-#### `fin_studentfeestracking` — Student fee transactions
+#### `fin_studentfeestracking` — Auto-generated fee transactions (WRITE only)
 | Column | Type | Notes |
 |--------|------|-------|
 | `regno` | FK | Student |
@@ -342,6 +348,30 @@ ORDER BY r.semester DESC LIMIT 1
 | `item_code` | varchar | Fee item code |
 | `trans_type` | varchar | `Bill` or `Payment` |
 | `amount` | decimal | Transaction amount |
+
+> **WARNING**: `fin_studentfeestracking` only contains auto-generated billing and auto-captured payments. It does **NOT** include manual bank deposits, journal adjustments, or other GL entries. Use it only for admin write/management operations (INSERT, billing status checks). **Never** use it to display a student's ledger or calculate their balance.
+
+#### `fin_ledger` — General Ledger (canonical source of truth for READ/display)
+The GL contains ALL transactions: auto-billed fees, auto-captured payments, **and** manual bank deposits, journal entries, and adjustments.
+
+#### `fin_GetStudentLedger(@reg)` — Stored procedure for student ledger display
+- Reads from `fin_ledger` (not `fin_studentfeestracking`)
+- Returns: `formated_date`, `TID`, `voucherNo`, `particulars`, `teller`, `dr_amount`, `cr_amount`, `curr_balance`, `trans_currency`, `transactionDate`
+- **MUST** be used for any student-facing balance/ledger display
+- Connection: `campus_dynamics_accounts` database
+
+```csharp
+// Correct pattern for reading student ledger
+using (var cmd = new MySqlCommand("fin_GetStudentLedger", conn))
+{
+    cmd.CommandType = System.Data.CommandType.StoredProcedure;
+    cmd.Parameters.AddWithValue("@reg", regno);
+    using (var da = new MySqlDataAdapter(cmd)) da.Fill(dt);
+}
+```
+
+#### `fin_GetLimitedStudentLedger(@reg, @sDate, @eDate)` — Date-limited variant
+Same as above but filtered by date range. Used by admin XtraReport ledger.
 
 ---
 
@@ -480,3 +510,53 @@ Shows 7 rows: Programme, Specialisation (if set), Academic Year, Study Year, Sem
   - Expanded info card from 4 rows to 7 rows (Programme, Specialisation, Academic Year, Study Year, Semester, Courses Registered, Status)
   - Added color-coded status (green/red)
 - CSS: Added `.sp-reg-row__val--ok` (green), `.sp-reg-row__val--warn` (red), `max-width: 60%` + `word-break` on `.sp-reg-row__val`
+
+### 2026-03-29 — Forgot Password Pages
+
+#### Forgot Password — 3-page standalone wizard (new)
+- **Created**: `ForgotPassword.aspx`, `VerifyCode.aspx`, `ResetPassword.aspx` as independent standalone pages (no master page)
+- Extracted from inline wizard in `lg_modern.ascx` / `lg_modern.ascx.cs` — all wizard markup and code-behind removed from login control
+- Each page uses `login_modern.css` and the `cdl-*` class system with full branding aside + form panel layout
+- **Flow**: ForgotPassword (enter username → lookup email/phone → send OTP via API → Session) → VerifyCode (enter OTP → verify → Session) → ResetPassword (new password → Membership API → success panel)
+- Session keys: `fp_username`, `fp_provider`, `fp_otp`, `fp_destination`, `fp_masked_dest`, `fp_otp_verified`
+- OTP API: `https://erp.edusaterp.com/api/SecureOTP/sendotp` (GET)
+- Dual provider support: default (portal students) + `MySQLMembershipProviderAdmin` (staff)
+- Step indicator: 3-step (`cdl-steps` / `cdl-step--active` / `cdl-step--done` / `cdl-step__line--done`)
+- CSS classes: `.cdl-forgot`, `.cdl-steps`, `.cdl-step`, `.cdl-forgot__desc`, `.cdl-forgot__msg`, `.cdl-form__input--otp`, `.cdl-forgot__success`
+
+#### Login page fix — `<%= %>` inside LayoutTemplate
+- **Problem**: `<%= ResolveUrl("~/ForgotPassword.aspx") %>` inside `<asp:Login>`'s `<LayoutTemplate>` silently broke the entire template — no fields, no button, nothing rendered
+- **Root cause**: ASP.NET does not allow code render blocks (`<%= %>`) inside server control templates
+- **Fix**: Changed to plain `<a href="/ForgotPassword.aspx">` — no code expression needed
+
+#### White screen fix — `div:not([id])` CSS trap
+- **Problem**: All 3 forgot password pages rendered as white/blank screens despite correct HTML
+- **Root cause**: `login_modern.css` has `form#form1 > div:not([id]) { display: none !important; }` to hide the ASP.NET ViewState wrapper `<div>`. On standalone pages (no master page), the `<div class="cdl-wrap">` is a direct child of `form#form1` and had no `id` — so the entire content was hidden
+- **Fix**: Added `id="cdlWrap"` to the wrapper `<div>` in all 3 pages
+- **Rule**: Any standalone page using `login_modern.css` must give an `id` to every direct-child `<div>` of `form#form1`
+
+#### Code-behind hardening (all 3 files)
+- **OTP range**: `Random.Next(100000, 999999)` → `Random.Next(100000, 1000000)` (upper bound is exclusive)
+- **Null safety**: `ResetPassword.aspx.cs` — added null checks on `Membership.GetUser()` and `adminProv.GetUser()` before calling methods
+- **Error reporting**: `ForgotPassword.aspx.cs` — replaced silent `catch { }` with user-facing error message on DB failure
+- **Double-click prevention**: Added `UseSubmitBehavior="false"` + `OnClientClick` to all submit buttons across 3 pages
+
+### 2026-03-29 — Student Fee Ledger Fix
+
+#### Root cause — Missing transactions on portal
+- **Problem**: Portal fee pages showed fewer transactions and wrong balance vs. admin ledger report
+- **Example**: Student mru2024001492 — portal showed 16 txns / CR 8,032,000 / Balance 3,446,000; admin showed 17 txns / CR 9,432,000 / Balance 2,046,000
+- **Missing**: Manual bank deposits (e.g., 1,400,000 Stanbic Bank deposit) that exist only in `fin_ledger` (GL)
+- **Root cause**: Portal queried `fin_studentfeestracking` directly, which only has auto-generated billing and auto-captured payments. Manual GL entries (bank deposits, journal adjustments) are only in `fin_ledger`
+- **Fix**: Switched all student-facing ledger/balance displays to use `fin_GetStudentLedger` stored procedure (reads from `fin_ledger`)
+
+#### Files changed
+- **`CampusDynamics_Portal/StudentFees.aspx.cs`** — Replaced direct `fin_studentfeestracking` query with `fin_GetStudentLedger` stored proc; removed Year/Sem columns (not in stored proc output); adjusted footer colspan
+- **`CampusDynamics_Portal/UserControls/Security/SystemApplications_Modern.ascx.cs`** — `LoadFinancialStats()`: switched from `SUM(CASE WHEN trans_type=...)` on `fin_studentfeestracking` to iterating `fin_GetStudentLedger` results, summing `dr_amount`/`cr_amount`. `LoadFeeBreakdown()`: kept on `fin_studentfeestracking` (needs `item_code` grouping for line-item display — stored proc doesn't return `item_code`); added explanatory comment
+- **`CampusDynamics_Portal/StudentLedger.ascx.cs`** — Replaced direct query with `fin_GetStudentLedger` stored proc
+- **`NewScreens/NewStudentInfo.aspx.cs`** — `LoadFeesLedger()`: replaced direct `fin_studentfeestracking` query with `fin_GetStudentLedger` stored proc
+
+#### Rule established
+- **READ/display** (student ledger, balance, totals): Always use `fin_GetStudentLedger` stored proc → reads `fin_ledger` (GL) = complete
+- **WRITE/admin** (billing, fee management, INSERTs): Use `fin_studentfeestracking` directly = correct for admin operations
+- **Item-level breakdown** (dashboard fee items panel): Acceptable to use `fin_studentfeestracking` since it needs `item_code` grouping, but totals must come from the stored proc

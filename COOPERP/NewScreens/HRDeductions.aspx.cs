@@ -40,10 +40,17 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        // Handle AJAX search requests
+        if (Request.QueryString["ajax"] == "search_emp")
+        {
+            HandleEmployeeSearch();
+            return;
+        }
+
         if (!IsPostBack)
         {
             LoadFilterDropdowns();
-            LoadFormDropdowns();
+            // LoadFormDropdowns();  // Removed: Using autocomplete instead of dropdowns
 
             // Default date-recorded to today
             txtAddDateRecorded.Text = DateTime.Today.ToString("yyyy-MM-dd");
@@ -78,24 +85,69 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
             ddlFilterEmployee.Items.Add(new ListItem(r["display"].ToString(), r["empID"].ToString()));
     }
 
-    private void LoadFormDropdowns()
+    // ===============================================================
+    //  AJAX: Employee Search
+    // ===============================================================
+
+    private void HandleEmployeeSearch()
     {
-        DataTable dtEmp = ExecuteQuery(
-            "SELECT empID, CONCAT(emp_name,' [',IFNULL(EMP_CODE,''),']') AS display " +
-            "FROM hrm_employee ORDER BY emp_name");
+        Response.ContentType = "application/json";
+        string query = (Request.QueryString["q"] ?? "").Trim();
 
-        // Add modal employee dropdown
-        ddlAddEmployee.Items.Clear();
-        ddlAddEmployee.Items.Add(new ListItem("-- Select Employee --", ""));
-        foreach (DataRow r in dtEmp.Rows)
-            ddlAddEmployee.Items.Add(new ListItem(r["display"].ToString(), r["empID"].ToString()));
+        if (query.Length < 1)
+        {
+            Response.Write("{\"results\":[]}");
+            Response.End();
+            return;
+        }
 
-        // Batch modal employee dropdown
-        ddlBatchEmployee.Items.Clear();
-        ddlBatchEmployee.Items.Add(new ListItem("-- Select Employee --", ""));
-        foreach (DataRow r in dtEmp.Rows)
-            ddlBatchEmployee.Items.Add(new ListItem(r["display"].ToString(), r["empID"].ToString()));
+        try
+        {
+            DataTable dt = ExecuteQuery(
+                @"SELECT e.empID, e.emp_name, e.EMP_CODE, 
+                         IFNULL(j.jobname, 'Staff') AS emp_position
+                FROM hrm_employee e
+                LEFT JOIN hrm_emp_contracts c ON c.empID = e.empID 
+                    AND c.ID = (SELECT MAX(c2.ID) FROM hrm_emp_contracts c2 WHERE c2.empID = e.empID)
+                LEFT JOIN hrm_jobs j ON j.ID = c.jobID
+                WHERE e.emp_name LIKE @q OR e.EMP_CODE LIKE @q 
+                ORDER BY e.emp_name LIMIT 15",
+                new MySqlParameter("@q", "%" + query + "%"));
+
+            var list = new System.Collections.Generic.List<string>();
+            foreach (DataRow row in dt.Rows)
+            {
+                var item = new
+                {
+                    empID = row["empID"].ToString(),
+                    emp_name = row["emp_name"].ToString(),
+                    EMP_CODE = row["EMP_CODE"].ToString(),
+                    emp_position = row["emp_position"].ToString()
+                };
+                list.Add("{\"empID\":\"" + EscapeJson(item.empID) + 
+                        "\",\"emp_name\":\"" + EscapeJson(item.emp_name) + 
+                        "\",\"EMP_CODE\":\"" + EscapeJson(item.EMP_CODE) + 
+                        "\",\"emp_position\":\"" + EscapeJson(item.emp_position) + "\"}");
+            }
+            Response.Write("{\"results\":[" + string.Join(",", list) + "]}");
+            Response.End();
+        }
+        catch
+        {
+            Response.Write("{\"results\":[]}");
+            Response.End();
+        }
     }
+
+    private string EscapeJson(object val)
+    {
+        if (val == null || val == DBNull.Value) return "";
+        string s = val.ToString();
+        return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n");
+    }
+
+    // Removed LoadFormDropdowns - now using autocomplete for employee selection
+    // The hidden field hfSelectedEmpID stores the selected employee ID from the autocomplete
 
     private void SetDropDownValue(DropDownList ddl, string value)
     {
@@ -305,7 +357,7 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
 
     protected void btnAddDeduction_Click(object sender, EventArgs e)
     {
-        string empID = ddlAddEmployee.SelectedValue;
+        string empID = hfSelectedEmpID.Value;
         string type  = ddlAddType.SelectedValue;
 
         if (string.IsNullOrEmpty(empID))
@@ -361,11 +413,7 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
             new MySqlParameter("@by",     recordedBy));
 
         // Reset form fields
-        ddlAddEmployee.SelectedIndex = 0;
-        ddlAddType.SelectedIndex     = 0;
-        txtAddAmount.Text            = "0";
-        txtAddDateRecorded.Text      = DateTime.Today.ToString("yyyy-MM-dd");
-        txtAddDescription.Text       = "";
+        ResetAddForm();
 
         BindGrid();
         LoadStats();
@@ -380,7 +428,7 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
 
     protected void btnBatchCreate_Click(object sender, EventArgs e)
     {
-        string empID = ddlBatchEmployee.SelectedValue;
+        string empID = hfSelectedEmpID.Value;
         string type  = ddlBatchType.SelectedValue;
 
         if (string.IsNullOrEmpty(empID))
@@ -457,11 +505,7 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         }
 
         // Reset form
-        ddlBatchEmployee.SelectedIndex    = 0;
-        ddlBatchType.SelectedIndex        = 0;
-        txtBatchAmount.Text               = "0";
-        txtBatchMonths.Text               = "1";
-        txtBatchDescription.Text          = "";
+        ResetBatchForm();
 
         BindGrid();
         LoadStats();
@@ -521,6 +565,30 @@ public partial class COOPERP_NewScreens_HRDeductions : System.Web.UI.Page
         string raw = hdnBatchIDs.Value ?? "";
         if (string.IsNullOrEmpty(raw)) return new string[0];
         return raw.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    // ===============================================================
+    //  Form Reset Helpers
+    // ===============================================================
+
+    private void ResetAddForm()
+    {
+        hfSelectedEmpID.Value        = "";
+        ddlAddType.SelectedIndex     = 0;
+        txtAddAmount.Text            = "0";
+        txtAddDateRecorded.Text      = DateTime.Today.ToString("yyyy-MM-dd");
+        txtAddDescription.Text       = "";
+        // Autocomplete fields are reset by JavaScript: DeductionAC.clearAdd()
+    }
+
+    private void ResetBatchForm()
+    {
+        hfSelectedEmpID.Value         = "";
+        ddlBatchType.SelectedIndex    = 0;
+        txtBatchAmount.Text           = "0";
+        txtBatchMonths.Text           = "1";
+        txtBatchDescription.Text      = "";
+        // Autocomplete fields are reset by JavaScript: DeductionAC.clearBatch()
     }
 
     // ===============================================================

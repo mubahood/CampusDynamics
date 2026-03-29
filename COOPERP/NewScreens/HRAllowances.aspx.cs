@@ -41,11 +41,15 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        // Handle AJAX  search requests
+        if (Request.QueryString["ajax"] == "search_emp")
+        {
+            HandleEmployeeSearch();
+            return;
+        }
+
         if (!IsPostBack)
         {
-            LoadFilterDropdowns();
-            LoadFormDropdowns();
-
             txtAddDateRecorded.Text = DateTime.Today.ToString("yyyy-MM-dd");
             txtAddYear.Text         = DateTime.Today.Year.ToString();
             txtBatchStartYear.Text  = DateTime.Today.Year.ToString();
@@ -60,36 +64,82 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
     }
 
     // ===============================================================
+    //  AJAX: Employee Search
+    // ===============================================================
+
+    private void HandleEmployeeSearch()
+    {
+        Response.ContentType = "application/json";
+        string query = (Request.QueryString["q"] ?? "").Trim();
+
+        if (query.Length < 1)
+        {
+            Response.Write("{\"results\":[]}");
+            Response.End();
+            return;
+        }
+
+        try
+        {
+            DataTable dt = ExecuteQuery(
+                @"SELECT e.empID, e.emp_name, e.EMP_CODE, 
+                         IFNULL(j.jobname, 'Staff') AS emp_position
+                FROM hrm_employee e
+                LEFT JOIN hrm_emp_contracts c ON c.empID = e.empID 
+                    AND c.ID = (SELECT MAX(c2.ID) FROM hrm_emp_contracts c2 WHERE c2.empID = e.empID)
+                LEFT JOIN hrm_jobs j ON j.ID = c.jobID
+                WHERE e.emp_name LIKE @q OR e.EMP_CODE LIKE @q 
+                ORDER BY e.emp_name LIMIT 15",
+                new MySqlParameter("@q", "%" + query + "%"));
+
+            var list = new System.Collections.Generic.List<string>();
+            foreach (DataRow row in dt.Rows)
+            {
+                var item = new
+                {
+                    empID = row["empID"].ToString(),
+                    emp_name = row["emp_name"].ToString(),
+                    EMP_CODE = row["EMP_CODE"].ToString(),
+                    emp_position = row["emp_position"].ToString()
+                };
+                list.Add("{\"empID\":\"" + EscapeJson(item.empID) + 
+                        "\",\"emp_name\":\"" + EscapeJson(item.emp_name) + 
+                        "\",\"EMP_CODE\":\"" + EscapeJson(item.EMP_CODE) + 
+                        "\",\"emp_position\":\"" + EscapeJson(item.emp_position) + "\"}");
+            }
+            Response.Write("{\"results\":[" + string.Join(",", list) + "]}");
+            Response.End();
+        }
+        catch
+        {
+            Response.Write("{\"results\":[]}");
+            Response.End();
+        }
+    }
+
+    private string EscapeJson(object val)
+    {
+        if (val == null) return "";
+        return val.ToString()
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n")
+            .Replace("\t", "\\t");
+    }
+
+    // ===============================================================
     //  Dropdowns
     // ===============================================================
 
     private void LoadFilterDropdowns()
     {
-        DataTable dtEmp = ExecuteQuery(
-            "SELECT empID, CONCAT(emp_name,' [',IFNULL(EMP_CODE,''),']') AS display " +
-            "FROM hrm_employee ORDER BY emp_name");
-
-        ddlFilterEmployee.Items.Clear();
-        ddlFilterEmployee.Items.Add(new ListItem("All Employees", ""));
-        foreach (DataRow r in dtEmp.Rows)
-            ddlFilterEmployee.Items.Add(new ListItem(r["display"].ToString(), r["empID"].ToString()));
+        // Removed - no employee filter dropdown needed anymore
     }
 
     private void LoadFormDropdowns()
     {
-        DataTable dtEmp = ExecuteQuery(
-            "SELECT empID, CONCAT(emp_name,' [',IFNULL(EMP_CODE,''),']') AS display " +
-            "FROM hrm_employee ORDER BY emp_name");
-
-        ddlAddEmployee.Items.Clear();
-        ddlAddEmployee.Items.Add(new ListItem("-- Select Employee --", ""));
-        foreach (DataRow r in dtEmp.Rows)
-            ddlAddEmployee.Items.Add(new ListItem(r["display"].ToString(), r["empID"].ToString()));
-
-        ddlBatchEmployee.Items.Clear();
-        ddlBatchEmployee.Items.Add(new ListItem("-- Select Employee --", ""));
-        foreach (DataRow r in dtEmp.Rows)
-            ddlBatchEmployee.Items.Add(new ListItem(r["display"].ToString(), r["empID"].ToString()));
+        // Removed - using autocomplete instead of dropdowns
     }
 
     private void SetDropDownValue(DropDownList ddl, string value)
@@ -135,7 +185,6 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
     private void BindGrid()
     {
         string search  = txtSearch.Text.Trim();
-        string empID   = ddlFilterEmployee.SelectedValue;
         string month   = ddlFilterMonth.SelectedValue;
         string status  = ddlFilterStatus.SelectedValue;
         string yearStr = txtFilterYear.Text.Trim();
@@ -160,11 +209,6 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
         {
             sql.Append(" AND (e.emp_name LIKE @search OR e.EMP_CODE LIKE @search)");
             parms.Add(new MySqlParameter("@search", "%" + search + "%"));
-        }
-        if (!string.IsNullOrEmpty(empID))
-        {
-            sql.Append(" AND a.empID = @empID");
-            parms.Add(new MySqlParameter("@empID", empID));
         }
         if (!string.IsNullOrEmpty(month))
         {
@@ -195,7 +239,6 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
 
             string countText = dt.Rows.Count.ToString();
             litFilterCount.Text    = countText;
-            litFilterCountTop.Text = countText;
 
             gvAllowances.DataSource = dt;
             gvAllowances.DataBind();
@@ -203,7 +246,6 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
         catch
         {
             litFilterCount.Text    = "0";
-            litFilterCountTop.Text = "0";
             gvAllowances.DataSource = new DataTable();
             gvAllowances.DataBind();
         }
@@ -298,7 +340,7 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
 
     protected void btnAddAllowance_Click(object sender, EventArgs e)
     {
-        string empID = ddlAddEmployee.SelectedValue;
+        string empID = hfSelectedEmpID.Value;
         string type  = ddlAddType.SelectedValue;
 
         if (string.IsNullOrEmpty(empID))
@@ -353,11 +395,11 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
             new MySqlParameter("@year",   year),
             new MySqlParameter("@by",     recordedBy));
 
-        ddlAddEmployee.SelectedIndex = 0;
-        ddlAddType.SelectedIndex     = 0;
-        txtAddAmount.Text            = "0";
-        txtAddDateRecorded.Text      = DateTime.Today.ToString("yyyy-MM-dd");
-        txtAddDescription.Text       = "";
+        hfSelectedEmpID.Value           = "";
+        ddlAddType.SelectedIndex        = 0;
+        txtAddAmount.Text               = "0";
+        txtAddDateRecorded.Text         = DateTime.Today.ToString("yyyy-MM-dd");
+        txtAddDescription.Text          = "";
 
         BindGrid();
         LoadStats();
@@ -372,7 +414,7 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
 
     protected void btnBatchCreate_Click(object sender, EventArgs e)
     {
-        string empID = ddlBatchEmployee.SelectedValue;
+        string empID = hfSelectedEmpID.Value;
         string type  = ddlBatchType.SelectedValue;
 
         if (string.IsNullOrEmpty(empID))
@@ -447,11 +489,11 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
             created++;
         }
 
-        ddlBatchEmployee.SelectedIndex    = 0;
-        ddlBatchType.SelectedIndex        = 0;
-        txtBatchAmount.Text               = "0";
-        txtBatchMonths.Text               = "1";
-        txtBatchDescription.Text          = "";
+        hfSelectedEmpID.Value          = "";
+        ddlBatchType.SelectedIndex     = 0;
+        txtBatchAmount.Text            = "0";
+        txtBatchMonths.Text            = "1";
+        txtBatchDescription.Text       = "";
 
         BindGrid();
         LoadStats();
@@ -531,7 +573,6 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
     protected void btnReset_Click(object sender, EventArgs e)
     {
         txtSearch.Text                    = "";
-        ddlFilterEmployee.SelectedIndex   = 0;
         ddlFilterMonth.SelectedIndex      = 0;
         ddlFilterStatus.SelectedIndex     = 0;
         txtFilterYear.Text                = "";
@@ -545,12 +586,12 @@ public partial class COOPERP_NewScreens_HRAllowances : System.Web.UI.Page
     protected string GetStatusBadge(object status)
     {
         if (status == null || status == DBNull.Value)
-            return "<span class='pr-badge pr-badge--pending'>PENDING</span>";
+            return "<span class='hr-badge hr-badge--pending'>PENDING</span>";
         string s   = status.ToString().ToUpper();
-        string css = s == "SETTLED"   ? "pr-badge--settled"
-                   : s == "CANCELLED" ? "pr-badge--cancelled"
-                   :                    "pr-badge--pending";
-        return string.Format("<span class='pr-badge {0}'>{1}</span>", css, HttpUtility.HtmlEncode(s));
+        string css = s == "SETTLED"   ? "hr-badge--settled"
+                   : s == "CANCELLED" ? "hr-badge--cancelled"
+                   :                    "hr-badge--pending";
+        return string.Format("<span class='hr-badge {0}'>{1}</span>", css, HttpUtility.HtmlEncode(s));
     }
 
     protected string GetActionHtml(object idObj, object statusObj)

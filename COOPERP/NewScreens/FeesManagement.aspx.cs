@@ -180,22 +180,36 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
             "<span class='fs-badge fs-badge--primary'>{0}{1}</span>",
             Server.HtmlEncode(yearFilter), semLabel);
 
-        try
-        {
-            LoadHeroStats(yearFilter, semFilter);
-            LoadFeeTypeBreakdown(yearFilter, semFilter);
-            LoadSemesterData(yearFilter, semFilter);
-            LoadMonthlyPayments(yearFilter, semFilter);
-            LoadProgrammeRevenue(yearFilter, semFilter);
-            LoadTopDebtors(yearFilter, semFilter);
-            LoadAnomalyStats(yearFilter, semFilter);
-            LoadLatestPayments(yearFilter, semFilter);
-            LoadLatestBillings(yearFilter, semFilter);
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine("Dashboard error: " + ex.Message);
-        }
+        // Each section loads independently — one failure must not cascade to others
+        try { LoadHeroStats(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadHeroStats error: " + ex.Message); }
+
+        try { LoadFeeTypeBreakdown(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadFeeTypeBreakdown error: " + ex.Message); }
+
+        try { LoadSemesterData(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadSemesterData error: " + ex.Message); }
+
+        try { LoadMonthlyPayments(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadMonthlyPayments error: " + ex.Message); }
+
+        try { LoadDailyPayments(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadDailyPayments error: " + ex.Message); }
+
+        try { LoadProgrammeRevenue(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadProgrammeRevenue error: " + ex.Message); }
+
+        try { LoadTopDebtors(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadTopDebtors error: " + ex.Message); }
+
+        try { LoadAnomalyStats(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadAnomalyStats error: " + ex.Message); }
+
+        try { LoadLatestPayments(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadLatestPayments error: " + ex.Message); }
+
+        try { LoadLatestBillings(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadLatestBillings error: " + ex.Message); }
 
         LoadPaidButUnregistered();
     }
@@ -508,12 +522,6 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
 
         litSemesterCards.Text = cards.Length > 0 ? cards.ToString()
             : "<div style='grid-column:1/-1;text-align:center;padding:20px;color:#aaa;font-size:12px;'>No semester data for selected year</div>";
-
-        hfSemLabels.Value  = string.Join(",", semLabels.ToArray());
-        hfSemBilled.Value  = string.Join(",", semBilled.ToArray());
-        hfSemPaid.Value    = string.Join(",", semPaid.ToArray());
-        hfSemBalance.Value = string.Join(",", semBalance.ToArray());
-        hfSemRate.Value    = string.Join(",", semRate.ToArray());
     }
 
     // ===================================================================
@@ -582,7 +590,66 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
     }
 
     // ===================================================================
-    // 5. PROGRAMME REVENUE (top 10)
+    // 5. DAILY PAYMENTS (Past 15 Days — line chart data)
+    // ===================================================================
+
+    private void LoadDailyPayments(string yearFilter, string semFilter)
+    {
+        string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
+        var labels = new List<string>();
+        var values = new List<string>();
+
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            // Daily payment totals for past 30 days (enrolled students only)
+            string sql = @"
+                SELECT DATE_FORMAT(d.date, '%d %b (%a)') AS day_label,
+                       d.date,
+                       (SELECT COALESCE(SUM(ft.amount),0)
+                        FROM fin_studentfeestracking ft
+                        INNER JOIN campus_dynamics.acad_student s ON s.regno = ft.regno AND s.new_status = 'ACTIVE'
+                        INNER JOIN campus_dynamics.acad_registration r ON r.regno = ft.regno AND r.acad_year = ft.acadyear
+                            AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                        WHERE ft.trans_type = 'Payment'
+                          AND DATE(ft.trans_date) = d.date
+                          AND ft.trans_date IS NOT NULL" + semSql + @"
+                       ) AS daily_paid
+                FROM (
+                    SELECT DATE_SUB(CURDATE(), INTERVAL n DAY) AS date
+                    FROM (SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 
+                          UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7
+                          UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11
+                          UNION SELECT 12 UNION SELECT 13 UNION SELECT 14 UNION SELECT 15
+                          UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
+                          UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23
+                          UNION SELECT 24 UNION SELECT 25 UNION SELECT 26 UNION SELECT 27
+                          UNION SELECT 28 UNION SELECT 29) nums
+                    ORDER BY n
+                ) d
+                ORDER BY d.date ASC";
+
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                AddSemParam(cmd, semFilter);
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        labels.Add(rdr["day_label"].ToString());
+                        values.Add(Convert.ToDouble(rdr["daily_paid"]).ToString("F0"));
+                    }
+                }
+            }
+        }
+
+        hfDailyLabels.Value = string.Join(",", labels.ToArray());
+        hfDailyValues.Value = string.Join(",", values.ToArray());
+    }
+
+    // ===================================================================
+    // 6. PROGRAMME REVENUE (top 10)
     // ===================================================================
 
     private void LoadProgrammeRevenue(string yearFilter, string semFilter)
@@ -601,7 +668,7 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                     SUM(CASE WHEN ft.trans_type='Payment' THEN ft.amount ELSE 0 END) AS paid,
                     COUNT(DISTINCT ft.regno) AS student_count
                 FROM fin_studentfeestracking ft" + ENROLLED_JOIN + @"
-                LEFT JOIN campus_dynamics.acad_programmes p ON p.progcode = s.progid
+                LEFT JOIN campus_dynamics.acad_programme p ON p.progcode = s.progid
                 WHERE ft.acadyear = @ay" + ENROLLED_WHERE + semSql + @"
                 GROUP BY s.progid, programme_name
                 ORDER BY billed DESC
