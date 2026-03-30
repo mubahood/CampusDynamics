@@ -77,6 +77,25 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         return "";
     }
 
+    private int GetCurrentEmployeeId()
+    {
+        string user = GetCurrentUser();
+        if (string.IsNullOrEmpty(user)) return 0;
+        using (var conn = new MySqlConnection(ConnStr))
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand("SELECT empID FROM hrm_employee WHERE usernames = @u LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@u", user);
+                object result = cmd.ExecuteScalar();
+                int id;
+                if (result != null && result != DBNull.Value && int.TryParse(result.ToString(), out id))
+                    return id;
+            }
+        }
+        return 0;
+    }
+
     private decimal SafeDecimal(object val)
     {
         if (val == null || val == DBNull.Value) return 0m;
@@ -214,14 +233,44 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
         string postedYear = Request.Form[ddlPayrollYear.UniqueID];
         LoadYearDropdown(postedYear);
 
+        // Always repopulate create-modal dropdowns (ViewState is disabled,
+        // so Items won't survive postback otherwise).
+        LoadCreateModalDropdowns();
+        LoadCreateYearDropdown();
+
         if (!IsPostBack)
         {
-            LoadCreateModalDropdowns();
-            LoadCreateYearDropdown();
             ddlPayrollMonth.SelectedValue = DateTime.Today.Month.ToString();
+        }
+        else
+        {
+            // Restore posted selections for create-modal dropdowns
+            RestorePostedSelection(ddlPayrollMonth);
+            RestorePostedSelection(ddlCreateYear);
+            RestorePostedSelection(ddlTargetType);
+            RestorePostedSelection(ddlIncludeDeductions);
+            RestorePostedSelection(ddlIncludeAllowances);
         }
         BindPayrollGrid();
         LoadStats();
+    }
+
+    /// <summary>
+    /// Restores the selected value of a DropDownList from the posted form data.
+    /// Needed because ViewState is disabled on the master page.
+    /// </summary>
+    private void RestorePostedSelection(DropDownList ddl)
+    {
+        string posted = Request.Form[ddl.UniqueID];
+        if (!string.IsNullOrEmpty(posted))
+        {
+            ListItem item = ddl.Items.FindByValue(posted);
+            if (item != null)
+            {
+                ddl.ClearSelection();
+                item.Selected = true;
+            }
+        }
     }
 
     // -----------------------------------------------------------------
@@ -563,15 +612,22 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
             return;
         }
 
-        int month = SafeInt(ddlPayrollMonth.SelectedValue);
-        int year  = SafeInt(ddlCreateYear.SelectedValue);
+        // Read from Request.Form because ViewState is disabled — SelectedValue may be empty.
+        int month = SafeInt(Request.Form[ddlPayrollMonth.UniqueID]);
+        int year  = SafeInt(Request.Form[ddlCreateYear.UniqueID]);
+
+        if (month < 1 || month > 12)
+        {
+            ShowModalError("createPayrollModal", "addResult", "Please select a valid month.");
+            return;
+        }
         if (year < 2000 || year > 2099)
         {
             ShowModalError("createPayrollModal", "addResult", "Please select a valid year.");
             return;
         }
 
-        string targetType = ddlTargetType.SelectedValue;
+        string targetType = Request.Form[ddlTargetType.UniqueID];
         if (string.IsNullOrEmpty(targetType)) targetType = "ALL";
 
         // Build target_ids — read via Request.Form because listboxes are only
@@ -598,24 +654,27 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
             }
         }
 
-        string inclDed   = ddlIncludeDeductions.SelectedValue;
-        string inclAllow = ddlIncludeAllowances.SelectedValue;
+        string inclDed   = Request.Form[ddlIncludeDeductions.UniqueID] ?? "YES";
+        string inclAllow = Request.Form[ddlIncludeAllowances.UniqueID] ?? "YES";
         string comments  = txtPayrollComments.Text.Trim();
-        string user      = GetCurrentUser();
+        int empId        = GetCurrentEmployeeId();
 
         try
         {
             ExecuteNonQuery(@"
                 INSERT INTO hrm_payroll (payroll_title, payroll_month, payroll_year, payroll_comments,
-                    prepared_by, payroll_date, lockStatus, payroll_status, target_type, target_ids,
+                    prepared_by, checked_by, approved_by, total_amount,
+                    payroll_date, lockStatus, payroll_status, target_type, target_ids,
                     should_include_deductions, should_include_allowances)
-                VALUES (@title, @month, @year, @comments, @user, NOW(), 'OPEN', 'PENDING',
+                VALUES (@title, @month, @year, @comments, @prepBy, @checkBy, 0, 0,
+                        NOW(), 0, 'PENDING',
                         @targetType, @targetIds, @inclDed, @inclAllow)",
                 new MySqlParameter("@title",      title),
                 new MySqlParameter("@month",      month),
                 new MySqlParameter("@year",       year),
                 new MySqlParameter("@comments",   comments),
-                new MySqlParameter("@user",       user),
+                new MySqlParameter("@prepBy",     empId),
+                new MySqlParameter("@checkBy",    empId),
                 new MySqlParameter("@targetType", targetType),
                 new MySqlParameter("@targetIds",  targetIds),
                 new MySqlParameter("@inclDed",    inclDed),
@@ -627,7 +686,7 @@ public partial class COOPERP_NewScreens_HRPayroll : System.Web.UI.Page
             LoadStats();
 
             ScriptManager.RegisterStartupScript(this, GetType(), "closeCreate",
-                "document.getElementById('createPayrollModal').style.display='none';" +
+                "if(typeof closeCreateModal==='function') closeCreateModal();" +
                 "showToast('Payroll created successfully.','success');", true);
         }
         catch (Exception ex)

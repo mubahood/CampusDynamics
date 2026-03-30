@@ -183,7 +183,24 @@
     line-height: 1;
 }
 .cd-action-btn:hover { background: #dce4f0; }
-/* Override sidebar.css !important so is-open class can show the popover */
+/* Override sidebar.css — use position:fixed so the popover is NOT clipped
+   by table-row stacking contexts or parent overflow:hidden. */
+.cd-action-popover {
+    position: fixed !important;
+    z-index: 99999 !important;
+    display: none !important;
+    background: #fff !important;
+    border: 1px solid #e0e5ed !important;
+    border-radius: 6px !important;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.15) !important;
+    min-width: 180px !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    margin: 0 !important;
+    padding: 4px 0 !important;
+}
 .cd-action-popover.is-open { display: block !important; }
 .cd-action-popover a,
 .cd-action-popover button {
@@ -191,7 +208,7 @@
     align-items: center;
     gap: 7px;
     width: 100%;
-    padding: 8px 12px;
+    padding: 8px 14px;
     font-size: 12px;
     color: #1a1a2e;
     background: none;
@@ -200,6 +217,7 @@
     text-align: left;
     text-decoration: none;
     border-bottom: 1px solid #f0f0f0;
+    white-space: nowrap;
 }
 .cd-action-popover a:last-child,
 .cd-action-popover button:last-child { border-bottom: none; }
@@ -450,6 +468,19 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
     .ps-summary-grid { grid-template-columns: 1fr; }
     .hr-form-row { grid-template-columns: 1fr; }
 }
+
+/* ===== Create Payroll Modal (wide) ======================= */
+.cm-section-heading {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #174DA4;
+    margin: 18px 0 10px 0;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #dbeafe;
+}
+.cm-section-heading:first-child { margin-top: 0; }
 </style>
 </asp:Content>
 
@@ -768,22 +799,18 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
 </asp:Panel>
 
 <!-- ==========================================================
-     CREATE PAYROLL MODAL
+     CREATE PAYROLL MODAL (single wide form)
      ========================================================== -->
 <div class="hr-modal-overlay" id="createPayrollModal">
-    <div class="hr-modal">
+    <div class="hr-modal hr-modal--wide">
         <div class="hr-modal-header">
             <h4>Create Payroll Run</h4>
             <button type="button" class="hr-modal-close" onclick="closeCreateModal()">&times;</button>
         </div>
         <div class="hr-modal-body">
 
-            <div class="hr-form-group">
-                <label>Payroll Title <span style="color:#dc3545">*</span></label>
-                <asp:TextBox ID="txtPayrollTitle" runat="server" CssClass="hr-input"
-                    placeholder="e.g. January 2026 Payroll" MaxLength="200" />
-                <div class="hr-form-hint">Auto-filled when you pick a month and year</div>
-            </div>
+            <!-- Period -->
+            <div class="cm-section-heading">Payroll Period</div>
 
             <div class="hr-form-row">
                 <div class="hr-form-group">
@@ -813,6 +840,16 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
             </div>
 
             <div class="hr-form-group">
+                <label>Payroll Title <span style="color:#dc3545">*</span></label>
+                <asp:TextBox ID="txtPayrollTitle" runat="server" CssClass="hr-input"
+                    placeholder="e.g. January 2026 Payroll" MaxLength="200" />
+                <div class="hr-form-hint">Auto-filled when you pick a month and year</div>
+            </div>
+
+            <!-- Target -->
+            <div class="cm-section-heading">Target Employees</div>
+
+            <div class="hr-form-group">
                 <label>Target Type <span style="color:#dc3545">*</span></label>
                 <asp:DropDownList ID="ddlTargetType" runat="server" CssClass="hr-select"
                     onchange="updateTargetPanel(this.value)">
@@ -838,6 +875,9 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
                 <div class="hr-form-hint">Hold Ctrl to select multiple</div>
             </div>
 
+            <!-- Options -->
+            <div class="cm-section-heading">Options</div>
+
             <div class="hr-form-row">
                 <div class="hr-form-group">
                     <label>Include Deductions</label>
@@ -845,6 +885,7 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
                         <asp:ListItem Value="YES" Text="YES - Include" />
                         <asp:ListItem Value="NO"  Text="NO - Exclude" />
                     </asp:DropDownList>
+                    <div class="hr-form-hint">Ad-hoc deduction records for the selected period</div>
                 </div>
                 <div class="hr-form-group">
                     <label>Include Allowances</label>
@@ -852,6 +893,7 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
                         <asp:ListItem Value="YES" Text="YES - Include" />
                         <asp:ListItem Value="NO"  Text="NO - Exclude" />
                     </asp:DropDownList>
+                    <div class="hr-form-hint">Ad-hoc allowance records for the selected period</div>
                 </div>
             </div>
 
@@ -903,18 +945,41 @@ tr.ps-row--rejected td { background: #fef5f5 !important; }
 
 <!-- -- JavaScript ------------------------------------------ -->
 <script type="text/javascript">
-/* ---- Action popover (same pattern as HRContracts.aspx) ---- */
+/* ---- Action popover (position:fixed so it floats above table rows) ---- */
 function toggleActionPopover(btn, evt) {
     evt.stopPropagation();
     var pop = btn.nextElementSibling;
     var isOpen = pop.classList.contains('is-open');
     closeAllActionPopovers();
-    if (!isOpen) pop.classList.add('is-open');
+    if (!isOpen) {
+        pop.classList.add('is-open');
+        // Position using fixed coordinates relative to the viewport
+        var rect = btn.getBoundingClientRect();
+        var popH = pop.offsetHeight || 200; // estimate if not yet laid out
+        var spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow < popH + 8) {
+            // Not enough room below — open upward
+            pop.style.top = (rect.top - popH - 4) + 'px';
+        } else {
+            pop.style.top = (rect.bottom + 4) + 'px';
+        }
+        // Align right edge of popover with right edge of button
+        var popW = pop.offsetWidth || 180;
+        var leftPos = rect.right - popW;
+        if (leftPos < 8) leftPos = 8; // keep on screen
+        pop.style.left = leftPos + 'px';
+    }
 }
 function closeAllActionPopovers() {
-    document.querySelectorAll('.cd-action-popover.is-open').forEach(function(p){ p.classList.remove('is-open'); });
+    document.querySelectorAll('.cd-action-popover.is-open').forEach(function(p) {
+        p.classList.remove('is-open');
+        p.style.top = '';
+        p.style.left = '';
+    });
 }
 document.addEventListener('click', closeAllActionPopovers);
+// Close on scroll so the popover doesn't float away from its button
+window.addEventListener('scroll', closeAllActionPopovers, true);
 
 function updateTargetPanel(val) {
     document.getElementById('divTargetDept').style.display = (val === 'DEPARTMENT') ? 'block' : 'none';
@@ -927,6 +992,7 @@ function openCreateModal(){
     var ddl = document.getElementById('<%= ddlTargetType.ClientID %>');
     if (ddl) updateTargetPanel(ddl.value);
     autoTitle();
+    var r = document.getElementById('addResult'); if (r) r.innerHTML = '';
 }
 function closeCreateModal(){ document.getElementById('createPayrollModal').style.display='none'; }
 function openProcessModal(id){

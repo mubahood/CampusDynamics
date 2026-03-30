@@ -285,7 +285,6 @@ public partial class COOPERP_NewScreens_HRPayslips : System.Web.UI.Page
 
             int count = dt != null ? dt.Rows.Count : 0;
             litFilterCount.Text = count.ToString();
-            litFilterCountTop.Text = count.ToString();
         }
         catch (Exception ex)
         {

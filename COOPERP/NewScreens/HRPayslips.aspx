@@ -7,218 +7,76 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* ===== PAGE HEADER ===== */
-.pr-page-header {
+/* ===== PAGE HEADER (navy design system) ===== */
+.ps-page-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 22px;
-    background: #fff;
-    border-bottom: 2px solid #28a745;
-    margin-bottom: 18px;
-    border-radius: 4px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    padding: 14px 0 12px 0;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #174DA4;
 }
-.pr-page-header__left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-.pr-page-header__icon {
-    width: 40px;
-    height: 40px;
-    background: #f0fff4;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-.pr-page-header__icon svg {
-    width: 22px;
-    height: 22px;
-    color: #28a745;
-}
-.pr-page-header__title {
-    font-size: 17px;
-    font-weight: 700;
-    color: #1a1a2e;
-    margin: 0 0 2px 0;
-    line-height: 1.2;
-}
-.pr-page-header__sub {
-    font-size: 11px;
-    color: #666;
-    margin: 0;
-}
+.ps-page-header .ph-left { display: flex; align-items: center; gap: 12px; }
+.ps-page-header .ph-icon { flex-shrink: 0; width: 38px; height: 38px; }
+.ps-page-header .ph-title { font-size: 17px; font-weight: 700; color: #05275C; line-height: 1.2; margin: 0; }
+.ps-page-header .ph-sub { font-size: 12px; color: #666; margin: 2px 0 0 0; }
+.ps-page-header .ph-actions { display: flex; gap: 8px; align-items: center; }
 
 /* ===== STATS CARDS ===== */
-.ct-stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 16px;
-}
+.ct-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
 .ct-stat-card {
-    background: #fff;
-    border-radius: 4px;
-    padding: 14px 16px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-    border-left: 3px solid #e0e5ed;
+    background: #fff; border: 1px solid #e0e5ed; border-radius: 4px;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;
 }
-.ct-stat-card--amber  { border-left-color: #fd7e14; }
-.ct-stat-card--pending { border-left-color: #ffc107; }
-.ct-stat-card--green  { border-left-color: #28a745; }
-.ct-stat-card--red    { border-left-color: #dc3545; }
-.ct-stat-card__value {
-    font-size: 22px;
-    font-weight: 700;
-    color: #1a1a2e;
-    line-height: 1;
-    margin-bottom: 4px;
-}
-.ct-stat-card--amber  .ct-stat-card__value { color: #fd7e14; }
-.ct-stat-card--pending .ct-stat-card__value { color: #e0a800; }
-.ct-stat-card--green  .ct-stat-card__value { color: #28a745; }
-.ct-stat-card--red    .ct-stat-card__value { color: #dc3545; }
-.ct-stat-card__label {
-    font-size: 10px;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
+.ct-stat-card .sc-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; }
+.ct-stat-card .sc-value { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.ct-stat-card.amber .sc-value { color: #d97706; }
+.ct-stat-card.blue  .sc-value { color: #174DA4; }
+.ct-stat-card.green .sc-value { color: #16a34a; }
+.ct-stat-card.red   .sc-value { color: #dc3545; }
 
-/* ===== FILTERS ===== */
+/* ===== FILTER BAR ===== */
 .ct-filters {
-    background: #fff;
-    border: 1px solid #e0e5ed;
-    border-radius: 4px;
-    padding: 12px 14px;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px; flex-wrap: wrap;
 }
-.ct-filters__row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+.ct-filters label { font-size: 12px; color: #444; font-weight: 600; }
+.ct-filters select,
+.ct-filters input[type="text"] {
+    font-size: 12px; border: 1px solid #cdd3de; padding: 5px 8px;
+    border-radius: 0; color: #1a1a2e; background: #fff; height: 30px;
+    outline: none; font-family: inherit;
 }
-.ct-filters__row + .ct-filters__row {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #f0f0f0;
+.ct-filters select:focus,
+.ct-filters input[type="text"]:focus {
+    border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.12);
 }
-.ct-filters__label {
-    font-size: 10px;
-    color: #888;
-    white-space: nowrap;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-.ct-filters input[type="text"],
-.ct-filters select {
-    height: 30px;
-    border: 1px solid #dde3ee;
-    border-radius: 0;
-    font-size: 12px;
-    padding: 0 8px;
-    color: #1a1a2e;
-    background: #fff;
-    outline: none;
-    font-family: inherit;
-}
-.ct-filters input[type="text"]:focus,
-.ct-filters select:focus {
-    border-color: #28a745;
-    box-shadow: 0 0 0 2px rgba(40,167,69,0.12);
-}
-.ct-filters__search {
-    flex: 1;
-    min-width: 160px;
-    max-width: 260px;
-}
-.ct-filter-count-top {
-    margin-left: auto;
-    font-size: 11px;
-    color: #888;
-    white-space: nowrap;
-}
-
-/* ===== COUNT BAR ===== */
-.pr-count-bar {
-    font-size: 11px;
-    color: #666;
-    margin-bottom: 6px;
-    padding: 0 2px;
-}
+.ct-filters .filter-count { margin-left: auto; font-size: 12px; color: #666; }
 
 /* ===== BATCH TOOLBAR ===== */
 .ct-batch-toolbar {
-    display: none;
-    align-items: center;
-    gap: 8px;
-    background: #f0fff4;
-    border: 1px solid #28a745;
-    border-radius: 4px;
-    padding: 8px 12px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
+    display: none; align-items: center; gap: 8px; margin-bottom: 10px;
+    padding: 8px 10px; background: #f0f4fa; border: 1px solid #dae0ec; border-radius: 4px;
 }
-.ct-batch-info {
-    font-size: 12px;
-    color: #155724;
-    font-weight: 600;
-}
-.ct-batch-sep {
-    width: 1px;
-    height: 20px;
-    background: #28a745;
-    opacity: 0.3;
-}
+.ct-batch-info { font-size: 12px; color: #05275C; font-weight: 600; }
+.ct-batch-sep { width: 1px; height: 20px; background: #174DA4; opacity: 0.2; }
 
 /* ===== BUTTONS ===== */
 .hr-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 14px;
-    font-size: 12px;
-    font-family: inherit;
-    font-weight: 600;
-    border: 1px solid transparent;
-    border-radius: 0;
-    cursor: pointer;
-    white-space: nowrap;
-    text-decoration: none;
-    line-height: 1.4;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px;
+    font-size: 12px; font-weight: 600; border: none; cursor: pointer;
+    border-radius: 0; line-height: 1.4; text-decoration: none;
+    transition: background 0.15s; font-family: inherit; white-space: nowrap;
 }
-.hr-btn--success {
-    background: #28a745;
-    border-color: #28a745;
-    color: #fff;
-}
-.hr-btn--success:hover { background: #218838; border-color: #218838; }
-.hr-btn--danger {
-    background: #dc3545;
-    border-color: #dc3545;
-    color: #fff;
-}
-.hr-btn--danger:hover { background: #c82333; border-color: #c82333; }
-.hr-btn--ghost {
-    background: #fff;
-    border-color: #dde3ee;
-    color: #555;
-}
-.hr-btn--ghost:hover { background: #f5f7fa; border-color: #aaa; }
+.hr-btn--primary { background: #05275C; color: #fff; }
+.hr-btn--primary:hover { background: #041d45; }
+.hr-btn--success { background: #16a34a; color: #fff; }
+.hr-btn--success:hover { background: #15803d; }
+.hr-btn--danger { background: #dc3545; color: #fff; }
+.hr-btn--danger:hover { background: #b91c2c; }
+.hr-btn--outline { background: #fff; color: #05275C; border: 1px solid #cdd3de; }
+.hr-btn--outline:hover { background: #f0f4fa; }
 .hr-btn--sm { padding: 4px 10px; font-size: 11px; }
-.hr-btn--ghost--sm { padding: 4px 10px; font-size: 11px; background: #fff; border: 1px solid #dde3ee; color: #555; border-radius: 0; cursor: pointer; font-family: inherit; font-weight: 600; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
-.hr-btn--ghost--sm:hover { background: #f5f7fa; border-color: #aaa; }
-.hr-btn--success--sm { padding: 4px 10px; font-size: 11px; background: #28a745; border: 1px solid #28a745; color: #fff; border-radius: 0; cursor: pointer; font-family: inherit; font-weight: 600; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
-.hr-btn--success--sm:hover { background: #218838; border-color: #218838; }
-.hr-btn--danger--sm { padding: 4px 10px; font-size: 11px; background: #dc3545; border: 1px solid #dc3545; color: #fff; border-radius: 0; cursor: pointer; font-family: inherit; font-weight: 600; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
-.hr-btn--danger--sm:hover { background: #c82333; border-color: #c82333; }
 
 /* ===== ALERT ===== */
 .hr-alert {
@@ -244,65 +102,40 @@
     letter-spacing: 0.05em;
     white-space: nowrap;
 }
-.slip-badge--pending  { background: #fff3cd; color: #856404; border: 1px solid #ffc107; }
-.slip-badge--approved { background: #d4edda; color: #155724; border: 1px solid #28a745; }
-.slip-badge--rejected { background: #f8d7da; color: #721c24; border: 1px solid #dc3545; }
+.slip-badge--pending  { background: #fef3c7; color: #92400e; }
+.slip-badge--approved { background: #dcfce7; color: #14532d; }
+.slip-badge--rejected { background: #f8d7da; color: #721c24; }
 
 /* ===== GRID ROW COLORS ===== */
-.pr-row-settled td { background: #f0fff4 !important; }
-.pr-row-cancelled td { background: #fff5f5 !important; }
-.pr-row-pending td { background: #fffdf0 !important; }
+.pr-row-settled td   { background: #f8fdf9 !important; }
+.pr-row-cancelled td { background: #fef8f8 !important; }
+.pr-row-pending td   { background: #fffdf5 !important; }
 
-/* ===== ACTION POPOVER ===== */
-.cd-action-wrapper {
-    position: relative;
-    display: inline-block;
-}
+/* ===== ACTION POPOVER (position:fixed to avoid table row clipping) ===== */
+.cd-action-wrapper { position: relative; display: inline-block; }
 .cd-action-btn {
-    background: #f5f7fa;
-    border: 1px solid #dde3ee;
-    border-radius: 0;
-    padding: 3px 8px;
-    cursor: pointer;
-    font-size: 14px;
-    line-height: 1;
-    color: #444;
-    font-family: inherit;
+    background: #f0f4fa; border: 1px solid #cdd3de; border-radius: 3px;
+    padding: 3px 8px; cursor: pointer; font-size: 14px; color: #444; line-height: 1;
 }
-.cd-action-btn:hover { background: #e8ecf4; }
+.cd-action-btn:hover { background: #dce4f0; }
 .cd-action-popover {
-    display: none;
-    position: absolute;
-    right: 0;
-    top: 100%;
-    background: #fff;
-    border: 1px solid #dde3ee;
-    border-radius: 4px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.13);
-    min-width: 160px;
-    z-index: 9999;
-    padding: 4px 0;
+    position: fixed !important; z-index: 99999 !important; display: none !important;
+    background: #fff !important; border: 1px solid #e0e5ed !important;
+    border-radius: 6px !important; box-shadow: 0 8px 28px rgba(0,0,0,0.15) !important;
+    min-width: 180px !important; right: auto !important; top: auto !important;
+    bottom: auto !important; left: auto !important; margin: 0 !important; padding: 4px 0 !important;
 }
-.cd-action-popover.is-open { display: block; }
+.cd-action-popover.is-open { display: block !important; }
 .cd-action-popover__item {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 13px;
-    font-size: 12px;
-    color: #333;
-    cursor: pointer;
-    white-space: nowrap;
-    background: none;
-    border: none;
-    width: 100%;
-    text-align: left;
-    font-family: inherit;
+    display: flex; align-items: center; gap: 7px; width: 100%; padding: 8px 14px;
+    font-size: 12px; color: #1a1a2e; background: none; border: none; cursor: pointer;
+    text-align: left; font-family: inherit; white-space: nowrap; border-bottom: 1px solid #f0f0f0;
 }
+.cd-action-popover__item:last-child { border-bottom: none; }
 .cd-action-popover__item:hover { background: #f5f7fa; }
-.cd-action-popover__item--success { color: #28a745; }
+.cd-action-popover__item--success { color: #16a34a; }
 .cd-action-popover__item--danger  { color: #dc3545; }
-.cd-action-popover__divider { height: 1px; background: #f0f0f0; margin: 3px 0; }
+.cd-action-popover__divider { height: 1px; background: #f0f0f0; margin: 2px 0; }
 .cd-action-popover__item svg { width: 13px; height: 13px; flex-shrink: 0; }
 
 /* ===== MODALS ===== */
@@ -310,7 +143,7 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.45);
+    background: rgba(5,39,92,0.45);
     z-index: 10000;
     align-items: center;
     justify-content: center;
@@ -334,7 +167,7 @@
     justify-content: space-between;
     border-bottom: 1px solid #e0e5ed;
 }
-.hr-modal__header--success { background: #28a745; color: #fff; }
+.hr-modal__header--primary { background: #05275C; color: #fff; }
 .hr-modal__header--danger  { background: #dc3545; color: #fff; }
 .hr-modal__title { font-size: 14px; font-weight: 700; margin: 0; }
 .hr-modal__close {
@@ -373,7 +206,7 @@
     outline: none;
     box-sizing: border-box;
 }
-.hr-textarea:focus { border-color: #28a745; box-shadow: 0 0 0 2px rgba(40,167,69,0.12); }
+.hr-textarea:focus { border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.12); }
 
 /* ===== PAYSLIP PRINT ===== */
 .payslip-print {
@@ -383,7 +216,7 @@
 }
 .payslip-print__header {
     text-align: center;
-    border-bottom: 2px solid #28a745;
+    border-bottom: 2px solid #174DA4;
     padding-bottom: 12px;
     margin-bottom: 14px;
 }
@@ -396,7 +229,7 @@
 .payslip-print__header h3 {
     font-size: 13px;
     font-weight: 600;
-    color: #28a745;
+    color: #174DA4;
     margin: 0 0 10px 0;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -418,14 +251,14 @@
     font-size: 12px;
 }
 .payslip-print__table thead th {
-    background: #f0fff4;
-    color: #155724;
+    background: #f0f4fa;
+    color: #05275C;
     font-weight: 700;
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: 6px 10px;
-    border: 1px solid #c3e6cb;
+    border: 1px solid #dae0ec;
 }
 .payslip-print__table thead th.right { text-align: right; }
 .payslip-print__table td {
@@ -445,7 +278,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #28a745;
+    background: #05275C;
     color: #fff;
     padding: 12px 16px;
     margin-top: 14px;
@@ -496,13 +329,12 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
 }
 @media (max-width: 600px) {
     .ct-stats { grid-template-columns: 1fr; }
-    .pr-page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-    .ct-filters__row { flex-direction: column; align-items: flex-start; }
-    .ct-filters__search { max-width: 100%; width: 100%; }
+    .ps-page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .ct-filters { flex-direction: column; align-items: stretch; }
 }
 
 @media print {
-    .pr-page-header, .ct-stats, .ct-filters, .pr-count-bar, .ct-batch-toolbar,
+    .ps-page-header, .ct-stats, .ct-filters, .ct-batch-toolbar,
     .dxgvTable_Glass, .hr-modal__header, .hr-modal__footer,
     #batchToolbar { display: none !important; }
     .hr-modal-overlay { position: static !important; background: none !important; display: block !important; }
@@ -525,20 +357,18 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
     <asp:Button ID="btnLoadSlipDetail" runat="server" style="display:none" OnClick="btnLoadSlipDetail_Click" />
 
     <%-- Page Header --%>
-    <div class="pr-page-header">
-        <div class="pr-page-header__left">
-            <div class="pr-page-header__icon">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#28a745" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            </div>
+    <div class="ps-page-header">
+        <div class="ph-left">
+            <svg class="ph-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#174DA4" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
             <div>
-                <p class="pr-page-header__title">Payslip Review</p>
-                <p class="pr-page-header__sub">Review, approve or reject individual employee payslips</p>
+                <p class="ph-title">Employee Payslips</p>
+                <p class="ph-sub">View and manage individual payslips</p>
             </div>
         </div>
-        <div>
-            <a href="HRPayroll.aspx" class="hr-btn--ghost--sm">&#8592; Back to Payroll</a>
+        <div class="ph-actions">
+            <a href="HRPayroll.aspx" class="hr-btn hr-btn--outline hr-btn--sm">&#8592; Back to Payroll</a>
         </div>
     </div>
 
@@ -547,79 +377,72 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
 
     <%-- Stats Row --%>
     <div class="ct-stats">
-        <div class="ct-stat-card ct-stat-card--amber">
-            <div class="ct-stat-card__value"><asp:Literal ID="litTotalPayslips" runat="server" Text="0" /></div>
-            <div class="ct-stat-card__label">Total Payslips</div>
+        <div class="ct-stat-card amber">
+            <div class="sc-label">Total Payslips</div>
+            <div class="sc-value"><asp:Literal ID="litTotalPayslips" runat="server" Text="0" /></div>
         </div>
-        <div class="ct-stat-card ct-stat-card--pending">
-            <div class="ct-stat-card__value"><asp:Literal ID="litPendingCount" runat="server" Text="0" /></div>
-            <div class="ct-stat-card__label">Pending Review</div>
+        <div class="ct-stat-card blue">
+            <div class="sc-label">Pending Review</div>
+            <div class="sc-value"><asp:Literal ID="litPendingCount" runat="server" Text="0" /></div>
         </div>
-        <div class="ct-stat-card ct-stat-card--green">
-            <div class="ct-stat-card__value"><asp:Literal ID="litApprovedCount" runat="server" Text="0" /></div>
-            <div class="ct-stat-card__label">Approved</div>
+        <div class="ct-stat-card green">
+            <div class="sc-label">Approved</div>
+            <div class="sc-value"><asp:Literal ID="litApprovedCount" runat="server" Text="0" /></div>
         </div>
-        <div class="ct-stat-card ct-stat-card--red">
-            <div class="ct-stat-card__value"><asp:Literal ID="litRejectedCount" runat="server" Text="0" /></div>
-            <div class="ct-stat-card__label">Rejected</div>
+        <div class="ct-stat-card red">
+            <div class="sc-label">Rejected</div>
+            <div class="sc-value"><asp:Literal ID="litRejectedCount" runat="server" Text="0" /></div>
         </div>
     </div>
 
     <%-- Filter Bar --%>
     <div class="ct-filters">
-        <div class="ct-filters__row">
-            <asp:TextBox ID="txtSearch" runat="server" CssClass="ct-filters__search" placeholder="Search by name or staff code..." />
-            <asp:Button ID="btnSearch" runat="server" Text="Search" CssClass="hr-btn hr-btn--success hr-btn--sm" OnClick="btnSearch_Click" />
-            <asp:Button ID="btnReset" runat="server" Text="Reset" CssClass="hr-btn hr-btn--ghost hr-btn--sm" OnClick="btnReset_Click" />
-            <span class="ct-filter-count-top"><asp:Literal ID="litFilterCountTop" runat="server" Text="0" /> record(s)</span>
-        </div>
-        <div class="ct-filters__row">
-            <span class="ct-filters__label">Payroll:</span>
-            <asp:DropDownList ID="ddlFilterPayroll" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" style="min-width:160px;" />
+        <asp:TextBox ID="txtSearch" runat="server" placeholder="Search employee..." style="min-width:180px;" />
+        <asp:Button ID="btnSearch" runat="server" Text="Go" CssClass="hr-btn hr-btn--primary hr-btn--sm" OnClick="btnSearch_Click" />
 
-            <span class="ct-filters__label">Employee:</span>
-            <asp:DropDownList ID="ddlFilterEmployee" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" style="min-width:160px;" />
+        <label>Payroll:</label>
+        <asp:DropDownList ID="ddlFilterPayroll" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" style="min-width:140px;" />
 
-            <span class="ct-filters__label">Month:</span>
-            <asp:DropDownList ID="ddlFilterMonth" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" style="min-width:110px;">
-                <asp:ListItem Value="">All Months</asp:ListItem>
-                <asp:ListItem Value="JANUARY">JANUARY</asp:ListItem>
-                <asp:ListItem Value="FEBRUARY">FEBRUARY</asp:ListItem>
-                <asp:ListItem Value="MARCH">MARCH</asp:ListItem>
-                <asp:ListItem Value="APRIL">APRIL</asp:ListItem>
-                <asp:ListItem Value="MAY">MAY</asp:ListItem>
-                <asp:ListItem Value="JUNE">JUNE</asp:ListItem>
-                <asp:ListItem Value="JULY">JULY</asp:ListItem>
-                <asp:ListItem Value="AUGUST">AUGUST</asp:ListItem>
-                <asp:ListItem Value="SEPTEMBER">SEPTEMBER</asp:ListItem>
-                <asp:ListItem Value="OCTOBER">OCTOBER</asp:ListItem>
-                <asp:ListItem Value="NOVEMBER">NOVEMBER</asp:ListItem>
-                <asp:ListItem Value="DECEMBER">DECEMBER</asp:ListItem>
-            </asp:DropDownList>
+        <label>Status:</label>
+        <asp:DropDownList ID="ddlFilterStatus" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" style="min-width:100px;">
+            <asp:ListItem Value="">All</asp:ListItem>
+            <asp:ListItem Value="PENDING">Pending</asp:ListItem>
+            <asp:ListItem Value="APPROVED">Approved</asp:ListItem>
+            <asp:ListItem Value="REJECTED">Rejected</asp:ListItem>
+        </asp:DropDownList>
 
-            <span class="ct-filters__label">Year:</span>
-            <asp:TextBox ID="txtFilterYear" runat="server" style="width:60px;" MaxLength="4" />
+        <label>Month:</label>
+        <asp:DropDownList ID="ddlFilterMonth" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" style="min-width:100px;">
+            <asp:ListItem Value="">All</asp:ListItem>
+            <asp:ListItem Value="JANUARY">Jan</asp:ListItem>
+            <asp:ListItem Value="FEBRUARY">Feb</asp:ListItem>
+            <asp:ListItem Value="MARCH">Mar</asp:ListItem>
+            <asp:ListItem Value="APRIL">Apr</asp:ListItem>
+            <asp:ListItem Value="MAY">May</asp:ListItem>
+            <asp:ListItem Value="JUNE">Jun</asp:ListItem>
+            <asp:ListItem Value="JULY">Jul</asp:ListItem>
+            <asp:ListItem Value="AUGUST">Aug</asp:ListItem>
+            <asp:ListItem Value="SEPTEMBER">Sep</asp:ListItem>
+            <asp:ListItem Value="OCTOBER">Oct</asp:ListItem>
+            <asp:ListItem Value="NOVEMBER">Nov</asp:ListItem>
+            <asp:ListItem Value="DECEMBER">Dec</asp:ListItem>
+        </asp:DropDownList>
 
-            <span class="ct-filters__label">Status:</span>
-            <asp:DropDownList ID="ddlFilterStatus" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" style="min-width:110px;">
-                <asp:ListItem Value="">All</asp:ListItem>
-                <asp:ListItem Value="PENDING">PENDING</asp:ListItem>
-                <asp:ListItem Value="APPROVED">APPROVED</asp:ListItem>
-                <asp:ListItem Value="REJECTED">REJECTED</asp:ListItem>
-            </asp:DropDownList>
+        <label>Year:</label>
+        <asp:TextBox ID="txtFilterYear" runat="server" style="width:55px;" MaxLength="4" />
 
-            <span class="ct-filters__label">Per page:</span>
-            <asp:DropDownList ID="ddlPageSize" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlPageSize_Changed" style="width:60px;">
-                <asp:ListItem Value="25">25</asp:ListItem>
-                <asp:ListItem Value="50">50</asp:ListItem>
-                <asp:ListItem Value="100">100</asp:ListItem>
-            </asp:DropDownList>
-        </div>
-    </div>
+        <label>Employee:</label>
+        <asp:DropDownList ID="ddlFilterEmployee" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" style="min-width:140px;" />
 
-    <%-- Count bar --%>
-    <div class="pr-count-bar">
-        <span><asp:Literal ID="litFilterCount" runat="server" Text="0" /> record(s) shown</span>
+        <label>Show:</label>
+        <asp:DropDownList ID="ddlPageSize" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlPageSize_Changed" style="width:55px;">
+            <asp:ListItem Value="25">25</asp:ListItem>
+            <asp:ListItem Value="50">50</asp:ListItem>
+            <asp:ListItem Value="100">100</asp:ListItem>
+        </asp:DropDownList>
+
+        <asp:Button ID="btnReset" runat="server" Text="Reset" CssClass="hr-btn hr-btn--outline hr-btn--sm" OnClick="btnReset_Click" />
+        <span class="filter-count"><asp:Literal ID="litFilterCount" runat="server" Text="0" /> records</span>
     </div>
 
     <%-- Batch Toolbar --%>
@@ -633,7 +456,7 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
             Reject Selected
         </button>
         <div class="ct-batch-sep"></div>
-        <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="clearBatchSelection()">Clear</button>
+        <button type="button" class="hr-btn hr-btn--outline hr-btn--sm" onclick="clearBatchSelection()">Clear</button>
     </div>
 
     <%-- Main Grid --%>
@@ -654,7 +477,7 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
             <dx:GridViewDataTextColumn Caption="" Width="34" Settings-AllowSort="False" Settings-AllowAutoFilter="False">
                 <HeaderTemplate>
                     <input type="checkbox" id="chkSelectAll" onclick="toggleSelectAll(this)"
-                           style="cursor:pointer;accent-color:#28a745;width:14px;height:14px;" />
+                           style="cursor:pointer;accent-color:#174DA4;width:14px;height:14px;" />
                 </HeaderTemplate>
                 <DataItemTemplate>
                     <input type="checkbox" class="ct-row-check" value="<%# Eval("ID") %>" onchange="updateBatchToolbar()" />
@@ -666,19 +489,13 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
 
             <dx:GridViewDataTextColumn FieldName="EMP_CODE" Caption="Staff #" Width="68">
                 <DataItemTemplate>
-                    <span style="font-size:10px;font-weight:700;color:#28a745;font-family:monospace;"><%# Eval("EMP_CODE") %></span>
+                    <span style="font-size:10px;font-weight:700;color:#174DA4;font-family:monospace;"><%# Eval("EMP_CODE") %></span>
                 </DataItemTemplate>
             </dx:GridViewDataTextColumn>
 
-            <dx:GridViewDataTextColumn FieldName="emp_name" Caption="Employee" Width="155">
+            <dx:GridViewDataTextColumn FieldName="emp_name" Caption="Employee" Width="180">
                 <DataItemTemplate>
                     <span style="font-weight:600;color:#1a1a2e;font-size:11px;"><%# Eval("emp_name") %></span>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-
-            <dx:GridViewDataTextColumn FieldName="payroll_title" Caption="Payroll" Width="130">
-                <DataItemTemplate>
-                    <span style="font-size:10px;color:#555;"><%# TruncStr(Eval("payroll_title"),25) %></span>
                 </DataItemTemplate>
             </dx:GridViewDataTextColumn>
 
@@ -736,7 +553,7 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
     <%-- ===== Payslip Detail View Modal ===== --%>
     <div class="hr-modal-overlay" id="slipDetailModal">
         <div class="hr-modal hr-modal--lg">
-            <div class="hr-modal__header hr-modal__header--success">
+            <div class="hr-modal__header hr-modal__header--primary">
                 <h4 class="hr-modal__title">Payslip Details</h4>
                 <button type="button" class="hr-modal__close" onclick="document.getElementById('slipDetailModal').style.display='none';">&times;</button>
             </div>
@@ -746,7 +563,7 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
                 </asp:Panel>
             </div>
             <div class="hr-modal__footer">
-                <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="document.getElementById('slipDetailModal').style.display='none';">Close</button>
+                <button type="button" class="hr-btn hr-btn--outline hr-btn--sm" onclick="document.getElementById('slipDetailModal').style.display='none';">Close</button>
                 <button type="button" class="hr-btn hr-btn--success hr-btn--sm" onclick="window.print()">Print</button>
             </div>
         </div>
@@ -764,8 +581,8 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
                 <asp:TextBox ID="txtRejectReason" runat="server" CssClass="hr-textarea" TextMode="MultiLine" Rows="3" placeholder="Enter reason for rejection..." />
             </div>
             <div class="hr-modal__footer">
-                <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="closeRejectModal();">Cancel</button>
-                <asp:Button ID="btnConfirmReject" runat="server" Text="Confirm Rejection" CssClass="hr-btn--danger--sm" OnClick="btnConfirmReject_Click" />
+                <button type="button" class="hr-btn hr-btn--outline hr-btn--sm" onclick="closeRejectModal();">Cancel</button>
+                <asp:Button ID="btnConfirmReject" runat="server" Text="Confirm Rejection" CssClass="hr-btn hr-btn--danger hr-btn--sm" OnClick="btnConfirmReject_Click" />
             </div>
         </div>
     </div>
@@ -782,8 +599,8 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
                 <asp:TextBox ID="txtBatchRejectReason" runat="server" CssClass="hr-textarea" TextMode="MultiLine" Rows="2" placeholder="Reason for rejection..." />
             </div>
             <div class="hr-modal__footer">
-                <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="closeBatchRejectModal();">Cancel</button>
-                <asp:Button ID="btnConfirmBatchReject" runat="server" Text="Confirm Batch Rejection" CssClass="hr-btn--danger--sm" OnClick="btnConfirmBatchReject_Click" />
+                <button type="button" class="hr-btn hr-btn--outline hr-btn--sm" onclick="closeBatchRejectModal();">Cancel</button>
+                <asp:Button ID="btnConfirmBatchReject" runat="server" Text="Confirm Batch Rejection" CssClass="hr-btn hr-btn--danger hr-btn--sm" OnClick="btnConfirmBatchReject_Click" />
             </div>
         </div>
     </div>
@@ -792,20 +609,37 @@ table.dxgvTable_Glass { border-collapse: collapse; width: 100%; }
     <script type="text/javascript">
         var MONTHS_ARR = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
 
-        // Action popovers
+        // Action popovers (position:fixed to float above table rows)
         function toggleActionPopover(btn, evt) {
             evt.stopPropagation();
             var pop = btn.nextElementSibling;
             var isOpen = pop.classList.contains('is-open');
             closeAllPopovers();
-            if (!isOpen) pop.classList.add('is-open');
+            if (!isOpen) {
+                pop.classList.add('is-open');
+                var rect = btn.getBoundingClientRect();
+                var popH = pop.offsetHeight || 200;
+                var spaceBelow = window.innerHeight - rect.bottom;
+                if (spaceBelow < popH + 8) {
+                    pop.style.top = (rect.top - popH - 4) + 'px';
+                } else {
+                    pop.style.top = (rect.bottom + 4) + 'px';
+                }
+                var popW = pop.offsetWidth || 180;
+                var leftPos = rect.right - popW;
+                if (leftPos < 8) leftPos = 8;
+                pop.style.left = leftPos + 'px';
+            }
         }
         function closeAllPopovers() {
             document.querySelectorAll('.cd-action-popover.is-open').forEach(function(p) {
                 p.classList.remove('is-open');
+                p.style.top = '';
+                p.style.left = '';
             });
         }
         document.addEventListener('click', closeAllPopovers);
+        window.addEventListener('scroll', closeAllPopovers, true);
 
         // Batch toolbar
         function updateBatchToolbar() {

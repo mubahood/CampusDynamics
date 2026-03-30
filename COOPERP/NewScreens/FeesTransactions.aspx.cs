@@ -36,6 +36,12 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         txtTxAmount.Attributes["step"] = "1";
         txtTxDate.Attributes["type"] = "date";
 
+        // Edit modal input types
+        txtEditAmount.Attributes["type"] = "number";
+        txtEditAmount.Attributes["min"] = "1";
+        txtEditAmount.Attributes["step"] = "1";
+        txtEditDate.Attributes["type"] = "date";
+
         // Restore posted dropdown values
         RestorePostedValue(ddlAcadYear);
         RestorePostedValue(ddlSemester);
@@ -45,12 +51,32 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         RestorePostedValue(ddlStudStatus);
         RestorePostedValue(ddlPageSize);
 
+        // Restore edit modal dropdown values
+        RestorePostedValue(ddlEditTransType);
+        RestorePostedValue(ddlEditBillItem);
+        RestorePostedValue(ddlEditAcadYear);
+        RestorePostedValue(ddlEditSemester);
+        RestorePostedValue(ddlEditPostStatus);
+
         if (!IsPostBack)
         {
-            // Default to current academic year
-            string curYear = AcademicYearHelper.GetCurrentAcademicYear();
-            if (ddlAcadYear.Items.FindByValue(curYear) != null)
-                ddlAcadYear.SelectedValue = curYear;
+            // If a specific TID is requested via querystring, clear the year filter
+            // so the record always shows regardless of academic year.
+            string tidParam = Request.QueryString["tid"];
+            int tidParamVal = 0;
+            if (!string.IsNullOrEmpty(tidParam) && int.TryParse(tidParam.Trim(), out tidParamVal) && tidParamVal > 0)
+            {
+                ddlAcadYear.ClearSelection();
+                if (ddlAcadYear.Items.FindByValue("") != null)
+                    ddlAcadYear.SelectedValue = "";
+            }
+            else
+            {
+                // Default to current academic year
+                string curYear = AcademicYearHelper.GetCurrentAcademicYear();
+                if (ddlAcadYear.Items.FindByValue(curYear) != null)
+                    ddlAcadYear.SelectedValue = curYear;
+            }
         }
 
         LoadTransactions();
@@ -130,6 +156,26 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                 ddlTxAcadYear.Items.Add(new ListItem(li.Text, li.Value));
         }
 
+        // === Edit modal form dropdowns ===
+
+        // Billing Items (edit modal)
+        ddlEditBillItem.Items.Clear();
+        ddlEditBillItem.Items.Add(new ListItem("-- Select Item --", ""));
+        foreach (ListItem li in ddlBillItem.Items)
+        {
+            if (!String.IsNullOrEmpty(li.Value))
+                ddlEditBillItem.Items.Add(new ListItem(li.Text, li.Value));
+        }
+
+        // Academic Years (edit modal)
+        ddlEditAcadYear.Items.Clear();
+        ddlEditAcadYear.Items.Add(new ListItem("-- Select Year --", ""));
+        foreach (ListItem li in ddlAcadYear.Items)
+        {
+            if (!String.IsNullOrEmpty(li.Value))
+                ddlEditAcadYear.Items.Add(new ListItem(li.Text, li.Value));
+        }
+
         // Default modal academic year to current if not postback
         if (!IsPostBack)
         {
@@ -149,26 +195,31 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         StringBuilder where = new StringBuilder("WHERE 1=1");
         MySqlCommand cmd = new MySqlCommand();
 
-        // Student status filter — defaults to "Active" (enrolled students only)
-        string studStatus = "";
-        string postedStudStatus = Request.Form[ddlStudStatus.UniqueID];
-        if (!string.IsNullOrEmpty(postedStudStatus))
-            studStatus = postedStudStatus;
-        else if (!IsPostBack)
-            studStatus = "Active";  // default on first load
-        else
-            studStatus = ddlStudStatus.SelectedValue;
+        // ------------------------------------------------------------------
+        // ?tid= querystring: filter to a single transaction
+        // ------------------------------------------------------------------
+        string tidParam = Request.QueryString["tid"];
+        int tidParamVal = 0;
+        bool isTidFilter = !string.IsNullOrEmpty(tidParam)
+                           && int.TryParse(tidParam.Trim(), out tidParamVal)
+                           && tidParamVal > 0;
 
-        // Determine the JOIN type based on student status filter
-        string studentJoin;
-        if (!String.IsNullOrEmpty(studStatus))
+        if (isTidFilter)
         {
-            studentJoin = "INNER JOIN campus_dynamics.acad_student s ON s.regno = t.regno AND UPPER(COALESCE(s.new_status,'')) = UPPER(@studStatus)";
-            cmd.Parameters.AddWithValue("@studStatus", studStatus);
+            where.Append(" AND t.TID = @tidFilter");
+            cmd.Parameters.AddWithValue("@tidFilter", tidParamVal);
         }
-        else
+
+        // Always LEFT JOIN — every transaction shows regardless of student enrolment status.
+        // If the user explicitly picks a student status in the filter dropdown, apply it as
+        // a WHERE condition (not as an INNER JOIN) so unmatched rows are still visible.
+        string studentJoin = "LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno";
+
+        string studStatus = ddlStudStatus.SelectedValue;
+        if (!string.IsNullOrEmpty(studStatus))
         {
-            studentJoin = "LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno";
+            where.Append(" AND UPPER(COALESCE(s.new_status,'')) = UPPER(@studStatus)");
+            cmd.Parameters.AddWithValue("@studStatus", studStatus);
         }
 
         if (!String.IsNullOrEmpty(ddlAcadYear.SelectedValue))
@@ -203,10 +254,41 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             cmd.Parameters.AddWithValue("@q", "%" + search + "%");
         }
 
+        // -----------------------------------------------------------------------
+        // Server-side paging
+        // -----------------------------------------------------------------------
         int pageSize = 50;
         try { pageSize = Convert.ToInt32(ddlPageSize.SelectedValue); } catch { }
 
-        // Stats query
+        // Determine page index: reset on filter/search changes, preserve on explicit pager clicks
+        string eventTarget = Request.Form["__EVENTTARGET"] ?? "";
+        bool isPageNavClick = Request.Form[btnGoToPage.UniqueID] != null;
+        bool isFilterDropdown =
+            eventTarget == ddlAcadYear.UniqueID   || eventTarget == ddlSemester.UniqueID  ||
+            eventTarget == ddlTransType.UniqueID  || eventTarget == ddlBillItem.UniqueID  ||
+            eventTarget == ddlPostStatus.UniqueID || eventTarget == ddlStudStatus.UniqueID ||
+            eventTarget == ddlPageSize.UniqueID;
+        bool isSearchOrReset =
+            Request.Form[btnSearch.UniqueID] != null || Request.Form[btnReset.UniqueID] != null;
+
+        int pageIndex = 0;
+        if (isPageNavClick)
+        {
+            int.TryParse(hfPageIndex.Value, out pageIndex);
+            if (pageIndex < 0) pageIndex = 0;
+        }
+        else if (isFilterDropdown || isSearchOrReset || !IsPostBack)
+        {
+            pageIndex = 0;
+            hfPageIndex.Value = "0";
+        }
+        else
+        {
+            int.TryParse(hfPageIndex.Value, out pageIndex);
+            if (pageIndex < 0) pageIndex = 0;
+        }
+
+        // Stats query (row count + totals in one pass)
         string statsSql = String.Format(
             @"SELECT 
                 COUNT(*) AS total_tx,
@@ -218,66 +300,77 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
               {1}
               {0}", where.ToString(), studentJoin);
 
-        // Data query — no LIMIT; DX grid handles paging natively
+        // Data query — server-side paged with LIMIT/OFFSET
         string dataSql = String.Format(
             @"SELECT t.TID, t.regno,
                      TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
                      t.trans_type, t.amount, t.detail, t.post_status, t.trans_date,
                      t.acadyear, t.semester, t.item_code,
-                     COALESCE(b.ItemName, t.item_code) AS item_name
+                     CASE WHEN b.ItemName IS NOT NULL AND b.ItemName != '' THEN b.ItemName
+                          WHEN t.item_code IS NULL OR t.item_code = 0 THEN '\u2014'
+                          ELSE CONCAT('Item ', t.item_code) END AS item_name
               FROM fin_studentfeestracking t
               {1}
               LEFT JOIN academicbillingitems b ON b.ItemCode = t.item_code
               {0}
-              ORDER BY t.TID DESC", where.ToString(), studentJoin);
+              ORDER BY t.TID DESC
+              LIMIT @pgOffset, @pgSize", where.ToString(), studentJoin);
 
         using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
 
-            // Stats
+            // 1. Stats (fast COUNT query)
             cmd.Connection = conn;
             cmd.CommandText = statsSql;
+            long totalTx = 0;
             using (MySqlDataReader rdr = cmd.ExecuteReader())
             {
                 if (rdr.Read())
                 {
-                    long totalTx = rdr["total_tx"] != DBNull.Value ? Convert.ToInt64(rdr["total_tx"]) : 0;
-                    long billCnt = rdr["bill_cnt"] != DBNull.Value ? Convert.ToInt64(rdr["bill_cnt"]) : 0;
-                    long payCnt = rdr["pay_cnt"] != DBNull.Value ? Convert.ToInt64(rdr["pay_cnt"]) : 0;
+                    totalTx   = rdr["total_tx"] != DBNull.Value ? Convert.ToInt64(rdr["total_tx"])   : 0;
+                    long billCnt  = rdr["bill_cnt"] != DBNull.Value ? Convert.ToInt64(rdr["bill_cnt"]) : 0;
+                    long payCnt   = rdr["pay_cnt"]  != DBNull.Value ? Convert.ToInt64(rdr["pay_cnt"])  : 0;
                     decimal billAmt = rdr["bill_amt"] != DBNull.Value ? Convert.ToDecimal(rdr["bill_amt"]) : 0;
-                    decimal payAmt = rdr["pay_amt"] != DBNull.Value ? Convert.ToDecimal(rdr["pay_amt"]) : 0;
+                    decimal payAmt  = rdr["pay_amt"]  != DBNull.Value ? Convert.ToDecimal(rdr["pay_amt"])  : 0;
 
-                    litTotalTx.Text = totalTx.ToString("N0");
-                    litBillTx.Text = billCnt.ToString("N0");
-                    litPayTx.Text = payCnt.ToString("N0");
-                    litBillAmt.Text = FormatCurrency(billAmt);
-                    litPayAmt.Text = FormatCurrency(payAmt);
-
+                    litTotalTx.Text  = totalTx.ToString("N0");
+                    litBillTx.Text   = billCnt.ToString("N0");
+                    litPayTx.Text    = payCnt.ToString("N0");
+                    litBillAmt.Text  = FormatCurrency(billAmt);
+                    litPayAmt.Text   = FormatCurrency(payAmt);
                     lblRecordCount.Text = totalTx.ToString("N0") + " records";
                 }
             }
 
-            // Grid
+            // 2. Clamp page index to valid range
+            int totalPages = totalTx > 0 ? (int)Math.Ceiling((double)totalTx / pageSize) : 1;
+            if (pageIndex >= totalPages) { pageIndex = Math.Max(0, totalPages - 1); hfPageIndex.Value = pageIndex.ToString(); }
+            int offset = pageIndex * pageSize;
+
+            // 3. Page of data
             MySqlCommand dataCmd = new MySqlCommand(dataSql, conn);
             foreach (MySqlParameter p in cmd.Parameters)
-            {
                 dataCmd.Parameters.AddWithValue(p.ParameterName, p.Value);
-            }
+            dataCmd.Parameters.AddWithValue("@pgOffset", offset);
+            dataCmd.Parameters.AddWithValue("@pgSize",   pageSize);
+
             MySqlDataAdapter da = new MySqlDataAdapter(dataCmd);
             DataTable dt = new DataTable();
             da.Fill(dt);
 
-            gvTransactions.DataSource = dt;
-            gvTransactions.SettingsPager.PageSize = pageSize;
-            gvTransactions.DataBind();
+            rptTransactions.DataSource = dt;
+            rptTransactions.DataBind();
+            phNoData.Visible = (dt.Rows.Count == 0);
 
-            int totalRows = dt.Rows.Count;
-            int totalPages = (int)Math.Ceiling((double)totalRows / pageSize);
-            int currentPage = gvTransactions.PageIndex + 1;
+            // 4. Footer info + pager
+            long showFrom = totalTx > 0 ? (long)(offset + 1) : 0;
+            long showTo   = Math.Min((long)(offset + pageSize), totalTx);
             lblGridFooter.Text = String.Format(
-                "Showing page <strong>{0}</strong> of <strong>{1}</strong> &mdash; <strong>{2}</strong> total transactions ({3} per page)",
-                currentPage, totalPages, totalRows.ToString("N0"), pageSize);
+                "Showing <strong>{0}\u2013{1}</strong> of <strong>{2}</strong> transactions ({3} per page)",
+                showFrom, showTo, totalTx.ToString("N0"), pageSize);
+
+            litPager.Text = BuildPagerHtml(pageIndex, totalPages);
         }
 
         // Context badge
@@ -303,6 +396,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     protected void ddlPageSize_Changed(object sender, EventArgs e) { }
 
     protected void gvTransactions_PageIndexChanged(object sender, EventArgs e) { }
+    protected void btnGoToPage_Click(object sender, EventArgs e) { /* page index read from hfPageIndex in LoadTransactions */ }
 
     protected void btnSearch_Click(object sender, EventArgs e) { LoadTransactions(); }
 
@@ -325,17 +419,14 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         StringBuilder where = new StringBuilder("WHERE 1=1");
         MySqlCommand cmd = new MySqlCommand();
 
-        // Student status filter for export
+        // Always LEFT JOIN — every transaction shows regardless of student enrolment status.
+        string studentJoin = "LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno";
+
         string studStatus = ddlStudStatus.SelectedValue;
-        string studentJoin;
         if (!String.IsNullOrEmpty(studStatus))
         {
-            studentJoin = "INNER JOIN campus_dynamics.acad_student s ON s.regno = t.regno AND UPPER(COALESCE(s.new_status,'')) = UPPER(@studStatus)";
+            where.Append(" AND UPPER(COALESCE(s.new_status,'')) = UPPER(@studStatus)");
             cmd.Parameters.AddWithValue("@studStatus", studStatus);
-        }
-        else
-        {
-            studentJoin = "LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno";
         }
 
         if (!String.IsNullOrEmpty(ddlAcadYear.SelectedValue))
@@ -745,8 +836,258 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     }
 
     // ====================================================================
+    // Edit Transaction
+    // ====================================================================
+    protected void btnEditTransaction_Click(object sender, EventArgs e)
+    {
+        // Restore edit modal posted values
+        RestorePostedValue(ddlEditTransType);
+        RestorePostedValue(ddlEditBillItem);
+        RestorePostedValue(ddlEditAcadYear);
+        RestorePostedValue(ddlEditSemester);
+        RestorePostedValue(ddlEditPostStatus);
+
+        string tidStr = hfEditTID.Value.Trim();
+        int tid;
+        if (!int.TryParse(tidStr, out tid) || tid <= 0)
+        { ShowToast("Invalid transaction ID.", false); return; }
+
+        string transType = ddlEditTransType.SelectedValue;
+        string billItemVal = ddlEditBillItem.SelectedValue;
+        string amountStr = txtEditAmount.Text.Trim();
+        string acadYear = ddlEditAcadYear.SelectedValue;
+        string semesterStr = ddlEditSemester.SelectedValue;
+        string detail = txtEditDetail.Text.Trim();
+        string dateStr = txtEditDate.Text.Trim();
+        string postStatus = ddlEditPostStatus.SelectedValue;
+
+        // ---- Validation ----
+        if (string.IsNullOrEmpty(transType))
+        { ShowToast("Transaction Type is required.", false); OpenEditModalAfterPostback(); return; }
+        if (string.IsNullOrEmpty(billItemVal))
+        { ShowToast("Billing Item is required.", false); OpenEditModalAfterPostback(); return; }
+        if (string.IsNullOrEmpty(amountStr))
+        { ShowToast("Amount is required.", false); OpenEditModalAfterPostback(); return; }
+        if (string.IsNullOrEmpty(acadYear))
+        { ShowToast("Academic Year is required.", false); OpenEditModalAfterPostback(); return; }
+        if (string.IsNullOrEmpty(semesterStr))
+        { ShowToast("Semester is required.", false); OpenEditModalAfterPostback(); return; }
+        if (string.IsNullOrEmpty(detail))
+        { ShowToast("Description is required.", false); OpenEditModalAfterPostback(); return; }
+        if (string.IsNullOrEmpty(dateStr))
+        { ShowToast("Transaction Date is required.", false); OpenEditModalAfterPostback(); return; }
+
+        double amount;
+        if (!double.TryParse(amountStr, out amount) || amount <= 0)
+        { ShowToast("Amount must be a positive number.", false); OpenEditModalAfterPostback(); return; }
+
+        int semester;
+        if (!int.TryParse(semesterStr, out semester) || semester < 1 || semester > 3)
+        { ShowToast("Invalid semester.", false); OpenEditModalAfterPostback(); return; }
+
+        int itemCode;
+        if (!int.TryParse(billItemVal, out itemCode))
+        { ShowToast("Invalid billing item.", false); OpenEditModalAfterPostback(); return; }
+
+        DateTime transDate;
+        if (!DateTime.TryParse(dateStr, out transDate))
+        { ShowToast("Invalid date.", false); OpenEditModalAfterPostback(); return; }
+
+        if (detail.Length > 250)
+        { ShowToast("Description must be 250 characters or less.", false); OpenEditModalAfterPostback(); return; }
+
+        if (postStatus != "Pending" && postStatus != "Posted") postStatus = "Pending";
+        if (transType != "Bill" && transType != "Payment")
+        { ShowToast("Invalid transaction type.", false); OpenEditModalAfterPostback(); return; }
+
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+
+                // ---- Audit: capture BEFORE the UPDATE ----
+                InsertAuditRecord(conn, tid, "EDIT",
+                    newTransType: transType, newItemCode: itemCode, newAmount: amount,
+                    newDetail: detail, newTransDate: transDate, newAcadYear: acadYear,
+                    newSemester: semester, newPostStatus: postStatus);
+
+                string sql = @"UPDATE fin_studentfeestracking SET 
+                    trans_type=@tt, item_code=@ic, amount=@a, detail=@d, trans_date=@dt, 
+                    acadyear=@y, semester=@s, post_status=@ps 
+                    WHERE TID=@tid";
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@tt", transType);
+                    cmd.Parameters.AddWithValue("@ic", itemCode);
+                    cmd.Parameters.AddWithValue("@a", amount);
+                    cmd.Parameters.AddWithValue("@d", detail);
+                    cmd.Parameters.AddWithValue("@dt", transDate);
+                    cmd.Parameters.AddWithValue("@y", acadYear);
+                    cmd.Parameters.AddWithValue("@s", semester);
+                    cmd.Parameters.AddWithValue("@ps", postStatus);
+                    cmd.Parameters.AddWithValue("@tid", tid);
+                    int rows = cmd.ExecuteNonQuery();
+                    if (rows > 0)
+                    {
+                        string itemText = ddlEditBillItem.SelectedItem != null ? ddlEditBillItem.SelectedItem.Text : billItemVal;
+                        ShowToast(String.Format("Transaction #{0} updated — {1} of UGX {2} ({3}).",
+                            tid, transType, amount.ToString("N0"), itemText), true);
+                    }
+                    else
+                    {
+                        ShowToast("Transaction #" + tid + " was not found.", false);
+                    }
+                }
+            }
+            LoadTransactions();
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Error updating: " + Server.HtmlEncode(ex.Message), false);
+            OpenEditModalAfterPostback();
+        }
+    }
+
+    // ====================================================================
+    // Delete Transaction
+    // ====================================================================
+    protected void btnDeleteTransaction_Click(object sender, EventArgs e)
+    {
+        string tidStr = hfDeleteTID.Value.Trim();
+        int tid;
+        if (!int.TryParse(tidStr, out tid) || tid <= 0)
+        { ShowToast("Invalid transaction ID.", false); return; }
+
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+
+                // ---- Audit: capture BEFORE the DELETE ----
+                InsertAuditRecord(conn, tid, "DELETE");
+
+                using (MySqlCommand cmd = new MySqlCommand("DELETE FROM fin_studentfeestracking WHERE TID=@tid", conn))
+                {
+                    cmd.Parameters.AddWithValue("@tid", tid);
+                    int rows = cmd.ExecuteNonQuery();
+                    if (rows > 0)
+                    {
+                        ShowToast("Transaction #" + tid + " has been deleted.", true);
+                    }
+                    else
+                    {
+                        ShowToast("Transaction #" + tid + " was not found.", false);
+                    }
+                }
+            }
+            LoadTransactions();
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Error deleting: " + Server.HtmlEncode(ex.Message), false);
+        }
+    }
+
+    // ====================================================================
+    // Audit Trail Helper
+    // ====================================================================
+    private string GetCurrentUser()
+    {
+        if (Session["ScreenName"] != null) return Session["ScreenName"].ToString();
+        if (Session["username"] != null) return Session["username"].ToString();
+        return "Unknown";
+    }
+
+    /// <summary>
+    /// Reads the original row from fin_studentfeestracking and inserts an immutable audit record.
+    /// Call BEFORE the UPDATE or DELETE so original values are captured.
+    /// </summary>
+    private void InsertAuditRecord(MySqlConnection conn, int tid, string actionType,
+        string newTransType = null, int? newItemCode = null, double? newAmount = null,
+        string newDetail = null, DateTime? newTransDate = null, string newAcadYear = null,
+        int? newSemester = null, string newPostStatus = null, string reason = null)
+    {
+        // 1. Fetch the original row
+        DataRow orig = null;
+        using (MySqlCommand sel = new MySqlCommand(
+            "SELECT regno, trans_type, item_code, amount, detail, trans_date, acadyear, semester, post_status FROM fin_studentfeestracking WHERE TID=@tid", conn))
+        {
+            sel.Parameters.AddWithValue("@tid", tid);
+            using (MySqlDataAdapter da = new MySqlDataAdapter(sel))
+            {
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+                if (dt.Rows.Count == 0) return; // row not found — nothing to audit
+                orig = dt.Rows[0];
+            }
+        }
+
+        // 2. Insert the audit record
+        string auditSql = @"INSERT INTO fin_changed_deleted_transactions 
+            (action_type, original_tid, orig_regno, orig_trans_type, orig_item_code, orig_amount, orig_detail, orig_trans_date, orig_acadyear, orig_semester, orig_post_status,
+             new_trans_type, new_item_code, new_amount, new_detail, new_trans_date, new_acadyear, new_semester, new_post_status,
+             changed_by, ip_address, reason)
+            VALUES
+            (@action, @tid, @oRegno, @oTT, @oIC, @oAmt, @oDet, @oDate, @oYear, @oSem, @oPS,
+             @nTT, @nIC, @nAmt, @nDet, @nDate, @nYear, @nSem, @nPS,
+             @user, @ip, @reason)";
+        using (MySqlCommand ins = new MySqlCommand(auditSql, conn))
+        {
+            ins.Parameters.AddWithValue("@action", actionType);
+            ins.Parameters.AddWithValue("@tid", tid);
+            ins.Parameters.AddWithValue("@oRegno", orig["regno"]);
+            ins.Parameters.AddWithValue("@oTT", orig["trans_type"]);
+            ins.Parameters.AddWithValue("@oIC", orig["item_code"]);
+            ins.Parameters.AddWithValue("@oAmt", orig["amount"]);
+            ins.Parameters.AddWithValue("@oDet", orig["detail"] == DBNull.Value ? (object)DBNull.Value : orig["detail"]);
+            ins.Parameters.AddWithValue("@oDate", orig["trans_date"]);
+            ins.Parameters.AddWithValue("@oYear", orig["acadyear"]);
+            ins.Parameters.AddWithValue("@oSem", orig["semester"]);
+            ins.Parameters.AddWithValue("@oPS", orig["post_status"]);
+
+            // For DELETE, new values are NULL
+            ins.Parameters.AddWithValue("@nTT", actionType == "DELETE" ? (object)DBNull.Value : newTransType);
+            ins.Parameters.AddWithValue("@nIC", actionType == "DELETE" ? (object)DBNull.Value : (object)(newItemCode ?? (object)DBNull.Value));
+            ins.Parameters.AddWithValue("@nAmt", actionType == "DELETE" ? (object)DBNull.Value : (object)(newAmount ?? (object)DBNull.Value));
+            ins.Parameters.AddWithValue("@nDet", actionType == "DELETE" ? (object)DBNull.Value : (object)(newDetail ?? (object)DBNull.Value));
+            ins.Parameters.AddWithValue("@nDate", actionType == "DELETE" ? (object)DBNull.Value : (object)(newTransDate ?? (object)DBNull.Value));
+            ins.Parameters.AddWithValue("@nYear", actionType == "DELETE" ? (object)DBNull.Value : (object)(newAcadYear ?? (object)DBNull.Value));
+            ins.Parameters.AddWithValue("@nSem", actionType == "DELETE" ? (object)DBNull.Value : (object)(newSemester ?? (object)DBNull.Value));
+            ins.Parameters.AddWithValue("@nPS", actionType == "DELETE" ? (object)DBNull.Value : (object)(newPostStatus ?? (object)DBNull.Value));
+
+            ins.Parameters.AddWithValue("@user", GetCurrentUser());
+            ins.Parameters.AddWithValue("@ip", Request.UserHostAddress ?? "");
+            ins.Parameters.AddWithValue("@reason", reason ?? (object)DBNull.Value);
+
+            ins.ExecuteNonQuery();
+        }
+    }
+
+    // ====================================================================
     // Helpers
     // ====================================================================
+    protected string FormatDateISO(object val)
+    {
+        if (val == null || val == DBNull.Value) return "";
+        try { return Convert.ToDateTime(val).ToString("yyyy-MM-dd"); }
+        catch { return val.ToString(); }
+    }
+
+    protected string FormatDateShort(object val)
+    {
+        if (val == null || val == DBNull.Value) return "\u2014";
+        try { return Convert.ToDateTime(val).ToString("d MMM yyyy"); }
+        catch { return val.ToString(); }
+    }
+
+    protected string SafeStr(object val)
+    {
+        if (val == null || val == DBNull.Value) return "";
+        return val.ToString();
+    }
+
     private void ShowToast(string message, bool success)
     {
         pnlToast.Visible = true;
@@ -760,9 +1101,57 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             "setTimeout(function(){ openModal('modal-add-tx'); var b=document.getElementById('btnModalSave'); if(b){b.disabled=false;b.innerText='Save Transaction';} },100);", true);
     }
 
+    private void OpenEditModalAfterPostback()
+    {
+        ScriptManager.RegisterStartupScript(this, GetType(), "reopenEditModal",
+            "setTimeout(function(){ openModal('modal-edit-tx'); var b=document.getElementById('btnModalEdit'); if(b){b.disabled=false;b.innerHTML='<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"20 6 9 17 4 12\"></polyline></svg> Update Transaction';} },100);", true);
+    }
+
     private static string JsEsc(string val)
     {
         if (string.IsNullOrEmpty(val)) return "";
         return val.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", "\\n");
+    }
+
+    // ====================================================================
+    // BuildPagerHtml — renders prev/page-numbers/next pager buttons
+    // ====================================================================
+    private string BuildPagerHtml(int pageIndex, int totalPages)
+    {
+        if (totalPages <= 1) return "";
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<div class=\"ft-pager__btns\">");
+        bool isFirst = (pageIndex == 0);
+        bool isLast  = (pageIndex >= totalPages - 1);
+
+        sb.AppendFormat("<button type=\"button\" class=\"ft-pager__btn\" onclick=\"goToPage(0)\" {0}>&laquo;</button>",
+            isFirst ? "disabled" : "");
+        sb.AppendFormat("<button type=\"button\" class=\"ft-pager__btn\" onclick=\"goToPage({0})\" {1}>&lsaquo; Prev</button>",
+            pageIndex - 1, isFirst ? "disabled" : "");
+
+        int startP = Math.Max(0, pageIndex - 3);
+        int endP   = Math.Min(totalPages - 1, pageIndex + 3);
+
+        if (startP > 0)
+            sb.Append("<span class=\"ft-pager__ellipsis\">&hellip;</span>");
+
+        for (int i = startP; i <= endP; i++)
+        {
+            bool active = (i == pageIndex);
+            sb.AppendFormat(
+                "<button type=\"button\" class=\"ft-pager__btn{0}\" onclick=\"goToPage({1})\">{2}</button>",
+                active ? " ft-pager__btn--active" : "", i, i + 1);
+        }
+
+        if (endP < totalPages - 1)
+            sb.Append("<span class=\"ft-pager__ellipsis\">&hellip;</span>");
+
+        sb.AppendFormat("<button type=\"button\" class=\"ft-pager__btn\" onclick=\"goToPage({0})\" {1}>Next &rsaquo;</button>",
+            pageIndex + 1, isLast ? "disabled" : "");
+        sb.AppendFormat("<button type=\"button\" class=\"ft-pager__btn\" onclick=\"goToPage({0})\" {1}>&raquo;</button>",
+            totalPages - 1, isLast ? "disabled" : "");
+
+        sb.Append("</div>");
+        return sb.ToString();
     }
 }

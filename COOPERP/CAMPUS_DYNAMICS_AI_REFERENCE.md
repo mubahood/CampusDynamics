@@ -480,3 +480,140 @@ Shows 7 rows: Programme, Specialisation (if set), Academic Year, Study Year, Sem
   - Expanded info card from 4 rows to 7 rows (Programme, Specialisation, Academic Year, Study Year, Semester, Courses Registered, Status)
   - Added color-coded status (green/red)
 - CSS: Added `.sp-reg-row__val--ok` (green), `.sp-reg-row__val--warn` (red), `max-width: 60%` + `word-break` on `.sp-reg-row__val`
+
+---
+
+## 16. Gotchas & Proven Patterns
+
+> Hard-won lessons from debugging. **Read before building any new page.**
+
+### 16.1 Action Menu / Row Popover — THE Correct Pattern
+
+The old `togglePopover` / `currentPopBtn` approach has a **fatal timing bug**: the document-level click handler fires before the popover-item `onclick`, wiping `currentPopBtn` to `null` so action functions silently fail.
+
+**Proven pattern (from FeesTransactions, BursarySchemes):**
+
+1. Grid button uses `onclick="showRowAction(event,this)"` — **event first**, character `&#8942;` (not SVG)
+2. `showRowAction()` calls `evt.stopPropagation(); evt.preventDefault();`, collects **all data-attributes into an `_activeRow` object immediately**, then positions & shows the popover
+3. Popover HTML uses `id="actionPop"`, `position: fixed`, CSS class `xx-action-pop--visible` to toggle
+4. Each action function (edit/delete/view) calls `hideRowAction()` **first**, then reads `_activeRow`
+5. Document click handler checks `!pop.contains(e.target) && !e.target.classList.contains('xx-row-action')` before hiding — **never unconditionally hide**
+6. Scroll listener: `window.addEventListener('scroll', hideRowAction, true);`
+
+```javascript
+// CORRECT — data stored in object, action reads from object
+var _activeRow = null;
+function showRowAction(evt, btn) {
+    evt.stopPropagation(); evt.preventDefault();
+    _activeRow = { id: btn.getAttribute('data-id'), name: btn.getAttribute('data-name') };
+    var pop = document.getElementById('actionPop');
+    // ... position pop using getBoundingClientRect() ...
+    pop.classList.add('xx-action-pop--visible');
+}
+function hideRowAction() {
+    var pop = document.getElementById('actionPop');
+    if (pop) pop.classList.remove('xx-action-pop--visible');
+}
+document.addEventListener('click', function(e) {
+    var pop = document.getElementById('actionPop');
+    if (pop && pop.classList.contains('xx-action-pop--visible')) {
+        if (!pop.contains(e.target) && !e.target.classList.contains('xx-row-action')) {
+            hideRowAction();
+        }
+    }
+});
+function doEdit() { hideRowAction(); if (!_activeRow) return; /* use _activeRow.id etc */ }
+```
+
+```javascript
+// WRONG — currentPopBtn nulled by document click before onclick fires
+var currentPopBtn = null;
+document.addEventListener('click', function() { currentPopBtn = null; }); // kills it
+function editScheme() { if (!currentPopBtn) return; /* never reaches here */ }
+```
+
+### 16.2 ContentPlaceHolder ID
+
+`SidebarMaster.master` defines:
+- `HeadContent` — for `<head>` styles
+- **`ContentPlaceHolder1`** — for body content
+
+> **NEVER use `MainContent`** — it doesn't exist and causes: *"Cannot find ContentPlaceHolder 'MainContent'"*
+
+### 16.3 Database Column Names — Common Traps
+
+| You might guess | Actual column | Table |
+|----------------|---------------|-------|
+| `Surname` | **`firstname`** | `campus_dynamics.acad_student` |
+| `OtherNames` | **`othername`** | `campus_dynamics.acad_student` |
+| `programme` | **`progid`** | `campus_dynamics.acad_student` |
+| `acad_programmes` | **`acad_programme`** (singular) | `campus_dynamics` |
+| `programme_code` | **`progcode`** | `campus_dynamics.acad_programme` |
+| `programme_title` | **`progname`** | `campus_dynamics.acad_programme` |
+| `scholarshipTerm` | **`scholarhipTerm`** (missing 2nd 's') | `campus_dynamics_accounts.scholarshipstudents` |
+| `scholarshipYear` | **`scholarhipYear`** (missing 2nd 's') | `campus_dynamics_accounts.scholarshipstudents` |
+
+Student name concat: `CONCAT(s.firstname, ' ', s.othername) AS student_name`
+
+### 16.4 ViewState Disabled — RestorePostedValue
+
+`SidebarMaster.master` disables ViewState. All DropDownLists lose selection on postback.
+
+```csharp
+private void RestorePostedValue(DropDownList ddl) {
+    string posted = Request.Form[ddl.UniqueID];
+    if (!string.IsNullOrEmpty(posted)) {
+        ListItem li = ddl.Items.FindByValue(posted);
+        if (li != null) { ddl.ClearSelection(); li.Selected = true; }
+    }
+}
+```
+
+**Call order in Page_Load:** `LoadLookups()` → `RestorePostedValue()` for ALL dropdowns (filter + add modal + edit modal) → `LoadData()`
+
+### 16.5 Cross-Database Joins
+
+Connection to `campus_dynamics_accounts` (AcctConnStr) + prefix `campus_dynamics.` for student table:
+
+```sql
+SELECT ss.*, s.scholarshipName,
+       IFNULL(CONCAT(st.firstname,' ',st.othername),'—') AS student_name
+FROM scholarshipstudents ss
+LEFT JOIN scholarships s ON s.scholarshipID = ss.scholarshipID
+LEFT JOIN campus_dynamics.acad_student st ON st.regno = ss.adm_no
+```
+
+### 16.6 CSS Class Prefix Convention
+
+| Page | Prefix |
+|------|--------|
+| FeesManagement (Dashboard) | `fd-` |
+| FeesTransactions | `ft-` |
+| FeesAuditTrail | `fa-` |
+| BursarySchemes | `bs-` |
+| BursaryBeneficiaries | `bb-` |
+
+Shared across all pages: `.fm-tabs`, `.fm-tab`, `.fm-page-header`, `.fs-modal*`, `.fs-btn*`, `.fs-form-*`, `.fs-toast*`
+
+### 16.7 Tab Navigation
+
+7 tabs across all fee pages. **When adding a new tab, update ALL 5+ pages:**
+FeesManagement, FeesTransactions, FeesStructure (if tabs), FeesRegistration (if tabs), BursarySchemes, BursaryBeneficiaries, FeesAuditTrail.
+
+### 16.8 Connection Strings
+
+| Key | Database | Alias |
+|-----|----------|-------|
+| `accountsConnectionString` | `campus_dynamics_accounts` | AcctConnStr |
+| `vacConnectionString` | `campus_dynamics` | MainConnStr |
+
+### 16.9 Design System Colors
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| Navy Dark | `#05275C` | Headers, buttons, stat values |
+| Navy Accent | `#174DA4` | Active tabs, links, hovers |
+| Success | `#2e7d32` | Active badges, success toasts |
+| Danger | `#c62828` / `#dc3545` | Delete, errors, inactive |
+| Border | `#e0e5ed` | Cards, grids, inputs |
+| Bg Light | `#f8f9fb` | Card headers, footers |

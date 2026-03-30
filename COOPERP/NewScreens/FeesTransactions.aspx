@@ -1,21 +1,8 @@
 <%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="FeesTransactions.aspx.cs" Inherits="COOPERP_NewScreens_FeesTransactions" Title="Fee Transactions - Campus Dynamics" %>
-<%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
 /* ===== FEE TRANSACTIONS ================================================ */
-
-.fm-page-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 12px; margin-bottom: 16px; border-bottom: 2px solid #174DA4; flex-wrap: wrap; gap: 10px; }
-.fm-page-header__left { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.fm-page-header__icon { width: 40px; height: 40px; background: #05275C; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.fm-page-header__title { font-size: 17px; font-weight: 700; color: #05275C; line-height: 1.2; }
-.fm-page-header__sub   { font-size: 12px; color: #666; margin-top: 2px; }
-
-/* Tabs */
-.fm-tabs { display: flex; gap: 0; border-bottom: 2px solid #e0e5ed; margin-bottom: 14px; overflow-x: auto; }
-.fm-tab { padding: 9px 18px; font-size: 12px; font-weight: 600; color: #666; cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; display: flex; align-items: center; gap: 6px; transition: color .15s; text-decoration: none; }
-.fm-tab:hover { color: #174DA4; }
-.fm-tab--active { color: #174DA4; border-bottom-color: #174DA4; font-weight: 700; }
 
 /* Stats Row */
 .ft-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
@@ -65,14 +52,40 @@
 .ft-badge--posted { background: #e8f0fc; color: #174DA4; }
 .ft-badge--pending { background: #f8d7da; color: #721c24; }
 
-/* DevExpress Grid overrides */
-.dxgvControl_Glass { border: 1px solid #e0e5ed !important; }
-.dxgvHeader_Glass td { font-size: 10px !important; text-transform: uppercase !important; letter-spacing: .3px !important; background: #f5f7fa !important; color: #555 !important; border-bottom: 2px solid #e0e5ed !important; padding: 9px 12px !important; font-weight: 600 !important; }
-.dxgvDataRow_Glass td, .dxgvDataRowAlt_Glass td { font-size: 11px !important; color: #1a1a2e !important; padding: 8px 12px !important; border-bottom: 1px solid #f0f2f5 !important; vertical-align: middle !important; }
-.dxgvDataRow_Glass:hover td, .dxgvDataRowAlt_Glass:hover td { background: #f8f9fb !important; }
-.dxgvFilterRow_Glass td { padding: 4px 6px !important; background: #fff !important; }
-.dxgvFilterRow_Glass input { border: 1px solid #e0e5ed !important; font-size: 11px !important; padding: 3px 6px !important; }
-.dxgvPagerBar_Glass { background: #f5f7fa !important; border-top: 1px solid #e0e5ed !important; padding: 6px 12px !important; }
+/* === Custom Data Table ================================================= */
+.ft-table-wrap { overflow: auto; max-height: 560px; border-bottom: 1px solid #e0e5ed; position: relative; }
+.ft-table { width: 100%; border-collapse: collapse; min-width: 1200px; font-size: 12px; }
+.ft-table thead tr { position: sticky; top: 0; z-index: 10; }
+.ft-table thead th { background: #f5f7fa; color: #555; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; font-weight: 600; padding: 9px 12px; border-bottom: 2px solid #e0e5ed; white-space: nowrap; box-shadow: 0 2px 0 #e0e5ed; }
+.ft-table tbody tr { border-bottom: 1px solid #f0f2f5; transition: background .08s; }
+.ft-table tbody tr:nth-child(even) { background: #f9fafb; }
+.ft-table tbody tr:hover, .ft-table tbody tr:nth-child(even):hover { background: #eef2fc; }
+.ft-table tbody td { padding: 8px 12px; vertical-align: middle; color: #1a1a2e; font-size: 11px; }
+/* Column widths */
+.ft-col-id    { width: 62px;  }
+.ft-col-regno { width: 135px; white-space: nowrap; }
+.ft-col-name  { width: 185px; }
+.ft-col-type  { width: 82px;  white-space: nowrap; }
+.ft-col-item  { width: 148px; }
+.ft-col-amt   { width: 120px; white-space: nowrap; text-align: right; }
+.ft-col-detail{ min-width: 160px; }
+.ft-col-status{ width: 82px;  white-space: nowrap; }
+.ft-col-date  { width: 92px;  white-space: nowrap; }
+.ft-col-year  { width: 92px;  white-space: nowrap; }
+.ft-col-sem   { width: 46px;  text-align: center; white-space: nowrap; }
+.ft-col-action{ width: 44px;  text-align: center; white-space: nowrap; }
+td.ft-col-regno { color: #05275C; font-weight: 700; }
+td.ft-col-amt   { font-weight: 700; font-variant-numeric: tabular-nums; }
+td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 230px; }
+/* Pager */
+.ft-pager { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: #f8f9fb; border-top: 1px solid #e0e5ed; font-size: 11px; color: #666; flex-wrap: wrap; gap: 8px; }
+.ft-pager__info strong { color: #05275C; }
+.ft-pager__btns { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
+.ft-pager__btn { min-width: 30px; padding: 4px 8px; font-size: 11px; font-weight: 600; border: 1px solid #e0e5ed; background: #fff; color: #444; cursor: pointer; font-family: inherit; line-height: 1.4; text-align: center; }
+.ft-pager__btn:hover:not([disabled]) { border-color: #174DA4; color: #174DA4; background: #eef2fc; }
+.ft-pager__btn[disabled] { opacity: .4; cursor: not-allowed; }
+.ft-pager__btn--active { background: #05275C !important; color: #fff !important; border-color: #05275C !important; }
+.ft-pager__ellipsis { padding: 4px 2px; color: #aaa; font-size: 12px; }
 
 /* ===== MODAL (from FeesStructure design system) ========================= */
 .fs-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9998; }
@@ -157,10 +170,43 @@
 .ft-selected-student__remove { width: 22px; height: 22px; border: 1px solid #e0e5ed; background: #fff; color: #888; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .ft-selected-student__remove:hover { border-color: #dc3545; color: #dc3545; background: #fde8e8; }
 
+/* Row Action Button */
+.ft-row-action { width:28px; height:28px; border:1px solid transparent; background:none; color:#666; font-size:18px; line-height:1; cursor:pointer; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; transition:all .15s; }
+.ft-row-action:hover { background:#eef1f6; border-color:#d0d5dd; color:#05275C; }
+
+/* Action Popover (position:fixed to avoid clipping) */
+.ft-action-pop { position:fixed; z-index:99999; background:#fff; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.08); border:1px solid #e0e5ed; min-width:170px; padding:4px 0; display:none; }
+.ft-action-pop--visible { display:block; }
+.ft-action-pop__item { display:flex; align-items:center; gap:8px; padding:9px 16px; font-size:13px; color:#333; cursor:pointer; border:none; background:none; width:100%; text-align:left; transition:background .12s; font-family:inherit; }
+.ft-action-pop__item:hover { background:#f0f4ff; color:#05275C; }
+.ft-action-pop__item--danger { color:#dc3545; }
+.ft-action-pop__item--danger:hover { background:#fde8e8; color:#b91c1c; }
+.ft-action-pop__sep { height:1px; background:#e5e7eb; margin:4px 0; }
+
+/* Delete Confirmation Modal */
+.ft-confirm-overlay { position:fixed; z-index:100000; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; }
+.ft-confirm-overlay--visible { display:flex; }
+.ft-confirm { background:#fff; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.2); width:420px; max-width:95vw; overflow:hidden; animation:ftConfirmIn .2s ease; }
+@keyframes ftConfirmIn { from { transform:scale(.95); opacity:0; } to { transform:scale(1); opacity:1; } }
+.ft-confirm__header { padding:16px 20px; background:#fde8e8; border-bottom:1px solid #fecaca; display:flex; align-items:center; gap:10px; }
+.ft-confirm__icon { width:36px; height:36px; background:#dc3545; color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.ft-confirm__title { font-size:15px; font-weight:700; color:#991b1b; }
+.ft-confirm__body { padding:20px; font-size:13px; color:#333; line-height:1.6; }
+.ft-confirm__detail { background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; padding:10px 14px; margin-top:10px; }
+.ft-confirm__detail dt { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:.5px; margin-top:6px; }
+.ft-confirm__detail dt:first-child { margin-top:0; }
+.ft-confirm__detail dd { margin:2px 0 0 0; font-weight:600; color:#05275C; }
+.ft-confirm__footer { padding:12px 20px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:8px; }
+.ft-confirm__btn { padding:8px 18px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid transparent; transition:all .15s; font-family:inherit; }
+.ft-confirm__btn--cancel { background:#fff; border-color:#d0d5dd; color:#555; }
+.ft-confirm__btn--cancel:hover { background:#f5f5f5; }
+.ft-confirm__btn--delete { background:#dc3545; color:#fff; }
+.ft-confirm__btn--delete:hover { background:#b91c1c; }
+
 /* Responsive */
 @media (max-width: 1200px) { .ft-stats { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 800px) { .ft-stats { grid-template-columns: 1fr 1fr; } .ft-stat__val { font-size: 13px; } }
-@media (max-width: 500px) { .ft-stats { grid-template-columns: 1fr; } .fm-tabs .fm-tab { padding: 8px 12px; font-size: 11px; } .fs-modal { width: 98vw; } }
+@media (max-width: 500px) { .ft-stats { grid-template-columns: 1fr; } .fs-modal { width: 98vw; } }
 </style>
 </asp:Content>
 
@@ -170,55 +216,17 @@
 <asp:Button ID="btnSearch" runat="server" style="display:none;" OnClick="btnSearch_Click" />
 <asp:Button ID="btnReset" runat="server" style="display:none;" OnClick="btnReset_Click" />
 <asp:Button ID="btnSaveTransaction" runat="server" style="display:none;" OnClick="btnSaveTransaction_Click" />
+<asp:Button ID="btnEditTransaction" runat="server" style="display:none;" OnClick="btnEditTransaction_Click" />
+<asp:Button ID="btnDeleteTransaction" runat="server" style="display:none;" OnClick="btnDeleteTransaction_Click" />
+<asp:HiddenField ID="hfEditTID" runat="server" />
+<asp:HiddenField ID="hfDeleteTID" runat="server" />
+<asp:HiddenField ID="hfPageIndex" runat="server" Value="0" />
+<asp:Button ID="btnGoToPage" runat="server" style="display:none;" OnClick="btnGoToPage_Click" />
 
 <!-- Toast -->
 <asp:Panel ID="pnlToast" runat="server" Visible="false">
     <div class="fs-toast" id="divToast" runat="server"></div>
 </asp:Panel>
-
-<!-- Page Header -->
-<div class="fm-page-header">
-    <div class="fm-page-header__left">
-        <div class="fm-page-header__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
-        </div>
-        <div>
-            <div class="fm-page-header__title">Fee Transactions</div>
-            <div class="fm-page-header__sub">Student billings, payments, receipts &amp; transaction tracking</div>
-        </div>
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-        <asp:Literal ID="litAcadContext" runat="server" />
-        <button type="button" class="ft-btn ft-btn--primary ft-btn--sm" onclick="openAddTxModal();">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            New Transaction
-        </button>
-        <button type="button" class="ft-btn ft-btn--ghost ft-btn--sm" onclick="document.getElementById('<%= btnExportCsv.ClientID %>').click()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Export CSV
-        </button>
-    </div>
-</div>
-
-<!-- Tab Nav -->
-<div class="fm-tabs">
-    <a class="fm-tab" href="FeesManagement.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
-        Dashboard
-    </a>
-    <a class="fm-tab fm-tab--active" href="FeesTransactions.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
-        Transactions
-    </a>
-    <a class="fm-tab" href="FeesStructure.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-        Fee Structure &amp; Settings
-    </a>
-    <a class="fm-tab" href="FeesRegistration.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-        Registration
-    </a>
-</div>
 
 <!-- Stats -->
 <div class="ft-stats">
@@ -255,6 +263,7 @@
             </div>
             <button type="button" class="ft-btn ft-btn--primary ft-btn--sm" onclick="document.getElementById('<%= btnSearch.ClientID %>').click()">Search</button>
             <asp:Label ID="lblRecordCount" runat="server" CssClass="ft-card__meta" Text="0 records" />
+            <asp:Literal ID="litAcadContext" runat="server" />
         </div>
         <div class="ft-filters__row">
             <div class="ft-filter-grp">
@@ -293,8 +302,8 @@
             <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Student Status</label>
                 <asp:DropDownList ID="ddlStudStatus" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlStudStatus_SelectedIndexChanged">
-                    <asp:ListItem Value="Active" Text="Active" Selected="True" />
-                    <asp:ListItem Value="" Text="All Students" />
+                    <asp:ListItem Value="" Text="All Students" Selected="True" />
+                    <asp:ListItem Value="Active" Text="Active" />
                     <asp:ListItem Value="ADMITTED" Text="Admitted" />
                 </asp:DropDownList>
             </div>
@@ -311,59 +320,104 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.5"></path></svg>
                 Reset
             </button>
+            <span style="flex:1;"></span>
+            <button type="button" class="ft-btn ft-btn--primary ft-btn--sm" style="align-self:flex-end;" onclick="openAddTxModal();">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                New Transaction
+            </button>
+            <button type="button" class="ft-btn ft-btn--ghost ft-btn--sm" style="align-self:flex-end;" onclick="document.getElementById('<%= btnExportCsv.ClientID %>').click()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Export CSV
+            </button>
         </div>
     </div>
 
-    <!-- Grid -->
-    <div style="overflow-x:auto;">
-    <dx:ASPxGridView ID="gvTransactions" runat="server" ClientInstanceName="gvTransactions"
-        Width="100%" KeyFieldName="TID"
-        AutoGenerateColumns="False"
-        EnableCallBacks="true"
-        Theme="Glass"
-        Settings-VerticalScrollBarMode="Visible"
-        Settings-VerticalScrollableHeight="520"
-        SettingsPager-Mode="ShowPager"
-        SettingsPager-PageSize="50"
-        OnPageIndexChanged="gvTransactions_PageIndexChanged">
-        <Columns>
-            <dx:GridViewDataTextColumn FieldName="TID" Caption="ID" Width="60px" />
-            <dx:GridViewDataTextColumn FieldName="regno" Caption="Reg No" Width="130px">
-                <CellStyle ForeColor="#05275C" Font-Bold="true" />
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="student_name" Caption="Student" Width="180px" />
-            <dx:GridViewDataTextColumn FieldName="trans_type" Caption="Type" Width="80px">
-                <Settings AllowAutoFilter="False" />
-                <DataItemTemplate>
-                    <span class='ft-badge <%# GetTypeClass(Eval("trans_type")) %>'><%# Eval("trans_type") %></span>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="item_name" Caption="Billing Item" Width="140px" />
-            <dx:GridViewDataTextColumn FieldName="amount" Caption="Amount" Width="110px">
-                <Settings AllowAutoFilter="False" />
-                <DataItemTemplate>
-                    <span style="font-weight:700;font-variant-numeric:tabular-nums;"><%# FormatAmt(Eval("amount")) %></span>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="detail" Caption="Description" Width="180px" />
-            <dx:GridViewDataTextColumn FieldName="post_status" Caption="Status" Width="80px">
-                <Settings AllowAutoFilter="False" />
-                <DataItemTemplate>
-                    <span class='ft-badge <%# GetStatusClass(Eval("post_status")) %>'><%# Eval("post_status") %></span>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="trans_date" Caption="Date" Width="100px" />
-            <dx:GridViewDataTextColumn FieldName="acadyear" Caption="Year" Width="90px" />
-            <dx:GridViewDataTextColumn FieldName="semester" Caption="Sem" Width="50px" />
-        </Columns>
-        <SettingsBehavior AllowSort="true" AllowDragDrop="false" />
-    </dx:ASPxGridView>
+    <!-- Data Table (single scroll container — sticky header, consistent H+V scroll) -->
+    <div class="ft-table-wrap">
+        <table class="ft-table">
+            <colgroup>
+                <col class="ft-col-id"><col class="ft-col-regno"><col class="ft-col-name">
+                <col class="ft-col-type"><col class="ft-col-item"><col class="ft-col-amt">
+                <col class="ft-col-detail"><col class="ft-col-status"><col class="ft-col-date">
+                <col class="ft-col-year"><col class="ft-col-sem"><col class="ft-col-action">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="ft-col-id">ID</th>
+                    <th class="ft-col-regno">Reg No</th>
+                    <th class="ft-col-name">Student</th>
+                    <th class="ft-col-type">Type</th>
+                    <th class="ft-col-item">Billing Item</th>
+                    <th class="ft-col-amt">Amount</th>
+                    <th class="ft-col-detail">Description</th>
+                    <th class="ft-col-status">Status</th>
+                    <th class="ft-col-date">Date</th>
+                    <th class="ft-col-year">Year</th>
+                    <th class="ft-col-sem">Sem</th>
+                    <th class="ft-col-action"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <asp:Repeater ID="rptTransactions" runat="server">
+                    <ItemTemplate>
+                        <tr>
+                            <td class="ft-col-id"><%# Eval("TID") %></td>
+                            <td class="ft-col-regno"><%# HttpUtility.HtmlEncode(SafeStr(Eval("regno"))) %></td>
+                            <td class="ft-col-name"><%# HttpUtility.HtmlEncode(SafeStr(Eval("student_name"))) %></td>
+                            <td class="ft-col-type"><span class='ft-badge <%# GetTypeClass(Eval("trans_type")) %>'><%# HttpUtility.HtmlEncode(SafeStr(Eval("trans_type"))) %></span></td>
+                            <td class="ft-col-item"><%# HttpUtility.HtmlEncode(SafeStr(Eval("item_name"))) %></td>
+                            <td class="ft-col-amt"><%# FormatAmt(Eval("amount")) %></td>
+                            <td class="ft-col-detail" title='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("detail"))) %>'><%# HttpUtility.HtmlEncode(SafeStr(Eval("detail"))) %></td>
+                            <td class="ft-col-status"><span class='ft-badge <%# GetStatusClass(Eval("post_status")) %>'><%# HttpUtility.HtmlEncode(SafeStr(Eval("post_status"))) %></span></td>
+                            <td class="ft-col-date"><%# FormatDateShort(Eval("trans_date")) %></td>
+                            <td class="ft-col-year"><%# HttpUtility.HtmlEncode(SafeStr(Eval("acadyear"))) %></td>
+                            <td class="ft-col-sem"><%# Eval("semester") %></td>
+                            <td class="ft-col-action">
+                                <button type="button" class="ft-row-action"
+                                    data-tid='<%# Eval("TID") %>'
+                                    data-regno='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("regno"))) %>'
+                                    data-name='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("student_name"))) %>'
+                                    data-type='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("trans_type"))) %>'
+                                    data-itemcode='<%# Eval("item_code") %>'
+                                    data-amount='<%# Eval("amount") %>'
+                                    data-detail='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("detail"))) %>'
+                                    data-status='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("post_status"))) %>'
+                                    data-date='<%# FormatDateISO(Eval("trans_date")) %>'
+                                    data-year='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("acadyear"))) %>'
+                                    data-sem='<%# Eval("semester") %>'
+                                    onclick="showRowAction(event,this)">&#8942;</button>
+                            </td>
+                        </tr>
+                    </ItemTemplate>
+                </asp:Repeater>
+                <asp:PlaceHolder ID="phNoData" runat="server" Visible="false">
+                    <tr><td colspan="12" style="padding:44px 20px;text-align:center;color:#999;font-size:13px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="display:block;margin:0 auto 8px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        No transactions match your current filters.
+                    </td></tr>
+                </asp:PlaceHolder>
+            </tbody>
+        </table>
     </div>
 
-    <!-- Footer -->
-    <div class="ft-grid-footer">
-        <asp:Label ID="lblGridFooter" runat="server" Text="Showing 0 transactions" />
+    <!-- Pager -->
+    <div class="ft-pager">
+        <span class="ft-pager__info"><asp:Label ID="lblGridFooter" runat="server" Text="" /></span>
+        <asp:Literal ID="litPager" runat="server" />
     </div>
+</div>
+
+<!-- Action Popover (position:fixed) -->
+<div class="ft-action-pop" id="actionPop">
+    <button type="button" class="ft-action-pop__item" onclick="openEditTx()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+        Edit Transaction
+    </button>
+    <div class="ft-action-pop__sep"></div>
+    <button type="button" class="ft-action-pop__item ft-action-pop__item--danger" onclick="confirmDeleteTx()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        Delete Transaction
+    </button>
 </div>
 
 <script type="text/javascript">
@@ -695,6 +749,186 @@ function validateAndSaveTx() {
 
     document.getElementById('<%= btnSaveTransaction.ClientID %>').click();
 }
+
+/* ==== Row Action Popover ==== */
+var _activeRowData = null;
+
+function showRowAction(evt, btn) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    var pop = document.getElementById('actionPop');
+
+    // Collect data from button attributes
+    _activeRowData = {
+        tid: btn.getAttribute('data-tid'),
+        regno: btn.getAttribute('data-regno'),
+        name: btn.getAttribute('data-name'),
+        type: btn.getAttribute('data-type'),
+        itemcode: btn.getAttribute('data-itemcode'),
+        amount: btn.getAttribute('data-amount'),
+        detail: btn.getAttribute('data-detail'),
+        status: btn.getAttribute('data-status'),
+        date: btn.getAttribute('data-date'),
+        year: btn.getAttribute('data-year'),
+        sem: btn.getAttribute('data-sem')
+    };
+
+    // Position using fixed coords (avoids clipping by overflow containers)
+    var rect = btn.getBoundingClientRect();
+    var popH = 94;
+    var spaceBelow = window.innerHeight - rect.bottom;
+
+    pop.style.left = Math.max(4, rect.left - 140) + 'px';
+    if (spaceBelow < popH + 10) {
+        pop.style.top = (rect.top - popH - 4) + 'px';
+    } else {
+        pop.style.top = (rect.bottom + 4) + 'px';
+    }
+    pop.classList.add('ft-action-pop--visible');
+}
+
+function hideRowAction() {
+    var pop = document.getElementById('actionPop');
+    if (pop) pop.classList.remove('ft-action-pop--visible');
+}
+
+// Close popover on outside click
+document.addEventListener('click', function(e) {
+    var pop = document.getElementById('actionPop');
+    if (pop && pop.classList.contains('ft-action-pop--visible')) {
+        if (!pop.contains(e.target) && !e.target.classList.contains('ft-row-action')) {
+            hideRowAction();
+        }
+    }
+});
+// Close popover on scroll
+window.addEventListener('scroll', hideRowAction, true);
+
+/* ==== Edit Transaction ==== */
+function openEditTx() {
+    hideRowAction();
+    if (!_activeRowData) return;
+    var d = _activeRowData;
+
+    // TID badge
+    document.getElementById('editTidBadge').textContent = '#' + d.tid;
+
+    // Student info (read-only)
+    var initials = _getInitials(d.name);
+    document.getElementById('editStudentAvatar').textContent = initials;
+    document.getElementById('editStudentName').textContent = d.name;
+    document.getElementById('editStudentRegno').textContent = d.regno;
+
+    // Hidden field
+    document.getElementById('<%= hfEditTID.ClientID %>').value = d.tid;
+
+    // Set dropdowns
+    _setSelect('<%= ddlEditTransType.ClientID %>', d.type);
+    _setSelect('<%= ddlEditBillItem.ClientID %>', d.itemcode);
+    _setSelect('<%= ddlEditAcadYear.ClientID %>', d.year);
+    _setSelect('<%= ddlEditSemester.ClientID %>', d.sem);
+    _setSelect('<%= ddlEditPostStatus.ClientID %>', d.status);
+
+    // Text fields
+    document.getElementById('<%= txtEditAmount.ClientID %>').value = d.amount;
+    document.getElementById('<%= txtEditDate.ClientID %>').value = d.date;
+    document.getElementById('<%= txtEditDetail.ClientID %>').value = d.detail;
+
+    // Reset save button
+    var btn = document.getElementById('btnModalEdit');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Update Transaction';
+    }
+
+    openModal('modal-edit-tx');
+}
+
+function _setSelect(id, val) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value == val) { sel.selectedIndex = i; return; }
+    }
+}
+
+function _getInitials(name) {
+    if (!name) return '?';
+    var p = name.trim().split(/\s+/);
+    if (p.length >= 2) return (p[0][0] + p[p.length-1][0]).toUpperCase();
+    return p[0][0].toUpperCase();
+}
+
+function validateAndEditTx() {
+    var errors = [];
+    var amount = document.getElementById('<%= txtEditAmount.ClientID %>').value.trim();
+    var transType = document.getElementById('<%= ddlEditTransType.ClientID %>').value;
+    var billItem = document.getElementById('<%= ddlEditBillItem.ClientID %>').value;
+    var acadYear = document.getElementById('<%= ddlEditAcadYear.ClientID %>').value;
+    var semester = document.getElementById('<%= ddlEditSemester.ClientID %>').value;
+    var txDate = document.getElementById('<%= txtEditDate.ClientID %>').value.trim();
+    var detail = document.getElementById('<%= txtEditDetail.ClientID %>').value.trim();
+
+    if (!transType) errors.push('Transaction Type is required.');
+    if (!billItem) errors.push('Billing Item is required.');
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) errors.push('Amount must be a positive number.');
+    if (!acadYear) errors.push('Academic Year is required.');
+    if (!semester) errors.push('Semester is required.');
+    if (!txDate) errors.push('Transaction Date is required.');
+    if (!detail) errors.push('Description is required.');
+    if (detail.length > 250) errors.push('Description must be 250 characters or less.');
+
+    if (errors.length > 0) { alert(errors.join('\n')); return; }
+
+    var btn = document.getElementById('btnModalEdit');
+    if (btn) { btn.disabled = true; btn.innerText = 'Saving...'; }
+
+    document.getElementById('<%= btnEditTransaction.ClientID %>').click();
+}
+
+/* ==== Delete Transaction ==== */
+function confirmDeleteTx() {
+    hideRowAction();
+    if (!_activeRowData) return;
+    var d = _activeRowData;
+
+    document.getElementById('<%= hfDeleteTID.ClientID %>').value = d.tid;
+
+    var dl = document.getElementById('deleteDetail');
+    dl.innerHTML = '<dt>Transaction ID</dt><dd>#' + _esc(d.tid) + '</dd>'
+        + '<dt>Student</dt><dd>' + _esc(d.name) + ' (' + _esc(d.regno) + ')</dd>'
+        + '<dt>Type</dt><dd>' + _esc(d.type) + '</dd>'
+        + '<dt>Amount</dt><dd>UGX ' + _fmtNum(d.amount) + '</dd>'
+        + '<dt>Date</dt><dd>' + _esc(d.date) + '</dd>';
+
+    var btn = document.getElementById('btnConfirmDelete');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete';
+    }
+
+    document.getElementById('deleteConfirm').classList.add('ft-confirm-overlay--visible');
+}
+
+function closeDeleteConfirm() {
+    document.getElementById('deleteConfirm').classList.remove('ft-confirm-overlay--visible');
+}
+
+function doDeleteTx() {
+    var btn = document.getElementById('btnConfirmDelete');
+    if (btn) { btn.disabled = true; btn.innerText = 'Deleting...'; }
+    document.getElementById('<%= btnDeleteTransaction.ClientID %>').click();
+}
+
+function _fmtNum(x) { if (!x) return '0'; return parseFloat(x).toLocaleString(); }
+function _esc(str) { var d = document.createElement('div'); d.appendChild(document.createTextNode(str || '')); return d.innerHTML; }
+
+/* ==== Pager navigation ==== */
+function goToPage(idx) {
+    if (idx < 0) return;
+    document.getElementById('<%= hfPageIndex.ClientID %>').value = idx;
+    document.getElementById('<%= btnGoToPage.ClientID %>').click();
+}
 </script>
 
 <!-- ============= ADD TRANSACTION MODAL ============= -->
@@ -799,5 +1033,128 @@ function validateAndSaveTx() {
 </div>
 </div>
 <!-- ============= /ADD TRANSACTION MODAL ============= -->
+
+<!-- ============= EDIT TRANSACTION MODAL ============= -->
+<div id="modal-edit-tx" class="fs-modal-overlay">
+<div class="fs-modal">
+    <div class="fs-modal__header" style="background:#174DA4;">
+        <div class="fs-modal__title" style="color:#fff;">Edit Transaction <span id="editTidBadge" style="font-size:11px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:10px;margin-left:8px;"></span></div>
+        <button type="button" class="fs-modal__close" onclick="closeModal('modal-edit-tx');" style="color:#fff;">&times;</button>
+    </div>
+    <div class="fs-modal__body" id="editTxForm">
+
+        <!-- Student (Read-only) -->
+        <div class="fs-form-row">
+            <div class="fs-form-group" style="flex:2;">
+                <label class="fs-form-label">Student</label>
+                <div id="editStudentInfo" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f0f4ff;border:1px solid #d0d5dd;border-radius:6px;">
+                    <div id="editStudentAvatar" style="width:32px;height:32px;background:#05275C;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;border-radius:4px;flex-shrink:0;"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div id="editStudentName" style="font-size:13px;font-weight:700;color:#05275C;"></div>
+                        <div id="editStudentRegno" style="font-size:11px;color:#555;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction Type + Billing Item -->
+        <div class="fs-form-row">
+            <div class="fs-form-group">
+                <label class="fs-form-label">Transaction Type <span class="req">*</span></label>
+                <asp:DropDownList ID="ddlEditTransType" runat="server" CssClass="fs-form-input">
+                    <asp:ListItem Value="" Text="-- Select Type --" />
+                    <asp:ListItem Value="Bill" Text="Bill" />
+                    <asp:ListItem Value="Payment" Text="Payment" />
+                </asp:DropDownList>
+            </div>
+            <div class="fs-form-group">
+                <label class="fs-form-label">Billing Item <span class="req">*</span></label>
+                <asp:DropDownList ID="ddlEditBillItem" runat="server" CssClass="fs-form-input" />
+            </div>
+        </div>
+
+        <!-- Amount + Date -->
+        <div class="fs-form-row">
+            <div class="fs-form-group">
+                <label class="fs-form-label">Amount (UGX) <span class="req">*</span></label>
+                <asp:TextBox ID="txtEditAmount" runat="server" CssClass="fs-form-input" placeholder="0" />
+            </div>
+            <div class="fs-form-group">
+                <label class="fs-form-label">Transaction Date <span class="req">*</span></label>
+                <asp:TextBox ID="txtEditDate" runat="server" CssClass="fs-form-input" />
+            </div>
+        </div>
+
+        <!-- Academic Year + Semester -->
+        <div class="fs-form-row">
+            <div class="fs-form-group">
+                <label class="fs-form-label">Academic Year <span class="req">*</span></label>
+                <asp:DropDownList ID="ddlEditAcadYear" runat="server" CssClass="fs-form-input" />
+            </div>
+            <div class="fs-form-group">
+                <label class="fs-form-label">Semester <span class="req">*</span></label>
+                <asp:DropDownList ID="ddlEditSemester" runat="server" CssClass="fs-form-input">
+                    <asp:ListItem Value="" Text="-- Select --" />
+                    <asp:ListItem Value="1" Text="Semester 1" />
+                    <asp:ListItem Value="2" Text="Semester 2" />
+                    <asp:ListItem Value="3" Text="Semester 3" />
+                </asp:DropDownList>
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div class="fs-form-row">
+            <div class="fs-form-group">
+                <label class="fs-form-label">Description <span class="req">*</span></label>
+                <asp:TextBox ID="txtEditDetail" runat="server" CssClass="fs-form-input" MaxLength="250" />
+            </div>
+        </div>
+
+        <!-- Post Status -->
+        <div class="fs-form-row">
+            <div class="fs-form-group" style="max-width:200px;">
+                <label class="fs-form-label">Post Status</label>
+                <asp:DropDownList ID="ddlEditPostStatus" runat="server" CssClass="fs-form-input">
+                    <asp:ListItem Value="Pending" Text="Pending" />
+                    <asp:ListItem Value="Posted" Text="Posted" />
+                </asp:DropDownList>
+            </div>
+        </div>
+
+    </div>
+    <div class="fs-modal__footer">
+        <button type="button" class="fs-btn fs-btn--ghost" onclick="closeModal('modal-edit-tx');">Cancel</button>
+        <button type="button" id="btnModalEdit" class="fs-btn fs-btn--primary" onclick="validateAndEditTx();">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Update Transaction
+        </button>
+    </div>
+</div>
+</div>
+<!-- ============= /EDIT TRANSACTION MODAL ============= -->
+
+<!-- ============= DELETE CONFIRMATION ============= -->
+<div class="ft-confirm-overlay" id="deleteConfirm">
+<div class="ft-confirm">
+    <div class="ft-confirm__header">
+        <div class="ft-confirm__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </div>
+        <div class="ft-confirm__title">Delete Transaction</div>
+    </div>
+    <div class="ft-confirm__body">
+        Are you sure you want to delete this transaction? This action <strong>cannot be undone</strong>.
+        <dl class="ft-confirm__detail" id="deleteDetail"></dl>
+    </div>
+    <div class="ft-confirm__footer">
+        <button type="button" class="ft-confirm__btn ft-confirm__btn--cancel" onclick="closeDeleteConfirm()">Cancel</button>
+        <button type="button" class="ft-confirm__btn ft-confirm__btn--delete" id="btnConfirmDelete" onclick="doDeleteTx()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Delete
+        </button>
+    </div>
+</div>
+</div>
+<!-- ============= /DELETE CONFIRMATION ============= -->
 
 </asp:Content>

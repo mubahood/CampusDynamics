@@ -28,31 +28,6 @@
 .cd-srch-item--empty   { color: #aaa; font-style: italic; cursor: default; }
 .cd-srch-item--placeholder { color: #888; }
 
-/* ---- Page header ---- */
-.fm-page-header {
-    display: flex; align-items: center; justify-content: space-between;
-    background: #05275C; color: #fff;
-    padding: 14px 20px; border-bottom: 3px solid #041d45;
-}
-.fm-page-header__left { display: flex; align-items: center; gap: 12px; }
-.fm-page-header__icon {
-    width: 40px; height: 40px; background: rgba(255,255,255,.12);
-    border-radius: 4px; display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-}
-.fm-page-header__title { font-size: 16px; font-weight: 700; }
-.fm-page-header__sub   { font-size: 12px; opacity: .75; margin-top: 2px; }
-
-/* ---- Tab navigation ---- */
-.fm-tabs { display: flex; gap: 2px; background: #f0f2f5; border-bottom: 2px solid #e0e5ed; padding: 0 20px; }
-.fm-tab  {
-    padding: 9px 16px; font-size: 12px; font-weight: 500; color: #555;
-    text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -2px;
-    white-space: nowrap; display: flex; align-items: center; gap: 5px;
-}
-.fm-tab:hover { color: #05275C; }
-.fm-tab--active { color: #05275C; border-bottom-color: #05275C; font-weight: 600; }
-
 /* ---- Content wrapper ---- */
 .fd-content { padding: 16px 20px 20px; }
 
@@ -285,8 +260,6 @@
     .fd-hero         { grid-template-columns: 1fr; }
     .fd-sem-grid     { grid-template-columns: 1fr; }
     .fd-anomaly-grid { grid-template-columns: 1fr; }
-    .fm-tabs         { overflow-x: auto; }
-    .fm-tab          { padding: 8px 12px; font-size: 11px; }
     .fd-hbar-row     { grid-template-columns: 70px 1fr 80px; }
     .fd-donut-layout { grid-template-columns: 1fr; }
 }
@@ -313,8 +286,7 @@
 
 /* ---- Print media ---- */
 @media print {
-    .fm-tabs, .fd-print-btn, .cd-srch-wrap, .fd-filter-note { display: none !important; }
-    .fm-page-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .fd-print-btn, .cd-srch-wrap, .fd-filter-note { display: none !important; }
     .fd-content { padding: 10px !important; }
     .fd-kpi, .fd-chart-panel, .fs-card, .fd-sem-card, .fd-anomaly { break-inside: avoid; }
     .fd-hero { grid-template-columns: repeat(4,1fr) !important; }
@@ -327,46 +299,6 @@
 
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
-
-<!-- ======= PAGE HEADER =========================================== -->
-<div class="fm-page-header">
-    <div class="fm-page-header__left">
-        <div class="fm-page-header__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        <div>
-            <div class="fm-page-header__title">Fees Dashboard</div>
-            <div class="fm-page-header__sub">Financial overview &mdash; enrolled students only</div>
-        </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;">
-        <asp:Literal ID="litAcadContext" runat="server" />
-        <button type="button" class="fd-print-btn" onclick="window.print();" title="Print Dashboard Report">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Print
-        </button>
-    </div>
-</div>
-
-<!-- ======= TAB NAVIGATION ======================================== -->
-<div class="fm-tabs">
-    <a class="fm-tab fm-tab--active" href="FeesManagement.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-        Dashboard
-    </a>
-    <a class="fm-tab" href="FeesTransactions.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        Transactions
-    </a>
-    <a class="fm-tab" href="FeesStructure.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        Fee Structure &amp; Settings
-    </a>
-    <a class="fm-tab" href="FeesRegistration.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Registration
-    </a>
-</div>
 
 <div class="fd-content">
 
@@ -390,6 +322,12 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         Enrolled students only (registered &amp; active)
     </div>
+    <span style="flex:1;"></span>
+    <asp:Literal ID="litAcadContext" runat="server" />
+    <button type="button" class="fd-print-btn" onclick="window.print();" title="Print Dashboard Report" style="background:#05275C;color:#fff;border:1px solid #05275C;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+    </button>
 </div>
 
 <!-- ======= HERO KPI CARDS ======================================== -->

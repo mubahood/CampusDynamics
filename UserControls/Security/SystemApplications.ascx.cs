@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -90,19 +90,17 @@ public partial class UserControls_Security_SystemApplications : System.Web.UI.Us
     protected void Page_Load(object sender, EventArgs e)
     {
       Page.Form.DefaultButton = cmdVerify.UniqueID;
-        try
-        {
-            if (Session["otp"] == null)
-            {
-              pop_otp.ShowOnPageLoad = true;
-                 
-           }
-        }
-
-        catch (Exception)
-        {
-            Response.Redirect("~/Default.aspx");
-        }
+        //try
+        //{
+        //    if (Session["otp"] == null)
+        //    {
+        //      pop_otp.ShowOnPageLoad = true;
+        //    }
+        //}
+        //catch (Exception)
+        //{
+        //    Response.Redirect("~/Default.aspx");
+        //}
         //Session["otp"] = 100;
     }
     protected void cmdSearch_Click(object sender, EventArgs e)
