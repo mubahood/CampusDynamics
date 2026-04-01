@@ -1,5 +1,4 @@
 <%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="FinanceDashboard.aspx.cs" Inherits="COOPERP_NewScreens_FinanceDashboard" Title="Finance Dashboard - Campus Dynamics" %>
-<%@ Register assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
 
 <asp:Content ID="Content1" ContentPlaceHolderID="HeadContent" Runat="Server">
     <style>
@@ -132,29 +131,6 @@
 .fn-period-row:last-child { border-bottom: none; }
 .fn-period-row__year { font-size: 12px; font-weight: 600; color: #1a1a2e; }
 .fn-period-row__dates { font-size: 11px; color: #888; }
-
-/* ---- DX Grid overrides ---- */
-.dxgvControl_Glass { border: 1px solid #e0e5ed !important; }
-.dxgvHeader_Glass td {
-    background: #f5f7fa !important; color: #555 !important;
-    font-size: 10px !important; font-weight: 600 !important;
-    text-transform: uppercase !important; letter-spacing: .3px !important;
-    padding: 9px 12px !important; border-bottom: 2px solid #e0e5ed !important;
-}
-.dxgvDataRow_Glass td {
-    font-size: 11px !important; color: #1a1a2e !important;
-    padding: 8px 12px !important; border-bottom: 1px solid #f0f2f5 !important;
-}
-.dxgvDataRow_Glass:hover td { background: #f9fafc !important; }
-.dxgvFilterRow_Glass td { padding: 4px 6px !important; background: #fff !important; }
-.dxgvFilterRow_Glass input {
-    border: 1px solid #e0e5ed !important; border-radius: 0 !important;
-    font-size: 11px !important; padding: 3px 6px !important;
-}
-.dxgvPagerBar_Glass {
-    background: #f5f7fa !important; border-top: 1px solid #e0e5ed !important;
-    padding: 6px 12px !important;
-}
 
 /* ---- Entrance animation ---- */
 @keyframes fnFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }

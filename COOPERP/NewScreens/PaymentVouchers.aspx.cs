@@ -2,45 +2,45 @@ using System;
 using System.Data;
 using System.Web;
 using System.Web.UI;
+using System.Web.UI.WebControls;
 using MySql.Data.MySqlClient;
-using System.Configuration;
 
+/// <summary>
+/// Payment Vouchers — creation, viewing, and approval.
+/// 
+/// REFACTORED (Phase 1):
+///  ✓ Hardcoded connection string → FinanceDB
+///  ✓ double for money → decimal via MoneyHelper
+///  ✓ Duplicated GetAccountType → AccountCache.GetAccountType
+///  ✓ LoadAccountsCombos → AccountCache.BindAccountDropDownWithSelect
+///  ✓ No financial period check → FinancePeriod added to create + approve
+///  ✓ In-memory stats loop → SQL GROUP BY
+///  ✓ No logging → FinanceLogger for create/approve/errors
+///  ✓ No pagination → LIMIT 500 on voucher list
+///  ✓ Date defaults → FinancePeriod.GetDefaultDateRange
+/// </summary>
 public partial class COOPERP_NewScreens_PaymentVouchers : System.Web.UI.Page
 {
-    private string AcctConnStr = ConfigurationManager.ConnectionStrings["accountsConnectionString"] != null
-        ? ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString
-        : "server=localhost;User Id=root;password=24thdecember1977;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True;charset=utf8";
+    private const string PAGE_NAME = "PaymentVouchers";
 
     protected void Page_Load(object sender, EventArgs e)
     {
         if (!IsPostBack)
         {
-            txtStartDate.Text = DateTime.Today.AddMonths(-1).ToString("yyyy-MM-dd");
-            txtEndDate.Text = DateTime.Today.ToString("yyyy-MM-dd");
+            var range = FinancePeriod.GetDefaultDateRange();
+            txtStartDate.Text = range.Item1.ToString("yyyy-MM-dd");
+            txtEndDate.Text   = range.Item2.ToString("yyyy-MM-dd");
             txtVoucherDate.Text = DateTime.Today.ToString("yyyy-MM-dd");
-            LoadAccountsCombos();
+
+            // Cached account dropdowns — single DB hit
+            AccountCache.BindAccountDropDownWithSelect(ddlDRAccount);
+            AccountCache.BindAccountDropDownWithSelect(ddlCRAccount);
+
             LoadVouchers();
         }
     }
 
-    private void LoadAccountsCombos()
-    {
-        DataTable dt = new DataTable();
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-        {
-            conn.Open();
-            using (MySqlCommand cmd = new MySqlCommand(
-                "SELECT AccountCode, AccountName FROM fin_subaccounts ORDER BY AccountCode", conn))
-            {
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                    da.Fill(dt);
-            }
-        }
-        cboDRAccount.DataSource = dt;
-        cboDRAccount.DataBind();
-        cboCRAccount.DataSource = dt;
-        cboCRAccount.DataBind();
-    }
+    // ───────────────────────── Voucher List ───────────────────────────────
 
     protected void btnFilter_Click(object sender, EventArgs e)
     {
@@ -49,38 +49,88 @@ public partial class COOPERP_NewScreens_PaymentVouchers : System.Web.UI.Page
 
     private void LoadVouchers()
     {
-        DateTime startDate, endDate;
-        DateTime.TryParse(txtStartDate.Text, out startDate);
-        DateTime.TryParse(txtEndDate.Text, out endDate);
-        if (startDate == DateTime.MinValue) startDate = DateTime.Today.AddMonths(-1);
-        if (endDate == DateTime.MinValue) endDate = DateTime.Today;
-
-        string vType = ddlVoucherType.SelectedValue;
-
-        DataTable dt = new DataTable();
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        try
         {
-            conn.Open();
+            DateTime startDate, endDate;
+            DateTime.TryParse(txtStartDate.Text, out startDate);
+            DateTime.TryParse(txtEndDate.Text, out endDate);
+            if (startDate == DateTime.MinValue) startDate = DateTime.Today.AddMonths(-1);
+            if (endDate == DateTime.MinValue) endDate = DateTime.Today;
+
+            string vType = ddlVoucherType.SelectedValue;
+
+            // Build query with optional type filter + bounded result
             string sql = @"SELECT VoucherNo, Vouchertype, voucherDate, Teller, PostStatus 
                            FROM fin_vouchernumbers 
                            WHERE voucherDate BETWEEN @sDate AND @eDate";
-            if (!string.IsNullOrEmpty(vType))
-                sql += " AND Vouchertype = @typ";
-            sql += " ORDER BY VoucherNo DESC";
 
-            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            var parms = new System.Collections.Generic.List<MySqlParameter>
             {
-                cmd.Parameters.AddWithValue("@sDate", startDate);
-                cmd.Parameters.AddWithValue("@eDate", endDate);
-                if (!string.IsNullOrEmpty(vType))
-                    cmd.Parameters.AddWithValue("@typ", vType);
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                    da.Fill(dt);
+                FinanceDB.P("@sDate", startDate),
+                FinanceDB.P("@eDate", endDate)
+            };
+
+            if (!string.IsNullOrEmpty(vType))
+            {
+                sql += " AND Vouchertype = @typ";
+                parms.Add(FinanceDB.P("@typ", vType));
             }
+            sql += " ORDER BY VoucherNo DESC LIMIT 500";
+
+            DataTable dt = FinanceDB.ExecuteDataTable(sql, parms.ToArray());
+            rptVouchers.DataSource = dt;
+            rptVouchers.DataBind();
+            phNoVouchers.Visible = dt.Rows.Count == 0;
+
+            // FIX: SQL-based stats instead of in-memory loop
+            LoadVoucherStats(startDate, endDate, vType, dt.Rows.Count);
         }
-        gvVouchers.DataSource = dt;
-        gvVouchers.DataBind();
+        catch (Exception ex)
+        {
+            FinanceLogger.LogError(PAGE_NAME, "LoadVouchers", ex);
+        }
     }
+
+    /// <summary>
+    /// Computes voucher stats using SQL GROUP BY instead of iterating DataTable in memory.
+    /// </summary>
+    private void LoadVoucherStats(DateTime startDate, DateTime endDate, string vType, int totalCount)
+    {
+        string statsSql = @"SELECT PostStatus, COUNT(*) AS cnt 
+                            FROM fin_vouchernumbers 
+                            WHERE voucherDate BETWEEN @sDate AND @eDate";
+
+        var parms = new System.Collections.Generic.List<MySqlParameter>
+        {
+            FinanceDB.P("@sDate", startDate),
+            FinanceDB.P("@eDate", endDate)
+        };
+
+        if (!string.IsNullOrEmpty(vType))
+        {
+            statsSql += " AND Vouchertype = @typ";
+            parms.Add(FinanceDB.P("@typ", vType));
+        }
+        statsSql += " GROUP BY PostStatus";
+
+        DataTable stats = FinanceDB.ExecuteDataTable(statsSql, parms.ToArray());
+
+        int newCount = 0, approvedCount = 0;
+        foreach (DataRow row in stats.Rows)
+        {
+            string status = row["PostStatus"].ToString();
+            int cnt = Convert.ToInt32(row["cnt"]);
+            if (status == "New") newCount = cnt;
+            else if (status == "Approved") approvedCount = cnt;
+        }
+
+        litStatTotal.Text = totalCount.ToString("N0");
+        litStatNew.Text = newCount.ToString("N0");
+        litStatApproved.Text = approvedCount.ToString("N0");
+        litVoucherCount.Text = string.Format("Showing <strong>{0}</strong> voucher(s)", totalCount);
+    }
+
+    // ───────────────────────── Create Voucher ─────────────────────────────
 
     protected void btnNewVoucher_Click(object sender, EventArgs e)
     {
@@ -94,10 +144,9 @@ public partial class COOPERP_NewScreens_PaymentVouchers : System.Web.UI.Page
 
     protected void btnConfirmCreate_Click(object sender, EventArgs e)
     {
-        string drAcc = cboDRAccount.Value != null ? cboDRAccount.Value.ToString() : "";
-        string crAcc = cboCRAccount.Value != null ? cboCRAccount.Value.ToString() : "";
-        double amount = 0;
-        double.TryParse(txtAmount.Text, out amount);
+        string drAcc = ddlDRAccount.SelectedValue;
+        string crAcc = ddlCRAccount.SelectedValue;
+        decimal amount = MoneyHelper.ParseMoney(txtAmount.Text);
         string drPart = txtDRParticulars.Text.Trim();
         string crPart = txtCRParticulars.Text.Trim();
         DateTime vDate;
@@ -110,74 +159,66 @@ public partial class COOPERP_NewScreens_PaymentVouchers : System.Web.UI.Page
             return;
         }
 
+        // FIX: Financial period check (was completely missing)
+        if (!FinancePeriod.IsDateInOpenPeriod(vDate))
+        {
+            ShowMessage("Cannot create voucher: the voucher date is not in an open financial period.", false);
+            return;
+        }
+
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-            {
-                conn.Open();
+            // Get account types from cache (no DB round-trip)
+            string drType = AccountCache.GetAccountType(drAcc);
+            string crType = AccountCache.GetAccountType(crAcc);
+            string user = HttpContext.Current.User.Identity.Name;
 
-                // Get account types
-                string drType = GetAccountType(conn, drAcc);
-                string crType = GetAccountType(conn, crAcc);
-                string user = HttpContext.Current.User.Identity.Name;
+            // Get next voucher number via SP
+            int voucherNo = 0;
+            FinanceDB.ExecuteReader(
+                "CALL fin_GetLatestVoucherNo(@usr, @typ, @cat)",
+                reader => { if (reader.Read()) voucherNo = reader.GetInt32(0); },
+                FinanceDB.P("@usr", user),
+                FinanceDB.P("@typ", "Payment"),
+                FinanceDB.P("@cat", "Payment"));
 
-                // Get next voucher number
-                int voucherNo = 0;
-                using (MySqlCommand cmd = new MySqlCommand("fin_GetLatestVoucherNo", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@usr", user);
-                    cmd.Parameters.AddWithValue("@typ", "Payment");
-                    cmd.Parameters.AddWithValue("@cat", "Payment");
-                    using (MySqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        if (reader.Read())
-                            voucherNo = reader.GetInt32(0);
-                    }
-                }
+            // Create voucher via SP
+            FinanceDB.ExecuteNonQuerySP("fin_VoucherCreator",
+                FinanceDB.P("@vNo", voucherNo),
+                FinanceDB.P("@CRaccountcode", crAcc),
+                FinanceDB.P("@CRaccountType", crType),
+                FinanceDB.P("@CRParticulars", string.IsNullOrEmpty(crPart) ? "Payment - " + crAcc : crPart),
+                FinanceDB.P("@DRaccountcode", drAcc),
+                FinanceDB.P("@DRaccounttype", drType),
+                FinanceDB.P("@DRParticulars", string.IsNullOrEmpty(drPart) ? "Payment - " + drAcc : drPart),
+                FinanceDB.P("@transaction_amount", amount),
+                FinanceDB.P("@voucherNo", voucherNo),
+                FinanceDB.P("@transactionDate", vDate),
+                FinanceDB.P("@teller", user));
 
-                // Create voucher
-                using (MySqlCommand cmd = new MySqlCommand("fin_VoucherCreator", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@vNo", voucherNo);
-                    cmd.Parameters.AddWithValue("@CRaccountcode", crAcc);
-                    cmd.Parameters.AddWithValue("@CRaccountType", crType);
-                    cmd.Parameters.AddWithValue("@CRParticulars", string.IsNullOrEmpty(crPart) ? "Payment - " + crAcc : crPart);
-                    cmd.Parameters.AddWithValue("@DRaccountcode", drAcc);
-                    cmd.Parameters.AddWithValue("@DRaccounttype", drType);
-                    cmd.Parameters.AddWithValue("@DRParticulars", string.IsNullOrEmpty(drPart) ? "Payment - " + drAcc : drPart);
-                    cmd.Parameters.AddWithValue("@transaction_amount", amount);
-                    cmd.Parameters.AddWithValue("@voucherNo", voucherNo);
-                    cmd.Parameters.AddWithValue("@transactionDate", vDate);
-                    cmd.Parameters.AddWithValue("@teller", user);
-                    cmd.ExecuteNonQuery();
-                }
-
-                ShowMessage("Payment Voucher #" + voucherNo + " created successfully.", true);
-                pnlCreate.Visible = false;
-                txtAmount.Text = "";
-                txtDRParticulars.Text = "";
-                txtCRParticulars.Text = "";
-                LoadVouchers();
-            }
+            FinanceLogger.LogVoucherCreated(voucherNo, "Payment", amount, user);
+            ShowMessage("Payment Voucher #" + voucherNo + " created successfully.", true);
+            pnlCreate.Visible = false;
+            txtAmount.Text = "";
+            txtDRParticulars.Text = "";
+            txtCRParticulars.Text = "";
+            LoadVouchers();
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "CreateVoucher", ex);
             ShowMessage("Error: " + ex.Message, false);
         }
     }
 
-    protected void gvVouchers_FocusedRowChanged(object sender, EventArgs e)
+    // ───────────────────────── Voucher Detail ─────────────────────────────
+
+    protected void rptVouchers_ItemCommand(object source, RepeaterCommandEventArgs e)
     {
-        if (gvVouchers.FocusedRowIndex >= 0)
+        if (e.CommandName == "ViewVoucher")
         {
-            object key = gvVouchers.GetRowValues(gvVouchers.FocusedRowIndex, "VoucherNo");
-            if (key != null)
-            {
-                int vno = Convert.ToInt32(key);
-                LoadVoucherDetail(vno);
-            }
+            int vno = Convert.ToInt32(e.CommandArgument);
+            LoadVoucherDetail(vno);
         }
     }
 
@@ -186,35 +227,30 @@ public partial class COOPERP_NewScreens_PaymentVouchers : System.Web.UI.Page
         pnlDetail.Visible = true;
         lblVoucherNo.Text = voucherNo.ToString();
 
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        try
         {
-            conn.Open();
-
             // Get status
-            using (MySqlCommand cmd = new MySqlCommand(
-                "SELECT PostStatus FROM fin_vouchernumbers WHERE VoucherNo = @vno", conn))
-            {
-                cmd.Parameters.AddWithValue("@vno", voucherNo);
-                object statusResult = cmd.ExecuteScalar();
-                string status = statusResult != null ? statusResult.ToString() : "";
-                lblVoucherStatus.Text = status;
-                btnApproveVoucher.Visible = (status == "New");
-            }
+            string status = FinanceDB.ExecuteScalar<string>(
+                "SELECT PostStatus FROM fin_vouchernumbers WHERE VoucherNo = @vno",
+                FinanceDB.P("@vno", voucherNo)) ?? "";
+            lblVoucherStatus.Text = status;
+            btnApproveVoucher.Visible = (status == "New");
 
             // Get transactions
-            DataTable dt = new DataTable();
-            using (MySqlCommand cmd = new MySqlCommand(
+            DataTable dt = FinanceDB.ExecuteDataTable(
                 @"SELECT TID, accountcode, account_type, transactionType, transaction_amount, particulars, transactionDate 
-                  FROM fin_voucher WHERE voucherNo = @vno ORDER BY TID", conn))
-            {
-                cmd.Parameters.AddWithValue("@vno", voucherNo);
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                    da.Fill(dt);
-            }
-            gvVoucherTrans.DataSource = dt;
-            gvVoucherTrans.DataBind();
+                  FROM fin_voucher WHERE voucherNo = @vno ORDER BY TID",
+                FinanceDB.P("@vno", voucherNo));
+            rptVoucherTrans.DataSource = dt;
+            rptVoucherTrans.DataBind();
+        }
+        catch (Exception ex)
+        {
+            FinanceLogger.LogError(PAGE_NAME, "LoadVoucherDetail", ex);
         }
     }
+
+    // ───────────────────────── Approve Voucher ────────────────────────────
 
     protected void btnApproveVoucher_Click(object sender, EventArgs e)
     {
@@ -222,24 +258,26 @@ public partial class COOPERP_NewScreens_PaymentVouchers : System.Web.UI.Page
         int.TryParse(lblVoucherNo.Text, out vno);
         if (vno == 0) return;
 
+        // FIX: Financial period check on approval (was missing)
+        if (!FinancePeriod.IsInOpenFinancialPeriod())
+        {
+            ShowMessage("Cannot approve voucher: No open financial period.", false);
+            return;
+        }
+
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-            {
-                conn.Open();
-                using (MySqlCommand cmd = new MySqlCommand("fin_ApproveVoucher", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@VNo", vno);
-                    cmd.ExecuteNonQuery();
-                }
-            }
+            FinanceDB.ExecuteNonQuerySP("fin_ApproveVoucher",
+                FinanceDB.P("@VNo", vno));
+
+            FinanceLogger.LogVoucherApproved(vno, HttpContext.Current.User.Identity.Name);
             ShowMessage("Voucher #" + vno + " approved.", true);
             LoadVoucherDetail(vno);
             LoadVouchers();
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "ApproveVoucher", ex);
             ShowMessage("Error: " + ex.Message, false);
         }
     }
@@ -249,19 +287,11 @@ public partial class COOPERP_NewScreens_PaymentVouchers : System.Web.UI.Page
         pnlDetail.Visible = false;
     }
 
-    private string GetAccountType(MySqlConnection conn, string accountCode)
-    {
-        using (MySqlCommand cmd = new MySqlCommand(
-            "SELECT COALESCE(accounttype, '') FROM fin_subaccounts WHERE AccountCode = @acc", conn))
-        {
-            cmd.Parameters.AddWithValue("@acc", accountCode);
-            object atResult = cmd.ExecuteScalar();
-            return atResult != null ? atResult.ToString() : "";
-        }
-    }
+    // ───────────────────────── UI Helpers ──────────────────────────────────
 
     private void ShowMessage(string msg, bool success)
     {
-        lblMessage.Text = "<div class='pv-msg " + (success ? "pv-msg--success" : "pv-msg--error") + "'>" + Server.HtmlEncode(msg) + "</div>";
+        lblMessage.Text = "<div class='ft-alert " + (success ? "ft-alert--success" : "ft-alert--error") + "'>" +
+            System.Web.HttpUtility.HtmlEncode(msg) + "</div>";
     }
 }

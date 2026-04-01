@@ -2,15 +2,20 @@
 using System.Data;
 using System.Web.UI;
 using System.Web.UI.WebControls;
-using MySql.Data.MySqlClient;
-using System.Configuration;
 
+/// <summary>
+/// Balance Sheet — As-At-Date financial position report.
+/// 
+/// REFACTORED (Phase 1):
+///  ✓ Hardcoded connection string → FinanceDB
+///  ✓ Hardcoded year-2000 start → FinancePeriod.GetCumulativeRange
+///  ✓ Duplicated DataRow copy ×5 → extracted CopyRow helper
+///  ✓ No error handling → try/catch + FinanceLogger.LogError
+///  ✓ No audit trail → FinanceLogger.LogReportGenerated
+/// </summary>
 public partial class COOPERP_NewScreens_BalanceSheet : System.Web.UI.Page
 {
-    private string AcctConnStr = ConfigurationManager.ConnectionStrings["accountsConnectionString"] != null
-        ? ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString
-        : "server=localhost;User Id=root;password=24thdecember1977;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True;charset=utf8";
-
+    private const string PAGE_NAME = "BalanceSheet";
     private decimal _totalAssets = 0;
     private decimal _totalLiabilities = 0;
     private decimal _totalEquity = 0;
@@ -30,139 +35,131 @@ public partial class COOPERP_NewScreens_BalanceSheet : System.Web.UI.Page
 
     private void LoadBalanceSheet()
     {
-        DateTime asAtDate;
-        if (!DateTime.TryParse(txtAsAtDate.Text, out asAtDate))
-            asAtDate = DateTime.Today;
-
-        // Balance sheet uses the same SP with start date far in past to capture all historical balances
-        DateTime startDate = new DateTime(2000, 1, 1);
-
-        DataTable dt = new DataTable();
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        try
         {
-            conn.Open();
-            using (MySqlCommand cmd = new MySqlCommand("fin_BalanceSheet", conn))
+            DateTime asAtDate;
+            if (!DateTime.TryParse(txtAsAtDate.Text, out asAtDate))
+                asAtDate = DateTime.Today;
+
+            // Use earliest financial period start rather than hardcoded year-2000
+            DateTime startDate = FinancePeriod.GetCumulativeRange().Item1;
+
+            DataTable dt = FinanceDB.ExecuteSP("fin_BalanceSheet",
+                FinanceDB.P("@sDate", startDate.ToString("yyyy-MM-dd")),
+                FinanceDB.P("@eDate", asAtDate.ToString("yyyy-MM-dd")));
+
+            string docHeader = (dt.Rows.Count > 0 && dt.Columns.Contains("docHeader"))
+                ? dt.Rows[0]["docHeader"].ToString() : "";
+
+            // Separate into Assets, Liabilities, Equity
+            DataTable dtAssets = dt.Clone();
+            DataTable dtLiabilities = dt.Clone();
+            DataTable dtEquity = dt.Clone();
+
+            EnsureAmountColumn(dtAssets);
+            EnsureAmountColumn(dtLiabilities);
+            EnsureAmountColumn(dtEquity);
+
+            foreach (DataRow row in dt.Rows)
             {
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.Parameters.AddWithValue("@sDate", startDate.ToString("yyyy-MM-dd"));
-                cmd.Parameters.AddWithValue("@eDate", asAtDate.ToString("yyyy-MM-dd"));
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
+                string header = dt.Columns.Contains("header") ? row["header"].ToString().ToLower() : "";
+                decimal dr = 0, cr = 0;
+                decimal.TryParse(row["DRBalance"].ToString(), out dr);
+                decimal.TryParse(row["CRBalance"].ToString(), out cr);
+
+                if (header.Contains("asset"))
                 {
-                    da.Fill(dt);
-                }
-            }
-        }
-
-        // Get docHeader from first row if available
-        string docHeader = "";
-        if (dt.Rows.Count > 0 && dt.Columns.Contains("docHeader"))
-        {
-            docHeader = dt.Rows[0]["docHeader"].ToString();
-        }
-
-        // Separate into Assets, Liabilities, Equity based on header column
-        DataTable dtAssets = dt.Clone();
-        DataTable dtLiabilities = dt.Clone();
-        DataTable dtEquity = dt.Clone();
-
-        if (!dtAssets.Columns.Contains("Amount"))
-        {
-            dtAssets.Columns.Add("Amount", typeof(decimal));
-            dtLiabilities.Columns.Add("Amount", typeof(decimal));
-            dtEquity.Columns.Add("Amount", typeof(decimal));
-        }
-
-        foreach (DataRow row in dt.Rows)
-        {
-            string header = row.Table.Columns.Contains("header") ? row["header"].ToString().ToLower() : "";
-            decimal dr = 0, cr = 0;
-            decimal.TryParse(row["DRBalance"].ToString(), out dr);
-            decimal.TryParse(row["CRBalance"].ToString(), out cr);
-
-            if (header.Contains("asset"))
-            {
-                DataRow newRow = dtAssets.NewRow();
-                foreach (DataColumn col in dt.Columns)
-                    newRow[col.ColumnName] = row[col.ColumnName];
-                newRow["Amount"] = dr - cr; // Assets have debit balance
-                dtAssets.Rows.Add(newRow);
-                _totalAssets += (dr - cr);
-            }
-            else if (header.Contains("liabilit"))
-            {
-                DataRow newRow = dtLiabilities.NewRow();
-                foreach (DataColumn col in dt.Columns)
-                    newRow[col.ColumnName] = row[col.ColumnName];
-                newRow["Amount"] = cr - dr; // Liabilities have credit balance
-                dtLiabilities.Rows.Add(newRow);
-                _totalLiabilities += (cr - dr);
-            }
-            else if (header.Contains("equity") || header.Contains("capital") || header.Contains("retained"))
-            {
-                DataRow newRow = dtEquity.NewRow();
-                foreach (DataColumn col in dt.Columns)
-                    newRow[col.ColumnName] = row[col.ColumnName];
-                newRow["Amount"] = cr - dr; // Equity has credit balance
-                dtEquity.Rows.Add(newRow);
-                _totalEquity += (cr - dr);
-            }
-            else
-            {
-                // Fallback: DR balance = Asset, CR balance = Liability
-                if (dr >= cr)
-                {
-                    DataRow newRow = dtAssets.NewRow();
-                    foreach (DataColumn col in dt.Columns)
-                        newRow[col.ColumnName] = row[col.ColumnName];
-                    newRow["Amount"] = dr - cr;
-                    dtAssets.Rows.Add(newRow);
+                    CopyRow(dtAssets, row, dt, dr - cr);
                     _totalAssets += (dr - cr);
+                }
+                else if (header.Contains("liabilit"))
+                {
+                    CopyRow(dtLiabilities, row, dt, cr - dr);
+                    _totalLiabilities += (cr - dr);
+                }
+                else if (header.Contains("equity") || header.Contains("capital") || header.Contains("retained"))
+                {
+                    CopyRow(dtEquity, row, dt, cr - dr);
+                    _totalEquity += (cr - dr);
                 }
                 else
                 {
-                    DataRow newRow = dtLiabilities.NewRow();
-                    foreach (DataColumn col in dt.Columns)
-                        newRow[col.ColumnName] = row[col.ColumnName];
-                    newRow["Amount"] = cr - dr;
-                    dtLiabilities.Rows.Add(newRow);
-                    _totalLiabilities += (cr - dr);
+                    // Fallback: DR balance = Asset, CR balance = Liability
+                    if (dr >= cr)
+                    {
+                        CopyRow(dtAssets, row, dt, dr - cr);
+                        _totalAssets += (dr - cr);
+                    }
+                    else
+                    {
+                        CopyRow(dtLiabilities, row, dt, cr - dr);
+                        _totalLiabilities += (cr - dr);
+                    }
                 }
             }
+
+            rptAssets.DataSource = dtAssets;
+            rptAssets.DataBind();
+            rptLiabilities.DataSource = dtLiabilities;
+            rptLiabilities.DataBind();
+            rptEquity.DataSource = dtEquity;
+            rptEquity.DataBind();
+
+            // Header info
+            litDocHeader.Text = docHeader;
+            litAsAtDate.Text = asAtDate.ToString("dd MMM yyyy");
+            litGenDate.Text = DateTime.Now.ToString("dd MMM yyyy HH:mm");
+
+            // Equation bar & stats
+            litEqAssets.Text = _totalAssets.ToString("N2");
+            litEqLiabilities.Text = _totalLiabilities.ToString("N2");
+            litEqEquity.Text = _totalEquity.ToString("N2");
+            litStatAssets.Text = _totalAssets.ToString("N2");
+            litStatLiab.Text = _totalLiabilities.ToString("N2");
+            litStatEquity.Text = _totalEquity.ToString("N2");
+
+            // Balance check: Assets = Liabilities + Equity
+            decimal diff = Math.Abs(_totalAssets - (_totalLiabilities + _totalEquity));
+            if (diff < 0.01m)
+            {
+                pnlBalanceStatus.CssClass = "ft-status ft-status--ok";
+                litBalanceStatus.Text = "&#10004; Balance Sheet is BALANCED &mdash; Assets = Liabilities + Equity.";
+                litStatBalance.Text = "Balanced";
+                litBalIcon.Text = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#16a34a' stroke-width='2'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>";
+            }
+            else
+            {
+                pnlBalanceStatus.CssClass = "ft-status ft-status--err";
+                litBalanceStatus.Text = "&#9888; UNBALANCED &mdash; Difference of " + diff.ToString("N2");
+                litStatBalance.Text = "Off by " + diff.ToString("N2");
+                litBalIcon.Text = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#dc3545' stroke-width='2'><circle cx='12' cy='12' r='10'/><line x1='15' y1='9' x2='9' y2='15'/><line x1='9' y1='9' x2='15' y2='15'/></svg>";
+            }
+
+            pnlReport.Visible = true;
+            FinanceLogger.LogReportGenerated(PAGE_NAME, "AsAt=" + asAtDate.ToString("yyyy-MM-dd") +
+                " Assets=" + _totalAssets.ToString("N2") + " L+E=" + (_totalLiabilities + _totalEquity).ToString("N2"));
         }
-
-        rptAssets.DataSource = dtAssets;
-        rptAssets.DataBind();
-
-        rptLiabilities.DataSource = dtLiabilities;
-        rptLiabilities.DataBind();
-
-        rptEquity.DataSource = dtEquity;
-        rptEquity.DataBind();
-
-        // Set header info
-        litDocHeader.Text = docHeader;
-        litAsAtDate.Text = asAtDate.ToString("dd MMM yyyy");
-        litGenDate.Text = DateTime.Now.ToString("dd MMM yyyy HH:mm");
-
-        // Equation bar
-        litEqAssets.Text = _totalAssets.ToString("N2");
-        litEqLiabilities.Text = _totalLiabilities.ToString("N2");
-        litEqEquity.Text = _totalEquity.ToString("N2");
-
-        // Check balance: Assets = Liabilities + Equity
-        decimal diff = Math.Abs(_totalAssets - (_totalLiabilities + _totalEquity));
-        if (diff < 0.01m)
+        catch (Exception ex)
         {
-            pnlBalanceStatus.CssClass = "bs-status-banner bs-status-ok";
-            litBalanceStatus.Text = "&#10004; Balance Sheet is BALANCED - Assets = Liabilities + Equity.";
+            FinanceLogger.LogError(PAGE_NAME, "LoadBalanceSheet", ex);
         }
-        else
-        {
-            pnlBalanceStatus.CssClass = "bs-status-banner bs-status-err";
-            litBalanceStatus.Text = "&#9888; Balance Sheet is UNBALANCED - Difference of " + diff.ToString("N2") + " detected.";
-        }
+    }
 
-        pnlReport.Visible = true;
+    /// <summary>Ensures the cloned table has an Amount column.</summary>
+    private static void EnsureAmountColumn(DataTable dt)
+    {
+        if (!dt.Columns.Contains("Amount"))
+            dt.Columns.Add("Amount", typeof(decimal));
+    }
+
+    /// <summary>Copies a DataRow into target table with computed Amount — eliminates ×5 duplication.</summary>
+    private static void CopyRow(DataTable target, DataRow source, DataTable sourceTable, decimal amount)
+    {
+        DataRow nr = target.NewRow();
+        foreach (DataColumn col in sourceTable.Columns)
+            nr[col.ColumnName] = source[col.ColumnName];
+        nr["Amount"] = amount;
+        target.Rows.Add(nr);
     }
 
     protected void rptAssets_ItemDataBound(object sender, RepeaterItemEventArgs e)

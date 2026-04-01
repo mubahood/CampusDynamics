@@ -1,6 +1,7 @@
 using System;
 using System.Data;
 using System.Web.UI;
+using System.Web.UI.WebControls;
 using MySql.Data.MySqlClient;
 using System.Configuration;
 
@@ -30,10 +31,26 @@ public partial class COOPERP_NewScreens_SupplierManagement : System.Web.UI.Page
             {
                 da.Fill(dt);
             }
+
+            // Stats
+            int total = dt.Rows.Count;
+            int withAddr = 0, withPhone = 0;
+            foreach (DataRow row in dt.Rows)
+            {
+                if (row["supplierAdress"] != DBNull.Value && !string.IsNullOrEmpty(row["supplierAdress"].ToString().Trim()))
+                    withAddr++;
+                if (row["supplierPhone"] != DBNull.Value && !string.IsNullOrEmpty(row["supplierPhone"].ToString().Trim()))
+                    withPhone++;
+            }
+            litSupplierCount.Text = total.ToString("N0");
+            litWithAddress.Text = withAddr.ToString("N0");
+            litWithPhone.Text = withPhone.ToString("N0");
+            litBadge.Text = string.Format("<span class='ft-card__meta'>{0} suppliers</span>", total);
+            litFooter.Text = string.Format("<strong>{0}</strong> suppliers registered", total);
         }
-        gridSuppliers.DataSource = dt;
-        gridSuppliers.DataBind();
-        litSupplierCount.Text = dt.Rows.Count.ToString();
+        rptSuppliers.DataSource = dt;
+        rptSuppliers.DataBind();
+        phNoData.Visible = (dt.Rows.Count == 0);
     }
 
     protected void btnSave_Click(object sender, EventArgs e)
@@ -57,7 +74,6 @@ public partial class COOPERP_NewScreens_SupplierManagement : System.Web.UI.Page
 
                 if (string.IsNullOrEmpty(editId))
                 {
-                    // Insert new
                     string sql = "INSERT INTO supplier (supplierName, supplierAdress, supplierPhone) VALUES (@n, @a, @p)";
                     using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                     {
@@ -70,7 +86,6 @@ public partial class COOPERP_NewScreens_SupplierManagement : System.Web.UI.Page
                 }
                 else
                 {
-                    // Update existing
                     string sql = "UPDATE supplier SET supplierName=@n, supplierAdress=@a, supplierPhone=@p WHERE supplierID=@id";
                     using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                     {
@@ -93,47 +108,43 @@ public partial class COOPERP_NewScreens_SupplierManagement : System.Web.UI.Page
         }
     }
 
-    protected void btnEdit_Click(object sender, EventArgs e)
+    protected void rptSuppliers_ItemCommand(object source, RepeaterCommandEventArgs e)
     {
-        DevExpress.Web.ASPxButton btn = sender as DevExpress.Web.ASPxButton;
-        if (btn == null) return;
-
-        string[] parts = btn.CommandArgument.Split('|');
-        if (parts.Length >= 4)
+        if (e.CommandName == "EditSupplier")
         {
-            hdnEditId.Value = parts[0];
-            txtSupplierName.Text = parts[1];
-            txtSupplierAddress.Text = parts[2];
-            txtSupplierPhone.Text = parts[3];
-            btnSave.Text = "Update Supplier";
-            btnCancel.Visible = true;
-        }
-    }
-
-    protected void btnDelete_Click(object sender, EventArgs e)
-    {
-        DevExpress.Web.ASPxButton btn = sender as DevExpress.Web.ASPxButton;
-        if (btn == null) return;
-        string id = btn.CommandArgument;
-
-        try
-        {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            string[] parts = e.CommandArgument.ToString().Split('|');
+            if (parts.Length >= 4)
             {
-                conn.Open();
-                string sql = "DELETE FROM supplier WHERE supplierID = @id";
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
-                {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    cmd.ExecuteNonQuery();
-                }
+                hdnEditId.Value = parts[0];
+                txtSupplierName.Text = parts[1];
+                txtSupplierAddress.Text = parts[2];
+                txtSupplierPhone.Text = parts[3];
+                btnSave.Text = "Update Supplier";
+                btnCancel.Visible = true;
             }
-            ShowMessage("Supplier deleted.", true);
-            LoadSuppliers();
         }
-        catch (Exception ex)
+        else if (e.CommandName == "DeleteSupplier")
         {
-            ShowMessage("Error: " + ex.Message, false);
+            string id = e.CommandArgument.ToString();
+            try
+            {
+                using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+                {
+                    conn.Open();
+                    string sql = "DELETE FROM supplier WHERE supplierID = @id";
+                    using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                ShowMessage("Supplier deleted.", true);
+                LoadSuppliers();
+            }
+            catch (Exception ex)
+            {
+                ShowMessage("Error: " + ex.Message, false);
+            }
         }
     }
 
@@ -155,7 +166,7 @@ public partial class COOPERP_NewScreens_SupplierManagement : System.Web.UI.Page
     private void ShowMessage(string msg, bool isSuccess)
     {
         pnlMsg.Visible = true;
-        pnlMsg.CssClass = isSuccess ? "sm-msg sm-msg-ok" : "sm-msg sm-msg-err";
-        litMsg.Text = msg;
+        string cssClass = isSuccess ? "ft-toast ft-toast--success" : "ft-toast ft-toast--error";
+        litMsg.Text = "<div class='" + cssClass + "'>" + Server.HtmlEncode(msg) + "</div>";
     }
 }

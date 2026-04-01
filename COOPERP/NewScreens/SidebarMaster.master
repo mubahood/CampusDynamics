@@ -429,12 +429,7 @@
                                         <span>Transactions</span>
                                     </asp:HyperLink>
                                 </li>
-                                <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkStudentReceipts" runat="server" NavigateUrl="~/COOPERP/NewScreens/StudentReceipts.aspx" CssClass="cd-sidebar__sublink">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"></path><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="16" y2="10"></line><line x1="8" y1="14" x2="12" y2="14"></line></svg>
-                                        <span>Student Receipts</span>
-                                    </asp:HyperLink>
-                                </li>
+
                                 <!-- Cross-link: quick access to student list from fees context -->
                                 <li class="cd-sidebar__subitem">
                                     <asp:HyperLink ID="lnkActiveStudentsFees" runat="server" NavigateUrl="~/COOPERP/NewScreens/ActiveStudents.aspx" CssClass="cd-sidebar__sublink">
@@ -442,13 +437,7 @@
                                         <span>Active Students</span>
                                     </asp:HyperLink>
                                 </li>
-                                <!-- Cross-link: register new student directly from fees context -->
-                                <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkNewStudentRegFees" runat="server" NavigateUrl="~/COOPERP/NewScreens/NewStudentRegistration.aspx" CssClass="cd-sidebar__sublink">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                                        <span>Register New Student</span>
-                                    </asp:HyperLink>
-                                </li>
+
                             </ul>
                         </li>
 

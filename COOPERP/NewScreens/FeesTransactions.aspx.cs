@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Text;
 using System.Web.Configuration;
@@ -25,6 +26,16 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         if (ajaxAction == "lookup" || ajaxAction == "search")
         {
             HandleStudentLookup();
+            return;
+        }
+        if (ajaxAction == "glsync_scan" || ajaxAction == "glsync_fix")
+        {
+            HandleGLSync(ajaxAction);
+            return;
+        }
+        if (ajaxAction == "batchdup_scan" || ajaxAction == "batchdup_fix_one")
+        {
+            HandleBatchDupFix(ajaxAction);
             return;
         }
 
@@ -70,13 +81,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                 if (ddlAcadYear.Items.FindByValue("") != null)
                     ddlAcadYear.SelectedValue = "";
             }
-            else
-            {
-                // Default to current academic year
-                string curYear = AcademicYearHelper.GetCurrentAcademicYear();
-                if (ddlAcadYear.Items.FindByValue(curYear) != null)
-                    ddlAcadYear.SelectedValue = curYear;
-            }
+            // Default to All Years — admin must explicitly select a year to filter
         }
 
         LoadTransactions();
@@ -191,84 +196,92 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
 
     private void LoadTransactions()
     {
-        // Build WHERE
-        StringBuilder where = new StringBuilder("WHERE 1=1");
-        MySqlCommand cmd = new MySqlCommand();
+        // ── Determine which tables to include ──────────────────────────────
+        string sourceFilter = ddlSource.SelectedValue;   // "" | "manual" | "gl_only"
+        bool showManual  = (sourceFilter != "gl_only");
+        bool showGLOnly  = (sourceFilter != "manual");
 
-        // ------------------------------------------------------------------
-        // ?tid= querystring: filter to a single transaction
-        // ------------------------------------------------------------------
+        // ── Outer WHERE (applied to the combined UNION subquery alias 'c') ──
+        var outer   = new StringBuilder("WHERE 1=1");
+        var prmList = new List<MySqlParameter>();
+
+        // ?tid= querystring — filter to a single transaction
         string tidParam = Request.QueryString["tid"];
-        int tidParamVal = 0;
-        bool isTidFilter = !string.IsNullOrEmpty(tidParam)
-                           && int.TryParse(tidParam.Trim(), out tidParamVal)
-                           && tidParamVal > 0;
-
+        int    tidParamVal = 0;
+        bool   isTidFilter = !string.IsNullOrEmpty(tidParam)
+                             && int.TryParse(tidParam.Trim(), out tidParamVal)
+                             && tidParamVal > 0;
         if (isTidFilter)
         {
-            where.Append(" AND t.TID = @tidFilter");
-            cmd.Parameters.AddWithValue("@tidFilter", tidParamVal);
+            outer.Append(" AND c.TID = @tidFilter");
+            prmList.Add(new MySqlParameter("@tidFilter", tidParamVal));
         }
-
-        // Always LEFT JOIN — every transaction shows regardless of student enrolment status.
-        // If the user explicitly picks a student status in the filter dropdown, apply it as
-        // a WHERE condition (not as an INNER JOIN) so unmatched rows are still visible.
-        string studentJoin = "LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno";
 
         string studStatus = ddlStudStatus.SelectedValue;
         if (!string.IsNullOrEmpty(studStatus))
         {
-            where.Append(" AND UPPER(COALESCE(s.new_status,'')) = UPPER(@studStatus)");
-            cmd.Parameters.AddWithValue("@studStatus", studStatus);
+            outer.Append(" AND UPPER(COALESCE(c.student_status,'')) = UPPER(@studStatus)");
+            prmList.Add(new MySqlParameter("@studStatus", studStatus));
         }
-
-        if (!String.IsNullOrEmpty(ddlAcadYear.SelectedValue))
+        if (!string.IsNullOrEmpty(ddlAcadYear.SelectedValue))
         {
-            where.Append(" AND t.acadyear = @yr");
-            cmd.Parameters.AddWithValue("@yr", ddlAcadYear.SelectedValue);
+            // GL-only rows (AUTO/ghost) have no acadyear in fin_ledger — exempt them from this filter
+            outer.Append(" AND (c.acadyear = @yr OR c.row_source IN ('auto','ghost'))");
+            prmList.Add(new MySqlParameter("@yr", ddlAcadYear.SelectedValue));
         }
-        if (!String.IsNullOrEmpty(ddlSemester.SelectedValue))
+        if (!string.IsNullOrEmpty(ddlSemester.SelectedValue))
         {
-            where.Append(" AND t.semester = @sem");
-            cmd.Parameters.AddWithValue("@sem", ddlSemester.SelectedValue);
+            // GL-only rows have no semester — exempt them from this filter too
+            outer.Append(" AND (c.semester = @sem OR c.row_source IN ('auto','ghost'))");
+            prmList.Add(new MySqlParameter("@sem", ddlSemester.SelectedValue));
         }
-        if (!String.IsNullOrEmpty(ddlTransType.SelectedValue))
+        if (!string.IsNullOrEmpty(ddlTransType.SelectedValue))
         {
-            where.Append(" AND t.trans_type = @tt");
-            cmd.Parameters.AddWithValue("@tt", ddlTransType.SelectedValue);
+            outer.Append(" AND c.trans_type = @tt");
+            prmList.Add(new MySqlParameter("@tt", ddlTransType.SelectedValue));
         }
-        if (!String.IsNullOrEmpty(ddlBillItem.SelectedValue))
+        if (!string.IsNullOrEmpty(ddlBillItem.SelectedValue))
         {
-            where.Append(" AND t.item_code = @ic");
-            cmd.Parameters.AddWithValue("@ic", ddlBillItem.SelectedValue);
+            outer.Append(" AND c.item_code = @ic");
+            prmList.Add(new MySqlParameter("@ic", ddlBillItem.SelectedValue));
         }
-        if (!String.IsNullOrEmpty(ddlPostStatus.SelectedValue))
+        if (!string.IsNullOrEmpty(ddlPostStatus.SelectedValue))
         {
-            where.Append(" AND t.post_status = @ps");
-            cmd.Parameters.AddWithValue("@ps", ddlPostStatus.SelectedValue);
+            outer.Append(" AND c.post_status = @ps");
+            prmList.Add(new MySqlParameter("@ps", ddlPostStatus.SelectedValue));
         }
         string search = txtSearch.Text.Trim();
-        if (!String.IsNullOrEmpty(search))
+        if (!string.IsNullOrEmpty(search))
         {
-            where.Append(" AND (t.regno LIKE @q OR CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,'')) LIKE @q OR t.detail LIKE @q)");
-            cmd.Parameters.AddWithValue("@q", "%" + search + "%");
+            outer.Append(" AND (c.regno LIKE @q OR c.student_name LIKE @q OR c.detail LIKE @q)");
+            prmList.Add(new MySqlParameter("@q", "%" + search + "%"));
         }
 
-        // -----------------------------------------------------------------------
-        // Server-side paging
-        // -----------------------------------------------------------------------
+        // ── Build UNION subquery ──────────────────────────────────────────
+        string inner  = BuildInnerUnion(showManual, showGLOnly);
+        string outerW = outer.ToString();
+
+        // ── Stats query ───────────────────────────────────────────────────
+        string statsSql =
+            "SELECT COUNT(*) AS total_tx,"
+          + " SUM(CASE WHEN c.trans_type='Bill'    THEN 1 ELSE 0 END) AS bill_cnt,"
+          + " SUM(CASE WHEN c.trans_type='Payment' THEN 1 ELSE 0 END) AS pay_cnt,"
+          + " SUM(CASE WHEN c.trans_type='Bill'    THEN c.amount ELSE 0 END) AS bill_amt,"
+          + " SUM(CASE WHEN c.trans_type='Payment' THEN c.amount ELSE 0 END) AS pay_amt"
+          + " FROM (" + inner + ") AS c " + outerW;
+
+        // ── Paging ────────────────────────────────────────────────────────
         int pageSize = 50;
         try { pageSize = Convert.ToInt32(ddlPageSize.SelectedValue); } catch { }
 
-        // Determine page index: reset on filter/search changes, preserve on explicit pager clicks
-        string eventTarget = Request.Form["__EVENTTARGET"] ?? "";
-        bool isPageNavClick = Request.Form[btnGoToPage.UniqueID] != null;
-        bool isFilterDropdown =
-            eventTarget == ddlAcadYear.UniqueID   || eventTarget == ddlSemester.UniqueID  ||
-            eventTarget == ddlTransType.UniqueID  || eventTarget == ddlBillItem.UniqueID  ||
-            eventTarget == ddlPostStatus.UniqueID || eventTarget == ddlStudStatus.UniqueID ||
-            eventTarget == ddlPageSize.UniqueID;
-        bool isSearchOrReset =
+        string eventTarget     = Request.Form["__EVENTTARGET"] ?? "";
+        bool isPageNavClick    = Request.Form[btnGoToPage.UniqueID] != null;
+        bool isFilterDropdown  =
+            eventTarget == ddlAcadYear.UniqueID    || eventTarget == ddlSemester.UniqueID   ||
+            eventTarget == ddlTransType.UniqueID   || eventTarget == ddlBillItem.UniqueID   ||
+            eventTarget == ddlPostStatus.UniqueID  || eventTarget == ddlStudStatus.UniqueID ||
+            eventTarget == ddlPageSize.UniqueID    || eventTarget == ddlSource.UniqueID;
+        bool isSearchOrReset   =
             Request.Form[btnSearch.UniqueID] != null || Request.Form[btnReset.UniqueID] != null;
 
         int pageIndex = 0;
@@ -288,103 +301,166 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             if (pageIndex < 0) pageIndex = 0;
         }
 
-        // Stats query (row count + totals in one pass)
-        string statsSql = String.Format(
-            @"SELECT 
-                COUNT(*) AS total_tx,
-                SUM(CASE WHEN t.trans_type='Bill' THEN 1 ELSE 0 END) AS bill_cnt,
-                SUM(CASE WHEN t.trans_type='Payment' THEN 1 ELSE 0 END) AS pay_cnt,
-                SUM(CASE WHEN t.trans_type='Bill' THEN t.amount ELSE 0 END) AS bill_amt,
-                SUM(CASE WHEN t.trans_type='Payment' THEN t.amount ELSE 0 END) AS pay_amt
-              FROM fin_studentfeestracking t
-              {1}
-              {0}", where.ToString(), studentJoin);
-
-        // Data query — server-side paged with LIMIT/OFFSET
-        string dataSql = String.Format(
-            @"SELECT t.TID, t.regno,
-                     TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
-                     t.trans_type, t.amount, t.detail, t.post_status, t.trans_date,
-                     t.acadyear, t.semester, t.item_code,
-                     CASE WHEN b.ItemName IS NOT NULL AND b.ItemName != '' THEN b.ItemName
-                          WHEN t.item_code IS NULL OR t.item_code = 0 THEN '\u2014'
-                          ELSE CONCAT('Item ', t.item_code) END AS item_name
-              FROM fin_studentfeestracking t
-              {1}
-              LEFT JOIN academicbillingitems b ON b.ItemCode = t.item_code
-              {0}
-              ORDER BY t.TID DESC
-              LIMIT @pgOffset, @pgSize", where.ToString(), studentJoin);
-
         using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
 
-            // 1. Stats (fast COUNT query)
-            cmd.Connection = conn;
-            cmd.CommandText = statsSql;
+            // 1. Stats (fast COUNT)
+            MySqlCommand statsCmd = new MySqlCommand(statsSql, conn);
+            foreach (var p in prmList)
+                statsCmd.Parameters.Add(new MySqlParameter(p.ParameterName, p.Value));
+
             long totalTx = 0;
-            using (MySqlDataReader rdr = cmd.ExecuteReader())
+            using (MySqlDataReader rdr = statsCmd.ExecuteReader())
             {
                 if (rdr.Read())
                 {
-                    totalTx   = rdr["total_tx"] != DBNull.Value ? Convert.ToInt64(rdr["total_tx"])   : 0;
-                    long billCnt  = rdr["bill_cnt"] != DBNull.Value ? Convert.ToInt64(rdr["bill_cnt"]) : 0;
-                    long payCnt   = rdr["pay_cnt"]  != DBNull.Value ? Convert.ToInt64(rdr["pay_cnt"])  : 0;
-                    decimal billAmt = rdr["bill_amt"] != DBNull.Value ? Convert.ToDecimal(rdr["bill_amt"]) : 0;
-                    decimal payAmt  = rdr["pay_amt"]  != DBNull.Value ? Convert.ToDecimal(rdr["pay_amt"])  : 0;
-
-                    litTotalTx.Text  = totalTx.ToString("N0");
-                    litBillTx.Text   = billCnt.ToString("N0");
-                    litPayTx.Text    = payCnt.ToString("N0");
-                    litBillAmt.Text  = FormatCurrency(billAmt);
-                    litPayAmt.Text   = FormatCurrency(payAmt);
+                    totalTx = rdr["total_tx"] != DBNull.Value ? Convert.ToInt64(rdr["total_tx"]) : 0;
+                    long    billCnt = rdr["bill_cnt"]  != DBNull.Value ? Convert.ToInt64(rdr["bill_cnt"])    : 0;
+                    long    payCnt  = rdr["pay_cnt"]   != DBNull.Value ? Convert.ToInt64(rdr["pay_cnt"])     : 0;
+                    decimal billAmt = rdr["bill_amt"]  != DBNull.Value ? Convert.ToDecimal(rdr["bill_amt"])  : 0;
+                    decimal payAmt  = rdr["pay_amt"]   != DBNull.Value ? Convert.ToDecimal(rdr["pay_amt"])   : 0;
+                    litTotalTx.Text     = totalTx.ToString("N0");
+                    litBillTx.Text      = billCnt.ToString("N0");
+                    litPayTx.Text       = payCnt.ToString("N0");
+                    litBillAmt.Text     = FormatCurrency(billAmt);
+                    litPayAmt.Text      = FormatCurrency(payAmt);
                     lblRecordCount.Text = totalTx.ToString("N0") + " records";
+
+                    // ── Totals bar ────────────────────────────────────
+                    litTotalBarBill.Text = FormatCurrency(billAmt);
+                    litTotalBarPay.Text  = FormatCurrency(payAmt);
+                    decimal net = billAmt - payAmt;
+                    string netClass = net >= 0 ? "ft-totals__pill--net" : "ft-totals__pill--neg";
+                    string netLabel = net >= 0 ? "Outstanding" : "Overpaid";
+                    string netIcon  = net >= 0
+                        ? "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><circle cx='12' cy='12' r='10'/><line x1='12' y1='8' x2='12' y2='16'/><line x1='8' y1='12' x2='16' y2='12'/></svg>"
+                        : "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><circle cx='12' cy='12' r='10'/><line x1='8' y1='12' x2='16' y2='12'/></svg>";
+                    litTotalBarNet.Text = string.Format(
+                        "<span class='ft-totals__pill {0}'>{1} {2}: {3}</span>",
+                        netClass, netIcon, netLabel, FormatCurrency(Math.Abs(net)));
                 }
             }
 
-            // 2. Clamp page index to valid range
+            // 2. Clamp page index
             int totalPages = totalTx > 0 ? (int)Math.Ceiling((double)totalTx / pageSize) : 1;
-            if (pageIndex >= totalPages) { pageIndex = Math.Max(0, totalPages - 1); hfPageIndex.Value = pageIndex.ToString(); }
+            if (pageIndex >= totalPages)
+            { pageIndex = Math.Max(0, totalPages - 1); hfPageIndex.Value = pageIndex.ToString(); }
             int offset = pageIndex * pageSize;
 
-            // 3. Page of data
+            // 3. Paged data
+            string dataSql =
+                "SELECT c.* FROM (" + inner + ") AS c " + outerW
+              + " ORDER BY c.trans_date DESC, c.TID DESC LIMIT @pgOffset, @pgSize";
+
             MySqlCommand dataCmd = new MySqlCommand(dataSql, conn);
-            foreach (MySqlParameter p in cmd.Parameters)
-                dataCmd.Parameters.AddWithValue(p.ParameterName, p.Value);
+            foreach (var p in prmList)
+                dataCmd.Parameters.Add(new MySqlParameter(p.ParameterName, p.Value));
             dataCmd.Parameters.AddWithValue("@pgOffset", offset);
             dataCmd.Parameters.AddWithValue("@pgSize",   pageSize);
 
-            MySqlDataAdapter da = new MySqlDataAdapter(dataCmd);
-            DataTable dt = new DataTable();
+            var da = new MySqlDataAdapter(dataCmd);
+            var dt = new DataTable();
             da.Fill(dt);
 
             rptTransactions.DataSource = dt;
             rptTransactions.DataBind();
             phNoData.Visible = (dt.Rows.Count == 0);
 
-            // 4. Footer info + pager
+            // 4. Footer + pager
             long showFrom = totalTx > 0 ? (long)(offset + 1) : 0;
             long showTo   = Math.Min((long)(offset + pageSize), totalTx);
             lblGridFooter.Text = String.Format(
                 "Showing <strong>{0}\u2013{1}</strong> of <strong>{2}</strong> transactions ({3} per page)",
                 showFrom, showTo, totalTx.ToString("N0"), pageSize);
-
             litPager.Text = BuildPagerHtml(pageIndex, totalPages);
         }
 
         // Context badge
         string ctx = "";
-        if (!String.IsNullOrEmpty(ddlAcadYear.SelectedValue))
+        if (!string.IsNullOrEmpty(ddlAcadYear.SelectedValue))
             ctx = ddlAcadYear.SelectedValue;
-        if (!String.IsNullOrEmpty(ddlSemester.SelectedValue))
+        if (!string.IsNullOrEmpty(ddlSemester.SelectedValue))
             ctx += " Sem " + ddlSemester.SelectedValue;
-        if (!String.IsNullOrEmpty(studStatus))
+        if (!string.IsNullOrEmpty(studStatus))
             ctx += (ctx.Length > 0 ? " | " : "") + studStatus + " students";
-        if (!String.IsNullOrEmpty(ctx))
-            litAcadContext.Text = "<span class='ft-card__meta'>" + Server.HtmlEncode(ctx.Trim()) + "</span>";
-        else
-            litAcadContext.Text = "";
+        if (sourceFilter == "manual")
+            ctx += (ctx.Length > 0 ? " | " : "") + "Manual only";
+        else if (sourceFilter == "gl_only")
+            ctx += (ctx.Length > 0 ? " | " : "") + "GL only (orphaned)";
+        litAcadContext.Text = !string.IsNullOrEmpty(ctx)
+            ? "<span class='ft-card__meta'>" + Server.HtmlEncode(ctx.Trim()) + "</span>"
+            : "";
+    }
+
+    /// <summary>
+    /// Builds the inner UNION SQL that merges manual tracking rows with GL-only orphan rows.
+    /// </summary>
+    private string BuildInnerUnion(bool showManual, bool showGLOnly)
+    {
+        var parts = new List<string>();
+
+        if (showManual)
+            parts.Add(
+                "SELECT 'manual' AS row_source,"
+              + " t.TID,"
+              + " t.regno,"
+              + " TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,"
+              + " UPPER(COALESCE(s.new_status,'')) AS student_status,"
+              + " t.trans_type,"
+              + " t.amount,"
+              + " t.detail,"
+              + " t.post_status,"
+              + " t.trans_date,"
+              + " t.acadyear,"
+              + " t.semester,"
+              + " t.item_code,"
+              + " CASE WHEN b.ItemName IS NOT NULL AND b.ItemName != '' THEN b.ItemName"
+              + "      WHEN t.item_code IS NULL OR t.item_code = 0 THEN '\u2014'"
+              + "      ELSE CONCAT('Item ', t.item_code) END AS item_name"
+              + " FROM fin_studentfeestracking t"
+              + " LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno"
+              + " LEFT JOIN academicbillingitems b ON b.ItemCode = t.item_code");
+
+        if (showGLOnly)
+            parts.Add(
+                "SELECT"
+              + " CASE WHEN fcd.original_tid IS NOT NULL THEN 'ghost' ELSE 'auto' END AS row_source,"
+              + " fl.TID,"
+              + " fl.accountcode AS regno,"
+              + " TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,"
+              + " UPPER(COALESCE(s.new_status,'')) AS student_status,"
+              + " CASE WHEN fl.transactionType='CR' THEN 'Payment' ELSE 'Bill' END AS trans_type,"
+              + " fl.transaction_amount AS amount,"
+              + " fl.particulars AS detail,"
+              + " 'Posted' AS post_status,"
+              + " fl.transactionDate AS trans_date,"
+              + " CAST(NULL AS CHAR) AS acadyear,"
+              + " CAST(NULL AS SIGNED) AS semester,"
+              + " CAST(NULL AS SIGNED) AS item_code,"
+              + " '\u2014' AS item_name"
+              + " FROM fin_ledger fl"
+              // INNER JOIN ensures accountcode is a real student regno.
+              // No account_type filter — AUTO billing SPs use different values (e.g. 'AutoBill').
+              // The portal SP fin_GetStudentLedger uses no account_type filter either.
+              + " INNER JOIN campus_dynamics.acad_student s ON s.regno = fl.accountcode"
+              + " LEFT JOIN fin_changed_deleted_transactions fcd"
+              + "     ON fcd.original_tid = fl.voucherNo AND fcd.action_type = 'DELETE'"
+              + " WHERE NOT EXISTS ("
+              + "       SELECT 1 FROM fin_studentfeestracking t2"
+              + "       WHERE t2.regno = fl.accountcode"
+              + "         AND t2.amount = fl.transaction_amount"
+              + "         AND DATE(t2.trans_date) = DATE(fl.transactionDate)"
+              + "         AND t2.trans_type = CASE WHEN fl.transactionType='CR' THEN 'Payment' ELSE 'Bill' END"
+              + "         AND ("
+              + "               t2.TID = fl.voucherNo"           // exact TID-to-voucherNo link
+              + "            OR t2.detail = fl.particulars"      // same description (e.g. Airtel/MTN TNo)
+              + "            OR (fl.tracking_ref IS NOT NULL AND fl.tracking_ref = t2.TID)"  // billing tracking_ref link
+              + "            OR fl.folio = CONCAT('BillNo:', t2.TID)"                        // folio BillNo link
+              + "         )"
+              + "   )");
+
+        return string.Join(" UNION ALL ", parts);
     }
 
     protected void ddlAcadYear_SelectedIndexChanged(object sender, EventArgs e) { }
@@ -394,6 +470,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     protected void ddlPostStatus_SelectedIndexChanged(object sender, EventArgs e) { }
     protected void ddlStudStatus_SelectedIndexChanged(object sender, EventArgs e) { }
     protected void ddlPageSize_Changed(object sender, EventArgs e) { }
+    protected void ddlSource_SelectedIndexChanged(object sender, EventArgs e) { }
 
     protected void gvTransactions_PageIndexChanged(object sender, EventArgs e) { }
     protected void btnGoToPage_Click(object sender, EventArgs e) { /* page index read from hfPageIndex in LoadTransactions */ }
@@ -402,13 +479,14 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
 
     protected void btnReset_Click(object sender, EventArgs e)
     {
-        ddlAcadYear.SelectedIndex = 0;
-        ddlSemester.SelectedIndex = 0;
+        ddlAcadYear.SelectedIndex  = 0;
+        ddlSemester.SelectedIndex  = 0;
         ddlTransType.SelectedIndex = 0;
-        ddlBillItem.SelectedIndex = 0;
+        ddlBillItem.SelectedIndex  = 0;
         ddlPostStatus.SelectedIndex = 0;
         ddlStudStatus.SelectedIndex = 0; // Reset to "Active" (first item)
-        ddlPageSize.SelectedIndex = 0;
+        ddlPageSize.SelectedIndex  = 0;
+        ddlSource.SelectedIndex    = 0; // Reset to All Sources
         txtSearch.Text = "";
         LoadTransactions();
     }
@@ -514,6 +592,17 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         string v = val != null ? val.ToString() : "";
         if (v == "Posted") return "ft-badge--posted";
         return "ft-badge--pending";
+    }
+
+    protected string GetSourceBadge(object val)
+    {
+        switch ((val != null ? val.ToString() : "").ToLowerInvariant())
+        {
+            case "manual": return "<span class='ft-badge' style='background:#e8f0fe;color:#1a56db;'>Manual</span>";
+            case "auto":   return "<span class='ft-badge' style='background:#e3f2fd;color:#0277bd;'>AUTO</span>";
+            case "ghost":  return "<span class='ft-badge' style='background:#fff3e0;color:#e65100;'>Ghost</span>";
+            default:       return "<span class='ft-badge'>-</span>";
+        }
     }
 
     protected string FormatAmt(object val)
@@ -782,21 +871,64 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
             {
                 conn.Open();
-                string insertSql = @"INSERT INTO fin_studentfeestracking 
-                    (regno, semester, acadyear, amount, item_code, trans_type, detail, trans_date, post_status) 
-                    VALUES (@r, @s, @y, @a, @ic, @tt, @d, @dt, @ps)";
-                using (MySqlCommand cmd = new MySqlCommand(insertSql, conn))
+                MySqlTransaction tx = conn.BeginTransaction();
+                try
                 {
-                    cmd.Parameters.AddWithValue("@r", regno);
-                    cmd.Parameters.AddWithValue("@s", semester);
-                    cmd.Parameters.AddWithValue("@y", acadYear);
-                    cmd.Parameters.AddWithValue("@a", amount);
-                    cmd.Parameters.AddWithValue("@ic", itemCode);
-                    cmd.Parameters.AddWithValue("@tt", transType);
-                    cmd.Parameters.AddWithValue("@d", detail);
-                    cmd.Parameters.AddWithValue("@dt", transDate);
-                    cmd.Parameters.AddWithValue("@ps", postStatus);
-                    cmd.ExecuteNonQuery();
+                    // 1. Write to fin_studentfeestracking (tracking table)
+                    long newTID;
+                    string insertSql = @"INSERT INTO fin_studentfeestracking 
+                        (regno, semester, acadyear, amount, item_code, trans_type, detail, trans_date, post_status) 
+                        VALUES (@r, @s, @y, @a, @ic, @tt, @d, @dt, @ps)";
+                    using (MySqlCommand cmd = new MySqlCommand(insertSql, conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@s", semester);
+                        cmd.Parameters.AddWithValue("@y", acadYear);
+                        cmd.Parameters.AddWithValue("@a", amount);
+                        cmd.Parameters.AddWithValue("@ic", itemCode);
+                        cmd.Parameters.AddWithValue("@tt", transType);
+                        cmd.Parameters.AddWithValue("@d", detail);
+                        cmd.Parameters.AddWithValue("@dt", transDate);
+                        cmd.Parameters.AddWithValue("@ps", postStatus);
+                        cmd.ExecuteNonQuery();
+                        newTID = cmd.LastInsertedId;
+                    }
+
+                    // 2. Mirror to fin_ledger (GL) so Student Ledger stays in sync.
+                    //    Only post when status is 'Posted' — Pending stays out of GL.
+                    //    Payment = CR (reduces balance owed); Bill = DR (increases balance owed).
+                    if (postStatus == "Posted")
+                    {
+                        string glType = (transType == "Payment") ? "CR" : "DR";
+                        string itemText2 = ddlTxBillItem.SelectedItem != null ? ddlTxBillItem.SelectedItem.Text : billItemVal;
+                        string glParticulars = string.IsNullOrEmpty(detail) ? itemText2 : detail;
+                        using (MySqlCommand cmd = new MySqlCommand(@"
+                            INSERT INTO fin_ledger
+                                (accountcode, account_type, transactionType, transaction_amount, particulars,
+                                 voucherNo, transactionDate, teller, timeLog, folio,
+                                 journal_no, trans_currency, actual_amount, curr_balance, forex_rate, ugx_amount)
+                            VALUES (@ac, 'Student', @tt, @amt, @part, @vno, @td, @user, @tl, @fo, '-', 'UGX', @amt, 0, 1, @amt)",
+                            conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@ac",   regno);
+                            cmd.Parameters.AddWithValue("@tt",   glType);
+                            cmd.Parameters.AddWithValue("@amt",  amount);
+                            cmd.Parameters.AddWithValue("@part", glParticulars);
+                            cmd.Parameters.AddWithValue("@vno",  newTID);
+                            cmd.Parameters.AddWithValue("@td",   transDate.ToString("yyyy-MM-dd"));
+                            cmd.Parameters.AddWithValue("@user", GetCurrentUser());
+                            cmd.Parameters.AddWithValue("@tl",   DateTime.Now);
+                            cmd.Parameters.AddWithValue("@fo",   regno);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    tx.Commit();
+                }
+                catch
+                {
+                    tx.Rollback();
+                    throw;
                 }
             }
 
@@ -912,22 +1044,75 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                     newDetail: detail, newTransDate: transDate, newAcadYear: acadYear,
                     newSemester: semester, newPostStatus: postStatus);
 
-                string sql = @"UPDATE fin_studentfeestracking SET 
-                    trans_type=@tt, item_code=@ic, amount=@a, detail=@d, trans_date=@dt, 
-                    acadyear=@y, semester=@s, post_status=@ps 
-                    WHERE TID=@tid";
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                // Read the original regno (needed for GL sync)
+                string origRegno = "";
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT regno FROM fin_studentfeestracking WHERE TID=@tid", conn))
                 {
-                    cmd.Parameters.AddWithValue("@tt", transType);
-                    cmd.Parameters.AddWithValue("@ic", itemCode);
-                    cmd.Parameters.AddWithValue("@a", amount);
-                    cmd.Parameters.AddWithValue("@d", detail);
-                    cmd.Parameters.AddWithValue("@dt", transDate);
-                    cmd.Parameters.AddWithValue("@y", acadYear);
-                    cmd.Parameters.AddWithValue("@s", semester);
-                    cmd.Parameters.AddWithValue("@ps", postStatus);
                     cmd.Parameters.AddWithValue("@tid", tid);
-                    int rows = cmd.ExecuteNonQuery();
+                    object r = cmd.ExecuteScalar();
+                    if (r != null && r != DBNull.Value) origRegno = r.ToString();
+                }
+
+                MySqlTransaction tx = conn.BeginTransaction();
+                try
+                {
+                    // 1. Update fin_studentfeestracking
+                    string sql = @"UPDATE fin_studentfeestracking SET 
+                        trans_type=@tt, item_code=@ic, amount=@a, detail=@d, trans_date=@dt, 
+                        acadyear=@y, semester=@s, post_status=@ps 
+                        WHERE TID=@tid";
+                    int rows;
+                    using (MySqlCommand cmd = new MySqlCommand(sql, conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@tt", transType);
+                        cmd.Parameters.AddWithValue("@ic", itemCode);
+                        cmd.Parameters.AddWithValue("@a", amount);
+                        cmd.Parameters.AddWithValue("@d", detail);
+                        cmd.Parameters.AddWithValue("@dt", transDate);
+                        cmd.Parameters.AddWithValue("@y", acadYear);
+                        cmd.Parameters.AddWithValue("@s", semester);
+                        cmd.Parameters.AddWithValue("@ps", postStatus);
+                        cmd.Parameters.AddWithValue("@tid", tid);
+                        rows = cmd.ExecuteNonQuery();
+                    }
+
+                    // 2. Sync fin_ledger: remove old GL entry then re-insert with updated values
+                    using (MySqlCommand cmd = new MySqlCommand(
+                        "DELETE FROM fin_ledger WHERE voucherNo=@vno AND accountcode=@ac AND account_type='Student'", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@vno", tid);
+                        cmd.Parameters.AddWithValue("@ac", origRegno);
+                        cmd.ExecuteNonQuery();
+                    }
+                    if (postStatus == "Posted" && !string.IsNullOrEmpty(origRegno))
+                    {
+                        string glType = (transType == "Payment") ? "CR" : "DR";
+                        string itemText2 = ddlEditBillItem.SelectedItem != null ? ddlEditBillItem.SelectedItem.Text : billItemVal;
+                        string glParticulars = string.IsNullOrEmpty(detail) ? itemText2 : detail;
+                        using (MySqlCommand cmd = new MySqlCommand(@"
+                            INSERT INTO fin_ledger
+                                (accountcode, account_type, transactionType, transaction_amount, particulars,
+                                 voucherNo, transactionDate, teller, timeLog, folio,
+                                 journal_no, trans_currency, actual_amount, curr_balance, forex_rate, ugx_amount)
+                            VALUES (@ac, 'Student', @tt, @amt, @part, @vno, @td, @user, @tl, @fo, '-', 'UGX', @amt, 0, 1, @amt)",
+                            conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@ac",   origRegno);
+                            cmd.Parameters.AddWithValue("@tt",   glType);
+                            cmd.Parameters.AddWithValue("@amt",  amount);
+                            cmd.Parameters.AddWithValue("@part", glParticulars);
+                            cmd.Parameters.AddWithValue("@vno",  tid);
+                            cmd.Parameters.AddWithValue("@td",   transDate.ToString("yyyy-MM-dd"));
+                            cmd.Parameters.AddWithValue("@user", GetCurrentUser());
+                            cmd.Parameters.AddWithValue("@tl",   DateTime.Now);
+                            cmd.Parameters.AddWithValue("@fo",   origRegno);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    tx.Commit();
+
                     if (rows > 0)
                     {
                         string itemText = ddlEditBillItem.SelectedItem != null ? ddlEditBillItem.SelectedItem.Text : billItemVal;
@@ -939,6 +1124,11 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                         ShowToast("Transaction #" + tid + " was not found.", false);
                     }
                 }
+                catch
+                {
+                    tx.Rollback();
+                    throw;
+                }
             }
             LoadTransactions();
         }
@@ -946,6 +1136,105 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         {
             ShowToast("Error updating: " + Server.HtmlEncode(ex.Message), false);
             OpenEditModalAfterPostback();
+        }
+    }
+
+    // ====================================================================
+    // Remove Orphaned GL Entry
+    // ====================================================================
+    protected void btnRemoveFromGL_Click(object sender, EventArgs e)
+    {
+        string glTidStr = hfRemoveGLTID.Value.Trim();
+        int glTid;
+        if (!int.TryParse(glTidStr, out glTid) || glTid <= 0)
+        { ShowToast("Invalid GL entry ID.", false); return; }
+
+        string glCategory    = hfDeleteCategory.Value.Trim();
+        string glExplanation = hfDeleteExplanation.Value.Trim();
+        // Provide a sensible fallback if somehow no category was captured
+        if (string.IsNullOrEmpty(glCategory)) glCategory = "Removed via admin GL cleanup";
+
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+
+                // Read the GL row before deleting — for archiving purposes
+                string selectSql =
+                    "SELECT accountcode, transactionType, transaction_amount, particulars,"
+                  + " transactionDate FROM fin_ledger"
+                  + " WHERE TID=@tid";
+                string regno = ""; string txType = ""; decimal amount = 0;
+                using (MySqlCommand sel = new MySqlCommand(selectSql, conn))
+                {
+                    sel.Parameters.AddWithValue("@tid", glTid);
+                    using (MySqlDataReader r = sel.ExecuteReader())
+                    {
+                        if (r.Read())
+                        {
+                            regno  = r["accountcode"].ToString();
+                            txType = r["transactionType"].ToString();
+                            amount = r["transaction_amount"] != DBNull.Value
+                                   ? Convert.ToDecimal(r["transaction_amount"]) : 0;
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(regno))
+                { ShowToast("GL entry #" + glTid + " not found.", false); return; }
+
+                // Archive to fin_deleted_transactions — auto-create table if needed, then insert.
+                string glArchiveWarning = null;
+                try
+                {
+                    EnsureDeletedTransactionsTable(conn);
+                    string archiveSql =
+                        "INSERT INTO fin_deleted_transactions"
+                      + " (original_tid, regno, trans_type, item_code, amount, detail,"
+                      + "  trans_date, acadyear, semester, post_status,"
+                      + "  deleted_by, deleted_at, delete_category, delete_reason, ip_address)"
+                      + " SELECT @glTid, accountcode,"
+                      + "   CASE WHEN transactionType='CR' THEN 'Payment' ELSE 'Bill' END,"
+                      + "   NULL, transaction_amount, particulars,"
+                      + "   transactionDate, NULL, NULL, 'Posted',"
+                      + "   @user, NOW(), @cat, @expl, @ip"
+                      + " FROM fin_ledger WHERE TID=@glTid";
+                    using (MySqlCommand arc = new MySqlCommand(archiveSql, conn))
+                    {
+                        arc.Parameters.AddWithValue("@glTid", glTid);
+                        arc.Parameters.AddWithValue("@user",  GetCurrentUser());
+                        arc.Parameters.AddWithValue("@cat",   glCategory);
+                        arc.Parameters.AddWithValue("@expl",  string.IsNullOrEmpty(glExplanation) ? (object)DBNull.Value : glExplanation);
+                        arc.Parameters.AddWithValue("@ip",    Request.UserHostAddress ?? "");
+                        arc.ExecuteNonQuery();
+                    }
+                }
+                catch (Exception archEx)
+                {
+                    // Archive failed — continue so the GL row is still removed.
+                    glArchiveWarning = archEx.Message;
+                }
+
+                // Delete from fin_ledger
+                int rows;
+                using (MySqlCommand del = new MySqlCommand(
+                    "DELETE FROM fin_ledger WHERE TID=@tid", conn))
+                {
+                    del.Parameters.AddWithValue("@tid", glTid);
+                    rows = del.ExecuteNonQuery();
+                }
+
+                if (rows > 0)
+                    ShowToast("GL entry #" + glTid + " (" + regno + ") has been removed from the ledger.", true);
+                else
+                    ShowToast("GL entry #" + glTid + " was not found.", false);
+            }
+            LoadTransactions();
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Error removing GL entry: " + Server.HtmlEncode(ex.Message), false);
         }
     }
 
@@ -965,21 +1254,104 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             {
                 conn.Open();
 
-                // ---- Audit: capture BEFORE the DELETE ----
-                InsertAuditRecord(conn, tid, "DELETE");
+                // ---- Audit: capture BEFORE the DELETE (immutable log, outside tx) ----
+                string delCategory    = hfDeleteCategory.Value.Trim();
+                string delExplanation = hfDeleteExplanation.Value.Trim();
+                string auditReason    = string.IsNullOrEmpty(delCategory) ? null
+                    : (string.IsNullOrEmpty(delExplanation) ? delCategory : delCategory + " — " + delExplanation);
+                InsertAuditRecord(conn, tid, "DELETE", reason: auditReason);
 
-                using (MySqlCommand cmd = new MySqlCommand("DELETE FROM fin_studentfeestracking WHERE TID=@tid", conn))
+                // Read full row details before deleting — needed to match GL entries
+                // that were written independently (e.g. Airtel/MTN payments have a different
+                // voucherNo in fin_ledger than the TID in fin_studentfeestracking).
+                string delRegno = ""; string delDetail = ""; string delTransType = "";
+                decimal delAmount = 0; DateTime delDate = DateTime.MinValue;
+                using (MySqlCommand cmd = new MySqlCommand(
+                    @"SELECT regno, amount, trans_type, detail, trans_date
+                      FROM fin_studentfeestracking WHERE TID=@tid", conn))
                 {
                     cmd.Parameters.AddWithValue("@tid", tid);
-                    int rows = cmd.ExecuteNonQuery();
+                    using (MySqlDataReader r = cmd.ExecuteReader())
+                    {
+                        if (r.Read())
+                        {
+                            delRegno     = r["regno"]     != DBNull.Value ? r["regno"].ToString()     : "";
+                            delAmount    = r["amount"]    != DBNull.Value ? Convert.ToDecimal(r["amount"]) : 0;
+                            delTransType = r["trans_type"]!= DBNull.Value ? r["trans_type"].ToString() : "";
+                            delDetail    = r["detail"]    != DBNull.Value ? r["detail"].ToString()     : "";
+                            delDate      = r["trans_date"]!= DBNull.Value ? Convert.ToDateTime(r["trans_date"]) : DateTime.MinValue;
+                        }
+                    }
+                }
+
+                MySqlTransaction tx = conn.BeginTransaction();
+                string archiveWarning = null;
+                try
+                {
+                    // 0. Archive to fin_deleted_transactions — wrapped so a missing table or
+                    //    outdated schema NEVER prevents the actual delete from completing.
+                    try
+                    {
+                        ArchiveDeletedTransaction(conn, tx, tid, delCategory, delExplanation);
+                    }
+                    catch (Exception archEx)
+                    {
+                        // Archive failed (table missing or schema mismatch) — record warning
+                        // but continue so the row is still deleted.
+                        archiveWarning = archEx.Message;
+                    }
+
+                    // 1. Delete from fin_studentfeestracking
+                    int rows;
+                    using (MySqlCommand cmd = new MySqlCommand(
+                        "DELETE FROM fin_studentfeestracking WHERE TID=@tid", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@tid", tid);
+                        rows = cmd.ExecuteNonQuery();
+                    }
+
+                    // 2. Remove ALL matching GL entries from fin_ledger.
+                    //    Two cases handled in one DELETE:
+                    //    a) Admin-created entries: voucherNo = tracking TID (exact link)
+                    //    b) Airtel/MTN/AUTO entries written independently: matched by
+                    //       regno + amount + date + direction + description
+                    if (!string.IsNullOrEmpty(delRegno))
+                    {
+                        string glDirection = (delTransType == "Payment") ? "CR" : "DR";
+                        using (MySqlCommand cmd = new MySqlCommand(@"
+                            DELETE FROM fin_ledger
+                            WHERE accountcode = @ac
+                              AND (
+                                    voucherNo = @vno
+                                    OR (
+                                        transaction_amount = @amt
+                                        AND DATE(transactionDate) = @dt
+                                        AND transactionType = @dir
+                                        AND (particulars = @det OR @det = '')
+                                    )
+                              )", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@ac",  delRegno);
+                            cmd.Parameters.AddWithValue("@vno", tid);
+                            cmd.Parameters.AddWithValue("@amt", delAmount);
+                            cmd.Parameters.AddWithValue("@dt",  delDate == DateTime.MinValue ? (object)DBNull.Value : delDate.ToString("yyyy-MM-dd"));
+                            cmd.Parameters.AddWithValue("@dir", glDirection);
+                            cmd.Parameters.AddWithValue("@det", delDetail);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    tx.Commit();
+
                     if (rows > 0)
-                    {
                         ShowToast("Transaction #" + tid + " has been deleted.", true);
-                    }
                     else
-                    {
                         ShowToast("Transaction #" + tid + " was not found.", false);
-                    }
+                }
+                catch
+                {
+                    tx.Rollback();
+                    throw;
                 }
             }
             LoadTransactions();
@@ -991,13 +1363,105 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     }
 
     // ====================================================================
-    // Audit Trail Helper
+    // Archive + Audit Trail Helpers
     // ====================================================================
     private string GetCurrentUser()
     {
         if (Session["ScreenName"] != null) return Session["ScreenName"].ToString();
         if (Session["username"] != null) return Session["username"].ToString();
         return "Unknown";
+    }
+
+    /// <summary>
+    /// Ensures fin_deleted_transactions exists and has the delete_category column.
+    /// Creates the table if absent; adds delete_category if the column is missing.
+    /// Safe to call every time — uses IF NOT EXISTS / checks information_schema.
+    /// Uses the supplied connection (no transaction — DDL is auto-committed in MySQL).
+    /// </summary>
+    private void EnsureDeletedTransactionsTable(MySqlConnection conn)
+    {
+        // 1. Create the table if it does not exist at all
+        string createSql = @"
+            CREATE TABLE IF NOT EXISTS fin_deleted_transactions (
+                id              INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                original_tid    INT          NOT NULL,
+                regno           VARCHAR(20)  NOT NULL,
+                trans_type      VARCHAR(20)  NOT NULL,
+                item_code       INT          DEFAULT NULL,
+                amount          DOUBLE       NOT NULL,
+                detail          VARCHAR(500) DEFAULT NULL,
+                trans_date      DATE         DEFAULT NULL,
+                acadyear        VARCHAR(20)  DEFAULT NULL,
+                semester        INT          DEFAULT NULL,
+                post_status     VARCHAR(20)  DEFAULT NULL,
+                deleted_by      VARCHAR(100) NOT NULL,
+                deleted_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                delete_category VARCHAR(100) DEFAULT NULL,
+                delete_reason   VARCHAR(500) DEFAULT NULL,
+                ip_address      VARCHAR(50)  DEFAULT NULL,
+                INDEX idx_dt_regno        (regno),
+                INDEX idx_dt_original_tid (original_tid),
+                INDEX idx_dt_deleted_at   (deleted_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        using (MySqlCommand cmd = new MySqlCommand(createSql, conn))
+            cmd.ExecuteNonQuery();
+
+        // 2. Add delete_category column if the table existed but predates the column
+        string colCheckSql = @"
+            SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME   = 'fin_deleted_transactions'
+              AND COLUMN_NAME  = 'delete_category'";
+        long colCount;
+        using (MySqlCommand cmd = new MySqlCommand(colCheckSql, conn))
+            colCount = Convert.ToInt64(cmd.ExecuteScalar());
+
+        if (colCount == 0)
+        {
+            string alterSql = @"
+                ALTER TABLE fin_deleted_transactions
+                    ADD COLUMN delete_category VARCHAR(100) DEFAULT NULL
+                        COMMENT 'Reason category selected at delete time'
+                        AFTER deleted_at";
+            using (MySqlCommand cmd = new MySqlCommand(alterSql, conn))
+                cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>
+    /// Copies the full fin_studentfeestracking row into the dedicated fin_deleted_transactions
+    /// archive table.  Called inside the delete transaction so the archive is atomic with
+    /// the actual delete — if the delete rolls back, this archive entry is also rolled back.
+    /// </summary>
+    private void ArchiveDeletedTransaction(MySqlConnection conn, MySqlTransaction tx, int tid,
+        string deleteCategory = null, string deleteExplanation = null)
+    {
+        // Guarantee the archive table (and delete_category column) exist before inserting.
+        EnsureDeletedTransactionsTable(conn);
+
+        // INSERT...SELECT pulls all source columns in one round-trip.
+        // The row still exists in fin_studentfeestracking at this point (it is deleted afterwards).
+        string archiveSql = @"
+            INSERT INTO fin_deleted_transactions
+                (original_tid, regno, trans_type, item_code, amount, detail,
+                 trans_date, acadyear, semester, post_status,
+                 deleted_by, deleted_at, delete_category, delete_reason, ip_address)
+            SELECT
+                TID, regno, trans_type, item_code, amount, detail,
+                trans_date, acadyear, semester, post_status,
+                @user, NOW(), @cat, @expl, @ip
+            FROM fin_studentfeestracking
+            WHERE TID = @tid";
+
+        using (MySqlCommand cmd = new MySqlCommand(archiveSql, conn, tx))
+        {
+            cmd.Parameters.AddWithValue("@tid",  tid);
+            cmd.Parameters.AddWithValue("@user", GetCurrentUser());
+            cmd.Parameters.AddWithValue("@cat",  string.IsNullOrEmpty(deleteCategory)   ? (object)DBNull.Value : deleteCategory);
+            cmd.Parameters.AddWithValue("@expl", string.IsNullOrEmpty(deleteExplanation) ? (object)DBNull.Value : deleteExplanation);
+            cmd.Parameters.AddWithValue("@ip",   Request.UserHostAddress ?? "");
+            cmd.ExecuteNonQuery();
+        }
     }
 
     /// <summary>
@@ -1153,5 +1617,705 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
 
         sb.Append("</div>");
         return sb.ToString();
+    }
+
+    // ====================================================================
+    // GL SYNC — AJAX endpoints for scanning and fixing orphan entries
+    // Centralised logic: detect fin_studentfeestracking rows with
+    // post_status = 'Posted' that have no matching fin_ledger row,
+    // plus fin_ledger rows with wrong account_type.
+    // ====================================================================
+    private void HandleGLSync(string action)
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+        try
+        {
+            if (action == "glsync_scan")
+                GLSync_Scan();
+            else if (action == "glsync_fix")
+                GLSync_Fix();
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"ok\":false,\"error\":\"" + JsEsc(ex.Message) + "\"}");
+        }
+        Response.End();
+    }
+
+    /// <summary>
+    /// Scan: detect orphan tracking rows and wrong account_type rows — read-only.
+    /// Returns JSON with counts and sample rows for display.
+    /// </summary>
+    private void GLSync_Scan()
+    {
+        var json = new StringBuilder();
+        json.Append("{\"ok\":true,");
+
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+
+            // 1. Count orphan tracking rows (Posted but no matching GL entry)
+            string orphanCountSql =
+                "SELECT COUNT(*) FROM fin_studentfeestracking fst " +
+                "WHERE fst.post_status = 'Posted' AND fst.amount > 0 " +
+                "AND NOT EXISTS (" +
+                "  SELECT 1 FROM fin_ledger fl " +
+                "  WHERE fl.accountcode = fst.regno " +
+                "  AND fl.transaction_amount = fst.amount " +
+                "  AND DATE(fl.transactionDate) = DATE(fst.trans_date) " +
+                "  AND fl.transactionType = CASE WHEN fst.trans_type IN ('Payment','Waiver') THEN 'CR' ELSE 'DR' END " +
+                "  AND (fl.particulars = fst.detail OR fl.voucherNo = fst.TID OR fl.folio = CONCAT('BillNo:', fst.TID))" +
+                ")";
+            long orphanCount = 0;
+            using (var cmd = new MySqlCommand(orphanCountSql, conn))
+            {
+                cmd.CommandTimeout = 120;
+                orphanCount = Convert.ToInt64(cmd.ExecuteScalar());
+            }
+
+            // 2. Count wrong account_type rows
+            string wrongTypeCountSql =
+                "SELECT COUNT(*) FROM fin_ledger fl " +
+                "INNER JOIN campus_dynamics.acad_student s ON s.regno = fl.accountcode " +
+                "WHERE fl.account_type NOT IN ('Student', 'Chart Account')";
+            long wrongTypeCount = 0;
+            using (var cmd = new MySqlCommand(wrongTypeCountSql, conn))
+            {
+                cmd.CommandTimeout = 120;
+                wrongTypeCount = Convert.ToInt64(cmd.ExecuteScalar());
+            }
+
+            // 3. Sample orphan rows (max 50 for preview)
+            string sampleSql =
+                "SELECT fst.TID, fst.regno, fst.trans_type, fst.amount, " +
+                "LEFT(fst.detail, 80) AS detail, DATE_FORMAT(fst.trans_date,'%Y-%m-%d') AS trans_date, " +
+                "fst.acadyear, fst.semester " +
+                "FROM fin_studentfeestracking fst " +
+                "WHERE fst.post_status = 'Posted' AND fst.amount > 0 " +
+                "AND NOT EXISTS (" +
+                "  SELECT 1 FROM fin_ledger fl " +
+                "  WHERE fl.accountcode = fst.regno " +
+                "  AND fl.transaction_amount = fst.amount " +
+                "  AND DATE(fl.transactionDate) = DATE(fst.trans_date) " +
+                "  AND fl.transactionType = CASE WHEN fst.trans_type IN ('Payment','Waiver') THEN 'CR' ELSE 'DR' END " +
+                "  AND (fl.particulars = fst.detail OR fl.voucherNo = fst.TID OR fl.folio = CONCAT('BillNo:', fst.TID))" +
+                ") ORDER BY fst.trans_date DESC LIMIT 50";
+            var rows = new List<string>();
+            using (var cmd = new MySqlCommand(sampleSql, conn))
+            {
+                cmd.CommandTimeout = 120;
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        rows.Add(string.Format(
+                            "{{\"tid\":{0},\"regno\":\"{1}\",\"type\":\"{2}\",\"amount\":{3}," +
+                            "\"detail\":\"{4}\",\"date\":\"{5}\",\"year\":\"{6}\",\"sem\":{7}}}",
+                            rdr["TID"], JsEsc(rdr["regno"].ToString()), JsEsc(rdr["trans_type"].ToString()),
+                            rdr["amount"], JsEsc(rdr["detail"].ToString()), rdr["trans_date"],
+                            JsEsc(rdr["acadyear"].ToString()), rdr["semester"]));
+                    }
+                }
+            }
+
+            // 4. Sample wrong-type rows (max 20)
+            string wrongSampleSql =
+                "SELECT fl.TID, fl.accountcode, fl.account_type, fl.transactionType, " +
+                "fl.transaction_amount, DATE_FORMAT(fl.transactionDate,'%Y-%m-%d') AS tdate " +
+                "FROM fin_ledger fl " +
+                "INNER JOIN campus_dynamics.acad_student s ON s.regno = fl.accountcode " +
+                "WHERE fl.account_type NOT IN ('Student', 'Chart Account') " +
+                "ORDER BY fl.transactionDate DESC LIMIT 20";
+            var wrongRows = new List<string>();
+            using (var cmd = new MySqlCommand(wrongSampleSql, conn))
+            {
+                cmd.CommandTimeout = 120;
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        wrongRows.Add(string.Format(
+                            "{{\"tid\":{0},\"regno\":\"{1}\",\"wrongType\":\"{2}\",\"txType\":\"{3}\"," +
+                            "\"amount\":{4},\"date\":\"{5}\"}}",
+                            rdr["TID"], JsEsc(rdr["accountcode"].ToString()),
+                            JsEsc(rdr["account_type"].ToString()), rdr["transactionType"],
+                            rdr["transaction_amount"], rdr["tdate"]));
+                    }
+                }
+            }
+
+            json.AppendFormat("\"orphanCount\":{0},\"wrongTypeCount\":{1},", orphanCount, wrongTypeCount);
+            json.Append("\"orphanSample\":[" + string.Join(",", rows.ToArray()) + "],");
+            json.Append("\"wrongTypeSample\":[" + string.Join(",", wrongRows.ToArray()) + "]}");
+        }
+
+        Response.Write(json.ToString());
+    }
+
+    /// <summary>
+    /// Fix: insert missing GL entries and normalise account_type — write operation.
+    /// Returns JSON with counts of rows affected.
+    /// </summary>
+    private void GLSync_Fix()
+    {
+        var json = new StringBuilder();
+        int inserted = 0, normalised = 0;
+
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (var tx = conn.BeginTransaction())
+            {
+                try
+                {
+                    // Step 1: Insert missing GL entries
+                    string insertSql =
+                        "INSERT INTO fin_ledger " +
+                        "(accountcode, account_type, transactionType, transaction_amount, " +
+                        " particulars, voucherNo, transactionDate, teller, timeLog, " +
+                        " folio, journal_no, trans_currency, actual_amount, " +
+                        " curr_balance, forex_rate, ugx_amount) " +
+                        "SELECT fst.regno, 'Student', " +
+                        " CASE WHEN fst.trans_type IN ('Payment','Waiver') THEN 'CR' ELSE 'DR' END, " +
+                        " fst.amount, " +
+                        " IFNULL(fst.detail, CONCAT(fst.trans_type, ' TID ', fst.TID)), " +
+                        " fst.TID, fst.trans_date, 'GLSync', NOW(), fst.regno, " +
+                        " CONCAT('Sync:', fst.TID), 'UGX', fst.amount, 0, 1, fst.amount " +
+                        "FROM fin_studentfeestracking fst " +
+                        "WHERE fst.post_status = 'Posted' AND fst.amount > 0 " +
+                        "AND NOT EXISTS (" +
+                        "  SELECT 1 FROM fin_ledger fl " +
+                        "  WHERE fl.accountcode = fst.regno " +
+                        "  AND fl.transaction_amount = fst.amount " +
+                        "  AND DATE(fl.transactionDate) = DATE(fst.trans_date) " +
+                        "  AND fl.transactionType = CASE WHEN fst.trans_type IN ('Payment','Waiver') THEN 'CR' ELSE 'DR' END " +
+                        "  AND (fl.particulars = fst.detail OR fl.voucherNo = fst.TID OR fl.folio = CONCAT('BillNo:', fst.TID))" +
+                        ")";
+                    using (var cmd = new MySqlCommand(insertSql, conn, tx))
+                    {
+                        cmd.CommandTimeout = 300;
+                        inserted = cmd.ExecuteNonQuery();
+                    }
+
+                    // Step 2: Normalise account_type
+                    string normSql =
+                        "UPDATE fin_ledger fl " +
+                        "INNER JOIN campus_dynamics.acad_student s ON s.regno = fl.accountcode " +
+                        "SET fl.account_type = 'Student' " +
+                        "WHERE fl.account_type NOT IN ('Student', 'Chart Account')";
+                    using (var cmd = new MySqlCommand(normSql, conn, tx))
+                    {
+                        cmd.CommandTimeout = 300;
+                        normalised = cmd.ExecuteNonQuery();
+                    }
+
+                    tx.Commit();
+                }
+                catch
+                {
+                    tx.Rollback();
+                    throw;
+                }
+            }
+        }
+
+        json.AppendFormat("{{\"ok\":true,\"inserted\":{0},\"normalised\":{1}}}", inserted, normalised);
+        Response.Write(json.ToString());
+    }
+
+    // ====================================================================
+    //  BATCH DOUBLE-BILLING FIX — Admin 3-Step Wizard
+    //
+    //  Step 1 — batchdup_scan: Detect ALL student accounts that have
+    //           duplicate billing (system-wide). Returns the affected
+    //           account list with per-account dup counts and amounts.
+    //
+    //  Step 2 — batchdup_fix_one: Fix ONE student account at a time.
+    //           Frontend calls this repeatedly for each affected account,
+    //           monitoring live progress via sequential AJAX calls.
+    //
+    //  Detection reuses the exact same 3-method logic as the student
+    //  portal Fix Double Billing (tracking_ref, folio, GLSync).
+    //  Deleted rows are archived by the trg_fin_ledger_before_delete
+    //  trigger to fin_deleted_ledger.
+    // ====================================================================
+
+    private void HandleBatchDupFix(string action)
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+        try
+        {
+            if (action == "batchdup_scan")
+                BatchDup_Scan();
+            else if (action == "batchdup_fix_one")
+                BatchDup_FixOne();
+        }
+        catch (System.Threading.ThreadAbortException) { /* Response.End */ }
+        catch (Exception ex)
+        {
+            try { Response.Write("{\"ok\":false,\"error\":\"" + JsEsc(ex.Message) + "\"}"); }
+            catch { }
+        }
+        try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    //  SCAN: System-wide duplicate detection across all student accounts
+    // ────────────────────────────────────────────────────────────────────
+    private void BatchDup_Scan()
+    {
+        var json = new StringBuilder();
+        json.Append("{\"ok\":true,");
+
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+
+            // System-wide health summary
+            long totalStudents = 0, totalLedger = 0;
+            using (var cmd = new MySqlCommand(
+                "SELECT COUNT(DISTINCT accountcode) FROM fin_ledger WHERE account_type='Student'", conn))
+            {
+                cmd.CommandTimeout = 60;
+                totalStudents = Convert.ToInt64(cmd.ExecuteScalar());
+            }
+            using (var cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM fin_ledger WHERE account_type='Student'", conn))
+            {
+                cmd.CommandTimeout = 60;
+                totalLedger = Convert.ToInt64(cmd.ExecuteScalar());
+            }
+
+            // Method 1: tracking_ref duplicates — system wide
+            const string m1Sql =
+                "SELECT l.accountcode AS regno, COUNT(*) AS cnt, SUM(l.transaction_amount) AS amt " +
+                "FROM fin_ledger l " +
+                "INNER JOIN ( " +
+                "  SELECT tracking_ref, transactionType, accountcode, MIN(TID) AS keep_tid " +
+                "  FROM fin_ledger " +
+                "  WHERE account_type = 'Student' AND tracking_ref IS NOT NULL " +
+                "  GROUP BY tracking_ref, transactionType, accountcode " +
+                "  HAVING COUNT(*) > 1 " +
+                ") dup ON l.tracking_ref = dup.tracking_ref " +
+                "     AND l.transactionType = dup.transactionType " +
+                "     AND l.accountcode = dup.accountcode " +
+                "     AND l.TID > dup.keep_tid " +
+                "WHERE l.account_type = 'Student' " +
+                "GROUP BY l.accountcode";
+
+            // Accumulate affected accounts
+            var affectedMap = new Dictionary<string, long[]>(); // regno => [dupCount, dupDrAmt]
+
+            using (var cmd = new MySqlCommand(m1Sql, conn))
+            {
+                cmd.CommandTimeout = 120;
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        string reg = rdr["regno"].ToString();
+                        long cnt = Convert.ToInt64(rdr["cnt"]);
+                        long amt = rdr["amt"] != DBNull.Value ? Convert.ToInt64(rdr["amt"]) : 0;
+                        if (!affectedMap.ContainsKey(reg))
+                            affectedMap[reg] = new long[] { 0, 0 };
+                        affectedMap[reg][0] += cnt;
+                        affectedMap[reg][1] += amt;
+                    }
+                }
+            }
+
+            // Method 2: folio duplicates — system wide
+            const string m2Sql =
+                "SELECT l.accountcode AS regno, COUNT(*) AS cnt, SUM(l.transaction_amount) AS amt " +
+                "FROM fin_ledger l " +
+                "INNER JOIN ( " +
+                "  SELECT folio, transactionType, accountcode, MIN(TID) AS keep_tid " +
+                "  FROM fin_ledger " +
+                "  WHERE account_type = 'Student' AND folio LIKE 'BillNo:%' " +
+                "  GROUP BY folio, transactionType, accountcode " +
+                "  HAVING COUNT(*) > 1 " +
+                ") dup ON l.folio = dup.folio " +
+                "     AND l.transactionType = dup.transactionType " +
+                "     AND l.accountcode = dup.accountcode " +
+                "     AND l.TID > dup.keep_tid " +
+                "WHERE l.account_type = 'Student' " +
+                "GROUP BY l.accountcode";
+
+            using (var cmd = new MySqlCommand(m2Sql, conn))
+            {
+                cmd.CommandTimeout = 120;
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        string reg = rdr["regno"].ToString();
+                        long cnt = Convert.ToInt64(rdr["cnt"]);
+                        long amt = rdr["amt"] != DBNull.Value ? Convert.ToInt64(rdr["amt"]) : 0;
+                        if (!affectedMap.ContainsKey(reg))
+                            affectedMap[reg] = new long[] { 0, 0 };
+                        // Note: may overlap with M1, that's fine — per-account fix
+                        // will de-dup via HashSet<long> exactly like student portal
+                        affectedMap[reg][0] += cnt;
+                        affectedMap[reg][1] += amt;
+                    }
+                }
+            }
+
+            // Method 3: GLSync remnants — system wide
+            const string m3Sql =
+                "SELECT g.accountcode AS regno, COUNT(*) AS cnt, SUM(g.transaction_amount) AS amt " +
+                "FROM fin_ledger g " +
+                "WHERE g.account_type = 'Student' AND g.teller = 'GLSync' " +
+                "  AND EXISTS ( " +
+                "    SELECT 1 FROM fin_ledger o " +
+                "    WHERE o.accountcode = g.accountcode AND o.account_type = 'Student' " +
+                "      AND o.transactionType = g.transactionType " +
+                "      AND o.teller <> 'GLSync' AND o.TID <> g.TID " +
+                "      AND (o.folio = CONCAT('BillNo:', g.voucherNo) " +
+                "        OR (o.tracking_ref IS NOT NULL AND g.tracking_ref IS NOT NULL " +
+                "            AND o.tracking_ref = g.tracking_ref) " +
+                "        OR (o.transaction_amount = g.transaction_amount " +
+                "            AND o.transactionDate = g.transactionDate " +
+                "            AND o.folio LIKE 'BillNo:%')) " +
+                "  ) " +
+                "GROUP BY g.accountcode";
+
+            using (var cmd = new MySqlCommand(m3Sql, conn))
+            {
+                cmd.CommandTimeout = 120;
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        string reg = rdr["regno"].ToString();
+                        long cnt = Convert.ToInt64(rdr["cnt"]);
+                        long amt = rdr["amt"] != DBNull.Value ? Convert.ToInt64(rdr["amt"]) : 0;
+                        if (!affectedMap.ContainsKey(reg))
+                            affectedMap[reg] = new long[] { 0, 0 };
+                        affectedMap[reg][0] += cnt;
+                        affectedMap[reg][1] += amt;
+                    }
+                }
+            }
+
+            // Method 4: BATCH billing duplicates — entries with BATCH in particulars
+            // that duplicate a non-BATCH entry for the same fee type on the same account
+            const string m4Sql =
+                "SELECT b.accountcode AS regno, COUNT(*) AS cnt, SUM(b.transaction_amount) AS amt " +
+                "FROM fin_ledger b " +
+                "WHERE b.account_type = 'Student' AND b.transactionType = 'DR' " +
+                "  AND b.particulars LIKE '%BATCH%' " +
+                "  AND EXISTS ( " +
+                "    SELECT 1 FROM fin_ledger o " +
+                "    WHERE o.accountcode = b.accountcode AND o.account_type = 'Student' " +
+                "      AND o.transactionType = 'DR' AND o.TID <> b.TID " +
+                "      AND o.particulars NOT LIKE '%BATCH%' " +
+                "      AND LEFT(REPLACE(b.particulars, ' BATCH', ''), 30) = LEFT(o.particulars, 30) " +
+                "  ) " +
+                "GROUP BY b.accountcode";
+
+            using (var cmd = new MySqlCommand(m4Sql, conn))
+            {
+                cmd.CommandTimeout = 120;
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        string reg = rdr["regno"].ToString();
+                        long cnt = Convert.ToInt64(rdr["cnt"]);
+                        long amt = rdr["amt"] != DBNull.Value ? Convert.ToInt64(rdr["amt"]) : 0;
+                        if (!affectedMap.ContainsKey(reg))
+                            affectedMap[reg] = new long[] { 0, 0 };
+                        affectedMap[reg][0] += cnt;
+                        affectedMap[reg][1] += amt;
+                    }
+                }
+            }
+
+            // UNIQUE index check
+            bool hasIdx = false;
+            using (var cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM information_schema.STATISTICS " +
+                "WHERE TABLE_SCHEMA='campus_dynamics_accounts' AND TABLE_NAME='fin_ledger' " +
+                "AND INDEX_NAME='uq_billing_entry'", conn))
+            {
+                cmd.CommandTimeout = 10;
+                hasIdx = Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+            }
+
+            // Fetch student names for affected accounts (batch lookup)
+            var nameMap = new Dictionary<string, string>();
+            if (affectedMap.Count > 0)
+            {
+                var regList = new List<string>();
+                foreach (var k in affectedMap.Keys) regList.Add("'" + k.Replace("'", "''") + "'");
+                string namesSql = "SELECT regno, TRIM(CONCAT(COALESCE(firstname,''),' ',COALESCE(othername,''))) AS fullname " +
+                    "FROM campus_dynamics.acad_student WHERE regno IN (" +
+                    string.Join(",", regList.ToArray()) + ")";
+                using (var cmd = new MySqlCommand(namesSql, conn))
+                {
+                    cmd.CommandTimeout = 30;
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        while (rdr.Read())
+                            nameMap[rdr["regno"].ToString()] = rdr["fullname"].ToString();
+                    }
+                }
+            }
+
+            // Build accounts array
+            long grandTotalDups = 0, grandTotalAmt = 0;
+            var accountsJson = new List<string>();
+            foreach (var kv in affectedMap)
+            {
+                string name = nameMap.ContainsKey(kv.Key) ? nameMap[kv.Key] : "";
+                grandTotalDups += kv.Value[0];
+                grandTotalAmt += kv.Value[1];
+                accountsJson.Add(string.Format(
+                    "{{\"regno\":\"{0}\",\"name\":\"{1}\",\"dupCount\":{2},\"dupAmount\":{3}}}",
+                    JsEsc(kv.Key), JsEsc(name), kv.Value[0], kv.Value[1]));
+            }
+
+            json.AppendFormat("\"totalStudents\":{0},\"totalLedger\":{1},", totalStudents, totalLedger);
+            json.AppendFormat("\"affectedCount\":{0},", affectedMap.Count);
+            json.AppendFormat("\"grandTotalDups\":{0},\"grandTotalAmount\":{1},", grandTotalDups, grandTotalAmt);
+            json.AppendFormat("\"uniqueIndexActive\":{0},", hasIdx ? "true" : "false");
+            json.Append("\"accounts\":[" + string.Join(",", accountsJson.ToArray()) + "]}");
+        }
+
+        Response.Write(json.ToString());
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    //  FIX ONE: Fix duplicates for a single student account
+    //  Called repeatedly from frontend for each affected account.
+    //  Uses the EXACT same 3-method detection as the student portal.
+    // ────────────────────────────────────────────────────────────────────
+    private void BatchDup_FixOne()
+    {
+        string regno = Request.QueryString["regno"];
+        if (string.IsNullOrEmpty(regno))
+        {
+            Response.Write("{\"ok\":false,\"error\":\"Missing regno parameter.\"}");
+            return;
+        }
+
+        int deleted = 0;
+        decimal balBefore = 0, balAfter = 0;
+
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+
+            // Balance before fix
+            balBefore = BD_ComputeBalance(conn, regno);
+
+            // Detect duplicates using the same 3-method approach
+            var dupTids = new HashSet<long>();
+            long dupDrAmount = 0;
+            int m1, m2, m3, m4;
+            BD_DetectDuplicates(conn, regno, dupTids, ref dupDrAmount, out m1, out m2, out m3, out m4);
+
+            if (dupTids.Count > 0)
+            {
+                // Delete in batches of 500
+                var tidList = new List<long>(dupTids);
+                for (int i = 0; i < tidList.Count; i += 500)
+                {
+                    int end = Math.Min(i + 500, tidList.Count);
+                    var batch = tidList.GetRange(i, end - i);
+                    var batchStr = new List<string>();
+                    foreach (long t in batch) batchStr.Add(t.ToString());
+                    string delSql = "DELETE FROM fin_ledger WHERE TID IN (" +
+                        string.Join(",", batchStr.ToArray()) + ")";
+                    using (var cmd = new MySqlCommand(delSql, conn))
+                    {
+                        cmd.CommandTimeout = 120;
+                        deleted += cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+
+            // Balance after fix
+            balAfter = BD_ComputeBalance(conn, regno);
+
+            Response.Write(string.Format(
+                "{{\"ok\":true,\"regno\":\"{0}\",\"deleted\":{1}," +
+                "\"m1\":{2},\"m2\":{3},\"m3\":{4},\"m4\":{5}," +
+                "\"balBefore\":\"{6}\",\"balAfter\":\"{7}\",\"archived\":true}}",
+                JsEsc(regno), deleted, m1, m2, m3, m4,
+                JsEsc(BD_FormatBalance(balBefore)),
+                JsEsc(BD_FormatBalance(balAfter))));
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    //  BATCH DUP — Shared helpers (BD_ prefix to avoid collision)
+    //  Exact same SQL logic as StudentFees.aspx.cs but scoped to admin
+    // ────────────────────────────────────────────────────────────────────
+
+    private decimal BD_ComputeBalance(MySqlConnection conn, string regno)
+    {
+        const string sql =
+            "SELECT " +
+            "  IFNULL(SUM(CASE WHEN transactionType='DR' THEN transaction_amount ELSE 0 END),0) - " +
+            "  IFNULL(SUM(CASE WHEN transactionType='CR' THEN transaction_amount ELSE 0 END),0) AS bal " +
+            "FROM ( " +
+            "  SELECT transactionType, transaction_amount FROM fin_ledger " +
+            "  WHERE accountcode = @reg AND account_type = 'Student' AND transaction_amount > 0 " +
+            "  UNION ALL " +
+            "  SELECT 'DR' AS transactionType, t.amount AS transaction_amount " +
+            "  FROM fin_studentfeestracking t " +
+            "  WHERE t.regno = @reg AND t.trans_type = 'Bill' AND t.post_status = 'Posted' " +
+            "    AND NOT EXISTS ( " +
+            "      SELECT 1 FROM fin_ledger l WHERE l.accountcode = t.regno " +
+            "        AND l.account_type='Student' AND l.transactionType='DR' " +
+            "        AND l.voucherNo = CAST(t.TID AS CHAR)) " +
+            "    AND NOT EXISTS ( " +
+            "      SELECT 1 FROM fin_ledger l WHERE l.accountcode = t.regno " +
+            "        AND l.account_type='Student' AND l.transactionType='DR' " +
+            "        AND l.folio = CONCAT('BillNo:', t.TID)) " +
+            "    AND NOT EXISTS ( " +
+            "      SELECT 1 FROM fin_ledger l WHERE l.accountcode = t.regno " +
+            "        AND l.account_type='Student' AND l.transactionType='DR' " +
+            "        AND l.transaction_amount = t.amount " +
+            "        AND DATE(l.transactionDate) = DATE(t.trans_date) " +
+            "        AND (l.particulars = t.detail OR t.detail IS NULL OR t.detail = '')) " +
+            ") combined";
+
+        using (var cmd = new MySqlCommand(sql, conn))
+        {
+            cmd.CommandTimeout = 30;
+            cmd.Parameters.AddWithValue("@reg", regno);
+            object val = cmd.ExecuteScalar();
+            return (val != null && val != DBNull.Value) ? Convert.ToDecimal(val) : 0;
+        }
+    }
+
+    private static string BD_FormatBalance(decimal balance)
+    {
+        if (balance > 0) return "UGX " + balance.ToString("N0");
+        if (balance < 0) return "UGX " + Math.Abs(balance).ToString("N0") + " CR";
+        return "UGX 0";
+    }
+
+    private void BD_DetectDuplicates(MySqlConnection conn, string regno,
+        HashSet<long> dupTids, ref long dupDrAmount,
+        out int m1, out int m2, out int m3, out int m4)
+    {
+        // Method 1: tracking_ref duplicates
+        const string sql1 =
+            "SELECT l.TID, l.transaction_amount AS amt, l.transactionType " +
+            "FROM fin_ledger l " +
+            "INNER JOIN ( " +
+            "  SELECT tracking_ref, transactionType, MIN(TID) AS keep_tid " +
+            "  FROM fin_ledger " +
+            "  WHERE accountcode = @reg AND account_type = 'Student' " +
+            "    AND tracking_ref IS NOT NULL " +
+            "  GROUP BY tracking_ref, transactionType " +
+            "  HAVING COUNT(*) > 1 " +
+            ") dup ON l.tracking_ref = dup.tracking_ref " +
+            "     AND l.transactionType = dup.transactionType " +
+            "     AND l.TID > dup.keep_tid " +
+            "WHERE l.accountcode = @reg AND l.account_type = 'Student'";
+
+        m1 = BD_RunDetection(conn, sql1, regno, dupTids, ref dupDrAmount);
+
+        // Method 2: folio duplicates
+        string excl = BD_TidExcl(dupTids);
+        string sql2 =
+            "SELECT l.TID, l.transaction_amount AS amt, l.transactionType " +
+            "FROM fin_ledger l " +
+            "INNER JOIN ( " +
+            "  SELECT folio, transactionType, MIN(TID) AS keep_tid " +
+            "  FROM fin_ledger " +
+            "  WHERE accountcode = @reg AND account_type = 'Student' " +
+            "    AND folio LIKE 'BillNo:%' " +
+            "  GROUP BY folio, transactionType " +
+            "  HAVING COUNT(*) > 1 " +
+            ") dup ON l.folio = dup.folio " +
+            "     AND l.transactionType = dup.transactionType " +
+            "     AND l.TID > dup.keep_tid " +
+            "WHERE l.accountcode = @reg AND l.account_type = 'Student' " +
+            "  AND l.TID NOT IN (" + excl + ")";
+
+        m2 = BD_RunDetection(conn, sql2, regno, dupTids, ref dupDrAmount);
+
+        // Method 3: GLSync remnants
+        excl = BD_TidExcl(dupTids);
+        string sql3 =
+            "SELECT g.TID, g.transaction_amount AS amt, g.transactionType " +
+            "FROM fin_ledger g " +
+            "WHERE g.accountcode = @reg AND g.account_type = 'Student' " +
+            "  AND g.teller = 'GLSync' " +
+            "  AND g.TID NOT IN (" + excl + ") " +
+            "  AND EXISTS ( " +
+            "    SELECT 1 FROM fin_ledger o " +
+            "    WHERE o.accountcode = g.accountcode AND o.account_type = 'Student' " +
+            "      AND o.transactionType = g.transactionType " +
+            "      AND o.teller <> 'GLSync' AND o.TID <> g.TID " +
+            "      AND (o.folio = CONCAT('BillNo:', g.voucherNo) " +
+            "        OR (o.tracking_ref IS NOT NULL AND g.tracking_ref IS NOT NULL " +
+            "            AND o.tracking_ref = g.tracking_ref) " +
+            "        OR (o.transaction_amount = g.transaction_amount " +
+            "            AND o.transactionDate = g.transactionDate " +
+            "            AND o.folio LIKE 'BillNo:%')) " +
+            "  )";
+
+        m3 = BD_RunDetection(conn, sql3, regno, dupTids, ref dupDrAmount);
+
+        // Method 4: BATCH billing duplicates
+        excl = BD_TidExcl(dupTids);
+        string sql4 =
+            "SELECT b.TID, b.transaction_amount AS amt, b.transactionType " +
+            "FROM fin_ledger b " +
+            "WHERE b.accountcode = @reg AND b.account_type = 'Student' " +
+            "  AND b.transactionType = 'DR' " +
+            "  AND b.particulars LIKE '%BATCH%' " +
+            "  AND b.TID NOT IN (" + excl + ") " +
+            "  AND EXISTS ( " +
+            "    SELECT 1 FROM fin_ledger o " +
+            "    WHERE o.accountcode = b.accountcode AND o.account_type = 'Student' " +
+            "      AND o.transactionType = 'DR' AND o.TID <> b.TID " +
+            "      AND o.particulars NOT LIKE '%BATCH%' " +
+            "      AND LEFT(REPLACE(b.particulars, ' BATCH', ''), 30) = LEFT(o.particulars, 30) " +
+            "  )";
+
+        m4 = BD_RunDetection(conn, sql4, regno, dupTids, ref dupDrAmount);
+    }
+
+    private int BD_RunDetection(MySqlConnection conn, string sql, string regno,
+        HashSet<long> dupTids, ref long dupDrAmount)
+    {
+        int count = 0;
+        using (var cmd = new MySqlCommand(sql, conn))
+        {
+            cmd.CommandTimeout = 60;
+            cmd.Parameters.AddWithValue("@reg", regno);
+            using (var rdr = cmd.ExecuteReader())
+            {
+                while (rdr.Read())
+                {
+                    long tid = Convert.ToInt64(rdr["TID"]);
+                    if (!dupTids.Add(tid)) continue;
+                    count++;
+                    long amt = Convert.ToInt64(rdr["amt"]);
+                    if (rdr["transactionType"].ToString() == "DR")
+                        dupDrAmount += amt;
+                }
+            }
+        }
+        return count;
+    }
+
+    private static string BD_TidExcl(HashSet<long> tids)
+    {
+        if (tids.Count == 0) return "0";
+        var parts = new List<string>();
+        foreach (long t in tids) parts.Add(t.ToString());
+        return string.Join(",", parts.ToArray());
     }
 }

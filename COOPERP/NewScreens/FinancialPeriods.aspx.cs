@@ -1,15 +1,21 @@
 ﻿using System;
 using System.Data;
 using System.Web.UI;
-using MySql.Data.MySqlClient;
-using System.Configuration;
 using DevExpress.Web;
 
+/// <summary>
+/// Financial Periods — CRUD for financial years with open/close toggle.
+/// 
+/// REFACTORED (Phase 1):
+///  ✓ Hardcoded connection string → FinanceDB
+///  ✓ No overlap validation on add → FinancePeriod.AddPeriod (validates overlaps)
+///  ✓ Non-transactional toggle (2-step update) → FinancePeriod.OpenPeriod/ClosePeriod (atomic)
+///  ✓ Delete only checks Open status → FinancePeriod.DeletePeriod (checks transactions too)
+///  ✓ No audit trail → FinanceLogger.LogAction on every mutation
+/// </summary>
 public partial class COOPERP_NewScreens_FinancialPeriods : System.Web.UI.Page
 {
-    private string AcctConnStr = ConfigurationManager.ConnectionStrings["accountsConnectionString"] != null
-        ? ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString
-        : "server=localhost;User Id=root;password=24thdecember1977;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True;charset=utf8";
+    private const string PAGE_NAME = "FinancialPeriods";
 
     protected void Page_Load(object sender, EventArgs e)
     {
@@ -21,17 +27,8 @@ public partial class COOPERP_NewScreens_FinancialPeriods : System.Web.UI.Page
 
     private void LoadPeriods()
     {
-        DataTable dt = new DataTable();
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-        {
-            conn.Open();
-            string sql = "SELECT id, finacial_Year, start_date, end_date, status FROM fin_financial_years ORDER BY start_date DESC";
-            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
-            using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-            {
-                da.Fill(dt);
-            }
-        }
+        DataTable dt = FinanceDB.ExecuteDataTable(
+            "SELECT id, finacial_Year, start_date, end_date, status FROM fin_financial_years ORDER BY start_date DESC");
         gridPeriods.DataSource = dt;
         gridPeriods.DataBind();
     }
@@ -64,19 +61,16 @@ public partial class COOPERP_NewScreens_FinancialPeriods : System.Web.UI.Page
 
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            // AddPeriod validates overlaps; returns error message or null on success
+            string error = FinancePeriod.AddPeriod(finYear, startDate, endDate, status);
+            if (error != null)
             {
-                conn.Open();
-                string sql = "INSERT INTO fin_financial_years (finacial_Year, start_date, end_date, status) VALUES (@fy, @sd, @ed, @st)";
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
-                {
-                    cmd.Parameters.AddWithValue("@fy", finYear);
-                    cmd.Parameters.AddWithValue("@sd", startDate.ToString("yyyy-MM-dd"));
-                    cmd.Parameters.AddWithValue("@ed", endDate.ToString("yyyy-MM-dd"));
-                    cmd.Parameters.AddWithValue("@st", status);
-                    cmd.ExecuteNonQuery();
-                }
+                ShowMessage(error, false);
+                return;
             }
+
+            FinanceLogger.LogAction(PAGE_NAME, "AddPeriod",
+                "Added period '" + finYear + "' (" + startDate.ToString("yyyy-MM-dd") + " to " + endDate.ToString("yyyy-MM-dd") + ") status=" + status);
 
             ShowMessage("Financial period '" + finYear + "' added successfully.", true);
             txtFinYear.Text = "";
@@ -86,95 +80,71 @@ public partial class COOPERP_NewScreens_FinancialPeriods : System.Web.UI.Page
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "btnAddPeriod_Click", ex);
             ShowMessage("Error: " + ex.Message, false);
         }
     }
 
     protected void btnToggle_Click(object sender, EventArgs e)
     {
-        DevExpress.Web.ASPxButton btn = sender as DevExpress.Web.ASPxButton;
+        ASPxButton btn = sender as ASPxButton;
         if (btn == null) return;
         string id = btn.CommandArgument;
 
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            // Get current status
+            string currentStatus = FinanceDB.ExecuteScalar<string>(
+                "SELECT status FROM fin_financial_years WHERE id = @id",
+                FinanceDB.P("@id", id)) ?? "";
+
+            if (currentStatus == "Open")
             {
-                conn.Open();
-
-                // Get current status
-                string currentStatus = "";
-                using (MySqlCommand cmd = new MySqlCommand("SELECT status FROM fin_financial_years WHERE id = @id", conn))
-                {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    object result = cmd.ExecuteScalar();
-                    currentStatus = result != null ? result.ToString() : "";
-                }
-
-                string newStatus = currentStatus == "Open" ? "Closed" : "Open";
-
-                // If opening a period, close all others first
-                if (newStatus == "Open")
-                {
-                    using (MySqlCommand cmd = new MySqlCommand("UPDATE fin_financial_years SET status = 'Closed' WHERE status = 'Open'", conn))
-                    {
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-
-                using (MySqlCommand cmd = new MySqlCommand("UPDATE fin_financial_years SET status = @st WHERE id = @id", conn))
-                {
-                    cmd.Parameters.AddWithValue("@st", newStatus);
-                    cmd.Parameters.AddWithValue("@id", id);
-                    cmd.ExecuteNonQuery();
-                }
-
-                ShowMessage("Period status changed to '" + newStatus + "'.", true);
+                // Close this period
+                FinancePeriod.ClosePeriod(int.Parse(id));
+                FinanceLogger.LogAction(PAGE_NAME, "ClosePeriod", "Closed period id=" + id);
+                ShowMessage("Period closed.", true);
             }
+            else
+            {
+                // Open this period (atomically closes all others)
+                FinancePeriod.OpenPeriod(int.Parse(id));
+                FinanceLogger.LogAction(PAGE_NAME, "OpenPeriod", "Opened period id=" + id + " (others closed)");
+                ShowMessage("Period opened. All other periods have been closed.", true);
+            }
+
             LoadPeriods();
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "btnToggle_Click", ex);
             ShowMessage("Error: " + ex.Message, false);
         }
     }
 
     protected void btnDelete_Click(object sender, EventArgs e)
     {
-        DevExpress.Web.ASPxButton btn = sender as DevExpress.Web.ASPxButton;
+        ASPxButton btn = sender as ASPxButton;
         if (btn == null) return;
         string id = btn.CommandArgument;
 
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            // DeletePeriod checks Open status AND existing transactions; returns error or null
+            string error = FinancePeriod.DeletePeriod(int.Parse(id));
+            if (error != null)
             {
-                conn.Open();
-
-                // Check if period is open - prevent deletion of open period
-                using (MySqlCommand cmd = new MySqlCommand("SELECT status FROM fin_financial_years WHERE id = @id", conn))
-                {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    object result = cmd.ExecuteScalar();
-                    if (result != null && result.ToString() == "Open")
-                    {
-                        ShowMessage("Cannot delete an open financial period. Close it first.", false);
-                        return;
-                    }
-                }
-
-                using (MySqlCommand cmd = new MySqlCommand("DELETE FROM fin_financial_years WHERE id = @id", conn))
-                {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    cmd.ExecuteNonQuery();
-                }
-
-                ShowMessage("Financial period deleted.", true);
+                ShowMessage(error, false);
+                return;
             }
+
+            FinanceLogger.LogAction(PAGE_NAME, "DeletePeriod", "Deleted period id=" + id);
+            ShowMessage("Financial period deleted.", true);
             LoadPeriods();
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "btnDelete_Click", ex);
             ShowMessage("Error: " + ex.Message, false);
         }
     }

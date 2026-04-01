@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using System.Web;
 using System.Web.UI;
+using System.Web.UI.WebControls;
 using MySql.Data.MySqlClient;
 using System.Configuration;
 
@@ -18,7 +19,34 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
             LoadMainAccounts();
             LoadSubAccounts(null);
             LoadMainAccountDropdown();
+            LoadFilterMainAccDropdown();
             LoadLedgerTypesDropdown();
+            LoadStats();
+        }
+    }
+
+    private void LoadStats()
+    {
+        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT (SELECT COUNT(*) FROM fin_mainaccounts) AS main_cnt,"
+              + " (SELECT COUNT(*) FROM fin_subaccounts) AS sub_cnt,"
+              + " (SELECT COUNT(DISTINCT GeneralCategory) FROM fin_mainaccounts) AS cat_cnt,"
+              + " (SELECT COUNT(*) FROM fin_ledgertypes) AS lt_cnt", conn))
+            {
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    if (rdr.Read())
+                    {
+                        litMainCount.Text = Convert.ToInt32(rdr["main_cnt"]).ToString("N0");
+                        litSubCount.Text = Convert.ToInt32(rdr["sub_cnt"]).ToString("N0");
+                        litCatCount.Text = Convert.ToInt32(rdr["cat_cnt"]).ToString("N0");
+                        litLedgerTypes.Text = Convert.ToInt32(rdr["lt_cnt"]).ToString("N0");
+                    }
+                }
+            }
         }
     }
 
@@ -31,14 +59,14 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
             using (MySqlCommand cmd = new MySqlCommand(
                 "SELECT AccountCode, AccountName, GeneralCategory, SubCategory FROM fin_mainaccounts ORDER BY AccountCode", conn))
             {
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                {
-                    da.Fill(dt);
-                }
+                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd)) { da.Fill(dt); }
             }
         }
-        gvMainAccounts.DataSource = dt;
-        gvMainAccounts.DataBind();
+        rptMainAccounts.DataSource = dt;
+        rptMainAccounts.DataBind();
+        phNoMain.Visible = (dt.Rows.Count == 0);
+        litMainFooter.Text = string.Format("<strong>{0}</strong> main accounts", dt.Rows.Count);
+        litMainBadge.Text = string.Format("<span class='ft-card__meta'>{0} accounts</span>", dt.Rows.Count);
     }
 
     private void LoadSubAccounts(string mainAccountCode)
@@ -50,31 +78,30 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
             string sql = mainAccountCode != null
                 ? "SELECT AccountCode, AccountName, MainAccountCode, Details, accounttype, collectionLedgerType FROM fin_subaccounts WHERE MainAccountCode = @mac ORDER BY AccountCode"
                 : "SELECT AccountCode, AccountName, MainAccountCode, Details, accounttype, collectionLedgerType FROM fin_subaccounts ORDER BY AccountCode";
-            
+
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
                 if (mainAccountCode != null)
                     cmd.Parameters.AddWithValue("@mac", mainAccountCode);
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                {
-                    da.Fill(dt);
-                }
+                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd)) { da.Fill(dt); }
             }
         }
-        gvSubAccounts.DataSource = dt;
-        gvSubAccounts.DataBind();
-        
+        rptSubAccounts.DataSource = dt;
+        rptSubAccounts.DataBind();
+        phNoSub.Visible = (dt.Rows.Count == 0);
+        litSubFooter.Text = string.Format("<strong>{0}</strong> sub accounts", dt.Rows.Count);
+
         if (mainAccountCode != null)
-            spanSelectedMain.InnerText = "(filtered by: " + mainAccountCode + ")";
+            litSubBadge.Text = string.Format("<span class='ft-card__meta'>Filtered: {0}</span>", Server.HtmlEncode(mainAccountCode));
         else
-            spanSelectedMain.InnerText = "(showing all)";
+            litSubBadge.Text = "<span class='ft-card__meta'>Showing all</span>";
     }
 
     private void LoadMainAccountDropdown()
     {
         ddlMainAccountForSub.Items.Clear();
-        ddlMainAccountForSub.Items.Add(new System.Web.UI.WebControls.ListItem("-- Select Main Account --", ""));
-        
+        ddlMainAccountForSub.Items.Add(new ListItem("-- Select Main Account --", ""));
+
         using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
@@ -87,8 +114,31 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
                     {
                         string code = reader["AccountCode"].ToString();
                         string name = reader["AccountName"].ToString();
-                        ddlMainAccountForSub.Items.Add(new System.Web.UI.WebControls.ListItem(
-                            code + " - " + name, code));
+                        ddlMainAccountForSub.Items.Add(new ListItem(code + " - " + name, code));
+                    }
+                }
+            }
+        }
+    }
+
+    private void LoadFilterMainAccDropdown()
+    {
+        ddlFilterMainAcc.Items.Clear();
+        ddlFilterMainAcc.Items.Add(new ListItem("All Main Accounts", ""));
+
+        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT AccountCode, AccountName FROM fin_mainaccounts ORDER BY AccountCode", conn))
+            {
+                using (MySqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        string code = reader["AccountCode"].ToString();
+                        string name = reader["AccountName"].ToString();
+                        ddlFilterMainAcc.Items.Add(new ListItem(code + " - " + name, code));
                     }
                 }
             }
@@ -98,8 +148,8 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
     private void LoadLedgerTypesDropdown()
     {
         ddlLedgerTypeForSub.Items.Clear();
-        ddlLedgerTypeForSub.Items.Add(new System.Web.UI.WebControls.ListItem("-- Select --", ""));
-        
+        ddlLedgerTypeForSub.Items.Add(new ListItem("-- Select --", ""));
+
         using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
@@ -111,11 +161,17 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
                     while (reader.Read())
                     {
                         string name = reader["LedgerTypeName"].ToString();
-                        ddlLedgerTypeForSub.Items.Add(new System.Web.UI.WebControls.ListItem(name, name));
+                        ddlLedgerTypeForSub.Items.Add(new ListItem(name, name));
                     }
                 }
             }
         }
+    }
+
+    protected void ddlFilterMainAcc_Changed(object sender, EventArgs e)
+    {
+        string val = ddlFilterMainAcc.SelectedValue;
+        LoadSubAccounts(string.IsNullOrEmpty(val) ? null : val);
     }
 
     protected void btnAddMainAccount_Click(object sender, EventArgs e)
@@ -153,6 +209,8 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
             txtSubCategory.Text = "";
             LoadMainAccounts();
             LoadMainAccountDropdown();
+            LoadFilterMainAccDropdown();
+            LoadStats();
         }
         catch (Exception ex)
         {
@@ -176,7 +234,6 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
 
         try
         {
-            // Get next account code
             string newCode = "";
             using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
             {
@@ -213,6 +270,7 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
             txtSubAccDetails.Text = "";
             txtSubAccType.Text = "";
             LoadSubAccounts(mainAcc);
+            LoadStats();
         }
         catch (Exception ex)
         {
@@ -220,83 +278,76 @@ public partial class COOPERP_NewScreens_ChartOfAccounts : System.Web.UI.Page
         }
     }
 
-    protected void gvMainAccounts_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
+    protected void rptMainAccounts_ItemCommand(object source, RepeaterCommandEventArgs e)
     {
-        e.Cancel = true;
-        string code = e.Keys["AccountCode"].ToString();
-
-        try
+        string code = e.CommandArgument.ToString();
+        if (e.CommandName == "ViewSubs")
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            ddlFilterMainAcc.SelectedValue = code;
+            LoadSubAccounts(code);
+        }
+        else if (e.CommandName == "DeleteMain")
+        {
+            try
             {
-                conn.Open();
-                using (MySqlCommand cmd = new MySqlCommand("DeleteMainAccount", conn))
+                using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
                 {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@usr", HttpContext.Current.User.Identity.Name);
-                    cmd.Parameters.AddWithValue("@AccCode", code);
-                    cmd.ExecuteNonQuery();
+                    conn.Open();
+                    using (MySqlCommand cmd = new MySqlCommand("DeleteMainAccount", conn))
+                    {
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        cmd.Parameters.AddWithValue("@usr", HttpContext.Current.User.Identity.Name);
+                        cmd.Parameters.AddWithValue("@AccCode", code);
+                        cmd.ExecuteNonQuery();
+                    }
                 }
+                ShowMessage("Main account deleted.", true);
+                LoadMainAccounts();
+                LoadMainAccountDropdown();
+                LoadFilterMainAccDropdown();
+                LoadStats();
             }
-            ShowMessage("Main account deleted.", true);
-            LoadMainAccounts();
-            LoadMainAccountDropdown();
-        }
-        catch (Exception ex)
-        {
-            ShowMessage("Cannot delete: " + ex.Message, false);
-        }
-    }
-
-    protected void gvSubAccounts_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
-    {
-        e.Cancel = true;
-        string code = e.Keys["AccountCode"].ToString();
-
-        try
-        {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            catch (Exception ex)
             {
-                conn.Open();
-                using (MySqlCommand cmd = new MySqlCommand("DeleteAccount", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@usr", HttpContext.Current.User.Identity.Name);
-                    cmd.Parameters.AddWithValue("@AccCode", code);
-                    cmd.ExecuteNonQuery();
-                }
+                ShowMessage("Cannot delete: " + ex.Message, false);
             }
-            ShowMessage("Sub account deleted.", true);
-            LoadSubAccounts(null);
-        }
-        catch (Exception ex)
-        {
-            ShowMessage("Cannot delete: " + ex.Message, false);
         }
     }
 
-    protected void gvMainAccounts_CustomCallback(object sender, DevExpress.Web.ASPxGridViewCustomCallbackEventArgs e)
+    protected void rptSubAccounts_ItemCommand(object source, RepeaterCommandEventArgs e)
     {
-        // Focus changed - reload main accounts grid
-        LoadMainAccounts();
-    }
-
-    protected void gvSubAccounts_CustomCallback(object sender, DevExpress.Web.ASPxGridViewCustomCallbackEventArgs e)
-    {
-        string mainCode = e.Parameters;
-        if (!string.IsNullOrEmpty(mainCode))
+        if (e.CommandName == "DeleteSub")
         {
-            LoadSubAccounts(mainCode);
-        }
-        else
-        {
-            LoadSubAccounts(null);
+            string code = e.CommandArgument.ToString();
+            try
+            {
+                using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+                {
+                    conn.Open();
+                    using (MySqlCommand cmd = new MySqlCommand("DeleteAccount", conn))
+                    {
+                        cmd.CommandType = CommandType.StoredProcedure;
+                        cmd.Parameters.AddWithValue("@usr", HttpContext.Current.User.Identity.Name);
+                        cmd.Parameters.AddWithValue("@AccCode", code);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                ShowMessage("Sub account deleted.", true);
+                string filter = ddlFilterMainAcc.SelectedValue;
+                LoadSubAccounts(string.IsNullOrEmpty(filter) ? null : filter);
+                LoadStats();
+            }
+            catch (Exception ex)
+            {
+                ShowMessage("Cannot delete: " + ex.Message, false);
+            }
         }
     }
 
     private void ShowMessage(string msg, bool success)
     {
-        lblMessage.Text = "<div class='coa-msg " + (success ? "coa-msg--success" : "coa-msg--error") + "'>" + Server.HtmlEncode(msg) + "</div>";
+        string cssClass = success ? "ft-toast ft-toast--success" : "ft-toast ft-toast--error";
+        lblMessage.Text = "<div class='" + cssClass + "'>" + Server.HtmlEncode(msg) + "</div>";
         lblMessage.Visible = true;
     }
 }

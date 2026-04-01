@@ -560,3 +560,14 @@ Shows 7 rows: Programme, Specialisation (if set), Academic Year, Study Year, Sem
 - **READ/display** (student ledger, balance, totals): Always use `fin_GetStudentLedger` stored proc → reads `fin_ledger` (GL) = complete
 - **WRITE/admin** (billing, fee management, INSERTs): Use `fin_studentfeestracking` directly = correct for admin operations
 - **Item-level breakdown** (dashboard fee items panel): Acceptable to use `fin_studentfeestracking` since it needs `item_code` grouping, but totals must come from the stored proc
+
+#### GL Sync Automation (fin_studentfeestracking → fin_ledger)
+- **Problem**: `fin_TermlyItemBillingFN` is a MySQL function (non-transactional). If `fin_TransactionCreatorFn2` fails after the tracking INSERT, orphan rows remain in `fin_studentfeestracking` with no matching `fin_ledger` entry. Also, batch scripts sometimes write tracking-only.
+- **Solution**: Three-layer defence deployed via `sql/gl_sync_automation.sql`:
+  1. **Stored Procedure `fin_SyncTrackingToLedger`** — batch-scans all Posted tracking rows, inserts missing GL entries using content-based dedup (same logic as FixGLSync.aspx.cs). Also normalises `account_type` to 'Student'. Logs each run to `fin_gl_sync_log`.
+  2. **Scheduled Event `evt_GLSyncRepair`** — runs `fin_SyncTrackingToLedger` every 15 minutes. Requires `SET GLOBAL event_scheduler = ON`.
+  3. **Trigger `trg_fst_after_insert`** — fires on INSERT to `fin_studentfeestracking`. If `post_status='Posted'` and amount > 0, immediately mirrors to `fin_ledger` (with NOT EXISTS guard to avoid duplicates when caller already posted to GL).
+  4. **Trigger `trg_fst_after_update`** — fires when `post_status` transitions to 'Posted' (covers `fin_TermlyItemBillingFN`'s Pending→Posted flow and manual admin changes).
+- **Dedup logic**: `accountcode + amount + DATE(transactionDate) + direction + (particulars OR voucherNo)` — same as FixGLSync.aspx.cs
+- **Teller tag**: GL rows created by automation use `teller='GLSync'` (SP) or `teller='GLSync-Trigger'` (triggers) for easy audit
+- **IMPORTANT**: If `fin_TermlyItemBillingFN` or `FeesTransactions.aspx.cs` already writes the GL row, the trigger's NOT EXISTS guard prevents duplication. No double-posting.

@@ -87,6 +87,17 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
 .ft-pager__btn--active { background: #05275C !important; color: #fff !important; border-color: #05275C !important; }
 .ft-pager__ellipsis { padding: 4px 2px; color: #aaa; font-size: 12px; }
 
+/* ===== TOTALS BAR ======================================================= */
+.ft-totals { display: flex; align-items: center; gap: 16px; padding: 7px 14px; background: linear-gradient(90deg, #f0f4fc 0%, #f8f9fb 100%); border-top: 1px solid #e0e5ed; font-size: 11px; }
+.ft-totals__label { font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: .6px; font-size: 9px; margin-right: 2px; }
+.ft-totals__pills { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ft-totals__pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.5; white-space: nowrap; }
+.ft-totals__pill--bill { background: #e0f2f1; color: #00695c; border: 1px solid #b2dfdb; }
+.ft-totals__pill--pay  { background: #e6f4ea; color: #2e7d32; border: 1px solid #c8e6c9; }
+.ft-totals__pill--net  { background: #e8f0fc; color: #174DA4; border: 1px solid #c5d5f0; }
+.ft-totals__pill--neg  { background: #fce8e8; color: #c62828; border: 1px solid #f0c5c5; }
+.ft-totals__pill svg   { flex-shrink: 0; }
+
 /* ===== MODAL (from FeesStructure design system) ========================= */
 .fs-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9998; }
 .fs-modal-overlay--visible { display: flex; align-items: center; justify-content: center; }
@@ -115,6 +126,113 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
 .fs-toast { display: none; padding: 9px 14px; font-size: 12px; font-weight: 600; margin-bottom: 12px; border: 1px solid transparent; }
 .fs-toast--success { display: block; background: #e6f4ea; color: #155724; border-color: #c3e6cb; }
 .fs-toast--error   { display: block; background: #fde8e8; color: #c62828; border-color: #f5c6cb; }
+
+/* ===== GL SYNC MODAL ==================================================== */
+.gl-modal { width: 720px; }
+.gl-kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.gl-kpi { padding: 12px 14px; border: 1px solid #e0e5ed; background: #f8f9fb; position: relative; overflow: hidden; }
+.gl-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+.gl-kpi--orphan::before { background: #e65100; } .gl-kpi--wrong::before { background: #7b1fa2; }
+.gl-kpi__val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.gl-kpi--orphan .gl-kpi__val { color: #e65100; } .gl-kpi--wrong .gl-kpi__val { color: #7b1fa2; }
+.gl-kpi__label { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #888; margin-top: 2px; }
+.gl-progress { margin: 14px 0; }
+.gl-progress__bar-wrap { height: 6px; background: #e0e5ed; width: 100%; overflow: hidden; }
+.gl-progress__bar { height: 100%; width: 0; background: #16a34a; transition: width .4s ease; }
+.gl-progress__text { font-size: 11px; color: #555; margin-top: 5px; text-align: center; }
+.gl-log { max-height: 260px; overflow-y: auto; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; background: #1a1a2e; color: #a8e6cf; padding: 10px 12px; line-height: 1.6; margin-top: 10px; }
+.gl-log__line { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.gl-log__line--info { color: #a8e6cf; } .gl-log__line--warn { color: #ffd54f; } .gl-log__line--err { color: #ef5350; }
+.gl-log__line--ok   { color: #69f0ae; }
+.gl-sample { margin-top: 10px; }
+.gl-sample__title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #888; margin-bottom: 4px; }
+.gl-sample__table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.gl-sample__table th { background: #f0f2f5; padding: 5px 8px; text-align: left; font-weight: 700; font-size: 10px; text-transform: uppercase; color: #555; border-bottom: 1px solid #e0e5ed; }
+.gl-sample__table td { padding: 4px 8px; border-bottom: 1px solid #f0f2f5; }
+.gl-sample__table tr:hover td { background: #fafbff; }
+.gl-badge-dr { background: #fff3e0; color: #e65100; padding: 1px 6px; font-size: 10px; font-weight: 600; } 
+.gl-badge-cr { background: #e6f4ea; color: #2e7d32; padding: 1px 6px; font-size: 10px; font-weight: 600; }
+.gl-result { margin-top: 14px; padding: 12px 14px; font-size: 12px; font-weight: 600; }
+.gl-result--ok { background: #e6f4ea; border: 1px solid #c3e6cb; color: #155724; }
+.gl-result--err { background: #fde8e8; border: 1px solid #f5c6cb; color: #c62828; }
+.gl-result--none { background: #f0f4ff; border: 1px solid #d0daf0; color: #174DA4; }
+
+/* ===== BATCH DOUBLE-BILLING FIX WIZARD ================================== */
+.bd-modal { width: 820px; }
+
+/* Wizard steps indicator */
+.bd-steps { display: flex; align-items: center; gap: 0; margin-bottom: 18px; padding: 0 4px; }
+.bd-step { display: flex; align-items: center; gap: 8px; flex: 1; }
+.bd-step__num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; border: 2px solid #d0d5dd; color: #999; background: #fff; flex-shrink: 0; transition: all .3s; }
+.bd-step__label { font-size: 11px; font-weight: 600; color: #999; transition: color .3s; white-space: nowrap; }
+.bd-step__line { flex: 1; height: 2px; background: #e0e5ed; margin: 0 8px; transition: background .3s; }
+.bd-step--active .bd-step__num { border-color: #174DA4; color: #fff; background: #174DA4; }
+.bd-step--active .bd-step__label { color: #174DA4; }
+.bd-step--done .bd-step__num { border-color: #16a34a; color: #fff; background: #16a34a; }
+.bd-step--done .bd-step__label { color: #16a34a; }
+.bd-step--done .bd-step__line { background: #16a34a; }
+
+/* Wizard panels */
+.bd-panel { display: none; }
+.bd-panel--active { display: block; }
+
+/* KPI row */
+.bd-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.bd-kpi { padding: 12px 14px; border: 1px solid #e0e5ed; background: #f8f9fb; position: relative; overflow: hidden; }
+.bd-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+.bd-kpi--students::before { background: #174DA4; }
+.bd-kpi--dups::before { background: #dc3545; }
+.bd-kpi--amount::before { background: #e65100; }
+.bd-kpi--index::before { background: #16a34a; }
+.bd-kpi__val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bd-kpi--students .bd-kpi__val { color: #174DA4; }
+.bd-kpi--dups .bd-kpi__val { color: #dc3545; }
+.bd-kpi--amount .bd-kpi__val { color: #e65100; }
+.bd-kpi--index .bd-kpi__val { color: #16a34a; }
+.bd-kpi__label { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #888; margin-top: 2px; }
+
+/* Affected accounts table */
+.bd-acct-wrap { max-height: 260px; overflow-y: auto; margin-bottom: 12px; border: 1px solid #e0e5ed; }
+.bd-acct-tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+.bd-acct-tbl th { padding: 6px 10px; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: .3px; color: #555; background: #f9fafc; border-bottom: 2px solid #e0e5ed; position: sticky; top: 0; z-index: 1; }
+.bd-acct-tbl td { padding: 5px 10px; border-bottom: 1px solid #f0f2f5; }
+.bd-acct-tbl tr:hover td { background: #fafbff; }
+.bd-acct-tbl td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.bd-status-cell { min-width: 90px; }
+.bd-tag { display: inline-block; padding: 1px 6px; font-size: 9px; font-weight: 600; }
+.bd-tag--pending { background: #fff3e0; color: #e65100; }
+.bd-tag--fixing { background: #e3f2fd; color: #1565c0; }
+.bd-tag--done { background: #e6f4ea; color: #16a34a; }
+.bd-tag--error { background: #fde8e8; color: #dc3545; }
+
+/* Progress panel */
+.bd-progress-card { background: #f8f9fb; border: 1px solid #e0e5ed; padding: 16px; margin-bottom: 14px; }
+.bd-progress-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.bd-progress-hdr__title { font-size: 12px; font-weight: 700; color: #05275C; }
+.bd-progress-hdr__count { font-size: 11px; color: #555; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bd-progress__bar-wrap { height: 10px; background: #e0e5ed; width: 100%; overflow: hidden; border-radius: 5px; }
+.bd-progress__bar { height: 100%; width: 0; background: linear-gradient(90deg, #174DA4, #16a34a); transition: width .4s ease; border-radius: 5px; }
+.bd-progress__text { font-size: 11px; color: #555; margin-top: 6px; text-align: center; }
+.bd-progress__current { font-size: 11px; color: #174DA4; font-weight: 600; margin-top: 6px; }
+
+/* Log console (reuses gl-log scheme) */
+.bd-log { max-height: 200px; overflow-y: auto; font-family: 'Consolas', 'Courier New', monospace; font-size: 11px; background: #1a1a2e; color: #a8e6cf; padding: 10px 12px; line-height: 1.6; margin-top: 10px; }
+.bd-log p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.bd-log .l-info { color: #a8e6cf; } .bd-log .l-warn { color: #ffd54f; } .bd-log .l-err { color: #ef5350; } .bd-log .l-ok { color: #69f0ae; }
+
+/* Results panel */
+.bd-result-banner { padding: 14px 18px; margin-bottom: 14px; font-size: 13px; font-weight: 600; }
+.bd-result-banner--ok { background: #e6f4ea; border: 1px solid #c3e6cb; color: #155724; }
+.bd-result-banner--none { background: #f0f4ff; border: 1px solid #d0daf0; color: #174DA4; }
+.bd-result-banner--err { background: #fde8e8; border: 1px solid #f5c6cb; color: #c62828; }
+.bd-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.bd-stat { padding: 10px 14px; border: 1px solid #e0e5ed; background: #fff; text-align: center; }
+.bd-stat__val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; color: #05275C; }
+.bd-stat__label { font-size: 10px; text-transform: uppercase; letter-spacing: .3px; color: #888; margin-top: 2px; }
+.bd-stat--green .bd-stat__val { color: #16a34a; }
+.bd-stat--red .bd-stat__val { color: #dc3545; }
+
+@media (max-width: 700px) { .bd-kpi-row, .bd-stat-row { grid-template-columns: repeat(2, 1fr); } .bd-modal { width: 100%; } }
 
 /* Student lookup info card */
 .ft-student-info { display: none; background: #f0f4ff; border: 1px solid #d0daf0; padding: 10px 14px; margin-bottom: 10px; font-size: 12px; }
@@ -186,7 +304,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
 /* Delete Confirmation Modal */
 .ft-confirm-overlay { position:fixed; z-index:100000; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; }
 .ft-confirm-overlay--visible { display:flex; }
-.ft-confirm { background:#fff; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.2); width:420px; max-width:95vw; overflow:hidden; animation:ftConfirmIn .2s ease; }
+.ft-confirm { background:#fff; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.2); width:520px; max-width:95vw; overflow:hidden; animation:ftConfirmIn .2s ease; }
 @keyframes ftConfirmIn { from { transform:scale(.95); opacity:0; } to { transform:scale(1); opacity:1; } }
 .ft-confirm__header { padding:16px 20px; background:#fde8e8; border-bottom:1px solid #fecaca; display:flex; align-items:center; gap:10px; }
 .ft-confirm__icon { width:36px; height:36px; background:#dc3545; color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -202,6 +320,19 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
 .ft-confirm__btn--cancel:hover { background:#f5f5f5; }
 .ft-confirm__btn--delete { background:#dc3545; color:#fff; }
 .ft-confirm__btn--delete:hover { background:#b91c1c; }
+.ft-confirm__reason-group { margin-top:14px; }
+.ft-confirm__reason-group > .ft-reason-label { display:block; font-size:11px; font-weight:700; color:#374151; margin-bottom:8px; text-transform:uppercase; letter-spacing:.4px; }
+.ft-reason-options { display:grid; grid-template-columns:1fr 1fr; gap:5px 10px; }
+.ft-reason-option { display:flex; align-items:center; gap:7px; padding:6px 9px; border:1.5px solid #e5e7eb; border-radius:6px; cursor:pointer; transition:border-color .15s, background .15s; user-select:none; }
+.ft-reason-option:hover { border-color:#94a3b8; background:#f8fafc; }
+.ft-reason-option input[type=radio] { accent-color:#dc3545; width:14px; height:14px; flex-shrink:0; cursor:pointer; margin:0; }
+.ft-reason-option span { font-size:12px; color:#374151; line-height:1.3; }
+.ft-reason-option--selected { border-color:#dc3545; background:#fff5f5; }
+.ft-reason-option--selected span { color:#991b1b; font-weight:600; }
+.ft-reason-options--invalid .ft-reason-option { border-color:#fca5a5; }
+.ft-confirm__reason-group textarea { width:100%; padding:7px 10px; border:1px solid #d0d5dd; border-radius:6px; font-size:13px; color:#374151; resize:vertical; font-family:inherit; outline:none; transition:border-color .15s; box-sizing:border-box; margin-top:8px; }
+.ft-confirm__reason-group textarea:focus { border-color:#4f46e5; }
+.ft-confirm__reason-error { font-size:11px; color:#dc3545; margin-top:5px; display:none; }
 
 /* Responsive */
 @media (max-width: 1200px) { .ft-stats { grid-template-columns: repeat(3, 1fr); } }
@@ -218,8 +349,12 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
 <asp:Button ID="btnSaveTransaction" runat="server" style="display:none;" OnClick="btnSaveTransaction_Click" />
 <asp:Button ID="btnEditTransaction" runat="server" style="display:none;" OnClick="btnEditTransaction_Click" />
 <asp:Button ID="btnDeleteTransaction" runat="server" style="display:none;" OnClick="btnDeleteTransaction_Click" />
+<asp:Button ID="btnRemoveFromGL" runat="server" style="display:none;" OnClick="btnRemoveFromGL_Click" />
 <asp:HiddenField ID="hfEditTID" runat="server" />
 <asp:HiddenField ID="hfDeleteTID" runat="server" />
+<asp:HiddenField ID="hfRemoveGLTID" runat="server" />
+<asp:HiddenField ID="hfDeleteCategory" runat="server" />
+<asp:HiddenField ID="hfDeleteExplanation" runat="server" />
 <asp:HiddenField ID="hfPageIndex" runat="server" Value="0" />
 <asp:Button ID="btnGoToPage" runat="server" style="display:none;" OnClick="btnGoToPage_Click" />
 
@@ -308,6 +443,14 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                 </asp:DropDownList>
             </div>
             <div class="ft-filter-grp">
+                <label class="ft-filter-grp__label">Source</label>
+                <asp:DropDownList ID="ddlSource" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlSource_SelectedIndexChanged">
+                    <asp:ListItem Value="" Text="All Sources" Selected="True" />
+                    <asp:ListItem Value="manual" Text="Manual Only" />
+                    <asp:ListItem Value="gl_only" Text="GL Only (Orphaned)" />
+                </asp:DropDownList>
+            </div>
+            <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Per Page</label>
                 <asp:DropDownList ID="ddlPageSize" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlPageSize_Changed" style="min-width:80px;">
                     <asp:ListItem Value="50" Text="50" Selected="True" />
@@ -329,17 +472,25 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                 <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 Export CSV
             </button>
+            <button type="button" class="ft-btn ft-btn--ghost ft-btn--sm" style="align-self:flex-end; border-color:#e65100; color:#e65100;" onclick="openGLSyncModal();">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                Fix GL
+            </button>
+            <button type="button" class="ft-btn ft-btn--ghost ft-btn--sm" style="align-self:flex-end; border-color:#dc3545; color:#dc3545;" onclick="openBatchDupModal();">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+                Fix Double Billing
+            </button>
         </div>
     </div>
 
-    <!-- Data Table (single scroll container — sticky header, consistent H+V scroll) -->
+    <!-- Data Table (single scroll container - sticky header, consistent H+V scroll) -->
     <div class="ft-table-wrap">
         <table class="ft-table">
             <colgroup>
                 <col class="ft-col-id"><col class="ft-col-regno"><col class="ft-col-name">
                 <col class="ft-col-type"><col class="ft-col-item"><col class="ft-col-amt">
                 <col class="ft-col-detail"><col class="ft-col-status"><col class="ft-col-date">
-                <col class="ft-col-year"><col class="ft-col-sem"><col class="ft-col-action">
+                <col class="ft-col-year"><col class="ft-col-sem"><col style="width:78px;"><col class="ft-col-action">
             </colgroup>
             <thead>
                 <tr>
@@ -354,6 +505,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                     <th class="ft-col-date">Date</th>
                     <th class="ft-col-year">Year</th>
                     <th class="ft-col-sem">Sem</th>
+                    <th style="width:78px;">Source</th>
                     <th class="ft-col-action"></th>
                 </tr>
             </thead>
@@ -372,6 +524,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                             <td class="ft-col-date"><%# FormatDateShort(Eval("trans_date")) %></td>
                             <td class="ft-col-year"><%# HttpUtility.HtmlEncode(SafeStr(Eval("acadyear"))) %></td>
                             <td class="ft-col-sem"><%# Eval("semester") %></td>
+                            <td><%# GetSourceBadge(Eval("row_source")) %></td>
                             <td class="ft-col-action">
                                 <button type="button" class="ft-row-action"
                                     data-tid='<%# Eval("TID") %>'
@@ -385,6 +538,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                                     data-date='<%# FormatDateISO(Eval("trans_date")) %>'
                                     data-year='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("acadyear"))) %>'
                                     data-sem='<%# Eval("semester") %>'
+                                    data-source='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("row_source"))) %>'
                                     onclick="showRowAction(event,this)">&#8942;</button>
                             </td>
                         </tr>
@@ -400,6 +554,22 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
         </table>
     </div>
 
+    <!-- Totals Bar -->
+    <div class="ft-totals">
+        <span class="ft-totals__label">Totals</span>
+        <div class="ft-totals__pills">
+            <span class="ft-totals__pill ft-totals__pill--bill">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Bills: <asp:Literal ID="litTotalBarBill" runat="server" />
+            </span>
+            <span class="ft-totals__pill ft-totals__pill--pay">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Payments: <asp:Literal ID="litTotalBarPay" runat="server" />
+            </span>
+            <asp:Literal ID="litTotalBarNet" runat="server" />
+        </div>
+    </div>
+
     <!-- Pager -->
     <div class="ft-pager">
         <span class="ft-pager__info"><asp:Label ID="lblGridFooter" runat="server" Text="" /></span>
@@ -409,14 +579,18 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
 
 <!-- Action Popover (position:fixed) -->
 <div class="ft-action-pop" id="actionPop">
-    <button type="button" class="ft-action-pop__item" onclick="openEditTx()">
+    <button type="button" class="ft-action-pop__item" id="popBtnEdit" onclick="openEditTx()">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
         Edit Transaction
     </button>
-    <div class="ft-action-pop__sep"></div>
-    <button type="button" class="ft-action-pop__item ft-action-pop__item--danger" onclick="confirmDeleteTx()">
+    <div class="ft-action-pop__sep" id="popSepManual"></div>
+    <button type="button" class="ft-action-pop__item ft-action-pop__item--danger" id="popBtnDelete" onclick="confirmDeleteTx()">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
         Delete Transaction
+    </button>
+    <button type="button" class="ft-action-pop__item ft-action-pop__item--danger" id="popBtnRemoveGL" style="display:none;" onclick="confirmRemoveGL()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+        Remove from GL
     </button>
 </div>
 
@@ -480,7 +654,7 @@ var StudentAC = (function() {
     function onInput() {
         var q = input.value.trim();
         if (selectedStudent) {
-            /* User is editing after selection — deselect */
+            /* User is editing after selection - deselect */
             deselectStudent();
         }
         if (timer) clearTimeout(timer);
@@ -752,6 +926,7 @@ function validateAndSaveTx() {
 
 /* ==== Row Action Popover ==== */
 var _activeRowData = null;
+var _deleteMode    = 'manual'; // 'manual' | 'gl'
 
 function showRowAction(evt, btn) {
     evt.stopPropagation();
@@ -760,22 +935,30 @@ function showRowAction(evt, btn) {
 
     // Collect data from button attributes
     _activeRowData = {
-        tid: btn.getAttribute('data-tid'),
-        regno: btn.getAttribute('data-regno'),
-        name: btn.getAttribute('data-name'),
-        type: btn.getAttribute('data-type'),
+        tid:      btn.getAttribute('data-tid'),
+        regno:    btn.getAttribute('data-regno'),
+        name:     btn.getAttribute('data-name'),
+        type:     btn.getAttribute('data-type'),
         itemcode: btn.getAttribute('data-itemcode'),
-        amount: btn.getAttribute('data-amount'),
-        detail: btn.getAttribute('data-detail'),
-        status: btn.getAttribute('data-status'),
-        date: btn.getAttribute('data-date'),
-        year: btn.getAttribute('data-year'),
-        sem: btn.getAttribute('data-sem')
+        amount:   btn.getAttribute('data-amount'),
+        detail:   btn.getAttribute('data-detail'),
+        status:   btn.getAttribute('data-status'),
+        date:     btn.getAttribute('data-date'),
+        year:     btn.getAttribute('data-year'),
+        sem:      btn.getAttribute('data-sem'),
+        source:   btn.getAttribute('data-source') || 'manual'
     };
+
+    // Show/hide actions based on source
+    var isManual = (_activeRowData.source === 'manual');
+    document.getElementById('popBtnEdit').style.display     = isManual ? '' : 'none';
+    document.getElementById('popSepManual').style.display   = isManual ? '' : 'none';
+    document.getElementById('popBtnDelete').style.display   = isManual ? '' : 'none';
+    document.getElementById('popBtnRemoveGL').style.display = isManual ? 'none' : '';
 
     // Position using fixed coords (avoids clipping by overflow containers)
     var rect = btn.getBoundingClientRect();
-    var popH = 94;
+    var popH = isManual ? 94 : 46;
     var spaceBelow = window.innerHeight - rect.bottom;
 
     pop.style.left = Math.max(4, rect.left - 140) + 'px';
@@ -887,12 +1070,47 @@ function validateAndEditTx() {
 }
 
 /* ==== Delete Transaction ==== */
+function _getSelectedReason() {
+    var radios = document.querySelectorAll('input[name="delReasonCat"]');
+    for (var i = 0; i < radios.length; i++) { if (radios[i].checked) return radios[i].value; }
+    return '';
+}
+
+function _resetReasonFields() {
+    var radios = document.querySelectorAll('input[name="delReasonCat"]');
+    radios.forEach(function(r) {
+        r.checked = false;
+        r.closest('.ft-reason-option').classList.remove('ft-reason-option--selected');
+    });
+    var opts = document.getElementById('delReasonOptions');
+    if (opts) opts.classList.remove('ft-reason-options--invalid');
+    var txt = document.getElementById('delReasonExplanation');
+    if (txt) txt.value = '';
+    var err = document.getElementById('delReasonError');
+    if (err) err.style.display = 'none';
+}
+
+// Highlight selected radio card
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.name === 'delReasonCat') {
+        document.querySelectorAll('input[name="delReasonCat"]').forEach(function(r) {
+            r.closest('.ft-reason-option').classList.toggle('ft-reason-option--selected', r.checked);
+        });
+        var opts = document.getElementById('delReasonOptions');
+        if (opts) opts.classList.remove('ft-reason-options--invalid');
+        var err = document.getElementById('delReasonError');
+        if (err) err.style.display = 'none';
+    }
+});
+
 function confirmDeleteTx() {
     hideRowAction();
     if (!_activeRowData) return;
     var d = _activeRowData;
+    _deleteMode = 'manual';
 
     document.getElementById('<%= hfDeleteTID.ClientID %>').value = d.tid;
+    _resetReasonFields();
 
     var dl = document.getElementById('deleteDetail');
     dl.innerHTML = '<dt>Transaction ID</dt><dd>#' + _esc(d.tid) + '</dd>'
@@ -910,14 +1128,72 @@ function confirmDeleteTx() {
     document.getElementById('deleteConfirm').classList.add('ft-confirm-overlay--visible');
 }
 
+function confirmRemoveGL() {
+    hideRowAction();
+    if (!_activeRowData) return;
+    var d = _activeRowData;
+    _deleteMode = 'gl';
+
+    document.getElementById('<%= hfRemoveGLTID.ClientID %>').value = d.tid;
+    _resetReasonFields();
+
+    var sourceLabel = d.source === 'ghost'
+        ? 'Ghost (deleted from tracking but lingering in GL)'
+        : 'AUTO (system-generated billing entry)';
+
+    var dl = document.getElementById('deleteDetail');
+    dl.innerHTML = '<dt>GL Row ID</dt><dd>#' + _esc(d.tid) + '</dd>'
+        + '<dt>Student</dt><dd>' + _esc(d.name) + ' (' + _esc(d.regno) + ')</dd>'
+        + '<dt>Type</dt><dd>' + _esc(d.type) + ' &mdash; ' + sourceLabel + '</dd>'
+        + '<dt>Amount</dt><dd>UGX ' + _fmtNum(d.amount) + '</dd>'
+        + '<dt>Description</dt><dd>' + _esc(d.detail) + '</dd>';
+
+    var btn = document.getElementById('btnConfirmDelete');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Remove from GL';
+    }
+
+    document.getElementById('deleteConfirm').classList.add('ft-confirm-overlay--visible');
+}
+
 function closeDeleteConfirm() {
     document.getElementById('deleteConfirm').classList.remove('ft-confirm-overlay--visible');
+    _resetReasonFields();
 }
 
 function doDeleteTx() {
     var btn = document.getElementById('btnConfirmDelete');
     if (btn) { btn.disabled = true; btn.innerText = 'Deleting...'; }
     document.getElementById('<%= btnDeleteTransaction.ClientID %>').click();
+}
+
+function doRemoveGL() {
+    var btn = document.getElementById('btnConfirmDelete');
+    if (btn) { btn.disabled = true; btn.innerText = 'Removing...'; }
+    document.getElementById('<%= btnRemoveFromGL.ClientID %>').click();
+}
+
+function doConfirmAction() {
+    // Validate a reason radio is selected
+    var chosen = _getSelectedReason();
+    var err = document.getElementById('delReasonError');
+    var opts = document.getElementById('delReasonOptions');
+    if (!chosen) {
+        if (opts) opts.classList.add('ft-reason-options--invalid');
+        if (err) err.style.display = 'block';
+        return;
+    }
+    if (err) err.style.display = 'none';
+    if (opts) opts.classList.remove('ft-reason-options--invalid');
+
+    // Copy values to hidden fields for server-side capture
+    var txt = document.getElementById('delReasonExplanation');
+    document.getElementById('<%= hfDeleteCategory.ClientID %>').value = chosen;
+    document.getElementById('<%= hfDeleteExplanation.ClientID %>').value = txt ? txt.value : '';
+
+    if (_deleteMode === 'gl') doRemoveGL();
+    else doDeleteTx();
 }
 
 function _fmtNum(x) { if (!x) return '0'; return parseFloat(x).toLocaleString(); }
@@ -928,6 +1204,606 @@ function goToPage(idx) {
     if (idx < 0) return;
     document.getElementById('<%= hfPageIndex.ClientID %>').value = idx;
     document.getElementById('<%= btnGoToPage.ClientID %>').click();
+}
+
+/* ================================================================
+   GL SYNC - Scan & Fix orphan tracking rows / wrong account_type
+   Powered by AJAX endpoints:
+     ?ajax=glsync_scan  (read-only detection)
+     ?ajax=glsync_fix   (write: insert missing + normalise)
+   ================================================================ */
+
+var _glState = { scanning: false, fixing: false, orphanCount: 0, wrongCount: 0 };
+
+function openGLSyncModal() {
+    _glResetUI();
+    openModal('modal-glsync');
+    // Auto-scan on open
+    setTimeout(glSyncScan, 200);
+}
+
+function _glResetUI() {
+    _glState = { scanning: false, fixing: false, orphanCount: 0, wrongCount: 0 };
+    _glId('glOrphanCount').textContent = '\u2014';
+    _glId('glWrongTypeCount').textContent = '\u2014';
+    _glId('glProgress').style.display = 'none';
+    _glId('glProgressBar').style.width = '0%';
+    _glId('glResult').style.display = 'none';
+    _glId('glOrphanSample').style.display = 'none';
+    _glId('glWrongSample').style.display = 'none';
+    _glId('glLog').style.display = 'none';
+    _glId('glLog').innerHTML = '';
+    _glId('glOrphanTableBody').innerHTML = '';
+    _glId('glWrongTableBody').innerHTML = '';
+    _glId('btnGLFix').disabled = true;
+    _glId('btnGLScan').disabled = false;
+}
+
+function _glId(id) { return document.getElementById(id); }
+
+function _glLog(msg, cls) {
+    var log = _glId('glLog');
+    log.style.display = 'block';
+    var p = document.createElement('p');
+    p.className = 'gl-log__line gl-log__line--' + (cls || 'info');
+    p.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    log.appendChild(p);
+    log.scrollTop = log.scrollHeight;
+}
+
+function glSyncScan() {
+    if (_glState.scanning || _glState.fixing) return;
+    _glResetUI();
+    _glState.scanning = true;
+    _glId('btnGLScan').disabled = true;
+
+    _glId('glProgress').style.display = 'block';
+    _glId('glProgressBar').style.width = '30%';
+    _glId('glProgressText').textContent = 'Scanning for anomalies...';
+    _glLog('Starting GL sync scan...', 'info');
+
+    var url = window.location.pathname + '?ajax=glsync_scan&_t=' + Date.now();
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = 180000; // 3 min
+    xhr.onload = function () {
+        _glState.scanning = false;
+        _glId('glProgressBar').style.width = '100%';
+        try {
+            var d = JSON.parse(xhr.responseText);
+            if (!d.ok) { _glLog('ERROR: ' + (d.error || 'Unknown'), 'err'); return; }
+
+            _glState.orphanCount = d.orphanCount;
+            _glState.wrongCount = d.wrongTypeCount;
+
+            _glId('glOrphanCount').textContent = _fmtNum(d.orphanCount);
+            _glId('glWrongTypeCount').textContent = _fmtNum(d.wrongTypeCount);
+
+            _glLog('Scan complete.', 'ok');
+            _glLog('  Orphan tracking rows: ' + d.orphanCount, d.orphanCount > 0 ? 'warn' : 'ok');
+            _glLog('  Wrong account_type:   ' + d.wrongTypeCount, d.wrongTypeCount > 0 ? 'warn' : 'ok');
+
+            // Show sample tables
+            if (d.orphanSample && d.orphanSample.length > 0) {
+                var tbody = _glId('glOrphanTableBody');
+                tbody.innerHTML = '';
+                d.orphanSample.forEach(function (r) {
+                    var badge = r.type === 'Payment' ? 'gl-badge-cr' : 'gl-badge-dr';
+                    tbody.innerHTML += '<tr><td>' + r.tid + '</td><td>' + _esc(r.regno) + '</td>' +
+                        '<td><span class="' + badge + '">' + _esc(r.type) + '</span></td>' +
+                        '<td style="text-align:right;">' + _fmtNum(r.amount) + '</td>' +
+                        '<td>' + _esc(r.date) + '</td><td>' + _esc(r.year) + '</td><td>' + r.sem + '</td></tr>';
+                });
+                _glId('glOrphanSample').style.display = 'block';
+            }
+
+            if (d.wrongTypeSample && d.wrongTypeSample.length > 0) {
+                var tbody2 = _glId('glWrongTableBody');
+                tbody2.innerHTML = '';
+                d.wrongTypeSample.forEach(function (r) {
+                    tbody2.innerHTML += '<tr><td>' + r.tid + '</td><td>' + _esc(r.regno) + '</td>' +
+                        '<td><span style="color:#7b1fa2;font-weight:600;">' + _esc(r.wrongType) + '</span></td>' +
+                        '<td>' + r.txType + '</td>' +
+                        '<td style="text-align:right;">' + _fmtNum(r.amount) + '</td>' +
+                        '<td>' + _esc(r.date) + '</td></tr>';
+                });
+                _glId('glWrongSample').style.display = 'block';
+            }
+
+            var total = d.orphanCount + d.wrongTypeCount;
+            if (total > 0) {
+                _glId('btnGLFix').disabled = false;
+                _glId('glProgressText').textContent = total + ' issue(s) detected - ready to fix.';
+                _glLog(total + ' issue(s) found. Click "Apply Fix" to repair.', 'warn');
+            } else {
+                _glId('glProgressText').textContent = 'All clear - no issues found.';
+                _glId('glResult').className = 'gl-result gl-result--none';
+                _glId('glResult').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> All GL entries are in sync. No action needed.';
+                _glId('glResult').style.display = 'block';
+            }
+            _glId('btnGLScan').disabled = false;
+        } catch (e) {
+            _glLog('Parse error: ' + e.message, 'err');
+            _glId('btnGLScan').disabled = false;
+        }
+    };
+    xhr.onerror = function () {
+        _glState.scanning = false;
+        _glLog('Network error during scan.', 'err');
+        _glId('glProgressText').textContent = 'Scan failed.';
+        _glId('btnGLScan').disabled = false;
+    };
+    xhr.ontimeout = function () {
+        _glState.scanning = false;
+        _glLog('Scan timed out (>3 min). Try again.', 'err');
+        _glId('btnGLScan').disabled = false;
+    };
+    xhr.send();
+}
+
+
+function glSyncFix() {
+    if (_glState.fixing || _glState.scanning) return;
+    var total = _glState.orphanCount + _glState.wrongCount;
+    if (total === 0) { _glLog('Nothing to fix.', 'info'); return; }
+
+    if (!confirm('This will INSERT ' + _fmtNum(_glState.orphanCount) + ' missing GL row(s) and normalise ' +
+        _fmtNum(_glState.wrongCount) + ' account_type value(s).\n\nThis is safe (idempotent, transactional). Proceed?')) return;
+
+    _glState.fixing = true;
+    _glId('btnGLFix').disabled = true;
+    _glId('btnGLScan').disabled = true;
+    _glId('glProgress').style.display = 'block';
+    _glId('glProgressBar').style.width = '0%';
+    _glId('glResult').style.display = 'none';
+
+    _glLog('Applying GL sync fix...', 'info');
+    _glLog('  Step 1/2: Inserting ' + _glState.orphanCount + ' missing GL entries...', 'info');
+    _glId('glProgressBar').style.width = '20%';
+    _glId('glProgressText').textContent = 'Inserting missing GL entries...';
+
+    var url = window.location.pathname + '?ajax=glsync_fix&_t=' + Date.now();
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = 600000; // 10 min for large fixes
+
+    // Simulate progress while waiting
+    var pct = 20;
+    var progInterval = setInterval(function () {
+        if (pct < 85) {
+            pct += Math.random() * 3;
+            _glId('glProgressBar').style.width = pct + '%';
+            if (pct > 50) _glId('glProgressText').textContent = 'Normalising account types...';
+        }
+    }, 800);
+
+    xhr.onload = function () {
+        clearInterval(progInterval);
+        _glState.fixing = false;
+        _glId('glProgressBar').style.width = '100%';
+
+        try {
+            var d = JSON.parse(xhr.responseText);
+            if (!d.ok) {
+                _glLog('FIX FAILED: ' + (d.error || 'Unknown error'), 'err');
+                _glId('glProgressText').textContent = 'Fix failed - see log.';
+                _glId('glResult').className = 'gl-result gl-result--err';
+                _glId('glResult').textContent = 'Fix failed: ' + (d.error || 'Unknown');
+                _glId('glResult').style.display = 'block';
+                _glId('btnGLScan').disabled = false;
+                return;
+            }
+
+            _glLog('  Step 1/2 complete: ' + d.inserted + ' GL row(s) inserted.', 'ok');
+            _glLog('  Step 2/2 complete: ' + d.normalised + ' account_type(s) normalised.', 'ok');
+            _glLog('Fix applied successfully!', 'ok');
+
+            _glId('glProgressText').textContent = 'Fix complete!';
+            _glId('glResult').className = 'gl-result gl-result--ok';
+            _glId('glResult').innerHTML =
+                '<strong>Fix applied successfully</strong><br>' +
+                '<span style="font-variant-numeric:tabular-nums;">' +
+                d.inserted + '</span> missing GL row(s) inserted &nbsp;&bull;&nbsp; ' +
+                '<span style="font-variant-numeric:tabular-nums;">' +
+                d.normalised + '</span> account_type(s) normalised to \'Student\'';
+            _glId('glResult').style.display = 'block';
+
+            // Update KPI to zero after fix
+            _glId('glOrphanCount').textContent = '0';
+            _glId('glWrongTypeCount').textContent = '0';
+            _glId('btnGLFix').disabled = true;
+            _glId('btnGLScan').disabled = false;
+        } catch (e) {
+            _glLog('Response parse error: ' + e.message, 'err');
+            _glId('btnGLScan').disabled = false;
+        }
+    };
+    xhr.onerror = function () {
+        clearInterval(progInterval);
+        _glState.fixing = false;
+        _glLog('Network error during fix.', 'err');
+        _glId('glProgressText').textContent = 'Fix failed - network error.';
+        _glId('btnGLScan').disabled = false;
+    };
+    xhr.ontimeout = function () {
+        clearInterval(progInterval);
+        _glState.fixing = false;
+        _glLog('Fix timed out (>10 min). Re-scan to check status.', 'err');
+        _glId('btnGLScan').disabled = false;
+    };
+    xhr.send();
+}
+</script>
+
+<script type="text/javascript">
+/* ================================================================
+   BATCH DOUBLE-BILLING FIX — 3-Step Admin Wizard
+   Step 1: Detect all affected student accounts (system-wide scan)
+   Step 2: Fix each account one-by-one with live AJAX progress
+   Step 3: Summary results
+   AJAX endpoints:
+     ?ajax=batchdup_scan              (detect all affected accounts)
+     ?ajax=batchdup_fix_one&regno=X   (fix one student)
+   ================================================================ */
+
+var _bd = {
+    scanning: false,
+    fixing: false,
+    step: 1,
+    accounts: [],       // from scan
+    results: [],        // per-account fix results
+    totalFixed: 0,
+    totalDeleted: 0,
+    totalSkipped: 0,
+    totalErrors: 0,
+    fixIndex: 0,
+    aborted: false
+};
+
+function openBatchDupModal() {
+    _bdReset();
+    openModal('modal-batchdup');
+    setTimeout(bdScan, 300);
+}
+
+function closeBatchDupModal() {
+    if (_bd.fixing && !_bd.aborted) {
+        if (!confirm('A batch fix is in progress. Closing will stop processing remaining accounts.\n\nAccounts already fixed will keep their changes.\n\nClose anyway?')) return;
+        _bd.aborted = true;
+    }
+    closeModal('modal-batchdup');
+}
+
+function _bdReset() {
+    _bd = { scanning:false, fixing:false, step:1, accounts:[], results:[], totalFixed:0, totalDeleted:0, totalSkipped:0, totalErrors:0, fixIndex:0, aborted:false };
+    _bdSetStep(1);
+    _bdId('bdAffected').textContent = '\u2014';
+    _bdId('bdTotalDups').textContent = '\u2014';
+    _bdId('bdTotalAmt').textContent = '\u2014';
+    _bdId('bdIndexStatus').textContent = '\u2014';
+    _bdId('bdAcctWrap').style.display = 'none';
+    _bdId('bdAcctBody').innerHTML = '';
+    _bdId('bdScanResult').style.display = 'none';
+    _bdId('bdScanResult').innerHTML = '';
+    _bdId('bdFixBar').style.width = '0%';
+    _bdId('bdFixCounter').textContent = '0 / 0';
+    _bdId('bdFixText').textContent = 'Waiting to start...';
+    _bdId('bdFixCurrent').textContent = '';
+    _bdId('bdFixBody').innerHTML = '';
+    _bdId('bdLog').style.display = 'none';
+    _bdId('bdLog').innerHTML = '';
+    _bdId('btnBdScan').disabled = false;
+    _bdId('btnBdFix').disabled = true;
+    _bdId('bdResultBanner').innerHTML = '';
+    _bdId('bdResFixed').textContent = '0';
+    _bdId('bdResDeleted').textContent = '0';
+    _bdId('bdResSkipped').textContent = '0';
+    _bdId('bdResErrors').textContent = '0';
+}
+
+function _bdId(id) { return document.getElementById(id); }
+function _bdFmt(x) { if (!x && x !== 0) return '0'; return parseFloat(x).toLocaleString(); }
+function _bdEsc(s) { var d = document.createElement('div'); d.appendChild(document.createTextNode(s || '')); return d.innerHTML; }
+
+function _bdLog(msg, cls) {
+    var log = _bdId('bdLog');
+    log.style.display = 'block';
+    var p = document.createElement('p');
+    p.className = 'l-' + (cls || 'info');
+    p.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    log.appendChild(p);
+    log.scrollTop = log.scrollHeight;
+}
+
+function _bdSetStep(n) {
+    _bd.step = n;
+    for (var i = 1; i <= 3; i++) {
+        var ind = _bdId('bdStep' + i + 'Ind');
+        var num = _bdId('bdStep' + i + 'Num');
+        var panel = _bdId('bdPanel' + i);
+        ind.className = 'bd-step';
+        panel.className = 'bd-panel';
+        if (i < n) {
+            ind.className = 'bd-step bd-step--done';
+            num.innerHTML = '\u2713';
+        } else if (i === n) {
+            ind.className = 'bd-step bd-step--active';
+            num.textContent = i;
+            panel.className = 'bd-panel bd-panel--active';
+        } else {
+            num.textContent = i;
+        }
+    }
+    // Lines
+    _bdId('bdLine1').style.background = n > 1 ? '#16a34a' : '#e0e5ed';
+    _bdId('bdLine2').style.background = n > 2 ? '#16a34a' : '#e0e5ed';
+}
+
+/* ── STEP 1: SCAN ── */
+function bdScan() {
+    if (_bd.scanning || _bd.fixing) return;
+    _bdReset();
+    _bd.scanning = true;
+    _bdId('btnBdScan').disabled = true;
+    _bdLog('Starting system-wide double-billing scan...', 'info');
+    _bdLog('  4-method detection: tracking_ref, folio, GLSync, BATCH', 'info');
+
+    var url = window.location.pathname + '?ajax=batchdup_scan&_t=' + Date.now();
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = 300000;
+    xhr.onload = function () {
+        _bd.scanning = false;
+        try {
+            var d = JSON.parse(xhr.responseText);
+            if (!d.ok) { _bdLog('ERROR: ' + (d.error || 'Unknown'), 'err'); _bdId('btnBdScan').disabled = false; return; }
+
+            _bd.accounts = d.accounts || [];
+
+            // Update KPIs
+            _bdId('bdAffected').textContent = _bdFmt(d.affectedCount);
+            _bdId('bdTotalDups').textContent = _bdFmt(d.grandTotalDups);
+            _bdId('bdTotalAmt').textContent = d.grandTotalAmount > 0 ? 'UGX ' + _bdFmt(d.grandTotalAmount) : '0';
+            _bdId('bdIndexStatus').textContent = d.uniqueIndexActive ? '\u2713 Active' : '\u2717 Missing';
+            _bdId('bdIndexStatus').style.color = d.uniqueIndexActive ? '#16a34a' : '#dc3545';
+
+            _bdLog('Scan complete.', 'ok');
+            _bdLog('  Total student accounts:  ' + _bdFmt(d.totalStudents), 'info');
+            _bdLog('  Total ledger entries:    ' + _bdFmt(d.totalLedger), 'info');
+            _bdLog('  Affected accounts:       ' + d.affectedCount, d.affectedCount > 0 ? 'warn' : 'ok');
+            _bdLog('  Duplicate entries:       ' + _bdFmt(d.grandTotalDups), d.grandTotalDups > 0 ? 'warn' : 'ok');
+            _bdLog('  Over-billed amount:      UGX ' + _bdFmt(d.grandTotalAmount), d.grandTotalAmount > 0 ? 'warn' : 'ok');
+            _bdLog('  UNIQUE index:            ' + (d.uniqueIndexActive ? 'Active' : 'MISSING!'), d.uniqueIndexActive ? 'ok' : 'err');
+
+            // Build accounts table
+            if (_bd.accounts.length > 0) {
+                var tbody = _bdId('bdAcctBody');
+                tbody.innerHTML = '';
+                for (var i = 0; i < _bd.accounts.length; i++) {
+                    var a = _bd.accounts[i];
+                    tbody.innerHTML += '<tr id="bdRow_' + i + '">' +
+                        '<td>' + (i + 1) + '</td>' +
+                        '<td style="font-weight:600;">' + _bdEsc(a.regno) + '</td>' +
+                        '<td>' + _bdEsc(a.name) + '</td>' +
+                        '<td class="r">' + _bdFmt(a.dupCount) + '</td>' +
+                        '<td class="r">' + _bdFmt(a.dupAmount) + '</td>' +
+                        '<td class="bd-status-cell"><span class="bd-tag bd-tag--pending">Pending</span></td></tr>';
+                }
+                _bdId('bdAcctWrap').style.display = 'block';
+                _bdId('btnBdFix').disabled = false;
+                _bdLog(_bd.accounts.length + ' account(s) ready to fix. Click "Fix All" to proceed.', 'warn');
+            } else {
+                _bdId('bdScanResult').className = 'gl-result gl-result--none';
+                _bdId('bdScanResult').innerHTML =
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' +
+                    '<strong>All Clear</strong> \u2014 No duplicate billing detected across ' + _bdFmt(d.totalStudents) + ' student accounts.';
+                _bdId('bdScanResult').style.display = 'block';
+                _bdLog('No duplicates found system-wide. All accounts are clean.', 'ok');
+            }
+            _bdId('btnBdScan').disabled = false;
+        } catch (e) {
+            _bdLog('Parse error: ' + e.message, 'err');
+            _bdId('btnBdScan').disabled = false;
+        }
+    };
+    xhr.onerror = function () { _bd.scanning = false; _bdLog('Network error.', 'err'); _bdId('btnBdScan').disabled = false; };
+    xhr.ontimeout = function () { _bd.scanning = false; _bdLog('Scan timed out.', 'err'); _bdId('btnBdScan').disabled = false; };
+    xhr.send();
+}
+
+/* ── STEP 2: FIX ALL (sequential one-by-one) ── */
+function bdStartFix() {
+    if (_bd.fixing || _bd.scanning) return;
+    if (_bd.accounts.length === 0) { _bdLog('Nothing to fix.', 'info'); return; }
+
+    var msg = 'This will fix double billing for ' + _bd.accounts.length + ' student account(s).\n\n' +
+        'Each account will be processed one at a time.\n' +
+        'Deleted entries are archived to fin_deleted_ledger for safety.\n\n' +
+        'Proceed?';
+    if (!confirm(msg)) return;
+
+    _bd.fixing = true;
+    _bd.aborted = false;
+    _bd.fixIndex = 0;
+    _bd.totalFixed = 0;
+    _bd.totalDeleted = 0;
+    _bd.totalSkipped = 0;
+    _bd.totalErrors = 0;
+    _bd.results = [];
+
+    _bdId('btnBdFix').disabled = true;
+    _bdId('btnBdScan').disabled = true;
+
+    _bdSetStep(2);
+
+    // Prepare fix table body
+    var tbody = _bdId('bdFixBody');
+    tbody.innerHTML = '';
+    for (var i = 0; i < _bd.accounts.length; i++) {
+        var a = _bd.accounts[i];
+        tbody.innerHTML += '<tr id="bdFixRow_' + i + '">' +
+            '<td>' + (i + 1) + '</td>' +
+            '<td style="font-weight:600;">' + _bdEsc(a.regno) + '</td>' +
+            '<td>' + _bdEsc(a.name) + '</td>' +
+            '<td class="r" id="bdFixDel_' + i + '">-</td>' +
+            '<td id="bdFixBefore_' + i + '">-</td>' +
+            '<td id="bdFixAfter_' + i + '">-</td>' +
+            '<td class="bd-status-cell" id="bdFixSt_' + i + '"><span class="bd-tag bd-tag--pending">Pending</span></td></tr>';
+    }
+
+    _bdLog('Starting batch fix for ' + _bd.accounts.length + ' account(s)...', 'info');
+    _bdFixNext();
+}
+
+function _bdFixNext() {
+    if (_bd.aborted) {
+        _bdLog('Batch fix aborted by user.', 'warn');
+        _bdFinalize();
+        return;
+    }
+
+    if (_bd.fixIndex >= _bd.accounts.length) {
+        _bdFinalize();
+        return;
+    }
+
+    var idx = _bd.fixIndex;
+    var acct = _bd.accounts[idx];
+    var total = _bd.accounts.length;
+    var pct = ((idx) / total * 100).toFixed(1);
+
+    _bdId('bdFixBar').style.width = pct + '%';
+    _bdId('bdFixCounter').textContent = (idx + 1) + ' / ' + total;
+    _bdId('bdFixText').textContent = 'Fixing ' + acct.regno + '...';
+    _bdId('bdFixCurrent').textContent = '\u25B6 ' + acct.regno + (acct.name ? ' \u2014 ' + acct.name : '');
+
+    // Update status in both tables
+    var scanRow = _bdId('bdRow_' + idx);
+    if (scanRow) { var st = scanRow.querySelector('.bd-status-cell'); if (st) st.innerHTML = '<span class="bd-tag bd-tag--fixing">Fixing...</span>'; }
+    _bdId('bdFixSt_' + idx).innerHTML = '<span class="bd-tag bd-tag--fixing">Fixing...</span>';
+
+    // Scroll fix table row into view
+    var fixRow = _bdId('bdFixRow_' + idx);
+    if (fixRow) fixRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    _bdLog('  [' + (idx + 1) + '/' + total + '] Fixing ' + acct.regno + '...', 'info');
+
+    var url = window.location.pathname + '?ajax=batchdup_fix_one&regno=' + encodeURIComponent(acct.regno) + '&_t=' + Date.now();
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = 120000;
+    xhr.onload = function () {
+        try {
+            var d = JSON.parse(xhr.responseText);
+            _bd.results.push(d);
+
+            if (!d.ok) {
+                _bd.totalErrors++;
+                _bdId('bdFixSt_' + idx).innerHTML = '<span class="bd-tag bd-tag--error">Error</span>';
+                if (scanRow) { var st = scanRow.querySelector('.bd-status-cell'); if (st) st.innerHTML = '<span class="bd-tag bd-tag--error">Error</span>'; }
+                _bdLog('    \u2717 Error: ' + (d.error || 'Unknown'), 'err');
+            } else if (d.deleted === 0) {
+                _bd.totalSkipped++;
+                _bdId('bdFixSt_' + idx).innerHTML = '<span class="bd-tag bd-tag--done">Clean</span>';
+                _bdId('bdFixDel_' + idx).textContent = '0';
+                _bdId('bdFixBefore_' + idx).textContent = d.balBefore || '-';
+                _bdId('bdFixAfter_' + idx).textContent = d.balAfter || '-';
+                if (scanRow) { var st = scanRow.querySelector('.bd-status-cell'); if (st) st.innerHTML = '<span class="bd-tag bd-tag--done">Clean</span>'; }
+                _bdLog('    \u2713 Already clean (0 duplicates). Balance: ' + (d.balAfter || '-'), 'ok');
+            } else {
+                _bd.totalFixed++;
+                _bd.totalDeleted += d.deleted;
+                _bdId('bdFixSt_' + idx).innerHTML = '<span class="bd-tag bd-tag--done">\u2713 Fixed</span>';
+                _bdId('bdFixDel_' + idx).textContent = d.deleted;
+                _bdId('bdFixDel_' + idx).style.color = '#dc3545';
+                _bdId('bdFixDel_' + idx).style.fontWeight = '700';
+                _bdId('bdFixBefore_' + idx).textContent = d.balBefore || '-';
+                _bdId('bdFixAfter_' + idx).textContent = d.balAfter || '-';
+                if (scanRow) { var st = scanRow.querySelector('.bd-status-cell'); if (st) st.innerHTML = '<span class="bd-tag bd-tag--done">\u2713 Fixed</span>'; }
+                _bdLog('    \u2713 Deleted ' + d.deleted + ' duplicate(s). M1=' + d.m1 + ' M2=' + d.m2 + ' M3=' + d.m3 + ' M4=' + d.m4 + '. Balance: ' + d.balBefore + ' \u2192 ' + d.balAfter, 'ok');
+            }
+        } catch (e) {
+            _bd.totalErrors++;
+            _bdId('bdFixSt_' + idx).innerHTML = '<span class="bd-tag bd-tag--error">Parse Err</span>';
+            _bdLog('    \u2717 Parse error: ' + e.message, 'err');
+        }
+
+        _bd.fixIndex++;
+        // Small delay between requests to avoid hammering the server
+        setTimeout(_bdFixNext, 150);
+    };
+    xhr.onerror = function () {
+        _bd.totalErrors++;
+        _bdId('bdFixSt_' + idx).innerHTML = '<span class="bd-tag bd-tag--error">Network</span>';
+        _bdLog('    \u2717 Network error for ' + acct.regno, 'err');
+        _bd.fixIndex++;
+        setTimeout(_bdFixNext, 500);
+    };
+    xhr.ontimeout = function () {
+        _bd.totalErrors++;
+        _bdId('bdFixSt_' + idx).innerHTML = '<span class="bd-tag bd-tag--error">Timeout</span>';
+        _bdLog('    \u2717 Timeout for ' + acct.regno, 'err');
+        _bd.fixIndex++;
+        setTimeout(_bdFixNext, 500);
+    };
+    xhr.send();
+}
+
+/* ── STEP 3: FINALIZE ── */
+function _bdFinalize() {
+    _bd.fixing = false;
+
+    _bdId('bdFixBar').style.width = '100%';
+    _bdId('bdFixText').textContent = _bd.aborted ? 'Batch fix aborted.' : 'Batch fix complete!';
+    _bdId('bdFixCurrent').textContent = '';
+    _bdId('bdFixCounter').textContent = _bd.fixIndex + ' / ' + _bd.accounts.length;
+
+    _bdLog('', 'info');
+    _bdLog('========================================', 'ok');
+    _bdLog('  BATCH FIX COMPLETE', 'ok');
+    _bdLog('  Accounts processed: ' + _bd.fixIndex + ' / ' + _bd.accounts.length, 'info');
+    _bdLog('  Fixed:     ' + _bd.totalFixed, _bd.totalFixed > 0 ? 'ok' : 'info');
+    _bdLog('  Deleted:   ' + _bd.totalDeleted + ' duplicate entries', _bd.totalDeleted > 0 ? 'ok' : 'info');
+    _bdLog('  Clean:     ' + _bd.totalSkipped, 'info');
+    _bdLog('  Errors:    ' + _bd.totalErrors, _bd.totalErrors > 0 ? 'err' : 'info');
+    _bdLog('========================================', 'ok');
+    if (_bd.aborted) _bdLog('  Note: Batch was aborted. ' + (_bd.accounts.length - _bd.fixIndex) + ' account(s) were not processed.', 'warn');
+    _bdLog('  All deleted entries archived to fin_deleted_ledger.', 'info');
+
+    // Move to step 3
+    _bdSetStep(3);
+
+    // Fill results
+    _bdId('bdResFixed').textContent = _bdFmt(_bd.totalFixed);
+    _bdId('bdResDeleted').textContent = _bdFmt(_bd.totalDeleted);
+    _bdId('bdResSkipped').textContent = _bdFmt(_bd.totalSkipped);
+    _bdId('bdResErrors').textContent = _bdFmt(_bd.totalErrors);
+
+    var banner = _bdId('bdResultBanner');
+    if (_bd.totalErrors > 0) {
+        banner.className = 'bd-result-banner bd-result-banner--err';
+        banner.innerHTML = '<strong>Batch fix completed with errors.</strong> ' +
+            _bd.totalFixed + ' account(s) fixed, ' + _bd.totalErrors + ' error(s). ' +
+            'Review the log for details.';
+    } else if (_bd.totalFixed === 0 && _bd.totalSkipped > 0) {
+        banner.className = 'bd-result-banner bd-result-banner--none';
+        banner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' +
+            '<strong>All accounts already clean.</strong> No duplicates were found during the fix pass.';
+    } else if (_bd.aborted) {
+        banner.className = 'bd-result-banner bd-result-banner--err';
+        banner.innerHTML = '<strong>Batch fix was aborted.</strong> ' +
+            _bd.fixIndex + ' of ' + _bd.accounts.length + ' account(s) were processed. ' +
+            _bd.totalFixed + ' fixed, ' + _bd.totalDeleted + ' entries removed.';
+    } else {
+        banner.className = 'bd-result-banner bd-result-banner--ok';
+        banner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+            '<strong>Batch fix completed successfully!</strong> ' +
+            _bd.totalFixed + ' account(s) fixed, ' + _bdFmt(_bd.totalDeleted) + ' duplicate entries removed. ' +
+            'All deleted entries archived to fin_deleted_ledger.';
+    }
+
+    _bdId('btnBdScan').disabled = false;
+    _bdId('btnBdFix').disabled = true;
 }
 </script>
 
@@ -1133,6 +2009,207 @@ function goToPage(idx) {
 </div>
 <!-- ============= /EDIT TRANSACTION MODAL ============= -->
 
+<!-- ============= GL SYNC MODAL ============= -->
+<div class="fs-modal-overlay" id="modal-glsync">
+<div class="fs-modal gl-modal">
+    <div class="fs-modal__header">
+        <span class="fs-modal__title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            GL Sync &mdash; Detect &amp; Repair
+        </span>
+        <button type="button" class="fs-modal__close" onclick="closeModal('modal-glsync');">&times;</button>
+    </div>
+    <div class="fs-modal__body" id="glSyncBody">
+
+        <!-- KPI cards (populated by scan) -->
+        <div class="gl-kpi-row">
+            <div class="gl-kpi gl-kpi--orphan">
+                <div class="gl-kpi__val" id="glOrphanCount">&mdash;</div>
+                <div class="gl-kpi__label">Orphan tracking rows (missing from GL)</div>
+            </div>
+            <div class="gl-kpi gl-kpi--wrong">
+                <div class="gl-kpi__val" id="glWrongTypeCount">&mdash;</div>
+                <div class="gl-kpi__label">Wrong account_type (invisible to portal)</div>
+            </div>
+        </div>
+
+        <!-- Progress bar (hidden until fix starts) -->
+        <div class="gl-progress" id="glProgress" style="display:none;">
+            <div class="gl-progress__bar-wrap">
+                <div class="gl-progress__bar" id="glProgressBar"></div>
+            </div>
+            <div class="gl-progress__text" id="glProgressText">Preparing...</div>
+        </div>
+
+        <!-- Result banner (shown after fix completes) -->
+        <div id="glResult" style="display:none;"></div>
+
+        <!-- Sample orphan rows table -->
+        <div class="gl-sample" id="glOrphanSample" style="display:none;">
+            <div class="gl-sample__title">Sample orphan rows (newest first, max 50)</div>
+            <div style="max-height:180px;overflow-y:auto;">
+                <table class="gl-sample__table">
+                    <thead><tr><th>TID</th><th>Reg No</th><th>Type</th><th>Amount</th><th>Date</th><th>Year</th><th>Sem</th></tr></thead>
+                    <tbody id="glOrphanTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Sample wrong-type rows -->
+        <div class="gl-sample" id="glWrongSample" style="display:none;">
+            <div class="gl-sample__title">Sample wrong account_type rows (newest first, max 20)</div>
+            <div style="max-height:140px;overflow-y:auto;">
+                <table class="gl-sample__table">
+                    <thead><tr><th>TID</th><th>Reg No</th><th>Wrong Type</th><th>DR/CR</th><th>Amount</th><th>Date</th></tr></thead>
+                    <tbody id="glWrongTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Live log -->
+        <div class="gl-log" id="glLog" style="display:none;"></div>
+
+    </div>
+    <div class="fs-modal__footer">
+        <button type="button" class="fs-btn fs-btn--ghost" onclick="closeModal('modal-glsync');">Close</button>
+        <button type="button" class="fs-btn fs-btn--ghost" id="btnGLScan" onclick="glSyncScan();">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Scan
+        </button>
+        <button type="button" class="fs-btn fs-btn--primary" id="btnGLFix" onclick="glSyncFix();" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            Apply Fix
+        </button>
+    </div>
+</div>
+</div>
+<!-- ============= /GL SYNC MODAL ============= -->
+
+<!-- ============= BATCH DOUBLE-BILLING FIX WIZARD ============= -->
+<div class="fs-modal-overlay" id="modal-batchdup">
+<div class="fs-modal bd-modal">
+    <div class="fs-modal__header">
+        <span class="fs-modal__title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+            Batch Fix Double Billing
+        </span>
+        <button type="button" class="fs-modal__close" onclick="closeBatchDupModal();">&times;</button>
+    </div>
+    <div class="fs-modal__body">
+
+        <!-- Wizard Step Indicator -->
+        <div class="bd-steps">
+            <div class="bd-step bd-step--active" id="bdStep1Ind">
+                <span class="bd-step__num" id="bdStep1Num">1</span>
+                <span class="bd-step__label">Detect</span>
+            </div>
+            <div class="bd-step__line" id="bdLine1"></div>
+            <div class="bd-step" id="bdStep2Ind">
+                <span class="bd-step__num" id="bdStep2Num">2</span>
+                <span class="bd-step__label">Fix</span>
+            </div>
+            <div class="bd-step__line" id="bdLine2"></div>
+            <div class="bd-step" id="bdStep3Ind">
+                <span class="bd-step__num" id="bdStep3Num">3</span>
+                <span class="bd-step__label">Results</span>
+            </div>
+        </div>
+
+        <!-- ─── STEP 1: DETECT ─── -->
+        <div class="bd-panel bd-panel--active" id="bdPanel1">
+            <div class="bd-kpi-row">
+                <div class="bd-kpi bd-kpi--students">
+                    <div class="bd-kpi__val" id="bdAffected">&mdash;</div>
+                    <div class="bd-kpi__label">Affected Accounts</div>
+                </div>
+                <div class="bd-kpi bd-kpi--dups">
+                    <div class="bd-kpi__val" id="bdTotalDups">&mdash;</div>
+                    <div class="bd-kpi__label">Duplicate Entries</div>
+                </div>
+                <div class="bd-kpi bd-kpi--amount">
+                    <div class="bd-kpi__val" id="bdTotalAmt">&mdash;</div>
+                    <div class="bd-kpi__label">Over-billed (UGX)</div>
+                </div>
+                <div class="bd-kpi bd-kpi--index">
+                    <div class="bd-kpi__val" id="bdIndexStatus">&mdash;</div>
+                    <div class="bd-kpi__label">UNIQUE Index</div>
+                </div>
+            </div>
+
+            <div class="bd-acct-wrap" id="bdAcctWrap" style="display:none;">
+                <table class="bd-acct-tbl">
+                    <thead><tr><th>#</th><th>Reg No</th><th>Student Name</th><th style="text-align:right;">Duplicates</th><th style="text-align:right;">Amount (UGX)</th><th>Status</th></tr></thead>
+                    <tbody id="bdAcctBody"></tbody>
+                </table>
+            </div>
+
+            <div id="bdScanResult" style="display:none;"></div>
+        </div>
+
+        <!-- ─── STEP 2: FIX ─── -->
+        <div class="bd-panel" id="bdPanel2">
+            <div class="bd-progress-card">
+                <div class="bd-progress-hdr">
+                    <span class="bd-progress-hdr__title">Fixing Accounts</span>
+                    <span class="bd-progress-hdr__count" id="bdFixCounter">0 / 0</span>
+                </div>
+                <div class="bd-progress__bar-wrap">
+                    <div class="bd-progress__bar" id="bdFixBar"></div>
+                </div>
+                <div class="bd-progress__text" id="bdFixText">Waiting to start...</div>
+                <div class="bd-progress__current" id="bdFixCurrent"></div>
+            </div>
+
+            <div class="bd-acct-wrap" style="max-height:200px;">
+                <table class="bd-acct-tbl">
+                    <thead><tr><th>#</th><th>Reg No</th><th>Student Name</th><th style="text-align:right;">Deleted</th><th>Balance Before</th><th>Balance After</th><th>Status</th></tr></thead>
+                    <tbody id="bdFixBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ─── STEP 3: RESULTS ─── -->
+        <div class="bd-panel" id="bdPanel3">
+            <div id="bdResultBanner"></div>
+            <div class="bd-stat-row">
+                <div class="bd-stat bd-stat--green">
+                    <div class="bd-stat__val" id="bdResFixed">0</div>
+                    <div class="bd-stat__label">Accounts Fixed</div>
+                </div>
+                <div class="bd-stat bd-stat--red">
+                    <div class="bd-stat__val" id="bdResDeleted">0</div>
+                    <div class="bd-stat__label">Entries Removed</div>
+                </div>
+                <div class="bd-stat">
+                    <div class="bd-stat__val" id="bdResSkipped">0</div>
+                    <div class="bd-stat__label">Already Clean</div>
+                </div>
+                <div class="bd-stat">
+                    <div class="bd-stat__val" id="bdResErrors">0</div>
+                    <div class="bd-stat__label">Errors</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log console (shared across steps) -->
+        <div class="bd-log" id="bdLog" style="display:none;"></div>
+
+    </div>
+    <div class="fs-modal__footer">
+        <button type="button" class="fs-btn fs-btn--ghost" onclick="closeBatchDupModal();">Close</button>
+        <button type="button" class="fs-btn fs-btn--ghost" id="btnBdScan" onclick="bdScan();">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Scan All
+        </button>
+        <button type="button" class="fs-btn fs-btn--primary" id="btnBdFix" onclick="bdStartFix();" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            Fix All
+        </button>
+    </div>
+</div>
+</div>
+<!-- ============= /BATCH DOUBLE-BILLING FIX WIZARD ============= -->
+
 <!-- ============= DELETE CONFIRMATION ============= -->
 <div class="ft-confirm-overlay" id="deleteConfirm">
 <div class="ft-confirm">
@@ -1145,10 +2222,25 @@ function goToPage(idx) {
     <div class="ft-confirm__body">
         Are you sure you want to delete this transaction? This action <strong>cannot be undone</strong>.
         <dl class="ft-confirm__detail" id="deleteDetail"></dl>
+        <div class="ft-confirm__reason-group">
+            <span class="ft-reason-label">Reason Category <span style="color:#dc3545">*</span></span>
+            <div class="ft-reason-options" id="delReasonOptions">
+                <label class="ft-reason-option"><input type="radio" name="delReasonCat" value="Data Entry Error" /><span>Data Entry Error</span></label>
+                <label class="ft-reason-option"><input type="radio" name="delReasonCat" value="Duplicate Transaction" /><span>Duplicate Transaction</span></label>
+                <label class="ft-reason-option"><input type="radio" name="delReasonCat" value="Reversal / Adjustment" /><span>Reversal / Adjustment</span></label>
+                <label class="ft-reason-option"><input type="radio" name="delReasonCat" value="Student Request" /><span>Student Request</span></label>
+                <label class="ft-reason-option"><input type="radio" name="delReasonCat" value="Transfer / Campus Change" /><span>Transfer / Campus Change</span></label>
+                <label class="ft-reason-option"><input type="radio" name="delReasonCat" value="System Error / AUTO Billing Mistake" /><span>System Error / AUTO Billing</span></label>
+                <label class="ft-reason-option"><input type="radio" name="delReasonCat" value="Waiver Approved" /><span>Waiver Approved</span></label>
+                <label class="ft-reason-option"><input type="radio" name="delReasonCat" value="Other" /><span>Other</span></label>
+            </div>
+            <div class="ft-confirm__reason-error" id="delReasonError">Please select a reason before proceeding.</div>
+            <textarea id="delReasonExplanation" rows="2" placeholder="Additional explanation (optional)..."></textarea>
+        </div>
     </div>
     <div class="ft-confirm__footer">
         <button type="button" class="ft-confirm__btn ft-confirm__btn--cancel" onclick="closeDeleteConfirm()">Cancel</button>
-        <button type="button" class="ft-confirm__btn ft-confirm__btn--delete" id="btnConfirmDelete" onclick="doDeleteTx()">
+        <button type="button" class="ft-confirm__btn ft-confirm__btn--delete" id="btnConfirmDelete" onclick="doConfirmAction()">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             Delete
         </button>

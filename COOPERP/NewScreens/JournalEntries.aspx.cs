@@ -3,48 +3,56 @@ using System.Data;
 using System.Web;
 using System.Web.UI;
 using MySql.Data.MySqlClient;
-using System.Configuration;
 
+/// <summary>
+/// Journal Entries — creation, detail management, and approval workflow.
+/// 
+/// REFACTORED (Phase 1):
+///  ✓ Hardcoded connection string → FinanceDB
+///  ✓ LoadAccountsCombo/LoadJournals outside !IsPostBack → moved inside
+///  ✓ Race condition (SELECT after INSERT) → LAST_INSERT_ID()
+///  ✓ Two separate UPDATEs for RefNo/Particulars → single UPDATE
+///  ✓ double for money → decimal via MoneyHelper
+///  ✓ Unbounded journal list → LIMIT 500
+///  ✓ Inline IsInOpenFinancialPeriod → FinancePeriod.IsInOpenFinancialPeriod
+///  ✓ No logging → FinanceLogger for create/approve/errors
+///  ✓ Period check added to approval (was missing)
+///  ✓ Financial period check for journal detail add
+/// </summary>
 public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
 {
-    private string AcctConnStr = ConfigurationManager.ConnectionStrings["accountsConnectionString"] != null
-        ? ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString
-        : "server=localhost;User Id=root;password=24thdecember1977;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True;charset=utf8";
+    private const string PAGE_NAME = "JournalEntries";
 
     protected void Page_Load(object sender, EventArgs e)
     {
-        LoadAccountsCombo();
-        LoadJournals();
+        if (!IsPostBack)
+        {
+            // Default dates from open financial period
+            var range = FinancePeriod.GetDefaultDateRange();
+            txtStartDate.Text = range.Item1.ToString("yyyy-MM-dd");
+            txtEndDate.Text   = range.Item2.ToString("yyyy-MM-dd");
 
-        // Restore active journal detail if in session
+            LoadAccountsCombo();
+            LoadJournals();
+        }
+
+        // Restore active journal detail if in session (must run on postbacks too)
         if (Session["ActiveJournalNo"] != null && pnlJournalDetail.Visible)
         {
             LoadJournalDetail(Convert.ToInt32(Session["ActiveJournalNo"]));
         }
-
-        if (!IsPostBack)
-        {
-            txtStartDate.Text = DateTime.Today.AddMonths(-1).ToString("yyyy-MM-dd");
-            txtEndDate.Text = DateTime.Today.ToString("yyyy-MM-dd");
-        }
     }
+
+    // ───────────────────────── Account Combo ──────────────────────────────
 
     private void LoadAccountsCombo()
     {
-        DataTable dt = new DataTable();
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-        {
-            conn.Open();
-            using (MySqlCommand cmd = new MySqlCommand(
-                "SELECT AccountCode, AccountName FROM fin_subaccounts ORDER BY AccountCode", conn))
-            {
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                    da.Fill(dt);
-            }
-        }
+        DataTable dt = AccountCache.GetSubAccounts();
         cboDetailAccount.DataSource = dt;
         cboDetailAccount.DataBind();
     }
+
+    // ───────────────────────── Journal List ──────────────────────────────
 
     protected void btnFilter_Click(object sender, EventArgs e)
     {
@@ -62,35 +70,36 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
         string journalType = ddlJournalType.SelectedValue;
         string status = ddlStatus.SelectedValue;
 
-        DataTable dt = new DataTable();
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-        {
-            conn.Open();
-            string sql = @"SELECT JournalNo, journalType, journalDate, RefNo, journalParticulars, 
-                                  GL_VoucherNo, Teller, PostStatus 
-                           FROM fin_journalnumbers 
-                           WHERE journalDate BETWEEN @sDate AND @eDate";
-            if (!string.IsNullOrEmpty(journalType))
-                sql += " AND journalType = @typ";
-            if (!string.IsNullOrEmpty(status))
-                sql += " AND PostStatus = @status";
-            sql += " ORDER BY JournalNo DESC";
+        // Build dynamic SQL with optional filters + bounded result set
+        string sql = @"SELECT JournalNo, journalType, journalDate, RefNo, journalParticulars, 
+                              GL_VoucherNo, Teller, PostStatus 
+                       FROM fin_journalnumbers 
+                       WHERE journalDate BETWEEN @sDate AND @eDate";
 
-            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
-            {
-                cmd.Parameters.AddWithValue("@sDate", startDate);
-                cmd.Parameters.AddWithValue("@eDate", endDate);
-                if (!string.IsNullOrEmpty(journalType))
-                    cmd.Parameters.AddWithValue("@typ", journalType);
-                if (!string.IsNullOrEmpty(status))
-                    cmd.Parameters.AddWithValue("@status", status);
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                    da.Fill(dt);
-            }
+        var parms = new System.Collections.Generic.List<MySqlParameter>
+        {
+            FinanceDB.P("@sDate", startDate),
+            FinanceDB.P("@eDate", endDate)
+        };
+
+        if (!string.IsNullOrEmpty(journalType))
+        {
+            sql += " AND journalType = @typ";
+            parms.Add(FinanceDB.P("@typ", journalType));
         }
+        if (!string.IsNullOrEmpty(status))
+        {
+            sql += " AND PostStatus = @status";
+            parms.Add(FinanceDB.P("@status", status));
+        }
+        sql += " ORDER BY JournalNo DESC LIMIT 500";
+
+        DataTable dt = FinanceDB.ExecuteDataTable(sql, parms.ToArray());
         gvJournals.DataSource = dt;
         gvJournals.DataBind();
     }
+
+    // ───────────────────────── Journal Creation ───────────────────────────
 
     protected void btnCreateJournal_Click(object sender, EventArgs e)
     {
@@ -110,7 +119,7 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
         string user = HttpContext.Current.User.Identity.Name;
 
         // Check open financial period
-        if (!IsInOpenFinancialPeriod())
+        if (!FinancePeriod.IsInOpenFinancialPeriod())
         {
             ShowMessage("Cannot create journal: No open financial period.", false);
             return;
@@ -118,12 +127,14 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
 
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            int newJournalNo = 0;
+
+            FinanceDB.ExecuteInTransaction((conn, tx) =>
             {
-                conn.Open();
-                // Create journal header
-                using (MySqlCommand cmd = new MySqlCommand("fin_CreateJournal", conn))
+                // Create journal header via SP
+                using (var cmd = new MySqlCommand("fin_CreateJournal", conn))
                 {
+                    cmd.Transaction = tx;
                     cmd.CommandType = CommandType.StoredProcedure;
                     cmd.Parameters.AddWithValue("@typ", journalType);
                     cmd.Parameters.AddWithValue("@JDate", DateTime.Today);
@@ -131,50 +142,44 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
                     cmd.ExecuteNonQuery();
                 }
 
-                // Get the newly created journal number
-                int newJournalNo = 0;
-                using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT JournalNo FROM fin_journalnumbers WHERE teller = @usr AND journalType = @typ ORDER BY JournalNo DESC LIMIT 1", conn))
+                // FIX: Use LAST_INSERT_ID() instead of fragile SELECT ... ORDER BY DESC
+                // This eliminates the race condition where concurrent users could get wrong ID
+                using (var cmd = new MySqlCommand("SELECT LAST_INSERT_ID()", conn))
                 {
-                    cmd.Parameters.AddWithValue("@usr", user);
-                    cmd.Parameters.AddWithValue("@typ", journalType);
+                    cmd.Transaction = tx;
                     newJournalNo = Convert.ToInt32(cmd.ExecuteScalar());
                 }
 
-                // Update RefNo and Particulars
-                if (!string.IsNullOrEmpty(refNo))
+                // FIX: Single UPDATE instead of two separate ones
+                if (!string.IsNullOrEmpty(refNo) || !string.IsNullOrEmpty(particulars))
                 {
-                    using (MySqlCommand cmd = new MySqlCommand(
-                        "UPDATE fin_journalnumbers SET RefNo = @ref WHERE JournalNo = @jno", conn))
+                    using (var cmd = new MySqlCommand(
+                        "UPDATE fin_journalnumbers SET RefNo = @ref, journalParticulars = @part WHERE JournalNo = @jno", conn))
                     {
-                        cmd.Parameters.AddWithValue("@ref", refNo);
+                        cmd.Transaction = tx;
+                        cmd.Parameters.AddWithValue("@ref", string.IsNullOrEmpty(refNo) ? (object)DBNull.Value : refNo);
+                        cmd.Parameters.AddWithValue("@part", string.IsNullOrEmpty(particulars) ? (object)DBNull.Value : particulars);
                         cmd.Parameters.AddWithValue("@jno", newJournalNo);
                         cmd.ExecuteNonQuery();
                     }
                 }
-                if (!string.IsNullOrEmpty(particulars))
-                {
-                    using (MySqlCommand cmd = new MySqlCommand(
-                        "UPDATE fin_journalnumbers SET journalParticulars = @part WHERE JournalNo = @jno", conn))
-                    {
-                        cmd.Parameters.AddWithValue("@part", particulars);
-                        cmd.Parameters.AddWithValue("@jno", newJournalNo);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
+            });
 
-                Session["ActiveJournalNo"] = newJournalNo;
-                ShowMessage("Journal #" + newJournalNo + " created. Add detail lines below.", true);
-                pnlCreateJournal.Visible = false;
-                LoadJournals();
-                LoadJournalDetail(newJournalNo);
-            }
+            Session["ActiveJournalNo"] = newJournalNo;
+            FinanceLogger.LogJournalCreated(newJournalNo, journalType, user);
+            ShowMessage("Journal #" + newJournalNo + " created. Add detail lines below.", true);
+            pnlCreateJournal.Visible = false;
+            LoadJournals();
+            LoadJournalDetail(newJournalNo);
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "CreateJournal", ex);
             ShowMessage("Error creating journal: " + ex.Message, false);
         }
     }
+
+    // ───────────────────────── Journal Detail ─────────────────────────────
 
     protected void gvJournals_FocusedRowChanged(object sender, EventArgs e)
     {
@@ -194,17 +199,13 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
     {
         pnlJournalDetail.Visible = true;
 
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        try
         {
-            conn.Open();
-
-            // Load journal header info
-            using (MySqlCommand cmd = new MySqlCommand(
+            // Load header
+            FinanceDB.ExecuteReader(
                 @"SELECT JournalNo, journalType, journalDate, RefNo, PostStatus, journalParticulars 
-                  FROM fin_journalnumbers WHERE JournalNo = @jno", conn))
-            {
-                cmd.Parameters.AddWithValue("@jno", journalNo);
-                using (MySqlDataReader reader = cmd.ExecuteReader())
+                  FROM fin_journalnumbers WHERE JournalNo = @jno",
+                reader =>
                 {
                     if (reader.Read())
                     {
@@ -214,46 +215,57 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
                         lblRefNo.Text = reader["RefNo"] != DBNull.Value ? reader["RefNo"].ToString() : "-";
                         string ps = reader["PostStatus"].ToString();
                         string psCls = ps == "Approved" ? "fs-badge--green" : "fs-badge--amber";
-                        lblPostStatus.Text = "<span class='fs-badge " + psCls + "'>" + Server.HtmlEncode(ps) + "</span>";
+                        lblPostStatus.Text = "<span class='fs-badge " + psCls + "'>" + System.Web.HttpUtility.HtmlEncode(ps) + "</span>";
 
-                        // If already approved, hide add line and approve button
-                        bool isNew = reader["PostStatus"].ToString() == "New";
+                        bool isNew = ps == "New";
                         pnlAddLine.Visible = isNew;
                         btnApproveJournal.Visible = isNew;
                     }
-                }
-            }
+                },
+                FinanceDB.P("@jno", journalNo));
 
             // Load detail lines
-            DataTable dt = new DataTable();
-            using (MySqlCommand cmd = new MySqlCommand(
+            DataTable dt = FinanceDB.ExecuteDataTable(
                 @"SELECT TID, accountcode, account_type, transactionType, transaction_amount, particulars 
-                  FROM fin_journal_details WHERE journal_no = @jno ORDER BY TID", conn))
-            {
-                cmd.Parameters.AddWithValue("@jno", journalNo);
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                    da.Fill(dt);
-            }
+                  FROM fin_journal_details WHERE journal_no = @jno ORDER BY TID",
+                FinanceDB.P("@jno", journalNo));
+
             gvDetails.DataSource = dt;
             gvDetails.DataBind();
 
-            // Calculate balance
-            double totalDR = 0, totalCR = 0;
+            // Calculate balance using decimal (was double)
+            decimal totalDR = 0m, totalCR = 0m;
             foreach (DataRow row in dt.Rows)
             {
-                double amt = Convert.ToDouble(row["transaction_amount"]);
+                decimal amt = MoneyHelper.ToDecimal(row["transaction_amount"]);
                 if (row["transactionType"].ToString() == "DR") totalDR += amt;
                 else totalCR += amt;
             }
-            bool balanced = Math.Abs(totalDR - totalCR) < 0.01;
-            if (balanced && dt.Rows.Count > 0)
-                lblBalanceIndicator.Text = "<span class='je-bal je-bal--ok'><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>BALANCED &mdash; DR " + totalDR.ToString("N0") + " &bull; CR " + totalCR.ToString("N0") + "</span>";
-            else if (dt.Rows.Count > 0)
-                lblBalanceIndicator.Text = "<span class='je-bal je-bal--off'><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><line x1='15' y1='9' x2='9' y2='15'/><line x1='9' y1='9' x2='15' y2='15'/></svg>UNBALANCED &mdash; DR " + totalDR.ToString("N0") + " &bull; CR " + totalCR.ToString("N0") + "</span>";
-            else
+
+            if (dt.Rows.Count == 0)
+            {
                 lblBalanceIndicator.Text = "<span class='je-bal je-bal--empty'>No lines added yet</span>";
+            }
+            else if (MoneyHelper.IsBalanced(totalDR, totalCR))
+            {
+                lblBalanceIndicator.Text = string.Format(
+                    "<span class='je-bal je-bal--ok'><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>BALANCED &mdash; DR {0} &bull; CR {1}</span>",
+                    MoneyHelper.FormatNumber(totalDR), MoneyHelper.FormatNumber(totalCR));
+            }
+            else
+            {
+                lblBalanceIndicator.Text = string.Format(
+                    "<span class='je-bal je-bal--off'><svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><line x1='15' y1='9' x2='9' y2='15'/><line x1='9' y1='9' x2='15' y2='15'/></svg>UNBALANCED &mdash; DR {0} &bull; CR {1}</span>",
+                    MoneyHelper.FormatNumber(totalDR), MoneyHelper.FormatNumber(totalCR));
+            }
+        }
+        catch (Exception ex)
+        {
+            FinanceLogger.LogError(PAGE_NAME, "LoadJournalDetail", ex);
         }
     }
+
+    // ───────────────────────── Add Detail Line ────────────────────────────
 
     protected void btnAddLine_Click(object sender, EventArgs e)
     {
@@ -267,8 +279,7 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
         string accCode = cboDetailAccount.Value != null ? cboDetailAccount.Value.ToString() : "";
         string transType = ddlDetailType.SelectedValue;
         string details = txtDetailParticulars.Text.Trim();
-        double amount = 0;
-        double.TryParse(txtDetailAmount.Text, out amount);
+        decimal amount = MoneyHelper.ParseMoney(txtDetailAmount.Text);
 
         if (string.IsNullOrEmpty(accCode) || amount <= 0)
         {
@@ -276,44 +287,39 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
             return;
         }
 
+        // Verify financial period is still open
+        if (!FinancePeriod.IsInOpenFinancialPeriod())
+        {
+            ShowMessage("Cannot add line: No open financial period.", false);
+            return;
+        }
+
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-            {
-                conn.Open();
+            // Get account type from cache (no DB round-trip)
+            string accType = AccountCache.GetAccountType(accCode);
 
-                // Get account type
-                string accType = "";
-                using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT accounttype FROM fin_subaccounts WHERE AccountCode = @acc", conn))
-                {
-                    cmd.Parameters.AddWithValue("@acc", accCode);
-                    object result = cmd.ExecuteScalar();
-                    accType = result != null ? result.ToString() : "";
-                }
+            FinanceDB.ExecuteNonQuerySP("fin_AddJournalDetails",
+                FinanceDB.P("@jno", jno),
+                FinanceDB.P("@usr", HttpContext.Current.User.Identity.Name),
+                FinanceDB.P("@accCode", accCode),
+                FinanceDB.P("@AccType", accType),
+                FinanceDB.P("@details", string.IsNullOrEmpty(details) ? accCode + " entry" : details),
+                FinanceDB.P("@typ", transType),
+                FinanceDB.P("@refNo", amount));
 
-                using (MySqlCommand cmd = new MySqlCommand("fin_AddJournalDetails", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@jno", jno);
-                    cmd.Parameters.AddWithValue("@usr", HttpContext.Current.User.Identity.Name);
-                    cmd.Parameters.AddWithValue("@accCode", accCode);
-                    cmd.Parameters.AddWithValue("@AccType", accType);
-                    cmd.Parameters.AddWithValue("@details", string.IsNullOrEmpty(details) ? accCode + " entry" : details);
-                    cmd.Parameters.AddWithValue("@typ", transType);
-                    cmd.Parameters.AddWithValue("@refNo", amount);
-                    cmd.ExecuteNonQuery();
-                }
-            }
             txtDetailAmount.Text = "";
             txtDetailParticulars.Text = "";
             LoadJournalDetail(jno);
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "AddLine", ex);
             ShowMessage("Error adding line: " + ex.Message, false);
         }
     }
+
+    // ───────────────────────── Delete Detail Line ─────────────────────────
 
     protected void gvDetails_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
     {
@@ -323,64 +329,58 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
 
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-            {
-                conn.Open();
-                using (MySqlCommand cmd = new MySqlCommand("fin_Delete_journal_item", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@_id", tid);
-                    cmd.Parameters.AddWithValue("@jno", jno);
-                    cmd.ExecuteNonQuery();
-                }
-            }
+            FinanceDB.ExecuteNonQuerySP("fin_Delete_journal_item",
+                FinanceDB.P("@_id", tid),
+                FinanceDB.P("@jno", jno));
             LoadJournalDetail(jno);
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "DeleteLine", ex);
             ShowMessage("Error removing line: " + ex.Message, false);
         }
     }
+
+    // ───────────────────────── Approve Journal ────────────────────────────
 
     protected void btnApproveJournal_Click(object sender, EventArgs e)
     {
         if (Session["ActiveJournalNo"] == null) return;
         int jno = Convert.ToInt32(Session["ActiveJournalNo"]);
 
+        // FIX: Period check was missing on approval path
+        if (!FinancePeriod.IsInOpenFinancialPeriod())
+        {
+            ShowMessage("Cannot approve journal: No open financial period.", false);
+            return;
+        }
+
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-            {
-                conn.Open();
+            string journalType = FinanceDB.ExecuteScalar<string>(
+                "SELECT journalType FROM fin_journalnumbers WHERE JournalNo = @jno",
+                FinanceDB.P("@jno", jno)) ?? "General";
 
-                // Get journal type
-                string journalType = "";
-                using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT journalType FROM fin_journalnumbers WHERE JournalNo = @jno", conn))
-                {
-                    cmd.Parameters.AddWithValue("@jno", jno);
-                    object jtResult = cmd.ExecuteScalar();
-                    journalType = jtResult != null ? jtResult.ToString() : "General";
-                }
+            FinanceDB.ExecuteNonQuerySP("fin_ApproveJournal_Safe",
+                FinanceDB.P("@jno", jno),
+                FinanceDB.P("@usr", HttpContext.Current.User.Identity.Name),
+                FinanceDB.P("@typ", journalType));
 
-                using (MySqlCommand cmd = new MySqlCommand("fin_ApproveJournal_Safe", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@jno", jno);
-                    cmd.Parameters.AddWithValue("@usr", HttpContext.Current.User.Identity.Name);
-                    cmd.Parameters.AddWithValue("@typ", journalType);
-                    cmd.ExecuteNonQuery();
-                }
-            }
+            FinanceLogger.LogJournalApproved(jno, journalType, 0m, 0m,
+                HttpContext.Current.User.Identity.Name);
+
             ShowMessage("Journal #" + jno + " approved and posted to ledger.", true);
             LoadJournalDetail(jno);
             LoadJournals();
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "ApproveJournal", ex);
             ShowMessage("Error approving: " + ex.Message, false);
         }
     }
+
+    // ───────────────────────── Close Detail Panel ─────────────────────────
 
     protected void btnCloseDetail_Click(object sender, EventArgs e)
     {
@@ -388,25 +388,13 @@ public partial class COOPERP_NewScreens_JournalEntries : System.Web.UI.Page
         Session["ActiveJournalNo"] = null;
     }
 
-    private bool IsInOpenFinancialPeriod()
-    {
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-        {
-            conn.Open();
-            using (MySqlCommand cmd = new MySqlCommand(
-                "SELECT COUNT(*) FROM fin_financial_years WHERE status = 'Open' AND @today BETWEEN start_date AND end_date", conn))
-            {
-                cmd.Parameters.AddWithValue("@today", DateTime.Today);
-                return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
-            }
-        }
-    }
+    // ───────────────────────── UI Helpers ──────────────────────────────────
 
     private void ShowMessage(string msg, bool success)
     {
         string icon = success
             ? "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>"
             : "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'/><line x1='15' y1='9' x2='9' y2='15'/><line x1='9' y1='9' x2='15' y2='15'/></svg>";
-        lblMessage.Text = "<div class='je-msg " + (success ? "je-msg--success" : "je-msg--error") + "'>" + icon + Server.HtmlEncode(msg) + "</div>";
+        lblMessage.Text = "<div class='je-msg " + (success ? "je-msg--success" : "je-msg--error") + "'>" + icon + System.Web.HttpUtility.HtmlEncode(msg) + "</div>";
     }
 }

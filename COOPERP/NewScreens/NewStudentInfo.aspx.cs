@@ -4297,22 +4297,21 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     newRow["debit"] = debit;
                     newRow["credit"] = credit;
                     
-                    // Get curr_balance from stored procedure
-                    if (srcRow.Table.Columns.Contains("curr_balance") && srcRow["curr_balance"] != DBNull.Value)
-                    {
-                        decimal.TryParse(srcRow["curr_balance"].ToString(), out lastBalance);
-                    }
-                    newRow["running_balance"] = lastBalance;
-                    
+                    // Compute running balance in code — do NOT trust curr_balance
+                    // from the SP which is unreliable (can be NULL or always 0).
+                    // Running balance = cumulative (debit - credit) per accounting convention:
+                    // debits (invoices) increase the balance owed; credits (payments) reduce it.
                     totalDebit += debit;
                     totalCredit += credit;
+                    lastBalance = totalDebit - totalCredit;
+                    newRow["running_balance"] = lastBalance;
                     
                     displayTable.Rows.Add(newRow);
                 }
                 
                 litTotalInvoiced.Text = totalDebit.ToString("N0");
                 litTotalPaid.Text = totalCredit.ToString("N0");
-                litBalance.Text = lastBalance.ToString("N0");
+                litBalance.Text = (totalDebit - totalCredit).ToString("N0");
                 
                 rptFeesLedger.DataSource = displayTable;
                 rptFeesLedger.DataBind();

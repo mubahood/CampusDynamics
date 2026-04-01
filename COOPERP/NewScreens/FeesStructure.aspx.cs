@@ -2356,6 +2356,9 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
             }
 
             // 3) Load existing bills
+            // Check ALL academic years to prevent cross-year duplicate billing.
+            // Previously filtered by ft.acadyear = @acad which missed prior-year bills,
+            // causing BATCH to re-bill students already billed under a different year.
             var existingBills = new HashSet<string>();
             using (var conn = new MySqlConnection(AcctConnStr))
             {
@@ -2366,14 +2369,12 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     FROM fin_studentfeestracking ft
                     INNER JOIN campus_dynamics.acad_student s ON s.regno = ft.regno
                     WHERE s.progid IN ({0})
-                      AND ft.acadyear = @acad
                       AND ft.trans_type = 'Bill'
                       AND ft.item_code IN (1, 52)
                     GROUP BY ft.regno, ft.semester, ft.item_code", inList);
                 using (var cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.CommandTimeout = 120;
-                    cmd.Parameters.AddWithValue("@acad", acadYear);
                     using (var rdr = cmd.ExecuteReader())
                     {
                         while (rdr.Read())

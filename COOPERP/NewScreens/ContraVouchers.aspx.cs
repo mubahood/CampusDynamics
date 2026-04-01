@@ -3,71 +3,72 @@ using System.Data;
 using System.Web;
 using System.Web.UI;
 using MySql.Data.MySqlClient;
-using System.Configuration;
 
+/// <summary>
+/// Contra Vouchers — bank-to-bank transfer creation and listing.
+/// 
+/// REFACTORED (Phase 1):
+///  ✓ Hardcoded connection string → FinanceDB
+///  ✓ double for money → decimal via MoneyHelper
+///  ✓ Duplicated GetAccountType → AccountCache.GetAccountType
+///  ✓ LoadAccounts → AccountCache.BindComboBox
+///  ✓ No financial period check → FinancePeriod added
+///  ✓ No logging → FinanceLogger for create/errors
+///  ✓ Date defaults → FinancePeriod.GetDefaultDateRange
+/// </summary>
 public partial class COOPERP_NewScreens_ContraVouchers : System.Web.UI.Page
 {
-    private string AcctConnStr = ConfigurationManager.ConnectionStrings["accountsConnectionString"] != null
-        ? ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString
-        : "server=localhost;User Id=root;password=24thdecember1977;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True;charset=utf8";
+    private const string PAGE_NAME = "ContraVouchers";
 
     protected void Page_Load(object sender, EventArgs e)
     {
         if (!IsPostBack)
         {
-            txtStartDate.Text = DateTime.Today.AddMonths(-1).ToString("yyyy-MM-dd");
-            txtEndDate.Text = DateTime.Today.ToString("yyyy-MM-dd");
+            var range = FinancePeriod.GetDefaultDateRange();
+            txtStartDate.Text = range.Item1.ToString("yyyy-MM-dd");
+            txtEndDate.Text   = range.Item2.ToString("yyyy-MM-dd");
             txtDate.Text = DateTime.Today.ToString("yyyy-MM-dd");
-            LoadAccounts();
+
+            // Cached account combos — shared DB hit
+            AccountCache.BindComboBox(cboFromAccount);
+            AccountCache.BindComboBox(cboToAccount);
+
             LoadContras();
         }
     }
 
-    private void LoadAccounts()
-    {
-        DataTable dt = new DataTable();
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-        {
-            conn.Open();
-            using (MySqlCommand cmd = new MySqlCommand("SELECT AccountCode, AccountName FROM fin_subaccounts ORDER BY AccountCode", conn))
-            using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                da.Fill(dt);
-        }
-        cboFromAccount.DataSource = dt;
-        cboFromAccount.DataBind();
-        cboToAccount.DataSource = dt;
-        cboToAccount.DataBind();
-    }
+    // ───────────────────────── Contra List ─────────────────────────────────
 
     protected void btnFilter_Click(object sender, EventArgs e) { LoadContras(); }
 
     private void LoadContras()
     {
-        DateTime s, en;
-        DateTime.TryParse(txtStartDate.Text, out s);
-        DateTime.TryParse(txtEndDate.Text, out en);
-        if (s == DateTime.MinValue) s = DateTime.Today.AddMonths(-1);
-        if (en == DateTime.MinValue) en = DateTime.Today;
-
-        DataTable dt = new DataTable();
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        try
         {
-            conn.Open();
-            using (MySqlCommand cmd = new MySqlCommand(
+            DateTime s, en;
+            DateTime.TryParse(txtStartDate.Text, out s);
+            DateTime.TryParse(txtEndDate.Text, out en);
+            if (s == DateTime.MinValue) s = DateTime.Today.AddMonths(-1);
+            if (en == DateTime.MinValue) en = DateTime.Today;
+
+            DataTable dt = FinanceDB.ExecuteDataTable(
                 @"SELECT VoucherNo, voucherDate, Teller, PostStatus 
                   FROM fin_vouchernumbers 
                   WHERE Vouchertype = 'Contra' AND voucherDate BETWEEN @sDate AND @eDate 
-                  ORDER BY VoucherNo DESC", conn))
-            {
-                cmd.Parameters.AddWithValue("@sDate", s);
-                cmd.Parameters.AddWithValue("@eDate", en);
-                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-                    da.Fill(dt);
-            }
+                  ORDER BY VoucherNo DESC LIMIT 500",
+                FinanceDB.P("@sDate", s),
+                FinanceDB.P("@eDate", en));
+
+            gvContras.DataSource = dt;
+            gvContras.DataBind();
         }
-        gvContras.DataSource = dt;
-        gvContras.DataBind();
+        catch (Exception ex)
+        {
+            FinanceLogger.LogError(PAGE_NAME, "LoadContras", ex);
+        }
     }
+
+    // ───────────────────────── Create Contra ──────────────────────────────
 
     protected void btnNewContra_Click(object sender, EventArgs e) { pnlCreate.Visible = true; }
     protected void btnCancelCreate_Click(object sender, EventArgs e) { pnlCreate.Visible = false; }
@@ -76,8 +77,7 @@ public partial class COOPERP_NewScreens_ContraVouchers : System.Web.UI.Page
     {
         string fromAcc = cboFromAccount.Value != null ? cboFromAccount.Value.ToString() : "";
         string toAcc = cboToAccount.Value != null ? cboToAccount.Value.ToString() : "";
-        double amount = 0;
-        double.TryParse(txtAmount.Text, out amount);
+        decimal amount = MoneyHelper.ParseMoney(txtAmount.Text);
         string particulars = txtParticulars.Text.Trim();
         DateTime vDate;
         DateTime.TryParse(txtDate.Text, out vDate);
@@ -94,73 +94,67 @@ public partial class COOPERP_NewScreens_ContraVouchers : System.Web.UI.Page
             return;
         }
 
+        // FIX: Financial period check (was completely missing)
+        if (!FinancePeriod.IsDateInOpenPeriod(vDate))
+        {
+            ShowMessage("Cannot create contra voucher: the date is not in an open financial period.", false);
+            return;
+        }
+
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-            {
-                conn.Open();
-                string fromType = GetAccountType(conn, fromAcc);
-                string toType = GetAccountType(conn, toAcc);
-                string user = HttpContext.Current.User.Identity.Name;
-                string part = string.IsNullOrEmpty(particulars) ? "Contra: " + fromAcc + " → " + toAcc : particulars;
+            // Get account types from cache (no DB round-trip)
+            string fromType = AccountCache.GetAccountType(fromAcc);
+            string toType = AccountCache.GetAccountType(toAcc);
+            string user = HttpContext.Current.User.Identity.Name;
+            string part = string.IsNullOrEmpty(particulars)
+                ? "Contra: " + fromAcc + " \u2192 " + toAcc
+                : particulars;
 
-                // Get voucher number
-                int vNo = 0;
-                using (MySqlCommand cmd = new MySqlCommand("fin_GetLatestVoucherNo", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@usr", user);
-                    cmd.Parameters.AddWithValue("@typ", "Contra");
-                    cmd.Parameters.AddWithValue("@cat", "Contra");
-                    using (MySqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        if (reader.Read()) vNo = reader.GetInt32(0);
-                    }
-                }
+            // Get voucher number via SP
+            int vNo = 0;
+            FinanceDB.ExecuteReader(
+                "CALL fin_GetLatestVoucherNo(@usr, @typ, @cat)",
+                reader => { if (reader.Read()) vNo = reader.GetInt32(0); },
+                FinanceDB.P("@usr", user),
+                FinanceDB.P("@typ", "Contra"),
+                FinanceDB.P("@cat", "Contra"));
 
-                using (MySqlCommand cmd = new MySqlCommand("fin_TransactionCreator", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@CRaccountcode", fromAcc);
-                    cmd.Parameters.AddWithValue("@CRaccountType", fromType);
-                    cmd.Parameters.AddWithValue("@CRParticulars", part);
-                    cmd.Parameters.AddWithValue("@DRaccountcode", toAcc);
-                    cmd.Parameters.AddWithValue("@DRaccountType", toType);
-                    cmd.Parameters.AddWithValue("@DRParticulars", part);
-                    cmd.Parameters.AddWithValue("@transaction_amount", amount);
-                    cmd.Parameters.AddWithValue("@voucherNo", vNo);
-                    cmd.Parameters.AddWithValue("@transactionDate", vDate);
-                    cmd.Parameters.AddWithValue("@teller", user);
-                    cmd.Parameters.AddWithValue("@curr", "");
-                    cmd.Parameters.AddWithValue("@folio", "Contra Voucher");
-                    cmd.ExecuteNonQuery();
-                }
+            // Create via SP
+            FinanceDB.ExecuteNonQuerySP("fin_TransactionCreator",
+                FinanceDB.P("@CRaccountcode", fromAcc),
+                FinanceDB.P("@CRaccountType", fromType),
+                FinanceDB.P("@CRParticulars", part),
+                FinanceDB.P("@DRaccountcode", toAcc),
+                FinanceDB.P("@DRaccountType", toType),
+                FinanceDB.P("@DRParticulars", part),
+                FinanceDB.P("@transaction_amount", amount),
+                FinanceDB.P("@voucherNo", vNo),
+                FinanceDB.P("@transactionDate", vDate),
+                FinanceDB.P("@teller", user),
+                FinanceDB.P("@curr", ""),
+                FinanceDB.P("@folio", "Contra Voucher"));
 
-                ShowMessage("Contra voucher created: " + fromAcc + " → " + toAcc + " (" + amount.ToString("N0") + ")", true);
-                pnlCreate.Visible = false;
-                txtAmount.Text = "";
-                txtParticulars.Text = "";
-                LoadContras();
-            }
+            FinanceLogger.LogVoucherCreated(vNo, "Contra", amount, user);
+            ShowMessage("Contra voucher created: " + fromAcc + " \u2192 " + toAcc +
+                " (" + MoneyHelper.FormatNumber(amount) + ")", true);
+            pnlCreate.Visible = false;
+            txtAmount.Text = "";
+            txtParticulars.Text = "";
+            LoadContras();
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "CreateContra", ex);
             ShowMessage("Error: " + ex.Message, false);
         }
     }
 
-    private string GetAccountType(MySqlConnection conn, string acc)
-    {
-        using (MySqlCommand cmd = new MySqlCommand("SELECT COALESCE(accounttype,'') FROM fin_subaccounts WHERE AccountCode=@a", conn))
-        {
-            cmd.Parameters.AddWithValue("@a", acc);
-            object atResult = cmd.ExecuteScalar();
-            return atResult != null ? atResult.ToString() : "";
-        }
-    }
+    // ───────────────────────── UI Helpers ──────────────────────────────────
 
     private void ShowMessage(string msg, bool ok)
     {
-        lblMessage.Text = "<div class='cv-msg " + (ok ? "cv-msg--success" : "cv-msg--error") + "'>" + Server.HtmlEncode(msg) + "</div>";
+        lblMessage.Text = "<div class='cv-msg " + (ok ? "cv-msg--success" : "cv-msg--error") + "'>" +
+            System.Web.HttpUtility.HtmlEncode(msg) + "</div>";
     }
 }
