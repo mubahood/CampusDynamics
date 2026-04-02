@@ -48,13 +48,39 @@
         .tb-report-header p { margin: 0; font-size: 12px; color: #666; }
 
         @media print {
-            .tb-filter-bar, .tb-btn, .tb-btn-print, .cd-sidebar, .cd-topbar { display: none !important; }
+            .tb-filter-bar, .tb-btn, .tb-btn-print, .cd-sidebar, .cd-topbar, .fm-page-header, .fm-tabs { display: none !important; }
             .tb-report-header { border: none; }
         }
+/* ── Finance Module Nav ── */
+.fm-page-header{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#1a237e 0%,#283593 100%);color:#fff;padding:18px 24px;}
+.fm-tabs{display:flex;gap:0;background:#fff;border-bottom:2px solid #e0e5ed;padding:0 20px;overflow-x:auto;margin-bottom:16px;}
+.fm-tab{padding:10px 16px;font-size:11px;font-weight:500;color:#555;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s,border-color .15s;}
+.fm-tab:hover{color:#1a237e;}
+.fm-tab--active{color:#1a237e;border-bottom-color:#1a237e;font-weight:600;}
     </style>
 </asp:Content>
 
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="fm-page-header">
+    <div><div style="font-size:16px;font-weight:700;">Trial Balance</div><div style="font-size:11px;opacity:.75;margin-top:2px;">Debits &amp; credits verification</div></div>
+</div>
+<div class="fm-tabs">
+    <a href="FinanceDashboard.aspx" class="fm-tab">Dashboard</a>
+    <a href="GeneralLedger.aspx" class="fm-tab">General Ledger</a>
+    <a href="JournalEntries.aspx" class="fm-tab">Journals</a>
+    <a href="PaymentVouchers.aspx" class="fm-tab">Payment Vouchers</a>
+    <a href="ContraVouchers.aspx" class="fm-tab">Contra Vouchers</a>
+    <a href="BudgetManager.aspx" class="fm-tab">Budget</a>
+    <a href="CashBook.aspx" class="fm-tab">Cash Book</a>
+    <a href="BankReconciliation.aspx" class="fm-tab">Bank Reco</a>
+    <a href="TrialBalance.aspx" class="fm-tab fm-tab--active">Trial Balance</a>
+    <a href="BalanceSheet.aspx" class="fm-tab">Balance Sheet</a>
+    <a href="IncomeStatement.aspx" class="fm-tab">Income Statement</a>
+    <a href="FinancialPeriods.aspx" class="fm-tab">Periods</a>
+    <a href="FinanceAuditTrail.aspx" class="fm-tab">Audit Trail</a>
+</div>
 
     <!-- Filter Bar -->
     <div class="tb-filter-bar">

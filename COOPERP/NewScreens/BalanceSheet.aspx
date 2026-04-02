@@ -59,10 +59,37 @@
 @media print{.ft-filters,.ft-btn,.ft-stats,.cd-sidebar,.cd-topbar{display:none!important}.ft-card{border:none;box-shadow:none}}
 @media(max-width:900px){.ft-stats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:500px){.ft-stats{grid-template-columns:1fr}.ft-filters__row{flex-direction:column}}
+@media print{.fm-page-header,.fm-tabs{display:none!important}}
+/* ── Finance Module Nav ── */
+.fm-page-header{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#1a237e 0%,#283593 100%);color:#fff;padding:18px 24px;}
+.fm-tabs{display:flex;gap:0;background:#fff;border-bottom:2px solid #e0e5ed;padding:0 20px;overflow-x:auto;margin-bottom:16px;}
+.fm-tab{padding:10px 16px;font-size:11px;font-weight:500;color:#555;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s,border-color .15s;}
+.fm-tab:hover{color:#1a237e;}
+.fm-tab--active{color:#1a237e;border-bottom-color:#1a237e;font-weight:600;}
 </style>
 </asp:Content>
 
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+
+<!-- ======= PAGE HEADER =========================================== -->
+<div class="fm-page-header">
+    <div><div style="font-size:16px;font-weight:700;">Balance Sheet</div><div style="font-size:11px;opacity:.75;margin-top:2px;">Statement of financial position</div></div>
+</div>
+<div class="fm-tabs">
+    <a href="FinanceDashboard.aspx" class="fm-tab">Dashboard</a>
+    <a href="GeneralLedger.aspx" class="fm-tab">General Ledger</a>
+    <a href="JournalEntries.aspx" class="fm-tab">Journals</a>
+    <a href="PaymentVouchers.aspx" class="fm-tab">Payment Vouchers</a>
+    <a href="ContraVouchers.aspx" class="fm-tab">Contra Vouchers</a>
+    <a href="BudgetManager.aspx" class="fm-tab">Budget</a>
+    <a href="CashBook.aspx" class="fm-tab">Cash Book</a>
+    <a href="BankReconciliation.aspx" class="fm-tab">Bank Reco</a>
+    <a href="TrialBalance.aspx" class="fm-tab">Trial Balance</a>
+    <a href="BalanceSheet.aspx" class="fm-tab fm-tab--active">Balance Sheet</a>
+    <a href="IncomeStatement.aspx" class="fm-tab">Income Statement</a>
+    <a href="FinancialPeriods.aspx" class="fm-tab">Periods</a>
+    <a href="FinanceAuditTrail.aspx" class="fm-tab">Audit Trail</a>
+</div>
 
 <!-- Filter Card -->
 <div class="ft-card" style="margin-bottom:14px">

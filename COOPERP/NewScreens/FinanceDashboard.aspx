@@ -11,8 +11,8 @@
 /* ---- Page header ---- */
 .fm-page-header {
     display: flex; align-items: center; justify-content: space-between;
-    background: #05275C; color: #fff;
-    padding: 14px 20px; border-bottom: 3px solid #041d45;
+    background: linear-gradient(135deg,#1a237e 0%,#283593 100%); color: #fff;
+    padding: 14px 20px;
 }
 .fm-page-header__left { display: flex; align-items: center; gap: 12px; }
 .fm-page-header__icon {
@@ -30,8 +30,8 @@
     text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -2px;
     white-space: nowrap; display: flex; align-items: center; gap: 5px;
 }
-.fm-tab:hover { color: #05275C; }
-.fm-tab--active { color: #05275C; border-bottom-color: #05275C; font-weight: 600; }
+.fm-tab:hover { color: #1a237e; }
+.fm-tab--active { color: #1a237e; border-bottom-color: #1a237e; font-weight: 600; }
 
 /* ---- Content wrapper ---- */
 .fn-content { padding: 16px 20px 20px; }
@@ -194,18 +194,19 @@
 
 <!-- ======= TAB NAVIGATION ======================================== -->
 <div class="fm-tabs">
-    <a class="fm-tab fm-tab--active" href="FinanceDashboard.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-        Dashboard
-    </a>
-    <a class="fm-tab" href="JournalEntries.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        Journal Entries
-    </a>
-    <a class="fm-tab" href="PaymentVouchers.aspx">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Payment Vouchers
-    </a>
+    <a class="fm-tab fm-tab--active" href="FinanceDashboard.aspx">Dashboard</a>
+    <a class="fm-tab" href="GeneralLedger.aspx">General Ledger</a>
+    <a class="fm-tab" href="JournalEntries.aspx">Journals</a>
+    <a class="fm-tab" href="PaymentVouchers.aspx">Payment Vouchers</a>
+    <a class="fm-tab" href="ContraVouchers.aspx">Contra Vouchers</a>
+    <a class="fm-tab" href="BudgetManager.aspx">Budget</a>
+    <a class="fm-tab" href="CashBook.aspx">Cash Book</a>
+    <a class="fm-tab" href="BankReconciliation.aspx">Bank Reco</a>
+    <a class="fm-tab" href="TrialBalance.aspx">Trial Balance</a>
+    <a class="fm-tab" href="BalanceSheet.aspx">Balance Sheet</a>
+    <a class="fm-tab" href="IncomeStatement.aspx">Income Statement</a>
+    <a class="fm-tab" href="FinancialPeriods.aspx">Periods</a>
+    <a class="fm-tab" href="FinanceAuditTrail.aspx">Audit Trail</a>
 </div>
 
 <div class="fn-content">

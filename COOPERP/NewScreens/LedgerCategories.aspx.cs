@@ -1,14 +1,19 @@
 ﻿using System;
 using System.Data;
 using System.Web.UI;
-using MySql.Data.MySqlClient;
-using System.Configuration;
+using DevExpress.Web;
 
+/// <summary>
+/// Ledger Categories — CRUD for ledger types.
+/// 
+/// REFACTORED (Phase 2):
+///  ✓ Hardcoded connection string → FinanceDB
+///  ✓ No error handling → try/catch + FinanceLogger.LogError
+///  ✓ No audit trail → FinanceLogger.LogAction on save/delete
+/// </summary>
 public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
 {
-    private string AcctConnStr = ConfigurationManager.ConnectionStrings["accountsConnectionString"] != null
-        ? ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString
-        : "server=localhost;User Id=root;password=24thdecember1977;database=campus_dynamics_accounts;DefaultCommandTimeout=600;Convert Zero Datetime=True;charset=utf8";
+    private const string PAGE_NAME = "LedgerCategories";
 
     protected void Page_Load(object sender, EventArgs e)
     {
@@ -20,19 +25,17 @@ public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
 
     private void LoadCategories()
     {
-        DataTable dt = new DataTable();
-        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        try
         {
-            conn.Open();
-            string sql = "SELECT LedgerTypeID, LedgerTypeName, LedgerTypeCategory FROM fin_ledgertypes ORDER BY LedgerTypeCategory, LedgerTypeName";
-            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
-            using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
-            {
-                da.Fill(dt);
-            }
+            DataTable dt = FinanceDB.ExecuteDataTable(
+                "SELECT LedgerTypeID, LedgerTypeName, LedgerTypeCategory FROM fin_ledgertypes ORDER BY LedgerTypeCategory, LedgerTypeName");
+            gridCategories.DataSource = dt;
+            gridCategories.DataBind();
         }
-        gridCategories.DataSource = dt;
-        gridCategories.DataBind();
+        catch (Exception ex)
+        {
+            FinanceLogger.LogError(PAGE_NAME, "LoadCategories", ex);
+        }
     }
 
     protected void btnSave_Click(object sender, EventArgs e)
@@ -49,26 +52,24 @@ public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
 
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            if (!string.IsNullOrEmpty(editId))
             {
-                conn.Open();
-                using (MySqlCommand cmd = new MySqlCommand("fin_LedgerCategoryEditor", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@ltName", name);
-                    cmd.Parameters.AddWithValue("@ltCategory", category);
-
-                    if (!string.IsNullOrEmpty(editId))
-                    {
-                        // Update mode - SP may accept @ltID for updates
-                        cmd.Parameters.AddWithValue("@ltID", int.Parse(editId));
-                    }
-
-                    cmd.ExecuteNonQuery();
-                }
+                FinanceDB.ExecuteNonQuerySP("fin_LedgerCategoryEditor",
+                    FinanceDB.P("@ltName", name),
+                    FinanceDB.P("@ltCategory", category),
+                    FinanceDB.P("@ltID", int.Parse(editId)));
+            }
+            else
+            {
+                FinanceDB.ExecuteNonQuerySP("fin_LedgerCategoryEditor",
+                    FinanceDB.P("@ltName", name),
+                    FinanceDB.P("@ltCategory", category));
             }
 
             string action = string.IsNullOrEmpty(editId) ? "added" : "updated";
+            FinanceLogger.LogAction(PAGE_NAME, action == "added" ? "AddCategory" : "UpdateCategory",
+                "Name=" + name + " Category=" + category);
+
             ShowMessage("Category '" + name + "' " + action + " successfully.", true);
             txtCategoryName.Text = "";
             hdnEditId.Value = "";
@@ -77,13 +78,14 @@ public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "btnSave_Click", ex);
             ShowMessage("Error: " + ex.Message, false);
         }
     }
 
     protected void btnEdit_Click(object sender, EventArgs e)
     {
-        DevExpress.Web.ASPxButton btn = sender as DevExpress.Web.ASPxButton;
+        ASPxButton btn = sender as ASPxButton;
         if (btn == null) return;
 
         string[] parts = btn.CommandArgument.Split('|');
@@ -98,28 +100,22 @@ public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
 
     protected void btnDelete_Click(object sender, EventArgs e)
     {
-        DevExpress.Web.ASPxButton btn = sender as DevExpress.Web.ASPxButton;
+        ASPxButton btn = sender as ASPxButton;
         if (btn == null) return;
         string id = btn.CommandArgument;
 
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
-            {
-                conn.Open();
-                using (MySqlCommand cmd = new MySqlCommand("fin_DeleteLedgerCategory", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@ltID", int.Parse(id));
-                    cmd.ExecuteNonQuery();
-                }
-            }
+            FinanceDB.ExecuteNonQuerySP("fin_DeleteLedgerCategory",
+                FinanceDB.P("@ltID", int.Parse(id)));
 
+            FinanceLogger.LogAction(PAGE_NAME, "DeleteCategory", "ID=" + id);
             ShowMessage("Category deleted successfully.", true);
             LoadCategories();
         }
         catch (Exception ex)
         {
+            FinanceLogger.LogError(PAGE_NAME, "btnDelete_Click", ex);
             ShowMessage("Error: " + ex.Message, false);
         }
     }
