@@ -269,26 +269,8 @@
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+    <asp:HyperLink ID="lnkBack" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" style="display:none" />
     <div class="ral-container">
-        <!-- Page Header -->
-        <div class="cd-page-header">
-            <div class="cd-page-header__left">
-                <div class="cd-page-header__icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-                </div>
-                <div>
-                    <div class="cd-page-header__title">Results Audit Log</div>
-                    <div class="cd-page-header__sub">Track all changes and updates made to academic results</div>
-                </div>
-            </div>
-            <div class="cd-page-header__right">
-                <asp:HyperLink ID="lnkBack" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" CssClass="ral-btn ral-btn--outline">
-                    ← Back to Results
-                </asp:HyperLink>
-                <asp:Button ID="btnExport" runat="server" Text="📊 Export Log" CssClass="ral-btn ral-btn--primary" OnClick="btnExport_Click" />
-            </div>
-        </div>
-        
         <!-- Stats Row -->
         <div class="ral-stats-row">
             <div class="ral-stat-card ral-stat-card--total">
@@ -360,6 +342,10 @@
                 <div class="ral-filter-group">
                     <label>&nbsp;</label>
                     <asp:Button ID="btnClearFilter" runat="server" Text="Clear" CssClass="ral-btn ral-btn--outline" OnClick="btnClearFilter_Click" />
+                </div>
+                <div class="ral-filter-group">
+                    <label>&nbsp;</label>
+                    <asp:Button ID="btnExport" runat="server" Text="Export" CssClass="ral-btn ral-btn--outline" OnClick="btnExport_Click" />
                 </div>
             </div>
         </div>

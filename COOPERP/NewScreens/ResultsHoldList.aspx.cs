@@ -178,7 +178,7 @@ public partial class COOPERP_NewScreens_ResultsHoldList : System.Web.UI.Page
                 string sql = @"SELECT 
                     e.ID,
                     e.regno,
-                    CONCAT(s.stud_surname, ' ', s.stud_firstname) as student_name,
+                    CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) as student_name,
                     e.course_id,
                     c.courseName as course_name,
                     e.progid,
@@ -195,7 +195,7 @@ public partial class COOPERP_NewScreens_ResultsHoldList : System.Web.UI.Page
                 LEFT JOIN acad_course c ON e.course_id = c.courseID
                 LEFT JOIN acad_programme p ON e.progid = p.progcode
                 " + whereClause + @"
-                ORDER BY e.acadyear DESC, e.semester, p.progname, s.stud_surname
+                ORDER BY e.acadyear DESC, e.semester, p.progname, s.firstname
                 LIMIT 500";
                 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
@@ -250,36 +250,36 @@ public partial class COOPERP_NewScreens_ResultsHoldList : System.Web.UI.Page
     protected string GetReasonBadge(object reason)
     {
         string reasonStr = (reason != null) ? reason.ToString().ToUpper() : "OTHER";
-        string cssClass = "rhl-reason-badge--other";
+        string cssClass = "mat-badge--other";
         
         switch (reasonStr)
         {
             case "FINANCIAL":
-                cssClass = "rhl-reason-badge--financial";
+                cssClass = "mat-badge--financial";
                 break;
             case "ACADEMIC":
-                cssClass = "rhl-reason-badge--academic";
+                cssClass = "mat-badge--academic";
                 break;
             case "DISCIPLINARY":
-                cssClass = "rhl-reason-badge--disciplinary";
+                cssClass = "mat-badge--disciplinary";
                 break;
             case "ADMIN":
             case "ADMINISTRATIVE":
-                cssClass = "rhl-reason-badge--admin";
+                cssClass = "mat-badge--admin";
                 reasonStr = "ADMIN";
                 break;
             default:
-                cssClass = "rhl-reason-badge--other";
+                cssClass = "mat-badge--other";
                 reasonStr = "OTHER";
                 break;
         }
         
-        return string.Format("<span class=\"rhl-reason-badge {0}\">{1}</span>", cssClass, reasonStr);
+        return string.Format("<span class=\"mat-badge {0}\">{1}</span>", cssClass, reasonStr);
     }
     
     private void ShowMessage(string message, string type)
     {
-        pnlMessage.CssClass = "rhl-message rhl-message--" + type;
+        pnlMessage.CssClass = "mat-alert mat-alert--" + type;
         litMessage.Text = message;
         pnlMessage.Visible = true;
     }
@@ -291,14 +291,13 @@ public partial class COOPERP_NewScreens_ResultsHoldList : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = @"INSERT INTO acad_activity_log (performed_by, module, action_type, description, log_date, ip_address)
-                              VALUES (@user, 'Results Hold Management', @action, @desc, NOW(), @ip)";
+                string sql = @"INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date)
+                              VALUES (@user, 'Results Hold Management', @par, @comments, NOW())";
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@user", HttpContext.Current.User.Identity.Name);
-                    cmd.Parameters.AddWithValue("@action", actionType);
-                    cmd.Parameters.AddWithValue("@desc", description);
-                    cmd.Parameters.AddWithValue("@ip", GetClientIP());
+                    cmd.Parameters.AddWithValue("@par", description + " IP Address: " + GetClientIP());
+                    cmd.Parameters.AddWithValue("@comments", actionType);
                     cmd.ExecuteNonQuery();
                 }
             }

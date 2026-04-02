@@ -1,600 +1,310 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="ResultsHoldList.aspx.cs" Inherits="COOPERP_NewScreens_ResultsHoldList" Title="Held Results Management - Campus Dynamics" %>
-
+<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="ResultsHoldList.aspx.cs" Inherits="COOPERP_NewScreens_ResultsHoldList" Title="Results Hold List - Campus Dynamics" %>
 <%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
-    <style type="text/css">
-        /* ===============================================
-           RESULTS HOLD LIST - STYLES
-           Prefix: rhl- (Results Hold List)
-        =============================================== */
-        
-        .rhl-container { padding: 0; font-size: 11px; }
-        
-        /* Page Header */
-        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
-        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
-        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
-        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
-        .cd-page-header__right { display:flex; gap:8px; align-items:center; }
-        
-        /* Alert Banner */
-        .rhl-alert-banner {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-left: 4px solid #dc3545;
-            border-radius: 0;
-            padding: 12px 18px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .rhl-alert-banner__icon {
-            width: 40px;
-            height: 40px;
-            background: #dc3545;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-        .rhl-alert-banner__icon svg { width: 20px; height: 20px; color: #fff; }
-        .rhl-alert-banner__content { flex: 1; }
-        .rhl-alert-banner__title { font-size: 13px; font-weight: 600; color: #721c24; margin-bottom: 2px; }
-        .rhl-alert-banner__text { font-size: 11px; color: #721c24; }
-        
-        /* Stats Row */
-        .rhl-stats-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-bottom: 15px;
-        }
-        .rhl-stat-card {
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            padding: 14px 18px;
-            position: relative;
-            overflow: hidden;
-        }
-        .rhl-stat-card::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 4px;
-            height: 100%;
-        }
-        .rhl-stat-card--total::before { background: #dc3545; }
-        .rhl-stat-card--students::before { background: #fd7e14; }
-        .rhl-stat-card--courses::before { background: #6f42c1; }
-        .rhl-stat-card--pending::before { background: #ffc107; }
-        
-        .rhl-stat-card__value { font-size: 22px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
-        .rhl-stat-card--total .rhl-stat-card__value { color: #dc3545; }
-        .rhl-stat-card--students .rhl-stat-card__value { color: #fd7e14; }
-        .rhl-stat-card--courses .rhl-stat-card__value { color: #6f42c1; }
-        .rhl-stat-card--pending .rhl-stat-card__value { color: #d39e00; }
-        .rhl-stat-card__label { font-size: 10px; color: #6c757d; text-transform: uppercase; }
-        
-        /* Hold Reason Categories */
-        .rhl-reason-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .rhl-reason-card {
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            padding: 12px 14px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .rhl-reason-card:hover { background: #fafafa; }
-        .rhl-reason-card.active { border-color: #dc3545; background: #fff5f5; }
-        .rhl-reason-card__icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-        .rhl-reason-card__icon svg { width: 16px; height: 16px; color: #fff; }
-        .rhl-reason-card__icon--financial { background: #28a745; }
-        .rhl-reason-card__icon--academic { background: #17a2b8; }
-        .rhl-reason-card__icon--disciplinary { background: #dc3545; }
-        .rhl-reason-card__icon--admin { background: #6f42c1; }
-        .rhl-reason-card__icon--other { background: #6c757d; }
-        .rhl-reason-card__content { flex: 1; }
-        .rhl-reason-card__label { font-size: 10px; color: #6c757d; }
-        .rhl-reason-card__count { font-size: 16px; font-weight: 700; color: #1a1a2e; }
-        
-        /* Filter Panel */
-        .rhl-filter-panel {
-            background: #f8f9fa;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            padding: 12px 15px;
-            margin-bottom: 12px;
-        }
-        .rhl-filter-row {
-            display: flex;
-            gap: 12px;
-            align-items: flex-end;
-            flex-wrap: wrap;
-        }
-        .rhl-filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-        }
-        .rhl-filter-group label {
-            font-size: 9px;
-            color: #6c757d;
-            text-transform: uppercase;
-            font-weight: 600;
-        }
-        .rhl-filter-select {
-            padding: 6px 10px;
-            font-size: 11px;
-            border: 1px solid #ced4da;
-            border-radius: 0;
-            background: #fff;
-            min-width: 140px;
-        }
-        .rhl-filter-select:focus { border-color: #dc3545; outline: none; }
-        
-        /* Buttons */
-        .rhl-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 6px 14px;
-            font-size: 11px;
-            font-weight: 500;
-            border: 1px solid transparent;
-            border-radius: 0;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            text-decoration: none;
-        }
-        .rhl-btn svg { width: 12px; height: 12px; }
-        .rhl-btn--primary { background: #174DA4; color: #fff; border-color: #174DA4; }
-        .rhl-btn--primary:hover { background: #0d3a7d; }
-        .rhl-btn--success { background: #28a745; color: #fff; border-color: #28a745; }
-        .rhl-btn--success:hover { background: #218838; }
-        .rhl-btn--danger { background: #dc3545; color: #fff; border-color: #dc3545; }
-        .rhl-btn--danger:hover { background: #c82333; }
-        .rhl-btn--warning { background: #ffc107; color: #212529; border-color: #ffc107; }
-        .rhl-btn--warning:hover { background: #e0a800; }
-        .rhl-btn--outline { background: #fff; color: #495057; border-color: #ced4da; }
-        .rhl-btn--outline:hover { background: #f8f9fa; }
-        
-        /* Batch Operations Bar */
-        .rhl-batch-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 14px;
-            background: #721c24;
-            border-radius: 0;
-            gap: 10px;
-        }
-        .rhl-batch-bar__left, .rhl-batch-bar__right {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .rhl-batch-bar__selection {
-            color: #fff;
-            font-size: 11px;
-            padding: 4px 10px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
-        }
-        .rhl-batch-bar__selection strong { color: #ffc107; }
-        
-        /* Grid Card */
-        .rhl-grid-card {
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            border-radius: 0 0 6px 6px;
-            overflow: hidden;
-        }
-        
-        /* Grid Styles */
-        .rhl-grid { border-collapse: collapse; width: 100%; }
-        .rhl-grid .dxgvHeader td {
-            background: #f5f7fa !important;
-            font-size: 10px !important;
-            font-weight: 600 !important;
-            text-transform: uppercase !important;
-            padding: 10px 8px !important;
-            color: #495057 !important;
-            border-bottom: 2px solid #dc3545 !important;
-        }
-        .rhl-grid .dxgvDataRow td {
-            font-size: 11px !important;
-            padding: 8px !important;
-            border-bottom: 1px solid #e9ecef !important;
-            vertical-align: middle !important;
-        }
-        .rhl-grid .dxgvDataRow:hover td { background: #fff5f5 !important; }
-        .rhl-grid .dxgvSelectedRow td { background: #f8d7da !important; }
-        
-        /* Hold Reason Badge */
-        .rhl-reason-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 10px;
-            font-size: 9px;
-            font-weight: 600;
-            text-transform: uppercase;
-            border-radius: 12px;
-        }
-        .rhl-reason-badge--financial { background: #d4edda; color: #155724; }
-        .rhl-reason-badge--academic { background: #cce5ff; color: #004085; }
-        .rhl-reason-badge--disciplinary { background: #f8d7da; color: #721c24; }
-        .rhl-reason-badge--admin { background: #e2d5f1; color: #432874; }
-        .rhl-reason-badge--other { background: #e2e3e5; color: #383d41; }
-        
-        /* Duration Badge */
-        .rhl-duration {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .rhl-duration__days { font-size: 14px; font-weight: 700; color: #dc3545; }
-        .rhl-duration__label { font-size: 9px; color: #6c757d; }
-        
-        /* Message */
-        .rhl-message {
-            padding: 10px 14px;
-            border-radius: 6px;
-            font-size: 11px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .rhl-message svg { width: 16px; height: 16px; }
-        .rhl-message--success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .rhl-message--error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .rhl-message--warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        
-        /* Row Actions */
-        .rhl-row-actions { display: flex; gap: 4px; justify-content: center; }
-        .rhl-row-action {
-            width: 24px;
-            height: 24px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.15s ease;
-        }
-        .rhl-row-action svg { width: 12px; height: 12px; }
-        .rhl-row-action--unhold { background: #e8f5e9; color: #388e3c; }
-        .rhl-row-action--unhold:hover { background: #c8e6c9; }
-        .rhl-row-action--view { background: #e3f2fd; color: #1976d2; }
-        .rhl-row-action--view:hover { background: #bbdefb; }
-        .rhl-row-action--history { background: #fff3e0; color: #f57c00; }
-        .rhl-row-action--history:hover { background: #ffe0b2; }
-    </style>
+<style>
+/* ===== RESULTS HOLD LIST — em-/mat- design system ================ */
+
+/* ── Shared Exam Module Nav ── */
+.em-hdr{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#1a237e 0%,#283593 100%);color:#fff;padding:12px 20px}
+.em-hdr__title{font-size:15px;font-weight:700}
+.em-hdr__sub{font-size:10px;opacity:.7;margin-top:1px}
+.em-hdr__actions{display:flex;gap:6px;align-items:center}
+.em-tabs{display:flex;gap:0;background:#fff;border-bottom:2px solid #e0e5ed;padding:0 16px;overflow-x:auto;margin-bottom:12px}
+.em-tab{padding:9px 14px;font-size:11px;font-weight:500;color:#555;text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s,border-color .15s}
+.em-tab:hover{color:#1a237e}
+.em-tab--active{color:#1a237e;border-bottom-color:#1a237e;font-weight:600}
+
+/* ── Stats Row ── */
+.mat-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.mat-stat{background:#fff;border:1px solid #e0e5ed;padding:10px 14px;display:flex;align-items:center;gap:10px;position:relative;overflow:hidden}
+.mat-stat::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,#ccc)}
+.mat-stat__val{font-size:15px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+.mat-stat__label{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#888;margin-top:2px}
+.mat-stat--held{--c:#dc3545}.mat-stat--held .mat-stat__val{color:#dc3545}
+.mat-stat--students{--c:#e65100}.mat-stat--students .mat-stat__val{color:#e65100}
+.mat-stat--courses{--c:#6a1b9a}.mat-stat--courses .mat-stat__val{color:#6a1b9a}
+.mat-stat--long{--c:#d97706}.mat-stat--long .mat-stat__val{color:#d97706}
+
+/* ── Card System ── */
+.mat-card{background:#fff;border:1px solid #e0e5ed;overflow:hidden;margin-bottom:12px}
+.mat-card__hdr{padding:8px 14px;border-bottom:1px solid #e0e5ed;background:#f8f9fb;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.mat-card__title{font-size:12px;font-weight:700;color:#1a237e;display:flex;align-items:center;gap:6px}
+.mat-card__meta{font-size:10px;color:#1a237e;font-weight:600;background:rgba(26,35,126,.07);padding:2px 8px;border:1px solid rgba(26,35,126,.15)}
+
+/* ── Filters (collapsible) ── */
+.mat-filtbar{background:#f8f9fb;border-bottom:1px solid #e0e5ed;padding:10px 14px;display:none}
+.mat-filtbar.show{display:block}
+.mat-filtbar__row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.mat-fg{display:flex;flex-direction:column;gap:3px}
+.mat-fg__label{font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#999;font-weight:600}
+.mat-fg select{border:1px solid #e0e5ed;padding:6px 10px;font-size:11px;background:#fff;min-width:120px;font-family:inherit}
+.mat-fg select:focus{border-color:#1a237e;outline:none}
+
+/* ── Buttons ── */
+.mat-btn{padding:6px 14px;font-size:11px;font-weight:600;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-family:inherit}
+.mat-btn--primary{background:#1a237e;color:#fff}.mat-btn--primary:hover{background:#283593}
+.mat-btn--success{background:#16a34a;color:#fff}.mat-btn--success:hover{background:#15803d}
+.mat-btn--danger{background:#dc3545;color:#fff}.mat-btn--danger:hover{background:#c82333}
+.mat-btn--ghost{background:transparent;color:#555;border:1px solid #e0e5ed}.mat-btn--ghost:hover{background:#f5f7fa}
+.mat-btn--sm{padding:4px 10px;font-size:10px}
+.mat-btn--filter{padding:4px 10px;font-size:10px;background:#e8eaf6;border:1px solid #c5cae9;color:#1a237e;cursor:pointer}
+.mat-btn--filter:hover{background:#c5cae9}
+.mat-btn--filter.active{background:#1a237e;color:#fff;border-color:#1a237e}
+
+/* ── Grid overrides ── */
+.mat-grid .dxgvHeader td{background:#f5f7fa!important;font-size:10px!important;font-weight:600!important;text-transform:uppercase!important;letter-spacing:.3px;padding:9px 8px!important;color:#555!important;border-bottom:2px solid #1a237e!important;white-space:nowrap}
+.mat-grid .dxgvDataRow td{font-size:11px!important;padding:7px 8px!important;border-bottom:1px solid #f0f2f5!important;vertical-align:middle!important;color:#1a1a2e}
+.mat-grid .dxgvDataRow:hover td{background:#eef2fc!important}
+.mat-grid .dxgvDataRow:nth-child(even) td{background:#f9fafb!important}
+.mat-grid .dxgvDataRow:nth-child(even):hover td{background:#eef2fc!important}
+.mat-grid .dxgvSelectedRow td{background:#e8eaf6!important}
+.mat-grid .dxgvFocusedRow td{background:#c5cae9!important}
+
+/* ── Badges ── */
+.mat-badge{display:inline-block;padding:2px 7px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.mat-badge--financial{background:#e6f4ea;color:#155724;border:1px solid #c3e6cb}
+.mat-badge--academic{background:#e8f0fc;color:#0d47a1;border:1px solid #90caf9}
+.mat-badge--disciplinary{background:#fef5f5;color:#991b1b;border:1px solid #f5c6cb}
+.mat-badge--admin{background:#f3e5f5;color:#4a148c;border:1px solid #ce93d8}
+.mat-badge--other{background:#f5f7fa;color:#555;border:1px solid #e0e5ed}
+
+/* ── Duration cell ── */
+.mat-duration{font-weight:700;font-variant-numeric:tabular-nums}
+.mat-duration--warn{color:#dc3545}
+.mat-duration--ok{color:#555}
+
+/* ── User highlight ── */
+.mat-user{font-weight:700;color:#1a237e}
+
+/* ── Row actions ── */
+.mat-row-act{display:inline-flex;gap:3px}
+.mat-row-btn{width:22px;height:22px;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s}
+.mat-row-btn svg{width:12px;height:12px}
+.mat-row-btn--ok{background:#e6f4ea;color:#388e3c}.mat-row-btn--ok:hover{background:#c8e6c9}
+.mat-row-btn--view{background:#e8f0fc;color:#1976d2}.mat-row-btn--view:hover{background:#bbdefb}
+.mat-row-btn--hist{background:#fff8e1;color:#f57c00}.mat-row-btn--hist:hover{background:#ffe0b2}
+
+/* ── Selection bar ── */
+.mat-selbar{display:flex;align-items:center;gap:8px;padding:6px 14px;background:#263238;font-size:11px}
+.mat-selbar__count{color:#fff}.mat-selbar__count strong{color:#ffd600}
+.mat-selbar__spacer{flex:1}
+
+/* ── Alert ── */
+.mat-alert{padding:8px 14px;margin-bottom:10px;font-size:11px;border-left:3px solid;display:flex;align-items:center;gap:6px}
+.mat-alert--error{border-color:#dc3545;background:#fef5f5;color:#991b1b}
+.mat-alert--success{border-color:#16a34a;background:#e6f4ea;color:#155724}
+.mat-alert--warn{border-color:#d97706;background:#fffbeb;color:#92400e}
+
+/* ── Modal (for Add Note) ── */
+.mat-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998;align-items:center;justify-content:center}
+.mat-modal-bg.show{display:flex}
+.mat-modal{background:#fff;width:440px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.mat-modal__hdr{background:#1a237e;padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.mat-modal__title{font-size:13px;font-weight:700;color:#fff}
+.mat-modal__close{border:none;background:rgba(255,255,255,.15);color:#fff;font-size:16px;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.mat-modal__body{padding:16px}
+.mat-modal__footer{padding:10px 16px;border-top:1px solid #e0e5ed;display:flex;gap:8px;justify-content:flex-end;background:#f8f9fb}
+
+/* ── Responsive ── */
+@media(max-width:1200px){.mat-stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.mat-stats{grid-template-columns:1fr}}
+@media print{.em-hdr,.em-tabs,.mat-selbar{display:none!important}}
+</style>
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
-    <div class="rhl-container">
-        <!-- Page Header -->
-        <div class="cd-page-header">
-            <div class="cd-page-header__left">
-                <div class="cd-page-header__icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                </div>
-                <div>
-                    <div class="cd-page-header__title">Results Hold List</div>
-                    <div class="cd-page-header__sub">Manage students with holds preventing results release</div>
-                </div>
-            </div>
-            <div class="cd-page-header__right">
-                <asp:HyperLink ID="lnkBack" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" CssClass="rhl-btn rhl-btn--outline">
-                    ← Back to Results
-                </asp:HyperLink>
-                <asp:Button ID="btnExport" runat="server" Text="📊 Export" CssClass="rhl-btn rhl-btn--primary" OnClick="btnExport_Click" />
-            </div>
-        </div>
-        
-        <!-- Alert Banner -->
-        <div class="rhl-alert-banner">
-            <div class="rhl-alert-banner__icon">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            </div>
-            <div class="rhl-alert-banner__content">
-                <div class="rhl-alert-banner__title">Results Hold Notice</div>
-                <div class="rhl-alert-banner__text">
-                    The following results are currently on hold and NOT visible to students. 
-                    Review the hold reasons and take appropriate action to release or maintain the hold.
-                </div>
-            </div>
-        </div>
-        
-        <!-- Stats Row -->
-        <div class="rhl-stats-row">
-            <div class="rhl-stat-card rhl-stat-card--total">
-                <div class="rhl-stat-card__value"><asp:Literal ID="litTotalHeld" runat="server">0</asp:Literal></div>
-                <div class="rhl-stat-card__label">Total Held Records</div>
-            </div>
-            <div class="rhl-stat-card rhl-stat-card--students">
-                <div class="rhl-stat-card__value"><asp:Literal ID="litAffectedStudents" runat="server">0</asp:Literal></div>
-                <div class="rhl-stat-card__label">Affected Students</div>
-            </div>
-            <div class="rhl-stat-card rhl-stat-card--courses">
-                <div class="rhl-stat-card__value"><asp:Literal ID="litAffectedCourses" runat="server">0</asp:Literal></div>
-                <div class="rhl-stat-card__label">Courses Affected</div>
-            </div>
-            <div class="rhl-stat-card rhl-stat-card--pending">
-                <div class="rhl-stat-card__value"><asp:Literal ID="litLongHeld" runat="server">0</asp:Literal></div>
-                <div class="rhl-stat-card__label">Held &gt; 30 Days</div>
-            </div>
-        </div>
-        
-        <!-- Hold Reason Categories -->
-        <div class="rhl-reason-cards">
-            <asp:LinkButton ID="btnReasonFinancial" runat="server" CssClass="rhl-reason-card" OnClick="FilterByReason_Click" CommandArgument="FINANCIAL">
-                <div class="rhl-reason-card__icon rhl-reason-card__icon--financial">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                </div>
-                <div class="rhl-reason-card__content">
-                    <div class="rhl-reason-card__label">Financial</div>
-                    <div class="rhl-reason-card__count"><asp:Literal ID="litFinancialCount" runat="server">0</asp:Literal></div>
-                </div>
-            </asp:LinkButton>
-            
-            <asp:LinkButton ID="btnReasonAcademic" runat="server" CssClass="rhl-reason-card" OnClick="FilterByReason_Click" CommandArgument="ACADEMIC">
-                <div class="rhl-reason-card__icon rhl-reason-card__icon--academic">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-                </div>
-                <div class="rhl-reason-card__content">
-                    <div class="rhl-reason-card__label">Academic Issues</div>
-                    <div class="rhl-reason-card__count"><asp:Literal ID="litAcademicCount" runat="server">0</asp:Literal></div>
-                </div>
-            </asp:LinkButton>
-            
-            <asp:LinkButton ID="btnReasonDisciplinary" runat="server" CssClass="rhl-reason-card" OnClick="FilterByReason_Click" CommandArgument="DISCIPLINARY">
-                <div class="rhl-reason-card__icon rhl-reason-card__icon--disciplinary">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                </div>
-                <div class="rhl-reason-card__content">
-                    <div class="rhl-reason-card__label">Disciplinary</div>
-                    <div class="rhl-reason-card__count"><asp:Literal ID="litDisciplinaryCount" runat="server">0</asp:Literal></div>
-                </div>
-            </asp:LinkButton>
-            
-            <asp:LinkButton ID="btnReasonAdmin" runat="server" CssClass="rhl-reason-card" OnClick="FilterByReason_Click" CommandArgument="ADMIN">
-                <div class="rhl-reason-card__icon rhl-reason-card__icon--admin">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                </div>
-                <div class="rhl-reason-card__content">
-                    <div class="rhl-reason-card__label">Administrative</div>
-                    <div class="rhl-reason-card__count"><asp:Literal ID="litAdminCount" runat="server">0</asp:Literal></div>
-                </div>
-            </asp:LinkButton>
-            
-            <asp:LinkButton ID="btnReasonOther" runat="server" CssClass="rhl-reason-card" OnClick="FilterByReason_Click" CommandArgument="">
-                <div class="rhl-reason-card__icon rhl-reason-card__icon--other">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                </div>
-                <div class="rhl-reason-card__content">
-                    <div class="rhl-reason-card__label">All/Other</div>
-                    <div class="rhl-reason-card__count"><asp:Literal ID="litOtherCount" runat="server">0</asp:Literal></div>
-                </div>
-            </asp:LinkButton>
-        </div>
-        
-        <!-- Filter Panel -->
-        <div class="rhl-filter-panel">
-            <div class="rhl-filter-row">
-                <div class="rhl-filter-group">
-                    <label>Academic Year</label>
-                    <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="rhl-filter-select" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed"></asp:DropDownList>
-                </div>
-                <div class="rhl-filter-group">
-                    <label>Semester</label>
-                    <asp:DropDownList ID="ddlSemester" runat="server" CssClass="rhl-filter-select" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed">
-                        <asp:ListItem Value="" Text="All Semesters"></asp:ListItem>
-                        <asp:ListItem Value="1" Text="Semester 1"></asp:ListItem>
-                        <asp:ListItem Value="2" Text="Semester 2"></asp:ListItem>
-                    </asp:DropDownList>
-                </div>
-                <div class="rhl-filter-group">
-                    <label>Programme</label>
-                    <asp:DropDownList ID="ddlProgramme" runat="server" CssClass="rhl-filter-select" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed"></asp:DropDownList>
-                </div>
-                <div class="rhl-filter-group">
-                    <label>Hold Duration</label>
-                    <asp:DropDownList ID="ddlDuration" runat="server" CssClass="rhl-filter-select" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed">
-                        <asp:ListItem Value="" Text="Any Duration"></asp:ListItem>
-                        <asp:ListItem Value="7" Text="< 7 days"></asp:ListItem>
-                        <asp:ListItem Value="30" Text="< 30 days"></asp:ListItem>
-                        <asp:ListItem Value="30+" Text="> 30 days"></asp:ListItem>
-                    </asp:DropDownList>
-                </div>
-                <div class="rhl-filter-group">
-                    <label>&nbsp;</label>
-                    <asp:Button ID="btnClearFilters" runat="server" Text="Clear Filters" CssClass="rhl-btn rhl-btn--outline" OnClick="btnClearFilters_Click" />
-                </div>
-            </div>
-        </div>
-        
-        <!-- Message -->
-        <asp:Panel ID="pnlMessage" runat="server" CssClass="rhl-message" Visible="false">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            <span><asp:Literal ID="litMessage" runat="server"></asp:Literal></span>
-        </asp:Panel>
-        
-        <!-- Batch Operations Bar -->
-        <div class="rhl-batch-bar">
-            <div class="rhl-batch-bar__left">
-                <span class="rhl-batch-bar__selection">
-                    Selected: <strong><span id="selectedCount">0</span></strong> record(s)
-                </span>
-                <asp:Button ID="btnUnholdSelected" runat="server" Text="✓ Unhold Selected" CssClass="rhl-btn rhl-btn--success" OnClick="btnUnholdSelected_Click" OnClientClick="return confirm('Remove hold from selected records? Results will be available for release.');" />
-                <asp:Button ID="btnAddNote" runat="server" Text="📝 Add Note" CssClass="rhl-btn rhl-btn--warning" OnClick="btnAddNote_Click" />
-            </div>
-            <div class="rhl-batch-bar__right">
-                <asp:Button ID="btnRefresh" runat="server" Text="↻ Refresh" CssClass="rhl-btn rhl-btn--outline" OnClick="btnRefresh_Click" style="color:#fff; border-color:rgba(255,255,255,0.3);" />
-            </div>
-        </div>
-        
-        <!-- Grid Card -->
-        <div class="rhl-grid-card">
-            <dx:ASPxGridView ID="gvHeldResults" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="ID" CssClass="rhl-grid" ClientInstanceName="gvHeldResults">
-                <ClientSideEvents SelectionChanged="function(s,e) { updateSelectedCount(); }" />
-                <SettingsPager PageSize="50" AlwaysShowPager="true">
-                    <Summary Visible="true" Text="Page {0} of {1} ({2} held records)" />
-                </SettingsPager>
-                <SettingsBehavior AllowFocusedRow="true" AllowSelectByRowClick="true" />
-                <Settings ShowFilterRow="true" />
-                <Columns>
-                    <dx:GridViewCommandColumn ShowSelectCheckbox="true" SelectAllCheckboxMode="Page" VisibleIndex="0" Width="35px" />
-                    
-                    <dx:GridViewDataTextColumn FieldName="regno" Caption="Student" VisibleIndex="1" Width="130px">
-                        <CellStyle Font-Bold="true" ForeColor="#174DA4" />
-                    </dx:GridViewDataTextColumn>
-                    
-                    <dx:GridViewDataTextColumn FieldName="student_name" Caption="Name" VisibleIndex="2" Width="150px" />
-                    
-                    <dx:GridViewDataTextColumn FieldName="course_id" Caption="Course" VisibleIndex="3" Width="90px">
-                        <CellStyle Font-Bold="true" />
-                    </dx:GridViewDataTextColumn>
-                    
-                    <dx:GridViewDataTextColumn FieldName="prog_name" Caption="Programme" VisibleIndex="4" Width="150px" />
-                    
-                    <dx:GridViewDataTextColumn FieldName="acadyear" Caption="Year" VisibleIndex="5" Width="80px">
-                        <CellStyle HorizontalAlign="Center" />
-                    </dx:GridViewDataTextColumn>
-                    
-                    <dx:GridViewDataTextColumn FieldName="semester" Caption="Sem" VisibleIndex="6" Width="45px">
-                        <CellStyle HorizontalAlign="Center" />
-                    </dx:GridViewDataTextColumn>
-                    
-                    <dx:GridViewDataTextColumn FieldName="hold_reason" Caption="Hold Reason" VisibleIndex="7" Width="110px">
-                        <DataItemTemplate>
-                            <%# GetReasonBadge(Eval("hold_reason")) %>
-                        </DataItemTemplate>
-                        <CellStyle HorizontalAlign="Center" />
-                    </dx:GridViewDataTextColumn>
-                    
-                    <dx:GridViewDataTextColumn FieldName="hold_notes" Caption="Notes" VisibleIndex="8" Width="180px">
-                        <CellStyle Wrap="True" />
-                    </dx:GridViewDataTextColumn>
-                    
-                    <dx:GridViewDataDateColumn FieldName="hold_date" Caption="Held On" VisibleIndex="9" Width="85px">
-                        <PropertiesDateEdit DisplayFormatString="dd-MMM-yy" />
-                        <CellStyle HorizontalAlign="Center" />
-                    </dx:GridViewDataDateColumn>
-                    
-                    <dx:GridViewDataTextColumn FieldName="days_held" Caption="Duration" VisibleIndex="10" Width="70px">
-                        <DataItemTemplate>
-                            <div class="rhl-duration">
-                                <span class="rhl-duration__days"><%# Eval("days_held") %></span>
-                                <span class="rhl-duration__label">days</span>
-                            </div>
-                        </DataItemTemplate>
-                        <CellStyle HorizontalAlign="Center" />
-                    </dx:GridViewDataTextColumn>
-                    
-                    <dx:GridViewDataTextColumn FieldName="held_by" Caption="Held By" VisibleIndex="11" Width="90px" />
-                    
-                    <dx:GridViewDataTextColumn FieldName="ID" Caption="Actions" VisibleIndex="12" Width="80px">
-                        <DataItemTemplate>
-                            <div class="rhl-row-actions">
-                                <button type="button" class="rhl-row-action rhl-row-action--unhold" title="Unhold" onclick="unholdSingle('<%# Eval("ID") %>')">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                </button>
-                                <button type="button" class="rhl-row-action rhl-row-action--view" title="View Student" onclick="viewStudent('<%# Eval("regno") %>')">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                                </button>
-                                <button type="button" class="rhl-row-action rhl-row-action--history" title="History" onclick="viewHistory('<%# Eval("ID") %>')">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                </button>
-                            </div>
-                        </DataItemTemplate>
-                        <CellStyle HorizontalAlign="Center" />
-                    </dx:GridViewDataTextColumn>
-                </Columns>
-            </dx:ASPxGridView>
-            
-            <dx:ASPxGridViewExporter ID="gvExporter" runat="server" GridViewID="gvHeldResults" />
+
+<!-- ── Header + Tabs ── -->
+<div class="em-hdr">
+    <div><div class="em-hdr__title">Results Hold List</div><div class="em-hdr__sub">Records on hold preventing results release</div></div>
+    <div class="em-hdr__actions">
+        <asp:Button ID="btnExport" runat="server" Text="Export" CssClass="mat-btn mat-btn--success mat-btn--sm" OnClick="btnExport_Click" />
+    </div>
+</div>
+<div class="em-tabs">
+    <a href="ExamResultsInfo.aspx" class="em-tab">Exam Results</a>
+    <a href="ResultsRelease.aspx" class="em-tab">Results Release</a>
+    <a href="ResultsUpdates.aspx" class="em-tab">Updates</a>
+    <a href="ResultsHoldList.aspx" class="em-tab em-tab--active">Hold List</a>
+    <a href="ResultsAuditLog.aspx" class="em-tab">Audit Log</a>
+    <a href="MarksAuditTrail.aspx" class="em-tab">Marks Trail</a>
+    <a href="ResultsAnalytics.aspx" class="em-tab">Analytics</a>
+</div>
+
+<!-- ── Stats ── -->
+<div class="mat-stats">
+    <div class="mat-stat mat-stat--held"><div><div class="mat-stat__val"><asp:Literal ID="litTotalHeld" runat="server">0</asp:Literal></div><div class="mat-stat__label">Total Held</div></div></div>
+    <div class="mat-stat mat-stat--students"><div><div class="mat-stat__val"><asp:Literal ID="litAffectedStudents" runat="server">0</asp:Literal></div><div class="mat-stat__label">Students Affected</div></div></div>
+    <div class="mat-stat mat-stat--courses"><div><div class="mat-stat__val"><asp:Literal ID="litAffectedCourses" runat="server">0</asp:Literal></div><div class="mat-stat__label">Courses Affected</div></div></div>
+    <div class="mat-stat mat-stat--long"><div><div class="mat-stat__val"><asp:Literal ID="litLongHeld" runat="server">0</asp:Literal></div><div class="mat-stat__label">Held &gt;30 Days</div></div></div>
+</div>
+
+<!-- ── Alert ── -->
+<asp:Panel ID="pnlMessage" runat="server" Visible="false" CssClass="mat-alert mat-alert--error">
+    <asp:Literal ID="litMessage" runat="server" />
+</asp:Panel>
+
+<!-- ── Reason filter pills (hidden controls to keep code-behind happy) ── -->
+<asp:LinkButton ID="btnReasonFinancial" runat="server" OnClick="FilterByReason_Click" CommandArgument="FINANCIAL" style="display:none" />
+<asp:LinkButton ID="btnReasonAcademic" runat="server" OnClick="FilterByReason_Click" CommandArgument="ACADEMIC" style="display:none" />
+<asp:LinkButton ID="btnReasonDisciplinary" runat="server" OnClick="FilterByReason_Click" CommandArgument="DISCIPLINARY" style="display:none" />
+<asp:LinkButton ID="btnReasonAdmin" runat="server" OnClick="FilterByReason_Click" CommandArgument="ADMIN" style="display:none" />
+<asp:LinkButton ID="btnReasonOther" runat="server" OnClick="FilterByReason_Click" CommandArgument="" style="display:none" />
+<asp:Literal ID="litFinancialCount" runat="server" Visible="false">0</asp:Literal>
+<asp:Literal ID="litAcademicCount" runat="server" Visible="false">0</asp:Literal>
+<asp:Literal ID="litDisciplinaryCount" runat="server" Visible="false">0</asp:Literal>
+<asp:Literal ID="litAdminCount" runat="server" Visible="false">0</asp:Literal>
+<asp:Literal ID="litOtherCount" runat="server" Visible="false">0</asp:Literal>
+<asp:HyperLink ID="lnkBack" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" style="display:none" />
+
+<!-- ── Main Card ── -->
+<div class="mat-card">
+    <div class="mat-card__hdr">
+        <span class="mat-card__title">Held Records</span>
+        <div style="display:flex;gap:6px;align-items:center">
+            <span class="mat-card__meta"><asp:Literal ID="litGridCount" runat="server">0</asp:Literal> records</span>
+            <button type="button" class="mat-btn--filter" id="btnToggleFilter" onclick="toggleFilters()">Filters</button>
         </div>
     </div>
-    
-    <!-- Add Note Popup -->
-    <dx:ASPxPopupControl ID="popAddNote" runat="server" Width="500" Height="300" 
-        HeaderText="Add Hold Note" PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter"
-        CloseAction="CloseButton" Modal="true" ClientInstanceName="popAddNote">
-        <ContentCollection>
-            <dx:PopupControlContentControl runat="server">
-                <div style="padding: 15px;">
-                    <div class="rhl-filter-group" style="margin-bottom: 15px;">
-                        <label>Hold Reason</label>
-                        <asp:DropDownList ID="ddlHoldReason" runat="server" CssClass="rhl-filter-select" style="width: 100%;">
-                            <asp:ListItem Value="FINANCIAL" Text="Financial Issue"></asp:ListItem>
-                            <asp:ListItem Value="ACADEMIC" Text="Academic Issue"></asp:ListItem>
-                            <asp:ListItem Value="DISCIPLINARY" Text="Disciplinary Issue"></asp:ListItem>
-                            <asp:ListItem Value="ADMIN" Text="Administrative"></asp:ListItem>
-                            <asp:ListItem Value="OTHER" Text="Other"></asp:ListItem>
-                        </asp:DropDownList>
+    <!-- Collapsible Filters -->
+    <div class="mat-filtbar" id="matFilterBar">
+        <div class="mat-filtbar__row">
+            <div class="mat-fg">
+                <span class="mat-fg__label">Academic Year</span>
+                <asp:DropDownList ID="ddlAcadYear" runat="server" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed" />
+            </div>
+            <div class="mat-fg">
+                <span class="mat-fg__label">Semester</span>
+                <asp:DropDownList ID="ddlSemester" runat="server" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed">
+                    <asp:ListItem Value="" Text="All" />
+                    <asp:ListItem Value="1" Text="Sem 1" />
+                    <asp:ListItem Value="2" Text="Sem 2" />
+                </asp:DropDownList>
+            </div>
+            <div class="mat-fg">
+                <span class="mat-fg__label">Programme</span>
+                <asp:DropDownList ID="ddlProgramme" runat="server" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed" />
+            </div>
+            <div class="mat-fg">
+                <span class="mat-fg__label">Duration</span>
+                <asp:DropDownList ID="ddlDuration" runat="server" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed">
+                    <asp:ListItem Value="" Text="Any" />
+                    <asp:ListItem Value="7" Text="&lt; 7d" />
+                    <asp:ListItem Value="30" Text="&lt; 30d" />
+                    <asp:ListItem Value="30+" Text="&gt; 30d" />
+                </asp:DropDownList>
+            </div>
+            <asp:Button ID="btnClearFilters" runat="server" Text="Reset" CssClass="mat-btn mat-btn--ghost mat-btn--sm" OnClick="btnClearFilters_Click" />
+        </div>
+    </div>
+    <!-- Selection / Batch Actions Bar -->
+    <div class="mat-selbar">
+        <span class="mat-selbar__count">Selected: <strong><span id="selectedCount">0</span></strong></span>
+        <asp:Button ID="btnUnholdSelected" runat="server" Text="Unhold" CssClass="mat-btn mat-btn--success mat-btn--sm" OnClick="btnUnholdSelected_Click" OnClientClick="return confirm('Remove hold from selected records?');" />
+        <asp:Button ID="btnAddNote" runat="server" Text="Add Note" CssClass="mat-btn mat-btn--ghost mat-btn--sm" style="color:#fff;border-color:rgba(255,255,255,.25)" OnClick="btnAddNote_Click" />
+        <span class="mat-selbar__spacer"></span>
+        <asp:Button ID="btnRefresh" runat="server" Text="Refresh" CssClass="mat-btn mat-btn--ghost mat-btn--sm" style="color:#fff;border-color:rgba(255,255,255,.25)" OnClick="btnRefresh_Click" />
+    </div>
+    <!-- Grid -->
+    <dx:ASPxGridView ID="gvHeldResults" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="ID" CssClass="mat-grid" ClientInstanceName="gvHeldResults">
+        <ClientSideEvents SelectionChanged="function(s,e){updateSel();}" />
+        <SettingsPager PageSize="50" AlwaysShowPager="true">
+            <Summary Visible="true" Text="Page {0} of {1} ({2} records)" />
+            <PageSizeItemSettings Visible="true" Items="25, 50, 100" />
+        </SettingsPager>
+        <SettingsBehavior AllowFocusedRow="true" AllowSelectByRowClick="true" />
+        <Settings ShowFilterRow="true" />
+        <Columns>
+            <dx:GridViewCommandColumn ShowSelectCheckbox="true" SelectAllCheckboxMode="Page" VisibleIndex="0" Width="32px" />
+            <dx:GridViewDataTextColumn FieldName="regno" Caption="Student" VisibleIndex="1" Width="120px">
+                <DataItemTemplate><span class="mat-user"><%# Eval("regno") %></span></DataItemTemplate>
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="student_name" Caption="Name" VisibleIndex="2" Width="140px" />
+            <dx:GridViewDataTextColumn FieldName="course_id" Caption="Course" VisibleIndex="3" Width="85px">
+                <CellStyle Font-Bold="true" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="prog_name" Caption="Programme" VisibleIndex="4" Width="140px" />
+            <dx:GridViewDataTextColumn FieldName="acadyear" Caption="Year" VisibleIndex="5" Width="75px">
+                <CellStyle HorizontalAlign="Center" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="semester" Caption="Sem" VisibleIndex="6" Width="40px">
+                <CellStyle HorizontalAlign="Center" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="hold_reason" Caption="Reason" VisibleIndex="7" Width="90px">
+                <DataItemTemplate><%# GetReasonBadge(Eval("hold_reason")) %></DataItemTemplate>
+                <CellStyle HorizontalAlign="Center" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="hold_notes" Caption="Notes" VisibleIndex="8">
+                <CellStyle Wrap="True" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataDateColumn FieldName="hold_date" Caption="Date" VisibleIndex="9" Width="80px">
+                <PropertiesDateEdit DisplayFormatString="dd-MMM-yy" />
+                <CellStyle HorizontalAlign="Center" />
+            </dx:GridViewDataDateColumn>
+            <dx:GridViewDataTextColumn FieldName="days_held" Caption="Days" VisibleIndex="10" Width="45px">
+                <DataItemTemplate><span class='mat-duration <%# Convert.ToInt32(Eval("days_held")) > 30 ? "mat-duration--warn" : "mat-duration--ok" %>'><%# Eval("days_held") %></span></DataItemTemplate>
+                <CellStyle HorizontalAlign="Center" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="held_by" Caption="By" VisibleIndex="11" Width="80px" />
+            <dx:GridViewDataTextColumn FieldName="ID" Caption="" VisibleIndex="12" Width="68px">
+                <DataItemTemplate>
+                    <div class="mat-row-act">
+                        <button type="button" class="mat-row-btn mat-row-btn--ok" title="Unhold" onclick="unholdSingle('<%# Eval("ID") %>')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button>
+                        <button type="button" class="mat-row-btn mat-row-btn--view" title="View" onclick="viewStudent('<%# Eval("regno") %>')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                        <button type="button" class="mat-row-btn mat-row-btn--hist" title="History" onclick="viewHistory('<%# Eval("ID") %>')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
                     </div>
-                    <div class="rhl-filter-group" style="margin-bottom: 15px;">
-                        <label>Note</label>
-                        <asp:TextBox ID="txtHoldNote" runat="server" TextMode="MultiLine" Rows="4" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;"></asp:TextBox>
-                    </div>
-                    <div style="text-align: right;">
-                        <asp:Button ID="btnSaveNote" runat="server" Text="Save Note" CssClass="rhl-btn rhl-btn--primary" OnClick="btnSaveNote_Click" />
-                        <button type="button" class="rhl-btn rhl-btn--outline" onclick="popAddNote.Hide();">Cancel</button>
-                    </div>
-                </div>
-            </dx:PopupControlContentControl>
-        </ContentCollection>
-    </dx:ASPxPopupControl>
-    
-    <script type="text/javascript">
-        function updateSelectedCount() {
-            var count = gvHeldResults.GetSelectedRowCount();
-            document.getElementById('selectedCount').textContent = count;
-        }
-        
-        function unholdSingle(id) {
-            if (confirm('Remove hold from this record?')) {
-                __doPostBack('UnholdSingle', id);
-            }
-        }
-        
-        function viewStudent(regno) {
-            window.open('StudentResultsView.aspx?regno=' + encodeURIComponent(regno), '_blank');
-        }
-        
-        function viewHistory(id) {
-            window.open('ResultsAuditLog.aspx?recordId=' + encodeURIComponent(id), '_blank');
-        }
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            updateSelectedCount();
-        });
-    </script>
+                </DataItemTemplate>
+                <CellStyle HorizontalAlign="Center" />
+            </dx:GridViewDataTextColumn>
+        </Columns>
+    </dx:ASPxGridView>
+    <dx:ASPxGridViewExporter ID="gvExporter" runat="server" GridViewID="gvHeldResults" />
+</div>
+
+<!-- ── Add Note Modal ── -->
+<div class="mat-modal-bg" id="noteModal">
+<div class="mat-modal">
+    <div class="mat-modal__hdr">
+        <span class="mat-modal__title">Add Hold Note</span>
+        <button type="button" class="mat-modal__close" onclick="closeNoteModal()">&times;</button>
+    </div>
+    <div class="mat-modal__body">
+        <div class="mat-fg" style="margin-bottom:12px">
+            <span class="mat-fg__label">Hold Reason</span>
+            <asp:DropDownList ID="ddlHoldReason" runat="server" style="width:100%;border:1px solid #e0e5ed;padding:6px 10px;font-size:11px">
+                <asp:ListItem Value="FINANCIAL" Text="Financial" />
+                <asp:ListItem Value="ACADEMIC" Text="Academic" />
+                <asp:ListItem Value="DISCIPLINARY" Text="Disciplinary" />
+                <asp:ListItem Value="ADMIN" Text="Administrative" />
+                <asp:ListItem Value="OTHER" Text="Other" />
+            </asp:DropDownList>
+        </div>
+        <div class="mat-fg">
+            <span class="mat-fg__label">Note</span>
+            <asp:TextBox ID="txtHoldNote" runat="server" TextMode="MultiLine" Rows="3" style="width:100%;border:1px solid #e0e5ed;padding:6px 10px;font-size:11px;font-family:inherit;resize:vertical" />
+        </div>
+    </div>
+    <div class="mat-modal__footer">
+        <button type="button" class="mat-btn mat-btn--ghost mat-btn--sm" onclick="closeNoteModal()">Cancel</button>
+        <asp:Button ID="btnSaveNote" runat="server" Text="Save Note" CssClass="mat-btn mat-btn--primary mat-btn--sm" OnClick="btnSaveNote_Click" />
+    </div>
+</div>
+</div>
+<!-- hidden DevExpress popup kept for code-behind compatibility -->
+<dx:ASPxPopupControl ID="popAddNote" runat="server" Width="1" Height="1" ClientInstanceName="popAddNote" ShowOnPageLoad="false" style="display:none">
+    <ContentCollection><dx:PopupControlContentControl runat="server"></dx:PopupControlContentControl></ContentCollection>
+</dx:ASPxPopupControl>
+
+<script>
+function toggleFilters(){var b=document.getElementById('matFilterBar'),t=document.getElementById('btnToggleFilter');if(b.classList.contains('show')){b.classList.remove('show');t.classList.remove('active');}else{b.classList.add('show');t.classList.add('active');}}
+function updateSel(){var c=gvHeldResults.GetSelectedRowCount();document.getElementById('selectedCount').textContent=c;}
+function unholdSingle(id){if(confirm('Remove hold from this record?'))__doPostBack('UnholdSingle',id);}
+function viewStudent(r){window.open('StudentResultsView.aspx?regno='+encodeURIComponent(r),'_blank');}
+function viewHistory(id){window.open('MarksAuditTrail.aspx?recordId='+encodeURIComponent(id),'_blank');}
+function openNoteModal(){document.getElementById('noteModal').classList.add('show');}
+function closeNoteModal(){document.getElementById('noteModal').classList.remove('show');}
+document.addEventListener('DOMContentLoaded',function(){updateSel();});
+</script>
+
 </asp:Content>

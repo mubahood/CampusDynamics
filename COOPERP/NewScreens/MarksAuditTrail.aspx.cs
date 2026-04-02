@@ -61,8 +61,9 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
             LoadTopUsers();
             LoadBreakdown();
             LoadRecentActivity();
-            BindGrid();
         }
+        // Always bind so DevExpress grid callbacks (pagination, sorting, filtering) have data
+        BindGrid();
     }
 
     // ────────────────────────────────────────────
@@ -313,30 +314,35 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
                 conn.Open();
 
                 var conditions = new List<string>();
-                conditions.Add("page_function IN " + MarksInClause);
+                conditions.Add("a.page_function IN " + MarksInClause);
 
                 if (dtFrom.Date != DateTime.MinValue)
-                    conditions.Add("access_date >= @dtFrom");
+                    conditions.Add("a.access_date >= @dtFrom");
                 if (dtTo.Date != DateTime.MinValue)
-                    conditions.Add("access_date <= @dtTo");
+                    conditions.Add("a.access_date <= @dtTo");
                 if (!string.IsNullOrEmpty(ddlAction.SelectedValue))
-                    conditions.Add("page_function = @action");
+                    conditions.Add("a.page_function = @action");
                 if (!string.IsNullOrEmpty(ddlUser.SelectedValue))
-                    conditions.Add("user_id = @user");
+                    conditions.Add("a.user_id = @user");
                 if (!string.IsNullOrEmpty(txtSearch.Text.Trim()))
-                    conditions.Add("par LIKE @search");
+                    conditions.Add("(a.par LIKE @search OR s.firstname LIKE @search OR s.othername LIKE @search)");
 
                 string where = "WHERE " + string.Join(" AND ", conditions.ToArray());
 
-                // Extract IP from par if present (format: "... IP Address: x.x.x.x")
-                string sql = @"SELECT logid, user_id, page_function, par, comments, access_date,
-                    CASE
-                        WHEN par LIKE '%IP Address:%' THEN TRIM(SUBSTRING_INDEX(par, 'IP Address:', -1))
-                        ELSE ''
-                    END AS ip_address
-                    FROM acad_activity_log " + where + @"
-                    ORDER BY access_date DESC
-                    LIMIT 3000";
+                // Extract student reg number from par, join acad_student for name
+                string regExpr = @"CASE
+                        WHEN a.par LIKE 'Marks for %' THEN TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(a.par, 'Marks for ', -1), ',', 1))
+                        WHEN a.par LIKE '%Student: %' THEN TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(a.par, 'Student: ', -1), ' ', 1))
+                        ELSE '' END";
+
+                string sql = @"SELECT a.logid, a.user_id, a.page_function, a.par, a.access_date,
+                    " + regExpr + @" AS student_regno,
+                    CONCAT(IFNULL(s.firstname,''), ' ', IFNULL(s.othername,'')) AS student_name
+                    FROM acad_activity_log a
+                    LEFT JOIN acad_student s ON s.regno = " + regExpr + @"
+                    " + where + @"
+                    ORDER BY a.access_date DESC
+                    LIMIT 5000";
 
                 using (var cmd = new MySqlCommand(sql, conn))
                 {
@@ -375,9 +381,9 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
         dt.Columns.Add("user_id", typeof(string));
         dt.Columns.Add("page_function", typeof(string));
         dt.Columns.Add("par", typeof(string));
-        dt.Columns.Add("comments", typeof(string));
         dt.Columns.Add("access_date", typeof(DateTime));
-        dt.Columns.Add("ip_address", typeof(string));
+        dt.Columns.Add("student_regno", typeof(string));
+        dt.Columns.Add("student_name", typeof(string));
         return dt;
     }
 
@@ -423,13 +429,107 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
         return "<span class='mat-sev mat-sev--normal'><span class='mat-sev__dot'></span>Normal</span>";
     }
 
+    /// <summary>Format the student column: reg number + name.</summary>
+    protected string FormatStudent(object regnoObj, object nameObj)
+    {
+        string regno = (regnoObj ?? "").ToString().Trim();
+        string name = (nameObj ?? "").ToString().Trim();
+        if (string.IsNullOrEmpty(regno)) return "<span style='color:#999;font-size:10px'>—</span>";
+        string html = "<span style='font-weight:600;color:#1a237e;font-size:11px'>" + HttpUtility.HtmlEncode(regno) + "</span>";
+        if (!string.IsNullOrEmpty(name) && name != " ")
+            html += "<br/><span style='color:#666;font-size:10px'>" + HttpUtility.HtmlEncode(name.Trim()) + "</span>";
+        return html;
+    }
+
+    /// <summary>Shorten verbose par details to a compact summary.</summary>
+    protected string ShortenDetails(object parObj, object pfObj)
+    {
+        string par = (parObj ?? "").ToString().Trim();
+        string pf = (pfObj ?? "").ToString().Trim();
+        if (string.IsNullOrEmpty(par)) return "";
+
+        try
+        {
+            // "Marks for MRU2024002034, Acad 2024/2025, Course: FAD1206D, Score: 57, Sem: 2, Serial No: 298538"
+            if (par.StartsWith("Marks for "))
+            {
+                string course = ExtractBetween(par, "Course: ", ",") ?? ExtractAfter(par, "Course: ");
+                string score = ExtractBetween(par, "Score: ", ",") ?? ExtractAfter(par, "Score: ");
+                string acad = ExtractBetween(par, "Acad ", ",");
+                string sem = ExtractBetween(par, "Sem: ", ",") ?? ExtractAfter(par, "Sem: ");
+                var parts = new List<string>();
+                if (!string.IsNullOrEmpty(course)) parts.Add(course.Trim());
+                if (!string.IsNullOrEmpty(score)) parts.Add("Score: " + score.Trim());
+                if (!string.IsNullOrEmpty(acad) && !string.IsNullOrEmpty(sem))
+                    parts.Add(acad.Trim() + " S" + sem.Trim());
+                return parts.Count > 0 ? HttpUtility.HtmlEncode(string.Join(" | ", parts.ToArray())) : HttpUtility.HtmlEncode(Truncate(par, 80));
+            }
+
+            // "Student: MRU... Course: BEF2101 Academic Year: 2025/2026 Semester: 1 Old CourseWork Mark: 0 New CourseWork: 35 ..."
+            if (par.Contains("Student:") && par.Contains("Course:"))
+            {
+                string course = ExtractBetween(par, "Course: ", " ") ?? "";
+                string acad = ExtractBetween(par, "Academic Year: ", " ") ?? "";
+                string sem = ExtractBetween(par, "Semester: ", " ") ?? ExtractAfter(par, "Semester: ");
+
+                // Build mark changes — only show non-trivial (where old != new)
+                var changes = new List<string>();
+                string oldCW = ExtractBetween(par, "Old CourseWork Mark: ", " ");
+                string newCW = ExtractBetween(par, "New CourseWork: ", " ") ?? ExtractAfter(par, "New CourseWork: ");
+                if (oldCW != null && newCW != null && oldCW != newCW) changes.Add("CW:" + oldCW + "→" + newCW);
+
+                string oldTest = ExtractBetween(par, "Old Test Mark: ", " ");
+                string newTest = ExtractBetween(par, "New Test Mark: ", " ") ?? ExtractAfter(par, "New Test Mark: ");
+                if (oldTest != null && newTest != null && oldTest != newTest) changes.Add("Test:" + oldTest + "→" + newTest);
+
+                string oldExam = ExtractBetween(par, "Old Exam Mark: ", " ");
+                string newExam = ExtractAfter(par, "New Exam Mark: ");
+                if (newExam != null && newExam.Contains(" ")) newExam = newExam.Substring(0, newExam.IndexOf(' '));
+                if (oldExam != null && newExam != null && oldExam != newExam) changes.Add("Exam:" + oldExam + "→" + newExam);
+
+                var parts = new List<string>();
+                if (!string.IsNullOrEmpty(course)) parts.Add(course.Trim());
+                if (changes.Count > 0) parts.Add(string.Join(", ", changes.ToArray()));
+                else parts.Add("no change");
+                if (!string.IsNullOrEmpty(acad) && !string.IsNullOrEmpty(sem))
+                    parts.Add(acad.Trim() + " S" + sem.Trim());
+                return HttpUtility.HtmlEncode(string.Join(" | ", parts.ToArray()));
+            }
+        }
+        catch { }
+
+        return HttpUtility.HtmlEncode(Truncate(par, 80));
+    }
+
+    private string ExtractBetween(string src, string start, string end)
+    {
+        int i = src.IndexOf(start);
+        if (i < 0) return null;
+        i += start.Length;
+        int j = src.IndexOf(end, i);
+        if (j < 0) return null;
+        return src.Substring(i, j - i);
+    }
+
+    private string ExtractAfter(string src, string start)
+    {
+        int i = src.IndexOf(start);
+        if (i < 0) return null;
+        return src.Substring(i + start.Length).Trim();
+    }
+
+    private string Truncate(string s, int max)
+    {
+        return s.Length <= max ? s : s.Substring(0, max) + "...";
+    }
+
     /// <summary>Rank badge CSS class for top-users repeater.</summary>
     protected string GetRankClass(int index)
     {
-        if (index == 0) return "mat-top-rank mat-top-rank--1";
-        if (index == 1) return "mat-top-rank mat-top-rank--2";
-        if (index == 2) return "mat-top-rank mat-top-rank--3";
-        return "mat-top-rank mat-top-rank--other";
+        if (index == 0) return "mat-rank mat-rank--1";
+        if (index == 1) return "mat-rank mat-rank--2";
+        if (index == 2) return "mat-rank mat-rank--3";
+        return "mat-rank mat-rank--other";
     }
 
     #endregion
@@ -472,8 +572,7 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
 
     private void ShowMsg(string text, bool isError)
     {
-        pnlMsg.CssClass = isError ? "mat-msg mat-msg--error" : "mat-msg mat-msg--info";
-        pnlMsg.Attributes["style"] = "margin:14px 20px 0;";
+        pnlMsg.CssClass = isError ? "mat-alert mat-alert--error" : "mat-alert mat-alert--info";
         litMsg.Text = HttpUtility.HtmlEncode(text);
         pnlMsg.Visible = true;
     }

@@ -897,9 +897,9 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
         bool isApproved = !string.IsNullOrEmpty(status) && status != "-";
         
         if (isApproved)
-            return string.Format("<span class=\"ru-status-badge ru-status-badge--approved\">APPROVED</span>");
+            return string.Format("<span class=\"mat-badge mat-badge--approved\">APPROVED</span>");
         else
-            return string.Format("<span class=\"ru-status-badge ru-status-badge--pending\">PENDING</span>");
+            return string.Format("<span class=\"mat-badge mat-badge--pending\">PENDING</span>");
     }
     
     protected void gvResults_CustomColumnDisplayText(object sender, ASPxGridViewColumnDisplayTextEventArgs e)
@@ -993,14 +993,14 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
             txtGrade.Text = values[7] != null ? values[7].ToString() : "";
             
             pnlEdit.Visible = true;
-            pnlEdit.CssClass = "ru-edit-panel show";
+            pnlEdit.CssClass = "mat-edit show";
         }
     }
     
     protected void btnCancelEdit_Click(object sender, EventArgs e)
     {
         pnlEdit.Visible = false;
-        pnlEdit.CssClass = "ru-edit-panel";
+        pnlEdit.CssClass = "mat-edit";
         hfResultID.Value = "";
     }
     
@@ -1069,7 +1069,7 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
                 
                 ShowMessage("Result updated successfully.", "success");
                 pnlEdit.Visible = false;
-                pnlEdit.CssClass = "ru-edit-panel";
+                pnlEdit.CssClass = "mat-edit";
                 gvResults.Selection.UnselectAll();
                 BindGrid();
             }
@@ -1186,7 +1186,7 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
     
     private void ShowMessage(string message, string type)
     {
-        pnlMessage.CssClass = "ru-message show ru-message--" + type;
+        pnlMessage.CssClass = "mat-alert mat-alert--" + type;
         litMessage.Text = message;
         pnlMessage.Visible = true;
     }

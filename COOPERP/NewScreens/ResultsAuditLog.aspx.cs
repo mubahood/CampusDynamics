@@ -32,6 +32,11 @@ public partial class COOPERP_NewScreens_ResultsAuditLog : System.Web.UI.Page
     
     #region Data Loading
     
+    private static readonly string ResultsFilter = @"page_function IN (
+        'Marks Entry Portal','Marks Update','Marks Approval',
+        'Results Marks Entry','Results Marks Update','Results Marks Approval',
+        'Results Hold Management','Results Release','Results Update')";
+
     private void LoadUsers()
     {
         ddlUser.Items.Clear();
@@ -42,16 +47,16 @@ public partial class COOPERP_NewScreens_ResultsAuditLog : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = @"SELECT DISTINCT performed_by FROM acad_activity_log 
-                              WHERE module LIKE '%Result%' AND performed_by IS NOT NULL 
-                              ORDER BY performed_by";
+                string sql = @"SELECT DISTINCT user_id FROM acad_activity_log 
+                              WHERE " + ResultsFilter + @" AND user_id IS NOT NULL 
+                              ORDER BY user_id";
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     using (MySqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            string user = reader["performed_by"].ToString();
+                            string user = reader["user_id"].ToString();
                             if (!string.IsNullOrEmpty(user))
                                 ddlUser.Items.Add(new ListItem(user, user));
                         }
@@ -97,7 +102,7 @@ public partial class COOPERP_NewScreens_ResultsAuditLog : System.Web.UI.Page
                 conn.Open();
                 
                 // Total actions
-                string sqlTotal = @"SELECT COUNT(*) FROM acad_activity_log WHERE module LIKE '%Result%'";
+                string sqlTotal = @"SELECT COUNT(*) FROM acad_activity_log WHERE " + ResultsFilter;
                 using (MySqlCommand cmd = new MySqlCommand(sqlTotal, conn))
                 {
                     litTotalActions.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString("N0");
@@ -105,7 +110,7 @@ public partial class COOPERP_NewScreens_ResultsAuditLog : System.Web.UI.Page
                 
                 // Today's actions
                 string sqlToday = @"SELECT COUNT(*) FROM acad_activity_log 
-                                   WHERE module LIKE '%Result%' AND DATE(log_date) = CURDATE()";
+                                   WHERE " + ResultsFilter + @" AND DATE(access_date) = CURDATE()";
                 using (MySqlCommand cmd = new MySqlCommand(sqlToday, conn))
                 {
                     litTodayActions.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString("N0");
@@ -113,16 +118,16 @@ public partial class COOPERP_NewScreens_ResultsAuditLog : System.Web.UI.Page
                 
                 // This week's actions
                 string sqlWeek = @"SELECT COUNT(*) FROM acad_activity_log 
-                                  WHERE module LIKE '%Result%' AND log_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+                                  WHERE " + ResultsFilter + @" AND access_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
                 using (MySqlCommand cmd = new MySqlCommand(sqlWeek, conn))
                 {
                     litWeekActions.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString("N0");
                 }
                 
-                // Critical actions (mark changes, deletions)
+                // Critical actions (updates, approvals)
                 string sqlCritical = @"SELECT COUNT(*) FROM acad_activity_log 
-                                      WHERE module LIKE '%Result%' 
-                                      AND (action_type LIKE '%Delete%' OR action_type LIKE '%Changed%' OR action_type LIKE '%Edit%')";
+                                      WHERE " + ResultsFilter + @"
+                                      AND (page_function LIKE '%Update%' OR page_function LIKE '%Approval%')";
                 using (MySqlCommand cmd = new MySqlCommand(sqlCritical, conn))
                 {
                     litCriticalActions.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString("N0");
@@ -147,41 +152,41 @@ public partial class COOPERP_NewScreens_ResultsAuditLog : System.Web.UI.Page
                 conn.Open();
                 
                 List<string> conditions = new List<string>();
-                conditions.Add("module LIKE '%Result%'");
+                conditions.Add(ResultsFilter);
                 
                 if (dtFrom.Date != DateTime.MinValue)
-                    conditions.Add("log_date >= @dateFrom");
+                    conditions.Add("access_date >= @dateFrom");
                 if (dtTo.Date != DateTime.MinValue)
-                    conditions.Add("log_date <= @dateTo");
+                    conditions.Add("access_date <= @dateTo");
                 if (!string.IsNullOrEmpty(ddlActionType.SelectedValue))
-                    conditions.Add("action_type LIKE @actionType");
+                    conditions.Add("page_function LIKE @actionType");
                 if (!string.IsNullOrEmpty(ddlUser.SelectedValue))
-                    conditions.Add("performed_by = @user");
+                    conditions.Add("user_id = @user");
                 if (!string.IsNullOrEmpty(txtSearch.Text))
-                    conditions.Add("(description LIKE @search OR target_entity LIKE @search)");
+                    conditions.Add("(comments LIKE @search OR par LIKE @search OR user_id LIKE @search)");
                 
                 string whereClause = "WHERE " + string.Join(" AND ", conditions.ToArray());
                 
                 string sql = @"SELECT 
-                    ID,
-                    log_date as action_date,
-                    action_type,
-                    performed_by,
+                    logid AS ID,
+                    access_date as action_date,
+                    page_function as action_type,
+                    user_id as performed_by,
                     'Staff' as user_role,
-                    COALESCE(target_entity, module) as target_entity,
+                    page_function as target_entity,
                     '' as programme,
                     1 as affected_records,
-                    description,
+                    COALESCE(comments, '') as description,
                     CASE 
-                        WHEN action_type LIKE '%Delete%' THEN 'critical'
-                        WHEN action_type LIKE '%Changed%' OR action_type LIKE '%Edit%' THEN 'high'
-                        WHEN action_type LIKE '%Approve%' THEN 'medium'
+                        WHEN page_function LIKE '%Update%' THEN 'high'
+                        WHEN page_function LIKE '%Approval%' THEN 'medium'
+                        WHEN page_function LIKE '%Hold%' OR page_function LIKE '%Release%' THEN 'critical'
                         ELSE 'low'
                     END as severity,
-                    COALESCE(ip_address, 'N/A') as ip_address
+                    COALESCE(NULLIF(TRIM(SUBSTRING_INDEX(par, 'IP Address:', -1)), ''), 'N/A') as ip_address
                 FROM acad_activity_log
                 " + whereClause + @"
-                ORDER BY log_date DESC
+                ORDER BY access_date DESC
                 LIMIT 1000";
                 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
