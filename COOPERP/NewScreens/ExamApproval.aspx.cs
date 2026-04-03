@@ -592,6 +592,7 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
         
         int approvedCount = 0;
         string username = HttpContext.Current.User.Identity.Name;
+        string batchId = MarksAuditLogger.NewBatchId();
         
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -599,6 +600,11 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
             
             foreach (object id in selectedIds)
             {
+                int intId = Convert.ToInt32(id);
+                
+                // Snapshot before change
+                DataRow snap = MarksAuditLogger.SnapshotFaculty(conn, intId);
+                
                 string sql = @"UPDATE acad_examresults_faculty 
                               SET approved_by = @approver 
                               WHERE ID = @id AND (approved_by = '-' OR approved_by IS NULL OR approved_by = '')";
@@ -606,8 +612,18 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@approver", username);
-                    cmd.Parameters.AddWithValue("@id", Convert.ToInt32(id));
-                    approvedCount += cmd.ExecuteNonQuery();
+                    cmd.Parameters.AddWithValue("@id", intId);
+                    int affected = cmd.ExecuteNonQuery();
+                    if (affected > 0)
+                    {
+                        approvedCount++;
+                        if (snap != null)
+                            MarksAuditLogger.LogFacultyApproval("APPROVE", intId,
+                                snap["regno"].ToString(), snap["course_id"].ToString(),
+                                snap["acadyear"].ToString(), Convert.ToInt32(snap["semester"]),
+                                snap["progid"].ToString(), snap["approved_by"].ToString(), username,
+                                "ExamApproval.aspx", batchId);
+                    }
                 }
             }
         }
@@ -642,6 +658,7 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
         
         int approvedCount = 0;
         string username = HttpContext.Current.User.Identity.Name;
+        string batchId = MarksAuditLogger.NewBatchId();
         
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -658,19 +675,30 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
                           AND exam_status = @stat
                           AND (approved_by = '-' OR approved_by IS NULL OR approved_by = '')";
             
+            string courseVal = courseValue;
+            string acadVal = ddlAcadYear.SelectedItem != null ? ddlAcadYear.SelectedItem.Value.ToString() : "";
+            int semVal = int.Parse(ddlSemester.SelectedItem != null ? ddlSemester.SelectedItem.Value.ToString() : "1");
+            
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
                 cmd.Parameters.AddWithValue("@approver", username);
                 cmd.Parameters.AddWithValue("@prog", progValue);
-                cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedItem != null ? ddlAcadYear.SelectedItem.Value.ToString() : "");
-                cmd.Parameters.AddWithValue("@sems", int.Parse(ddlSemester.SelectedItem != null ? ddlSemester.SelectedItem.Value.ToString() : "1"));
+                cmd.Parameters.AddWithValue("@acad", acadVal);
+                cmd.Parameters.AddWithValue("@sems", semVal);
                 cmd.Parameters.AddWithValue("@sess", ddlSession.SelectedItem != null ? ddlSession.SelectedItem.Value.ToString() : "DAY");
                 cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedItem != null ? ddlStudyYear.SelectedItem.Value.ToString() : "1"));
-                cmd.Parameters.AddWithValue("@csid", courseValue);
+                cmd.Parameters.AddWithValue("@csid", courseVal);
                 cmd.Parameters.AddWithValue("@stat", ddlExamStatus.SelectedItem != null ? ddlExamStatus.SelectedItem.Value.ToString() : "REGULAR");
                 
                 approvedCount = cmd.ExecuteNonQuery();
             }
+            
+            // Structured audit log for bulk approval
+            if (approvedCount > 0)
+                MarksAuditLogger.LogFacultyBulkApproval(conn, "APPROVE",
+                    courseVal, progValue, acadVal, semVal,
+                    username, approvedCount,
+                    "ExamApproval.aspx", batchId);
         }
         
         // Log the activity
@@ -698,6 +726,7 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
         }
         
         int cancelledCount = 0;
+        string batchId = MarksAuditLogger.NewBatchId();
         
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -705,14 +734,29 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
             
             foreach (object id in selectedIds)
             {
+                int intId = Convert.ToInt32(id);
+                
+                // Snapshot before change
+                DataRow snap = MarksAuditLogger.SnapshotFaculty(conn, intId);
+                
                 string sql = @"UPDATE acad_examresults_faculty 
                               SET approved_by = '-' 
                               WHERE ID = @id AND approved_by != '-' AND approved_by IS NOT NULL AND approved_by != ''";
                 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
-                    cmd.Parameters.AddWithValue("@id", Convert.ToInt32(id));
-                    cancelledCount += cmd.ExecuteNonQuery();
+                    cmd.Parameters.AddWithValue("@id", intId);
+                    int affected = cmd.ExecuteNonQuery();
+                    if (affected > 0)
+                    {
+                        cancelledCount++;
+                        if (snap != null)
+                            MarksAuditLogger.LogFacultyApproval("UNAPPROVE", intId,
+                                snap["regno"].ToString(), snap["course_id"].ToString(),
+                                snap["acadyear"].ToString(), Convert.ToInt32(snap["semester"]),
+                                snap["progid"].ToString(), snap["approved_by"].ToString(), "-",
+                                "ExamApproval.aspx", batchId);
+                    }
                 }
             }
         }
@@ -856,15 +900,15 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = @"INSERT INTO acad_activity_log (username, activity_type, activity_description, activity_date, ip_address)
-                              VALUES (@user, @type, @desc, NOW(), @ip)";
+                string sql = @"INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date)
+                              VALUES (@user, @func, @par, @comments, NOW())";
                 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@user", HttpContext.Current.User.Identity.Name);
-                    cmd.Parameters.AddWithValue("@type", activityType);
-                    cmd.Parameters.AddWithValue("@desc", description);
-                    cmd.Parameters.AddWithValue("@ip", HttpContext.Current.Request.UserHostAddress);
+                    cmd.Parameters.AddWithValue("@func", "ExamApproval - " + activityType);
+                    cmd.Parameters.AddWithValue("@par", description);
+                    cmd.Parameters.AddWithValue("@comments", "IP: " + HttpContext.Current.Request.UserHostAddress);
                     cmd.ExecuteNonQuery();
                 }
             }

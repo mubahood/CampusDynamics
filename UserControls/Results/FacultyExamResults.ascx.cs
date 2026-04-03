@@ -1,10 +1,13 @@
 using DevExpress.XtraPrinting;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
 using System.Linq;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using MySql.Data.MySqlClient;
 using ResultsDataTableAdapters;
 using SecurityTableAdapters;
 
@@ -49,6 +52,7 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
         String comm = "No Pending Results Selected";
         int noRows = gvMarksheet.VisibleRowCount, counter = 0;
         ResultsDataTableAdapters.acad_examresults_facultyTableAdapter EXM = new ResultsDataTableAdapters.acad_examresults_facultyTableAdapter();
+        string batchId = MarksAuditLogger.NewBatchId();
 
         if (HttpContext.Current.User.IsInRole("Dean"))
         {
@@ -58,14 +62,22 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
                 {
                     try
                     {
+                        int rowId = int.Parse(gvMarksheet.GetRowValues(i, "ID").ToString());
+                        string rowRegno = gvMarksheet.GetRowValues(i, "regno").ToString();
 
                         EXM.acad_CaptureFacultyResults(HttpContext.Current.User.Identity.Name.ToString(),
-                        gvMarksheet.GetRowValues(i, "regno").ToString(), txtCourse.Value.ToString(), txtAcadYear.Text, txtSemester.Text,
+                        rowRegno, txtCourse.Value.ToString(), txtAcadYear.Text, txtSemester.Text,
                         int.Parse(gvMarksheet.GetRowValues(i, "total_mark").ToString()), int.Parse(txtStudyYear.Text),
-                        int.Parse(gvMarksheet.GetRowValues(i, "ID").ToString()), txtExamStatus.Text);
+                        rowId, txtExamStatus.Text);
                         counter++;
                         comm = counter + " Result(s) Approved";
 
+                        // Structured audit log
+                        MarksAuditLogger.LogFacultyApproval("APPROVE", rowId,
+                            rowRegno, txtCourse.Value.ToString(), txtAcadYear.Text,
+                            int.Parse(txtSemester.Text), txtProg.Value.ToString(),
+                            "-", HttpContext.Current.User.Identity.Name,
+                            "FacultyExamResults.ascx", batchId);
                     }
                     catch (Exception ex)
                     {
@@ -153,6 +165,7 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
     {
         int noRows = gvMarksheet.VisibleRowCount,counter=0;
         ResultsDataTableAdapters.acad_examresults_facultyTableAdapter EXM = new ResultsDataTableAdapters.acad_examresults_facultyTableAdapter();
+        string batchId = MarksAuditLogger.NewBatchId();
         
         for (int i = 0; i < noRows; i++)
         {
@@ -171,9 +184,20 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
                 }
                 else
                 {
+                    int rowId = int.Parse(gvMarksheet.GetRowValues(i, "ID").ToString());
+                    string oldApprover = gvMarksheet.GetRowValues(i, "approved_by").ToString();
+                    string rowRegno = gvMarksheet.GetRowValues(i, "regno").ToString();
+                    
                     counter++;
-                    EXM.UpdateApprovalStatus(HttpContext.Current.User.Identity.Name,"-", int.Parse(gvMarksheet.GetRowValues(i, "ID").ToString()));
+                    EXM.UpdateApprovalStatus(HttpContext.Current.User.Identity.Name,"-", rowId);
                     lbl_msg.Text = counter + " Results Approvals Cancelled";
+                    
+                    // Structured audit log
+                    MarksAuditLogger.LogFacultyApproval("UNAPPROVE", rowId,
+                        rowRegno, txtCourse.Value.ToString(), txtAcadYear.Text,
+                        int.Parse(txtSemester.Text), txtProg.Value.ToString(),
+                        oldApprover, "-",
+                        "FacultyExamResults.ascx", batchId);
                 }
             }
         }
@@ -360,8 +384,20 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
     protected void gvMarksheet_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
     {
         if (e.Values["approved_by"].ToString() != "-")
-            //Response.Write(e.Values["approved_by"].ToString());
             throw new Exception("Results Already Approved. Deletion Denied");
+        
+        // Snapshot before DevExpress performs the delete
+        try
+        {
+            int rowId = Convert.ToInt32(e.Keys["ID"]);
+            using (var conn = new MySqlConnection(ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString))
+            {
+                conn.Open();
+                DataRow snap = MarksAuditLogger.SnapshotFaculty(conn, rowId);
+                MarksAuditLogger.LogFacultyDelete(snap, "FacultyExamResults.ascx");
+            }
+        }
+        catch { /* audit must never block deletion */ }
     }
 
     protected void gvMarksheet_RowUpdated(object sender, DevExpress.Web.Data.ASPxDataUpdatedEventArgs e)
@@ -384,6 +420,7 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
             string OldExamMark = e.OldValues["exam_mark_entered"] != null ? e.OldValues["exam_mark_entered"].ToString() : "";
             string NewExamMark = e.NewValues["exam_mark_entered"] != null ? e.NewValues["exam_mark_entered"].ToString() : "";
 
+            // Existing generic activity log (keep as-is)
             sec_log.Insert(
                 HttpContext.Current.User.Identity.Name,
                 "Faculty Exam Results Editor",
@@ -394,6 +431,39 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
                 "Changed Student Marks",
                 DateTime.Now
             );
+            
+            // Structured audit log (new — captures before/after with structured fields)
+            try
+            {
+                int rowId = 0;
+                try { rowId = Convert.ToInt32(gvMarksheet.GetRowValues(gvMarksheet.EditingRowVisibleIndex, "ID")); } catch { }
+                
+                int? oldCw = SafeToInt(e.OldValues["cw_mark"]);
+                int? newCw = SafeToInt(e.NewValues["cw_mark"]);
+                int? oldTest = SafeToInt(e.OldValues["test_mark"]);
+                int? newTest = SafeToInt(e.NewValues["test_mark"]);
+                int? oldExam = SafeToInt(e.OldValues["ex_mark"]);
+                int? newExam = SafeToInt(e.NewValues["ex_mark"]);
+                int? oldTotal = SafeToInt(e.OldValues["total_mark"]);
+                int? newTotal = SafeToInt(e.NewValues["total_mark"]);
+                string oldGrade = e.OldValues["grade"] != null ? e.OldValues["grade"].ToString() : null;
+                
+                string summary = "CW:" + OldCourseWork + "→" + NewCourseWork +
+                                 ", Test:" + OldTestMark + "→" + NewTestMark +
+                                 ", Exam:" + OldExamMark + "→" + NewExamMark;
+                
+                int? sem = null;
+                try { sem = int.Parse(Semester); } catch { }
+                
+                MarksAuditLogger.Log("UPDATE", "acad_examresults_faculty", rowId,
+                    student, Course, AcademicYear, sem,
+                    txtProg.Value != null ? txtProg.Value.ToString() : null,
+                    "ALL", summary, null,
+                    oldCw, newCw, oldTest, newTest, oldExam, newExam, oldTotal, newTotal,
+                    oldGrade, null, null, null,
+                    null, "FacultyExamResults.ascx");
+            }
+            catch { /* structured audit must never break existing logging */ }
         }
         catch (Exception ex)
         {
@@ -406,6 +476,16 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
                 DateTime.Now
             );
         }
+    }
+    
+    /// <summary>
+    /// Safe nullable int conversion for audit logging.
+    /// </summary>
+    private static int? SafeToInt(object val)
+    {
+        if (val == null || val == DBNull.Value) return null;
+        int result;
+        return int.TryParse(val.ToString(), out result) ? (int?)result : null;
     }
 
     protected string GetClientIPAddress()

@@ -419,6 +419,7 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
         
         int released = 0;
         string username = HttpContext.Current.User.Identity.Name;
+        string batchId = MarksAuditLogger.NewBatchId();
         
         try
         {
@@ -451,7 +452,15 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
                             cmd.Parameters.AddWithValue("@prog", progId);
                             cmd.Parameters.AddWithValue("@acad", acadYear);
                             cmd.Parameters.AddWithValue("@sem", semester);
-                            released += cmd.ExecuteNonQuery();
+                            int affected = cmd.ExecuteNonQuery();
+                            released += affected;
+                            
+                            // Structured audit log for bulk release
+                            if (affected > 0)
+                                MarksAuditLogger.LogFacultyBulkApproval(conn, "RELEASE",
+                                    courseId, progId, acadYear, semester,
+                                    username, affected,
+                                    "ResultsRelease.aspx", batchId);
                         }
                     }
                 }
@@ -486,6 +495,7 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
         }
         
         int held = 0;
+        string batchId = MarksAuditLogger.NewBatchId();
         
         try
         {
@@ -517,7 +527,15 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
                             cmd.Parameters.AddWithValue("@prog", progId);
                             cmd.Parameters.AddWithValue("@acad", acadYear);
                             cmd.Parameters.AddWithValue("@sem", semester);
-                            held += cmd.ExecuteNonQuery();
+                            int affected = cmd.ExecuteNonQuery();
+                            held += affected;
+                            
+                            // Structured audit log for bulk hold
+                            if (affected > 0)
+                                MarksAuditLogger.LogFacultyBulkApproval(conn, "HOLD",
+                                    courseId, progId, acadYear, semester,
+                                    "HELD", affected,
+                                    "ResultsRelease.aspx", batchId);
                         }
                     }
                 }
@@ -565,17 +583,15 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = @"INSERT INTO acad_activity_log (user_id, action, details, module, course_id, reg_no, created_at, ip_address)
-                              VALUES (@user, @action, @details, 'Results Release', @course, @regno, NOW(), @ip)";
+                string sql = @"INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date)
+                              VALUES (@user, @func, @par, @comments, NOW())";
                               
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@user", HttpContext.Current.User.Identity.Name);
-                    cmd.Parameters.AddWithValue("@action", action);
-                    cmd.Parameters.AddWithValue("@details", details);
-                    cmd.Parameters.AddWithValue("@course", courseId ?? "");
-                    cmd.Parameters.AddWithValue("@regno", regNo ?? "");
-                    cmd.Parameters.AddWithValue("@ip", Request.UserHostAddress);
+                    cmd.Parameters.AddWithValue("@func", "ResultsRelease - " + action);
+                    cmd.Parameters.AddWithValue("@par", details);
+                    cmd.Parameters.AddWithValue("@comments", "IP: " + Request.UserHostAddress);
                     cmd.ExecuteNonQuery();
                 }
             }

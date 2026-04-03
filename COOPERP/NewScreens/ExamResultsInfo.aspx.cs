@@ -698,6 +698,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
         
         int count = 0;
         string username = HttpContext.Current.User.Identity.Name;
+        string batchId = MarksAuditLogger.NewBatchId();
         
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -707,17 +708,13 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             
             foreach (object id in selectedIds)
             {
-                // Check if not already approved
-                string checkSql = "SELECT approved_by FROM acad_examresults_faculty WHERE ID = @id";
-                string currentApprover = "";
+                int intId = Convert.ToInt32(id);
                 
-                using (MySqlCommand checkCmd = new MySqlCommand(checkSql, conn))
-                {
-                    checkCmd.Parameters.AddWithValue("@id", Convert.ToInt32(id));
-                    var result = checkCmd.ExecuteScalar();
-                    currentApprover = (result != null && result != DBNull.Value) ? result.ToString() : "-";
-                }
+                // Snapshot before change (also gives us approval status + student info)
+                DataRow snap = MarksAuditLogger.SnapshotFaculty(conn, intId);
+                if (snap == null) continue;
                 
+                string currentApprover = snap["approved_by"].ToString();
                 if (currentApprover != "-" && !string.IsNullOrEmpty(currentApprover))
                     continue;
                 
@@ -725,8 +722,17 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                 using (MySqlCommand updateCmd = new MySqlCommand(updateSql, conn))
                 {
                     updateCmd.Parameters.AddWithValue("@user", username);
-                    updateCmd.Parameters.AddWithValue("@id", Convert.ToInt32(id));
-                    count += updateCmd.ExecuteNonQuery();
+                    updateCmd.Parameters.AddWithValue("@id", intId);
+                    int affected = updateCmd.ExecuteNonQuery();
+                    if (affected > 0)
+                    {
+                        count++;
+                        MarksAuditLogger.LogFacultyApproval("APPROVE",
+                            intId, snap["regno"].ToString(), snap["course_id"].ToString(),
+                            snap["acadyear"].ToString(), Convert.ToInt32(snap["semester"]),
+                            snap["progid"].ToString(), currentApprover, username,
+                            "ExamResultsInfo.aspx", batchId);
+                    }
                 }
             }
         }
@@ -750,6 +756,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
         }
         
         int count = 0;
+        string batchId = MarksAuditLogger.NewBatchId();
         
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -759,11 +766,26 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             
             foreach (object id in selectedIds)
             {
+                int intId = Convert.ToInt32(id);
+                
+                // Snapshot before change
+                DataRow snap = MarksAuditLogger.SnapshotFaculty(conn, intId);
+                string oldApprover = snap != null ? snap["approved_by"].ToString() : "";
+                
                 string updateSql = "UPDATE acad_examresults_faculty SET approved_by = '-' WHERE ID = @id AND approved_by != '-'";
                 using (MySqlCommand updateCmd = new MySqlCommand(updateSql, conn))
                 {
-                    updateCmd.Parameters.AddWithValue("@id", Convert.ToInt32(id));
-                    count += updateCmd.ExecuteNonQuery();
+                    updateCmd.Parameters.AddWithValue("@id", intId);
+                    int affected = updateCmd.ExecuteNonQuery();
+                    if (affected > 0 && snap != null)
+                    {
+                        count++;
+                        MarksAuditLogger.LogFacultyApproval("UNAPPROVE",
+                            intId, snap["regno"].ToString(), snap["course_id"].ToString(),
+                            snap["acadyear"].ToString(), Convert.ToInt32(snap["semester"]),
+                            snap["progid"].ToString(), oldApprover, "-",
+                            "ExamResultsInfo.aspx", batchId);
+                    }
                 }
             }
         }
@@ -824,7 +846,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     /// <summary>
     /// Deletes a single result by ID. Returns rows affected, 0 if not found, -1 if blocked (approved).
     /// </summary>
-    private int DeleteResultById(int id)
+    private int DeleteResultById(int id, string batchId = null)
     {
         try
         {
@@ -832,25 +854,15 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             {
                 conn.Open();
                 
-                // Check approval status first
-                string checkSql = "SELECT approved_by, regno, course_id FROM acad_examresults_faculty WHERE ID = @id";
-                string approvedBy = "-";
-                string regno = "";
-                string courseId = "";
+                // Snapshot BEFORE delete — captures everything about to be destroyed
+                DataRow snap = MarksAuditLogger.SnapshotFaculty(conn, id);
                 
-                using (MySqlCommand checkCmd = new MySqlCommand(checkSql, conn))
-                {
-                    checkCmd.Parameters.AddWithValue("@id", id);
-                    using (MySqlDataReader reader = checkCmd.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            approvedBy = (reader["approved_by"] != DBNull.Value) ? reader["approved_by"].ToString() : "-";
-                            regno = reader["regno"].ToString();
-                            courseId = reader["course_id"].ToString();
-                        }
-                    }
-                }
+                if (snap == null)
+                    return 0;
+                
+                string approvedBy = snap["approved_by"].ToString();
+                string regno = snap["regno"].ToString();
+                string courseId = snap["course_id"].ToString();
                 
                 if (approvedBy != "-" && !string.IsNullOrEmpty(approvedBy))
                 {
@@ -863,7 +875,12 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                 using (MySqlCommand deleteCmd = new MySqlCommand(deleteSql, conn))
                 {
                     deleteCmd.Parameters.AddWithValue("@id", id);
-                    return deleteCmd.ExecuteNonQuery();
+                    int affected = deleteCmd.ExecuteNonQuery();
+                    
+                    if (affected > 0)
+                        MarksAuditLogger.LogFacultyDelete(snap, "ExamResultsInfo.aspx", null, batchId);
+                    
+                    return affected;
                 }
             }
         }
@@ -878,6 +895,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     {
         int count = 0;
         int blocked = 0;
+        string batchId = MarksAuditLogger.NewBatchId();
         
         List<object> selectedIds = gvResults.GetSelectedFieldValues("ID");
         
@@ -889,7 +907,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
         
         foreach (object id in selectedIds)
         {
-            int result = DeleteResultById(Convert.ToInt32(id));
+            int result = DeleteResultById(Convert.ToInt32(id), batchId);
             if (result > 0) count++;
             else if (result == -1) blocked++;
         }
@@ -908,10 +926,12 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     
     protected void gvResults_BatchUpdate(object sender, DevExpress.Web.Data.ASPxDataBatchUpdateEventArgs e)
     {
+        string batchId = MarksAuditLogger.NewBatchId();
+        
         // Handle batch updates (mark edits)
         foreach (var args in e.UpdateValues)
         {
-            UpdateResultRow(args);
+            UpdateResultRow(args, batchId);
         }
         
         // Handle batch deletes (the delete button in Batch mode only fires here, not RowDeleting)
@@ -919,7 +939,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
         foreach (var args in e.DeleteValues)
         {
             int id = Convert.ToInt32(args.Keys["ID"]);
-            deleteCount += DeleteResultById(id);
+            deleteCount += DeleteResultById(id, batchId);
         }
         
         if (deleteCount > 0)
@@ -996,6 +1016,10 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
+            
+            // Snapshot before edit
+            DataRow snap = MarksAuditLogger.SnapshotFaculty(conn, id);
+            
             string updateSql = @"UPDATE acad_examresults_faculty 
                                 SET cw_mark_entered = @cw_entered, cw_mark = @cw_mark,
                                     exam_mark_entered = @exam_entered, ex_mark = @ex_mark,
@@ -1014,13 +1038,19 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                 cmd.Parameters.AddWithValue("@id", id);
                 cmd.ExecuteNonQuery();
             }
+            
+            // Audit log: old→new
+            MarksAuditLogger.LogFacultyUpdate(snap,
+                cwEntered, 0, examEntered,
+                cwMark, 0, exMark,
+                totalMark, grade, "ExamResultsInfo.aspx");
         }
         
         e.Cancel = true; // Cancel the default update since we handled it manually
         BindGrid();
     }
     
-    private void UpdateResultRow(DevExpress.Web.Data.ASPxDataUpdateValues args)
+    private void UpdateResultRow(DevExpress.Web.Data.ASPxDataUpdateValues args, string batchId = null)
     {
         int id = Convert.ToInt32(args.Keys["ID"]);
         int cwEntered = Convert.ToInt32(args.NewValues["cw_mark_entered"] ?? 0);
@@ -1032,6 +1062,9 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
+            
+            // Snapshot before edit
+            DataRow snap = MarksAuditLogger.SnapshotFaculty(conn, id);
             
             string ratioSql = @"SELECT coursework_ratio, exam_ratio FROM acad_examresults_faculty_settings
                                WHERE course_id = @course AND acad_year = @acad AND semester = @sem
@@ -1083,6 +1116,13 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
                 cmd.Parameters.AddWithValue("@id", id);
                 cmd.ExecuteNonQuery();
             }
+            
+            // Audit log: old→new
+            MarksAuditLogger.LogFacultyUpdate(snap,
+                cwEntered, 0, examEntered,
+                cwMark, 0, exMark,
+                totalMark, grade, "ExamResultsInfo.aspx",
+                null, batchId);
         }
     }
     
