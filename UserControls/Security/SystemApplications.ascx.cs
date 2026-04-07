@@ -89,19 +89,26 @@ public partial class UserControls_Security_SystemApplications : System.Web.UI.Us
     }
     protected void Page_Load(object sender, EventArgs e)
     {
-      Page.Form.DefaultButton = cmdVerify.UniqueID;
-        //try
-        //{
-        //    if (Session["otp"] == null)
-        //    {
-        //      pop_otp.ShowOnPageLoad = true;
-        //    }
-        //}
-        //catch (Exception)
-        //{
-        //    Response.Redirect("~/Default.aspx");
-        //}
-        //Session["otp"] = 100;
+        Page.Form.DefaultButton = cmdVerify.UniqueID;
+
+        // ── Staff OTP gate — re-enabled ──
+        try
+        {
+            if (Session["otp"] == null)
+            {
+                lbl_comment.ForeColor = System.Drawing.Color.Blue;
+                lbl_comment.Text = "Please Request and Verify Code to Proceed";
+                pop_otp.ShowOnPageLoad = true;
+            }
+            else
+            {
+                pop_otp.ShowOnPageLoad = false;
+            }
+        }
+        catch (Exception)
+        {
+            Response.Redirect("~/Default.aspx");
+        }
     }
     protected void cmdSearch_Click(object sender, EventArgs e)
     {
@@ -216,30 +223,29 @@ public partial class UserControls_Security_SystemApplications : System.Web.UI.Us
                 lbl_comment.Text = "Error: No email address found for your account. Please contact support.";
                 return;
             }
-            EmailSenderProtocol Emailer = new EmailSenderProtocol();
+
             string EmailMessage = "Your OTP Code: " + Session["newotp"];
-            string responseValue = "";
+            string sendResult = "";
             try
             {
-                string URL = string.Format("https://erp.edusaterp.com/api/SecureOTP/sendotp?msg={0}&email={1}&sender=Campus Dynamics",
-                    EmailMessage, Email);
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(URL);
-                //ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-                webRequest.Method = "GET";
-                webRequest.ContentType = "application/x-www-form-urlencoded";
-                using (HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse())
-                {
-                    using (StreamReader reader = new StreamReader(webResponse.GetResponseStream()))
-                    {
-                        responseValue = reader.ReadToEnd();
-                    }
-                }
+                EmailSenderProtocol Emailer = new EmailSenderProtocol();
+                sendResult = Emailer.SendMail("", Email, "Campus Dynamics \u2013 OTP Code", "Campus Dynamics", EmailMessage, "");
             }
             catch (Exception ex)
             {
-                responseValue = "Error! [" + ex.Message + "]";
+                sendResult = "Error! " + ex.Message;
             }
-            lbl_comment.Text = responseValue + ". Your email is: [" + Email + "]";
+
+            if (sendResult.IndexOf("Successfully", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                lbl_comment.ForeColor = System.Drawing.Color.Green;
+                lbl_comment.Text = "OTP sent successfully to: " + Email;
+            }
+            else
+            {
+                lbl_comment.ForeColor = System.Drawing.Color.Red;
+                lbl_comment.Text = "Failed to send OTP to: " + Email + " — " + sendResult;
+            }
         }
     }
 }

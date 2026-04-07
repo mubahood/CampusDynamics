@@ -418,6 +418,12 @@
                                         <span>Audit Trail</span>
                                     </asp:HyperLink>
                                 </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkBillWaivers" runat="server" NavigateUrl="~/COOPERP/NewScreens/BillWaivers.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                                        <span>Bill Waivers</span>
+                                    </asp:HyperLink>
+                                </li>
                             </ul>
                         </li>
 
@@ -433,6 +439,13 @@
                                     <asp:HyperLink ID="lnkFeesTransactions" runat="server" NavigateUrl="~/COOPERP/NewScreens/FeesTransactions.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
                                         <span>Transactions</span>
+                                    </asp:HyperLink>
+                                </li>
+
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkStudentLedgers" runat="server" NavigateUrl="~/COOPERP/NewScreens/StudentLedgers.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                                        <span>Student Ledgers</span>
                                     </asp:HyperLink>
                                 </li>
 

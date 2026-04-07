@@ -7,4 +7,22 @@
   <add key="EnvironmentName" value="{{ CD_ENVIRONMENT_NAME }}" />
   <add key="DebugMode" value="{{ CD_DEBUG }}" />
   <add key="CustomErrorsMode" value="{{ CD_CUSTOM_ERRORS_MODE }}" />
+  <add key="APP_NAME" value="mru" />
+  <add key="MAIL_MAILER" value="smtp" />
+  <add key="MAIL_HOST" value="smtp.gmail.com" />
+  <!-- Requested Gmail setting (465) was not successful in this runtime; using tested 587 -->
+  <!-- <add key="MAIL_PORT" value="465" /> -->
+  <add key="MAIL_PORT" value="587" />
+  <add key="MAIL_USERNAME" value="info@mru.ac.ug" />
+  <add key="MAIL_PASSWORD" value="xqjk igfk jkwg rvau" />
+  <add key="MAIL_ENCRYPTION" value="ssl" />
+  <add key="MAIL_FROM_ADDRESS" value="info@mru.ac.ug" />
+  <add key="MAIL_FROM_NAME" value="${APP_NAME}" />
+  <!-- Previous SMTP config:
+  <add key="MAIL_HOST" value="mail.schooldynamics.ug" />
+  <add key="MAIL_PORT" value="587" />
+  <add key="MAIL_USERNAME" value="muhindo@schooldynamics.ug" />
+  <add key="MAIL_PASSWORD" value="C4HUOB30]m{x" />
+  <add key="MAIL_FROM_ADDRESS" value="muhindo@schooldynamics.ug" />
+  -->
 </appSettings>

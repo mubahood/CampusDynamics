@@ -16,6 +16,23 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
     }
     
+    private bool IsResultsLocked()
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT COUNT(*) FROM acad_results_lock WHERE lock_type = 'RESULTS_DEADLINE' AND is_active = 1 AND CURDATE() > deadline_date", conn))
+                {
+                    return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+                }
+            }
+        }
+        catch { return false; }
+    }
+    
     protected void Page_Load(object sender, EventArgs e)
     {
         // Handle AJAX requests for Summary Report
@@ -1006,6 +1023,11 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
     
     protected void btnSaveUpdate_Click(object sender, EventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            ShowMessage("Results are LOCKED. The submission deadline has passed. No changes allowed.", "error");
+            return;
+        }
         if (string.IsNullOrEmpty(hfResultID.Value))
         {
             ShowMessage("No result selected for update.", "error");
@@ -1082,6 +1104,11 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
     
     protected void btnApproveSelected_Click(object sender, EventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            ShowMessage("Results are LOCKED. The submission deadline has passed. No changes allowed.", "error");
+            return;
+        }
         List<object> selectedKeys = gvResults.GetSelectedFieldValues("ID");
         if (selectedKeys.Count == 0)
         {
@@ -1127,6 +1154,11 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
     
     protected void btnRevertSelected_Click(object sender, EventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            ShowMessage("Results are LOCKED. The submission deadline has passed. No changes allowed.", "error");
+            return;
+        }
         List<object> selectedKeys = gvResults.GetSelectedFieldValues("ID");
         if (selectedKeys.Count == 0)
         {

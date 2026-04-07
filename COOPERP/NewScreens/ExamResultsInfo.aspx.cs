@@ -16,6 +16,23 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
     }
     
+    private bool IsResultsLocked()
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT COUNT(*) FROM acad_results_lock WHERE lock_type = 'RESULTS_DEADLINE' AND is_active = 1 AND CURDATE() > deadline_date", conn))
+                {
+                    return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+                }
+            }
+        }
+        catch { return false; }
+    }
+    
     protected void Page_Init(object sender, EventArgs e)
     {
         // On postback, bind real data so DevExpress can restore grid state
@@ -690,6 +707,11 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     
     protected void btnApprove_Click(object sender, EventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            ShowMessage("Results are LOCKED. The submission deadline has passed. No changes allowed.", "error");
+            return;
+        }
         if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator"))
         {
             ShowMessage("Results approvals can only be done by the Dean.", "error");
@@ -749,6 +771,11 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     
     protected void btnCancelApproval_Click(object sender, EventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            ShowMessage("Results are LOCKED. The submission deadline has passed. No changes allowed.", "error");
+            return;
+        }
         if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator"))
         {
             ShowMessage("Only the Dean can cancel approvals.", "error");
@@ -829,6 +856,12 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     
     protected void gvResults_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            ShowMessage("Results are LOCKED. The submission deadline has passed. No deletions allowed.", "error");
+            e.Cancel = true;
+            return;
+        }
         int id = Convert.ToInt32(e.Keys["ID"]);
         int affected = DeleteResultById(id);
         
@@ -893,6 +926,11 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     
     protected void btnDeleteSelected_Click(object sender, EventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            ShowMessage("Results are LOCKED. The submission deadline has passed. No deletions allowed.", "error");
+            return;
+        }
         int count = 0;
         int blocked = 0;
         string batchId = MarksAuditLogger.NewBatchId();
@@ -926,6 +964,11 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     
     protected void gvResults_BatchUpdate(object sender, DevExpress.Web.Data.ASPxDataBatchUpdateEventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            ShowMessage("Results are LOCKED. The submission deadline has passed. No changes allowed.", "error");
+            return;
+        }
         string batchId = MarksAuditLogger.NewBatchId();
         
         // Handle batch updates (mark edits)
@@ -951,6 +994,11 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     
     protected void gvResults_RowUpdating(object sender, DevExpress.Web.Data.ASPxDataUpdatingEventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            e.Cancel = true;
+            throw new Exception("Results are LOCKED. The submission deadline has passed. No changes allowed.");
+        }
         // Check if approved - don't allow editing
         object approvedByVal = e.OldValues["approved_by"];
         string approvedBy = (approvedByVal != null && approvedByVal != DBNull.Value) ? approvedByVal.ToString() : "-";

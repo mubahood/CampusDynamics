@@ -15,6 +15,25 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
 {
     acad_activity_logTableAdapter sec_log = new acad_activity_logTableAdapter();
     acad_examresults_faculty_settingsTableAdapter setting = new acad_examresults_faculty_settingsTableAdapter();
+
+    private bool IsResultsLocked()
+    {
+        try
+        {
+            string connStr = ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
+            using (MySqlConnection conn = new MySqlConnection(connStr))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT COUNT(*) FROM acad_results_lock WHERE lock_type = 'RESULTS_DEADLINE' AND is_active = 1 AND CURDATE() > deadline_date", conn))
+                {
+                    return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+                }
+            }
+        }
+        catch { return false; }
+    }
+
     protected void Page_Load(object sender, EventArgs e)
     {
         if (!IsPostBack)
@@ -49,6 +68,12 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
     }
     protected void cmdApprove_Click(object sender, EventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            lbl_msg.Text = "Results are LOCKED. The submission deadline has passed. No approvals allowed.";
+            pop_msgBox.ShowOnPageLoad = true;
+            return;
+        }
         String comm = "No Pending Results Selected";
         int noRows = gvMarksheet.VisibleRowCount, counter = 0;
         ResultsDataTableAdapters.acad_examresults_facultyTableAdapter EXM = new ResultsDataTableAdapters.acad_examresults_facultyTableAdapter();
@@ -123,6 +148,11 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
     
     protected void gvMarksheet_RowUpdating(object sender, DevExpress.Web.Data.ASPxDataUpdatingEventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            e.Cancel = true;
+            throw new Exception("Results are LOCKED. The submission deadline has passed. No changes allowed.");
+        }
         if (e.OldValues["approved_by"].ToString() != "-")
         {
             e.NewValues["cw_mark_entered"] = e.OldValues["cw_mark_entered"];
@@ -163,6 +193,12 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
     }
     protected void cmdCancelApprove_Click(object sender, EventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            lbl_msg.Text = "Results are LOCKED. The submission deadline has passed. No changes allowed.";
+            pop_msgBox.ShowOnPageLoad = true;
+            return;
+        }
         int noRows = gvMarksheet.VisibleRowCount,counter=0;
         ResultsDataTableAdapters.acad_examresults_facultyTableAdapter EXM = new ResultsDataTableAdapters.acad_examresults_facultyTableAdapter();
         string batchId = MarksAuditLogger.NewBatchId();
@@ -232,6 +268,12 @@ public partial class UserControls_Results_FacultyExamResults : System.Web.UI.Use
 
     protected void cmdCreateSheet_Click(object sender, EventArgs e)
     {
+        if (IsResultsLocked())
+        {
+            lbl_msg.Text = "Results are LOCKED. The submission deadline has passed. Sheet creation is not allowed.";
+            pop_msgBox.ShowOnPageLoad = true;
+            return;
+        }
         try
         {
             ResultsDataTableAdapters.acad_examresults_facultyTableAdapter EXM = new ResultsDataTableAdapters.acad_examresults_facultyTableAdapter();

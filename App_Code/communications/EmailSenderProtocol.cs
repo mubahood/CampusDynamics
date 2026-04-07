@@ -4,28 +4,81 @@ using System.Linq;
 using System.Net;
 using System.Net.Mail;
 using System.Text;
+using System.Configuration;
 /// <summary>
 /// Summary description for EmailSenderProtocol
 /// </summary>
 public class EmailSenderProtocol
 {
+    private static string MailHost
+    {
+        get { return ConfigurationManager.AppSettings["MAIL_HOST"] ?? "smtp.gmail.com"; }
+    }
+
+    private static int MailPort
+    {
+        get
+        {
+            int port;
+            if (int.TryParse(ConfigurationManager.AppSettings["MAIL_PORT"], out port)) return port;
+            return 587;
+        }
+    }
+
+    private static bool MailSsl
+    {
+        get
+        {
+            string enc = (ConfigurationManager.AppSettings["MAIL_ENCRYPTION"] ?? "ssl").Trim().ToLowerInvariant();
+            return enc == "ssl" || enc == "tls" || enc == "true" || enc == "1";
+        }
+    }
+
+    private static string MailUsername
+    {
+        get { return ConfigurationManager.AppSettings["MAIL_USERNAME"] ?? "info@mru.ac.ug"; }
+    }
+
+    private static string MailPassword
+    {
+        get { return ConfigurationManager.AppSettings["MAIL_PASSWORD"] ?? ""; }
+    }
+
+    private static string MailFromAddress
+    {
+        get { return ConfigurationManager.AppSettings["MAIL_FROM_ADDRESS"] ?? MailUsername; }
+    }
+
+    private static string MailFromName
+    {
+        get
+        {
+            string value = ConfigurationManager.AppSettings["MAIL_FROM_NAME"] ?? "Campus Dynamics";
+            if (value == "${APP_NAME}")
+                value = ConfigurationManager.AppSettings["APP_NAME"] ?? "Campus Dynamics";
+            return value;
+        }
+    }
+
      public string SendMail(string senderEmail, string receiverEmail,string subjectText,string senderName, string message, string password)
     {
         try
         {
             if (receiverEmail.StartsWith("-")) receiverEmail = receiverEmail.TrimStart('-');
-            var fromAddress = senderEmail;// Gmail Address from where you send the mail
+            var fromAddress = string.IsNullOrWhiteSpace(senderEmail) ? MailFromAddress : senderEmail;
             var toAddress = receiverEmail;
-            string fromPassword = password;//Password of your gmail address
+            // Always authenticate with the configured MAIL_USERNAME (the actual mailbox owner)
+            string authUser = MailUsername;
+            string authPass = string.IsNullOrWhiteSpace(password) ? MailPassword : password;
             string subject = subjectText;
             string body = message;
             var smtp = new System.Net.Mail.SmtpClient();
             {
-                smtp.Host = "smtp.gmail.com";
-                smtp.Port = 587;
-                smtp.EnableSsl = true;
+                smtp.Host = MailHost;
+                smtp.Port = MailPort;
+                smtp.EnableSsl = MailSsl;
                 smtp.DeliveryMethod = System.Net.Mail.SmtpDeliveryMethod.Network;
-                smtp.Credentials = new NetworkCredential(fromAddress, fromPassword);
+                smtp.Credentials = new NetworkCredential(authUser, authPass);
                 smtp.Timeout = 20000;
             }
             smtp.Send(fromAddress, toAddress, subject, body);
@@ -42,16 +95,17 @@ public class EmailSenderProtocol
          try
          {
              if (receiverEmail.StartsWith("-")) receiverEmail = receiverEmail.TrimStart('-');
-             var fromAddress = "noreply@ciu.ac.ug";// Gmail Address from where you send the mail
+             var fromAddress = MailFromAddress;
              var toAddress = receiverEmail;
-             string fromPassword = "noreply@c1u";//Password of your gmail address
+             string fromPassword = MailPassword;
              string subject = subjectText;
              string body = message;
              var smtp = new System.Net.Mail.SmtpClient();
              {
-                 smtp.Host = "smtp.gmail.com";
-                 smtp.Port = 587;
-                 smtp.EnableSsl = true;
+                 // Legacy SMTP (commented): smtp.gmail.com:587, SSL=true
+                 smtp.Host = MailHost;
+                 smtp.Port = MailPort;
+                 smtp.EnableSsl = MailSsl;
                  smtp.DeliveryMethod = System.Net.Mail.SmtpDeliveryMethod.Network;
                  smtp.Credentials = new NetworkCredential(fromAddress, fromPassword);
                  smtp.Timeout = 20000;
@@ -81,16 +135,17 @@ public class EmailSenderProtocol
          try
          {
              if (receiverEmail.StartsWith("-")) receiverEmail = receiverEmail.TrimStart('-');
-             var fromAddress = "noreply@ciu.ac.ug";// Gmail Address from where you send the mail
+             var fromAddress = MailFromAddress;
              var toAddress = receiverEmail;
-             string fromPassword = "noreply@c1u";//Password of your gmail address
+             string fromPassword = MailPassword;
              string subject = subjectText;
              string body = message;
              var smtp = new System.Net.Mail.SmtpClient();
              {
-                 smtp.Host = "smtp.gmail.com";
-                 smtp.Port = 587;
-                 smtp.EnableSsl = true;
+                 // Legacy SMTP (commented): smtp.gmail.com:587, SSL=true
+                 smtp.Host = MailHost;
+                 smtp.Port = MailPort;
+                 smtp.EnableSsl = MailSsl;
                  smtp.DeliveryMethod = System.Net.Mail.SmtpDeliveryMethod.Network;
                  smtp.Credentials = new NetworkCredential(fromAddress, fromPassword);
                  //smtp.Timeout = 20000;
@@ -109,11 +164,17 @@ public class EmailSenderProtocol
          try
          {
              //Fetching Settings from WEB.CONFIG file.  
-             string emailSender = "noreply@ciu.ac.ug";
-             string emailSenderPassword = "noreply@c1u";
-             string emailSenderHost = "smtp.gmail.com";
-             int emailSenderPort = Convert.ToInt16("587");
-             Boolean emailIsSSL = true;
+            // Legacy hardcoded values (commented):
+            // string emailSender = "noreply@ciu.ac.ug";
+            // string emailSenderPassword = "noreply@c1u";
+            // string emailSenderHost = "smtp.gmail.com";
+            // int emailSenderPort = Convert.ToInt16("587");
+            // Boolean emailIsSSL = true;
+            string emailSender = MailFromAddress;
+            string emailSenderPassword = MailPassword;
+            string emailSenderHost = MailHost;
+            int emailSenderPort = MailPort;
+            Boolean emailIsSSL = MailSsl;
              System.Net.ServicePointManager.ServerCertificateValidationCallback = new System.Net.Security.RemoteCertificateValidationCallback(RemoteServerCertificateValidationCallback);
 
              if (receipients.StartsWith("-")) receipients = receipients.TrimStart('-');

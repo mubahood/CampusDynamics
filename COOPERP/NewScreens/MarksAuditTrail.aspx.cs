@@ -112,43 +112,101 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
             {
                 conn.Open();
 
-                // Total marks actions
-                litTotal.Text = ScalarInt(conn,
-                    "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " + MarksInClause)
-                    .ToString("N0");
+                // ── Row 1: Total Actions ──
+                int total = ScalarInt(conn,
+                    "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " + MarksInClause);
+                litTotal.Text = total.ToString("N0");
 
-                // Today
-                litToday.Text = ScalarInt(conn,
+                // ── Row 2: Today + yesterday comparison ──
+                int today = ScalarInt(conn,
                     "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " + MarksInClause +
-                    " AND DATE(access_date) = CURDATE()")
-                    .ToString("N0");
-
-                // This week
-                litWeek.Text = ScalarInt(conn,
+                    " AND DATE(access_date) = CURDATE()");
+                int yesterday = ScalarInt(conn,
                     "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " + MarksInClause +
-                    " AND access_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)")
-                    .ToString("N0");
+                    " AND DATE(access_date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)");
+                litToday.Text = today.ToString("N0");
+                litTodayTrend.Text = BuildTrend(today, yesterday, "yesterday");
 
-                // Unique users
-                litUniqueUsers.Text = ScalarInt(conn,
-                    "SELECT COUNT(DISTINCT user_id) FROM acad_activity_log WHERE page_function IN " + MarksInClause)
-                    .ToString("N0");
+                // ── Row 3: This Week + last week comparison ──
+                int thisWeek = ScalarInt(conn,
+                    "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " + MarksInClause +
+                    " AND access_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
+                int lastWeek = ScalarInt(conn,
+                    "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " + MarksInClause +
+                    " AND access_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)" +
+                    " AND access_date < DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
+                litWeek.Text = thisWeek.ToString("N0");
+                litWeekTrend.Text = BuildTrend(thisWeek, lastWeek, "prev week");
 
-                // Most active user (last 30 days)
-                string sqlTop = "SELECT user_id FROM acad_activity_log " +
+                // ── Row 4: This Month ──
+                int thisMonth = ScalarInt(conn,
+                    "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " + MarksInClause +
+                    " AND access_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')");
+                litMonth.Text = thisMonth.ToString("N0");
+
+                // ── Row 5: Critical Actions (edits + cancels) ──
+                int critical = ScalarInt(conn,
+                    "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " +
+                    "('Faculty Exam Results Editor','Results Approval Cancel')");
+                int criticalToday = ScalarInt(conn,
+                    "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " +
+                    "('Faculty Exam Results Editor','Results Approval Cancel')" +
+                    " AND DATE(access_date) = CURDATE()");
+                litCritical.Text = critical.ToString("N0");
+                litCriticalToday.Text = criticalToday > 0
+                    ? criticalToday.ToString("N0") + " today"
+                    : "0 today";
+
+                // ── Row 6: Unique Users ──
+                int uniqueUsers = ScalarInt(conn,
+                    "SELECT COUNT(DISTINCT user_id) FROM acad_activity_log WHERE page_function IN " + MarksInClause);
+                int activeToday = ScalarInt(conn,
+                    "SELECT COUNT(DISTINCT user_id) FROM acad_activity_log WHERE page_function IN " + MarksInClause +
+                    " AND DATE(access_date) = CURDATE()");
+                litUniqueUsers.Text = uniqueUsers.ToString("N0");
+                litActiveToday.Text = activeToday.ToString("N0") + " active today";
+
+                // ── Row 7: Most Active User (last 30 days) + their count ──
+                string sqlTop = "SELECT user_id, COUNT(*) AS cnt FROM acad_activity_log " +
                     "WHERE page_function IN " + MarksInClause +
                     " AND access_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)" +
-                    " GROUP BY user_id ORDER BY COUNT(*) DESC LIMIT 1";
+                    " GROUP BY user_id ORDER BY cnt DESC LIMIT 1";
                 using (var cmd = new MySqlCommand(sqlTop, conn))
+                using (var rdr = cmd.ExecuteReader())
                 {
-                    object val = cmd.ExecuteScalar();
-                    litTopUser.Text = (val != null && val != DBNull.Value)
-                        ? HttpUtility.HtmlEncode(val.ToString())
-                        : "—";
+                    if (rdr.Read())
+                    {
+                        litTopUser.Text = HttpUtility.HtmlEncode(rdr["user_id"].ToString());
+                        litTopUserCount.Text = Convert.ToInt32(rdr["cnt"]).ToString("N0") + " actions";
+                    }
+                    else
+                    {
+                        litTopUser.Text = "\u2014";
+                        litTopUserCount.Text = "no data";
+                    }
                 }
+
+                // ── Avg per day (last 30 days) ──
+                int last30 = ScalarInt(conn,
+                    "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " + MarksInClause +
+                    " AND access_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)");
+                double avg = last30 / 30.0;
+                litAvgDay.Text = avg.ToString("N1");
             }
         }
         catch { }
+    }
+
+    /// <summary>Build an HTML trend indicator (up/down arrow + percentage).</summary>
+    private string BuildTrend(int current, int previous, string label)
+    {
+        if (previous == 0 && current == 0) return "<span class='mat-trend mat-trend--flat'>\u2014 vs " + label + "</span>";
+        if (previous == 0) return "<span class='mat-trend mat-trend--up'>\u25B2 new vs " + label + "</span>";
+        double pct = ((double)(current - previous) / previous) * 100;
+        if (Math.Abs(pct) < 1) return "<span class='mat-trend mat-trend--flat'>\u2014 vs " + label + "</span>";
+        if (pct > 0)
+            return string.Format("<span class='mat-trend mat-trend--up'>\u25B2 {0}% vs {1}</span>", (int)Math.Round(pct), label);
+        return string.Format("<span class='mat-trend mat-trend--down'>\u25BC {0}% vs {1}</span>", (int)Math.Round(Math.Abs(pct)), label);
     }
 
     #endregion
@@ -260,6 +318,20 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
         dt.Columns.Add("user_id", typeof(string));
         dt.Columns.Add("summary", typeof(string));
         dt.Columns.Add("time_ago", typeof(string));
+        dt.Columns.Add("badge_text", typeof(string));
+        dt.Columns.Add("badge_bg", typeof(string));
+        dt.Columns.Add("badge_fg", typeof(string));
+
+        // Map page_function → short badge
+        var badgeMap = new Dictionary<string, string[]>
+        {
+            { "Capture Results",              new[] { "Capture",  "#e3f2fd", "#0d47a1" } },
+            { "Results Capture",              new[] { "Capture",  "#e3f2fd", "#0d47a1" } },
+            { "Faculty Exam Results Editor",  new[] { "Edit",     "#fff8e1", "#e65100" } },
+            { "Results Approval Cancel",      new[] { "Cancel",   "#fef5f5", "#991b1b" } },
+            { "Results Management",           new[] { "Mgmt",     "#f3e5f5", "#4a148c" } },
+            { "Results Auto Pass",            new[] { "Auto",     "#e6f4ea", "#155724" } }
+        };
 
         try
         {
@@ -281,14 +353,18 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
                         string par = rdr["par"] != DBNull.Value ? rdr["par"].ToString() : "";
                         DateTime dt2 = Convert.ToDateTime(rdr["access_date"]);
 
-                        // Build short summary
                         string summary = BuildShortSummary(pf, par);
                         string timeAgo = FormatTimeAgo(dt2);
+
+                        string[] badge;
+                        if (!badgeMap.TryGetValue(pf, out badge))
+                            badge = new[] { "Other", "#f5f5f5", "#555" };
 
                         dt.Rows.Add(
                             HttpUtility.HtmlEncode(user),
                             HttpUtility.HtmlEncode(summary),
-                            timeAgo);
+                            timeAgo,
+                            badge[0], badge[1], badge[2]);
                     }
                 }
             }
@@ -547,16 +623,42 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
 
     private string BuildShortSummary(string pageFunction, string par)
     {
-        // Extract key info from the `par` column
-        // Format A: "Course: BIT1101 Reg No: MRU2024... Mark: 75"
-        // Format B: "Student: MRU... Course: BCE2103 ... Old Exam Mark: 0 New Exam Mark: 55"
-        // Format C: "Marks for MRU..., Acad 2025/2026, Course: BEF2101, Score: 75, Sem: 1"
-
         if (string.IsNullOrEmpty(par)) return pageFunction;
 
-        // Truncate for sidebar display
-        if (par.Length > 80) par = par.Substring(0, 80) + "...";
+        try
+        {
+            // "Marks for MRU..., ..., Course: FAD1206D, Score: 57, ..."
+            if (par.StartsWith("Marks for "))
+            {
+                string course = ExtractBetween(par, "Course: ", ",") ?? ExtractAfter(par, "Course: ");
+                string score = ExtractBetween(par, "Score: ", ",") ?? ExtractAfter(par, "Score: ");
+                var parts = new List<string>();
+                if (!string.IsNullOrEmpty(course)) parts.Add(course.Trim());
+                if (!string.IsNullOrEmpty(score)) parts.Add("Score: " + score.Trim());
+                if (parts.Count > 0) return string.Join(" | ", parts.ToArray());
+            }
 
+            // "Student: MRU... Course: BEF2101 ... Old Exam Mark: 0 New Exam Mark: 55"
+            if (par.Contains("Student:") && par.Contains("Course:"))
+            {
+                string course = ExtractBetween(par, "Course: ", " ") ?? "";
+                var changes = new List<string>();
+                string oldCW = ExtractBetween(par, "Old CourseWork Mark: ", " ");
+                string newCW = ExtractBetween(par, "New CourseWork: ", " ") ?? ExtractAfter(par, "New CourseWork: ");
+                if (oldCW != null && newCW != null && oldCW != newCW) changes.Add("CW:" + oldCW + "\u2192" + newCW);
+                string oldExam = ExtractBetween(par, "Old Exam Mark: ", " ");
+                string newExam = ExtractAfter(par, "New Exam Mark: ");
+                if (newExam != null && newExam.Contains(" ")) newExam = newExam.Substring(0, newExam.IndexOf(' '));
+                if (oldExam != null && newExam != null && oldExam != newExam) changes.Add("Exam:" + oldExam + "\u2192" + newExam);
+                var p = new List<string>();
+                if (!string.IsNullOrEmpty(course)) p.Add(course.Trim());
+                if (changes.Count > 0) p.Add(string.Join(", ", changes.ToArray()));
+                if (p.Count > 0) return string.Join(" | ", p.ToArray());
+            }
+        }
+        catch { }
+
+        if (par.Length > 60) par = par.Substring(0, 60) + "...";
         return par;
     }
 
