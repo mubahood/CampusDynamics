@@ -378,6 +378,59 @@
                             </ul>
                         </li>
 
+                        <!-- ── Marks Administration ── -->
+                        <li class="cd-sidebar__item cd-sidebar__item--has-submenu" data-roles="exam_officer registrar dean faculty_staff admin">
+                            <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                <span>Marks Administration</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cd-sidebar__arrow"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </a>
+                            <ul class="cd-sidebar__submenu">
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkTeacherDashboard" runat="server" NavigateUrl="~/COOPERP/NewScreens/TeacherDashboard.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+                                        <span>My Marks Dashboard</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkMarkEntry" runat="server" NavigateUrl="~/COOPERP/NewScreens/MarkEntry.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                        <span>Mark Entry</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkAssignmentManager" runat="server" NavigateUrl="~/COOPERP/NewScreens/AssignmentManager.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                        <span>Teaching Assignments</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkDeadlineManager" runat="server" NavigateUrl="~/COOPERP/NewScreens/DeadlineManager.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                        <span>Deadline Manager</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkDeanApproval" runat="server" NavigateUrl="~/COOPERP/NewScreens/DeanApproval.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                        <span>Dean Approval</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkAuditCentre" runat="server" NavigateUrl="~/COOPERP/NewScreens/AuditCentre.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                        <span>Audit Centre</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem" data-roles="exam_officer registrar dean admin">
+                                    <asp:HyperLink ID="lnkMarksAlertDashboard" runat="server" NavigateUrl="~/COOPERP/NewScreens/MarksAlertDashboard.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                                        <span>Operational Alerts</span>
+                                    </asp:HyperLink>
+                                </li>
+                            </ul>
+                        </li>
+
                         <!-- ══════════════════════════════════════════════
                              ④ SCHOOL FEES
                              Roles: fees_officer | bursar | admin
@@ -833,6 +886,9 @@
         
         <!-- Overlay for mobile -->
         <div class="cd-overlay" id="sidebarOverlay"></div>
+
+        <!-- User role for sidebar filtering (Batch 13) -->
+        <input type="hidden" id="cdUserRole" value="<%= (Session["usertype"] ?? "").ToString().ToLower() %>" />
     </form>
     
     <!-- Core Scripts -->
@@ -849,6 +905,8 @@
             var userDropdownMenu = document.getElementById('userDropdownMenu');
             
             function init() {
+                filterMenuByRole();
+                
                 if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
                 if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar);
                 if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
@@ -859,6 +917,7 @@
                 
                 window.addEventListener('resize', handleResize);
                 setActiveMenuItem();
+                loadSidebarBadges();
             }
             
             function openSidebar() {
@@ -890,6 +949,64 @@
                 if (window.innerWidth > 992) closeSidebar();
             }
             
+            // ── Role-Based Menu Filtering (Batch 13) ──────────────────────
+            function filterMenuByRole() {
+                var roleEl = document.getElementById('cdUserRole');
+                var userRole = roleEl ? roleEl.value.trim().toLowerCase() : '';
+                if (!userRole) return; // don't filter if role unknown
+
+                var items = document.querySelectorAll('[data-roles]');
+                for (var i = 0; i < items.length; i++) {
+                    var allowed = items[i].getAttribute('data-roles');
+                    if (!allowed) continue;
+                    if (allowed === 'all') continue;
+                    var roles = allowed.split(/\s+/);
+                    var match = false;
+                    for (var r = 0; r < roles.length; r++) {
+                        if (roles[r] === userRole) { match = true; break; }
+                    }
+                    if (!match) {
+                        items[i].style.display = 'none';
+                    }
+                }
+            }
+
+            // ── Sidebar Badges (Batch 13) ──────────────────────────────────
+            function loadSidebarBadges() {
+                // DeanApproval pending count badge
+                var deanLink = document.getElementById('lnkDeanApproval');
+                if (!deanLink || deanLink.style.display === 'none') return;
+                // Only load for approval roles
+                var roleEl = document.getElementById('cdUserRole');
+                var role = roleEl ? roleEl.value.trim().toLowerCase() : '';
+                var approvalRoles = ['dean', 'administrator', 'admin'];
+                var isApprover = false;
+                for (var i = 0; i < approvalRoles.length; i++) {
+                    if (approvalRoles[i] === role) { isApprover = true; break; }
+                }
+                if (!isApprover) return;
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', 'DeanApproval.aspx?ajax=stats', true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState !== 4 || xhr.status !== 200) return;
+                    try {
+                        var d = JSON.parse(xhr.responseText);
+                        if (d.pending && parseInt(d.pending, 10) > 0) {
+                            var badge = document.createElement('span');
+                            badge.className = 'cd-sidebar__badge';
+                            badge.textContent = d.pending;
+                            deanLink.appendChild(badge);
+                        }
+                    } catch (ex) { /* silent */ }
+                };
+                // Send minimal request with CSRF if available
+                var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                var body = csrfMeta ? '__csrf=' + encodeURIComponent(csrfMeta.getAttribute('content')) : '';
+                xhr.send(body);
+            }
+
             function setActiveMenuItem() {
                 // Get current page path (without query string)
                 var currentPath = window.location.pathname.toLowerCase();

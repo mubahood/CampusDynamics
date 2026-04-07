@@ -258,6 +258,23 @@ form, #form1 {
     border-left-color: var(--cd-primary);
 }
 
+/* Sidebar Badge (Batch 13) */
+.cd-sidebar__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    background: #c62828;
+    border-radius: 9px;
+}
+
 /* Divider - Edge to edge */
 .cd-sidebar__divider {
     height: 1px;

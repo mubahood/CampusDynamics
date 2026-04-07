@@ -136,6 +136,28 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             case "academicyears":
                 title = "Academic Years";
                 break;
+            // Marks Module (Batch 13)
+            case "teacherdashboard":
+                title = "My Marks Dashboard";
+                break;
+            case "markentry":
+                title = "Mark Entry";
+                break;
+            case "assignmentmanager":
+                title = "Teaching Assignments";
+                break;
+            case "deadlinemanager":
+                title = "Deadline Manager";
+                break;
+            case "deanapproval":
+                title = "Dean Approval";
+                break;
+            case "auditcentre":
+                title = "Audit Centre";
+                break;
+            case "marksalertdashboard":
+                title = "Operational Alerts";
+                break;
             default:
                 title = pageName.Replace("New", "").Replace("_", " ");
                 break;
