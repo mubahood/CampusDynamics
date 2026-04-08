@@ -28,8 +28,11 @@ public partial class API_v2_auth : System.Web.UI.Page
                 case "validate":
                     HandleValidate();
                     break;
+                case "ping":
+                    HandlePing();
+                    break;
                 default:
-                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: login, logout, validate", "INVALID_ACTION");
+                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: login, logout, validate, ping", "INVALID_ACTION");
                     break;
             }
         }
@@ -337,5 +340,21 @@ public partial class API_v2_auth : System.Web.UI.Page
         };
 
         ApiHelper.Success(Response, responseData, "Token is valid");
+    }
+
+    /// <summary>
+    /// Health check endpoint. No auth required.
+    /// Used by ODEL and other consumers to verify the API is reachable.
+    /// </summary>
+    private void HandlePing()
+    {
+        var data = new Dictionary<string, object>
+        {
+            { "status", "ok" },
+            { "timestamp", DateTime.UtcNow.ToString("o") },
+            { "version", "2.1" },
+            { "server", "CampusDynamics API v2" }
+        };
+        ApiHelper.Success(Response, data);
     }
 }

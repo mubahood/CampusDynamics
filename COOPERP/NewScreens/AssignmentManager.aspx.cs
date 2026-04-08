@@ -158,11 +158,11 @@ public partial class COOPERP_NewScreens_AssignmentManager : System.Web.UI.Page
                 // Teachers (from hrm_employee)
                 json.Append("\"teachers\":[");
                 using (MySqlCommand cmd = new MySqlCommand(
-                    @"SELECT DISTINCT e.username,
-                             CONCAT(COALESCE(e.firstname,''), ' ', COALESCE(e.othername,''), ' (', e.username, ')') AS display
+                    @"SELECT DISTINCT e.usernames AS username,
+                             CONCAT(COALESCE(e.emp_name,''), ' (', e.usernames, ')') AS display
                       FROM hrm_employee e
-                      WHERE e.username IS NOT NULL AND e.username != ''
-                      ORDER BY e.firstname, e.othername LIMIT 500", conn))
+                      WHERE e.usernames IS NOT NULL AND e.usernames != ''
+                      ORDER BY e.emp_name LIMIT 500", conn))
                 {
                     bool first = true;
                     using (MySqlDataReader rdr = cmd.ExecuteReader())
@@ -264,12 +264,12 @@ public partial class COOPERP_NewScreens_AssignmentManager : System.Web.UI.Page
                              ta.is_active, COALESCE(ta.notes, '') AS notes,
                              COALESCE(c.CourseName, ta.course_id) AS course_name,
                              COALESCE(p.progname, ta.progid) AS prog_name,
-                             COALESCE(TRIM(CONCAT(COALESCE(e.firstname,''), ' ', COALESCE(e.othername,''))), ta.teacher_username) AS teacher_name,
+                             COALESCE(e.emp_name, ta.teacher_username) AS teacher_name,
                              COALESCE(cam.campusName, '') AS campus_name
                       FROM acad_teaching_assignments ta
                       LEFT JOIN acad_courses c ON c.CourseCode = ta.course_id
                       LEFT JOIN acad_programme p ON p.progcode = ta.progid
-                      LEFT JOIN hrm_employee e ON e.username = ta.teacher_username
+                      LEFT JOIN hrm_employee e ON e.usernames = ta.teacher_username
                       LEFT JOIN acad_campus cam ON cam.campusid = ta.campus_id
                       WHERE ta.progid = @prog AND ta.acadyear = @year AND ta.semester = @sem
                       ORDER BY ta.study_year, ta.course_id, ta.teacher_username", conn))

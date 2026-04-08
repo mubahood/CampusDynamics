@@ -43,8 +43,23 @@ public partial class API_v2_academic : System.Web.UI.Page
                 case "registration_history":
                     HandleRegistrationHistory();
                     break;
+                case "enrollment_status":
+                    HandleEnrollmentStatus();
+                    break;
+                case "course_details":
+                    HandleCourseDetails();
+                    break;
+                case "course_enrollments":
+                    HandleCourseEnrollments();
+                    break;
+                case "programme_curriculum":
+                    HandleProgrammeCurriculum();
+                    break;
+                case "grading_scheme":
+                    HandleGradingScheme();
+                    break;
                 default:
-                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: results, transcript, gpa, available_courses, registered_courses, register_course, drop_course, semester_registration, registration_history", "INVALID_ACTION");
+                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: results, transcript, gpa, available_courses, registered_courses, register_course, drop_course, semester_registration, registration_history, enrollment_status, course_details, course_enrollments, programme_curriculum, grading_scheme", "INVALID_ACTION");
                     break;
             }
         }
@@ -510,5 +525,383 @@ public partial class API_v2_academic : System.Web.UI.Page
         if (cgpa >= 2.8) return "Second Class Lower";
         if (cgpa >= 2.0) return "Pass";
         return "Below Pass";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  NEW ACADEMIC ENDPOINTS
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Returns a student's enrollment verification status for a specific semester.
+    /// Useful to confirm active enrollment for third parties (employers, embassies, etc.).
+    /// Returns registration status, programme, study year, and semester details.
+    /// </summary>
+    private void HandleEnrollmentStatus()
+    {
+        TokenInfo auth;
+        string regno = GetStudentRegNo(out auth);
+        if (regno == null) return;
+
+        string acad_year = ApiHelper.Param(Request, "acad_year", "");
+        int semester = ApiHelper.ParamInt(Request, "semester", 0);
+
+        try
+        {
+            // Student biodata
+            DataTable profileDt = ApiHelper.Query(
+                @"SELECT s.regno, s.entryno, s.firstname, s.othername,
+                         p.progname AS programme, s.progid AS programme_code,
+                         s.stud_status AS status, s.entryyear AS entry_year,
+                         s.studsesion AS session,
+                         COALESCE(c.campus_name, '') AS campus
+                  FROM acad_student s
+                  LEFT JOIN acad_programme p ON s.progid = p.progcode
+                  LEFT JOIN acad_campuses c ON s.studCampus = c.campus_code
+                  WHERE s.regno = @reg",
+                new MySqlParameter("@reg", regno)
+            );
+
+            if (profileDt.Rows.Count == 0)
+            {
+                ApiHelper.Error(Response, "Student not found.", "NOT_FOUND");
+                return;
+            }
+
+            var profile = ApiHelper.FirstRowToDict(profileDt);
+
+            // Get registration records
+            string regSql = @"SELECT r.acad_year, r.semester, r.studyyear AS study_year,
+                                     r.status AS reg_status,
+                                     DATE_FORMAT(r.reg_date, '%Y-%m-%d') AS registration_date,
+                                     r.campusid AS campus_id
+                              FROM acad_registration r
+                              WHERE r.regno = @reg";
+
+            var parms = new List<MySqlParameter>();
+            parms.Add(new MySqlParameter("@reg", regno));
+
+            if (!string.IsNullOrEmpty(acad_year))
+            {
+                regSql += " AND r.acad_year = @acad";
+                parms.Add(new MySqlParameter("@acad", acad_year));
+            }
+            if (semester > 0)
+            {
+                regSql += " AND r.semester = @sem";
+                parms.Add(new MySqlParameter("@sem", semester));
+            }
+
+            regSql += " ORDER BY r.acad_year DESC, r.semester DESC";
+
+            DataTable regDt = ApiHelper.Query(regSql, parms.ToArray());
+
+            bool isCurrentlyEnrolled = false;
+            foreach (DataRow row in regDt.Rows)
+            {
+                string regStatus = row["reg_status"] != DBNull.Value ? row["reg_status"].ToString() : "";
+                if (regStatus.ToLower() == "active" || regStatus.ToLower() == "registered")
+                {
+                    isCurrentlyEnrolled = true;
+                    break;
+                }
+            }
+
+            var data = new Dictionary<string, object>
+            {
+                { "student", profile },
+                { "is_enrolled", isCurrentlyEnrolled },
+                { "total_semesters_registered", regDt.Rows.Count },
+                { "registrations", ApiHelper.TableToList(regDt) }
+            };
+
+            ApiHelper.Success(Response, data);
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error checking enrollment status: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+
+    /// <summary>
+    /// ODEL: Get detailed information for a single course.
+    /// Returns metadata, department, credit units, and which programmes include it.
+    /// </summary>
+    private void HandleCourseDetails()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string courseCode = ApiHelper.RequireParam(Request, Response, "course_code");
+        if (courseCode == null) return;
+
+        DataTable dt = ApiHelper.Query(
+            @"SELECT c.courseID AS course_code, c.courseName AS course_name,
+                     c.CreditUnit AS credit_units, c.courseCategory AS category,
+                     d.dept_name AS department, f.faculty_name AS faculty
+              FROM acad_course c
+              LEFT JOIN hrm_departments d ON c.courseDept = d.ID
+              LEFT JOIN acad_faculty f ON d.fax_code = f.fax_code
+              WHERE c.courseID = @code
+              LIMIT 1",
+            new MySqlParameter("@code", courseCode)
+        );
+
+        if (dt.Rows.Count == 0)
+        {
+            ApiHelper.Error(Response, "Course not found.", "NOT_FOUND");
+            return;
+        }
+
+        var course = ApiHelper.FirstRowToDict(dt);
+
+        // Get programmes that include this course
+        DataTable dtProgs = ApiHelper.Query(
+            @"SELECT DISTINCT pc.progcode, p.progname AS programme_name,
+                     pc.studyYear AS study_year, pc.semester
+              FROM acad_programmecourses pc
+              LEFT JOIN acad_programme p ON pc.progcode = p.progcode
+              WHERE pc.courseID = @code
+              ORDER BY p.progname, pc.studyYear, pc.semester",
+            new MySqlParameter("@code", courseCode)
+        );
+
+        course["programmes"] = ApiHelper.TableToList(dtProgs);
+
+        // Get prerequisites if table exists
+        try
+        {
+            DataTable dtPre = ApiHelper.Query(
+                @"SELECT prerequisite_course AS course_code, c.courseName AS course_name
+                  FROM acad_prerequisites pr
+                  LEFT JOIN acad_course c ON pr.prerequisite_course = c.courseID
+                  WHERE pr.courseID = @code",
+                new MySqlParameter("@code", courseCode)
+            );
+            course["prerequisites"] = ApiHelper.TableToList(dtPre);
+        }
+        catch
+        {
+            course["prerequisites"] = new List<object>();
+        }
+
+        ApiHelper.Success(Response, course);
+    }
+
+    /// <summary>
+    /// ODEL: Get all students enrolled in a specific course for a given semester.
+    /// Staff only. Used by Moodle to sync course rosters.
+    /// </summary>
+    private void HandleCourseEnrollments()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        if (auth.UserType != "staff")
+        {
+            ApiHelper.Error(Response, "Only staff can view course enrollments.", "ACCESS_DENIED");
+            return;
+        }
+
+        string courseCode = ApiHelper.RequireParam(Request, Response, "course_code");
+        if (courseCode == null) return;
+        string acadYear = ApiHelper.RequireParam(Request, Response, "acad_year");
+        if (acadYear == null) return;
+        string semester = ApiHelper.RequireParam(Request, Response, "semester");
+        if (semester == null) return;
+
+        DataTable dt = ApiHelper.Query(
+            @"SELECT cr.regno, s.firstname, s.othername, s.email,
+                     s.progid AS progcode, p.progname AS programme,
+                     cr.registration_status AS status,
+                     s.studPhone AS phone, s.gender
+              FROM acad_course_registration cr
+              INNER JOIN acad_student s ON cr.regno = s.regno
+              LEFT JOIN acad_programme p ON s.progid = p.progcode
+              WHERE cr.courseID = @code
+                AND cr.academic_year = @ay
+                AND cr.semester = @sem
+              ORDER BY s.firstname, s.othername",
+            new MySqlParameter("@code", courseCode),
+            new MySqlParameter("@ay", acadYear),
+            new MySqlParameter("@sem", semester)
+        );
+
+        var students = ApiHelper.TableToList(dt);
+
+        // Also get course info
+        DataTable dtCourse = ApiHelper.Query(
+            "SELECT courseID AS course_code, courseName AS course_name, CreditUnit AS credit_units FROM acad_course WHERE courseID = @code",
+            new MySqlParameter("@code", courseCode)
+        );
+
+        var data = new Dictionary<string, object>
+        {
+            { "course_code", courseCode },
+            { "course_name", dtCourse.Rows.Count > 0 ? Convert.ToString(dtCourse.Rows[0]["course_name"]) : "" },
+            { "credit_units", dtCourse.Rows.Count > 0 ? Convert.ToString(dtCourse.Rows[0]["credit_units"]) : "" },
+            { "academic_year", acadYear },
+            { "semester", semester },
+            { "total_enrolled", students.Count },
+            { "students", students }
+        };
+        ApiHelper.Success(Response, data);
+    }
+
+    /// <summary>
+    /// ODEL: Get full programme curriculum grouped by year and semester.
+    /// Used by Moodle to auto-create course structures.
+    /// </summary>
+    private void HandleProgrammeCurriculum()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string progcode = ApiHelper.RequireParam(Request, Response, "progcode");
+        if (progcode == null) return;
+
+        // Get programme info
+        DataTable dtProg = ApiHelper.Query(
+            @"SELECT p.progcode, p.progname, f.faculty_name AS faculty,
+                     d.dept_name AS department, p.proglevel AS level,
+                     p.progduration AS duration_years
+              FROM acad_programme p
+              LEFT JOIN acad_faculty f ON p.progfaculty = f.fax_code
+              LEFT JOIN hrm_departments d ON p.progdept = d.ID
+              WHERE p.progcode = @prog
+              LIMIT 1",
+            new MySqlParameter("@prog", progcode)
+        );
+
+        if (dtProg.Rows.Count == 0)
+        {
+            ApiHelper.Error(Response, "Programme not found.", "NOT_FOUND");
+            return;
+        }
+
+        var progInfo = ApiHelper.FirstRowToDict(dtProg);
+
+        // Get all courses in programme curriculum
+        DataTable dtCourses = ApiHelper.Query(
+            @"SELECT pc.courseID AS course_code, c.courseName AS course_name,
+                     c.CreditUnit AS credit_units, pc.studyYear AS study_year,
+                     pc.semester, pc.courseType AS course_type,
+                     c.courseCategory AS category
+              FROM acad_programmecourses pc
+              LEFT JOIN acad_course c ON pc.courseID = c.courseID
+              WHERE pc.progcode = @prog
+              ORDER BY pc.studyYear, pc.semester, c.courseName",
+            new MySqlParameter("@prog", progcode)
+        );
+
+        // Group courses by year and semester
+        var curriculum = new Dictionary<string, object>();
+        int totalCredits = 0;
+        foreach (DataRow row in dtCourses.Rows)
+        {
+            string year = Convert.ToString(row["study_year"]);
+            string sem = Convert.ToString(row["semester"]);
+            string key = "Year " + year + " - Semester " + sem;
+
+            if (!curriculum.ContainsKey(key))
+            {
+                curriculum[key] = new List<Dictionary<string, object>>();
+            }
+
+            var courseDict = new Dictionary<string, object>
+            {
+                { "course_code", Convert.ToString(row["course_code"]) },
+                { "course_name", Convert.ToString(row["course_name"]) },
+                { "credit_units", Convert.ToString(row["credit_units"]) },
+                { "course_type", Convert.ToString(row["course_type"]) },
+                { "category", Convert.ToString(row["category"]) }
+            };
+
+            ((List<Dictionary<string, object>>)curriculum[key]).Add(courseDict);
+
+            int cu;
+            if (int.TryParse(Convert.ToString(row["credit_units"]), out cu))
+                totalCredits += cu;
+        }
+
+        var data = new Dictionary<string, object>
+        {
+            { "programme", progInfo },
+            { "total_courses", dtCourses.Rows.Count },
+            { "total_credit_units", totalCredits },
+            { "curriculum", curriculum }
+        };
+        ApiHelper.Success(Response, data);
+    }
+
+    /// <summary>
+    /// ODEL: Get the grading scheme/scale used by MRU.
+    /// Public endpoint (no auth required). Used by Moodle to configure grade mappings.
+    /// </summary>
+    private void HandleGradingScheme()
+    {
+        // No auth required - public information
+        var gradeScale = new List<Dictionary<string, object>>();
+
+        // Standard MRU grading scale
+        string[][] grades = new string[][] {
+            new string[] { "A", "90", "100", "5.0", "Excellent" },
+            new string[] { "B+", "80", "89", "4.5", "Very Good" },
+            new string[] { "B", "70", "79", "4.0", "Good" },
+            new string[] { "C+", "60", "69", "3.5", "Fairly Good" },
+            new string[] { "C", "50", "59", "3.0", "Pass" },
+            new string[] { "D+", "45", "49", "2.5", "Marginal Pass" },
+            new string[] { "D", "40", "44", "2.0", "Marginal Fail" },
+            new string[] { "F", "0", "39", "0.0", "Fail" }
+        };
+
+        foreach (string[] g in grades)
+        {
+            gradeScale.Add(new Dictionary<string, object>
+            {
+                { "letter", g[0] },
+                { "min_score", Convert.ToInt32(g[1]) },
+                { "max_score", Convert.ToInt32(g[2]) },
+                { "grade_point", Convert.ToDouble(g[3]) },
+                { "remark", g[4] }
+            });
+        }
+
+        // Try to load from DB if a grading table exists
+        try
+        {
+            DataTable dt = ApiHelper.Query(
+                @"SELECT grade_letter AS letter, min_score, max_score, grade_point, remark
+                  FROM acad_grading_scale ORDER BY min_score DESC"
+            );
+            if (dt.Rows.Count > 0)
+            {
+                gradeScale = new List<Dictionary<string, object>>();
+                foreach (DataRow row in dt.Rows)
+                {
+                    gradeScale.Add(new Dictionary<string, object>
+                    {
+                        { "letter", Convert.ToString(row["letter"]) },
+                        { "min_score", Convert.ToInt32(row["min_score"]) },
+                        { "max_score", Convert.ToInt32(row["max_score"]) },
+                        { "grade_point", Convert.ToDouble(row["grade_point"]) },
+                        { "remark", Convert.ToString(row["remark"]) }
+                    });
+                }
+            }
+        }
+        catch
+        {
+            // Table doesn't exist, use hardcoded scale
+        }
+
+        var data = new Dictionary<string, object>
+        {
+            { "institution", "Mountains of the Moon University" },
+            { "pass_mark", 50 },
+            { "max_gpa", 5.0 },
+            { "total_grades", gradeScale.Count },
+            { "scale", gradeScale }
+        };
+        ApiHelper.Success(Response, data);
     }
 }

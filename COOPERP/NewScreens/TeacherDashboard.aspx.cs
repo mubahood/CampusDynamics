@@ -113,8 +113,8 @@ public partial class COOPERP_NewScreens_TeacherDashboard : System.Web.UI.Page
 
                 // Get teacher display name
                 using (MySqlCommand cmd = new MySqlCommand(
-                    @"SELECT CONCAT(COALESCE(firstname,''), ' ', COALESCE(othername,'')) AS display
-                      FROM hrm_employee WHERE username = @u LIMIT 1", conn))
+                    @"SELECT COALESCE(emp_name, '') AS display
+                      FROM hrm_employee WHERE usernames = @u LIMIT 1", conn))
                 {
                     cmd.Parameters.AddWithValue("@u", user);
                     object result = cmd.ExecuteScalar();

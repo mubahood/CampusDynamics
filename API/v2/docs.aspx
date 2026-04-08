@@ -73,8 +73,8 @@
     <div class="api-header">
         <div class="api-header__inner">
             <div class="api-header__title">Campus Dynamics API</div>
-            <div class="api-header__sub">RESTful API for Student &amp; Staff Mobile Applications</div>
-            <div class="api-header__version">VERSION 2.0</div>
+            <div class="api-header__sub">RESTful API for Student &amp; Staff Mobile Applications &amp; ODEL/Moodle Integration</div>
+            <div class="api-header__version">VERSION 2.2 — ODEL INTEGRATION</div>
         </div>
     </div>
     <div class="api-layout">
@@ -94,10 +94,17 @@
                 <a href="#staff-profile" class="api-sidebar__link">Staff Profile</a>
                 <a href="#staff-classes" class="api-sidebar__link">My Classes</a>
                 <a href="#staff-grading" class="api-sidebar__link">Grading</a>
+                <a href="#staff-marks-workflow" class="api-sidebar__link">Marks Workflow</a>
                 <div class="api-sidebar__heading">General</div>
                 <a href="#notices" class="api-sidebar__link">Notices</a>
                 <a href="#directory" class="api-sidebar__link">Directory</a>
                 <a href="#campus" class="api-sidebar__link">Campus Info</a>
+                <a href="#enrollment" class="api-sidebar__link">Enrollment</a>
+                <div class="api-sidebar__heading">ODEL Integration</div>
+                <a href="#odel-identity" class="api-sidebar__link">Identity &amp; Lookup</a>
+                <a href="#odel-academic" class="api-sidebar__link">Courses &amp; Curriculum</a>
+                <a href="#odel-finance" class="api-sidebar__link">Fee Clearance</a>
+                <a href="#odel-calendar" class="api-sidebar__link">Academic Calendar</a>
                 <div class="api-sidebar__heading">Project</div>
                 <a href="#roadmap" class="api-sidebar__link">Roadmap</a>
             </nav>
@@ -118,7 +125,7 @@
                     <div class="api-stat__label">Pending</div>
                 </div>
                 <div class="api-stat">
-                    <div class="api-stat__num">v2.0</div>
+                    <div class="api-stat__num">v2.2</div>
                     <div class="api-stat__label">API Version</div>
                 </div>
             </div>
@@ -202,6 +209,24 @@ username=MRU/2023/001&amp;password=mypassword
                     <div class="api-endpoint" data-status="live">
                         <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/auth.aspx?action=validate&amp;token=...</div>
                         <div class="api-endpoint__info">Check if a token is still valid.</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">NEW</span> /API/v2/auth.aspx?action=ping</div>
+                        <div class="api-endpoint__info">Health check / connectivity test. No auth required. Returns API status, version, and server timestamp. Used by ODEL/Moodle to verify API is reachable.</div>
+                        <div class="api-code"><span class="c-comm">// No authentication needed</span>
+GET /API/v2/auth.aspx?action=ping
+
+<span class="c-comm">// Response</span>
+{
+  <span class="c-key">"status"</span>: <span class="c-str">"success"</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"status"</span>: <span class="c-str">"ok"</span>,
+    <span class="c-key">"timestamp"</span>: <span class="c-str">"2026-04-08T10:30:00.0000000Z"</span>,
+    <span class="c-key">"version"</span>: <span class="c-str">"2.1"</span>,
+    <span class="c-key">"server"</span>: <span class="c-str">"CampusDynamics API v2"</span>
+  }
+}</div>
                     </div>
                 </div>
             </div>
@@ -408,6 +433,28 @@ username=MRU/2023/001&amp;password=mypassword
                         <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/finance.aspx?action=fees_structure&amp;token=...</div>
                         <div class="api-endpoint__info">Get the fees structure for the student's programme and study year.</div>
                     </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/finance.aspx?action=payment_history&amp;token=...</div>
+                        <div class="api-endpoint__info">Payment receipts only — filters ledger to credit entries. Returns total payments, count, and payment details.</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/finance.aspx?action=billing_summary&amp;token=...</div>
+                        <div class="api-endpoint__info">Billing summary grouped by academic year and semester — charges vs payments per period.</div>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{
+  <span class="c-key">"status"</span>: <span class="c-str">"success"</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"overall_balance"</span>: <span class="c-num">1000000</span>,
+    <span class="c-key">"currency"</span>: <span class="c-str">"UGX"</span>,
+    <span class="c-key">"periods"</span>: [
+      { <span class="c-key">"period"</span>: <span class="c-str">"2024/2025_S1"</span>, <span class="c-key">"charges"</span>: <span class="c-num">1750000</span>, <span class="c-key">"payments"</span>: <span class="c-num">1500000</span> },
+      { <span class="c-key">"period"</span>: <span class="c-str">"2024/2025_S2"</span>, <span class="c-key">"charges"</span>: <span class="c-num">1750000</span>, <span class="c-key">"payments"</span>: <span class="c-num">1000000</span> }
+    ]
+  }
+}</div>
+                    </div>
                 </div>
             </div>
 
@@ -492,6 +539,81 @@ username=MRU/2023/001&amp;password=mypassword
                 </div>
             </div>
 
+            <!-- Staff Marks Workflow (NEW) -->
+            <div class="api-section" id="staff-marks-workflow">
+                <div class="api-section__header">
+                    <div class="api-section__title">Staff — Marks Workflow</div>
+                    <div class="api-section__desc">Entry-level marks, workflow submission, approvals, and deadlines</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-note">These endpoints integrate with the new marks management module. Marks flow through a workflow: <strong>DRAFT → SUBMITTED → DEAN_APPROVED → PUBLISHED</strong>.</div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/staff.aspx?action=teaching_assignments&amp;token=...&amp;acad_year=...&amp;semester=...</div>
+                        <div class="api-endpoint__info">Get courses assigned to this teacher. Uses new assignment table with legacy fallback.</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/staff.aspx?action=mark_sheet&amp;token=...&amp;course_id=...&amp;progid=...&amp;acad_year=...</div>
+                        <div class="api-endpoint__info">Load the entry-level mark sheet with raw marks, weighted marks, ratios, grades, and workflow status.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>course_id</td><td>string</td><td class="api-param--required">Yes</td><td>Course code</td></tr>
+                            <tr><td>progid</td><td>string</td><td class="api-param--required">Yes</td><td>Programme code</td></tr>
+                            <tr><td>acad_year</td><td>string</td><td class="api-param--required">Yes</td><td>Academic year</td></tr>
+                            <tr><td>semester</td><td>int</td><td class="api-param--optional">No</td><td>Semester (default: 1)</td></tr>
+                            <tr><td>study_year</td><td>int</td><td class="api-param--optional">No</td><td>Study year (default: 1)</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{
+  <span class="c-key">"status"</span>: <span class="c-str">"success"</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"ratios"</span>: { <span class="c-key">"coursework"</span>: <span class="c-num">30</span>, <span class="c-key">"test"</span>: <span class="c-num">10</span>, <span class="c-key">"exam"</span>: <span class="c-num">60</span> },
+    <span class="c-key">"status"</span>: <span class="c-str">"DRAFT"</span>,
+    <span class="c-key">"total_students"</span>: <span class="c-num">45</span>,
+    <span class="c-key">"marks_entered"</span>: <span class="c-num">40</span>,
+    <span class="c-key">"students"</span>: [
+      {
+        <span class="c-key">"entry_id"</span>: <span class="c-num">1023</span>,
+        <span class="c-key">"regno"</span>: <span class="c-str">"MRU2025003204"</span>,
+        <span class="c-key">"cw_entered"</span>: <span class="c-num">85</span>,
+        <span class="c-key">"total_mark"</span>: <span class="c-num">71.5</span>,
+        <span class="c-key">"grade"</span>: <span class="c-str">"B"</span>
+      }
+    ]
+  }
+}</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> /API/v2/staff.aspx?action=save_entry_marks</div>
+                        <div class="api-endpoint__info">Save entry-level marks (draft). Accepts JSON array: [{"entry_id":123, "cw_entered":85, "test_entered":70, "exam_entered":65}]. Max 200 per request.</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> /API/v2/staff.aspx?action=submit_for_approval</div>
+                        <div class="api-endpoint__info">Submit a mark sheet for dean approval. Only DRAFT sheets can be submitted.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>course_id</td><td>string</td><td class="api-param--required">Yes</td><td>Course code</td></tr>
+                            <tr><td>progid</td><td>string</td><td class="api-param--required">Yes</td><td>Programme code</td></tr>
+                            <tr><td>acad_year</td><td>string</td><td class="api-param--required">Yes</td><td>Academic year</td></tr>
+                            <tr><td>semester</td><td>int</td><td class="api-param--optional">No</td><td>Semester</td></tr>
+                        </table>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/staff.aspx?action=sheet_status&amp;token=...&amp;course_id=...&amp;progid=...&amp;acad_year=...</div>
+                        <div class="api-endpoint__info">Check workflow status of a mark sheet (DRAFT / SUBMITTED / DEAN_APPROVED / PUBLISHED).</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/staff.aspx?action=deadlines&amp;token=...&amp;acad_year=...&amp;semester=...</div>
+                        <div class="api-endpoint__info">Get mark submission deadlines with hours remaining and past-due indicators.</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Notices -->
             <div class="api-section" id="notices">
                 <div class="api-section__header">
@@ -543,13 +665,403 @@ username=MRU/2023/001&amp;password=mypassword
                     </div>
 
                     <div class="api-endpoint" data-status="live">
-                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/campus.aspx?action=programmes</div>
-                        <div class="api-endpoint__info">List all programmes offered. No auth required.</div>
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/campus.aspx?action=programmes&amp;faculty_code=...&amp;level=...</div>
+                        <div class="api-endpoint__info"><strong>Enhanced for ODEL.</strong> List all programmes with faculty, department, level, duration, and study mode. Optional filters: <code>faculty_code</code>, <code>level</code>. No auth required.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>faculty_code</td><td>string</td><td class="api-param--optional">No</td><td>Filter by faculty code</td></tr>
+                            <tr><td>level</td><td>string</td><td class="api-param--optional">No</td><td>Filter by level (e.g. Undergraduate)</td></tr>
+                        </table>
                     </div>
 
                     <div class="api-endpoint" data-status="live">
                         <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/campus.aspx?action=campuses</div>
                         <div class="api-endpoint__info">List all campus locations. No auth required.</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/campus.aspx?action=faculties</div>
+                        <div class="api-endpoint__info"><strong>Enhanced for ODEL.</strong> List all faculties with nested departments array. No auth required.</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/campus.aspx?action=departments&amp;faculty_code=...</div>
+                        <div class="api-endpoint__info">List all departments, optionally filtered by faculty. No auth required.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>faculty_code</td><td>string</td><td class="api-param--optional">No</td><td>Filter by faculty code (e.g. FBMSE)</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enrollment Verification (NEW) -->
+            <div class="api-section" id="enrollment">
+                <div class="api-section__header">
+                    <div class="api-section__title">Enrollment Verification</div>
+                    <div class="api-section__desc">Verify student enrollment status for third parties</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/academic.aspx?action=enrollment_status&amp;token=...</div>
+                        <div class="api-endpoint__info">Returns enrollment verification: student biodata, registration status, programme info. Filter by acad_year and semester.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>acad_year</td><td>string</td><td class="api-param--optional">No</td><td>Filter by academic year</td></tr>
+                            <tr><td>semester</td><td>int</td><td class="api-param--optional">No</td><td>Filter by semester</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{
+  <span class="c-key">"status"</span>: <span class="c-str">"success"</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"student"</span>: { <span class="c-key">"regno"</span>: <span class="c-str">"MRU2025003204"</span>, <span class="c-key">"firstname"</span>: <span class="c-str">"RITAH"</span>, ... },
+    <span class="c-key">"is_enrolled"</span>: <span class="c-num">true</span>,
+    <span class="c-key">"total_semesters_registered"</span>: <span class="c-num">2</span>,
+    <span class="c-key">"registrations"</span>: [
+      { <span class="c-key">"acad_year"</span>: <span class="c-str">"2024/2025"</span>, <span class="c-key">"semester"</span>: <span class="c-str">"2"</span>, <span class="c-key">"reg_status"</span>: <span class="c-str">"active"</span> }
+    ]
+  }
+}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ODEL: Identity & Lookup -->
+            <div class="api-section" id="odel-identity">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Identity &amp; Lookup</div>
+                    <div class="api-section__desc">Endpoints for Moodle user identification, verification, and bulk sync</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-note">These endpoints are designed for the ODEL/Moodle integration plugin to verify users, sync rosters, and map roles. All require a valid token (use a system staff account for Moodle).</div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/student.aspx?action=lookup&amp;token=...&amp;email=...</div>
+                        <div class="api-endpoint__info">Find a person (student or staff) by email. Returns <code>person_type</code> of "student" or "staff" with full profile data. Primary endpoint for Moodle registration identity matching.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>token</td><td>string</td><td class="api-param--required">Yes</td><td>Auth token</td></tr>
+                            <tr><td>email</td><td>string</td><td class="api-param--required">Yes</td><td>Email address to look up</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response — Student found</span>
+{
+  <span class="c-key">"status"</span>: <span class="c-str">"success"</span>,
+  <span class="c-key">"message"</span>: <span class="c-str">"Person found as student"</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"found"</span>: <span class="c-num">true</span>,
+    <span class="c-key">"person_type"</span>: <span class="c-str">"student"</span>,
+    <span class="c-key">"mru_id"</span>: <span class="c-str">"2024/BSC/001"</span>,
+    <span class="c-key">"data"</span>: {
+      <span class="c-key">"regno"</span>: <span class="c-str">"2024/BSC/001"</span>,
+      <span class="c-key">"firstname"</span>: <span class="c-str">"John"</span>,
+      <span class="c-key">"othername"</span>: <span class="c-str">"Doe"</span>,
+      <span class="c-key">"programme"</span>: <span class="c-str">"Bachelor of Science in IT"</span>,
+      <span class="c-key">"email"</span>: <span class="c-str">"john@example.com"</span>,
+      <span class="c-key">"status"</span>: <span class="c-str">"Active"</span>
+    }
+  }
+}
+
+<span class="c-comm">// Response — Not found</span>
+{
+  <span class="c-key">"data"</span>: { <span class="c-key">"found"</span>: <span class="c-num">false</span>, <span class="c-key">"person_type"</span>: <span class="c-num">null</span>, <span class="c-key">"mru_id"</span>: <span class="c-num">null</span> }
+}</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/student.aspx?action=verify&amp;token=...&amp;id=...</div>
+                        <div class="api-endpoint__info">Quick student verification by reg number or entry number. Returns <code>verified: true/false</code>, name, programme, and status.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>token</td><td>string</td><td class="api-param--required">Yes</td><td>Auth token</td></tr>
+                            <tr><td>id</td><td>string</td><td class="api-param--required">Yes</td><td>Student reg no or entry no</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"verified"</span>: <span class="c-num">true</span>,
+    <span class="c-key">"mru_id"</span>: <span class="c-str">"2024/BSC/001"</span>,
+    <span class="c-key">"full_name"</span>: <span class="c-str">"John Doe"</span>,
+    <span class="c-key">"status"</span>: <span class="c-str">"Active"</span>,
+    <span class="c-key">"programme_code"</span>: <span class="c-str">"BSC-IT"</span>
+  }
+}</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/student.aspx?action=search&amp;token=...&amp;q=...&amp;type=...</div>
+                        <div class="api-endpoint__info"><strong>Staff only.</strong> Search students by name, email, or student number. Supports <code>type</code>=name|email|student_no|any and <code>limit</code> (max 200).</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>q</td><td>string</td><td class="api-param--required">Yes</td><td>Search query</td></tr>
+                            <tr><td>type</td><td>string</td><td class="api-param--optional">No</td><td>name, email, student_no, or any (default)</td></tr>
+                            <tr><td>limit</td><td>int</td><td class="api-param--optional">No</td><td>Max results (default 50, max 200)</td></tr>
+                        </table>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/student.aspx?action=by_programme&amp;token=...&amp;progcode=...</div>
+                        <div class="api-endpoint__info"><strong>Staff only.</strong> Bulk student list by programme with pagination. Used for Moodle cohort sync. Filters: <code>status</code>, <code>acad_year</code>, <code>page</code>, <code>per_page</code> (max 500).</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>progcode</td><td>string</td><td class="api-param--required">Yes</td><td>Programme code</td></tr>
+                            <tr><td>status</td><td>string</td><td class="api-param--optional">No</td><td>Filter: Active, Graduated, etc.</td></tr>
+                            <tr><td>acad_year</td><td>string</td><td class="api-param--optional">No</td><td>Filter by academic year</td></tr>
+                            <tr><td>page</td><td>int</td><td class="api-param--optional">No</td><td>Page number (default 1)</td></tr>
+                            <tr><td>per_page</td><td>int</td><td class="api-param--optional">No</td><td>Per page (default 100, max 500)</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response — paginated</span>
+{
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"programme_code"</span>: <span class="c-str">"BSC-IT"</span>,
+    <span class="c-key">"total"</span>: <span class="c-num">125</span>,
+    <span class="c-key">"page"</span>: <span class="c-num">1</span>,
+    <span class="c-key">"per_page"</span>: <span class="c-num">50</span>,
+    <span class="c-key">"total_pages"</span>: <span class="c-num">3</span>,
+    <span class="c-key">"students"</span>: [ ... ]
+  }
+}</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/staff.aspx?action=lookup&amp;token=...&amp;email=...</div>
+                        <div class="api-endpoint__info">Find a staff member by email. Returns profile with department, faculty, qualifications, and photo URL.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>token</td><td>string</td><td class="api-param--required">Yes</td><td>Auth token</td></tr>
+                            <tr><td>email</td><td>string</td><td class="api-param--required">Yes</td><td>Staff email address</td></tr>
+                        </table>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/staff.aspx?action=by_department&amp;token=...&amp;department_id=...</div>
+                        <div class="api-endpoint__info">List all staff in a department. Filters: <code>role</code> (e.g. academic), <code>status</code> (default Active). Returns staff list with department/faculty metadata.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>department_id</td><td>string</td><td class="api-param--required">Yes</td><td>Department ID</td></tr>
+                            <tr><td>role</td><td>string</td><td class="api-param--optional">No</td><td>Filter by emp type (e.g. academic)</td></tr>
+                            <tr><td>status</td><td>string</td><td class="api-param--optional">No</td><td>Contract status (default: Active)</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ODEL: Courses & Curriculum -->
+            <div class="api-section" id="odel-academic">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Courses &amp; Curriculum</div>
+                    <div class="api-section__desc">Course metadata, enrollments, curriculum structure, and grading for Moodle sync</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/academic.aspx?action=course_details&amp;token=...&amp;course_code=...</div>
+                        <div class="api-endpoint__info">Get complete metadata for a single course: credit units, department, faculty, category, which programmes include it, and prerequisites.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>course_code</td><td>string</td><td class="api-param--required">Yes</td><td>Course code (e.g. CSC101)</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"course_code"</span>: <span class="c-str">"CSC101"</span>,
+    <span class="c-key">"course_name"</span>: <span class="c-str">"Introduction to Computer Science"</span>,
+    <span class="c-key">"credit_units"</span>: <span class="c-num">4</span>,
+    <span class="c-key">"category"</span>: <span class="c-str">"Core"</span>,
+    <span class="c-key">"department"</span>: <span class="c-str">"Computer Science"</span>,
+    <span class="c-key">"faculty"</span>: <span class="c-str">"Faculty of Science"</span>,
+    <span class="c-key">"programmes"</span>: [
+      { <span class="c-key">"progcode"</span>: <span class="c-str">"BSC-IT"</span>, <span class="c-key">"study_year"</span>: <span class="c-num">1</span>, <span class="c-key">"semester"</span>: <span class="c-num">1</span> }
+    ],
+    <span class="c-key">"prerequisites"</span>: [ { <span class="c-key">"course_code"</span>: <span class="c-str">"MTH100"</span> } ]
+  }
+}</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/academic.aspx?action=course_enrollments&amp;token=...&amp;course_code=...&amp;acad_year=...&amp;semester=...</div>
+                        <div class="api-endpoint__info"><strong>Staff only.</strong> Get all students enrolled in a course for a given semester. Used by Moodle for course roster sync.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>course_code</td><td>string</td><td class="api-param--required">Yes</td><td>Course code</td></tr>
+                            <tr><td>acad_year</td><td>string</td><td class="api-param--required">Yes</td><td>Academic year (e.g. 2024/2025)</td></tr>
+                            <tr><td>semester</td><td>string</td><td class="api-param--required">Yes</td><td>Semester number</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"course_code"</span>: <span class="c-str">"CSC101"</span>,
+    <span class="c-key">"course_name"</span>: <span class="c-str">"Intro to CS"</span>,
+    <span class="c-key">"academic_year"</span>: <span class="c-str">"2024/2025"</span>,
+    <span class="c-key">"semester"</span>: <span class="c-str">"1"</span>,
+    <span class="c-key">"total_enrolled"</span>: <span class="c-num">45</span>,
+    <span class="c-key">"students"</span>: [
+      { <span class="c-key">"regno"</span>: <span class="c-str">"2024/BSC/001"</span>, <span class="c-key">"firstname"</span>: <span class="c-str">"John"</span>, <span class="c-key">"email"</span>: <span class="c-str">"..."</span>, <span class="c-key">"status"</span>: <span class="c-str">"Registered"</span> }
+    ]
+  }
+}</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/academic.aspx?action=programme_curriculum&amp;token=...&amp;progcode=...</div>
+                        <div class="api-endpoint__info">Full programme curriculum grouped by year and semester. Includes programme metadata, total courses, total credit units. Used by Moodle to auto-create course categories.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>progcode</td><td>string</td><td class="api-param--required">Yes</td><td>Programme code</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response — curriculum grouped by year/semester</span>
+{
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"programme"</span>: { <span class="c-key">"progcode"</span>: <span class="c-str">"BSC-IT"</span>, <span class="c-key">"progname"</span>: <span class="c-str">"BSc IT"</span>, <span class="c-key">"level"</span>: <span class="c-str">"Undergraduate"</span> },
+    <span class="c-key">"total_courses"</span>: <span class="c-num">36</span>,
+    <span class="c-key">"total_credit_units"</span>: <span class="c-num">144</span>,
+    <span class="c-key">"curriculum"</span>: {
+      <span class="c-key">"Year 1 - Semester 1"</span>: [
+        { <span class="c-key">"course_code"</span>: <span class="c-str">"CSC101"</span>, <span class="c-key">"course_name"</span>: <span class="c-str">"Intro to CS"</span>, <span class="c-key">"credit_units"</span>: <span class="c-str">"4"</span>, <span class="c-key">"course_type"</span>: <span class="c-str">"Core"</span> }
+      ],
+      <span class="c-key">"Year 1 - Semester 2"</span>: [ ... ]
+    }
+  }
+}</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/academic.aspx?action=grading_scheme</div>
+                        <div class="api-endpoint__info"><strong>No auth required.</strong> Returns the MRU grading scale — letter grades, min/max scores, grade points, and remarks. Used by Moodle to configure grade mappings.</div>
+                        <div class="api-code"><span class="c-comm">// No authentication needed</span>
+GET /API/v2/academic.aspx?action=grading_scheme
+
+<span class="c-comm">// Response</span>
+{
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"institution"</span>: <span class="c-str">"Mountains of the Moon University"</span>,
+    <span class="c-key">"pass_mark"</span>: <span class="c-num">50</span>,
+    <span class="c-key">"max_gpa"</span>: <span class="c-num">5.0</span>,
+    <span class="c-key">"scale"</span>: [
+      { <span class="c-key">"letter"</span>: <span class="c-str">"A"</span>,  <span class="c-key">"min_score"</span>: <span class="c-num">90</span>, <span class="c-key">"max_score"</span>: <span class="c-num">100</span>, <span class="c-key">"grade_point"</span>: <span class="c-num">5.0</span>, <span class="c-key">"remark"</span>: <span class="c-str">"Excellent"</span> },
+      { <span class="c-key">"letter"</span>: <span class="c-str">"B+"</span>, <span class="c-key">"min_score"</span>: <span class="c-num">80</span>, <span class="c-key">"max_score"</span>: <span class="c-num">89</span>,  <span class="c-key">"grade_point"</span>: <span class="c-num">4.5</span>, <span class="c-key">"remark"</span>: <span class="c-str">"Very Good"</span> },
+      { <span class="c-key">"letter"</span>: <span class="c-str">"B"</span>,  <span class="c-key">"min_score"</span>: <span class="c-num">70</span>, <span class="c-key">"max_score"</span>: <span class="c-num">79</span>,  <span class="c-key">"grade_point"</span>: <span class="c-num">4.0</span>, <span class="c-key">"remark"</span>: <span class="c-str">"Good"</span> },
+      { <span class="c-key">"letter"</span>: <span class="c-str">"C+"</span>, <span class="c-key">"min_score"</span>: <span class="c-num">60</span>, <span class="c-key">"max_score"</span>: <span class="c-num">69</span>,  <span class="c-key">"grade_point"</span>: <span class="c-num">3.5</span>, <span class="c-key">"remark"</span>: <span class="c-str">"Fairly Good"</span> },
+      { <span class="c-key">"letter"</span>: <span class="c-str">"C"</span>,  <span class="c-key">"min_score"</span>: <span class="c-num">50</span>, <span class="c-key">"max_score"</span>: <span class="c-num">59</span>,  <span class="c-key">"grade_point"</span>: <span class="c-num">3.0</span>, <span class="c-key">"remark"</span>: <span class="c-str">"Pass"</span> },
+      { <span class="c-key">"letter"</span>: <span class="c-str">"D+"</span>, <span class="c-key">"min_score"</span>: <span class="c-num">45</span>, <span class="c-key">"max_score"</span>: <span class="c-num">49</span>,  <span class="c-key">"grade_point"</span>: <span class="c-num">2.5</span>, <span class="c-key">"remark"</span>: <span class="c-str">"Marginal Pass"</span> },
+      { <span class="c-key">"letter"</span>: <span class="c-str">"D"</span>,  <span class="c-key">"min_score"</span>: <span class="c-num">40</span>, <span class="c-key">"max_score"</span>: <span class="c-num">44</span>,  <span class="c-key">"grade_point"</span>: <span class="c-num">2.0</span>, <span class="c-key">"remark"</span>: <span class="c-str">"Marginal Fail"</span> },
+      { <span class="c-key">"letter"</span>: <span class="c-str">"F"</span>,  <span class="c-key">"min_score"</span>: <span class="c-num">0</span>,  <span class="c-key">"max_score"</span>: <span class="c-num">39</span>,  <span class="c-key">"grade_point"</span>: <span class="c-num">0.0</span>, <span class="c-key">"remark"</span>: <span class="c-str">"Fail"</span> }
+    ]
+  }
+}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ODEL: Fee Clearance -->
+            <div class="api-section" id="odel-finance">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Fee Clearance</div>
+                    <div class="api-section__desc">Fee status checks and bulk clearance verification for Moodle access control</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/finance.aspx?action=fee_status&amp;token=...&amp;acad_year=...</div>
+                        <div class="api-endpoint__info">Get fee clearance status: <code>cleared</code> / <code>partial</code> / <code>not_cleared</code>. Returns total fees, amount paid, balance, last payment date, and financial lock status. Staff can check any student via <code>?regno=</code>.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>token</td><td>string</td><td class="api-param--required">Yes</td><td>Auth token</td></tr>
+                            <tr><td>regno</td><td>string</td><td class="api-param--optional">Staff</td><td>Student reg number (staff only)</td></tr>
+                            <tr><td>acad_year</td><td>string</td><td class="api-param--optional">No</td><td>Filter by academic year</td></tr>
+                            <tr><td>semester</td><td>string</td><td class="api-param--optional">No</td><td>Filter by semester</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"regno"</span>: <span class="c-str">"2024/BSC/001"</span>,
+    <span class="c-key">"fee_status"</span>: <span class="c-str">"partial"</span>,
+    <span class="c-key">"total_fees"</span>: <span class="c-num">2500000</span>,
+    <span class="c-key">"amount_paid"</span>: <span class="c-num">1800000</span>,
+    <span class="c-key">"balance"</span>: <span class="c-num">700000</span>,
+    <span class="c-key">"currency"</span>: <span class="c-str">"UGX"</span>,
+    <span class="c-key">"last_payment_date"</span>: <span class="c-str">"2025-06-15"</span>,
+    <span class="c-key">"has_financial_lock"</span>: <span class="c-num">false</span>
+  }
+}
+
+<span class="c-comm">// fee_status values: "cleared" | "partial" | "not_cleared"</span></div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/finance.aspx?action=bulk_fee_check&amp;token=...</div>
+                        <div class="api-endpoint__info"><strong>Staff only.</strong> Check fee status for multiple students at once (max 200). POST a JSON body with a <code>students</code> array. Used by Moodle for bulk enrollment clearance.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>token</td><td>string</td><td class="api-param--required">Yes</td><td>Auth token (staff)</td></tr>
+                            <tr><td>acad_year</td><td>string</td><td class="api-param--optional">No</td><td>Filter by academic year</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Request body</span>
+POST /API/v2/finance.aspx?action=bulk_fee_check&amp;token=...
+Content-Type: application/json
+
+{ <span class="c-key">"students"</span>: [<span class="c-str">"2024/BSC/001"</span>, <span class="c-str">"2024/BSC/002"</span>, <span class="c-str">"2024/BSC/003"</span>] }
+
+<span class="c-comm">// Response</span>
+{
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"total_checked"</span>: <span class="c-num">3</span>,
+    <span class="c-key">"currency"</span>: <span class="c-str">"UGX"</span>,
+    <span class="c-key">"results"</span>: [
+      { <span class="c-key">"regno"</span>: <span class="c-str">"2024/BSC/001"</span>, <span class="c-key">"fee_status"</span>: <span class="c-str">"cleared"</span>, <span class="c-key">"balance"</span>: <span class="c-num">0</span> },
+      { <span class="c-key">"regno"</span>: <span class="c-str">"2024/BSC/002"</span>, <span class="c-key">"fee_status"</span>: <span class="c-str">"partial"</span>, <span class="c-key">"balance"</span>: <span class="c-num">700000</span> }
+    ]
+  }
+}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ODEL: Academic Calendar -->
+            <div class="api-section" id="odel-calendar">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Academic Calendar</div>
+                    <div class="api-section__desc">Semester dates, exam periods, and registration deadlines</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">ODEL</span> /API/v2/campus.aspx?action=academic_calendar&amp;acad_year=...</div>
+                        <div class="api-endpoint__info"><strong>No auth required.</strong> Academic calendar with semester start/end dates, exam periods, registration deadlines, and current period indicator. Filter by <code>acad_year</code> or get all.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>acad_year</td><td>string</td><td class="api-param--optional">No</td><td>Filter by academic year (e.g. 2024/2025)</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// No authentication needed</span>
+GET /API/v2/campus.aspx?action=academic_calendar&amp;acad_year=2024/2025
+
+<span class="c-comm">// Response</span>
+{
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"current_academic_year"</span>: <span class="c-str">"2024/2025"</span>,
+    <span class="c-key">"current_semester"</span>: <span class="c-str">"2"</span>,
+    <span class="c-key">"total_periods"</span>: <span class="c-num">2</span>,
+    <span class="c-key">"periods"</span>: [
+      {
+        <span class="c-key">"acad_year"</span>: <span class="c-str">"2024/2025"</span>,
+        <span class="c-key">"semester"</span>: <span class="c-str">"1"</span>,
+        <span class="c-key">"semester_start"</span>: <span class="c-str">"2024-08-15"</span>,
+        <span class="c-key">"semester_end"</span>: <span class="c-str">"2024-12-15"</span>,
+        <span class="c-key">"exam_start"</span>: <span class="c-str">"2024-12-01"</span>,
+        <span class="c-key">"exam_end"</span>: <span class="c-str">"2024-12-15"</span>,
+        <span class="c-key">"registration_deadline"</span>: <span class="c-str">"2024-09-01"</span>,
+        <span class="c-key">"is_current"</span>: <span class="c-num">0</span>
+      },
+      {
+        <span class="c-key">"acad_year"</span>: <span class="c-str">"2024/2025"</span>,
+        <span class="c-key">"semester"</span>: <span class="c-str">"2"</span>,
+        <span class="c-key">"semester_start"</span>: <span class="c-str">"2025-01-15"</span>,
+        <span class="c-key">"semester_end"</span>: <span class="c-str">"2025-06-15"</span>,
+        <span class="c-key">"exam_start"</span>: <span class="c-str">"2025-06-01"</span>,
+        <span class="c-key">"exam_end"</span>: <span class="c-str">"2025-06-15"</span>,
+        <span class="c-key">"registration_deadline"</span>: <span class="c-str">"2025-02-01"</span>,
+        <span class="c-key">"is_current"</span>: <span class="c-num">1</span>
+      }
+    ]
+  }
+}</div>
                     </div>
                 </div>
             </div>
@@ -610,10 +1122,19 @@ username=MRU/2023/001&amp;password=mypassword
             {name:'Staff Profile & Photo', status:'done'},
             {name:'Staff — My Courses & Class Lists', status:'done'},
             {name:'Staff — Grading (view/submit marks)', status:'done'},
+            {name:'Staff — Marks Workflow (6 endpoints)', status:'done'},
+            {name:'Finance — Payment History & Billing Summary', status:'done'},
+            {name:'Academic — Enrollment Verification', status:'done'},
+            {name:'Campus — Faculties & Departments', status:'done'},
             {name:'Notices & Announcements', status:'done'},
             {name:'Directory & Campus Info', status:'done'},
             {name:'API Documentation Page', status:'done'},
-            {name:'End-to-End Testing & Validation', status:'done'}
+            {name:'End-to-End Testing & Validation', status:'done'},
+            {name:'ODEL — Identity Lookup & Verification (6 endpoints)', status:'done'},
+            {name:'ODEL — Course Details & Curriculum (4 endpoints)', status:'done'},
+            {name:'ODEL — Fee Clearance & Bulk Check (2 endpoints)', status:'done'},
+            {name:'ODEL — Academic Calendar & Enhanced Campus (3 endpoints)', status:'done'},
+            {name:'ODEL — API Documentation v2.2', status:'done'}
         ];
         var ul = document.getElementById('taskList');
         tasks.forEach(function(t){

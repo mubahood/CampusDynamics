@@ -225,13 +225,13 @@ public partial class COOPERP_NewScreens_DeanApproval : System.Web.UI.Page
                                       rs.approved_by, rs.approved_at, rs.reject_reason,
                                       COALESCE(c.CourseName, rs.course_id) AS course_name,
                                       COALESCE(p.progname, rs.progid) AS prog_name,
-                                      COALESCE(TRIM(CONCAT(COALESCE(emp.Firstname,''), ' ', COALESCE(emp.Surname,''))), rs.submitted_by) AS teacher_name,
+                                      COALESCE(emp.emp_name, rs.submitted_by) AS teacher_name,
                                       COALESCE(cnt.total_students, 0) AS total_students,
                                       COALESCE(cnt.marks_entered, 0) AS marks_entered
                                FROM acad_results_status rs
                                LEFT JOIN acad_courses c ON c.CourseCode = rs.course_id
                                LEFT JOIN acad_programme p ON p.progcode = rs.progid
-                               LEFT JOIN hrm_employee emp ON emp.empCode = rs.submitted_by
+                               LEFT JOIN hrm_employee emp ON emp.usernames = rs.submitted_by
                                LEFT JOIN (
                                    SELECT course_id, progid, acad_year, semester, study_year, campus, stud_session,
                                           COUNT(*) AS total_students,

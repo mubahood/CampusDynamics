@@ -309,5 +309,18 @@ No coding starts until all boxes are checked:
 
 - **Version:** 1.0  
 - **Owner:** Technical Lead  
-- **Last Updated:** 2026-04-07  
+- **Last Updated:** 2026-04-08  
 - **Review Frequency:** Weekly during implementation
+
+## 13. Batch Implementation Log
+
+### Batch 13 — Menu Integration, Role Gating & Navigation Polish (2026-04-08)
+
+| Task | Description | Files Modified |
+|---|---|---|
+| Sidebar: Add MarksAlertDashboard link | Added "Operational Alerts" menu entry under Marks Administration with bell icon | SidebarMaster.master |
+| Sidebar: Role-based menu filtering | JS `filterMenuByRole()` reads `Session["usertype"]` via hidden input, hides menu items where user's role isn't in `data-roles` | SidebarMaster.master |
+| Sidebar: DeanApproval pending badge | Live XHR to `?ajax=stats` shows red pending count badge on Dean Approval link for approval roles | SidebarMaster.master, sidebar.css |
+| Auth: CanViewAlertDashboard() | Added `AlertDashboardRoles` array + `CanViewAlertDashboard()` to centralized auth service | MarksAuthorizationService.cs |
+| Auth: MarksAlertDashboard refactor | Replaced inline Session["usertype"] check with `MarksAuthorizationService.CanViewAlertDashboard()` | MarksAlertDashboard.aspx.cs |
+| Page titles: Marks module | Added all 7 marks pages to `SetPageTitle()` switch statement | SidebarMaster.master.cs |

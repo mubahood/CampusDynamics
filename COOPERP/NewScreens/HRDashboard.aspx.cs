@@ -47,9 +47,9 @@ public partial class COOPERP_NewScreens_HRDashboard : System.Web.UI.Page
 
     private void LoadKpis(MySqlConnection conn)
     {
-        // Active employees
+        // Active employees (those with at least one VALID contract)
         lblTotalEmployees.Text = Scalar(conn,
-            "SELECT COUNT(*) FROM hrm_employee WHERE emp_status = 'Active'").ToString("N0");
+            "SELECT COUNT(DISTINCT e.empID) FROM hrm_employee e INNER JOIN hrm_emp_contracts c ON c.empID = e.empID WHERE c.contractStatus = 'VALID'").ToString("N0");
 
         // Valid contracts
         lblActiveContracts.Text = Scalar(conn,
@@ -93,10 +93,10 @@ public partial class COOPERP_NewScreens_HRDashboard : System.Web.UI.Page
     private void LoadRecentPayrolls(MySqlConnection conn)
     {
         DataTable dt = Query(conn,
-            @"SELECT payroll_title, payroll_month_name, payroll_year, payroll_status,
+            @"SELECT payroll_title, payroll_month, payroll_year, payroll_status,
                      COALESCE(total_amount,0) AS total_amount, payroll_date
               FROM hrm_payroll
-              ORDER BY payroll_year DESC, payroll_month DESC, ID DESC
+              ORDER BY payroll_year DESC, ID DESC
               LIMIT 8");
 
         if (dt.Rows.Count == 0)
@@ -114,7 +114,7 @@ public partial class COOPERP_NewScreens_HRDashboard : System.Web.UI.Page
             string status = r["payroll_status"].ToString();
             sb.AppendFormat("<tr><td>{0}</td><td>{1} {2}</td><td style='font-weight:600;'>{3}</td><td>{4}</td></tr>",
                 System.Web.HttpUtility.HtmlEncode(r["payroll_title"].ToString()),
-                r["payroll_month_name"],
+                FormatMonth(r["payroll_month"].ToString()),
                 r["payroll_year"],
                 FormatUGX(r["total_amount"]),
                 StatusBadge(status));
@@ -326,5 +326,14 @@ public partial class COOPERP_NewScreens_HRDashboard : System.Web.UI.Page
             case "CANCELLED": return "<span class='hr-badge hr-badge--cancelled'>Cancelled</span>";
             default:          return "<span class='hr-badge'>" + System.Web.HttpUtility.HtmlEncode(status) + "</span>";
         }
+    }
+
+    private string FormatMonth(string raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return "";
+        int num;
+        if (int.TryParse(raw, out num) && num >= 1 && num <= 12)
+            return new DateTime(2000, num, 1).ToString("MMMM").ToUpper();
+        return raw.ToUpper();
     }
 }

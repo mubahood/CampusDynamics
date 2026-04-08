@@ -181,7 +181,7 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
                     }
                     else
                     {
-                        litTopUser.Text = "\u2014";
+                        litTopUser.Text = "&mdash;";
                         litTopUserCount.Text = "no data";
                     }
                 }
@@ -200,13 +200,13 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
     /// <summary>Build an HTML trend indicator (up/down arrow + percentage).</summary>
     private string BuildTrend(int current, int previous, string label)
     {
-        if (previous == 0 && current == 0) return "<span class='mat-trend mat-trend--flat'>\u2014 vs " + label + "</span>";
-        if (previous == 0) return "<span class='mat-trend mat-trend--up'>\u25B2 new vs " + label + "</span>";
+        if (previous == 0 && current == 0) return "<span class='mat-trend mat-trend--flat'>&mdash; vs " + label + "</span>";
+        if (previous == 0) return "<span class='mat-trend mat-trend--up'>&#9650; new vs " + label + "</span>";
         double pct = ((double)(current - previous) / previous) * 100;
-        if (Math.Abs(pct) < 1) return "<span class='mat-trend mat-trend--flat'>\u2014 vs " + label + "</span>";
+        if (Math.Abs(pct) < 1) return "<span class='mat-trend mat-trend--flat'>&mdash; vs " + label + "</span>";
         if (pct > 0)
-            return string.Format("<span class='mat-trend mat-trend--up'>\u25B2 {0}% vs {1}</span>", (int)Math.Round(pct), label);
-        return string.Format("<span class='mat-trend mat-trend--down'>\u25BC {0}% vs {1}</span>", (int)Math.Round(Math.Abs(pct)), label);
+            return string.Format("<span class='mat-trend mat-trend--up'>&#9650; {0}% vs {1}</span>", (int)Math.Round(pct), label);
+        return string.Format("<span class='mat-trend mat-trend--down'>&#9660; {0}% vs {1}</span>", (int)Math.Round(Math.Abs(pct)), label);
     }
 
     #endregion
@@ -401,7 +401,7 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
                 if (!string.IsNullOrEmpty(ddlUser.SelectedValue))
                     conditions.Add("a.user_id = @user");
                 if (!string.IsNullOrEmpty(txtSearch.Text.Trim()))
-                    conditions.Add("(a.par LIKE @search OR s.firstname LIKE @search OR s.othername LIKE @search)");
+                    conditions.Add("(a.par LIKE @search OR s.firstname LIKE @search OR s.othername LIKE @search OR e.emp_name LIKE @search OR e.EMP_CODE LIKE @search OR e_fb.emp_name LIKE @search OR e_fb.EMP_CODE LIKE @search OR e_nm.emp_name LIKE @search OR e_nm.EMP_CODE LIKE @search)");
 
                 string where = "WHERE " + string.Join(" AND ", conditions.ToArray());
 
@@ -411,11 +411,43 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
                         WHEN a.par LIKE '%Student: %' THEN TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(a.par, 'Student: ', -1), ' ', 1))
                         ELSE '' END";
 
+                // Extract IP address from par field
+                string ipExpr = @"CASE
+                        WHEN a.par LIKE '%IP Address: %' THEN TRIM(SUBSTRING_INDEX(a.par, 'IP Address: ', -1))
+                        ELSE '' END";
+
                 string sql = @"SELECT a.logid, a.user_id, a.page_function, a.par, a.access_date,
+                    a.comments,
                     " + regExpr + @" AS student_regno,
-                    CONCAT(IFNULL(s.firstname,''), ' ', IFNULL(s.othername,'')) AS student_name
+                    CONCAT(IFNULL(s.firstname,''), ' ', IFNULL(s.othername,'')) AS student_name,
+                    IFNULL(e.EMP_CODE, IFNULL(e_fb.EMP_CODE, e_nm.EMP_CODE)) AS teacher_code,
+                    IFNULL(IFNULL(e.emp_name, IFNULL(e_fb.emp_name, e_nm.emp_name)), a.user_id) AS teacher_name,
+                    IFNULL(e.emp_email, IFNULL(e_fb.emp_email, e_nm.emp_email)) AS teacher_email,
+                    IFNULL(d.dept_name, IFNULL(d_fb.dept_name, IFNULL(d_nm.dept_name, ''))) AS teacher_dept,
+                    IFNULL(e.EmpType, IFNULL(e_fb.EmpType, IFNULL(e_nm.EmpType, ''))) AS teacher_type,
+                    " + ipExpr + @" AS ip_address
                     FROM acad_activity_log a
                     LEFT JOIN acad_student s ON s.regno = " + regExpr + @"
+                    LEFT JOIN hrm_employee e ON e.usernames = a.user_id
+                    LEFT JOIN hrm_emp_contracts c ON c.empID = e.empID AND c.ID = (
+                        SELECT MAX(c2.ID) FROM hrm_emp_contracts c2 WHERE c2.empID = e.empID
+                    )
+                    LEFT JOIN hrm_departments d ON d.ID = c.departmentID
+                    LEFT JOIN my_aspnet_users mu ON e.empID IS NULL AND mu.name = a.user_id
+                    LEFT JOIN my_aspnet_membership mm ON mu.id IS NOT NULL AND mm.userId = mu.id
+                    LEFT JOIN hrm_employee e_fb ON e.empID IS NULL AND mm.Email IS NOT NULL AND mm.Email != '' AND e_fb.emp_email = mm.Email
+                    LEFT JOIN hrm_emp_contracts c_fb ON e_fb.empID IS NOT NULL AND c_fb.empID = e_fb.empID AND c_fb.ID = (
+                        SELECT MAX(c3.ID) FROM hrm_emp_contracts c3 WHERE c3.empID = e_fb.empID
+                    )
+                    LEFT JOIN hrm_departments d_fb ON c_fb.departmentID IS NOT NULL AND d_fb.ID = c_fb.departmentID
+                    LEFT JOIN hrm_employee e_nm ON e.empID IS NULL AND e_fb.empID IS NULL
+                        AND CHAR_LENGTH(a.user_id) >= 4
+                        AND LOWER(e_nm.emp_name) LIKE CONCAT('%', LOWER(a.user_id), '%')
+                        AND 1 = (SELECT COUNT(*) FROM hrm_employee enm2 WHERE LOWER(enm2.emp_name) LIKE CONCAT('%', LOWER(a.user_id), '%'))
+                    LEFT JOIN hrm_emp_contracts c_nm ON e_nm.empID IS NOT NULL AND c_nm.empID = e_nm.empID AND c_nm.ID = (
+                        SELECT MAX(c4.ID) FROM hrm_emp_contracts c4 WHERE c4.empID = e_nm.empID
+                    )
+                    LEFT JOIN hrm_departments d_nm ON c_nm.departmentID IS NOT NULL AND d_nm.ID = c_nm.departmentID
                     " + where + @"
                     ORDER BY a.access_date DESC
                     LIMIT 5000";
@@ -458,8 +490,15 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
         dt.Columns.Add("page_function", typeof(string));
         dt.Columns.Add("par", typeof(string));
         dt.Columns.Add("access_date", typeof(DateTime));
+        dt.Columns.Add("comments", typeof(string));
         dt.Columns.Add("student_regno", typeof(string));
         dt.Columns.Add("student_name", typeof(string));
+        dt.Columns.Add("teacher_code", typeof(string));
+        dt.Columns.Add("teacher_name", typeof(string));
+        dt.Columns.Add("teacher_email", typeof(string));
+        dt.Columns.Add("teacher_dept", typeof(string));
+        dt.Columns.Add("teacher_type", typeof(string));
+        dt.Columns.Add("ip_address", typeof(string));
         return dt;
     }
 
@@ -510,13 +549,51 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
     {
         string regno = (regnoObj ?? "").ToString().Trim();
         string name = (nameObj ?? "").ToString().Trim();
-        if (string.IsNullOrEmpty(regno)) return "<span style='color:#999;font-size:10px'>—</span>";
+        if (string.IsNullOrEmpty(regno)) return "<span style='color:#999;font-size:10px'>&mdash;</span>";
         string html = "<span style='font-weight:600;color:#1a237e;font-size:11px'>" + HttpUtility.HtmlEncode(regno) + "</span>";
         if (!string.IsNullOrEmpty(name) && name != " ")
             html += "<br/><span style='color:#666;font-size:10px'>" + HttpUtility.HtmlEncode(name.Trim()) + "</span>";
         return html;
     }
+    /// <summary>Format the teacher/user column: name, code, department, type.</summary>
+    protected string FormatTeacher(object userIdObj, object codeObj, object nameObj, object deptObj, object typeObj, object emailObj)
+    {
+        string userId = (userIdObj ?? "").ToString().Trim();
+        string code = (codeObj ?? "").ToString().Trim();
+        string name = (nameObj ?? "").ToString().Trim();
+        string dept = (deptObj ?? "").ToString().Trim();
+        string empType = (typeObj ?? "").ToString().Trim();
+        string email = (emailObj ?? "").ToString().Trim();
 
+        // If no employee record found, just show the user_id
+        if (string.IsNullOrEmpty(code) && string.IsNullOrEmpty(name))
+        {
+            return "<span class='mat-user'>" + HttpUtility.HtmlEncode(userId) + "</span>";
+        }
+
+        string html = "<div style='line-height:1.3'>";
+        html += "<div style='font-weight:700;color:#1a237e;font-size:11px'>" + HttpUtility.HtmlEncode(name) + "</div>";
+        if (!string.IsNullOrEmpty(code))
+            html += "<div style='font-size:10px;color:#555'><span style='font-weight:600;color:#174DA4'>" + HttpUtility.HtmlEncode(code) + "</span>";
+        if (!string.IsNullOrEmpty(empType))
+            html += " &bull; " + HttpUtility.HtmlEncode(empType);
+        html += "</div>";
+        if (!string.IsNullOrEmpty(dept))
+            html += "<div style='font-size:9px;color:#888'>" + HttpUtility.HtmlEncode(dept) + "</div>";
+        html += "</div>";
+        return html;
+    }
+
+    /// <summary>Format the IP address column with icon.</summary>
+    protected string FormatIP(object ipObj)
+    {
+        string ip = (ipObj ?? "").ToString().Trim();
+        if (string.IsNullOrEmpty(ip))
+            return "<span style='color:#ccc;font-size:10px'>&mdash;</span>";
+        // Clean up: IP may trail with other text after a space
+        if (ip.Contains(" ")) ip = ip.Substring(0, ip.IndexOf(' '));
+        return "<span style='font-family:monospace;font-size:10px;color:#555;background:#f5f5f5;padding:1px 5px;border:1px solid #e0e0e0'>" + HttpUtility.HtmlEncode(ip) + "</span>";
+    }
     /// <summary>Shorten verbose par details to a compact summary.</summary>
     protected string ShortenDetails(object parObj, object pfObj)
     {
@@ -552,16 +629,16 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
                 var changes = new List<string>();
                 string oldCW = ExtractBetween(par, "Old CourseWork Mark: ", " ");
                 string newCW = ExtractBetween(par, "New CourseWork: ", " ") ?? ExtractAfter(par, "New CourseWork: ");
-                if (oldCW != null && newCW != null && oldCW != newCW) changes.Add("CW:" + oldCW + "→" + newCW);
+                if (oldCW != null && newCW != null && oldCW != newCW) changes.Add("CW:" + oldCW + "->" + newCW);
 
                 string oldTest = ExtractBetween(par, "Old Test Mark: ", " ");
                 string newTest = ExtractBetween(par, "New Test Mark: ", " ") ?? ExtractAfter(par, "New Test Mark: ");
-                if (oldTest != null && newTest != null && oldTest != newTest) changes.Add("Test:" + oldTest + "→" + newTest);
+                if (oldTest != null && newTest != null && oldTest != newTest) changes.Add("Test:" + oldTest + "->" + newTest);
 
                 string oldExam = ExtractBetween(par, "Old Exam Mark: ", " ");
                 string newExam = ExtractAfter(par, "New Exam Mark: ");
                 if (newExam != null && newExam.Contains(" ")) newExam = newExam.Substring(0, newExam.IndexOf(' '));
-                if (oldExam != null && newExam != null && oldExam != newExam) changes.Add("Exam:" + oldExam + "→" + newExam);
+                if (oldExam != null && newExam != null && oldExam != newExam) changes.Add("Exam:" + oldExam + "->" + newExam);
 
                 var parts = new List<string>();
                 if (!string.IsNullOrEmpty(course)) parts.Add(course.Trim());
@@ -645,11 +722,11 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
                 var changes = new List<string>();
                 string oldCW = ExtractBetween(par, "Old CourseWork Mark: ", " ");
                 string newCW = ExtractBetween(par, "New CourseWork: ", " ") ?? ExtractAfter(par, "New CourseWork: ");
-                if (oldCW != null && newCW != null && oldCW != newCW) changes.Add("CW:" + oldCW + "\u2192" + newCW);
+                if (oldCW != null && newCW != null && oldCW != newCW) changes.Add("CW:" + oldCW + "&rarr;" + newCW);
                 string oldExam = ExtractBetween(par, "Old Exam Mark: ", " ");
                 string newExam = ExtractAfter(par, "New Exam Mark: ");
                 if (newExam != null && newExam.Contains(" ")) newExam = newExam.Substring(0, newExam.IndexOf(' '));
-                if (oldExam != null && newExam != null && oldExam != newExam) changes.Add("Exam:" + oldExam + "\u2192" + newExam);
+                if (oldExam != null && newExam != null && oldExam != newExam) changes.Add("Exam:" + oldExam + "&rarr;" + newExam);
                 var p = new List<string>();
                 if (!string.IsNullOrEmpty(course)) p.Add(course.Trim());
                 if (changes.Count > 0) p.Add(string.Join(", ", changes.ToArray()));

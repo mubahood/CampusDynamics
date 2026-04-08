@@ -283,8 +283,8 @@
                     <asp:DropDownList ID="ddlUser" runat="server" />
                 </div>
                 <div class="mat-fg">
-                    <span class="mat-fg__label">Student / Course</span>
-                    <asp:TextBox ID="txtSearch" runat="server" placeholder="e.g. MRU2024..." />
+                    <span class="mat-fg__label">Student / Teacher / Course</span>
+                    <asp:TextBox ID="txtSearch" runat="server" placeholder="e.g. MRU2024, staff name, EMP001..." />
                 </div>
                 <asp:Button ID="btnFilter" runat="server" Text="Search" CssClass="mat-btn mat-btn--primary mat-btn--sm" OnClick="btnFilter_Click" />
                 <asp:Button ID="btnClear" runat="server" Text="Clear" CssClass="mat-btn mat-btn--ghost mat-btn--sm" OnClick="btnClear_Click" />
@@ -302,24 +302,34 @@
                 <dx:GridViewDataDateColumn FieldName="access_date" Caption="Date / Time" VisibleIndex="0" Width="130px">
                     <PropertiesDateEdit DisplayFormatString="dd-MMM-yy HH:mm" />
                 </dx:GridViewDataDateColumn>
-                <dx:GridViewDataTextColumn FieldName="user_id" Caption="User" VisibleIndex="1" Width="110px">
+                <dx:GridViewDataTextColumn FieldName="teacher_name" Caption="Teacher" VisibleIndex="1" Width="180px">
+                    <DataItemTemplate><%# FormatTeacher(Eval("user_id"), Eval("teacher_code"), Eval("teacher_name"), Eval("teacher_dept"), Eval("teacher_type"), Eval("teacher_email")) %></DataItemTemplate>
+                </dx:GridViewDataTextColumn>
+                <dx:GridViewDataTextColumn FieldName="user_id" Caption="Username" VisibleIndex="2" Width="100px">
                     <DataItemTemplate><span class="mat-user"><%# Eval("user_id") %></span></DataItemTemplate>
                 </dx:GridViewDataTextColumn>
-                <dx:GridViewDataTextColumn FieldName="page_function" Caption="Action" VisibleIndex="2" Width="115px">
+                <dx:GridViewDataTextColumn FieldName="page_function" Caption="Action" VisibleIndex="3" Width="115px">
                     <DataItemTemplate><%# GetActionBadge(Eval("page_function")) %></DataItemTemplate>
                 </dx:GridViewDataTextColumn>
-                <dx:GridViewDataTextColumn FieldName="page_function" Caption="" VisibleIndex="3" Width="65px">
+                <dx:GridViewDataTextColumn FieldName="page_function" Caption="" VisibleIndex="4" Width="65px">
                     <DataItemTemplate><%# GetSeverityDot(Eval("page_function")) %></DataItemTemplate>
                     <CellStyle HorizontalAlign="Center" />
                     <Settings AllowAutoFilter="False" />
                 </dx:GridViewDataTextColumn>
-                <dx:GridViewDataTextColumn FieldName="student_regno" Caption="Student" VisibleIndex="4" Width="140px">
+                <dx:GridViewDataTextColumn FieldName="student_regno" Caption="Student" VisibleIndex="5" Width="140px">
                     <DataItemTemplate><%# FormatStudent(Eval("student_regno"), Eval("student_name")) %></DataItemTemplate>
                 </dx:GridViewDataTextColumn>
-                <dx:GridViewDataTextColumn FieldName="par" Caption="Details" VisibleIndex="5">
+                <dx:GridViewDataTextColumn FieldName="par" Caption="Details" VisibleIndex="6">
                     <DataItemTemplate><%# ShortenDetails(Eval("par"), Eval("page_function")) %></DataItemTemplate>
                     <CellStyle Wrap="True" />
                 </dx:GridViewDataTextColumn>
+                <dx:GridViewDataTextColumn FieldName="ip_address" Caption="IP Address" VisibleIndex="7" Width="110px">
+                    <DataItemTemplate><%# FormatIP(Eval("ip_address")) %></DataItemTemplate>
+                    <Settings AllowAutoFilter="True" />
+                </dx:GridViewDataTextColumn>
+                <dx:GridViewDataTextColumn FieldName="teacher_dept" Caption="Department" VisibleIndex="8" Width="120px" Visible="false" />
+                <dx:GridViewDataTextColumn FieldName="teacher_code" Caption="Staff Code" VisibleIndex="9" Width="90px" Visible="false" />
+                <dx:GridViewDataTextColumn FieldName="teacher_email" Caption="Email" VisibleIndex="10" Width="140px" Visible="false" />
             </Columns>
         </dx:ASPxGridView>
         <dx:ASPxGridViewExporter ID="gvExporter" runat="server" GridViewID="gvLog" />

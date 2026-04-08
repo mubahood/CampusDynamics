@@ -5,24 +5,26 @@
 > **Database:** MySQL 6.6.7 (three databases: `campus_dynamics`, `campus_dynamics_portal`, `campus_dynamics_accounts`)  
 > **Authentication:** Token-based (24-hour expiry)  
 > **Content-Type:** All responses are `application/json`  
-> **CORS:** Fully enabled (all origins, methods, headers allowed)
+> **CORS:** Fully enabled (all origins, methods, headers allowed)  
+> **API Version:** 2.2 (ODEL Integration Release)
 
 ---
 
 ## Table of Contents
 
 1. [Response Format](#1-response-format)
-2. [Authentication (auth.aspx)](#2-authentication)
-3. [Student Endpoints (student.aspx)](#3-student-endpoints)
-4. [Staff Endpoints (staff.aspx)](#4-staff-endpoints)
-5. [Academic Endpoints (academic.aspx)](#5-academic-endpoints)
-6. [Finance Endpoints (finance.aspx)](#6-finance-endpoints)
+2. [Authentication (auth.aspx)](#2-authentication) — incl. 2.4 Ping (ODEL)
+3. [Student Endpoints (student.aspx)](#3-student-endpoints) — incl. 3.5-3.8 ODEL endpoints
+4. [Staff Endpoints (staff.aspx)](#4-staff-endpoints) — incl. 4.13-4.14 ODEL endpoints
+5. [Academic Endpoints (academic.aspx)](#5-academic-endpoints) — incl. 5.11-5.14 ODEL endpoints
+6. [Finance Endpoints (finance.aspx)](#6-finance-endpoints) — incl. 6.6-6.7 ODEL endpoints
 7. [Timetable Endpoints (timetable.aspx)](#7-timetable-endpoints)
-8. [Campus / Public Endpoints (campus.aspx)](#8-campus-endpoints)
+8. [Campus / Public Endpoints (campus.aspx)](#8-campus-endpoints) — incl. 8.9 Academic Calendar (ODEL)
 9. [Error Codes Reference](#9-error-codes-reference)
 10. [Grading & Classification Scales](#10-grading--classification-scales)
 11. [Database Schema Notes](#11-database-schema-notes)
 12. [Known Limitations](#12-known-limitations)
+Appendix: [Quick Reference & ODEL Integration Summary](#appendix-quick-reference)
 
 ---
 
@@ -302,6 +304,40 @@ curl "https://eadmin.mru.ac.ug/API/v2/auth.aspx?action=logout&token=a1b2c3d4e5f6
 
 ---
 
+### 2.4 Ping (Health Check)
+
+Tests API connectivity. No authentication required. Used by ODEL/Moodle integration to verify the API is online.
+
+| Property | Value |
+|---|---|
+| **URL** | `auth.aspx?action=ping` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | **No** |
+
+**Example Request:**
+```
+GET /API/v2/auth.aspx?action=ping
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "status": "ok",
+    "timestamp": "2025-07-15T10:30:00.0000000Z",
+    "version": "2.1",
+    "server": "CampusDynamics API v2"
+  }
+}
+```
+
+**Notes:**
+- No authentication needed — useful for monitoring and connectivity checks.
+- `timestamp` is UTC in ISO 8601 format.
+
+---
+
 ## 3. Student Endpoints
 
 **Endpoint:** `student.aspx`  
@@ -520,6 +556,293 @@ curl "https://eadmin.mru.ac.ug/API/v2/student.aspx?action=summary&token=a1b2c3d4
 - `semester` is from `acad_calender WHERE is_current = 1` (the current semester value)
 - `registered_courses` is the count from `acad_registration` for the current academic year and semester
 - `outstanding_balance` is from the accounts database (`campus_dynamics_accounts`) via `QueryAccounts()`, querying `fm_student_ledger` for SUM of amounts where `RegNo = ...`
+
+---
+
+### 3.5 Lookup (Identity Verification)
+
+**ODEL Integration.** Finds a person (student or staff) by email address. This is the primary endpoint for Moodle user identity verification during registration/login.
+
+| Property | Value |
+|---|---|
+| **URL** | `student.aspx?action=lookup` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid API token |
+| `email` | string | Yes | Email address to look up |
+
+**Example Request:**
+```
+GET /API/v2/student.aspx?action=lookup&token=abc123&email=john@example.com
+```
+
+**Example Response (Student Found):**
+```json
+{
+  "status": "success",
+  "message": "Person found as student",
+  "data": {
+    "found": true,
+    "person_type": "student",
+    "mru_id": "2024/BSC/001",
+    "data": {
+      "regno": "2024/BSC/001",
+      "entryno": "ENT001",
+      "firstname": "John",
+      "othername": "Doe",
+      "gender": "Male",
+      "programme": "Bachelor of Science in IT",
+      "progcode": "BSC-IT",
+      "campus": "Main Campus",
+      "entry_year": "2024",
+      "intake": "August",
+      "session": "Day",
+      "status": "Active",
+      "nationality": "Ugandan",
+      "phone": "0771234567",
+      "email": "john@example.com",
+      "date_of_birth": "2000-01-15",
+      "district": "Fort Portal"
+    }
+  }
+}
+```
+
+**Example Response (Staff Found):**
+```json
+{
+  "status": "success",
+  "message": "Person found as staff",
+  "data": {
+    "found": true,
+    "person_type": "staff",
+    "mru_id": "EMP001",
+    "data": {
+      "empID": 42,
+      "emp_code": "EMP001",
+      "emp_name": "Dr. Jane Smith",
+      "username": "jsmith",
+      "email": "jsmith@mru.ac.ug",
+      "phone": "0701234567",
+      "emp_type": "Academic",
+      "status": "Active",
+      "nationality": "Ugandan",
+      "qualifications": "PhD Computer Science",
+      "department": "Computer Science",
+      "faculty": "Faculty of Science"
+    }
+  }
+}
+```
+
+**Example Response (Not Found):**
+```json
+{
+  "status": "success",
+  "message": "No person found with this email",
+  "data": {
+    "found": false,
+    "person_type": null,
+    "mru_id": null,
+    "data": null
+  }
+}
+```
+
+**Notes:**
+- Searches `acad_student.email` and `acad_student.studemail` first, then `hrm_employee.emp_email`.
+- Case-insensitive email matching.
+- Returns `person_type` of `"student"` or `"staff"` so ODEL/Moodle can assign appropriate roles.
+
+---
+
+### 3.6 Verify Student
+
+**ODEL Integration.** Quick student verification by registration number or entry number. Lightweight check to confirm a student exists and is active.
+
+| Property | Value |
+|---|---|
+| **URL** | `student.aspx?action=verify` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid API token |
+| `id` | string | Yes | Student reg number or entry number |
+
+**Example Request:**
+```
+GET /API/v2/student.aspx?action=verify&token=abc123&id=2024/BSC/001
+```
+
+**Example Response (Verified):**
+```json
+{
+  "status": "success",
+  "message": "Student verified",
+  "data": {
+    "verified": true,
+    "mru_id": "2024/BSC/001",
+    "full_name": "John Doe",
+    "status": "Active",
+    "programme_code": "BSC-IT",
+    "programme_name": "Bachelor of Science in IT",
+    "email": "john@example.com"
+  }
+}
+```
+
+**Example Response (Not Found):**
+```json
+{
+  "status": "success",
+  "message": "Student not found",
+  "data": {
+    "verified": false,
+    "mru_id": null,
+    "full_name": null,
+    "status": null,
+    "programme_code": null,
+    "programme_name": null,
+    "email": null
+  }
+}
+```
+
+**Notes:**
+- Searches both `regno` and `entryno` fields.
+- Returns basic identity info without full profile data.
+
+---
+
+### 3.7 Search Students
+
+**ODEL Integration.** Search students by name, email, or student number. Staff only. Used by ODEL admin interfaces to find students.
+
+| Property | Value |
+|---|---|
+| **URL** | `student.aspx?action=search` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (Staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid API token (staff) |
+| `q` | string | Yes | — | Search query string |
+| `type` | string | No | `any` | Search type: `name`, `email`, `student_no`, or `any` |
+| `limit` | integer | No | `50` | Max results (max 200) |
+
+**Example Request:**
+```
+GET /API/v2/student.aspx?action=search&token=abc123&q=john&type=name&limit=10
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "count": 3,
+    "search_type": "name",
+    "query": "john",
+    "results": [
+      {
+        "regno": "2024/BSC/001",
+        "entryno": "ENT001",
+        "firstname": "John",
+        "othername": "Doe",
+        "gender": "Male",
+        "progcode": "BSC-IT",
+        "programme": "Bachelor of Science in IT",
+        "status": "Active",
+        "email": "john@example.com",
+        "phone": "0771234567"
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- Staff-only endpoint — students get `ACCESS_DENIED`.
+- Case-insensitive LIKE search with wildcards.
+- `type=any` searches across all fields simultaneously.
+- Maximum 200 results per request.
+
+---
+
+### 3.8 Students by Programme
+
+**ODEL Integration.** Get all students in a programme with pagination and filters. Staff only. Used for bulk student sync to Moodle.
+
+| Property | Value |
+|---|---|
+| **URL** | `student.aspx?action=by_programme` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (Staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid API token (staff) |
+| `progcode` | string | Yes | — | Programme code |
+| `status` | string | No | all | Filter by student status (e.g., `Active`) |
+| `acad_year` | string | No | all | Filter by academic year (e.g., `2024/2025`) |
+| `page` | integer | No | `1` | Page number |
+| `per_page` | integer | No | `100` | Results per page (max 500) |
+
+**Example Request:**
+```
+GET /API/v2/student.aspx?action=by_programme&token=abc123&progcode=BSC-IT&status=Active&page=1&per_page=50
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "programme_code": "BSC-IT",
+    "total": 125,
+    "page": 1,
+    "per_page": 50,
+    "total_pages": 3,
+    "students": [
+      {
+        "regno": "2024/BSC/001",
+        "entryno": "ENT001",
+        "firstname": "John",
+        "othername": "Doe",
+        "gender": "Male",
+        "progcode": "BSC-IT",
+        "programme": "Bachelor of Science in IT",
+        "status": "Active",
+        "email": "john@example.com",
+        "phone": "0771234567",
+        "entry_year": "2024",
+        "intake": "August",
+        "nationality": "Ugandan"
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- Staff-only endpoint for bulk data sync.
+- Pagination via `page` and `per_page` (max 500 per page).
+- Optional `acad_year` filter checks `acad_registration` for that academic year.
+- Sorted alphabetically by name.
 
 ---
 
@@ -948,6 +1271,611 @@ Fields written to `acad_results`:
   "code": "INVALID_FORMAT"
 }
 ```
+
+---
+
+### 4.7 Teaching Assignments
+
+Returns courses assigned to the authenticated teacher from the new `acad_teaching_assignments` table. Falls back to the legacy `acad_teaching_allocation` table when no assignments are found.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=teaching_assignments` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `teaching_assignments` |
+| `token` | string | Yes | Valid auth token |
+| `acad_year` | string | No | Filter by academic year (e.g., `2024/2025`) |
+| `semester` | int | No | Filter by semester (e.g., `1` or `2`) |
+
+**Example Request:**
+
+```bash
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=teaching_assignments&token=f6e5d4c3b2a1...&acad_year=2024/2025&semester=2"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "total_assignments": 3,
+    "assignments": [
+      {
+        "assignment_id": "12",
+        "teacher_username": "muhindo",
+        "course_id": "CSC1201",
+        "course_name": "Programming Fundamentals",
+        "programme_code": "BCS",
+        "programme_name": "Bachelor of Computer Science",
+        "acad_year": "2024/2025",
+        "semester": "2",
+        "study_year": "1",
+        "campus_id": "1",
+        "session": "Day",
+        "is_active": "1",
+        "assigned_by": "admin",
+        "assigned_at": "2025-02-01 09:00",
+        "notes": ""
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+
+- First checks `acad_teaching_assignments` (new marks module table) for active assignments (`is_active = 1`).
+- If no results found, falls back to legacy `acad_teaching_allocation` table using the teacher's `EMP_CODE`.
+- Assignments from the legacy table return `assignment_id = 0` and empty `assigned_by`/`assigned_at`.
+- Course and programme names are resolved via joins to `acad_courses` / `acad_programme`.
+
+---
+
+### 4.8 Mark Sheet
+
+Returns the entry-level mark sheet from `acad_examresults_faculty` for a specific course context. This includes raw entered marks (coursework, test, exam), calculated weighted marks, totals, grades, and the workflow status.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=mark_sheet` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `mark_sheet` |
+| `token` | string | Yes | Valid auth token |
+| `course_id` | string | Yes | The course code (e.g., `CSC1201`) |
+| `progid` | string | Yes | Programme code (e.g., `BCS`) |
+| `acad_year` | string | Yes | Academic year (e.g., `2024/2025`) |
+| `semester` | int | No | Semester (default: `1`) |
+| `study_year` | int | No | Study year (default: `1`) |
+| `campus_id` | int | No | Campus ID (default: `1`) |
+| `session` | string | No | Student session (default: `Day`) |
+
+**Example Request:**
+
+```bash
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=mark_sheet&token=f6e5d4c3b2a1...&course_id=CSC1201&progid=BCS&acad_year=2024/2025&semester=2&study_year=1"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "course_id": "CSC1201",
+    "programme_code": "BCS",
+    "acad_year": "2024/2025",
+    "semester": 2,
+    "study_year": 1,
+    "campus_id": 1,
+    "session": "Day",
+    "ratios": {
+      "coursework": 30,
+      "test": 10,
+      "exam": 60,
+      "credit_units": 3
+    },
+    "status": "DRAFT",
+    "status_detail": null,
+    "total_students": 45,
+    "marks_entered": 40,
+    "students": [
+      {
+        "entry_id": "1023",
+        "regno": "MRU2025003204",
+        "student_name": "RITAH NAKYESERO",
+        "cw_entered": "85",
+        "test_entered": "70",
+        "exam_entered": "65",
+        "cw_mark": "25.50",
+        "test_mark": "7.00",
+        "exam_mark": "39.00",
+        "total_mark": "71.50",
+        "grade": "B"
+      }
+    ]
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Description |
+|---|---|
+| `ratios` | Mark weight ratios from `acad_programmecourses` (e.g., 30/10/60 for CW/Test/Exam) |
+| `status` | Workflow status: `DRAFT`, `SUBMITTED`, `DEAN_APPROVED`, `PROVISIONAL_PUBLISHED`, `FINAL_PUBLISHED` |
+| `status_detail` | Full status record when available (submitted_by, submitted_at, approved_by, etc.) |
+| `marks_entered` | Count of students with at least one non-zero entered mark |
+| `cw_entered` / `test_entered` / `exam_entered` | Raw teacher-entered marks (out of 100) |
+| `cw_mark` / `test_mark` / `exam_mark` | Weighted marks (entered × ratio / 100) |
+| `total_mark` | Sum of weighted marks |
+| `grade` | Auto-calculated from total_mark using grading scale |
+
+**Notes:**
+
+- This endpoint reads from `acad_examresults_faculty` (entry-level marks) — the teacher's working data.
+- The older `marks` endpoint reads from `acad_results` (published/final marks).
+- Ratios come from `acad_programmecourses` where `course_code` and `progcode` match.
+
+---
+
+### 4.9 Save Entry Marks
+
+Saves entry-level marks to `acad_examresults_faculty`. Marks are saved as **DRAFT** — the teacher must call `submit_for_approval` separately to advance the workflow.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=save_entry_marks` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `save_entry_marks` |
+| `token` | string | Yes | Valid auth token |
+| `marks` | string (JSON) | Yes | JSON array of mark objects (max 200 per request) |
+
+**Marks JSON Format:**
+
+```json
+[
+  {"entry_id": 1023, "cw_entered": 85, "test_entered": 70, "exam_entered": 65},
+  {"entry_id": 1024, "cw_entered": 60, "test_entered": 55, "exam_entered": 72}
+]
+```
+
+Each mark object must have:
+- `entry_id` (int) — the row ID from `acad_examresults_faculty` (obtained from `mark_sheet`)
+- `cw_entered` (number) — raw coursework mark (0–100)
+- `test_entered` (number) — raw test mark (0–100)
+- `exam_entered` (number) — raw exam mark (0–100)
+
+**Example Request:**
+
+```bash
+curl -X POST "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=save_entry_marks&token=f6e5d4c3b2a1..." \
+  -d 'marks=[{"entry_id":1023,"cw_entered":85,"test_entered":70,"exam_entered":65}]'
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "updated": 1,
+    "errors": 0,
+    "total_processed": 1
+  },
+  "message": "Entry marks saved successfully"
+}
+```
+
+**Auto-Calculated Fields:**
+
+For each mark saved, the system automatically calculates:
+
+| Field | Formula |
+|---|---|
+| `cw_mark` | `cw_entered × cw_ratio / 100` |
+| `test_mark` | `test_entered × test_ratio / 100` |
+| `exam_mark` | `exam_entered × exam_ratio / 100` |
+| `total_mark` | `cw_mark + test_mark + exam_mark` |
+| `grade` | Based on grading scale (see Section 10) |
+
+Ratios are fetched per-entry from `acad_programmecourses` via the entry's `course_id` and `progid`.
+
+**Error Responses:**
+
+```json
+{
+  "status": "error",
+  "message": "Maximum 200 marks per request.",
+  "code": "VALIDATION_ERROR"
+}
+```
+
+```json
+{
+  "status": "error",
+  "message": "Missing marks data. Send JSON array: [{\"entry_id\":123, \"cw_entered\":25, \"test_entered\":10, \"exam_entered\":40}]",
+  "code": "MISSING_PARAM"
+}
+```
+
+**Notes:**
+
+- Unlike `submit_marks` (which writes directly to `acad_results`), this endpoint writes to `acad_examresults_faculty` — the entry-level marks table that integrates with the marks workflow.
+- Entries must already exist in `acad_examresults_faculty` (created when students are allocated to a mark sheet). Use `mark_sheet` to get the available `entry_id` values.
+
+---
+
+### 4.10 Submit for Approval
+
+Submits a mark sheet for dean approval. Changes the workflow status from `DRAFT` to `SUBMITTED` in `acad_results_status`.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=submit_for_approval` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `submit_for_approval` |
+| `token` | string | Yes | Valid auth token |
+| `course_id` | string | Yes | Course code |
+| `progid` | string | Yes | Programme code |
+| `acad_year` | string | Yes | Academic year |
+| `semester` | int | No | Semester (default: `1`) |
+| `study_year` | int | No | Study year (default: `1`) |
+| `campus_id` | int | No | Campus ID (default: `1`) |
+| `session` | string | No | Student session (default: `Day`) |
+
+**Example Request:**
+
+```bash
+curl -X POST "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=submit_for_approval&token=f6e5d4c3b2a1...&course_id=CSC1201&progid=BCS&acad_year=2024/2025&semester=2&study_year=1"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "course_id": "CSC1201",
+    "programme_code": "BCS",
+    "acad_year": "2024/2025",
+    "semester": 2,
+    "new_status": "SUBMITTED",
+    "submitted_by": "muhindo",
+    "submitted_at": "2025-07-06T14:30:00.000+03:00"
+  },
+  "message": "Mark sheet submitted for dean approval"
+}
+```
+
+**Workflow Status Transitions:**
+
+```
+DRAFT → SUBMITTED → DEAN_APPROVED → PROVISIONAL_PUBLISHED → FINAL_PUBLISHED
+                  ↘ REJECTED (back to DRAFT)
+```
+
+Only sheets in `DRAFT` status can be submitted. Attempting to submit a sheet in any other status returns:
+
+```json
+{
+  "status": "error",
+  "message": "Sheet cannot be submitted. Current status is SUBMITTED. Only DRAFT sheets can be submitted.",
+  "code": "BUSINESS_ERROR"
+}
+```
+
+**Notes:**
+
+- Uses `INSERT ... ON DUPLICATE KEY UPDATE` to upsert the status record.
+- The unique key is the combination of (`course_id`, `progid`, `acadyear`, `semester`, `study_year`, `campus_id`, `stud_session`).
+- Any existing `reject_reason` is cleared on resubmission.
+
+---
+
+### 4.11 Sheet Status
+
+Returns the workflow status of a mark sheet from `acad_results_status`.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=sheet_status` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `sheet_status` |
+| `token` | string | Yes | Valid auth token |
+| `course_id` | string | Yes | Course code |
+| `progid` | string | Yes | Programme code |
+| `acad_year` | string | Yes | Academic year |
+| `semester` | int | No | Semester (default: `1`) |
+| `study_year` | int | No | Study year (default: `1`) |
+| `campus_id` | int | No | Campus ID (default: `1`) |
+| `session` | string | No | Student session (default: `Day`) |
+
+**Example Request:**
+
+```bash
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=sheet_status&token=f6e5d4c3b2a1...&course_id=CSC1201&progid=BCS&acad_year=2024/2025&semester=2"
+```
+
+**Success Response (status record exists):**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "status": "SUBMITTED",
+    "submitted_by": "muhindo",
+    "submitted_at": "2025-07-06 14:30",
+    "approved_by": null,
+    "approved_at": null,
+    "published_by": null,
+    "published_at": null,
+    "reject_reason": null,
+    "updated_at": "2025-07-06 14:30"
+  }
+}
+```
+
+**Success Response (no record — implies DRAFT):**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "status": "DRAFT",
+    "note": "No status record found — sheet is in draft state."
+  }
+}
+```
+
+**Status Values:**
+
+| Status | Description |
+|---|---|
+| `DRAFT` | Initial state, teacher is entering/editing marks |
+| `SUBMITTED` | Teacher has submitted for dean review |
+| `DEAN_APPROVED` | Dean has approved the marks |
+| `PROVISIONAL_PUBLISHED` | Marks published provisionally (visible to students) |
+| `FINAL_PUBLISHED` | Marks finalized and locked |
+| `REJECTED` | Dean rejected — returns to DRAFT for corrections |
+
+---
+
+### 4.12 Deadlines
+
+Returns active mark submission deadlines. Useful for showing teachers when marks are due.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=deadlines` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `deadlines` |
+| `token` | string | Yes | Valid auth token |
+| `acad_year` | string | No | Filter by academic year |
+| `semester` | int | No | Filter by semester |
+
+**Example Request:**
+
+```bash
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=deadlines&token=f6e5d4c3b2a1...&acad_year=2024/2025&semester=2"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "total_deadlines": 2,
+    "deadlines": [
+      {
+        "deadline_type": "Marks Submission",
+        "deadline": "2025-07-15 23:59:59",
+        "campus_id": "1",
+        "acad_year": "2024/2025",
+        "semester": "2",
+        "session": "Day",
+        "is_active": "1",
+        "is_past_due": "0",
+        "hours_remaining": "216"
+      },
+      {
+        "deadline_type": "Late Marks Submission",
+        "deadline": "2025-07-22 23:59:59",
+        "campus_id": "1",
+        "acad_year": "2024/2025",
+        "semester": "2",
+        "session": "Day",
+        "is_active": "1",
+        "is_past_due": "0",
+        "hours_remaining": "384"
+      }
+    ]
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Description |
+|---|---|
+| `deadline_type` | The activity name (e.g., "Marks Submission", "Late Marks Submission") |
+| `deadline` | The deadline datetime |
+| `is_past_due` | `1` if the deadline has already passed, `0` otherwise |
+| `hours_remaining` | Hours until the deadline (negative if past due) |
+| `is_active` | Whether the deadline is currently enforced |
+
+**Notes:**
+
+- Deadlines come from the `acad_deadlines` table.
+- Only active deadlines (`is_active = 1`) are returned.
+- `hours_remaining` is computed server-side using `TIMESTAMPDIFF(HOUR, NOW(), deadline)`.
+
+---
+
+### 4.13 Staff Lookup
+
+**ODEL Integration.** Find a staff member by email address. Used by Moodle to verify staff/lecturer accounts.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=lookup` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid API token |
+| `email` | string | Yes | Staff email address |
+
+**Example Request:**
+```
+GET /API/v2/staff.aspx?action=lookup&token=abc123&email=jsmith@mru.ac.ug
+```
+
+**Example Response (Found):**
+```json
+{
+  "status": "success",
+  "message": "Staff member found",
+  "data": {
+    "found": true,
+    "data": {
+      "empID": 42,
+      "emp_code": "EMP001",
+      "emp_name": "Dr. Jane Smith",
+      "username": "jsmith",
+      "email": "jsmith@mru.ac.ug",
+      "phone": "0701234567",
+      "emp_type": "Academic",
+      "status": "Active",
+      "nationality": "Ugandan",
+      "qualifications": "PhD Computer Science",
+      "department": "Computer Science",
+      "department_id": 5,
+      "faculty": "Faculty of Science",
+      "faculty_code": "SCI",
+      "photo_url": "/API/v2/staff.aspx?action=photo&emp_code=EMP001"
+    }
+  }
+}
+```
+
+**Example Response (Not Found):**
+```json
+{
+  "status": "success",
+  "message": "No staff member found with this email",
+  "data": {
+    "found": false,
+    "data": null
+  }
+}
+```
+
+**Notes:**
+- Case-insensitive email search.
+- Returns department and faculty info from active contracts.
+- Includes `photo_url` for profile image.
+
+---
+
+### 4.14 Staff by Department
+
+**ODEL Integration.** List all staff in a department. Used by Moodle to sync department lecturer rosters.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=by_department` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid API token |
+| `department_id` | string | Yes | — | Department ID |
+| `role` | string | No | all | Filter by emp type (e.g., `academic`) |
+| `status` | string | No | `Active` | Contract status filter |
+
+**Example Request:**
+```
+GET /API/v2/staff.aspx?action=by_department&token=abc123&department_id=5&role=academic
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "department_id": "5",
+    "department_name": "Computer Science",
+    "faculty": "Faculty of Science",
+    "filter_role": "academic",
+    "filter_status": "Active",
+    "total": 8,
+    "staff": [
+      {
+        "empID": 42,
+        "emp_code": "EMP001",
+        "emp_name": "Dr. Jane Smith",
+        "username": "jsmith",
+        "email": "jsmith@mru.ac.ug",
+        "phone": "0701234567",
+        "emp_type": "Academic",
+        "status": "Active",
+        "qualifications": "PhD Computer Science",
+        "department": "Computer Science",
+        "faculty": "Faculty of Science"
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- Defaults to `Active` contract status if not specified.
+- `role` filter is case-insensitive and matches the `EmpType` field.
+- Returns department and faculty metadata alongside the staff list.
 
 ---
 
@@ -1535,6 +2463,333 @@ curl "https://eadmin.mru.ac.ug/API/v2/academic.aspx?action=registration_history&
 
 ---
 
+### 5.10 Enrollment Status
+
+Returns a student's enrollment verification status. Useful for confirming active enrollment to third parties (employers, embassies, financial institutions, etc.). Returns student biodata, current registration status, and full registration history.
+
+| Property | Value |
+|---|---|
+| **URL** | `academic.aspx?action=enrollment_status` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `enrollment_status` |
+| `token` | string | Yes | Valid auth token |
+| `acad_year` | string | No | Filter registrations by academic year |
+| `semester` | int | No | Filter registrations by semester |
+
+**Example Request:**
+
+```bash
+# Check overall enrollment
+curl "https://eadmin.mru.ac.ug/API/v2/academic.aspx?action=enrollment_status&token=a1b2c3d4e5f6..."
+
+# Check specific semester
+curl "https://eadmin.mru.ac.ug/API/v2/academic.aspx?action=enrollment_status&token=a1b2c3d4e5f6...&acad_year=2024/2025&semester=2"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "student": {
+      "regno": "MRU2025003204",
+      "entryno": "25/U/BAED/0084/K/DAY",
+      "firstname": "RITAH",
+      "othername": "NAKYESERO",
+      "programme": "Bachelor of Arts with Education",
+      "programme_code": "BAED",
+      "status": "Active",
+      "entry_year": "2024/2025",
+      "session": "DAY",
+      "campus": "Main Campus"
+    },
+    "is_enrolled": true,
+    "total_semesters_registered": 2,
+    "registrations": [
+      {
+        "acad_year": "2024/2025",
+        "semester": "2",
+        "study_year": "1",
+        "reg_status": "active",
+        "registration_date": "2025-02-10",
+        "campus_id": "MAIN"
+      },
+      {
+        "acad_year": "2024/2025",
+        "semester": "1",
+        "study_year": "1",
+        "reg_status": "active",
+        "registration_date": "2024-08-20",
+        "campus_id": "MAIN"
+      }
+    ]
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Description |
+|---|---|
+| `student` | Student biodata including name, programme, campus, status |
+| `is_enrolled` | `true` if at least one registration has status "active" or "registered" |
+| `total_semesters_registered` | Count of registration records matching the filters |
+| `registrations` | Array of registration records sorted newest first |
+
+**Notes:**
+
+- The `student` object is always returned regardless of filters.
+- `is_enrolled` scans registrations for any with status "active" or "registered".
+- When `acad_year` and/or `semester` are provided, only matching registrations are returned.
+- Sources from `acad_registration` joined with `acad_student`, `acad_programme`, and `acad_campuses`.
+
+---
+
+### 5.11 Course Details
+
+**ODEL Integration.** Get detailed information for a single course including department, credit units, and which programmes include it.
+
+| Property | Value |
+|---|---|
+| **URL** | `academic.aspx?action=course_details` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid API token |
+| `course_code` | string | Yes | Course ID/code |
+
+**Example Request:**
+```
+GET /API/v2/academic.aspx?action=course_details&token=abc123&course_code=CSC101
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "course_code": "CSC101",
+    "course_name": "Introduction to Computer Science",
+    "credit_units": 4,
+    "category": "Core",
+    "department": "Computer Science",
+    "faculty": "Faculty of Science",
+    "programmes": [
+      {
+        "progcode": "BSC-IT",
+        "programme_name": "Bachelor of Science in IT",
+        "study_year": 1,
+        "semester": 1
+      },
+      {
+        "progcode": "BSC-CS",
+        "programme_name": "Bachelor of Science in Computer Science",
+        "study_year": 1,
+        "semester": 1
+      }
+    ],
+    "prerequisites": [
+      {
+        "course_code": "MTH100",
+        "course_name": "Basic Mathematics"
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- `programmes` lists all programmes that include this course (from `acad_programmecourses`).
+- `prerequisites` may be empty if the `acad_prerequisites` table doesn't exist.
+- Course category comes from `acad_course.courseCategory`.
+
+---
+
+### 5.12 Course Enrollments
+
+**ODEL Integration.** Get all students enrolled in a specific course for a given semester. Staff only. Used by Moodle to sync course rosters.
+
+| Property | Value |
+|---|---|
+| **URL** | `academic.aspx?action=course_enrollments` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (Staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid API token (staff) |
+| `course_code` | string | Yes | Course ID/code |
+| `acad_year` | string | Yes | Academic year (e.g., `2024/2025`) |
+| `semester` | string | Yes | Semester number (e.g., `1`) |
+
+**Example Request:**
+```
+GET /API/v2/academic.aspx?action=course_enrollments&token=abc123&course_code=CSC101&acad_year=2024/2025&semester=1
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "course_code": "CSC101",
+    "course_name": "Introduction to Computer Science",
+    "credit_units": "4",
+    "academic_year": "2024/2025",
+    "semester": "1",
+    "total_enrolled": 45,
+    "students": [
+      {
+        "regno": "2024/BSC/001",
+        "firstname": "John",
+        "othername": "Doe",
+        "email": "john@example.com",
+        "progcode": "BSC-IT",
+        "programme": "Bachelor of Science in IT",
+        "status": "Registered",
+        "phone": "0771234567",
+        "gender": "Male"
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- Staff-only endpoint — students get `ACCESS_DENIED`.
+- Queries `acad_course_registration` joined with `acad_student`.
+- `status` is the registration status (`Registered`, `Dropped`, etc.).
+
+---
+
+### 5.13 Programme Curriculum
+
+**ODEL Integration.** Get full curriculum for a programme grouped by year and semester. Used by Moodle to auto-create course structures.
+
+| Property | Value |
+|---|---|
+| **URL** | `academic.aspx?action=programme_curriculum` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid API token |
+| `progcode` | string | Yes | Programme code |
+
+**Example Request:**
+```
+GET /API/v2/academic.aspx?action=programme_curriculum&token=abc123&progcode=BSC-IT
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "programme": {
+      "progcode": "BSC-IT",
+      "progname": "Bachelor of Science in IT",
+      "faculty": "Faculty of Science",
+      "department": "Computer Science",
+      "level": "Undergraduate",
+      "duration_years": 3
+    },
+    "total_courses": 36,
+    "total_credit_units": 144,
+    "curriculum": {
+      "Year 1 - Semester 1": [
+        {
+          "course_code": "CSC101",
+          "course_name": "Introduction to Computer Science",
+          "credit_units": "4",
+          "course_type": "Core",
+          "category": "Core"
+        }
+      ],
+      "Year 1 - Semester 2": [
+        {
+          "course_code": "CSC102",
+          "course_name": "Programming Fundamentals",
+          "credit_units": "4",
+          "course_type": "Core",
+          "category": "Core"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Notes:**
+- Curriculum is grouped by `"Year X - Semester Y"` keys.
+- Data from `acad_programmecourses` joined with `acad_course`.
+- `total_credit_units` is the sum of all credit units in the curriculum.
+- Programme metadata includes faculty, department, level, and duration.
+
+---
+
+### 5.14 Grading Scheme (Public)
+
+**ODEL Integration.** Returns the grading scale used by MRU. No authentication required. Used by Moodle to configure grade mappings.
+
+| Property | Value |
+|---|---|
+| **URL** | `academic.aspx?action=grading_scheme` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | **No** |
+
+**Example Request:**
+```
+GET /API/v2/academic.aspx?action=grading_scheme
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "institution": "Mountains of the Moon University",
+    "pass_mark": 50,
+    "max_gpa": 5.0,
+    "total_grades": 8,
+    "scale": [
+      { "letter": "A",  "min_score": 90, "max_score": 100, "grade_point": 5.0, "remark": "Excellent" },
+      { "letter": "B+", "min_score": 80, "max_score": 89,  "grade_point": 4.5, "remark": "Very Good" },
+      { "letter": "B",  "min_score": 70, "max_score": 79,  "grade_point": 4.0, "remark": "Good" },
+      { "letter": "C+", "min_score": 60, "max_score": 69,  "grade_point": 3.5, "remark": "Fairly Good" },
+      { "letter": "C",  "min_score": 50, "max_score": 59,  "grade_point": 3.0, "remark": "Pass" },
+      { "letter": "D+", "min_score": 45, "max_score": 49,  "grade_point": 2.5, "remark": "Marginal Pass" },
+      { "letter": "D",  "min_score": 40, "max_score": 44,  "grade_point": 2.0, "remark": "Marginal Fail" },
+      { "letter": "F",  "min_score": 0,  "max_score": 39,  "grade_point": 0.0, "remark": "Fail" }
+    ]
+  }
+}
+```
+
+**Notes:**
+- No authentication needed — public reference data.
+- Returns hardcoded MRU grading scale by default.
+- If `acad_grading_scale` table exists in the database, dynamically loads from there instead.
+- `pass_mark` of 50 means grades C and above are passing.
+
+---
+
 ## 6. Finance Endpoints
 
 **Endpoint:** `finance.aspx`  
@@ -1709,6 +2964,290 @@ curl "https://eadmin.mru.ac.ug/API/v2/finance.aspx?action=fees_structure&token=a
   - Otherwise → category = `"International"`
 - Queries the accounts database for fee structures matching the student's `progid`, `study_year`, `acad_year`, and fee category.
 - `study_year` is from `MAX(studyyear) FROM acad_registration`.
+
+---
+
+### 6.4 Payment History
+
+Returns only payment (credit) entries from the student's ledger. Useful for displaying payment receipts or a dedicated payment history screen.
+
+| Property | Value |
+|---|---|
+| **URL** | `finance.aspx?action=payment_history` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `payment_history` |
+| `token` | string | Yes | Valid auth token |
+| `regno` | string | Staff only | Student registration number (staff can look up any student) |
+
+**Example Request:**
+
+```bash
+# Student checking own payment history
+curl "https://eadmin.mru.ac.ug/API/v2/finance.aspx?action=payment_history&token=a1b2c3d4e5f6..."
+
+# Staff checking a student's payment history
+curl "https://eadmin.mru.ac.ug/API/v2/finance.aspx?action=payment_history&token=f6e5d4c3b2a1...&regno=MRU2025003204"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "total_payments": 2500000.00,
+    "payment_count": 3,
+    "currency": "UGX",
+    "payments": [
+      {
+        "trans_date": "2024-09-01",
+        "description": "Payment - Bank Deposit",
+        "debit": "0.00",
+        "credit": "1000000.00",
+        "acad_year": "2024/2025",
+        "semester": "1"
+      },
+      {
+        "trans_date": "2025-01-15",
+        "description": "Payment - Mobile Money",
+        "debit": "0.00",
+        "credit": "500000.00",
+        "acad_year": "2024/2025",
+        "semester": "1"
+      },
+      {
+        "trans_date": "2025-03-01",
+        "description": "Payment - Bank Deposit",
+        "debit": "0.00",
+        "credit": "1000000.00",
+        "acad_year": "2024/2025",
+        "semester": "2"
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+
+- Filters the full ledger to only entries where `credit > 0`.
+- All ledger columns are preserved in each payment object.
+- `total_payments` is the sum of all credit entries.
+- Staff members can query any student by passing `?regno=` parameter.
+
+---
+
+### 6.5 Billing Summary
+
+Returns a high-level billing summary grouped by academic year and semester. Shows total charges, payments, and balance per period.
+
+| Property | Value |
+|---|---|
+| **URL** | `finance.aspx?action=billing_summary` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `billing_summary` |
+| `token` | string | Yes | Valid auth token |
+| `regno` | string | Staff only | Student registration number |
+
+**Example Request:**
+
+```bash
+curl "https://eadmin.mru.ac.ug/API/v2/finance.aspx?action=billing_summary&token=a1b2c3d4e5f6..."
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "overall_charges": 3500000.00,
+    "overall_payments": 2500000.00,
+    "overall_balance": 1000000.00,
+    "currency": "UGX",
+    "periods": [
+      {
+        "period": "2024/2025_S1",
+        "charges": 1750000.00,
+        "payments": 1500000.00,
+        "balance": 250000.00
+      },
+      {
+        "period": "2024/2025_S2",
+        "charges": 1750000.00,
+        "payments": 1000000.00,
+        "balance": 750000.00
+      }
+    ]
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Description |
+|---|---|
+| `overall_charges` | Total debit entries across all periods |
+| `overall_payments` | Total credit entries across all periods |
+| `overall_balance` | `overall_charges - overall_payments` (positive = owes) |
+| `periods` | Array of period summaries |
+| `periods[].period` | Key in format `{acad_year}_S{semester}` (e.g., `2024/2025_S1`) |
+| `periods[].charges` | Total debits for the period |
+| `periods[].payments` | Total credits for the period |
+| `periods[].balance` | `charges - payments` for the period |
+
+**Notes:**
+
+- Groups ledger entries by `acad_year` and `semester` columns (if available in the ledger data).
+- If `acad_year` or `semester` columns are missing from the ledger, entries are grouped under an `"overall"` key.
+- Positive balance means the student owes money.
+
+---
+
+### 6.6 Fee Status (Clearance Check)
+
+**ODEL Integration.** Check fee clearance status for a student. Returns `cleared`, `partial`, or `not_cleared`. Used by Moodle to gate access to resources based on payment status.
+
+| Property | Value |
+|---|---|
+| **URL** | `finance.aspx?action=fee_status` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid API token |
+| `regno` | string | Staff only | — | Student reg number (staff can query any student) |
+| `acad_year` | string | No | all | Filter by academic year |
+| `semester` | string | No | all | Filter by semester |
+
+**Example Request:**
+```
+GET /API/v2/finance.aspx?action=fee_status&token=abc123&regno=2024/BSC/001&acad_year=2024/2025
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "regno": "2024/BSC/001",
+    "fee_status": "partial",
+    "total_fees": 2500000,
+    "amount_paid": 1800000,
+    "balance": 700000,
+    "currency": "UGX",
+    "last_payment_date": "2025-06-15",
+    "has_financial_lock": false,
+    "academic_year": "2024/2025",
+    "semester": ""
+  }
+}
+```
+
+**Fee Status Values:**
+
+| Status | Meaning |
+|---|---|
+| `cleared` | Balance is zero or negative (paid in full or overpaid) |
+| `partial` | Some payment made but balance remains |
+| `not_cleared` | No payments made at all |
+
+**Notes:**
+- Students can only check their own fee status. Staff can check any student via `?regno=`.
+- `has_financial_lock` checks the `studLock` field in `acad_student`.
+- When no `acad_year` filter is provided, returns cumulative status across all periods.
+- Data from `fm_student_ledger` in the accounts database.
+
+---
+
+### 6.7 Bulk Fee Check
+
+**ODEL Integration.** Check fee status for multiple students in a single request. Staff only. Used by Moodle for bulk enrollment clearance checks.
+
+| Property | Value |
+|---|---|
+| **URL** | `finance.aspx?action=bulk_fee_check` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (Staff only) |
+
+**Request Body (JSON):**
+```json
+{
+  "students": ["2024/BSC/001", "2024/BSC/002", "2024/BSC/003"]
+}
+```
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid API token (staff) |
+| `acad_year` | string | No | Filter by academic year |
+| `students` | string | Alternative | Comma-separated list (query param fallback) |
+
+**Example Request:**
+```
+POST /API/v2/finance.aspx?action=bulk_fee_check&token=abc123&acad_year=2024/2025
+Content-Type: application/json
+
+{"students": ["2024/BSC/001", "2024/BSC/002", "2024/BSC/003"]}
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "academic_year": "2024/2025",
+    "total_checked": 3,
+    "currency": "UGX",
+    "results": [
+      {
+        "regno": "2024/BSC/001",
+        "fee_status": "cleared",
+        "total_fees": 2500000,
+        "amount_paid": 2500000,
+        "balance": 0
+      },
+      {
+        "regno": "2024/BSC/002",
+        "fee_status": "partial",
+        "total_fees": 2500000,
+        "amount_paid": 1200000,
+        "balance": 1300000
+      },
+      {
+        "regno": "2024/BSC/003",
+        "fee_status": "not_cleared",
+        "total_fees": 2500000,
+        "amount_paid": 0,
+        "balance": 2500000
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- Staff-only endpoint — students get `ACCESS_DENIED`.
+- Maximum 200 students per request.
+- Accepts JSON POST body or comma-separated `students` query parameter as fallback.
+- If a student lookup fails, their entry shows `fee_status: "error"`.
 
 ---
 
@@ -1987,9 +3526,9 @@ curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=current_semester"
 
 ---
 
-### 8.3 Programmes (Public)
+### 8.3 Programmes (Public) — Enhanced for ODEL
 
-Returns all available academic programmes.
+Returns all available academic programmes with faculty, department, level, and duration information.
 
 | Property | Value |
 |---|---|
@@ -1999,14 +3538,16 @@ Returns all available academic programmes.
 
 **Parameters:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `action` | string | Yes | Must be `programmes` |
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `action` | string | Yes | — | Must be `programmes` |
+| `faculty_code` | string | No | all | Filter by faculty code |
+| `level` | string | No | all | Filter by programme level (e.g., `Undergraduate`) |
 
 **Example Request:**
 
 ```bash
-curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=programmes"
+curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=programmes&faculty_code=SCI"
 ```
 
 **Success Response:**
@@ -2014,18 +3555,29 @@ curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=programmes"
 ```json
 {
   "status": "success",
-  "data": [
-    {"progcode": "BAED", "programme": "Bachelor of Arts with Education"},
-    {"progcode": "BCS", "programme": "Bachelor of Computer Science"},
-    {"progcode": "BBA", "programme": "Bachelor of Business Administration"},
-    {"progcode": "BSWSA", "programme": "Bachelor of Social Work and Social Administration"}
-  ]
+  "data": {
+    "count": 4,
+    "programmes": [
+      {
+        "progcode": "BSC-IT",
+        "programme": "Bachelor of Science in IT",
+        "faculty_code": "SCI",
+        "faculty": "Faculty of Science",
+        "department": "Computer Science",
+        "level": "Undergraduate",
+        "duration_years": 3,
+        "study_mode": "Full-time"
+      }
+    ]
+  }
 }
 ```
 
 **Notes:**
 
-- Queries `acad_programme` where `progcode IS NOT NULL AND TRIM(progcode) <> ''`.
+- Queries `acad_programme` joined with `acad_faculty` and `hrm_departments`.
+- Optional filters: `faculty_code` and `level`.
+- `duration_years` and `study_mode` from `progduration` and `progtype` columns.
 - Ordered alphabetically by programme name.
 
 ---
@@ -2188,6 +3740,209 @@ curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=directory&token=a1b2c3d
 
 ---
 
+### 8.7 Faculties (Public) — Enhanced for ODEL
+
+Returns all academic faculties with nested departments. Enhanced for ODEL integration to show organizational structure.
+
+| Property | Value |
+|---|---|
+| **URL** | `campus.aspx?action=faculties` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | **No** |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `faculties` |
+
+**Example Request:**
+
+```bash
+curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=faculties"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "count": 5,
+    "faculties": [
+      {
+        "faculty_code": "FSAS",
+        "faculty_name": "Faculty of Science and Applied Science",
+        "departments": [
+          { "department_id": "5", "department_name": "Computer Science" },
+          { "department_id": "8", "department_name": "Mathematics" },
+          { "department_id": "12", "department_name": "Biology" }
+        ]
+      },
+      {
+        "faculty_code": "FBMSE",
+        "faculty_name": "Faculty of Business, Management Science and Economics",
+        "departments": [
+          { "department_id": "3", "department_name": "Accounting" },
+          { "department_id": "7", "department_name": "Business Administration" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+
+- Each faculty now includes a `departments` array with all departments under it.
+- Queries `acad_faculty` and `hrm_departments` tables with grouping.
+- Only returns faculties and departments with non-empty names.
+- Ordered alphabetically by faculty name, departments ordered alphabetically within each faculty.
+
+---
+
+### 8.8 Departments (Public)
+
+Returns all departments, optionally filtered by faculty code. Each department includes its parent faculty.
+
+| Property | Value |
+|---|---|
+| **URL** | `campus.aspx?action=departments` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | **No** |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `departments` |
+| `faculty_code` | string | No | Filter departments by faculty code (e.g., `FBMSE`) |
+
+**Example Request:**
+
+```bash
+# All departments
+curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=departments"
+
+# Departments in a specific faculty
+curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=departments&faculty_code=FBMSE"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "count": 3,
+    "faculty_filter": "FBMSE",
+    "departments": [
+      {
+        "department_id": "5",
+        "department_name": "Accounting",
+        "faculty_code": "FBMSE",
+        "faculty_name": "Faculty of Business, Management Science and Economics"
+      },
+      {
+        "department_id": "12",
+        "department_name": "Business Administration",
+        "faculty_code": "FBMSE",
+        "faculty_name": "Faculty of Business, Management Science and Economics"
+      },
+      {
+        "department_id": "8",
+        "department_name": "Economics",
+        "faculty_code": "FBMSE",
+        "faculty_name": "Faculty of Business, Management Science and Economics"
+      }
+    ]
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Description |
+|---|---|
+| `count` | Total departments returned |
+| `faculty_filter` | The faculty code used to filter, or `"all"` if not filtered |
+| `departments[].department_id` | Internal department ID |
+| `departments[].department_name` | Department name |
+| `departments[].faculty_code` | Parent faculty code |
+| `departments[].faculty_name` | Parent faculty name (resolved via JOIN) |
+
+**Notes:**
+
+- Queries `hrm_departments` joined with `acad_faculty` on `fax_code`.
+- Only returns departments with non-empty names.
+- Ordered alphabetically by department name.
+
+---
+
+### 8.9 Academic Calendar (Public)
+
+**ODEL Integration.** Returns the academic calendar with semester dates, exam periods, and registration deadlines.
+
+| Property | Value |
+|---|---|
+| **URL** | `campus.aspx?action=academic_calendar` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | **No** |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `acad_year` | string | No | all | Filter by academic year (e.g., `2024/2025`) |
+
+**Example Request:**
+```
+GET /API/v2/campus.aspx?action=academic_calendar&acad_year=2024/2025
+```
+
+**Example Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "current_academic_year": "2024/2025",
+    "current_semester": "2",
+    "total_periods": 2,
+    "periods": [
+      {
+        "acad_year": "2024/2025",
+        "semester": "1",
+        "semester_start": "2024-08-15",
+        "semester_end": "2024-12-15",
+        "exam_start": "2024-12-01",
+        "exam_end": "2024-12-15",
+        "registration_deadline": "2024-09-01",
+        "is_current": 0
+      },
+      {
+        "acad_year": "2024/2025",
+        "semester": "2",
+        "semester_start": "2025-01-15",
+        "semester_end": "2025-06-15",
+        "exam_start": "2025-06-01",
+        "exam_end": "2025-06-15",
+        "registration_deadline": "2025-02-01",
+        "is_current": 1
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- No authentication required — public information.
+- Data from `acad_calender` table.
+- If the table is not fully configured, returns basic data calculated from the system date.
+- `is_current` indicates the currently active period.
+- Date fields may be empty strings if not set in the database.
+
+---
+
 ## 9. Error Codes Reference
 
 | Code | Description | HTTP Context |
@@ -2204,6 +3959,8 @@ curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=directory&token=a1b2c3d
 | `MISSING_PARAMS` | Required parameters missing | Various |
 | `DUPLICATE_REGISTRATION` | Already registered for the course or semester | Register Course, Semester Registration |
 | `INVALID_FORMAT` | Data format is invalid (e.g., malformed JSON) | Submit Marks |
+| `VALIDATION_ERROR` | Data failed validation (e.g., exceeds max batch size) | Save Entry Marks |
+| `BUSINESS_ERROR` | Business rule violation (e.g., submitting a non-DRAFT sheet) | Submit for Approval |
 | `INVALID_ACTION` | The `action` parameter is not recognized | Any endpoint |
 | `SERVER_ERROR` | Internal server error (database error, exception, etc.) | Any endpoint |
 
@@ -2279,7 +4036,12 @@ Where:
 | `acad_semester_registration` | campus_dynamics | Semester-level registrations |
 | `acad_results` | campus_dynamics | Student results/marks |
 | `acad_curriculum` | campus_dynamics | Programme course mappings |
-| `acad_teaching_allocation` | campus_dynamics | Staff teaching assignments (staffCode, courseID, progcode, cyear) |
+| `acad_teaching_allocation` | campus_dynamics | Legacy staff teaching assignments (staffCode, courseID, progcode, cyear) |
+| `acad_teaching_assignments` | campus_dynamics | New marks-module teaching assignments (teacher_username, course_id, progid) |
+| `acad_examresults_faculty` | campus_dynamics | Entry-level marks (teacher working data before approval) |
+| `acad_results_status` | campus_dynamics | Marks workflow status (DRAFT → SUBMITTED → DEAN_APPROVED → PUBLISHED) |
+| `acad_deadlines` | campus_dynamics | Mark submission deadlines per activity/campus/session |
+| `acad_faculty` | campus_dynamics | Academic faculties (fax_code, faculty_name) |
 | `acad_calender` | campus_dynamics | Academic calendar (academic_year, is_current) |
 | `acad_campuses` | campus_dynamics | Campus locations |
 | `api_tokens` | campus_dynamics | Authentication tokens (auto-created) |
@@ -2407,16 +4169,29 @@ The following stored procedures are used and must exist in the database:
 | `auth.aspx` | `login` | GET/POST | No | Authenticate user, get token |
 | `auth.aspx` | `validate` | GET/POST | Token | Check if token is valid |
 | `auth.aspx` | `logout` | GET/POST | Token | Deactivate token |
+| `auth.aspx` | `ping` | GET/POST | **No** | 🆕 Health check / connectivity test |
 | `student.aspx` | `profile` | GET/POST | Token | Student full profile |
 | `student.aspx` | `photo` | GET/POST | Token | Student photo URL |
 | `student.aspx` | `lock_status` | GET/POST | Token | Account lock check |
 | `student.aspx` | `summary` | GET/POST | Token | Dashboard summary |
+| `student.aspx` | `lookup` | GET/POST | Token | 🆕 Find person by email (ODEL) |
+| `student.aspx` | `verify` | GET/POST | Token | 🆕 Quick student verification (ODEL) |
+| `student.aspx` | `search` | GET/POST | Token (staff) | 🆕 Search students (ODEL) |
+| `student.aspx` | `by_programme` | GET/POST | Token (staff) | 🆕 Students by programme (ODEL) |
 | `staff.aspx` | `profile` | GET/POST | Token | Staff full profile |
 | `staff.aspx` | `photo` | GET/POST | Token | Staff photo URL |
 | `staff.aspx` | `my_courses` | GET/POST | Token (staff) | Teaching allocations |
 | `staff.aspx` | `class_list` | GET/POST | Token (staff) | Students in a course |
 | `staff.aspx` | `marks` | GET/POST | Token (staff) | View course marks |
 | `staff.aspx` | `submit_marks` | POST | Token (staff) | Submit/update marks |
+| `staff.aspx` | `teaching_assignments` | GET/POST | Token (staff) | Teaching assignments (new + legacy) |
+| `staff.aspx` | `mark_sheet` | GET/POST | Token (staff) | Entry-level mark sheet |
+| `staff.aspx` | `save_entry_marks` | POST | Token (staff) | Save marks to faculty table |
+| `staff.aspx` | `submit_for_approval` | POST | Token (staff) | Submit sheet for dean approval |
+| `staff.aspx` | `sheet_status` | GET/POST | Token (staff) | Marks workflow status |
+| `staff.aspx` | `deadlines` | GET/POST | Token (staff) | Submission deadlines |
+| `staff.aspx` | `lookup` | GET/POST | Token | 🆕 Find staff by email (ODEL) |
+| `staff.aspx` | `by_department` | GET/POST | Token | 🆕 Staff in a department (ODEL) |
 | `academic.aspx` | `results` | GET/POST | Token | Student results |
 | `academic.aspx` | `transcript` | GET/POST | Token | Full transcript |
 | `academic.aspx` | `gpa` | GET/POST | Token | GPA/CGPA calculation |
@@ -2426,19 +4201,55 @@ The following stored procedures are used and must exist in the database:
 | `academic.aspx` | `drop_course` | POST | Token | Drop a course |
 | `academic.aspx` | `semester_registration` | POST | Token | Register for semester + billing |
 | `academic.aspx` | `registration_history` | GET/POST | Token | Past semester registrations |
+| `academic.aspx` | `enrollment_status` | GET/POST | Token | Enrollment verification |
+| `academic.aspx` | `course_details` | GET/POST | Token | 🆕 Single course metadata (ODEL) |
+| `academic.aspx` | `course_enrollments` | GET/POST | Token (staff) | 🆕 Students in a course (ODEL) |
+| `academic.aspx` | `programme_curriculum` | GET/POST | Token | 🆕 Programme curriculum (ODEL) |
+| `academic.aspx` | `grading_scheme` | GET/POST | **No** | 🆕 Grading scale (ODEL) |
 | `finance.aspx` | `ledger` | GET/POST | Token | Financial transactions |
 | `finance.aspx` | `balance` | GET/POST | Token | Outstanding balance |
 | `finance.aspx` | `fees_structure` | GET/POST | Token | Fee structure |
+| `finance.aspx` | `payment_history` | GET/POST | Token | Payment receipts/history |
+| `finance.aspx` | `billing_summary` | GET/POST | Token | Charges vs payments by period |
+| `finance.aspx` | `fee_status` | GET/POST | Token | 🆕 Fee clearance status (ODEL) |
+| `finance.aspx` | `bulk_fee_check` | POST | Token (staff) | 🆕 Bulk fee check (ODEL) |
 | `timetable.aspx` | `lectures` | GET/POST | Token | Lecture timetable ⚠️ |
 | `timetable.aspx` | `exams` | GET/POST | Token | Exam timetable ⚠️ |
 | `campus.aspx` | `notices` | GET/POST | Token | Campus notices ⚠️ |
 | `campus.aspx` | `directory` | GET/POST | Token | Staff directory |
 | `campus.aspx` | `academic_years` | GET/POST | **No** | All academic years |
 | `campus.aspx` | `current_semester` | GET/POST | **No** | Current semester |
-| `campus.aspx` | `programmes` | GET/POST | **No** | All programmes |
+| `campus.aspx` | `programmes` | GET/POST | **No** | All programmes (enhanced) |
 | `campus.aspx` | `campuses` | GET/POST | **No** | All campuses |
+| `campus.aspx` | `faculties` | GET/POST | **No** | All faculties (enhanced) |
+| `campus.aspx` | `departments` | GET/POST | **No** | All departments |
+| `campus.aspx` | `academic_calendar` | GET/POST | **No** | 🆕 Academic calendar (ODEL) |
 
-> ⚠️ = Requires database tables that don't exist yet.
+> ⚠️ = Requires database tables that don't exist yet.  
+> 🆕 = New endpoint added for ODEL/Moodle integration.
+
+### ODEL Integration Summary
+
+The following endpoints are specifically designed for Moodle ODEL integration:
+
+| ODEL Requirement | Endpoint | Action |
+|---|---|---|
+| Connectivity Check | `auth.aspx` | `ping` |
+| Identity Verification | `student.aspx` | `lookup` |
+| Student Verification | `student.aspx` | `verify` |
+| Student Search | `student.aspx` | `search` |
+| Students by Programme | `student.aspx` | `by_programme` |
+| Staff Lookup | `staff.aspx` | `lookup` |
+| Staff by Department | `staff.aspx` | `by_department` |
+| Course Metadata | `academic.aspx` | `course_details` |
+| Course Roster | `academic.aspx` | `course_enrollments` |
+| Programme Curriculum | `academic.aspx` | `programme_curriculum` |
+| Grading Scale | `academic.aspx` | `grading_scheme` |
+| Fee Clearance | `finance.aspx` | `fee_status` |
+| Bulk Fee Check | `finance.aspx` | `bulk_fee_check` |
+| Academic Calendar | `campus.aspx` | `academic_calendar` |
+| Programmes (Enhanced) | `campus.aspx` | `programmes` |
+| Faculties (Enhanced) | `campus.aspx` | `faculties` |
 
 ### Authentication Header Alternative
 
@@ -2446,10 +4257,14 @@ While the primary method is passing `token` as a query parameter, the token can 
 - Query parameter: `?token=abc123...`
 - Form POST body: `token=abc123...`
 
-All endpoints accept both GET and POST methods (except `submit_marks`, `register_course`, `drop_course`, and `semester_registration` which should use POST).
+All endpoints accept both GET and POST methods (except `submit_marks`, `register_course`, `drop_course`, `semester_registration`, and `bulk_fee_check` which should use POST).
+
+### ODEL Webhook Support (Planned)
+
+Webhook support for real-time notifications (enrollment changes, grade updates, fee payments) is planned for a future release. ODEL systems should currently use polling with the above endpoints.
 
 ---
 
 *Last updated: July 2025*  
-*API Version: 2.0*  
+*API Version: 2.2 (ODEL Integration Release — 14 new endpoints + 2 enhanced for Moodle integration)*  
 *Server: ASP.NET Web Forms on IIS — https://eadmin.mru.ac.ug/API/v2/*
