@@ -779,7 +779,54 @@
                         </li>
 
                         <!-- ══════════════════════════════════════════════
-                             ⑦ SYSTEM
+                             ⑦ ELECTIONS
+                             Roles: registrar, admin, student_services
+                             Task focus: Manage university elections, candidates, voters, results.
+                             ══════════════════════════════════════════════ -->
+                        <li class="cd-sidebar__heading" data-roles="registrar admin student_services">Elections</li>
+
+                        <li class="cd-sidebar__item cd-sidebar__item--has-submenu" data-roles="registrar admin student_services">
+                            <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2"></rect><path d="M9 11l3 3L22 4"></path></svg>
+                                <span>Election Management</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cd-sidebar__arrow"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </a>
+                            <ul class="cd-sidebar__submenu">
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkElectionsDash" runat="server" NavigateUrl="~/COOPERP/NewScreens/ElectionsDashboard.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                                        <span>Elections Dashboard</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkElectionPosts" runat="server" NavigateUrl="~/COOPERP/NewScreens/ElectionPosts.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+                                        <span>Manage Posts</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkElectionCandidates" runat="server" NavigateUrl="~/COOPERP/NewScreens/ElectionCandidates.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                        <span>Manage Candidates</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkElectionVoters" runat="server" NavigateUrl="~/COOPERP/NewScreens/ElectionVoters.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+                                        <span>Manage Voters</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkElectionResults" runat="server" NavigateUrl="~/COOPERP/NewScreens/ElectionResults.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                                        <span>Live Results</span>
+                                    </asp:HyperLink>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <!-- ══════════════════════════════════════════════
+                             ⑧ SYSTEM
                              Roles: admin only
                              Task focus: Calendar, configuration, legacy access.
                              ══════════════════════════════════════════════ -->

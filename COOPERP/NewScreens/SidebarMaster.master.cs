@@ -158,6 +158,22 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             case "marksalertdashboard":
                 title = "Operational Alerts";
                 break;
+            // Elections Module
+            case "electionsdashboard":
+                title = "Elections Dashboard";
+                break;
+            case "electionposts":
+                title = "Election Posts";
+                break;
+            case "electioncandidates":
+                title = "Election Candidates";
+                break;
+            case "electionvoters":
+                title = "Election Voters";
+                break;
+            case "electionresults":
+                title = "Election Results";
+                break;
             default:
                 title = pageName.Replace("New", "").Replace("_", " ");
                 break;
