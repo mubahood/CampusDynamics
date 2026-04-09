@@ -12,6 +12,11 @@ public partial class COOPERP_XtraReports_Default : System.Web.UI.Page
     {
         try
         {
+            if (Session["Report"] == null)
+            {
+                lbl_response.Text = "Session expired. Please go back and re-open the report.";
+                return;
+            }
             if (Session["Report"].ToString() == "ResultStatement")
             {
                 ResultsStatement RPT = new ResultsStatement();

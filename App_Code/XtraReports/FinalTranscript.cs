@@ -64,6 +64,10 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     private GroupHeaderBand GroupHeader2;
     private GroupFooterBand GroupFooter2;
     private XRSubreport xrSubreport3;
+    private XRLabel lblThesisLabel;
+    private XRLabel lblThesisValue;
+    private XRLabel lblSupervisorLabel;
+    private XRLabel lblSupervisorValue;
 	/// <summary>
 	/// Required designer variable.
 	/// </summary>
@@ -216,16 +220,17 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.GroupHeader1.GroupFields.AddRange(new DevExpress.XtraReports.UI.GroupField[] {
             new DevExpress.XtraReports.UI.GroupField("regno", DevExpress.XtraReports.UI.XRColumnSortOrder.Ascending)});
             this.GroupHeader1.GroupUnion = DevExpress.XtraReports.UI.GroupUnion.WholePage;
-            this.GroupHeader1.HeightF = 290.7027F;
+            this.GroupHeader1.HeightF = 316.2F;
             this.GroupHeader1.KeepTogether = true;
             this.GroupHeader1.Name = "GroupHeader1";
             this.GroupHeader1.PageBreak = DevExpress.XtraReports.UI.PageBreak.BeforeBand;
+            this.GroupHeader1.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.GroupHeader1_BeforePrint);
             // 
             // xrLabel29
             // 
             this.xrLabel29.Dpi = 100F;
             this.xrLabel29.Font = new System.Drawing.Font("Times New Roman", 5F);
-            this.xrLabel29.LocationFloat = new DevExpress.Utils.PointFloat(671.8702F, 250.8619F);
+            this.xrLabel29.LocationFloat = new DevExpress.Utils.PointFloat(671.8702F, 276.36F);
             this.xrLabel29.Name = "xrLabel29";
             this.xrLabel29.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel29.SizeF = new System.Drawing.SizeF(97.59283F, 11.3334F);
@@ -342,7 +347,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrSubreport2
             // 
             this.xrSubreport2.Dpi = 100F;
-            this.xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(392.8836F, 264.5572F);
+            this.xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(392.8836F, 290.06F);
             this.xrSubreport2.Name = "xrSubreport2";
             this.xrSubreport2.ParameterBindings.Add(new DevExpress.XtraReports.UI.ParameterBinding("reg", null, "acad_GetBatchStudentTranscriptData.regno"));
             this.xrSubreport2.ReportSource = new FinalTranscriptCol2();
@@ -351,7 +356,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrSubreport1
             // 
             this.xrSubreport1.Dpi = 100F;
-            this.xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3.803968F, 265.036F);
+            this.xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3.803968F, 290.54F);
             this.xrSubreport1.Name = "xrSubreport1";
             this.xrSubreport1.ParameterBindings.Add(new DevExpress.XtraReports.UI.ParameterBinding("reg", null, "acad_GetBatchStudentTranscriptData.regno"));
             this.xrSubreport1.ReportSource = new FinalTranscriptCol1();
@@ -495,6 +500,10 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // 
             // GroupFooter1
             // 
+            this.lblThesisLabel = new DevExpress.XtraReports.UI.XRLabel();
+            this.lblThesisValue = new DevExpress.XtraReports.UI.XRLabel();
+            this.lblSupervisorLabel = new DevExpress.XtraReports.UI.XRLabel();
+            this.lblSupervisorValue = new DevExpress.XtraReports.UI.XRLabel();
             this.GroupFooter1.Controls.AddRange(new DevExpress.XtraReports.UI.XRControl[] {
             this.xrPanel1,
             this.xrLabel25,
@@ -510,10 +519,63 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrLabel15,
             this.xrLabel14});
             this.GroupFooter1.Dpi = 100F;
-            this.GroupFooter1.HeightF = 113.1728F;
+            this.GroupFooter1.HeightF = 140F;
             this.GroupFooter1.Name = "GroupFooter1";
             this.GroupFooter1.PageBreak = DevExpress.XtraReports.UI.PageBreak.AfterBand;
             this.GroupFooter1.PrintAtBottom = true;
+            // 
+            // lblThesisLabel — "RESEARCH TITLE" label (in header, after PROGRAM)
+            // 
+            this.lblThesisLabel.Dpi = 100F;
+            this.lblThesisLabel.Font = new System.Drawing.Font("Times New Roman", 9F);
+            this.lblThesisLabel.LocationFloat = new DevExpress.Utils.PointFloat(127.8163F, 249.5F);
+            this.lblThesisLabel.Name = "lblThesisLabel";
+            this.lblThesisLabel.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
+            this.lblThesisLabel.SizeF = new System.Drawing.SizeF(94.03407F, 11.33331F);
+            this.lblThesisLabel.StylePriority.UseFont = false;
+            this.lblThesisLabel.Text = "RESEARCH TITLE";
+            this.lblThesisLabel.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.lblThesisLabel_BeforePrint);
+            // 
+            // lblThesisValue — research title text (in header, matches value style)
+            // 
+            this.lblThesisValue.Dpi = 100F;
+            this.lblThesisValue.Font = new System.Drawing.Font("Times New Roman", 8F, (System.Drawing.FontStyle)(System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic));
+            this.lblThesisValue.LocationFloat = new DevExpress.Utils.PointFloat(241.9015F, 249.5F);
+            this.lblThesisValue.Name = "lblThesisValue";
+            this.lblThesisValue.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
+            this.lblThesisValue.SizeF = new System.Drawing.SizeF(431.9905F, 11.33328F);
+            this.lblThesisValue.StylePriority.UseFont = false;
+            this.lblThesisValue.Text = "";
+            this.lblThesisValue.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.lblThesisValue_BeforePrint);
+            // 
+            // lblSupervisorLabel — "SUPERVISOR" label (in header)
+            // 
+            this.lblSupervisorLabel.Dpi = 100F;
+            this.lblSupervisorLabel.Font = new System.Drawing.Font("Times New Roman", 9F);
+            this.lblSupervisorLabel.LocationFloat = new DevExpress.Utils.PointFloat(127.8163F, 262F);
+            this.lblSupervisorLabel.Name = "lblSupervisorLabel";
+            this.lblSupervisorLabel.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
+            this.lblSupervisorLabel.SizeF = new System.Drawing.SizeF(94.03407F, 11.33331F);
+            this.lblSupervisorLabel.StylePriority.UseFont = false;
+            this.lblSupervisorLabel.Text = "SUPERVISOR";
+            this.lblSupervisorLabel.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.lblSupervisorLabel_BeforePrint);
+            // 
+            // lblSupervisorValue — supervisor name (in header, matches value style)
+            // 
+            this.lblSupervisorValue.Dpi = 100F;
+            this.lblSupervisorValue.Font = new System.Drawing.Font("Times New Roman", 8F, System.Drawing.FontStyle.Bold);
+            this.lblSupervisorValue.LocationFloat = new DevExpress.Utils.PointFloat(241.9015F, 262F);
+            this.lblSupervisorValue.Name = "lblSupervisorValue";
+            this.lblSupervisorValue.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
+            this.lblSupervisorValue.SizeF = new System.Drawing.SizeF(277.5929F, 11.33331F);
+            this.lblSupervisorValue.StylePriority.UseFont = false;
+            this.lblSupervisorValue.Text = "";
+            this.lblSupervisorValue.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.lblSupervisorValue_BeforePrint);
+            // Add thesis/supervisor controls to GroupHeader1 (after PROGRAM row)
+            this.GroupHeader1.Controls.Add(this.lblThesisLabel);
+            this.GroupHeader1.Controls.Add(this.lblThesisValue);
+            this.GroupHeader1.Controls.Add(this.lblSupervisorLabel);
+            this.GroupHeader1.Controls.Add(this.lblSupervisorValue);
             // 
             // xrPanel1
             // 
@@ -527,7 +589,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrLine7,
             this.xrPageInfo1});
             this.xrPanel1.Dpi = 100F;
-            this.xrPanel1.LocationFloat = new DevExpress.Utils.PointFloat(7.08334F, 41.50615F);
+            this.xrPanel1.LocationFloat = new DevExpress.Utils.PointFloat(7.08334F, 58F);
             this.xrPanel1.Name = "xrPanel1";
             this.xrPanel1.SizeF = new System.Drawing.SizeF(753.2498F, 71.66667F);
             this.xrPanel1.StylePriority.UseBackColor = false;
@@ -768,11 +830,11 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrCrossBandBox1.BorderWidth = 1F;
             this.xrCrossBandBox1.Dpi = 100F;
             this.xrCrossBandBox1.EndBand = this.GroupHeader1;
-            this.xrCrossBandBox1.EndPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 289.3122F);
-            this.xrCrossBandBox1.LocationFloat = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);
+            this.xrCrossBandBox1.EndPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 314.81F);
+            this.xrCrossBandBox1.LocationFloat = new DevExpress.Utils.PointFloat(0.6666629F, 288.67F);
             this.xrCrossBandBox1.Name = "xrCrossBandBox1";
             this.xrCrossBandBox1.StartBand = this.GroupHeader1;
-            this.xrCrossBandBox1.StartPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);
+            this.xrCrossBandBox1.StartPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 288.67F);
             this.xrCrossBandBox1.WidthF = 768.3329F;
             // 
             // GroupHeader2
@@ -832,4 +894,144 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
 	}
 
 	#endregion
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Thesis / Supervisor BeforePrint handlers for graduate transcripts
+    // ════════════════════════════════════════════════════════════════════════
+
+    private bool _thesisDataEnriched = false;
+
+    /// <summary>
+    /// Ensures thesis/supervisor data is in the dataset.
+    /// Called once on first thesis label BeforePrint.
+    /// </summary>
+    private void EnsureThesisData()
+    {
+        if (_thesisDataEnriched) return;
+        _thesisDataEnriched = true;
+        try
+        {
+            // Use actual DataSource (set by Default.aspx.cs), not the designer placeholder
+            ResultsData ds = this.DataSource as ResultsData;
+            if (ds == null) ds = this.resultsData1;
+            GraduateHelper.EnrichTranscriptDataBatch(ds);
+        }
+        catch { }
+    }
+
+    /// <summary>Safely retrieves a thesis/supervisor column value.</summary>
+    private string GetThesisColumnSafe(string columnName)
+    {
+        try
+        {
+            object val = GetCurrentColumnValue(columnName);
+            return (val != null && val != System.DBNull.Value) ? val.ToString().Trim() : "";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    /// <summary>
+    /// Returns true only if the student is on a Masters programme AND has
+    /// at least a thesis title set. Both conditions must be met for the
+    /// RESEARCH TITLE / SUPERVISOR rows to appear on the transcript.
+    /// </summary>
+    private bool ShouldShowThesisSection()
+    {
+        // 1) Check programme name — only Masters students
+        string prog = "";
+        try
+        {
+            object val = GetCurrentColumnValue("prog");
+            if (val != null && val != System.DBNull.Value)
+                prog = val.ToString().Trim().ToUpper();
+        }
+        catch { }
+
+        bool isMasters = prog.IndexOf("MASTER", StringComparison.OrdinalIgnoreCase) >= 0;
+        if (!isMasters) return false;
+
+        // 2) Must have a thesis title actually set
+        string title = GetThesisColumnSafe("thesis_title");
+        return !string.IsNullOrEmpty(title);
+    }
+
+    /// <summary>"RESEARCH TITLE" label — hidden for non-masters or if no thesis.</summary>
+    private void lblThesisLabel_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        EnsureThesisData();
+        if (!ShouldShowThesisSection())
+            e.Cancel = true;
+    }
+
+    /// <summary>Research title value — hidden for non-masters or if no thesis.</summary>
+    private void lblThesisValue_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        if (!ShouldShowThesisSection())
+        {
+            e.Cancel = true;
+        }
+        else
+        {
+            (sender as XRLabel).Text = ": " + GetThesisColumnSafe("thesis_title");
+        }
+    }
+
+    /// <summary>"SUPERVISOR" label — hidden for non-masters or if no thesis/supervisor.</summary>
+    private void lblSupervisorLabel_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        string supervisor = GetThesisColumnSafe("supervisor_name");
+        if (!ShouldShowThesisSection() || string.IsNullOrEmpty(supervisor))
+            e.Cancel = true;
+    }
+
+    /// <summary>Supervisor name value — hidden for non-masters or if no thesis/supervisor.</summary>
+    private void lblSupervisorValue_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        string supervisor = GetThesisColumnSafe("supervisor_name");
+        if (!ShouldShowThesisSection() || string.IsNullOrEmpty(supervisor))
+        {
+            e.Cancel = true;
+        }
+        else
+        {
+            (sender as XRLabel).Text = ": " + supervisor;
+        }
+    }
+
+    // ── Dynamic header height: collapse thesis rows for non-graduate students ──
+    private const float HEADER_HEIGHT_WITH_THESIS = 316.2F;
+    private const float HEADER_HEIGHT_NO_THESIS = 290.7F;
+    private const float SHIFT_AMOUNT = 25.5F;
+
+    private void GroupHeader1_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        EnsureThesisData();
+        bool hasThesis = ShouldShowThesisSection();
+
+        if (hasThesis)
+        {
+            // Expanded layout — thesis rows visible
+            GroupHeader1.HeightF = HEADER_HEIGHT_WITH_THESIS;
+            xrLabel29.LocationFloat = new DevExpress.Utils.PointFloat(671.8702F, 276.36F);
+            xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3.803968F, 290.54F);
+            xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(392.8836F, 290.06F);
+            xrCrossBandBox1.LocationFloat = new DevExpress.Utils.PointFloat(0.6666629F, 288.67F);
+            xrCrossBandBox1.StartPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 288.67F);
+            xrCrossBandBox1.EndPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 314.81F);
+        }
+        else
+        {
+            // Collapsed layout — no thesis, move everything back up
+            GroupHeader1.HeightF = HEADER_HEIGHT_NO_THESIS;
+            xrLabel29.LocationFloat = new DevExpress.Utils.PointFloat(671.8702F, 250.8619F);
+            xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3.803968F, 265.036F);
+            xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(392.8836F, 264.5572F);
+            xrCrossBandBox1.LocationFloat = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);
+            xrCrossBandBox1.StartPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);
+            xrCrossBandBox1.EndPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 289.3122F);
+        }
+    }
 }

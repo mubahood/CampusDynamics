@@ -100,7 +100,10 @@
                       </Image>
                   </dx:MenuItem>
                   <dx:MenuItem Text="Documents Centre">
-                     
+                      <Items>
+                          <dx:MenuItem Text="Masters Certificate Mgmt" NavigateUrl="~/COOPERP/NewScreens/GraduateStudents.aspx">
+                          </dx:MenuItem>
+                      </Items>
                       <Image Url="~/COOPERP/images/reports-stack.png">
                       </Image>
                      

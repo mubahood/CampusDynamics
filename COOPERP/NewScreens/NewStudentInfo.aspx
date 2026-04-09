@@ -822,6 +822,151 @@
             opacity: 0.4;
         }
         
+        /* Thesis & Supervisor Tab Styles */
+        .sp-thesis-form {
+            padding: 12px;
+        }
+        .sp-thesis-status-bar {
+            display: flex;
+            gap: 10px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid #dee2e6;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .sp-thesis-status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .sp-thesis-status-badge--progress {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .sp-thesis-status-badge--completed {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .sp-thesis-status-badge--none {
+            background: #f8f9fa;
+            color: #6c757d;
+            border: 1px solid #dee2e6;
+        }
+        .sp-thesis-field {
+            margin-bottom: 14px;
+        }
+        .sp-thesis-field label {
+            display: block;
+            font-size: 10px;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            letter-spacing: 0.3px;
+        }
+        .sp-thesis-field textarea,
+        .sp-thesis-field select,
+        .sp-thesis-field input[type="text"] {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        .sp-thesis-field textarea:focus,
+        .sp-thesis-field select:focus,
+        .sp-thesis-field input[type="text"]:focus {
+            border-color: #174DA4;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(23, 77, 164, 0.1);
+        }
+        .sp-thesis-field textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .sp-thesis-supervisor-info {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+            font-size: 10px;
+            color: #666;
+        }
+        .sp-thesis-supervisor-info span {
+            padding: 2px 8px;
+            background: #f0f0f0;
+            border-radius: 3px;
+        }
+        .sp-thesis-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
+        }
+        .sp-thesis-btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sp-thesis-btn--save {
+            background: #174DA4;
+            color: #fff;
+        }
+        .sp-thesis-btn--save:hover {
+            background: #12397a;
+        }
+        .sp-thesis-msg {
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+        .sp-thesis-msg--success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .sp-thesis-msg--error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .sp-thesis-current {
+            padding: 10px 12px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            margin-bottom: 14px;
+        }
+        .sp-thesis-current__label {
+            font-size: 9px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        .sp-thesis-current__value {
+            font-size: 12px;
+            color: #333;
+            font-weight: 500;
+        }
+        .sp-thesis-current__value--empty {
+            font-style: italic;
+            color: #aaa;
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
             .sp-profile-header {
@@ -1890,6 +2035,75 @@
                                             <asp:Panel ID="pnlNoFees" runat="server" Visible="false" CssClass="sp-empty">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                                                 <div>No fees ledger records found</div>
+                                            </asp:Panel>
+                                        </div>
+                                    </dx:ContentControl>
+                                </ContentCollection>
+                            </dx:TabPage>
+                            
+                            <dx:TabPage Text="Thesis &amp; Supervisor">
+                                <ContentCollection>
+                                    <dx:ContentControl runat="server">
+                                        <div class="sp-tab-content">
+                                            <!-- Status Bar -->
+                                            <div class="sp-thesis-status-bar">
+                                                <span style="font-size:10px;font-weight:600;color:#555;">RESEARCH STATUS:</span>
+                                                <asp:Literal ID="litThesisStatusBadge" runat="server" />
+                                                <span style="margin-left:auto;font-size:10px;color:#888;">
+                                                    Supervisor: <asp:Literal ID="litCurrentSupervisorName" runat="server" Text="Not Assigned" />
+                                                </span>
+                                            </div>
+                                            
+                                            <div class="sp-thesis-form">
+                                                <!-- Current Thesis Display -->
+                                                <div class="sp-thesis-current">
+                                                    <div class="sp-thesis-current__label">Current Thesis Title</div>
+                                                    <div>
+                                                        <asp:Literal ID="litCurrentThesisTitle" runat="server" />
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Edit Form -->
+                                                <div class="sp-thesis-field">
+                                                    <label>Thesis / Dissertation Title</label>
+                                                    <asp:TextBox ID="txtThesisTitleEdit" runat="server" TextMode="MultiLine" 
+                                                        Rows="3" CssClass="sp-thesis-field-input"
+                                                        placeholder="Enter the thesis or dissertation title..." />
+                                                </div>
+                                                
+                                                <div class="sp-thesis-field">
+                                                    <label>Supervisor</label>
+                                                    <asp:TextBox ID="txtSupervisorEdit" runat="server" 
+                                                        placeholder="Enter supervisor name..." />
+                                                </div>
+                                                
+                                                <div class="sp-thesis-field">
+                                                    <label>Research Status</label>
+                                                    <asp:DropDownList ID="ddlResearchStatus" runat="server">
+                                                        <asp:ListItem Text="-- Select Status --" Value="" />
+                                                        <asp:ListItem Text="In Progress" Value="In Progress" />
+                                                        <asp:ListItem Text="Completed" Value="Completed" />
+                                                        <asp:ListItem Text="Submitted" Value="Submitted" />
+                                                        <asp:ListItem Text="Defended" Value="Defended" />
+                                                        <asp:ListItem Text="Revisions Required" Value="Revisions Required" />
+                                                    </asp:DropDownList>
+                                                </div>
+                                                
+                                                <div class="sp-thesis-actions">
+                                                    <asp:Button ID="btnSaveThesis" runat="server" Text="Save Thesis Info" 
+                                                        CssClass="sp-thesis-btn sp-thesis-btn--save" 
+                                                        OnClick="btnSaveThesis_Click" />
+                                                </div>
+                                                
+                                                <asp:Panel ID="pnlThesisMessage" runat="server" Visible="false">
+                                                    <asp:Literal ID="litThesisMessage" runat="server" />
+                                                </asp:Panel>
+                                            </div>
+                                            
+                                            <!-- No thesis record state -->
+                                            <asp:Panel ID="pnlNoThesis" runat="server" Visible="false" CssClass="sp-empty">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                                                <div>No thesis/research record found for this student.<br/>Use the form above to add thesis information.</div>
                                             </asp:Panel>
                                         </div>
                                     </dx:ContentControl>

@@ -9,6 +9,13 @@ using MySql.Data.MySqlClient;
 
 public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
 {
+    // ── Static lookup cache (shared across requests, 5-minute TTL) ────────
+    private static List<string[]> _cachedProgrammes;
+    private static List<string> _cachedEntryYears;
+    private static List<string> _cachedAcadYears;
+    private static DateTime _lookupExpiry = DateTime.MinValue;
+    private static readonly object _lookupLock = new object();
+
     private string AcctConnStr
     {
         get { return WebConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString; }
@@ -125,38 +132,69 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         ddlPageSize.Items.Add(new ListItem("100", "100"));
         ddlPageSize.Items.Add(new ListItem("200", "200"));
 
-        using (MySqlConnection conn = new MySqlConnection(MainConnStr))
+        // Use static cache for DB-driven lookups (5-minute TTL)
+        bool needRefresh;
+        lock (_lookupLock)
         {
-            conn.Open();
+            needRefresh = _cachedProgrammes == null || DateTime.UtcNow > _lookupExpiry;
+        }
 
-            using (MySqlCommand cmd = new MySqlCommand("SELECT progcode, progname FROM acad_programme ORDER BY progname", conn))
-            using (MySqlDataReader rdr = cmd.ExecuteReader())
+        if (needRefresh)
+        {
+            List<string[]> progs = new List<string[]>();
+            List<string> entryYears = new List<string>();
+            List<string> acadYears = new List<string>();
+
+            using (MySqlConnection conn = new MySqlConnection(MainConnStr))
             {
-                while (rdr.Read())
+                conn.Open();
+
+                using (MySqlCommand cmd = new MySqlCommand("SELECT progcode, progname FROM acad_programme ORDER BY progname", conn))
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
                 {
-                    ddlProgramme.Items.Add(new ListItem(rdr["progname"].ToString(), rdr["progcode"].ToString()));
+                    while (rdr.Read())
+                    {
+                        progs.Add(new string[] { rdr["progcode"].ToString(), rdr["progname"].ToString() });
+                    }
+                }
+
+                using (MySqlCommand cmd = new MySqlCommand("SELECT DISTINCT TRIM(entryyear) AS entryyear FROM acad_student WHERE entryyear IS NOT NULL AND TRIM(entryyear) <> '' ORDER BY entryyear DESC", conn))
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        entryYears.Add(rdr["entryyear"].ToString());
+                    }
+                }
+
+                using (MySqlCommand cmd = new MySqlCommand("SELECT DISTINCT acad_year FROM acad_registration WHERE acad_year IS NOT NULL AND acad_year <> '' ORDER BY acad_year DESC", conn))
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        acadYears.Add(rdr["acad_year"].ToString());
+                    }
                 }
             }
 
-            using (MySqlCommand cmd = new MySqlCommand("SELECT DISTINCT TRIM(entryyear) AS entryyear FROM acad_student WHERE entryyear IS NOT NULL AND TRIM(entryyear) <> '' ORDER BY entryyear DESC", conn))
-            using (MySqlDataReader rdr = cmd.ExecuteReader())
+            lock (_lookupLock)
             {
-                while (rdr.Read())
-                {
-                    string y = rdr["entryyear"].ToString();
-                    ddlEntryYear.Items.Add(new ListItem(y, y));
-                }
+                _cachedProgrammes = progs;
+                _cachedEntryYears = entryYears;
+                _cachedAcadYears = acadYears;
+                _lookupExpiry = DateTime.UtcNow.AddMinutes(5);
             }
+        }
 
-            using (MySqlCommand cmd = new MySqlCommand("SELECT DISTINCT acad_year FROM acad_registration WHERE acad_year IS NOT NULL AND acad_year <> '' ORDER BY acad_year DESC", conn))
-            using (MySqlDataReader rdr = cmd.ExecuteReader())
-            {
-                while (rdr.Read())
-                {
-                    string y = rdr["acad_year"].ToString();
-                    ddlAcadYear.Items.Add(new ListItem(y, y));
-                }
-            }
+        // Populate dropdowns from cache
+        lock (_lookupLock)
+        {
+            foreach (string[] p in _cachedProgrammes)
+                ddlProgramme.Items.Add(new ListItem(p[1], p[0]));
+            foreach (string y in _cachedEntryYears)
+                ddlEntryYear.Items.Add(new ListItem(y, y));
+            foreach (string y in _cachedAcadYears)
+                ddlAcadYear.Items.Add(new ListItem(y, y));
         }
     }
 
@@ -180,6 +218,10 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         chk.Checked = !string.IsNullOrEmpty(posted) && (posted == "on" || posted == "true");
     }
 
+    // ── Performance-critical base query ───────────────────────────────────
+    // Previous version used UNION ALL + NOT EXISTS anti-join across fin_ledger
+    // and fin_studentfeestracking (O(n×m) complexity) and MAX(CONCAT(LPAD(...)))
+    // for latest registration. Both have been replaced with much faster alternatives.
     private string BuildBaseSql()
     {
         return @"
@@ -203,59 +245,21 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
                 SELECT r.regno, r.acad_year, r.semester, r.studyyear
                 FROM campus_dynamics.acad_registration r
                 INNER JOIN (
-                    SELECT regno,
-                           MAX(CONCAT(
-                               LPAD(COALESCE(CAST(SUBSTRING(acad_year,1,4) AS UNSIGNED),0),4,'0'),
-                               LPAD(COALESCE(semester,0),2,'0'),
-                               LPAD(COALESCE(studyyear,0),2,'0'),
-                               LPAD(COALESCE(ID,0),10,'0')
-                           )) AS max_key
+                    SELECT regno, MAX(ID) AS max_id
                     FROM campus_dynamics.acad_registration
                     GROUP BY regno
-                ) m ON m.regno = r.regno
-                    AND CONCAT(
-                        LPAD(COALESCE(CAST(SUBSTRING(r.acad_year,1,4) AS UNSIGNED),0),4,'0'),
-                        LPAD(COALESCE(r.semester,0),2,'0'),
-                        LPAD(COALESCE(r.studyyear,0),2,'0'),
-                        LPAD(COALESCE(r.ID,0),10,'0')
-                    ) = m.max_key
+                ) m ON m.regno = r.regno AND r.ID = m.max_id
             ) lr ON lr.regno = s.regno
             LEFT JOIN (
                 SELECT 
-                    z.regno,
-                    SUM(z.dr_amount) AS total_billed,
-                    SUM(z.cr_amount) AS total_paid,
+                    fl.accountcode AS regno,
+                    SUM(CASE WHEN fl.transactionType='DR' THEN fl.transaction_amount ELSE 0 END) AS total_billed,
+                    SUM(CASE WHEN fl.transactionType='CR' THEN fl.transaction_amount ELSE 0 END) AS total_paid,
                     COUNT(*) AS tx_count
-                FROM (
-                    SELECT
-                        fl.accountcode AS regno,
-                        CASE WHEN fl.transactionType='DR' THEN fl.transaction_amount ELSE 0 END AS dr_amount,
-                        CASE WHEN fl.transactionType='CR' THEN fl.transaction_amount ELSE 0 END AS cr_amount
-                    FROM campus_dynamics_accounts.fin_ledger fl
-                    WHERE fl.transaction_amount > 0
-                    UNION ALL
-                    SELECT
-                        t.regno,
-                        CASE WHEN t.trans_type='Bill' THEN t.amount ELSE 0 END AS dr_amount,
-                        CASE WHEN t.trans_type='Payment' THEN t.amount ELSE 0 END AS cr_amount
-                    FROM campus_dynamics_accounts.fin_studentfeestracking t
-                    WHERE t.post_status='Posted'
-                      AND NOT EXISTS (
-                        SELECT 1 FROM campus_dynamics_accounts.fin_ledger fl2
-                        WHERE fl2.accountcode = t.regno
-                          AND (
-                            fl2.voucherNo = CAST(t.TID AS CHAR)
-                            OR fl2.folio = CONCAT('BillNo:', CAST(t.TID AS CHAR))
-                            OR (
-                                fl2.transaction_amount = t.amount
-                                AND DATE(fl2.transactionDate) = DATE(t.trans_date)
-                                AND fl2.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END
-                                AND (fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '')
-                            )
-                          )
-                      )
-                ) z
-                GROUP BY z.regno
+                FROM campus_dynamics_accounts.fin_ledger fl
+                WHERE fl.account_type = 'Student'
+                  AND fl.transaction_amount > 0
+                GROUP BY fl.accountcode
             ) ft ON ft.regno = s.regno
             WHERE UPPER(COALESCE(s.new_status,'')) = 'ACTIVE'";
     }
@@ -338,32 +342,38 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         return where.ToString();
     }
 
-    private string ResolveSortSql()
+    /// <summary>Returns the bare column name for the current sort field.</summary>
+    private string ResolveSortColumn()
     {
         string field = (hfSortField.Value ?? "").Trim().ToLower();
-        string dir = (hfSortDir.Value ?? "DESC").Trim().ToUpper() == "ASC" ? "ASC" : "DESC";
-
-        string sqlField;
         switch (field)
         {
-            case "student_name": sqlField = "x.student_name"; break;
-            case "regno": sqlField = "x.regno"; break;
-            case "programme": sqlField = "x.progid"; break;
-            case "entry_year": sqlField = "x.entry_year"; break;
-            case "current_year": sqlField = "x.current_study_year"; break;
-            case "current_sem": sqlField = "x.current_semester"; break;
-            case "billed": sqlField = "x.total_billed"; break;
-            case "paid": sqlField = "x.total_paid"; break;
-            case "balance": sqlField = "x.total_balance"; break;
+            case "student_name": return "student_name";
+            case "regno": return "regno";
+            case "programme": return "progid";
+            case "entry_year": return "entry_year";
+            case "current_year": return "current_study_year";
+            case "current_sem": return "current_semester";
+            case "billed": return "total_billed";
+            case "paid": return "total_paid";
+            case "balance": return "total_balance";
             default:
                 hfSortField.Value = "balance";
                 hfSortDir.Value = "DESC";
-                sqlField = "x.total_balance";
-                dir = "DESC";
-                break;
+                return "total_balance";
         }
+    }
 
-        return sqlField + " " + dir + ", x.student_name ASC";
+    /// <summary>Returns "ASC" or "DESC" for the current sort direction.</summary>
+    private string ResolveSortDir()
+    {
+        return (hfSortDir.Value ?? "DESC").Trim().ToUpper() == "ASC" ? "ASC" : "DESC";
+    }
+
+    /// <summary>Returns sort SQL with x. prefix for use in subquery-wrapped contexts.</summary>
+    private string ResolveSortSql()
+    {
+        return "x." + ResolveSortColumn() + " " + ResolveSortDir() + ", x.student_name ASC";
     }
 
     private int ParsePageSize()
@@ -392,12 +402,15 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         }
     }
 
+    // ── Temp-table approach: execute the heavy base query ONCE, then read
+    //    count/stats/paginated-data from the lightweight temp table. ────────
     private void LoadLedgers()
     {
         string baseSql = BuildBaseSql();
         List<MySqlParameter> filterParams = new List<MySqlParameter>();
         string where = BuildWhereClause(filterParams);
-        string sortSql = ResolveSortSql();
+        string sortCol = ResolveSortColumn();
+        string sortDir = ResolveSortDir();
 
         int pageSize = ParsePageSize();
         int pageIndex = ParsePageIndex();
@@ -413,28 +426,36 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         {
             conn.Open();
 
-            string countSql = "SELECT COUNT(*) FROM (" + baseSql + ") x " + where;
-            using (MySqlCommand cmd = new MySqlCommand(countSql, conn))
+            // Clean up any leftover temp table from a prior pooled-connection reuse
+            using (MySqlCommand cmd = new MySqlCommand("DROP TEMPORARY TABLE IF EXISTS _sl_page", conn))
             {
-                AddParams(cmd, filterParams);
-                object v = cmd.ExecuteScalar();
-                totalRows = v != null && v != DBNull.Value ? Convert.ToInt64(v) : 0;
+                cmd.CommandTimeout = 10;
+                cmd.ExecuteNonQuery();
             }
 
-            int totalPages = totalRows > 0 ? (int)Math.Ceiling((double)totalRows / pageSize) : 1;
-            if (pageIndex >= totalPages) pageIndex = totalPages - 1;
-            if (pageIndex < 0) pageIndex = 0;
-            hfPageIndex.Value = pageIndex.ToString();
-
-            string statsSql = "SELECT COUNT(*) AS c, COALESCE(SUM(x.total_billed),0) AS b, COALESCE(SUM(x.total_paid),0) AS p, COALESCE(SUM(x.total_balance),0) AS bal FROM (" + baseSql + ") x " + where;
-            using (MySqlCommand cmd = new MySqlCommand(statsSql, conn))
+            // 1. Execute the expensive base query ONCE into a session temp table
+            string createSql = String.Format(
+                "CREATE TEMPORARY TABLE _sl_page ENGINE=MEMORY AS SELECT * FROM ({0}) x {1}",
+                baseSql, where);
+            using (MySqlCommand cmd = new MySqlCommand(createSql, conn))
             {
+                cmd.CommandTimeout = 120;
                 AddParams(cmd, filterParams);
+                cmd.ExecuteNonQuery();
+            }
+
+            // 2. Count + aggregated stats from temp table (instant — small row set)
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT COUNT(*) AS c, COALESCE(SUM(total_billed),0) AS b, " +
+                "COALESCE(SUM(total_paid),0) AS p, COALESCE(SUM(total_balance),0) AS bal " +
+                "FROM _sl_page", conn))
+            {
+                cmd.CommandTimeout = 10;
                 using (MySqlDataReader rdr = cmd.ExecuteReader())
                 {
                     if (rdr.Read())
                     {
-                        litStatStudents.Text = (rdr["c"] != DBNull.Value ? Convert.ToInt64(rdr["c"]) : 0).ToString("N0");
+                        totalRows = rdr["c"] != DBNull.Value ? Convert.ToInt64(rdr["c"]) : 0;
                         statBilled = rdr["b"] != DBNull.Value ? Convert.ToDecimal(rdr["b"]) : 0;
                         statPaid = rdr["p"] != DBNull.Value ? Convert.ToDecimal(rdr["p"]) : 0;
                         statBalance = rdr["bal"] != DBNull.Value ? Convert.ToDecimal(rdr["bal"]) : 0;
@@ -442,14 +463,23 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
                 }
             }
 
+            int totalPages = totalRows > 0 ? (int)Math.Ceiling((double)totalRows / pageSize) : 1;
+            if (pageIndex >= totalPages) pageIndex = totalPages - 1;
+            if (pageIndex < 0) pageIndex = 0;
+            hfPageIndex.Value = pageIndex.ToString();
+
+            litStatStudents.Text = totalRows.ToString("N0");
             litStatBilled.Text = FormatMoney(statBilled);
             litStatPaid.Text = FormatMoney(statPaid);
             litStatBalance.Text = FormatMoney(statBalance);
 
-            string dataSql = "SELECT * FROM (" + baseSql + ") x " + where + " ORDER BY " + sortSql + " LIMIT @offset, @ps";
+            // 3. Paginated data from temp table (instant)
+            string dataSql = String.Format(
+                "SELECT * FROM _sl_page ORDER BY {0} {1}, student_name ASC LIMIT @offset, @ps",
+                sortCol, sortDir);
             using (MySqlCommand cmd = new MySqlCommand(dataSql, conn))
             {
-                AddParams(cmd, filterParams);
+                cmd.CommandTimeout = 10;
                 cmd.Parameters.AddWithValue("@offset", pageIndex * pageSize);
                 cmd.Parameters.AddWithValue("@ps", pageSize);
                 using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
@@ -458,13 +488,19 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
                 }
             }
 
+            // 4. Clean up temp table
+            using (MySqlCommand cmd = new MySqlCommand("DROP TEMPORARY TABLE IF EXISTS _sl_page", conn))
+            {
+                cmd.ExecuteNonQuery();
+            }
+
             rptLedgers.DataSource = dt;
             rptLedgers.DataBind();
             pnlEmpty.Visible = dt.Rows.Count == 0;
 
             long from = totalRows == 0 ? 0 : (pageIndex * pageSize) + 1;
             long to = Math.Min(totalRows, (pageIndex + 1) * pageSize);
-            litRecordInfo.Text = string.Format("Showing {0:N0} - {1:N0} of {2:N0} active students", from, to, totalRows);
+            litRecordInfo.Text = String.Format("Showing {0:N0} - {1:N0} of {2:N0} active students", from, to, totalRows);
 
             litPager.Text = BuildPagerHtml(pageIndex, pageSize, totalRows);
         }
@@ -544,9 +580,12 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         string baseSql = BuildBaseSql();
         List<MySqlParameter> filterParams = new List<MySqlParameter>();
         string where = BuildWhereClause(filterParams);
-        string sortSql = ResolveSortSql();
+        string sortCol = ResolveSortColumn();
+        string sortDir = ResolveSortDir();
 
-        string sql = "SELECT * FROM (" + baseSql + ") x " + where + " ORDER BY " + sortSql;
+        string sql = String.Format(
+            "SELECT * FROM ({0}) x {1} ORDER BY x.{2} {3}, x.student_name ASC",
+            baseSql, where, sortCol, sortDir);
 
         DataTable dt = new DataTable();
         using (MySqlConnection conn = new MySqlConnection(MainConnStr))
@@ -554,6 +593,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
             conn.Open();
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
+                cmd.CommandTimeout = 180;
                 AddParams(cmd, filterParams);
                 using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
                 {

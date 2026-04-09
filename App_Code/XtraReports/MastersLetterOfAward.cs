@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Collections.Generic;
 using System.ComponentModel;
 using DevExpress.XtraReports.UI;
 using System.Globalization;
@@ -32,6 +33,10 @@ public class MastersLetterOfAward : DevExpress.XtraReports.UI.XtraReport
     private XRLabel lblName;
     private XRLabel lblRegComp;
     private XRLabel lblDegree;
+    private XRLabel lblThesisHeader;
+    private XRLabel lblThesisTitle;
+    private XRLabel lblSupervisorHeader;
+    private XRLabel lblSupervisorName;
     private XRLabel lblSenate;
     private XRLabel lblGraduation;
     private XRBarCode qrcode;
@@ -75,6 +80,10 @@ public class MastersLetterOfAward : DevExpress.XtraReports.UI.XtraReport
         this.lblName       = new XRLabel();
         this.lblRegComp    = new XRLabel();
         this.lblDegree     = new XRLabel();
+        this.lblThesisHeader    = new XRLabel();
+        this.lblThesisTitle     = new XRLabel();
+        this.lblSupervisorHeader = new XRLabel();
+        this.lblSupervisorName   = new XRLabel();
         this.lblSenate     = new XRLabel();
         this.lblGraduation = new XRLabel();
         this.qrcode        = new XRBarCode();
@@ -287,6 +296,60 @@ public class MastersLetterOfAward : DevExpress.XtraReports.UI.XtraReport
         lblUniversity.Text          = "of  MUTESA I ROYAL UNIVERSITY.";
         y += 38F;
 
+        // ── Thesis / Dissertation Title (Masters-specific) ───────────────
+
+        this.lblThesisHeader.Dpi           = 254F;
+        this.lblThesisHeader.Font          = new Font("Georgia", 10F, FontStyle.Italic);
+        this.lblThesisHeader.ForeColor     = muted;
+        this.lblThesisHeader.LocationFloat = new DevExpress.Utils.PointFloat(L, y);
+        this.lblThesisHeader.SizeF         = new System.Drawing.SizeF(W, 26F);
+        this.lblThesisHeader.StylePriority.UseFont      = false;
+        this.lblThesisHeader.StylePriority.UseForeColor = false;
+        this.lblThesisHeader.Text          = "Thesis / Dissertation Title:";
+        this.lblThesisHeader.Name          = "lblThesisHeader";
+        this.lblThesisHeader.BeforePrint  += new System.Drawing.Printing.PrintEventHandler(this.lblThesisHeader_BeforePrint);
+        y += 28F;
+
+        this.lblThesisTitle.Dpi           = 254F;
+        this.lblThesisTitle.Font          = new Font("Times New Roman", 11F, FontStyle.Bold | FontStyle.Italic);
+        this.lblThesisTitle.ForeColor     = navy;
+        this.lblThesisTitle.LocationFloat = new DevExpress.Utils.PointFloat(L + 20F, y);
+        this.lblThesisTitle.SizeF         = new System.Drawing.SizeF(W - 40F, 68F);
+        this.lblThesisTitle.StylePriority.UseFont          = false;
+        this.lblThesisTitle.StylePriority.UseForeColor     = false;
+        this.lblThesisTitle.StylePriority.UseTextAlignment = false;
+        this.lblThesisTitle.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopLeft;
+        this.lblThesisTitle.WordWrap      = true;
+        this.lblThesisTitle.Name          = "lblThesisTitle";
+        this.lblThesisTitle.BeforePrint  += new System.Drawing.Printing.PrintEventHandler(this.lblThesisTitle_BeforePrint);
+        y += 72F;
+
+        // ── Supervisor ───────────────────────────────────────────────────
+
+        this.lblSupervisorHeader.Dpi           = 254F;
+        this.lblSupervisorHeader.Font          = new Font("Georgia", 10F, FontStyle.Italic);
+        this.lblSupervisorHeader.ForeColor     = muted;
+        this.lblSupervisorHeader.LocationFloat = new DevExpress.Utils.PointFloat(L, y);
+        this.lblSupervisorHeader.SizeF         = new System.Drawing.SizeF(350F, 26F);
+        this.lblSupervisorHeader.StylePriority.UseFont      = false;
+        this.lblSupervisorHeader.StylePriority.UseForeColor = false;
+        this.lblSupervisorHeader.Text          = "Supervisor:";
+        this.lblSupervisorHeader.Name          = "lblSupervisorHeader";
+        this.lblSupervisorHeader.BeforePrint  += new System.Drawing.Printing.PrintEventHandler(this.lblSupervisorHeader_BeforePrint);
+
+        this.lblSupervisorName.Dpi           = 254F;
+        this.lblSupervisorName.Font          = new Font("Times New Roman", 11F, FontStyle.Bold);
+        this.lblSupervisorName.ForeColor     = navy;
+        this.lblSupervisorName.LocationFloat = new DevExpress.Utils.PointFloat(L + 360F, y);
+        this.lblSupervisorName.SizeF         = new System.Drawing.SizeF(W - 360F, 26F);
+        this.lblSupervisorName.StylePriority.UseFont          = false;
+        this.lblSupervisorName.StylePriority.UseForeColor     = false;
+        this.lblSupervisorName.StylePriority.UseTextAlignment = false;
+        this.lblSupervisorName.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopLeft;
+        this.lblSupervisorName.Name          = "lblSupervisorName";
+        this.lblSupervisorName.BeforePrint  += new System.Drawing.Printing.PrintEventHandler(this.lblSupervisorName_BeforePrint);
+        y += 32F;
+
         // Thin section divider
         XRLine divSections = new XRLine();
         divSections.Dpi           = 254F;
@@ -426,6 +489,8 @@ public class MastersLetterOfAward : DevExpress.XtraReports.UI.XtraReport
             this.lblSubject, divSubject, lblGreeting,
             this.lblName, this.lblRegComp,
             this.lblDegree, lblUniversity,
+            this.lblThesisHeader, this.lblThesisTitle,
+            this.lblSupervisorHeader, this.lblSupervisorName,
             divSections, this.lblSenate, this.lblGraduation, lblClosing,
             lblSigHeader, lblSigArea, lblSeal,
             divQr, this.qrcode, lblVerify
@@ -565,5 +630,84 @@ public class MastersLetterOfAward : DevExpress.XtraReports.UI.XtraReport
         try { val = GetCurrentColumnValue("regno"); } catch { }
         string reg = (val != null && val != DBNull.Value) ? val.ToString().Trim() : "";
         (sender as XRBarCode).Text = "https://eadmin.mru.ac.ug/Verify.aspx?reg_no=" + reg;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Thesis / Supervisor BeforePrint handlers
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Ensures thesis/supervisor data is available in the dataset.
+    /// Called once to enrich the data before thesis-specific labels render.
+    /// </summary>
+    private bool _thesisDataEnriched = false;
+    private void EnsureThesisData()
+    {
+        if (_thesisDataEnriched) return;
+        _thesisDataEnriched = true;
+        try
+        {
+            GraduateHelper.EnrichTranscriptDataBatch(this.resultsData1);
+        }
+        catch { }
+    }
+
+    /// <summary>Thesis header label — hidden when no thesis title exists.</summary>
+    private void lblThesisHeader_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        EnsureThesisData();
+        string title = GetThesisColumnSafe("thesis_title");
+        if (string.IsNullOrEmpty(title))
+            e.Cancel = true; // Hide the header if no thesis
+    }
+
+    /// <summary>Thesis title: from thesis_title column in dataset.</summary>
+    private void lblThesisTitle_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        string title = GetThesisColumnSafe("thesis_title");
+        if (string.IsNullOrEmpty(title))
+        {
+            e.Cancel = true; // Hide if no thesis title
+        }
+        else
+        {
+            (sender as XRLabel).Text = "\"" + title + "\"";
+        }
+    }
+
+    /// <summary>Supervisor header — hidden when no supervisor is assigned.</summary>
+    private void lblSupervisorHeader_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        string supervisor = GetThesisColumnSafe("supervisor_name");
+        if (string.IsNullOrEmpty(supervisor))
+            e.Cancel = true;
+    }
+
+    /// <summary>Supervisor name: from supervisor_name column in dataset.</summary>
+    private void lblSupervisorName_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        string supervisor = GetThesisColumnSafe("supervisor_name");
+        if (string.IsNullOrEmpty(supervisor))
+        {
+            e.Cancel = true;
+        }
+        else
+        {
+            (sender as XRLabel).Text = supervisor;
+        }
+    }
+
+    /// <summary>Safely reads a thesis/supervisor column — returns "" if column does not exist.</summary>
+    private string GetThesisColumnSafe(string columnName)
+    {
+        try
+        {
+            object val = GetCurrentColumnValue(columnName);
+            return (val != null && val != DBNull.Value) ? val.ToString().Trim() : "";
+        }
+        catch
+        {
+            return "";
+        }
     }
 }

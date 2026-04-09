@@ -7,6 +7,9 @@ using MySql.Data.MySqlClient;
 /// Helper class to ensure certificate/transcript data is populated correctly.
 /// Provides a fallback mechanism when the stored procedure returns incomplete data
 /// (0 rows due to JOIN failures, or rows with NULL student names).
+///
+/// Also enriches data with thesis_title and supervisor_name from
+/// acad_graduate_research / acad_superviors for Masters reports.
 /// </summary>
 public static class CertificateDataHelper
 {
@@ -14,12 +17,19 @@ public static class CertificateDataHelper
     /// Ensures certificate/transcript data is populated for a single student.
     /// If the stored procedure returned 0 rows or returned rows with missing studnm,
     /// this method fills in the data from acad_graduands and acad_student directly.
+    /// Also injects thesis_title and supervisor_name for Masters reports.
     /// </summary>
     public static void EnsureSingleStudentData(ResultsData DS, string regno)
     {
         try
         {
             DataTable dt = DS.acad_GetBatchStudentTranscriptData;
+
+            // Ensure thesis/supervisor columns exist (needed for Masters reports)
+            if (!dt.Columns.Contains("thesis_title"))
+                dt.Columns.Add("thesis_title", typeof(string));
+            if (!dt.Columns.Contains("supervisor_name"))
+                dt.Columns.Add("supervisor_name", typeof(string));
 
             // Case 1: SP returned 0 rows — need to build a row from scratch
             if (dt.Rows.Count == 0)
@@ -44,9 +54,13 @@ public static class CertificateDataHelper
                         g.grad_date,
                         g.comp_date,
                         IFNULL(DATE_FORMAT(g.comp_date, '%D %M, %Y'), '') AS formated_comp_date,
-                        IFNULL(g.convocation, '') AS convocation
+                        IFNULL(g.convocation, '') AS convocation,
+                        IFNULL(gr.res_topic, '') AS thesis_title,
+                        IFNULL(sv.supervior_name, '') AS supervisor_name
                         FROM acad_graduands g
                         LEFT JOIN acad_student s ON TRIM(s.regno) = TRIM(g.regno)
+                        LEFT JOIN acad_graduate_research gr ON TRIM(gr.regno) = TRIM(g.regno)
+                        LEFT JOIN acad_superviors sv ON sv.Id = gr.supervior_id
                         WHERE TRIM(g.regno) = @reg
                         LIMIT 1";
 
@@ -72,6 +86,8 @@ public static class CertificateDataHelper
                                 row["formated_grad_date"] = reader["formated_grad_date"];
                                 row["formated_comp_date"] = reader["formated_comp_date"];
                                 row["convocation"] = reader["convocation"];
+                                row["thesis_title"] = reader["thesis_title"];
+                                row["supervisor_name"] = reader["supervisor_name"];
                                 if (reader["grad_date"] != DBNull.Value)
                                     row["grad_date"] = reader["grad_date"];
                                 if (reader["comp_date"] != DBNull.Value)
@@ -110,6 +126,9 @@ public static class CertificateDataHelper
                         }
                     }
                 }
+
+                // Enrich thesis/supervisor data for all rows
+                GraduateHelper.EnrichTranscriptData(DS, regno);
             }
         }
         catch (Exception)

@@ -3500,6 +3500,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             LoadFacultyRegistrations(regno);
             LoadCourseRegistrations(regno);
             LoadFeesLedger(regno);
+            LoadThesisTab(regno);
             
             // Show the popup - set ShowOnPageLoad for postback scenario
             popStudentProfile.ShowOnPageLoad = true;
@@ -4324,6 +4325,145 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             rptFeesLedger.Visible = false;
         }
     }
+    
+    #region Thesis & Supervisor Tab
+    
+    private void LoadThesisTab(string regno)
+    {
+        try
+        {
+            // Get thesis info for this student
+            DataRow thesisRow = GraduateHelper.GetThesisInfo(regno);
+            
+            if (thesisRow != null)
+            {
+                string thesisTitle = thesisRow["thesis_title"] != DBNull.Value 
+                    ? thesisRow["thesis_title"].ToString().Trim() : "";
+                string supervisorName = thesisRow["supervisor_name"] != DBNull.Value 
+                    ? thesisRow["supervisor_name"].ToString().Trim() : "";
+                string resStatus = thesisRow["res_status"] != DBNull.Value 
+                    ? thesisRow["res_status"].ToString().Trim() : "";
+                
+                // Status badge
+                string badgeCss = "sp-thesis-status-badge sp-thesis-status-badge--none";
+                string statusText = "No Status";
+                if (!string.IsNullOrEmpty(resStatus))
+                {
+                    statusText = resStatus;
+                    if (resStatus.Equals("Completed", StringComparison.OrdinalIgnoreCase) 
+                        || resStatus.Equals("Defended", StringComparison.OrdinalIgnoreCase))
+                        badgeCss = "sp-thesis-status-badge sp-thesis-status-badge--completed";
+                    else
+                        badgeCss = "sp-thesis-status-badge sp-thesis-status-badge--progress";
+                }
+                litThesisStatusBadge.Text = String.Format("<span class=\"{0}\">{1}</span>", badgeCss, statusText);
+                
+                // Current supervisor name
+                litCurrentSupervisorName.Text = string.IsNullOrEmpty(supervisorName) ? "Not Assigned" : supervisorName;
+                
+                // Current thesis title display
+                if (!string.IsNullOrEmpty(thesisTitle))
+                {
+                    litCurrentThesisTitle.Text = String.Format(
+                        "<span class=\"sp-thesis-current__value\">{0}</span>",
+                        System.Web.HttpUtility.HtmlEncode(thesisTitle));
+                }
+                else
+                {
+                    litCurrentThesisTitle.Text = 
+                        "<span class=\"sp-thesis-current__value sp-thesis-current__value--empty\">No thesis title set</span>";
+                }
+                
+                // Populate edit fields
+                txtThesisTitleEdit.Text = thesisTitle;
+                txtSupervisorEdit.Text = supervisorName;
+                    
+                // Set research status dropdown
+                ListItem statusItem = ddlResearchStatus.Items.FindByValue(resStatus);
+                if (statusItem != null)
+                    ddlResearchStatus.SelectedValue = resStatus;
+                else
+                    ddlResearchStatus.SelectedIndex = 0;
+                
+                pnlNoThesis.Visible = false;
+            }
+            else
+            {
+                // No record — show empty state, but form is still available
+                litThesisStatusBadge.Text = "<span class=\"sp-thesis-status-badge sp-thesis-status-badge--none\">No Record</span>";
+                litCurrentSupervisorName.Text = "Not Assigned";
+                litCurrentThesisTitle.Text = 
+                    "<span class=\"sp-thesis-current__value sp-thesis-current__value--empty\">No thesis title set</span>";
+                txtThesisTitleEdit.Text = "";
+                txtSupervisorEdit.Text = "";
+                ddlResearchStatus.SelectedIndex = 0;
+                pnlNoThesis.Visible = true;
+            }
+            
+            pnlThesisMessage.Visible = false;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("Error loading thesis tab: " + ex.Message);
+            litThesisStatusBadge.Text = "<span class=\"sp-thesis-status-badge sp-thesis-status-badge--none\">Error</span>";
+            litCurrentSupervisorName.Text = "-";
+            litCurrentThesisTitle.Text = 
+                "<span class=\"sp-thesis-current__value sp-thesis-current__value--empty\">Error loading thesis data</span>";
+        }
+    }
+    
+    protected void btnSaveThesis_Click(object sender, EventArgs e)
+    {
+        string regno = hdnSelectedRegno.Value;
+        if (string.IsNullOrEmpty(regno))
+            return;
+        
+        try
+        {
+            string thesisTitle = txtThesisTitleEdit.Text.Trim();
+            string supervisorName = txtSupervisorEdit.Text.Trim();
+            string resStatus = ddlResearchStatus.SelectedValue;
+            
+            // Save thesis info using GraduateHelper (free-text supervisor)
+            GraduateHelper.SaveThesisInfoText(regno, thesisTitle, supervisorName);
+            
+            // Also update research status if changed
+            if (!string.IsNullOrEmpty(resStatus))
+            {
+                using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+                {
+                    conn.Open();
+                    using (MySqlCommand cmd = new MySqlCommand(
+                        "UPDATE acad_graduate_research SET res_status = @status WHERE TRIM(regno) = @reg", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@status", resStatus);
+                        cmd.Parameters.AddWithValue("@reg", regno.Trim());
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            
+            // Show success message
+            pnlThesisMessage.Visible = true;
+            litThesisMessage.Text = "<div class=\"sp-thesis-msg sp-thesis-msg--success\">Thesis information saved successfully.</div>";
+            
+            // Reload the tab to reflect changes
+            LoadThesisTab(regno);
+            
+            // Keep popup open
+            popStudentProfile.ShowOnPageLoad = true;
+        }
+        catch (Exception ex)
+        {
+            pnlThesisMessage.Visible = true;
+            litThesisMessage.Text = String.Format(
+                "<div class=\"sp-thesis-msg sp-thesis-msg--error\">Error saving thesis info: {0}</div>",
+                System.Web.HttpUtility.HtmlEncode(ex.Message));
+            popStudentProfile.ShowOnPageLoad = true;
+        }
+    }
+    
+    #endregion
     
     private void LoadStudentCurriculum(string regno)
     {

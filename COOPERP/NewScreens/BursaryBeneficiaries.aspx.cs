@@ -19,20 +19,18 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
         get { return WebConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
     }
 
+    private static bool _indexChecked;  // one-time migration flag
+
     protected void Page_Load(object sender, EventArgs e)
     {
-        // AJAX student search
+        // AJAX endpoints
         string ajax = Request.QueryString["ajax"];
-        if (ajax == "search")
-        {
-            HandleStudentSearch();
-            return;
-        }
-        if (ajax == "getreg")
-        {
-            HandleGetRegistration();
-            return;
-        }
+        if (ajax == "search") { HandleStudentSearch(); return; }
+        if (ajax == "getreg") { HandleGetRegistration(); return; }
+        if (ajax == "getschemes") { HandleGetSchemes(); return; }
+        if (ajax == "calcfees") { HandleCalcFees(); return; }
+
+        EnsureFeeTrackingIndex();
 
         txtEditAmount.Attributes["type"] = "number";
         txtEditAmount.Attributes["min"] = "0";
@@ -68,6 +66,47 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
         }
 
         LoadBeneficiaries();
+    }
+
+    // ====================================================================
+    // Auto-migration: fix broken Index_UNQ on fin_studentfeestracking
+    // The original Index_UNQ was on (regno, semester, acadyear) only —
+    // far too restrictive. Bursaries, waivers, and multiple bill items
+    // all share the same student+semester+year. Drop the UNIQUE and
+    // replace with a non-unique performance index.
+    // ====================================================================
+    private void EnsureFeeTrackingIndex()
+    {
+        if (_indexChecked) return;
+        _indexChecked = true;
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                // Check if Index_UNQ exists
+                bool hasUNQ = false;
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SHOW INDEX FROM fin_studentfeestracking WHERE Key_name = 'Index_UNQ'", conn))
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    hasUNQ = rdr.HasRows;
+                }
+                if (hasUNQ)
+                {
+                    // Drop the broken unique index
+                    using (MySqlCommand cmd = new MySqlCommand(
+                        "ALTER TABLE fin_studentfeestracking DROP INDEX Index_UNQ", conn))
+                    { cmd.ExecuteNonQuery(); }
+                    // Add a non-unique performance index in its place
+                    using (MySqlCommand cmd = new MySqlCommand(
+                        @"ALTER TABLE fin_studentfeestracking
+                          ADD INDEX idx_student_sem_year (regno, acadyear, semester, item_code, trans_type)", conn))
+                    { cmd.ExecuteNonQuery(); }
+                }
+            }
+        }
+        catch { /* non-critical migration */ }
     }
 
     // ====================================================================
@@ -119,44 +158,217 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
     {
         Response.ContentType = "application/json";
         string reg = (Request.QueryString["r"] ?? "").Trim();
-        if (string.IsNullOrEmpty(reg)) { Response.Write("{\"found\":false}"); Response.End(); return; }
+        if (string.IsNullOrEmpty(reg)) { Response.Write("{\"found\":false,\"regs\":[]}"); Response.End(); return; }
 
         using (MySqlConnection conn = new MySqlConnection(MainConnStr))
         {
             conn.Open();
-            // Get the most recent REGISTERED semester for this student
+            // Return ALL registrations so admin can pick one
             string sql = @"SELECT r.acad_year, r.semester, r.studyyear, r.regstatus,
                                   CONCAT(s.firstname,' ',s.othername) AS student_name,
-                                  IFNULL(p.progname,'') AS programme
+                                  IFNULL(p.progname,'') AS programme,
+                                  IFNULL(s.progid,'') AS progcode
                            FROM acad_registration r
                            JOIN acad_student s ON s.regno = r.regno
                            LEFT JOIN acad_programme p ON s.progid = p.progcode
                            WHERE LOWER(r.regno) = LOWER(@r)
                            ORDER BY r.acad_year DESC, r.semester DESC
-                           LIMIT 1";
+                           LIMIT 20";
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
                 cmd.Parameters.AddWithValue("@r", reg);
                 using (MySqlDataReader rdr = cmd.ExecuteReader())
                 {
-                    if (rdr.Read())
+                    var sb = new StringBuilder();
+                    sb.Append("{\"found\":true,\"regs\":[");
+                    bool any = false;
+                    bool first = true;
+                    string name = "";
+                    string programme = "";
+                    while (rdr.Read())
                     {
-                        string status = rdr["regstatus"].ToString();
-                        Response.Write(string.Format(
-                            "{{\"found\":true,\"acad_year\":\"{0}\",\"semester\":{1},\"study_year\":{2},\"regstatus\":\"{3}\",\"name\":\"{4}\",\"programme\":\"{5}\"}}",
+                        any = true;
+                        if (!first) sb.Append(",");
+                        first = false;
+                        name = rdr["student_name"].ToString();
+                        programme = rdr["programme"].ToString();
+                        sb.AppendFormat(
+                            "{{\"acad_year\":\"{0}\",\"semester\":{1},\"study_year\":{2},\"regstatus\":\"{3}\"}}",
                             JsEsc(rdr["acad_year"].ToString()),
                             rdr["semester"],
                             rdr["studyyear"],
-                            JsEsc(status),
-                            JsEsc(rdr["student_name"].ToString()),
-                            JsEsc(rdr["programme"].ToString())));
+                            JsEsc(rdr["regstatus"].ToString()));
+                    }
+                    sb.Append("]");
+                    if (any)
+                    {
+                        sb.AppendFormat(",\"name\":\"{0}\",\"programme\":\"{1}\"",
+                            JsEsc(name), JsEsc(programme));
                     }
                     else
                     {
-                        Response.Write("{\"found\":false}");
+                        sb.Clear();
+                        sb.Append("{\"found\":false,\"regs\":[]");
+                    }
+                    sb.Append("}");
+                    Response.Write(sb.ToString());
+                }
+            }
+        }
+        Response.End();
+    }
+
+    // ====================================================================
+    // AJAX Get Schemes — returns all active schemes with type info
+    // ====================================================================
+    private void HandleGetSchemes()
+    {
+        Response.ContentType = "application/json";
+        var sb = new StringBuilder("[");
+        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            string sql = @"SELECT scholarshipID, scholarshipName, bursary_amount,
+                                  IFNULL(scheme_type,'FIXED') AS scheme_type,
+                                  IFNULL(scheme_value,0) AS scheme_value
+                           FROM scholarships WHERE status='Active'
+                           ORDER BY scholarshipName";
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            using (MySqlDataReader rdr = cmd.ExecuteReader())
+            {
+                bool first = true;
+                while (rdr.Read())
+                {
+                    if (!first) sb.Append(",");
+                    first = false;
+                    double amt = rdr["bursary_amount"] != DBNull.Value ? Convert.ToDouble(rdr["bursary_amount"]) : 0;
+                    double val = rdr["scheme_value"] != DBNull.Value ? Convert.ToDouble(rdr["scheme_value"]) : 0;
+                    sb.AppendFormat("{{\"id\":{0},\"name\":\"{1}\",\"amount\":{2},\"type\":\"{3}\",\"value\":{4}}}",
+                        rdr["scholarshipID"],
+                        JsEsc(rdr["scholarshipName"].ToString()),
+                        amt,
+                        JsEsc(rdr["scheme_type"].ToString()),
+                        val);
+                }
+            }
+        }
+        sb.Append("]");
+        Response.Write(sb.ToString());
+        Response.End();
+    }
+
+    // ====================================================================
+    // AJAX Calculate Fees — returns tuition+functional for student's programme
+    // Expects: r (regno), y (acad_year), s (semester)
+    // ====================================================================
+    private void HandleCalcFees()
+    {
+        Response.ContentType = "application/json";
+        string regNo = (Request.QueryString["r"] ?? "").Trim();
+        string acadYear = (Request.QueryString["y"] ?? "").Trim();
+        string semStr = (Request.QueryString["s"] ?? "").Trim();
+
+        if (string.IsNullOrEmpty(regNo) || string.IsNullOrEmpty(acadYear) || string.IsNullOrEmpty(semStr))
+        {
+            Response.Write("{\"ok\":false,\"msg\":\"Missing parameters\"}");
+            Response.End();
+            return;
+        }
+
+        int semester;
+        if (!int.TryParse(semStr, out semester) || semester < 1 || semester > 3)
+        {
+            Response.Write("{\"ok\":false,\"msg\":\"Invalid semester\"}");
+            Response.End();
+            return;
+        }
+
+        try
+        {
+            // 1. Get student's progid and determine study year
+            string progCode = "";
+            int studyYear = 1;
+            using (MySqlConnection conn = new MySqlConnection(MainConnStr))
+            {
+                conn.Open();
+                // Get programme
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT progid FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regNo);
+                    object val = cmd.ExecuteScalar();
+                    if (val == null || val == DBNull.Value)
+                    {
+                        Response.Write("{\"ok\":false,\"msg\":\"Student not found\"}");
+                        Response.End();
+                        return;
+                    }
+                    progCode = val.ToString();
+                }
+                // Get study year from registration
+                using (MySqlCommand cmd = new MySqlCommand(
+                    @"SELECT studyyear FROM acad_registration
+                      WHERE LOWER(regno)=LOWER(@r) AND acad_year=@y AND semester=@s
+                      LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regNo);
+                    cmd.Parameters.AddWithValue("@y", acadYear);
+                    cmd.Parameters.AddWithValue("@s", semester);
+                    object val = cmd.ExecuteScalar();
+                    if (val != null && val != DBNull.Value)
+                    {
+                        int.TryParse(val.ToString(), out studyYear);
+                        if (studyYear < 1) studyYear = 1;
+                        if (studyYear > 3) studyYear = 3;
                     }
                 }
             }
+
+            // 2. Query fin_programme_fees for the programme
+            if (string.IsNullOrEmpty(progCode))
+            {
+                Response.Write("{\"ok\":false,\"msg\":\"Student has no programme assigned\"}");
+                Response.End();
+                return;
+            }
+
+            // Build dynamic column names: y{studyYear}_s{semester}_tuition, y{studyYear}_s{semester}_functional
+            string colTuition = string.Format("y{0}_s{1}_tuition", studyYear, semester);
+            string colFunctional = string.Format("y{0}_s{1}_functional", studyYear, semester);
+
+            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                string sql = string.Format(
+                    "SELECT `{0}`, `{1}` FROM fin_programme_fees WHERE progcode=@prog AND is_active='Yes' LIMIT 1",
+                    colTuition, colFunctional);
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@prog", progCode);
+                    using (MySqlDataReader rdr = cmd.ExecuteReader())
+                    {
+                        if (rdr.Read())
+                        {
+                            double tuition = rdr[colTuition] != DBNull.Value ? Convert.ToDouble(rdr[colTuition]) : 0;
+                            double functional = rdr[colFunctional] != DBNull.Value ? Convert.ToDouble(rdr[colFunctional]) : 0;
+                            double total = tuition + functional;
+                            Response.Write(string.Format(
+                                "{{\"ok\":true,\"tuition\":{0},\"functional\":{1},\"total\":{2},\"study_year\":{3},\"programme\":\"{4}\"}}",
+                                tuition, functional, total, studyYear, JsEsc(progCode)));
+                        }
+                        else
+                        {
+                            Response.Write(string.Format(
+                                "{{\"ok\":false,\"msg\":\"No fee structure found for programme {0} (Year {1}, Sem {2})\"}}", 
+                                JsEsc(progCode), studyYear, semester));
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"ok\":false,\"msg\":\"" + JsEsc(ex.Message) + "\"}");
         }
         Response.End();
     }
@@ -172,7 +384,11 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
             conn.Open();
 
             DataTable dtSchemes = new DataTable();
-            using (MySqlCommand cmd = new MySqlCommand("SELECT scholarshipID, scholarshipName, bursary_amount FROM scholarships ORDER BY scholarshipName", conn))
+            using (MySqlCommand cmd = new MySqlCommand(
+                @"SELECT scholarshipID, scholarshipName, bursary_amount,
+                         IFNULL(scheme_type,'FIXED') AS scheme_type,
+                         IFNULL(scheme_value,0) AS scheme_value
+                  FROM scholarships ORDER BY scholarshipName", conn))
             using (MySqlDataAdapter da = new MySqlDataAdapter(cmd)) { da.Fill(dtSchemes); }
 
             // Filter dropdown
@@ -181,14 +397,20 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
             foreach (DataRow r in dtSchemes.Rows)
                 ddlScheme.Items.Add(new ListItem(r["scholarshipName"].ToString(), r["scholarshipID"].ToString()));
 
-            // Add modal dropdown (include amount as data attribute via text suffix)
+            // Add modal dropdown
             ddlAddScheme.Items.Clear();
             ddlAddScheme.Items.Add(new ListItem("-- Select Scheme --", ""));
             foreach (DataRow r in dtSchemes.Rows)
             {
+                string stype = r["scheme_type"].ToString();
                 double schAmt = r["bursary_amount"] != DBNull.Value ? Convert.ToDouble(r["bursary_amount"]) : 0;
+                double schVal = r["scheme_value"] != DBNull.Value ? Convert.ToDouble(r["scheme_value"]) : 0;
+                string suffix = "";
+                if (stype == "PERCENTAGE") suffix = " — " + schVal.ToString("0.##") + "% of fees";
+                else if (stype == "CUSTOM") suffix = " — Custom amount";
+                else suffix = " — UGX " + schAmt.ToString("N0");
                 ddlAddScheme.Items.Add(new ListItem(
-                    r["scholarshipName"].ToString() + " — UGX " + schAmt.ToString("N0"),
+                    r["scholarshipName"].ToString() + suffix,
                     r["scholarshipID"].ToString()));
             }
 
@@ -202,19 +424,23 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
                     r["scholarshipID"].ToString()));
             }
 
-            // Store scheme amounts as JSON for JS auto-fill
-            var sbAmounts = new StringBuilder("{");
+            // Store scheme data as JSON for JS (includes type + value)
+            var sbData = new StringBuilder("{");
             bool firstScheme = true;
             foreach (DataRow r in dtSchemes.Rows)
             {
-                if (!firstScheme) sbAmounts.Append(",");
+                if (!firstScheme) sbData.Append(",");
                 firstScheme = false;
                 double schAmt = r["bursary_amount"] != DBNull.Value ? Convert.ToDouble(r["bursary_amount"]) : 0;
-                sbAmounts.AppendFormat("\"{0}\":{1}", r["scholarshipID"], schAmt);
+                double schVal = r["scheme_value"] != DBNull.Value ? Convert.ToDouble(r["scheme_value"]) : 0;
+                string stype = r["scheme_type"].ToString();
+                sbData.AppendFormat("\"{0}\":{{\"amount\":{1},\"type\":\"{2}\",\"value\":{3},\"name\":\"{4}\"}}",
+                    r["scholarshipID"], schAmt, JsEsc(stype), schVal, JsEsc(r["scholarshipName"].ToString()));
             }
-            sbAmounts.Append("}");
-            ScriptManager.RegisterStartupScript(this, GetType(), "schemeAmounts",
-                "var _schemeAmounts = " + sbAmounts.ToString() + ";", true);
+            sbData.Append("}");
+            ScriptManager.RegisterStartupScript(this, GetType(), "schemeData",
+                "var _schemeData = " + sbData.ToString() + ";" +
+                "var _schemeAmounts = (function(d){var a={};for(var k in d)a[k]=d[k].amount;return a;})(_schemeData);", true);
 
             // Academic years
             DataTable dtYears = new DataTable();
@@ -439,15 +665,20 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
 
             double schemeAmount = 0;
             string schemeName = "";
+            string schemeType = "FIXED";
+            double schemeValue = 0;
             long newTID = 0;
 
             using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
             {
                 conn.Open();
 
-                // Look up the scheme's bursary amount
+                // Look up the scheme's details including type
                 using (MySqlCommand cmdScheme = new MySqlCommand(
-                    "SELECT scholarshipName, bursary_amount FROM scholarships WHERE scholarshipID=@id AND status='Active'", conn))
+                    @"SELECT scholarshipName, bursary_amount,
+                             IFNULL(scheme_type,'FIXED') AS scheme_type,
+                             IFNULL(scheme_value,0) AS scheme_value
+                      FROM scholarships WHERE scholarshipID=@id AND status='Active'", conn))
                 {
                     cmdScheme.Parameters.AddWithValue("@id", schemeId);
                     using (MySqlDataReader rdr = cmdScheme.ExecuteReader())
@@ -456,6 +687,8 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
                         {
                             schemeName = rdr["scholarshipName"].ToString();
                             schemeAmount = rdr["bursary_amount"] != DBNull.Value ? Convert.ToDouble(rdr["bursary_amount"]) : 0;
+                            schemeType = rdr["scheme_type"].ToString();
+                            schemeValue = rdr["scheme_value"] != DBNull.Value ? Convert.ToDouble(rdr["scheme_value"]) : 0;
                         }
                         else
                         {
@@ -466,11 +699,116 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
                     }
                 }
 
-                if (schemeAmount <= 0)
+                // Determine the actual bursary amount based on scheme type
+                double actualAmount = 0;
+
+                if (schemeType == "FIXED")
                 {
-                    ShowToast("This scheme has no bursary amount configured. Please set the amount on the Bursary Schemes page first.", false);
-                    OpenModalAfterPostback("modal-add-beneficiary");
-                    return;
+                    actualAmount = schemeAmount;
+                    if (actualAmount <= 0)
+                    {
+                        ShowToast("This FIXED scheme has no bursary amount configured. Please set the amount on the Bursary Schemes page first.", false);
+                        OpenModalAfterPostback("modal-add-beneficiary");
+                        return;
+                    }
+                }
+                else if (schemeType == "PERCENTAGE")
+                {
+                    // Calculate from fin_programme_fees
+                    if (schemeValue <= 0 || schemeValue > 100)
+                    {
+                        ShowToast("This PERCENTAGE scheme has an invalid percentage value (" + schemeValue + "%). Please correct it on the Bursary Schemes page.", false);
+                        OpenModalAfterPostback("modal-add-beneficiary");
+                        return;
+                    }
+
+                    double totalFees = 0;
+                    try
+                    {
+                        // Get student's programme and study year
+                        string progCode = "";
+                        int studyYear = 1;
+                        using (MySqlConnection connMain = new MySqlConnection(MainConnStr))
+                        {
+                            connMain.Open();
+                            using (MySqlCommand cmd = new MySqlCommand("SELECT progid FROM acad_student WHERE regno=@r LIMIT 1", connMain))
+                            {
+                                cmd.Parameters.AddWithValue("@r", regNo);
+                                object pv = cmd.ExecuteScalar();
+                                if (pv != null && pv != DBNull.Value) progCode = pv.ToString();
+                            }
+                            using (MySqlCommand cmd = new MySqlCommand(
+                                @"SELECT studyyear FROM acad_registration 
+                                  WHERE LOWER(regno)=LOWER(@r) AND acad_year=@y AND semester=@s LIMIT 1", connMain))
+                            {
+                                cmd.Parameters.AddWithValue("@r", regNo);
+                                cmd.Parameters.AddWithValue("@y", yearVal);
+                                cmd.Parameters.AddWithValue("@s", semester);
+                                object sv = cmd.ExecuteScalar();
+                                if (sv != null && sv != DBNull.Value) int.TryParse(sv.ToString(), out studyYear);
+                                if (studyYear < 1) studyYear = 1;
+                                if (studyYear > 3) studyYear = 3;
+                            }
+                        }
+
+                        if (string.IsNullOrEmpty(progCode))
+                        {
+                            ShowToast("Cannot calculate percentage — student has no programme assigned.", false);
+                            OpenModalAfterPostback("modal-add-beneficiary");
+                            return;
+                        }
+
+                        string colT = string.Format("y{0}_s{1}_tuition", studyYear, semester);
+                        string colF = string.Format("y{0}_s{1}_functional", studyYear, semester);
+                        string feesSql = string.Format(
+                            "SELECT `{0}`, `{1}` FROM fin_programme_fees WHERE progcode=@prog AND is_active='Yes' LIMIT 1",
+                            colT, colF);
+
+                        using (MySqlCommand cmd = new MySqlCommand(feesSql, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@prog", progCode);
+                            using (MySqlDataReader rdr = cmd.ExecuteReader())
+                            {
+                                if (rdr.Read())
+                                {
+                                    double tuit = rdr[colT] != DBNull.Value ? Convert.ToDouble(rdr[colT]) : 0;
+                                    double func = rdr[colF] != DBNull.Value ? Convert.ToDouble(rdr[colF]) : 0;
+                                    totalFees = tuit + func;
+                                }
+                            }
+                        }
+
+                        if (totalFees <= 0)
+                        {
+                            ShowToast(string.Format("No fee structure found for programme {0} Year {1} Sem {2}. Cannot calculate percentage bursary.", progCode, studyYear, semester), false);
+                            OpenModalAfterPostback("modal-add-beneficiary");
+                            return;
+                        }
+
+                        actualAmount = Math.Round(totalFees * schemeValue / 100.0, 0);
+                    }
+                    catch (Exception exFees)
+                    {
+                        ShowToast("Fee calculation error: " + Server.HtmlEncode(exFees.Message), false);
+                        OpenModalAfterPostback("modal-add-beneficiary");
+                        return;
+                    }
+                }
+                else if (schemeType == "CUSTOM")
+                {
+                    // Read custom amount from hidden field
+                    string customAmtStr = hfAddCustomAmount.Value.Trim();
+                    if (string.IsNullOrEmpty(customAmtStr) || !double.TryParse(customAmtStr, out actualAmount) || actualAmount <= 0)
+                    {
+                        ShowToast("Please enter a valid custom bursary amount.", false);
+                        OpenModalAfterPostback("modal-add-beneficiary");
+                        return;
+                    }
+                }
+                else
+                {
+                    // Unknown type — fallback to scheme amount
+                    actualAmount = schemeAmount;
                 }
 
                 // Check for duplicate (same student + scheme + year + semester)
@@ -491,14 +829,20 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
 
                 // Delegate to BursaryManager (atomic — all 3 tables in one transaction)
                 int itemCode = BursaryManager.GetOrCreateBillingItem(conn);
-                var result   = BursaryManager.Create(conn, regNo, schemeId, schemeName, schemeAmount, yearVal, semester, itemCode, notes);
+                var result   = BursaryManager.Create(conn, regNo, schemeId, schemeName, actualAmount, yearVal, semester, itemCode, notes);
 
                 if (result.Success)
                 {
                     hfAddRegNo.Value = ""; txtAddRegNo.Text = ""; txtAddNotes.Text = "";
+                    hfAddCustomAmount.Value = "";
                     string displayName = ddlAddScheme.SelectedItem != null ? ddlAddScheme.SelectedItem.Text : schemeVal;
-                    ShowToast(string.Format("Beneficiary {0} added to {1} ({2} Sem {3}) — UGX {4}. Fee transaction #{5} created.",
-                        regNo, displayName, yearVal, semester, schemeAmount.ToString("N0"), result.TID), true);
+                    string typeNote = "";
+                    if (schemeType == "PERCENTAGE")
+                        typeNote = string.Format(" ({0}% of fees)", schemeValue.ToString("0.##"));
+                    else if (schemeType == "CUSTOM")
+                        typeNote = " (custom amount)";
+                    ShowToast(string.Format("Beneficiary {0} added to {1} ({2} Sem {3}) — UGX {4}{5}. Fee transaction #{6} created.",
+                        regNo, schemeName, yearVal, semester, actualAmount.ToString("N0"), typeNote, result.TID), true);
                     LoadBeneficiaries();
                 }
                 else

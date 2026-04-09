@@ -15,18 +15,53 @@ public partial class COOPERP_NewScreens_BursarySchemes : System.Web.UI.Page
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        EnsureSchemeTypeColumns();
+
         txtAddAmt.Attributes["type"] = "number";
         txtAddAmt.Attributes["min"] = "0";
         txtAddAmt.Attributes["step"] = "1";
+        txtAddPct.Attributes["type"] = "number";
+        txtAddPct.Attributes["min"] = "0";
+        txtAddPct.Attributes["max"] = "100";
+        txtAddPct.Attributes["step"] = "0.01";
         txtEditAmt.Attributes["type"] = "number";
         txtEditAmt.Attributes["min"] = "0";
         txtEditAmt.Attributes["step"] = "1";
+        txtEditPct.Attributes["type"] = "number";
+        txtEditPct.Attributes["min"] = "0";
+        txtEditPct.Attributes["max"] = "100";
+        txtEditPct.Attributes["step"] = "0.01";
 
         RestorePostedValue(ddlStatus);
         RestorePostedValue(ddlAddStatus);
+        RestorePostedValue(ddlAddType);
         RestorePostedValue(ddlEditStatus);
+        RestorePostedValue(ddlEditType);
 
         LoadSchemes();
+    }
+
+    // ====================================================================
+    // Migration — add scheme_type + scheme_value columns if missing
+    // ====================================================================
+    private static bool _schemaChecked;
+    private void EnsureSchemeTypeColumns()
+    {
+        if (_schemaChecked) return;
+        _schemaChecked = true;
+        using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            DataTable cols = conn.GetSchema("Columns", new string[] { null, null, "scholarships", "scheme_type" });
+            if (cols.Rows.Count == 0)
+            {
+                using (MySqlCommand cmd = new MySqlCommand(
+                    @"ALTER TABLE scholarships
+                      ADD COLUMN scheme_type VARCHAR(12) NOT NULL DEFAULT 'FIXED' AFTER bursary_amount,
+                      ADD COLUMN scheme_value DECIMAL(12,2) NULL AFTER scheme_type", conn))
+                { cmd.ExecuteNonQuery(); }
+            }
+        }
     }
 
     private void RestorePostedValue(DropDownList ddl)
@@ -90,7 +125,8 @@ public partial class COOPERP_NewScreens_BursarySchemes : System.Web.UI.Page
             string whereClause = where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : "";
 
             string sql = @"SELECT s.scholarshipID, s.scholarshipName, s.scholarshipdetails, 
-                                  s.bursary_amount, s.status, s.created_at, s.updated_at,
+                                  s.bursary_amount, s.scheme_type, s.scheme_value,
+                                  s.status, s.created_at, s.updated_at,
                                   IFNULL(bc.cnt, 0) AS beneficiary_count
                            FROM scholarships s
                            LEFT JOIN (SELECT scholarshipID, COUNT(*) AS cnt FROM scholarshipstudents GROUP BY scholarshipID) bc 
@@ -122,22 +158,41 @@ public partial class COOPERP_NewScreens_BursarySchemes : System.Web.UI.Page
     protected void btnSaveScheme_Click(object sender, EventArgs e)
     {
         RestorePostedValue(ddlAddStatus);
+        RestorePostedValue(ddlAddType);
 
         string name = txtAddName.Text.Trim();
         string details = txtAddDetails.Text.Trim();
+        string schemeType = ddlAddType.SelectedValue; // FIXED, PERCENTAGE, CUSTOM
         string amtStr = txtAddAmt.Text.Trim();
+        string pctStr = txtAddPct.Text.Trim();
         string status = ddlAddStatus.SelectedValue;
 
         if (string.IsNullOrEmpty(name))
         { ShowToast("Scheme Name is required.", false); OpenModalAfterPostback("modal-add-scheme"); return; }
         if (string.IsNullOrEmpty(details))
         { ShowToast("Details / Description is required.", false); OpenModalAfterPostback("modal-add-scheme"); return; }
-        if (string.IsNullOrEmpty(amtStr))
-        { ShowToast("Bursary Amount is required.", false); OpenModalAfterPostback("modal-add-scheme"); return; }
 
-        double amt;
-        if (!double.TryParse(amtStr, out amt) || amt < 0)
-        { ShowToast("Amount must be a positive number.", false); OpenModalAfterPostback("modal-add-scheme"); return; }
+        if (schemeType != "FIXED" && schemeType != "PERCENTAGE" && schemeType != "CUSTOM")
+            schemeType = "FIXED";
+
+        double amt = 0;
+        double pct = 0;
+
+        if (schemeType == "FIXED")
+        {
+            if (string.IsNullOrEmpty(amtStr))
+            { ShowToast("Bursary Amount is required for Fixed type.", false); OpenModalAfterPostback("modal-add-scheme"); return; }
+            if (!double.TryParse(amtStr, out amt) || amt < 0)
+            { ShowToast("Amount must be a positive number.", false); OpenModalAfterPostback("modal-add-scheme"); return; }
+        }
+        else if (schemeType == "PERCENTAGE")
+        {
+            if (string.IsNullOrEmpty(pctStr))
+            { ShowToast("Percentage value is required.", false); OpenModalAfterPostback("modal-add-scheme"); return; }
+            if (!double.TryParse(pctStr, out pct) || pct <= 0 || pct > 100)
+            { ShowToast("Percentage must be between 0.01 and 100.", false); OpenModalAfterPostback("modal-add-scheme"); return; }
+        }
+        // CUSTOM: no amount or percentage needed at scheme level
 
         if (status != "Active" && status != "Inactive") status = "Active";
 
@@ -146,20 +201,21 @@ public partial class COOPERP_NewScreens_BursarySchemes : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
             {
                 conn.Open();
-                string sql = @"INSERT INTO scholarships (scholarshipName, scholarshipdetails, bursary_amount, status)
-                               VALUES (@name, @details, @amt, @status)";
+                string sql = @"INSERT INTO scholarships (scholarshipName, scholarshipdetails, bursary_amount, scheme_type, scheme_value, percentagePay, status)
+                               VALUES (@name, @details, @amt, @stype, @sval, @pctPay, @status)";
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@name", name);
                     cmd.Parameters.AddWithValue("@details", details);
-                    cmd.Parameters.AddWithValue("@amt", amt);
+                    cmd.Parameters.AddWithValue("@amt", schemeType == "FIXED" ? amt : 0);
+                    cmd.Parameters.AddWithValue("@stype", schemeType);
+                    cmd.Parameters.AddWithValue("@sval", schemeType == "FIXED" ? (object)amt : schemeType == "PERCENTAGE" ? (object)pct : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@pctPay", schemeType == "PERCENTAGE" ? pct : 0);
                     cmd.Parameters.AddWithValue("@status", status);
                     cmd.ExecuteNonQuery();
                 }
             }
-            txtAddName.Text = "";
-            txtAddDetails.Text = "";
-            txtAddAmt.Text = "";
+            txtAddName.Text = ""; txtAddDetails.Text = ""; txtAddAmt.Text = ""; txtAddPct.Text = "";
             ShowToast("Bursary scheme '" + Server.HtmlEncode(name) + "' created successfully.", true);
             LoadSchemes();
         }
@@ -176,6 +232,7 @@ public partial class COOPERP_NewScreens_BursarySchemes : System.Web.UI.Page
     protected void btnEditScheme_Click(object sender, EventArgs e)
     {
         RestorePostedValue(ddlEditStatus);
+        RestorePostedValue(ddlEditType);
 
         string idStr = hfEditID.Value.Trim();
         int id;
@@ -184,19 +241,36 @@ public partial class COOPERP_NewScreens_BursarySchemes : System.Web.UI.Page
 
         string name = txtEditName.Text.Trim();
         string details = txtEditDetails.Text.Trim();
+        string schemeType = ddlEditType.SelectedValue;
         string amtStr = txtEditAmt.Text.Trim();
+        string pctStr = txtEditPct.Text.Trim();
         string status = ddlEditStatus.SelectedValue;
 
         if (string.IsNullOrEmpty(name))
         { ShowToast("Scheme Name is required.", false); OpenModalAfterPostback("modal-edit-scheme"); return; }
         if (string.IsNullOrEmpty(details))
         { ShowToast("Details is required.", false); OpenModalAfterPostback("modal-edit-scheme"); return; }
-        if (string.IsNullOrEmpty(amtStr))
-        { ShowToast("Bursary Amount is required.", false); OpenModalAfterPostback("modal-edit-scheme"); return; }
 
-        double amt;
-        if (!double.TryParse(amtStr, out amt) || amt < 0)
-        { ShowToast("Amount must be a positive number.", false); OpenModalAfterPostback("modal-edit-scheme"); return; }
+        if (schemeType != "FIXED" && schemeType != "PERCENTAGE" && schemeType != "CUSTOM")
+            schemeType = "FIXED";
+
+        double amt = 0;
+        double pct = 0;
+
+        if (schemeType == "FIXED")
+        {
+            if (string.IsNullOrEmpty(amtStr))
+            { ShowToast("Bursary Amount is required for Fixed type.", false); OpenModalAfterPostback("modal-edit-scheme"); return; }
+            if (!double.TryParse(amtStr, out amt) || amt < 0)
+            { ShowToast("Amount must be a positive number.", false); OpenModalAfterPostback("modal-edit-scheme"); return; }
+        }
+        else if (schemeType == "PERCENTAGE")
+        {
+            if (string.IsNullOrEmpty(pctStr))
+            { ShowToast("Percentage value is required.", false); OpenModalAfterPostback("modal-edit-scheme"); return; }
+            if (!double.TryParse(pctStr, out pct) || pct <= 0 || pct > 100)
+            { ShowToast("Percentage must be between 0.01 and 100.", false); OpenModalAfterPostback("modal-edit-scheme"); return; }
+        }
 
         if (status != "Active" && status != "Inactive") status = "Active";
 
@@ -206,12 +280,16 @@ public partial class COOPERP_NewScreens_BursarySchemes : System.Web.UI.Page
             {
                 conn.Open();
                 string sql = @"UPDATE scholarships SET scholarshipName=@name, scholarshipdetails=@details, 
-                               bursary_amount=@amt, status=@status WHERE scholarshipID=@id";
+                               bursary_amount=@amt, scheme_type=@stype, scheme_value=@sval,
+                               percentagePay=@pctPay, status=@status WHERE scholarshipID=@id";
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@name", name);
                     cmd.Parameters.AddWithValue("@details", details);
-                    cmd.Parameters.AddWithValue("@amt", amt);
+                    cmd.Parameters.AddWithValue("@amt", schemeType == "FIXED" ? amt : 0);
+                    cmd.Parameters.AddWithValue("@stype", schemeType);
+                    cmd.Parameters.AddWithValue("@sval", schemeType == "FIXED" ? (object)amt : schemeType == "PERCENTAGE" ? (object)pct : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@pctPay", schemeType == "PERCENTAGE" ? pct : 0);
                     cmd.Parameters.AddWithValue("@status", status);
                     cmd.Parameters.AddWithValue("@id", id);
                     int rows = cmd.ExecuteNonQuery();
@@ -291,6 +369,31 @@ public partial class COOPERP_NewScreens_BursarySchemes : System.Web.UI.Page
     // ====================================================================
     // Template Helpers
     // ====================================================================
+    protected string GetSchemeTypeBadge(object val)
+    {
+        string t = (val != null && val != DBNull.Value) ? val.ToString().ToUpper() : "FIXED";
+        if (t == "PERCENTAGE") return "<span class='bs-badge bs-badge--pct'>% Percentage</span>";
+        if (t == "CUSTOM")     return "<span class='bs-badge bs-badge--custom'>Custom</span>";
+        return "<span class='bs-badge bs-badge--fixed'>Fixed</span>";
+    }
+
+    protected string GetSchemeValueDisplay(object typeObj, object amtObj, object valObj)
+    {
+        string t = (typeObj != null && typeObj != DBNull.Value) ? typeObj.ToString().ToUpper() : "FIXED";
+        if (t == "PERCENTAGE")
+        {
+            double pct = 0;
+            if (valObj != null && valObj != DBNull.Value) double.TryParse(valObj.ToString(), out pct);
+            return pct.ToString("0.##") + "% of total fees";
+        }
+        if (t == "CUSTOM")
+            return "<span style='color:#888;font-style:italic;'>Per beneficiary</span>";
+        // FIXED
+        double amt = 0;
+        if (amtObj != null && amtObj != DBNull.Value) double.TryParse(amtObj.ToString(), out amt);
+        return "<span class='bs-amount'><span class='bs-amount__currency'>UGX</span>" + amt.ToString("N0") + "</span>";
+    }
+
     protected string GetStatusClass(object val)
     {
         if (val == null) return "";

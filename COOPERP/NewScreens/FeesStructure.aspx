@@ -537,7 +537,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Batch Billing
     </button>
-    <button type="button" class="fs-bill-unbilled-btn" onclick="confirmBillUnbilled();" title="Auto-register and bill all unbilled students for this academic year">
+    <button type="button" class="fs-bill-unbilled-btn" onclick="confirmBillUnbilled();" title="Bill all unbilled registered students for this academic year">
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Bill Unbilled Students
     </button>
@@ -1405,9 +1405,68 @@ function viewPFDetail(id, code, name, hy1, hy2, hy3, active,
 /* Billing item/system form clearers */
 function clearBillingItemForm() {
     document.getElementById('modalBillingItemTitle').innerText = 'Add Billing Item';
+    document.getElementById('<%= hfEditId.ClientID %>').value = '';
+    var el;
+    el = document.getElementById('<%= txtBIName.ClientID %>'); if(el) el.value = '';
+    el = document.getElementById('<%= txtBIAccount.ClientID %>'); if(el) el.value = '';
+    el = document.getElementById('<%= ddlBIPriority.ClientID %>'); if(el) el.selectedIndex = 0;
 }
 function clearBillingSystemForm() {
     document.getElementById('modalBillingSystemTitle').innerText = 'Add Billing System';
+    document.getElementById('<%= hfEditId.ClientID %>').value = '';
+    var el;
+    el = document.getElementById('<%= txtBSName.ClientID %>'); if(el) el.value = '';
+    el = document.getElementById('<%= txtBSDesc.ClientID %>'); if(el) el.value = '';
+    el = document.getElementById('<%= txtBSCurrency.ClientID %>'); if(el) el.value = 'UGX';
+}
+
+/* Edit billing item — populate modal and open */
+function editBillingItem(code, name, acct, prio) {
+    document.getElementById('modalBillingItemTitle').innerText = 'Edit Billing Item #' + code;
+    document.getElementById('<%= hfEditId.ClientID %>').value = code;
+    var el;
+    el = document.getElementById('<%= txtBIName.ClientID %>'); if(el) el.value = name;
+    el = document.getElementById('<%= txtBIAccount.ClientID %>'); if(el) el.value = acct;
+    el = document.getElementById('<%= ddlBIPriority.ClientID %>'); if(el) el.value = prio;
+    openModal('modal-billing-item');
+}
+
+/* Edit billing system — populate modal and open */
+function editBillingSystem(id, name, desc, curr) {
+    document.getElementById('modalBillingSystemTitle').innerText = 'Edit Billing System #' + id;
+    document.getElementById('<%= hfEditId.ClientID %>').value = id;
+    var el;
+    el = document.getElementById('<%= txtBSName.ClientID %>'); if(el) el.value = name;
+    el = document.getElementById('<%= txtBSDesc.ClientID %>'); if(el) el.value = desc;
+    el = document.getElementById('<%= txtBSCurrency.ClientID %>'); if(el) el.value = curr;
+    openModal('modal-billing-system');
+}
+
+/* Toast notification — called from server-side startup scripts */
+function showToast(message, type) {
+    // type: 'success', 'error', 'warning'
+    var existing = document.getElementById('_jsToast');
+    if (existing) existing.parentNode.removeChild(existing);
+
+    var div = document.createElement('div');
+    div.id = '_jsToast';
+    div.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;padding:12px 20px;' +
+        'font-size:13px;font-weight:600;max-width:480px;box-shadow:0 4px 16px rgba(0,0,0,.15);' +
+        'animation:fsToastIn .3s ease-out;border:1px solid transparent;';
+    if (type === 'success') {
+        div.style.background = '#e6f4ea'; div.style.color = '#155724'; div.style.borderColor = '#c3e6cb';
+    } else if (type === 'error') {
+        div.style.background = '#fde8e8'; div.style.color = '#c62828'; div.style.borderColor = '#f5c6cb';
+    } else {
+        div.style.background = '#fff8e1'; div.style.color = '#b45309'; div.style.borderColor = '#ffd54f';
+    }
+    div.textContent = message;
+    document.body.appendChild(div);
+
+    setTimeout(function() {
+        if (div.parentNode) { div.style.opacity = '0'; div.style.transition = 'opacity .4s'; }
+    }, 4000);
+    setTimeout(function() { if (div.parentNode) div.parentNode.removeChild(div); }, 4500);
 }
 
 /* ===== BATCH OPERATIONS ===== */
@@ -1561,7 +1620,7 @@ function confirmBillUnbilled() {
     var cnt = document.querySelector('.st-card__value--red');
     var n = cnt ? (parseInt(cnt.innerText.replace(/,/g,'')) || 0) : 0;
     if (n === 0) { alert('There are no unbilled students.'); return; }
-    if (!confirm('This will auto-register ' + n + ' unbilled student(s) and create billing records.\n\nStudents with UNREGISTERED status will be set to REGISTERED.\nThis action CANNOT be undone.\n\nProceed?')) return;
+    if (!confirm('This will bill ' + n + ' unbilled registered student(s) for the current academic year.\n\nBilling records and ledger entries will be created.\nThis action CANNOT be undone.\n\nProceed?')) return;
     __doPostBack('<%= btnBillUnbilled.UniqueID %>', '');
 }
 
@@ -1642,7 +1701,15 @@ function executeBilling() {
 (function() {
     var hf = document.getElementById('<%= hfActivePanel.ClientID %>');
     if (hf && hf.value && hf.value !== 'prog-fees') {
-        var btn = document.getElementById('tab' + hf.value.charAt(0).toUpperCase() + hf.value.replace(/-/g,'').slice(1));
+        // Map panel IDs to their actual tab element IDs
+        var tabMap = {
+            'prog-fees': 'tabProgFees',
+            'billing-items': 'tabBillingItems',
+            'billing-systems': 'tabBillingSystems',
+            'batch-billing': 'tabBatchBilling'
+        };
+        var tabId = tabMap[hf.value];
+        var btn = tabId ? document.getElementById(tabId) : null;
         showPanel(hf.value, btn);
     }
 })();

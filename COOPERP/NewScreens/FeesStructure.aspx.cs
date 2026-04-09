@@ -303,7 +303,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                       INNER JOIN acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
                       WHERE r.acad_year = @ay
                         AND r.semester IN ({0})
-                        AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')", semFilter);
+                        AND r.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')", semFilter);
                 using (var cmd = new MySqlCommand(enrolledSql, conn))
                 {
                     cmd.Parameters.AddWithValue("@ay", acadYear);
@@ -348,7 +348,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     INNER JOIN campus_dynamics.acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
                     WHERE r.acad_year = @ay
                       AND r.semester IN ({0})
-                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')
                       AND EXISTS(
                           SELECT 1 FROM fin_studentfeestracking ft
                           WHERE ft.regno = r.regno AND ft.acadyear = r.acad_year
@@ -363,16 +363,18 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                 }
 
                 // Not billed: active students enrolled (registered) in active semesters but no Bill
+                // Must include ft.semester = r.semester so a Sem 1 bill doesn't mask an unbilled Sem 2
                 string unbilledSql = string.Format(@"
                     SELECT COUNT(DISTINCT r.regno)
                     FROM campus_dynamics.acad_registration r
                     INNER JOIN campus_dynamics.acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
                     WHERE r.acad_year = @ay
                       AND r.semester IN ({0})
-                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')
                       AND NOT EXISTS(
                           SELECT 1 FROM fin_studentfeestracking ft
-                          WHERE ft.regno = r.regno AND ft.acadyear = r.acad_year AND ft.trans_type = 'Bill'
+                          WHERE ft.regno = r.regno AND ft.acadyear = r.acad_year
+                            AND ft.semester = r.semester AND ft.trans_type = 'Bill'
                       )", activeSemFilter);
                 using (var cmd = new MySqlCommand(unbilledSql, conn))
                 {
@@ -425,7 +427,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
             }
 
             // All figures scoped to enrolled students:
-            //   acad_registration.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+            //   acad_registration.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')
             //   acad_student.new_status = 'ACTIVE'
             //   acad_registration.semester IN (active semesters)
             //   acad_registration.acad_year = current academic year
@@ -445,7 +447,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     ON s.regno = ft.regno AND s.new_status = 'ACTIVE'
                 WHERE ft.acadyear = @ay
                   AND ft.semester IN ({0})
-                  AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')", activeSemFilter);
+                  AND r.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')", activeSemFilter);
 
             double tuitionBill = 0, functionalBill = 0, totalBill = 0, totalPaid = 0;
 
@@ -1097,7 +1099,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     INNER JOIN acad_student s ON s.regno = r.regno
                     WHERE s.progid = @prog
                       AND r.acad_year = @acad
-                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')
                     ORDER BY r.semester, s.firstname, s.othername", conn))
                 {
                     cmd.CommandTimeout = 60;
@@ -1445,7 +1447,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     INNER JOIN acad_student s ON s.regno = r.regno
                     WHERE s.progid = @prog
                       AND r.acad_year = @acad
-                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')
                     ORDER BY r.semester, s.firstname", conn))
                 {
                     cmd.CommandTimeout = 60;
@@ -1723,28 +1725,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
 
         try
         {
-            // 1. Auto-register UNREGISTERED students for this academic year
-            int autoRegistered = 0;
-            using (var conn = new MySqlConnection(MainConnStr))
-            {
-                conn.Open();
-                string updateSql = string.Format(
-                    @"UPDATE acad_registration r
-                      INNER JOIN acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
-                      SET r.regstatus = 'REGISTERED', r.registeredBy = @usr
-                      WHERE r.acad_year = @ay
-                        AND r.semester IN ({0})
-                        AND r.regstatus = 'UNREGISTERED'", activeSemsCsv);
-                using (var cmd = new MySqlCommand(updateSql, conn))
-                {
-                    cmd.CommandTimeout = 60;
-                    cmd.Parameters.AddWithValue("@ay", acadYear);
-                    cmd.Parameters.AddWithValue("@usr", currentUser);
-                    autoRegistered = cmd.ExecuteNonQuery();
-                }
-            }
-
-            // 2. Find all unbilled students (active + registered this year + no bill)
+            // 1. Find all unbilled students (active + registered this year + no bill)
             var toBill = new List<string[]>(); // each: [regno, semester]
             using (var conn = new MySqlConnection(AcctConnStr))
             {
@@ -1755,6 +1736,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     INNER JOIN campus_dynamics.acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
                     WHERE r.acad_year = @ay
                       AND r.semester IN ({0})
+                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')
                       AND NOT EXISTS(
                           SELECT 1 FROM fin_studentfeestracking ft
                           WHERE ft.regno = r.regno AND ft.acadyear = r.acad_year
@@ -1779,16 +1761,16 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
 
             if (toBill.Count == 0)
             {
-                string msg0 = "No unbilled students found.";
-                if (autoRegistered > 0) msg0 += " " + autoRegistered + " student(s) auto-registered.";
+                string msg0 = "No unbilled students found. All registered students are already billed.";
                 ScriptManager.RegisterStartupScript(this, GetType(), "buDone",
                     "showToast('" + msg0.Replace("'", "\\'") + "','success');", true);
                 LoadStudentOverviewStats();
                 return;
             }
 
-            // 3. Bill each student via fin_AutoBillOnRegistration SP
+            // 2. Bill each student via fin_AutoBillOnRegistration SP
             int billed = 0, errors = 0;
+            int skippedDup = 0;
             var errMsgs = new List<string>();
             using (var conn = new MySqlConnection(AcctConnStr))
             {
@@ -1816,16 +1798,25 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     }
                     catch (Exception ex)
                     {
-                        errors++;
-                        if (errMsgs.Count < 3)
-                            errMsgs.Add(stu[0] + ": " + ex.Message);
+                        // MySQL error 1062 = duplicate key — DB-level safety
+                        var mex = ex as MySqlException;
+                        if (mex != null && mex.Number == 1062)
+                        {
+                            skippedDup++;
+                        }
+                        else
+                        {
+                            errors++;
+                            if (errMsgs.Count < 5)
+                                errMsgs.Add(stu[0] + ": " + ex.Message);
+                        }
                     }
                 }
             }
 
-            // 4. Show result
+            // 3. Show result
             string msg = billed + " student(s) billed successfully.";
-            if (autoRegistered > 0) msg += " " + autoRegistered + " auto-registered.";
+            if (skippedDup > 0) msg += " " + skippedDup + " already billed (skipped).";
             if (errors > 0) msg += " " + errors + " error(s).";
             string toastType = errors > 0 ? "warning" : "success";
 
@@ -2018,7 +2009,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     WHERE s.progid IN ({0})
                       AND r.acad_year = @acad
                       AND r.semester IN ({1})
-                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')
                     ORDER BY s.progid, r.semester", inList, activeSemsCsv);
                 using (var cmd = new MySqlCommand(regSql, conn))
                 {
@@ -2330,7 +2321,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     WHERE s.progid IN ({0})
                       AND r.acad_year = @acad
                       AND r.semester IN ({1})
-                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                      AND r.regstatus IN ('REGISTERED','LATE REGISTERED','LATE-REGISTERED','CLEARED')
                     ORDER BY s.progid", inList, activeSemsCsv);
                 using (var cmd = new MySqlCommand(sql, conn))
                 {
@@ -2355,10 +2346,9 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                 }
             }
 
-            // 3) Load existing bills
-            // Check ALL academic years to prevent cross-year duplicate billing.
-            // Previously filtered by ft.acadyear = @acad which missed prior-year bills,
-            // causing BATCH to re-bill students already billed under a different year.
+            // 3) Load existing bills for the CURRENT academic year only.
+            //    Each academic year must be billed independently — a student
+            //    billed in 2024/2025 Sem 1 still needs a 2025/2026 Sem 1 bill.
             var existingBills = new HashSet<string>();
             using (var conn = new MySqlConnection(AcctConnStr))
             {
@@ -2369,12 +2359,14 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     FROM fin_studentfeestracking ft
                     INNER JOIN campus_dynamics.acad_student s ON s.regno = ft.regno
                     WHERE s.progid IN ({0})
+                      AND ft.acadyear = @acad
                       AND ft.trans_type = 'Bill'
                       AND ft.item_code IN (1, 52)
                     GROUP BY ft.regno, ft.semester, ft.item_code", inList);
                 using (var cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.CommandTimeout = 120;
+                    cmd.Parameters.AddWithValue("@acad", acadYear);
                     using (var rdr = cmd.ExecuteReader())
                     {
                         while (rdr.Read())

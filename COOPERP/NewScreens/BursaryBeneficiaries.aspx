@@ -118,6 +118,56 @@
 /* Responsive */
 @media (max-width: 900px) { .bb-stats { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 600px) { .bb-stats { grid-template-columns: 1fr; } }
+
+/* ===== WIZARD ============================================================ */
+.wz-modal { width: 640px; max-width: 96vw; }
+.wz-steps { display: flex; background: #f0f2f7; border-bottom: 1px solid #e0e5ed; padding: 0; }
+.wz-step { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 8px; font-size: 10px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; color: #aaa; background: transparent; border: none; cursor: default; position: relative; transition: all .2s; }
+.wz-step::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: transparent; transition: background .2s; }
+.wz-step--active { color: #05275C; background: #fff; }
+.wz-step--active::after { background: #174DA4; }
+.wz-step--done { color: #2e7d32; }
+.wz-step--done::after { background: #2e7d32; }
+.wz-step__num { width: 20px; height: 20px; border-radius: 50%; background: #ddd; color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .2s; }
+.wz-step--active .wz-step__num { background: #174DA4; }
+.wz-step--done .wz-step__num { background: #2e7d32; }
+.wz-panel { display: none; padding: 18px 20px; min-height: 180px; animation: wzFadeIn .2s; }
+.wz-panel--active { display: block; }
+@keyframes wzFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.wz-footer { padding: 11px 18px; border-top: 1px solid #e0e5ed; display: flex; gap: 8px; justify-content: space-between; background: #f8f9fb; }
+.wz-footer__right { display: flex; gap: 8px; }
+.wz-alert { padding: 10px 14px; font-size: 12px; border: 1px solid transparent; margin-bottom: 10px; display: none; }
+.wz-alert--info { display: block; background: #e8f0fc; border-color: #d0daf0; color: #174DA4; }
+.wz-alert--success { display: block; background: #e6f4ea; border-color: #c3e6cb; color: #155724; }
+.wz-alert--warn { display: block; background: #fff3e0; border-color: #ffcc80; color: #e65100; }
+.wz-alert--error { display: block; background: #fde8e8; border-color: #f5c6cb; color: #c62828; }
+.wz-reg-card { background: #fff; border: 1px solid #e0e5ed; padding: 10px 14px; margin-bottom: 5px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all .15s; }
+.wz-reg-card:hover { border-color: #174DA4; background: #f8faff; }
+.wz-reg-card--selected { border-color: #2e7d32; background: #e6f4ea; box-shadow: 0 0 0 1px #2e7d32; }
+.wz-reg-card__title { font-size: 12px; font-weight: 700; color: #05275C; }
+.wz-reg-card__meta { font-size: 10px; color: #666; margin-top: 2px; }
+.wz-reg-card__status { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.wz-reg-card__status--active { background: #e6f4ea; color: #2e7d32; }
+.wz-reg-card__status--warn { background: #fff3e0; color: #e65100; }
+.wz-scheme-card { background: #fff; border: 1px solid #e0e5ed; padding: 12px 14px; margin-bottom: 6px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all .15s; }
+.wz-scheme-card:hover { border-color: #174DA4; background: #f8faff; }
+.wz-scheme-card--selected { border-color: #174DA4; background: #eef2ff; box-shadow: 0 0 0 1px #174DA4; }
+.wz-scheme-card__name { font-size: 12px; font-weight: 700; color: #05275C; }
+.wz-scheme-card__meta { font-size: 10px; color: #666; margin-top: 2px; }
+.wz-scheme-type { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.wz-scheme-type--FIXED { background: #e6f4ea; color: #2e7d32; }
+.wz-scheme-type--PERCENTAGE { background: #fff3e0; color: #e65100; }
+.wz-scheme-type--CUSTOM { background: #e8f0fc; color: #174DA4; }
+.wz-review-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.wz-review-table tr { border-bottom: 1px solid #f0f0f0; }
+.wz-review-table td { padding: 8px 0; }
+.wz-review-table td:first-child { color: #888; width: 40%; }
+.wz-review-table td:last-child { font-weight: 600; color: #222; }
+.wz-fee-breakdown { background: #f8f9fb; border: 1px solid #e0e5ed; padding: 12px 14px; margin: 10px 0; font-size: 12px; }
+.wz-fee-breakdown__row { display: flex; justify-content: space-between; padding: 4px 0; }
+.wz-fee-breakdown__row--total { border-top: 2px solid #e0e5ed; margin-top: 6px; padding-top: 8px; font-weight: 700; color: #05275C; font-size: 13px; }
+.wz-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: #174DA4; border-radius: 50%; animation: wzSpin .6s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes wzSpin { to { transform: rotate(360deg); } }
 </style>
 </asp:Content>
 
@@ -286,6 +336,7 @@
 <asp:HiddenField ID="hfEditID" runat="server" />
 <asp:HiddenField ID="hfDeleteID" runat="server" />
 <asp:HiddenField ID="hfAddRegNo" runat="server" />
+<asp:HiddenField ID="hfAddCustomAmount" runat="server" />
 
 <!-- Action Popover (position:fixed) -->
 <div class="bb-action-pop" id="actionPop">
@@ -305,52 +356,84 @@
     </button>
 </div>
 
-<!-- Add Beneficiary Modal -->
+<!-- ===== ADD BENEFICIARY WIZARD (4-step) ===== -->
 <div id="modal-add-beneficiary" class="fs-modal-overlay" onclick="if(event.target===this)closeModal('modal-add-beneficiary')">
-    <div class="fs-modal">
+    <div class="fs-modal wz-modal">
         <div class="fs-modal__header">
             <div class="fs-modal__title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Add Bursary Beneficiary
             </div>
             <button type="button" class="fs-modal__close" onclick="closeModal('modal-add-beneficiary')">&times;</button>
         </div>
-        <div class="fs-modal__body">
-            <!-- Student lookup -->
+
+        <!-- Step Indicators -->
+        <div class="wz-steps" id="wzSteps">
+            <div class="wz-step wz-step--active" data-step="1"><span class="wz-step__num">1</span>Student</div>
+            <div class="wz-step" data-step="2"><span class="wz-step__num">2</span>Scheme</div>
+            <div class="wz-step" data-step="3"><span class="wz-step__num">3</span>Specification</div>
+            <div class="wz-step" data-step="4"><span class="wz-step__num">4</span>Confirm</div>
+        </div>
+
+        <!-- STEP 1: Student Selection -->
+        <div class="wz-panel wz-panel--active" id="wzPanel1">
+            <div style="margin-bottom:12px;">
+                <div style="font-size:13px;font-weight:700;color:#05275C;margin-bottom:4px;">Select Student</div>
+                <div style="font-size:11px;color:#888;">Search for the student by registration number or name.</div>
+            </div>
             <div class="fs-form-row">
                 <div class="fs-form-group">
-                    <label class="fs-form-label">Student Reg No <span class="req">*</span></label>
+                    <label class="fs-form-label">Student Reg No / Name <span class="req">*</span></label>
                     <div class="bb-ac">
-                        <asp:TextBox ID="txtAddRegNo" runat="server" CssClass="fs-form-input" placeholder="Type reg number to search..." autocomplete="off" />
+                        <asp:TextBox ID="txtAddRegNo" runat="server" CssClass="fs-form-input" placeholder="Type reg number or name to search..." autocomplete="off" />
                         <div id="acAddList" class="bb-ac__list"></div>
                     </div>
                 </div>
             </div>
             <div id="addStudentInfo" class="bb-student-info"></div>
-            <div id="addRegInfo" class="bb-student-info" style="display:none;background:#e6f4ea;border-color:#c3e6cb;">
-                <div class="bb-student-info__name" style="color:#2e7d32;"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2.5" style="vertical-align:-1px;margin-right:4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Registration Found: <span id="addRegSummary">—</span></div>
+            <!-- Registration cards container — admin picks one -->
+            <div id="addRegCards" style="display:none; margin-top:10px;">
+                <div style="font-size:11px;font-weight:600;color:#05275C;margin-bottom:5px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#05275C" stroke-width="2.5" style="vertical-align:-1px;margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Select a registration (<span id="addRegCount">0</span> found) — click one:
+                </div>
+                <div id="addRegList" style="max-height:200px;overflow-y:auto;"></div>
             </div>
             <div id="addRegWarning" class="bb-student-info bb-student-info--error" style="display:none;">
-                <div class="bb-student-info__name" style="color:#c62828;"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c62828" stroke-width="2.5" style="vertical-align:-1px;margin-right:4px;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg><span id="addRegWarnMsg">No registration found</span></div>
-            </div>
-            <div class="fs-form-row">
-                <div class="fs-form-group">
-                    <label class="fs-form-label">Bursary Scheme <span class="req">*</span></label>
-                    <asp:DropDownList ID="ddlAddScheme" runat="server" CssClass="fs-form-input" onchange="onAddSchemeChange(this)" />
+                <div class="bb-student-info__name" style="color:#c62828;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c62828" stroke-width="2.5" style="vertical-align:-1px;margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    <span id="addRegWarnMsg">No registration found</span>
                 </div>
             </div>
-            <div id="addSchemeAmountInfo" class="bb-student-info" style="display:none;background:#e8f0fc;border-color:#d0daf0;">
-                <div class="bb-student-info__name" style="color:#174DA4;">Bursary Amount: <span id="addSchemeAmountVal">—</span></div>
-                <div class="bb-student-info__detail" style="color:#555;">This amount will be automatically applied as a fee payment.</div>
+        </div>
+
+        <!-- STEP 2: Bursary Scheme Selection -->
+        <div class="wz-panel" id="wzPanel2">
+            <div style="margin-bottom:12px;">
+                <div style="font-size:13px;font-weight:700;color:#05275C;margin-bottom:4px;">Select Bursary Scheme</div>
+                <div style="font-size:11px;color:#888;">Choose the bursary scheme to apply to this student.</div>
+            </div>
+            <div id="wzSchemeList" style="max-height:280px;overflow-y:auto;">
+                <div style="text-align:center;padding:30px;color:#aaa;"><span class="wz-spinner"></span> Loading schemes...</div>
+            </div>
+            <!-- Hidden ASP dropdown (postback still uses this) -->
+            <asp:DropDownList ID="ddlAddScheme" runat="server" CssClass="fs-form-input" style="display:none;" />
+        </div>
+
+        <!-- STEP 3: Specification -->
+        <div class="wz-panel" id="wzPanel3">
+            <div style="margin-bottom:12px;">
+                <div style="font-size:13px;font-weight:700;color:#05275C;margin-bottom:4px;">Bursary Specification</div>
+                <div style="font-size:11px;color:#888;" id="wzSpecDesc">Configure the bursary amount and semester for this student.</div>
             </div>
             <div class="fs-form-row">
                 <div class="fs-form-group">
                     <label class="fs-form-label">Academic Year <span class="req">*</span></label>
-                    <asp:DropDownList ID="ddlAddAcadYear" runat="server" CssClass="fs-form-input" style="background:#f5f7fa;color:#888;" />
+                    <asp:DropDownList ID="ddlAddAcadYear" runat="server" CssClass="fs-form-input" onchange="onWzYearSemChange()" />
                 </div>
                 <div class="fs-form-group">
                     <label class="fs-form-label">Semester <span class="req">*</span></label>
-                    <asp:DropDownList ID="ddlAddSemester" runat="server" CssClass="fs-form-input" style="background:#f5f7fa;color:#888;">
+                    <asp:DropDownList ID="ddlAddSemester" runat="server" CssClass="fs-form-input" onchange="onWzYearSemChange()">
                         <asp:ListItem Value="1" Text="Semester 1" Selected="True" />
                         <asp:ListItem Value="2" Text="Semester 2" />
                         <asp:ListItem Value="3" Text="Semester 3" />
@@ -361,19 +444,94 @@
                     <input type="text" id="txtAddStudyYear" class="fs-form-input" readonly="readonly" style="background:#f5f7fa;color:#05275C;font-weight:700;text-align:center;" placeholder="—" />
                 </div>
             </div>
-            <div class="fs-form-row">
+            <!-- FIXED amount display -->
+            <div id="wzSpecFixedRow" style="display:none;">
+                <div class="wz-alert wz-alert--info">
+                    <strong>Fixed Amount:</strong> This scheme provides a fixed bursary of <strong id="wzSpecFixedAmt">—</strong> per student.
+                </div>
+            </div>
+            <!-- PERCENTAGE calculation -->
+            <div id="wzSpecPctRow" style="display:none;">
+                <div id="wzSpecPctLoading" style="display:none;text-align:center;padding:12px;color:#888;"><span class="wz-spinner"></span> Calculating fees...</div>
+                <div id="wzSpecPctResult" style="display:none;">
+                    <div class="wz-fee-breakdown">
+                        <div style="font-size:11px;font-weight:700;color:#05275C;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Fee Breakdown</div>
+                        <div class="wz-fee-breakdown__row"><span>Tuition Fee</span><span id="wzFeeTuition">—</span></div>
+                        <div class="wz-fee-breakdown__row"><span>Functional Fee</span><span id="wzFeeFunctional">—</span></div>
+                        <div class="wz-fee-breakdown__row wz-fee-breakdown__row--total"><span>Total Fees</span><span id="wzFeeTotal">—</span></div>
+                    </div>
+                    <div class="wz-alert wz-alert--success" style="display:block;">
+                        <strong>Bursary:</strong> <span id="wzPctLabel">—</span>% of total fees = <strong id="wzPctAmount">—</strong>
+                    </div>
+                </div>
+                <div id="wzSpecPctError" class="wz-alert wz-alert--error" style="display:none;"></div>
+            </div>
+            <!-- CUSTOM amount input -->
+            <div id="wzSpecCustomRow" style="display:none;">
+                <div class="wz-alert wz-alert--info" style="display:block;">
+                    This scheme allows a custom bursary amount per student. Enter the amount below.
+                </div>
+                <div class="fs-form-row">
+                    <div class="fs-form-group">
+                        <label class="fs-form-label">Custom Amount (UGX) <span class="req">*</span></label>
+                        <input type="number" id="txtWzCustomAmount" class="fs-form-input" min="1" step="1" placeholder="Enter bursary amount..." style="font-weight:700;font-size:14px;" />
+                    </div>
+                </div>
+            </div>
+            <div class="fs-form-row" style="margin-top:8px;">
                 <div class="fs-form-group">
                     <label class="fs-form-label">Notes</label>
                     <asp:TextBox ID="txtAddNotes" runat="server" CssClass="fs-form-input" TextMode="MultiLine" Rows="2" placeholder="Optional notes about this allocation..." MaxLength="500" />
                 </div>
             </div>
         </div>
-        <div class="fs-modal__footer">
-            <button type="button" class="fs-btn fs-btn--ghost" onclick="closeModal('modal-add-beneficiary')">Cancel</button>
-            <button type="button" id="btnModalSave" class="fs-btn fs-btn--primary" onclick="submitAdd(this)">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                Save Beneficiary
-            </button>
+
+        <!-- STEP 4: Review & Confirm -->
+        <div class="wz-panel" id="wzPanel4">
+            <div style="margin-bottom:12px;">
+                <div style="font-size:13px;font-weight:700;color:#05275C;margin-bottom:4px;">Review &amp; Confirm</div>
+                <div style="font-size:11px;color:#888;">Please verify all details before submitting.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:12px 14px;background:#f0f4ff;border:1px solid #d0daf0;">
+                <div style="width:40px;height:40px;background:#05275C;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div>
+                    <div style="font-size:14px;font-weight:700;color:#05275C;" id="wzRevStudName">—</div>
+                    <div style="font-size:11px;color:#666;" id="wzRevStudInfo">—</div>
+                </div>
+            </div>
+            <table class="wz-review-table">
+                <tr><td>Bursary Scheme</td><td id="wzRevScheme">—</td></tr>
+                <tr><td>Scheme Type</td><td id="wzRevType">—</td></tr>
+                <tr><td>Academic Year</td><td id="wzRevYear">—</td></tr>
+                <tr><td>Semester</td><td id="wzRevSem">—</td></tr>
+                <tr><td>Study Year</td><td id="wzRevStudyYear">—</td></tr>
+                <tr id="wzRevFeesRow" style="display:none;"><td>Total Programme Fees</td><td id="wzRevTotalFees">—</td></tr>
+                <tr><td>Bursary Amount</td><td id="wzRevAmount" style="font-size:15px;color:#00695c;">—</td></tr>
+                <tr id="wzRevNotesRow" style="display:none;"><td>Notes</td><td id="wzRevNotes" style="font-weight:400;color:#555;">—</td></tr>
+            </table>
+        </div>
+
+        <!-- Footer with Navigation -->
+        <div class="wz-footer">
+            <div>
+                <button type="button" class="fs-btn fs-btn--ghost" id="wzBtnPrev" onclick="wzPrev()" style="display:none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    Previous
+                </button>
+            </div>
+            <div class="wz-footer__right">
+                <button type="button" class="fs-btn fs-btn--ghost" onclick="closeModal('modal-add-beneficiary')">Cancel</button>
+                <button type="button" class="fs-btn fs-btn--primary" id="wzBtnNext" onclick="wzNext()">
+                    Next
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <button type="button" class="fs-btn fs-btn--primary" id="wzBtnSubmit" onclick="wzSubmit(this)" style="display:none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Submit Bursary
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -497,10 +655,131 @@
 
 <script type="text/javascript">
     // ---- Modal ----
-    function openModal(id) { document.getElementById(id).classList.add('fs-modal-overlay--visible'); }
+    function openModal(id) {
+        document.getElementById(id).classList.add('fs-modal-overlay--visible');
+        // Reset wizard when opening add modal
+        if (id === 'modal-add-beneficiary') wzReset();
+    }
     function closeModal(id) { document.getElementById(id).classList.remove('fs-modal-overlay--visible'); }
 
-    // ---- Student Autocomplete for Add modal ----
+    // ===== WIZARD STATE =====
+    var _wz = {
+        step: 1,
+        totalSteps: 4,
+        // Student
+        regNo: '', studentName: '', programme: '',
+        acadYear: '', semester: 0, studyYear: 0, regStatus: '',
+        // Scheme
+        schemeId: 0, schemeName: '', schemeType: '', schemeValue: 0, schemeAmount: 0,
+        // Fees (for PERCENTAGE)
+        tuition: 0, functional: 0, totalFees: 0,
+        // Final amount
+        bursaryAmount: 0,
+        customAmount: 0
+    };
+
+    // ===== WIZARD NAVIGATION =====
+    function wzGoTo(step) {
+        if (step < 1 || step > _wz.totalSteps) return;
+        _wz.step = step;
+        // Update panels
+        for (var i = 1; i <= _wz.totalSteps; i++) {
+            var panel = document.getElementById('wzPanel' + i);
+            if (panel) panel.classList.toggle('wz-panel--active', i === step);
+        }
+        // Update step indicators
+        var steps = document.querySelectorAll('#wzSteps .wz-step');
+        for (var i = 0; i < steps.length; i++) {
+            var s = i + 1;
+            steps[i].className = 'wz-step' + (s === step ? ' wz-step--active' : (s < step ? ' wz-step--done' : ''));
+        }
+        // Button visibility
+        document.getElementById('wzBtnPrev').style.display = step > 1 ? '' : 'none';
+        document.getElementById('wzBtnNext').style.display = step < _wz.totalSteps ? '' : 'none';
+        document.getElementById('wzBtnSubmit').style.display = step === _wz.totalSteps ? '' : 'none';
+        // Step-specific actions
+        if (step === 2) wzLoadSchemes();
+        if (step === 3) wzInitSpec();
+        if (step === 4) wzBuildReview();
+    }
+
+    function wzNext() {
+        if (!wzValidateStep(_wz.step)) return;
+        wzGoTo(_wz.step + 1);
+    }
+    function wzPrev() { wzGoTo(_wz.step - 1); }
+
+    function wzReset() {
+        _wz.step = 1;
+        _wz.regNo = ''; _wz.studentName = ''; _wz.programme = '';
+        _wz.acadYear = ''; _wz.semester = 0; _wz.studyYear = 0; _wz.regStatus = '';
+        _wz.schemeId = 0; _wz.schemeName = ''; _wz.schemeType = ''; _wz.schemeValue = 0; _wz.schemeAmount = 0;
+        _wz.tuition = 0; _wz.functional = 0; _wz.totalFees = 0;
+        _wz.bursaryAmount = 0; _wz.customAmount = 0;
+        // Reset UI
+        var inp = document.getElementById('<%= txtAddRegNo.ClientID %>');
+        if (inp) inp.value = '';
+        document.getElementById('<%= hfAddRegNo.ClientID %>').value = '';
+        document.getElementById('addStudentInfo').className = 'bb-student-info';
+        document.getElementById('addStudentInfo').innerHTML = '';
+        document.getElementById('addRegCards').style.display = 'none';
+        document.getElementById('addRegList').innerHTML = '';
+        document.getElementById('addRegWarning').style.display = 'none';
+        document.getElementById('txtAddStudyYear').value = '';
+        var ca = document.getElementById('txtWzCustomAmount');
+        if (ca) ca.value = '';
+        wzGoTo(1);
+    }
+
+    // ===== STEP VALIDATION =====
+    function wzValidateStep(step) {
+        if (step === 1) {
+            var hf = document.getElementById('<%= hfAddRegNo.ClientID %>');
+            var inp = document.getElementById('<%= txtAddRegNo.ClientID %>');
+            var regNo = (hf.value || inp.value).trim();
+            if (!regNo) { alert('Please select a student first.'); inp.focus(); return false; }
+            _wz.regNo = regNo;
+            // Require a registration to be selected
+            if (!_wz.acadYear || !_wz.semester) {
+                alert('Please select a registration from the list.');
+                return false;
+            }
+            return true;
+        }
+        if (step === 2) {
+            if (!_wz.schemeId) { alert('Please select a bursary scheme.'); return false; }
+            // Sync the hidden ASP dropdown
+            var ddl = document.getElementById('<%= ddlAddScheme.ClientID %>');
+            for (var i = 0; i < ddl.options.length; i++) {
+                if (ddl.options[i].value == String(_wz.schemeId)) { ddl.selectedIndex = i; break; }
+            }
+            return true;
+        }
+        if (step === 3) {
+            var yr = document.getElementById('<%= ddlAddAcadYear.ClientID %>').value;
+            var sem = document.getElementById('<%= ddlAddSemester.ClientID %>').value;
+            if (!yr) { alert('Please select an academic year.'); return false; }
+            if (!sem) { alert('Please select a semester.'); return false; }
+            _wz.acadYear = yr;
+            _wz.semester = parseInt(sem);
+            // Validate amount
+            if (_wz.schemeType === 'FIXED') {
+                _wz.bursaryAmount = _wz.schemeAmount;
+            } else if (_wz.schemeType === 'PERCENTAGE') {
+                if (_wz.bursaryAmount <= 0) { alert('Fee calculation failed. Please check fees are configured for this programme.'); return false; }
+            } else if (_wz.schemeType === 'CUSTOM') {
+                var ca = document.getElementById('txtWzCustomAmount');
+                var cv = parseFloat(ca.value);
+                if (!cv || cv <= 0) { alert('Please enter a valid custom amount.'); ca.focus(); return false; }
+                _wz.customAmount = cv;
+                _wz.bursaryAmount = cv;
+            }
+            return true;
+        }
+        return true;
+    }
+
+    // ===== STEP 1: Student Autocomplete =====
     var acTimer = null;
     (function () {
         var inp = document.getElementById('<%= txtAddRegNo.ClientID %>');
@@ -540,31 +819,33 @@
             var regNo = item.getAttribute('data-reg');
             inp.value = regNo;
             document.getElementById('<%= hfAddRegNo.ClientID %>').value = regNo;
+            _wz.regNo = regNo;
+            _wz.studentName = item.getAttribute('data-name') || '';
+            _wz.programme = item.getAttribute('data-prog') || '';
             info.className = 'bb-student-info bb-student-info--visible';
-            info.innerHTML = '<div class="bb-student-info__name">' + esc(item.getAttribute('data-name')) + '</div><div class="bb-student-info__detail">' + esc(regNo) + ' &mdash; ' + esc(item.getAttribute('data-prog')) + '</div>';
+            info.innerHTML = '<div class="bb-student-info__name">' + esc(_wz.studentName) + '</div><div class="bb-student-info__detail">' + esc(regNo) + ' &mdash; ' + esc(_wz.programme) + '</div>';
             list.classList.remove('bb-ac__list--visible');
-            // Fetch registration info for this student
+            // Fetch registration info
             fetchRegistration(regNo);
         });
         document.addEventListener('click', function (ev) { if (!inp.contains(ev.target) && !list.contains(ev.target)) list.classList.remove('bb-ac__list--visible'); });
     })();
 
-    // ---- Fetch Registration Info ----
     function fetchRegistration(regNo) {
         var ddlYear = document.getElementById('<%= ddlAddAcadYear.ClientID %>');
         var ddlSem = document.getElementById('<%= ddlAddSemester.ClientID %>');
         var studyYr = document.getElementById('txtAddStudyYear');
-        var regInfo = document.getElementById('addRegInfo');
-        var regSummary = document.getElementById('addRegSummary');
+        var regCards = document.getElementById('addRegCards');
+        var regList = document.getElementById('addRegList');
+        var regCount = document.getElementById('addRegCount');
         var regWarn = document.getElementById('addRegWarning');
         var regWarnMsg = document.getElementById('addRegWarnMsg');
-
-        // Reset
-        regInfo.style.display = 'none';
+        regCards.style.display = 'none';
+        regList.innerHTML = '';
         regWarn.style.display = 'none';
         studyYr.value = '';
-        ddlYear.style.background = ''; ddlYear.style.color = '';
-        ddlSem.style.background = ''; ddlSem.style.color = '';
+        // Clear any previous selection
+        _wz.acadYear = ''; _wz.semester = 0; _wz.studyYear = 0; _wz.regStatus = '';
 
         var xhr = new XMLHttpRequest();
         xhr.open('GET', 'BursaryBeneficiaries.aspx?ajax=getreg&r=' + encodeURIComponent(regNo), true);
@@ -572,35 +853,30 @@
             if (xhr.status === 200) {
                 try {
                     var d = JSON.parse(xhr.responseText);
-                    if (d.found) {
-                        // Auto-set Academic Year
-                        for (var i = 0; i < ddlYear.options.length; i++) {
-                            if (ddlYear.options[i].value === d.acad_year) { ddlYear.selectedIndex = i; break; }
+                    if (d.found && d.regs && d.regs.length > 0) {
+                        regCount.textContent = d.regs.length;
+                        var html = '';
+                        for (var i = 0; i < d.regs.length; i++) {
+                            var reg = d.regs[i];
+                            var isActive = (reg.regstatus === 'REGISTERED' || reg.regstatus === 'CLEARED');
+                            var statusCls = isActive ? 'wz-reg-card__status--active' : 'wz-reg-card__status--warn';
+                            html += '<div class="wz-reg-card" data-year="' + esc(reg.acad_year) + '" data-sem="' + reg.semester + '" data-study="' + reg.study_year + '" data-status="' + esc(reg.regstatus) + '" onclick="wzSelectReg(this)">'
+                                + '<div style="flex:1;"><div class="wz-reg-card__title">' + esc(reg.acad_year) + ' &mdash; Semester ' + reg.semester + '</div>'
+                                + '<div class="wz-reg-card__meta">Study Year ' + reg.study_year + '</div></div>'
+                                + '<span class="wz-reg-card__status ' + statusCls + '">' + esc(reg.regstatus) + '</span>'
+                                + '</div>';
                         }
-                        // Auto-set Semester
-                        for (var i = 0; i < ddlSem.options.length; i++) {
-                            if (ddlSem.options[i].value === String(d.semester)) { ddlSem.selectedIndex = i; break; }
-                        }
-                        // Set study year
-                        studyYr.value = 'Year ' + d.study_year;
+                        regList.innerHTML = html;
+                        regCards.style.display = 'block';
 
-                        // Style as auto-filled
-                        ddlYear.style.background = '#f5f7fa'; ddlYear.style.color = '#05275C'; ddlYear.style.fontWeight = '700';
-                        ddlSem.style.background = '#f5f7fa'; ddlSem.style.color = '#05275C'; ddlSem.style.fontWeight = '700';
-
-                        if (d.regstatus === 'REGISTERED') {
-                            regInfo.style.display = 'block';
-                            regSummary.textContent = d.acad_year + ', Semester ' + d.semester + ', Study Year ' + d.study_year;
-                            regWarn.style.display = 'none';
-                        } else {
-                            regInfo.style.display = 'none';
-                            regWarn.style.display = 'block';
-                            regWarnMsg.textContent = 'Student is ' + d.regstatus + ' for ' + d.acad_year + ' Sem ' + d.semester + '. Bursary may not be applied.';
+                        // If only one registration, auto-select it
+                        if (d.regs.length === 1) {
+                            var firstCard = regList.querySelector('.wz-reg-card');
+                            if (firstCard) wzSelectReg(firstCard);
                         }
                     } else {
-                        regInfo.style.display = 'none';
                         regWarn.style.display = 'block';
-                        regWarnMsg.textContent = 'No registration record found for this student. Please verify the student is registered.';
+                        regWarnMsg.textContent = 'No registration record found. Please verify the student is registered.';
                     }
                 } catch (e) { }
             }
@@ -608,29 +884,206 @@
         xhr.send();
     }
 
-    function submitAdd(btn) {
-        var hf = document.getElementById('<%= hfAddRegNo.ClientID %>');
-        var inp = document.getElementById('<%= txtAddRegNo.ClientID %>');
-        if (hf.value === '' && inp.value.trim() !== '') hf.value = inp.value.trim();
-        btn.disabled = true; btn.innerText = 'Saving...';
-        document.getElementById('<%= btnSaveBeneficiary.ClientID %>').click();
+    // Registration card selection handler
+    function wzSelectReg(card) {
+        var ddlYear = document.getElementById('<%= ddlAddAcadYear.ClientID %>');
+        var ddlSem = document.getElementById('<%= ddlAddSemester.ClientID %>');
+        var studyYr = document.getElementById('txtAddStudyYear');
+        // De-select all, select this
+        var cards = document.querySelectorAll('#addRegList .wz-reg-card');
+        for (var i = 0; i < cards.length; i++) cards[i].classList.remove('wz-reg-card--selected');
+        card.classList.add('wz-reg-card--selected');
+        // Store values
+        _wz.acadYear = card.getAttribute('data-year');
+        _wz.semester = parseInt(card.getAttribute('data-sem'));
+        _wz.studyYear = parseInt(card.getAttribute('data-study'));
+        _wz.regStatus = card.getAttribute('data-status');
+        // Sync dropdowns for Step 3
+        for (var i = 0; i < ddlYear.options.length; i++) {
+            if (ddlYear.options[i].value === _wz.acadYear) { ddlYear.selectedIndex = i; break; }
+        }
+        for (var i = 0; i < ddlSem.options.length; i++) {
+            if (ddlSem.options[i].value === String(_wz.semester)) { ddlSem.selectedIndex = i; break; }
+        }
+        studyYr.value = 'Year ' + _wz.studyYear;
+        ddlYear.style.background = '#f5f7fa'; ddlYear.style.color = '#05275C'; ddlYear.style.fontWeight = '700';
+        ddlSem.style.background = '#f5f7fa'; ddlSem.style.color = '#05275C'; ddlSem.style.fontWeight = '700';
     }
 
-    // ---- Auto-fill scheme amount on Add modal ----
-    function onAddSchemeChange(ddl) {
-        var info = document.getElementById('addSchemeAmountInfo');
-        var valSpan = document.getElementById('addSchemeAmountVal');
-        var schemeId = ddl.value;
-        if (schemeId && typeof _schemeAmounts !== 'undefined' && _schemeAmounts[schemeId]) {
-            var amt = _schemeAmounts[schemeId];
-            valSpan.textContent = 'UGX ' + Number(amt).toLocaleString();
-            info.style.display = 'block';
-            info.className = 'bb-student-info bb-student-info--visible';
-            info.style.background = '#e8f0fc';
-            info.style.borderColor = '#d0daf0';
-        } else {
-            info.style.display = 'none';
+    // ===== STEP 2: Scheme Selection =====
+    function wzLoadSchemes() {
+        var container = document.getElementById('wzSchemeList');
+        container.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;"><span class="wz-spinner"></span> Loading schemes...</div>';
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'BursaryBeneficiaries.aspx?ajax=getschemes', true);
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                try {
+                    var schemes = JSON.parse(xhr.responseText);
+                    if (schemes.length === 0) {
+                        container.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;">No active schemes found. Please create a scheme first.</div>';
+                        return;
+                    }
+                    var html = '';
+                    for (var i = 0; i < schemes.length; i++) {
+                        var s = schemes[i];
+                        var metaText = '';
+                        if (s.type === 'FIXED') metaText = 'UGX ' + Number(s.amount).toLocaleString();
+                        else if (s.type === 'PERCENTAGE') metaText = s.value + '% of total fees';
+                        else metaText = 'Custom amount per student';
+                        var sel = _wz.schemeId == s.id ? ' wz-scheme-card--selected' : '';
+                        html += '<div class="wz-scheme-card' + sel + '" data-sid="' + s.id + '" data-sname="' + esc(s.name) + '" data-stype="' + s.type + '" data-sval="' + s.value + '" data-samt="' + s.amount + '" onclick="wzSelectScheme(this)">'
+                            + '<div style="flex:1;"><div class="wz-scheme-card__name">' + esc(s.name) + '</div><div class="wz-scheme-card__meta">' + metaText + '</div></div>'
+                            + '<span class="wz-scheme-type wz-scheme-type--' + s.type + '">' + s.type + '</span>'
+                            + '</div>';
+                    }
+                    container.innerHTML = html;
+                } catch (e) { container.innerHTML = '<div style="padding:20px;color:#c62828;">Failed to load schemes.</div>'; }
+            }
+        };
+        xhr.send();
+    }
+
+    function wzSelectScheme(card) {
+        // Deselect all
+        var cards = document.querySelectorAll('#wzSchemeList .wz-scheme-card');
+        for (var i = 0; i < cards.length; i++) cards[i].classList.remove('wz-scheme-card--selected');
+        card.classList.add('wz-scheme-card--selected');
+        _wz.schemeId = parseInt(card.getAttribute('data-sid'));
+        _wz.schemeName = card.getAttribute('data-sname');
+        _wz.schemeType = card.getAttribute('data-stype');
+        _wz.schemeValue = parseFloat(card.getAttribute('data-sval'));
+        _wz.schemeAmount = parseFloat(card.getAttribute('data-samt'));
+    }
+
+    // ===== STEP 3: Specification =====
+    function wzInitSpec() {
+        var fixedRow = document.getElementById('wzSpecFixedRow');
+        var pctRow = document.getElementById('wzSpecPctRow');
+        var customRow = document.getElementById('wzSpecCustomRow');
+        fixedRow.style.display = 'none';
+        pctRow.style.display = 'none';
+        customRow.style.display = 'none';
+
+        var desc = document.getElementById('wzSpecDesc');
+        if (_wz.schemeType === 'FIXED') {
+            fixedRow.style.display = 'block';
+            document.getElementById('wzSpecFixedAmt').textContent = 'UGX ' + Number(_wz.schemeAmount).toLocaleString();
+            _wz.bursaryAmount = _wz.schemeAmount;
+            desc.textContent = 'This scheme provides a fixed amount. Select the semester and confirm.';
+        } else if (_wz.schemeType === 'PERCENTAGE') {
+            pctRow.style.display = 'block';
+            desc.textContent = 'This scheme provides ' + _wz.schemeValue + '% of total fees. The amount will be calculated automatically.';
+            document.getElementById('wzPctLabel').textContent = _wz.schemeValue;
+            wzCalcFees();
+        } else if (_wz.schemeType === 'CUSTOM') {
+            customRow.style.display = 'block';
+            desc.textContent = 'This scheme allows you to specify a custom bursary amount for this student.';
+            var ca = document.getElementById('txtWzCustomAmount');
+            if (_wz.customAmount > 0) ca.value = _wz.customAmount;
         }
+    }
+
+    function onWzYearSemChange() {
+        if (_wz.schemeType === 'PERCENTAGE') wzCalcFees();
+    }
+
+    function wzCalcFees() {
+        var yr = document.getElementById('<%= ddlAddAcadYear.ClientID %>').value;
+        var sem = document.getElementById('<%= ddlAddSemester.ClientID %>').value;
+        if (!_wz.regNo || !yr || !sem) return;
+
+        var loading = document.getElementById('wzSpecPctLoading');
+        var result = document.getElementById('wzSpecPctResult');
+        var error = document.getElementById('wzSpecPctError');
+        loading.style.display = 'block';
+        result.style.display = 'none';
+        error.style.display = 'none';
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', 'BursaryBeneficiaries.aspx?ajax=calcfees&r=' + encodeURIComponent(_wz.regNo) + '&y=' + encodeURIComponent(yr) + '&s=' + encodeURIComponent(sem), true);
+        xhr.onload = function () {
+            loading.style.display = 'none';
+            if (xhr.status === 200) {
+                try {
+                    var d = JSON.parse(xhr.responseText);
+                    if (d.ok) {
+                        _wz.tuition = d.tuition;
+                        _wz.functional = d.functional;
+                        _wz.totalFees = d.total;
+                        _wz.bursaryAmount = Math.round(d.total * _wz.schemeValue / 100);
+                        if (d.study_year) _wz.studyYear = d.study_year;
+                        document.getElementById('wzFeeTuition').textContent = 'UGX ' + Number(d.tuition).toLocaleString();
+                        document.getElementById('wzFeeFunctional').textContent = 'UGX ' + Number(d.functional).toLocaleString();
+                        document.getElementById('wzFeeTotal').textContent = 'UGX ' + Number(d.total).toLocaleString();
+                        document.getElementById('wzPctLabel').textContent = _wz.schemeValue;
+                        document.getElementById('wzPctAmount').textContent = 'UGX ' + Number(_wz.bursaryAmount).toLocaleString();
+                        result.style.display = 'block';
+                        error.style.display = 'none';
+                        // Update study year display
+                        if (d.study_year) document.getElementById('txtAddStudyYear').value = 'Year ' + d.study_year;
+                    } else {
+                        _wz.bursaryAmount = 0;
+                        error.style.display = 'block';
+                        error.className = 'wz-alert wz-alert--error';
+                        error.textContent = d.msg || 'Fee calculation failed.';
+                        result.style.display = 'none';
+                    }
+                } catch (e) {
+                    error.style.display = 'block';
+                    error.className = 'wz-alert wz-alert--error';
+                    error.textContent = 'Failed to parse response.';
+                }
+            }
+        };
+        xhr.onerror = function () {
+            loading.style.display = 'none';
+            error.style.display = 'block';
+            error.className = 'wz-alert wz-alert--error';
+            error.textContent = 'Network error while calculating fees.';
+        };
+        xhr.send();
+    }
+
+    // ===== STEP 4: Review =====
+    function wzBuildReview() {
+        document.getElementById('wzRevStudName').textContent = _wz.studentName || _wz.regNo;
+        document.getElementById('wzRevStudInfo').textContent = _wz.regNo + (_wz.programme ? ' \u2014 ' + _wz.programme : '');
+        document.getElementById('wzRevScheme').textContent = _wz.schemeName;
+        var typeLabels = { 'FIXED': 'Fixed Amount', 'PERCENTAGE': 'Percentage of Fees', 'CUSTOM': 'Custom Amount' };
+        document.getElementById('wzRevType').innerHTML = '<span class="wz-scheme-type wz-scheme-type--' + _wz.schemeType + '">' + (typeLabels[_wz.schemeType] || _wz.schemeType) + '</span>';
+        document.getElementById('wzRevYear').textContent = _wz.acadYear || document.getElementById('<%= ddlAddAcadYear.ClientID %>').value;
+        document.getElementById('wzRevSem').textContent = 'Semester ' + (_wz.semester || document.getElementById('<%= ddlAddSemester.ClientID %>').value);
+        document.getElementById('wzRevStudyYear').textContent = _wz.studyYear ? 'Year ' + _wz.studyYear : '—';
+        // Total fees row
+        var feesRow = document.getElementById('wzRevFeesRow');
+        if (_wz.schemeType === 'PERCENTAGE' && _wz.totalFees > 0) {
+            feesRow.style.display = '';
+            document.getElementById('wzRevTotalFees').textContent = 'UGX ' + Number(_wz.totalFees).toLocaleString() + ' (\u00d7 ' + _wz.schemeValue + '%)';
+        } else {
+            feesRow.style.display = 'none';
+        }
+        document.getElementById('wzRevAmount').textContent = 'UGX ' + Number(_wz.bursaryAmount).toLocaleString();
+        // Notes
+        var notes = document.getElementById('<%= txtAddNotes.ClientID %>').value.trim();
+        var notesRow = document.getElementById('wzRevNotesRow');
+        if (notes) { notesRow.style.display = ''; document.getElementById('wzRevNotes').textContent = notes; }
+        else { notesRow.style.display = 'none'; }
+    }
+
+    // ===== SUBMIT =====
+    function wzSubmit(btn) {
+        // Populate hidden fields for postback
+        var hf = document.getElementById('<%= hfAddRegNo.ClientID %>');
+        var inp = document.getElementById('<%= txtAddRegNo.ClientID %>');
+        if (!hf.value && inp.value.trim()) hf.value = inp.value.trim();
+        // For CUSTOM type, set hidden field
+        if (_wz.schemeType === 'CUSTOM') {
+            document.getElementById('<%= hfAddCustomAmount.ClientID %>').value = String(_wz.bursaryAmount);
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<span class="wz-spinner" style="border-top-color:#fff;"></span> Submitting...';
+        document.getElementById('<%= btnSaveBeneficiary.ClientID %>').click();
     }
 
     /* ==== Row Action Popover ==== */
@@ -674,7 +1127,6 @@
         if (pop) pop.classList.remove('bb-action-pop--visible');
     }
 
-    // Close popover on outside click
     document.addEventListener('click', function(e) {
         var pop = document.getElementById('actionPop');
         if (pop && pop.classList.contains('bb-action-pop--visible')) {
@@ -683,7 +1135,6 @@
             }
         }
     });
-    // Close popover on scroll
     window.addEventListener('scroll', hideRowAction, true);
 
     function editBeneficiary() {
@@ -697,13 +1148,10 @@
         document.getElementById('<%= txtEditTxRef.ClientID %>').value = d.txref;
         document.getElementById('<%= txtEditNotes.ClientID %>').value = d.notes;
 
-        // Select scheme
         var ddlS = document.getElementById('<%= ddlEditScheme.ClientID %>');
         for (var i = 0; i < ddlS.options.length; i++) { if (ddlS.options[i].value === d.scheme) ddlS.selectedIndex = i; }
-        // Select year
         var ddlY = document.getElementById('<%= ddlEditAcadYear.ClientID %>');
         for (var i = 0; i < ddlY.options.length; i++) { if (ddlY.options[i].value === d.year) ddlY.selectedIndex = i; }
-        // Select semester
         var ddlSm = document.getElementById('<%= ddlEditSemester.ClientID %>');
         for (var i = 0; i < ddlSm.options.length; i++) { if (ddlSm.options[i].value === d.sem) ddlSm.selectedIndex = i; }
         openModal('modal-edit-beneficiary');
@@ -761,7 +1209,6 @@
 
     function esc(s) { if (!s) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-    // Enter key search
     (function () {
         var box = document.getElementById('<%= txtSearch.ClientID %>');
         if (box) box.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('<%= btnSearch.ClientID %>').click(); } });

@@ -47,6 +47,9 @@
 .bs-badge { display: inline-block; padding: 3px 9px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
 .bs-badge--active { background: #e6f4ea; color: #2e7d32; }
 .bs-badge--inactive { background: #fde8e8; color: #c62828; }
+.bs-badge--fixed { background: #e8f0fc; color: #174DA4; }
+.bs-badge--pct { background: #fff3e0; color: #e65100; }
+.bs-badge--custom { background: #f3e5f5; color: #7b1fa2; }
 
 /* Grid Footer */
 .bs-grid-footer { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #f8f9fb; border-top: 1px solid #e0e5ed; font-size: 11px; color: #666; flex-wrap: wrap; gap: 6px; }
@@ -196,10 +199,16 @@
                 <CellStyle ForeColor="#05275C" Font-Bold="true" />
             </dx:GridViewDataTextColumn>
             <dx:GridViewDataTextColumn FieldName="scholarshipdetails" Caption="Details" Width="220px" />
-            <dx:GridViewDataTextColumn FieldName="bursary_amount" Caption="Amount" Width="130px">
+            <dx:GridViewDataTextColumn FieldName="bursary_amount" Caption="Amount / Value" Width="150px">
                 <Settings AllowAutoFilter="False" />
                 <DataItemTemplate>
-                    <span class="bs-amount"><span class="bs-amount__currency">UGX</span><%# FormatAmount(Eval("bursary_amount")) %></span>
+                    <%# GetSchemeValueDisplay(Eval("scheme_type"), Eval("bursary_amount"), Eval("scheme_value")) %>
+                </DataItemTemplate>
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="scheme_type" Caption="Type" Width="110px">
+                <Settings AllowAutoFilter="False" />
+                <DataItemTemplate>
+                    <%# GetSchemeTypeBadge(Eval("scheme_type")) %>
                 </DataItemTemplate>
             </dx:GridViewDataTextColumn>
             <dx:GridViewDataTextColumn FieldName="status" Caption="Status" Width="90px">
@@ -225,6 +234,8 @@
                         data-details='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("scholarshipdetails"))) %>'
                         data-amount='<%# Eval("bursary_amount") %>'
                         data-status='<%# Eval("status") %>'
+                        data-stype='<%# SafeStr(Eval("scheme_type")) %>'
+                        data-svalue='<%# SafeStr(Eval("scheme_value")) %>'
                         onclick="showRowAction(event,this)">&#8942;</button>
                 </DataItemTemplate>
             </dx:GridViewDataTextColumn>
@@ -291,8 +302,12 @@
             </div>
             <div class="fs-form-row">
                 <div class="fs-form-group">
-                    <label class="fs-form-label">Bursary Amount (UGX) <span class="req">*</span></label>
-                    <asp:TextBox ID="txtAddAmt" runat="server" CssClass="fs-form-input" placeholder="e.g. 500000" />
+                    <label class="fs-form-label">Scheme Type <span class="req">*</span></label>
+                    <asp:DropDownList ID="ddlAddType" runat="server" CssClass="fs-form-input" onchange="onAddTypeChange(this)">
+                        <asp:ListItem Value="FIXED" Text="Fixed Amount" Selected="True" />
+                        <asp:ListItem Value="PERCENTAGE" Text="Percentage of Total Fees" />
+                        <asp:ListItem Value="CUSTOM" Text="Custom (per beneficiary)" />
+                    </asp:DropDownList>
                 </div>
                 <div class="fs-form-group">
                     <label class="fs-form-label">Status</label>
@@ -301,6 +316,21 @@
                         <asp:ListItem Value="Inactive" Text="Inactive" />
                     </asp:DropDownList>
                 </div>
+            </div>
+            <div id="addFixedRow" class="fs-form-row">
+                <div class="fs-form-group">
+                    <label class="fs-form-label">Bursary Amount (UGX) <span class="req">*</span></label>
+                    <asp:TextBox ID="txtAddAmt" runat="server" CssClass="fs-form-input" placeholder="e.g. 500000" />
+                </div>
+            </div>
+            <div id="addPctRow" class="fs-form-row" style="display:none;">
+                <div class="fs-form-group">
+                    <label class="fs-form-label">Percentage (%) <span class="req">*</span></label>
+                    <asp:TextBox ID="txtAddPct" runat="server" CssClass="fs-form-input" placeholder="e.g. 100, 50, 25" />
+                </div>
+            </div>
+            <div id="addCustomHint" style="display:none;padding:8px 12px;background:#f3e5f5;border:1px solid #ce93d8;font-size:12px;color:#7b1fa2;margin-bottom:10px;">
+                <strong>Custom type:</strong> The bursary amount will be set individually per beneficiary when allocating.
             </div>
         </div>
         <div class="fs-modal__footer">
@@ -338,8 +368,12 @@
             </div>
             <div class="fs-form-row">
                 <div class="fs-form-group">
-                    <label class="fs-form-label">Bursary Amount (UGX) <span class="req">*</span></label>
-                    <asp:TextBox ID="txtEditAmt" runat="server" CssClass="fs-form-input" placeholder="e.g. 500000" />
+                    <label class="fs-form-label">Scheme Type <span class="req">*</span></label>
+                    <asp:DropDownList ID="ddlEditType" runat="server" CssClass="fs-form-input" onchange="onEditTypeChange(this)">
+                        <asp:ListItem Value="FIXED" Text="Fixed Amount" />
+                        <asp:ListItem Value="PERCENTAGE" Text="Percentage of Total Fees" />
+                        <asp:ListItem Value="CUSTOM" Text="Custom (per beneficiary)" />
+                    </asp:DropDownList>
                 </div>
                 <div class="fs-form-group">
                     <label class="fs-form-label">Status</label>
@@ -348,6 +382,21 @@
                         <asp:ListItem Value="Inactive" Text="Inactive" />
                     </asp:DropDownList>
                 </div>
+            </div>
+            <div id="editFixedRow" class="fs-form-row">
+                <div class="fs-form-group">
+                    <label class="fs-form-label">Bursary Amount (UGX) <span class="req">*</span></label>
+                    <asp:TextBox ID="txtEditAmt" runat="server" CssClass="fs-form-input" placeholder="e.g. 500000" />
+                </div>
+            </div>
+            <div id="editPctRow" class="fs-form-row" style="display:none;">
+                <div class="fs-form-group">
+                    <label class="fs-form-label">Percentage (%) <span class="req">*</span></label>
+                    <asp:TextBox ID="txtEditPct" runat="server" CssClass="fs-form-input" placeholder="e.g. 100, 50, 25" />
+                </div>
+            </div>
+            <div id="editCustomHint" style="display:none;padding:8px 12px;background:#f3e5f5;border:1px solid #ce93d8;font-size:12px;color:#7b1fa2;margin-bottom:10px;">
+                <strong>Custom type:</strong> The bursary amount will be set individually per beneficiary when allocating.
             </div>
         </div>
         <div class="fs-modal__footer">
@@ -403,7 +452,9 @@
             name: btn.getAttribute('data-name'),
             details: btn.getAttribute('data-details'),
             amount: btn.getAttribute('data-amount'),
-            status: btn.getAttribute('data-status')
+            status: btn.getAttribute('data-status'),
+            stype: btn.getAttribute('data-stype') || 'FIXED',
+            svalue: btn.getAttribute('data-svalue') || ''
         };
 
         var rect = btn.getBoundingClientRect();
@@ -445,8 +496,12 @@
         document.getElementById('<%= txtEditName.ClientID %>').value = d.name;
         document.getElementById('<%= txtEditDetails.ClientID %>').value = d.details;
         document.getElementById('<%= txtEditAmt.ClientID %>').value = d.amount;
-        var ddl = document.getElementById('<%= ddlEditStatus.ClientID %>');
-        for (var i = 0; i < ddl.options.length; i++) { if (ddl.options[i].value === d.status) ddl.selectedIndex = i; }
+        document.getElementById('<%= txtEditPct.ClientID %>').value = (d.stype === 'PERCENTAGE' && d.svalue) ? d.svalue : '';
+        var ddlSt = document.getElementById('<%= ddlEditStatus.ClientID %>');
+        for (var i = 0; i < ddlSt.options.length; i++) { if (ddlSt.options[i].value === d.status) ddlSt.selectedIndex = i; }
+        var ddlT = document.getElementById('<%= ddlEditType.ClientID %>');
+        for (var i = 0; i < ddlT.options.length; i++) { if (ddlT.options[i].value === d.stype) ddlT.selectedIndex = i; }
+        onEditTypeChange(ddlT);
         openModal('modal-edit-scheme');
     }
 
@@ -472,6 +527,22 @@
         var box = document.getElementById('<%= txtSearch.ClientID %>');
         if (box) box.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('<%= btnSearch.ClientID %>').click(); } });
     })();
+
+    /* ==== Type Cascade (Add Modal) ==== */
+    function onAddTypeChange(ddl) {
+        var v = ddl.value;
+        document.getElementById('addFixedRow').style.display = (v === 'FIXED') ? '' : 'none';
+        document.getElementById('addPctRow').style.display = (v === 'PERCENTAGE') ? '' : 'none';
+        document.getElementById('addCustomHint').style.display = (v === 'CUSTOM') ? 'block' : 'none';
+    }
+
+    /* ==== Type Cascade (Edit Modal) ==== */
+    function onEditTypeChange(ddl) {
+        var v = ddl.value;
+        document.getElementById('editFixedRow').style.display = (v === 'FIXED') ? '' : 'none';
+        document.getElementById('editPctRow').style.display = (v === 'PERCENTAGE') ? '' : 'none';
+        document.getElementById('editCustomHint').style.display = (v === 'CUSTOM') ? 'block' : 'none';
+    }
 </script>
 
 </asp:Content>
