@@ -105,6 +105,9 @@ public partial class COOPERP_NewScreens_ElectionResults : System.Web.UI.Page
         // Compute button — show for Active/Closed (not yet computed or recomputing)
         btnCompute.Visible = (status == "Active" || status == "Closed");
 
+        // Export button — show when results exist
+        btnExportCsv.Visible = hasElection;
+
         // Load turnout
         LoadTurnout(eid);
 
@@ -423,6 +426,65 @@ public partial class COOPERP_NewScreens_ElectionResults : System.Web.UI.Page
         {
             RedirectWithFlash("Error computing results: " + ex.Message, false, "&eid=" + eid);
         }
+    }
+
+    protected void btnExportCsv_Click(object sender, EventArgs e)
+    {
+        int eid = GetSelectedElection();
+        if (eid <= 0) return;
+
+        DataRow election = ElectionsHelper.GetElection(eid);
+        string elName = election != null ? election["election_name"].ToString() : "election";
+
+        // Try computed results first, fall back to live summary
+        DataTable dt = ElectionsHelper.GetResults(eid);
+        bool isFinal = dt.Rows.Count > 0;
+        if (!isFinal)
+            dt = ElectionsHelper.GetVoteSummary(eid);
+
+        if (dt.Rows.Count == 0)
+        {
+            RedirectWithFlash("No results data to export.", false, "&eid=" + eid);
+            return;
+        }
+
+        // Build CSV
+        StringBuilder csv = new StringBuilder();
+        csv.AppendLine("Post,Candidate,Reg No,Votes,Percentage,Rank,Winner,Tied");
+        foreach (DataRow r in dt.Rows)
+        {
+            string postName = CsvEscape(r["post_name"].ToString());
+            string candName = CsvEscape(r["candidate_name"].ToString());
+            string regno = r.Table.Columns.Contains("regno") ? CsvEscape(r["regno"].ToString()) : "";
+            string votes = r["vote_count"].ToString();
+            string pct = isFinal && r.Table.Columns.Contains("percentage")
+                ? r["percentage"].ToString() : "";
+            string rank = isFinal && r.Table.Columns.Contains("rank_position")
+                ? r["rank_position"].ToString() : "";
+            string winner = isFinal && r.Table.Columns.Contains("is_winner")
+                ? (Convert.ToInt32(r["is_winner"]) == 1 ? "Yes" : "No") : "";
+            string tied = isFinal && r.Table.Columns.Contains("is_tie")
+                ? (Convert.ToInt32(r["is_tie"]) == 1 ? "Yes" : "No") : "";
+            csv.AppendFormat("{0},{1},{2},{3},{4},{5},{6},{7}\r\n",
+                postName, candName, regno, votes, pct, rank, winner, tied);
+        }
+
+        // Send CSV
+        string safeName = elName.Replace(" ", "_").Replace("\"", "");
+        Response.Clear();
+        Response.ContentType = "text/csv";
+        Response.AddHeader("Content-Disposition",
+            string.Format("attachment; filename=\"{0}_Results.csv\"", safeName));
+        Response.Write(csv.ToString());
+        Response.End();
+    }
+
+    private static string CsvEscape(string val)
+    {
+        if (string.IsNullOrEmpty(val)) return "";
+        if (val.Contains(",") || val.Contains("\"") || val.Contains("\n"))
+            return "\"" + val.Replace("\"", "\"\"") + "\"";
+        return val;
     }
 
     // ─── Flash Helpers ───────────────────────────────────────────────────────

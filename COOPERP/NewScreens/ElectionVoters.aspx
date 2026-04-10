@@ -275,7 +275,11 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 Voter Roll
             </div>
-            <asp:Literal ID="litVoterCount" runat="server" />
+            <div style="display:flex;align-items:center;gap:8px;">
+                <asp:Literal ID="litVoterCount" runat="server" />
+                <asp:Button ID="btnExportVotersCsv" runat="server" CssClass="el-btn el-btn--outline el-btn--xs"
+                    Text="&#x2913; CSV" OnClick="btnExportVotersCsv_Click" ToolTip="Export voter roll as CSV" />
+            </div>
         </div>
 
         <!-- Filters -->

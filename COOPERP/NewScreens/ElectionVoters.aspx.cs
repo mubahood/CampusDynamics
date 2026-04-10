@@ -268,6 +268,56 @@ public partial class COOPERP_NewScreens_ElectionVoters : System.Web.UI.Page
         RefreshAll();
     }
 
+    // ─── Export Voters CSV ───────────────────────────────────────────────────
+    protected void btnExportVotersCsv_Click(object sender, EventArgs e)
+    {
+        int eid = 0;
+        int.TryParse(ddlElection.SelectedValue, out eid);
+        if (eid <= 0) return;
+
+        DataRow election = ElectionsHelper.GetElection(eid);
+        string elName = election != null ? election["election_name"].ToString() : "election";
+
+        DataTable dt = ElectionsHelper.GetVoters(eid, "", "ALL");
+        if (dt.Rows.Count == 0)
+        {
+            RedirectWithFlash("No voters to export.", false, "&eid=" + eid);
+            return;
+        }
+
+        StringBuilder csv = new StringBuilder();
+        csv.AppendLine("Reg No,Name,Email,Programme,Eligible,Voted,Voted At,IP Address");
+        foreach (DataRow r in dt.Rows)
+        {
+            csv.AppendFormat("{0},{1},{2},{3},{4},{5},{6},{7}\r\n",
+                CsvEscape(r["regno"].ToString()),
+                CsvEscape(r["voter_name"].ToString()),
+                CsvEscape((r["email"] ?? "").ToString()),
+                CsvEscape((r["programme"] ?? "").ToString()),
+                Convert.ToInt32(r["is_eligible"]) == 1 ? "Yes" : "No",
+                Convert.ToInt32(r["has_voted"]) == 1 ? "Yes" : "No",
+                r["voted_at"] != DBNull.Value
+                    ? Convert.ToDateTime(r["voted_at"]).ToString("yyyy-MM-dd HH:mm") : "",
+                (r["ip_address"] ?? "").ToString());
+        }
+
+        string safeName = elName.Replace(" ", "_").Replace("\"", "");
+        Response.Clear();
+        Response.ContentType = "text/csv";
+        Response.AddHeader("Content-Disposition",
+            string.Format("attachment; filename=\"{0}_Voters.csv\"", safeName));
+        Response.Write(csv.ToString());
+        Response.End();
+    }
+
+    private static string CsvEscape(string val)
+    {
+        if (string.IsNullOrEmpty(val)) return "";
+        if (val.Contains(",") || val.Contains("\"") || val.Contains("\n"))
+            return "\"" + val.Replace("\"", "\"\"") + "\"";
+        return val;
+    }
+
     // ─── Flash Helpers ───────────────────────────────────────────────────────
     private void RedirectWithFlash(string msg, bool isOk, string extraQs = "")
     {

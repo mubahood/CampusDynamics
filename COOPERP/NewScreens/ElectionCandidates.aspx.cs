@@ -151,13 +151,16 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
                 string reason = (row["rejection_reason"] ?? "").ToString();
 
                 // Data attributes for JS edit pre-fill
-                sb.AppendFormat("<tr data-cid='{0}' data-name='{1}' data-regno='{2}' data-slogan='{3}' data-manifesto='{4}' data-cstatus='{5}' data-eid='{6}' data-pid='{7}'>",
+                string rowStyle = status == "Pending"
+                    ? " style='border-left:3px solid #e67e00;background:#fffdf5;'"
+                    : "";
+                sb.AppendFormat("<tr data-cid='{0}' data-name='{1}' data-regno='{2}' data-slogan='{3}' data-manifesto='{4}' data-cstatus='{5}' data-eid='{6}' data-pid='{7}'{8}>",
                     id,
                     HttpUtility.HtmlAttributeEncode(name),
                     HttpUtility.HtmlAttributeEncode(regno),
                     HttpUtility.HtmlAttributeEncode(slogan),
                     HttpUtility.HtmlAttributeEncode(manifesto),
-                    status, elId, pId);
+                    status, elId, pId, rowStyle);
 
                 // Row number
                 sb.AppendFormat("<td style='color:#999;'>{0}</td>", rowNum);
@@ -265,6 +268,39 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
         litApproved.Text = approved.ToString();
         litPending.Text = pending.ToString();
         litRejected.Text = rejectedDq.ToString();
+
+        // Show pending self-nominations banner
+        if (pending > 0)
+        {
+            pnlPendingBanner.Visible = true;
+            litPendingCount.Text = pending.ToString();
+
+            // Build a short summary of which elections have pending candidates
+            Dictionary<string, int> pendingByElection = new Dictionary<string, int>();
+            foreach (DataRow row in dt.Rows)
+            {
+                if (row["status"].ToString() == "Pending")
+                {
+                    string eName = row["election_name"].ToString();
+                    if (pendingByElection.ContainsKey(eName))
+                        pendingByElection[eName]++;
+                    else
+                        pendingByElection[eName] = 1;
+                }
+            }
+            StringBuilder detail = new StringBuilder();
+            foreach (KeyValuePair<string, int> kv in pendingByElection)
+            {
+                if (detail.Length > 0) detail.Append(", ");
+                detail.AppendFormat("{0} ({1})", Server.HtmlEncode(kv.Key), kv.Value);
+            }
+            if (detail.Length > 0)
+                litPendingDetail.Text = string.Format("Elections: {0}", detail.ToString());
+        }
+        else
+        {
+            pnlPendingBanner.Visible = false;
+        }
     }
 
     // ─── Filter Changed ──────────────────────────────────────────────────────

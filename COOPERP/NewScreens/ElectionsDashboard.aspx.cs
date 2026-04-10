@@ -18,6 +18,7 @@ public partial class COOPERP_NewScreens_ElectionsDashboard : System.Web.UI.Page
             LoadAcadYears();
             BindGrid();
             LoadStats();
+            LoadActivityFeed();
             ShowFlashMessage();
         }
     }
@@ -196,8 +197,96 @@ public partial class COOPERP_NewScreens_ElectionsDashboard : System.Web.UI.Page
         litTotalElections.Text = stats.ContainsKey("total_elections") ? stats["total_elections"].ToString() : "0";
         litActiveElections.Text = stats.ContainsKey("active_elections") ? stats["active_elections"].ToString() : "0";
         litUpcomingElections.Text = stats.ContainsKey("upcoming_elections") ? stats["upcoming_elections"].ToString() : "0";
+        litNominationsElections.Text = stats.ContainsKey("nominations_elections") ? stats["nominations_elections"].ToString() : "0";
         litTotalVoters.Text = stats.ContainsKey("total_voters") ? stats["total_voters"].ToString() : "0";
         litTotalCandidates.Text = stats.ContainsKey("total_candidates") ? stats["total_candidates"].ToString() : "0";
+
+        // Second stats row
+        litDraftElections.Text = stats.ContainsKey("draft_elections") ? stats["draft_elections"].ToString() : "0";
+        litClosedElections.Text = stats.ContainsKey("closed_elections") ? stats["closed_elections"].ToString() : "0";
+        litTotalVoted.Text = stats.ContainsKey("total_voted") ? stats["total_voted"].ToString() : "0";
+        litPendingApps.Text = stats.ContainsKey("pending_applications") ? stats["pending_applications"].ToString() : "0";
+    }
+
+    // ─── Activity Feed ───────────────────────────────────────────────────────
+    private void LoadActivityFeed()
+    {
+        DataTable dt = ElectionsHelper.GetRecentActivity();
+        if (dt.Rows.Count == 0)
+        {
+            litActivityFeed.Text = "<div class='el-feed__empty'>No recent activity yet. Create an election to get started.</div>";
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        foreach (DataRow row in dt.Rows)
+        {
+            string eventType = row["event_type"].ToString();
+            string description = HttpUtility.HtmlEncode(row["description"].ToString());
+            string electionName = HttpUtility.HtmlEncode(row["election_name"].ToString());
+            string detail = row["detail"] != DBNull.Value ? row["detail"].ToString() : "";
+            string timeAgo = "";
+
+            if (row["timestamp"] != DBNull.Value)
+            {
+                DateTime ts = Convert.ToDateTime(row["timestamp"]);
+                timeAgo = FormatTimeAgo(ts);
+            }
+
+            // Determine icon CSS class and SVG
+            string iconClass = "el-feed__icon--election";
+            string iconSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='2' y='2' width='20' height='20' rx='2'/><path d='M9 11l3 3L22 4'/></svg>";
+
+            if (eventType == "candidate_applied")
+            {
+                iconClass = "el-feed__icon--candidate";
+                iconSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='8.5' cy='7' r='4'/><line x1='20' y1='8' x2='20' y2='14'/><line x1='23' y1='11' x2='17' y2='11'/></svg>";
+            }
+            else if (eventType == "vote_cast")
+            {
+                iconClass = "el-feed__icon--vote";
+                iconSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>";
+            }
+
+            sb.Append("<div class='el-feed__item'>");
+            sb.AppendFormat("<div class='el-feed__icon {0}'>{1}</div>", iconClass, iconSvg);
+            sb.Append("<div class='el-feed__body'>");
+            sb.AppendFormat("<div class='el-feed__text'>{0}</div>", description);
+            sb.Append("<div class='el-feed__meta'>");
+            sb.AppendFormat("<span>{0}</span>", electionName);
+
+            if (!string.IsNullOrEmpty(detail) && eventType == "candidate_applied")
+            {
+                sb.AppendFormat("<span class='el-feed__badge el-feed__badge--{0}'>{1}</span>",
+                    detail.ToLower(), HttpUtility.HtmlEncode(detail));
+            }
+            else if (!string.IsNullOrEmpty(detail) && eventType == "election_updated")
+            {
+                sb.AppendFormat("<span class='el-feed__badge el-feed__badge--{0}'>{1}</span>",
+                    detail.ToLower(), HttpUtility.HtmlEncode(detail));
+            }
+
+            if (!string.IsNullOrEmpty(timeAgo))
+            {
+                sb.AppendFormat("<span style='margin-left:auto;'>{0}</span>", timeAgo);
+            }
+
+            sb.Append("</div>"); // meta
+            sb.Append("</div>"); // body
+            sb.Append("</div>"); // item
+        }
+
+        litActivityFeed.Text = sb.ToString();
+    }
+
+    private string FormatTimeAgo(DateTime dt)
+    {
+        TimeSpan ts = DateTime.Now - dt;
+        if (ts.TotalMinutes < 1) return "just now";
+        if (ts.TotalMinutes < 60) return string.Format("{0}m ago", (int)ts.TotalMinutes);
+        if (ts.TotalHours < 24) return string.Format("{0}h ago", (int)ts.TotalHours);
+        if (ts.TotalDays < 7) return string.Format("{0}d ago", (int)ts.TotalDays);
+        return dt.ToString("dd MMM yyyy");
     }
 
     // ─── Filter Changed ──────────────────────────────────────────────────────

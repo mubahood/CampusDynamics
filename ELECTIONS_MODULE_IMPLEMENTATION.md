@@ -1108,3 +1108,49 @@ Week 5: Phase 6 (Testing & Deployment)
 ---
 
 > **Next Step:** Begin with **Task 1.1 — Create Database Tables** by running the migration SQL.
+
+---
+
+## Phase 5 Completion Log — Hardening, Exports & Quality
+
+**Completed:** 2026 (Session)
+
+### Critical Bug Fixes
+
+| # | Severity | Bug | Fix | File |
+|---|----------|-----|-----|------|
+| 1 | **CRITICAL** | `e.academic_year` — column is actually `acad_year` | Changed to `e.acad_year AS academic_year` | ElectionsPortalHelper.cs |
+| 2 | **CRITICAL** | `vote_hash, voted_at` — columns are actually `vote_token, cast_at` | Fixed INSERT column names | ElectionsPortalHelper.cs |
+| 3 | **HIGH** | `'Archived'` status referenced but not in DB ENUM | Replaced with `'Nominations'` and `'Closed'` as appropriate | ElectionsPortalHelper.cs, Elections.aspx.cs, ElectionResults.aspx.cs |
+| 4 | **MEDIUM** | `ComputeResults` tie detection: `prevCount = voteCount` assigned BEFORE comparison | Moved assignment AFTER the tie check | ElectionsHelper.cs |
+| 5 | **HIGH** | `has_voted` stays 0 when student skips posts | Added `MarkVotingComplete()` + `finishvoting` AJAX endpoint called from `showThanks()` | ElectionsPortalHelper.cs, ElectionVote.aspx.cs, ElectionVote.aspx |
+| 6 | **LOW** | `GetPostsForElection(int electionId)` didn't use `electionId` | Added INNER JOIN on `elect_candidate` filtered by `@eid` | ElectionsPortalHelper.cs |
+
+### New Features
+
+| Feature | Description | Files Modified |
+|---------|-------------|----------------|
+| **Vote Confirmation Dialog** | `confirm()` dialog before casting vote — shows candidate name, warns action is irreversible | ElectionVote.aspx |
+| **IP + User-Agent Audit Trail** | `CastVote()` now accepts + records IP & user-agent on `elect_voter`; `MarkVotingComplete()` also records them | ElectionsPortalHelper.cs, ElectionVote.aspx.cs |
+| **Pending Nominations Banner** | Animated warning banner on admin Candidates page when pending self-nominations exist; includes election breakdown + "Review Now" button that filters to Pending | ElectionCandidates.aspx, ElectionCandidates.aspx.cs |
+| **Pending Row Highlighting** | Pending candidate rows highlighted with amber left-border in the grid | ElectionCandidates.aspx.cs |
+| **CSV Export — Results** | "Export CSV" button on admin Results page; exports post, candidate, votes, %, rank, winner, tie columns | ElectionResults.aspx, ElectionResults.aspx.cs |
+| **CSV Export — Voters** | "CSV" button on admin Voters page; exports reg no, name, email, programme, eligible, voted, voted_at, IP | ElectionVoters.aspx, ElectionVoters.aspx.cs |
+
+### Files Modified This Phase
+
+**Portal (CampusDynamics_Portal):**
+- `App_Code/Portal/ElectionsPortalHelper.cs` — 6 bug fixes + `MarkVotingComplete()` method + `CastVote()` IP/UA params
+- `ElectionVote.aspx` — Vote confirmation dialog + `showThanks()` finishvoting AJAX call
+- `ElectionVote.aspx.cs` — `finishvoting` AJAX handler + IP/UA passthrough to `CastVote()`
+- `Elections.aspx.cs` — Removed `Archived` references
+- `ElectionResults.aspx.cs` — Removed `Archived` references
+
+**Admin (CampusDynamics/COOPERP):**
+- `App_Code/Elections/ElectionsHelper.cs` — `ComputeResults()` tie detection fix
+- `NewScreens/ElectionCandidates.aspx` — Pending banner CSS + HTML + `filterPending()` JS
+- `NewScreens/ElectionCandidates.aspx.cs` — Banner logic in `LoadStats()` + row highlighting
+- `NewScreens/ElectionResults.aspx` — Export CSV button
+- `NewScreens/ElectionResults.aspx.cs` — `btnExportCsv_Click()` handler + `CsvEscape()`
+- `NewScreens/ElectionVoters.aspx` — Export CSV button in Voter Roll header
+- `NewScreens/ElectionVoters.aspx.cs` — `btnExportVotersCsv_Click()` handler + `CsvEscape()`

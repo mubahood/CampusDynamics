@@ -195,6 +195,41 @@
 .el-empty__title { font-size: 14px; font-weight: 600; color: #666; }
 .el-empty__sub { font-size: 12px; margin-top: 4px; }
 
+/* -- Activity Feed ------------------------------------- */
+.el-feed { padding: 0; }
+.el-feed__item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 14px; border-bottom: 1px solid #f0f2f5;
+    transition: background .12s;
+}
+.el-feed__item:last-child { border-bottom: none; }
+.el-feed__item:hover { background: #f8faff; }
+.el-feed__icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+}
+.el-feed__icon--candidate { background: #e8f0fc; }
+.el-feed__icon--candidate svg { color: #174DA4; }
+.el-feed__icon--vote { background: #e6f4ea; }
+.el-feed__icon--vote svg { color: #28a745; }
+.el-feed__icon--election { background: #fff8e1; }
+.el-feed__icon--election svg { color: #e67e00; }
+.el-feed__body { flex: 1; min-width: 0; }
+.el-feed__text { font-size: 12px; color: #333; line-height: 1.4; }
+.el-feed__text strong { font-weight: 600; }
+.el-feed__meta { font-size: 10px; color: #999; margin-top: 2px; display: flex; align-items: center; gap: 8px; }
+.el-feed__badge {
+    display: inline-block; padding: 1px 6px; font-size: 9px; font-weight: 600;
+    border-radius: 3px; text-transform: uppercase; letter-spacing: .3px;
+}
+.el-feed__badge--pending { background: #fff3cd; color: #856404; }
+.el-feed__badge--approved { background: #d4edda; color: #155724; }
+.el-feed__badge--active { background: #d4edda; color: #155724; }
+.el-feed__badge--closed { background: #f8d7da; color: #721c24; }
+.el-feed__badge--draft { background: #e2e3e5; color: #383d41; }
+.el-feed__empty { text-align: center; padding: 24px 14px; color: #bbb; font-size: 12px; }
+
 /* -- Responsive ---------------------------------------- */
 @media (max-width: 992px) {
     .el-stats { grid-template-columns: repeat(3, 1fr); }
@@ -249,11 +284,11 @@
     </div>
     <div class="el-stat el-stat--amber">
         <div class="el-stat__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e67e00" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e67e00" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
         </div>
         <div class="el-stat__body">
-            <div class="el-stat__val"><asp:Literal ID="litUpcomingElections" runat="server" Text="0" /></div>
-            <div class="el-stat__label">Upcoming</div>
+            <div class="el-stat__val"><asp:Literal ID="litNominationsElections" runat="server" Text="0" /></div>
+            <div class="el-stat__label">Nominations</div>
         </div>
     </div>
     <div class="el-stat el-stat--grey">
@@ -272,6 +307,55 @@
         <div class="el-stat__body">
             <div class="el-stat__val"><asp:Literal ID="litTotalCandidates" runat="server" Text="0" /></div>
             <div class="el-stat__label">Total Candidates</div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Row 2 — Detailed Breakdown -->
+<div class="el-stats" style="margin-bottom:14px;">
+    <div class="el-stat el-stat--grey">
+        <div class="el-stat__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </div>
+        <div class="el-stat__body">
+            <div class="el-stat__val"><asp:Literal ID="litDraftElections" runat="server" Text="0" /></div>
+            <div class="el-stat__label">Drafts</div>
+        </div>
+    </div>
+    <div class="el-stat el-stat--amber">
+        <div class="el-stat__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e67e00" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+        <div class="el-stat__body">
+            <div class="el-stat__val"><asp:Literal ID="litUpcomingElections" runat="server" Text="0" /></div>
+            <div class="el-stat__label">Upcoming</div>
+        </div>
+    </div>
+    <div class="el-stat el-stat--red">
+        <div class="el-stat__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div class="el-stat__body">
+            <div class="el-stat__val"><asp:Literal ID="litClosedElections" runat="server" Text="0" /></div>
+            <div class="el-stat__label">Closed</div>
+        </div>
+    </div>
+    <div class="el-stat el-stat--green">
+        <div class="el-stat__icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="el-stat__body">
+            <div class="el-stat__val"><asp:Literal ID="litTotalVoted" runat="server" Text="0" /></div>
+            <div class="el-stat__label">Votes Cast</div>
+        </div>
+    </div>
+    <div class="el-stat" style="border-left:3px solid #f59e0b;">
+        <div class="el-stat__icon" style="background:#fff8e1;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e67e00" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="el-stat__body">
+            <div class="el-stat__val" style="color:#e67e00;"><asp:Literal ID="litPendingApps" runat="server" Text="0" /></div>
+            <div class="el-stat__label">Pending Apps</div>
         </div>
     </div>
 </div>
@@ -314,6 +398,20 @@
                 <asp:Literal ID="litGridBody" runat="server" />
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Activity Feed -->
+<div class="cd-card">
+    <div class="cd-card__header">
+        <div class="cd-card__title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Recent Activity
+        </div>
+        <span style="font-size:10px; color:#999;">Latest events across all elections</span>
+    </div>
+    <div class="el-feed">
+        <asp:Literal ID="litActivityFeed" runat="server" />
     </div>
 </div>
 

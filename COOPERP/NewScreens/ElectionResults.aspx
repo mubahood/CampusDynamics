@@ -206,6 +206,9 @@
         Text="Compute Final Results" OnClick="btnCompute_Click"
         OnClientClick="return confirm('Compute and store final results for this election?');"
         Visible="false" />
+    <asp:Button ID="btnExportCsv" runat="server" CssClass="el-btn el-btn--outline"
+        Text="&#x2913; Export CSV" OnClick="btnExportCsv_Click" Visible="false"
+        ToolTip="Download results as CSV" />
 </div>
 
 <!-- No-election state -->

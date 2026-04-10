@@ -275,21 +275,42 @@ public static class ElectionsHelper
 
     /// <summary>
     /// Auto-transitions elections based on current time:
-    /// Upcoming → Active when NOW() >= start_date
-    /// Active → Closed when NOW() > end_date
-    /// Call this on dashboard page load.
+    ///   Upcoming → Active      when NOW() >= start_date
+    ///   Nominations → Active   when NOW() >= start_date
+    ///   Active → Closed        when NOW() > end_date (+ auto-compute results)
+    /// Call this on dashboard page load and portal page loads.
+    /// Returns count of elections that transitioned to Closed (for result computation).
     /// </summary>
-    public static void AutoTransitionElections()
+    public static int AutoTransitionElections()
     {
+        // Phase 1: Upcoming / Nominations → Active
         ExecuteNonQuery(@"
             UPDATE elect_election
             SET status = 'Active'
-            WHERE status = 'Upcoming' AND NOW() >= start_date");
+            WHERE status IN ('Upcoming','Nominations') AND NOW() >= start_date");
 
-        ExecuteNonQuery(@"
-            UPDATE elect_election
-            SET status = 'Closed'
+        // Phase 2: Active → Closed (find affected IDs first so we can compute results)
+        DataTable closing = ExecuteDataTable(@"
+            SELECT id FROM elect_election
             WHERE status = 'Active' AND NOW() > end_date");
+
+        if (closing.Rows.Count > 0)
+        {
+            ExecuteNonQuery(@"
+                UPDATE elect_election
+                SET status = 'Closed'
+                WHERE status = 'Active' AND NOW() > end_date");
+
+            // Auto-compute final results for each newly closed election
+            foreach (DataRow row in closing.Rows)
+            {
+                int eid = Convert.ToInt32(row["id"]);
+                try { ComputeResults(eid); }
+                catch { /* Silently continue — results can be recomputed manually */ }
+            }
+        }
+
+        return closing.Rows.Count;
     }
 
 
@@ -619,14 +640,16 @@ public static class ElectionsHelper
                 {
                     skipCount++;
                 }
-                prevCount = voteCount;
 
                 bool isWinner = rank <= maxWinners;
                 bool isTie = false;
 
                 // Check if there's a tie at the winning boundary
+                // (compare against prevCount BEFORE we update it)
                 if (rank <= maxWinners && voteCount == prevCount && rank > 1)
                     isTie = true;
+
+                prevCount = voteCount;
 
                 ExecuteNonQuery(@"
                     INSERT INTO elect_result
@@ -750,6 +773,7 @@ public static class ElectionsHelper
                 COUNT(*) AS total_elections,
                 SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) AS active_elections,
                 SUM(CASE WHEN status = 'Upcoming' THEN 1 ELSE 0 END) AS upcoming_elections,
+                SUM(CASE WHEN status = 'Nominations' THEN 1 ELSE 0 END) AS nominations_elections,
                 SUM(CASE WHEN status = 'Draft' THEN 1 ELSE 0 END) AS draft_elections,
                 SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) AS closed_elections
             FROM elect_election");
@@ -760,6 +784,7 @@ public static class ElectionsHelper
             stats["total_elections"] = Convert.ToInt32(r["total_elections"]);
             stats["active_elections"] = Convert.ToInt32(r["active_elections"]);
             stats["upcoming_elections"] = Convert.ToInt32(r["upcoming_elections"]);
+            stats["nominations_elections"] = Convert.ToInt32(r["nominations_elections"]);
             stats["draft_elections"] = Convert.ToInt32(r["draft_elections"]);
             stats["closed_elections"] = Convert.ToInt32(r["closed_elections"]);
         }
@@ -774,7 +799,62 @@ public static class ElectionsHelper
             "SELECT COUNT(*) FROM elect_candidate WHERE status IN ('Pending','Approved')");
         stats["total_candidates"] = Convert.ToInt32(candCount);
 
+        object pendingApps = ExecuteScalar(
+            "SELECT COUNT(*) FROM elect_candidate WHERE status = 'Pending'");
+        stats["pending_applications"] = Convert.ToInt32(pendingApps);
+
         return stats;
+    }
+
+    /// <summary>
+    /// Returns recent election activity derived from timestamps across tables.
+    /// Used for the admin dashboard activity feed. Returns up to 15 items.
+    /// Columns: event_type, description, timestamp, election_name, detail
+    /// </summary>
+    public static DataTable GetRecentActivity()
+    {
+        return ExecuteDataTable(@"
+            (
+                SELECT 'candidate_applied' AS event_type,
+                       CONCAT(c.candidate_name, ' applied for ', p.post_name) AS description,
+                       c.created_at AS timestamp,
+                       e.election_name,
+                       c.status AS detail
+                FROM elect_candidate c
+                INNER JOIN elect_election e ON e.id = c.election_id
+                INNER JOIN elect_post p ON p.id = c.post_id
+                WHERE c.created_at IS NOT NULL
+                ORDER BY c.created_at DESC
+                LIMIT 8
+            )
+            UNION ALL
+            (
+                SELECT 'vote_cast' AS event_type,
+                       CONCAT('Vote recorded for ', p.post_name) AS description,
+                       v.cast_at AS timestamp,
+                       e.election_name,
+                       '' AS detail
+                FROM elect_vote v
+                INNER JOIN elect_election e ON e.id = v.election_id
+                INNER JOIN elect_post p ON p.id = v.post_id
+                WHERE v.cast_at IS NOT NULL
+                ORDER BY v.cast_at DESC
+                LIMIT 8
+            )
+            UNION ALL
+            (
+                SELECT 'election_updated' AS event_type,
+                       CONCAT('Election ""', e.election_name, '"" status: ', e.status) AS description,
+                       IFNULL(e.updated_at, e.created_at) AS timestamp,
+                       e.election_name,
+                       e.status AS detail
+                FROM elect_election e
+                WHERE e.updated_at IS NOT NULL OR e.created_at IS NOT NULL
+                ORDER BY IFNULL(e.updated_at, e.created_at) DESC
+                LIMIT 5
+            )
+            ORDER BY timestamp DESC
+            LIMIT 15");
     }
 
     /// <summary>

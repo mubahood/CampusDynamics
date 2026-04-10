@@ -118,6 +118,26 @@
 .el-flash--ok  { background: #e6f4ea; color: #1a7c35; border: 1px solid #a5d6a7; }
 .el-flash--err { background: #fdecea; color: #b71c1c; border: 1px solid #ef9a9a; }
 
+/* -- Pending Nominations Banner ----------------------- */
+.el-banner-pending {
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, #fff8e1, #fff3cd); border: 1px solid #ffc107;
+    border-left: 4px solid #e67e00; border-radius: 6px;
+    padding: 10px 14px; margin-bottom: 12px;
+    animation: elBannerPulse 2s ease-in-out 1;
+}
+@keyframes elBannerPulse { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 12px rgba(230,126,0,.2)} }
+.el-banner-pending__icon { width: 32px; height: 32px; background: #fff3cd; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.el-banner-pending__text { font-size: 12px; color: #6d4c00; line-height: 1.4; }
+.el-banner-pending__text strong { color: #e67e00; }
+.el-banner-pending__action {
+    margin-left: auto; flex-shrink: 0;
+    background: #e67e00; color: #fff; padding: 5px 12px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; text-decoration: none; cursor: pointer; border: none;
+    transition: background .15s;
+}
+.el-banner-pending__action:hover { background: #c96b00; }
+
 /* -- Modal --------------------------------------------- */
 .el-overlay {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35);
@@ -274,6 +294,20 @@
         </div>
     </div>
 </div>
+
+<!-- Pending Self-Nomination Banner -->
+<asp:Panel ID="pnlPendingBanner" runat="server" Visible="false">
+<div class="el-banner-pending">
+    <div class="el-banner-pending__icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e67e00" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="el-banner-pending__text">
+        <strong><asp:Literal ID="litPendingCount" runat="server" /></strong> pending self-nomination(s) require review.
+        <asp:Literal ID="litPendingDetail" runat="server" />
+    </div>
+    <button type="button" class="el-banner-pending__action" onclick="filterPending();">Review Now</button>
+</div>
+</asp:Panel>
 
 <!-- Candidates Card -->
 <div class="cd-card">
@@ -611,6 +645,15 @@ function openDeleteModal(candId, name) {
 
 function closeDeleteModal() {
     document.getElementById('deleteModal').classList.remove('is-open');
+}
+
+// ─── Filter to Pending (banner action) ──────────────────────────────────
+function filterPending() {
+    var ddl = document.getElementById('<%= ddlStatusFilter.ClientID %>');
+    if (ddl) {
+        ddl.value = 'Pending';
+        __doPostBack(ddl.name, '');
+    }
 }
 </script>
 </asp:Content>
