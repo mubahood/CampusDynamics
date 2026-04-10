@@ -91,7 +91,7 @@ public partial class COOPERP_NewScreens_ElectionResults : System.Web.UI.Page
 
         string status = election["status"].ToString();
         bool isLive = (status == "Active");
-        bool isClosed = (status == "Closed" || status == "Results");
+        bool isClosed = (status == "Closed");
         hdnIsLive.Value = isLive ? "1" : "0";
 
         // Live badge

@@ -891,7 +891,7 @@ public static class ElectionsHelper
     public static DataTable GetProgrammes()
     {
         return ExecuteDataTable(
-            "SELECT progcode, progname FROM acad_programme WHERE UPPER(COALESCE(status,'')) = 'ACTIVE' ORDER BY progname");
+            "SELECT progcode, progname FROM acad_programme ORDER BY progname");
     }
 
 
