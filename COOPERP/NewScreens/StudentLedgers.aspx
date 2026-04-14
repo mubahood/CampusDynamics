@@ -74,6 +74,7 @@
 .sl-modal__head { background:#05275C; color:#fff; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; }
 .sl-modal__title { font-size:13px; font-weight:700; }
 .sl-modal__close { border:none; background:rgba(255,255,255,.16); color:#fff; width:26px; height:26px; cursor:pointer; }
+#slModalPrint:hover { background:rgba(255,255,255,.32); }
 .sl-modal__body { padding:12px; max-height:75vh; overflow:auto; }
 .sl-modal__stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px; }
 .sl-modal__kpi { border:1px solid #e0e5ed; padding:8px 10px; background:#f8f9fb; }
@@ -267,6 +268,7 @@
                                         </button>
                                         <div class="sl-actions__menu">
                                             <a href="javascript:void(0)" onclick='viewLedgerDetails("<%# Js(GetRegno(Container.DataItem)) %>")'>View Ledger Details</a>
+                                            <a href="javascript:void(0)" onclick='printStatement("<%# Js(GetRegno(Container.DataItem)) %>")'>&#128438; Print Statement</a>
                                             <a href="javascript:void(0)" onclick='runFixBilling("<%# Js(GetRegno(Container.DataItem)) %>")'>Fix Student Billing</a>
                                             <a href="javascript:void(0)" onclick='runRemoveDouble("<%# Js(GetRegno(Container.DataItem)) %>")'>Remove Double Billing</a>
                                             <a href="<%# ResolveUrl("~/COOPERP/NewScreens/FeesTransactions.aspx") %>" target="_blank">Open Transactions</a>
@@ -297,7 +299,10 @@
     <div class="sl-modal">
         <div class="sl-modal__head">
             <div class="sl-modal__title" id="slModalTitle">Student Ledger Details</div>
-            <button type="button" class="sl-modal__close" onclick="closeLedgerModal()">&times;</button>
+            <div style="display:flex;gap:6px;align-items:center;">
+                <button type="button" id="slModalPrint" onclick="printStatement(_slCurrentRegno)" style="border:none;background:rgba(255,255,255,.18);color:#fff;padding:4px 12px;font-size:12px;cursor:pointer;border-radius:3px;" title="Print Statement">&#128438; Print</button>
+                <button type="button" class="sl-modal__close" onclick="closeLedgerModal()">&times;</button>
+            </div>
         </div>
         <div class="sl-modal__body">
             <div class="sl-modal__stats">
@@ -509,8 +514,16 @@
         return 1;
     }
 
+    var _slCurrentRegno = '';
+
+    window.printStatement = function(regno){
+        if (!regno) return;
+        window.open('<%= ResolveUrl("~/API/StudentLedgerExport.aspx") %>?reg=' + encodeURIComponent(regno), '_blank');
+    };
+
     window.viewLedgerDetails = function(regno){
         if (!regno) return false;
+        _slCurrentRegno = regno;
         var url = '<%= ResolveUrl("~/COOPERP/NewScreens/StudentLedgers.aspx") %>?ajax=ledger&regno=' + encodeURIComponent(regno) + '&_ts=' + new Date().getTime();
         fetch(url, {
             credentials:'same-origin',
