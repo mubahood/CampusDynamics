@@ -56,9 +56,10 @@ public static class ElectionsHelper
     ///          responsibilities, max_winners, display_order, is_active,
     ///          created_at, updated_at, candidate_count
     /// </summary>
-    public static DataTable GetAllPosts(bool activeOnly)
+    public static DataTable GetAllPosts(bool activeOnly, string search = "")
     {
-        string sql = @"
+        StringBuilder sb = new StringBuilder();
+        sb.Append(@"
             SELECT p.*,
                    IFNULL(cc.cnt, 0) AS candidate_count
             FROM elect_post p
@@ -67,11 +68,22 @@ public static class ElectionsHelper
                 FROM elect_candidate
                 WHERE status IN ('Pending','Approved')
                 GROUP BY post_id
-            ) cc ON cc.post_id = p.id"
-            + (activeOnly ? " WHERE p.is_active = 1" : "")
-            + " ORDER BY p.display_order, p.post_name";
+            ) cc ON cc.post_id = p.id
+            WHERE 1=1");
 
-        return ExecuteDataTable(sql);
+        List<MySqlParameter> parms = new List<MySqlParameter>();
+
+        if (activeOnly)
+            sb.Append(" AND p.is_active = 1");
+
+        if (!string.IsNullOrEmpty(search))
+        {
+            sb.Append(" AND (p.post_name LIKE @q OR p.post_code LIKE @q)");
+            parms.Add(P("@q", "%" + search + "%"));
+        }
+
+        sb.Append(" ORDER BY p.display_order, p.post_name");
+        return ExecuteDataTable(sb.ToString(), parms.ToArray());
     }
 
     /// <summary>Returns a single post by ID.</summary>
@@ -142,7 +154,7 @@ public static class ElectionsHelper
     /// Columns: id, election_name, description, acad_year, start_date, end_date,
     ///          status, ..., voter_count, voted_count, candidate_count, post_count
     /// </summary>
-    public static DataTable GetAllElections(string statusFilter)
+    public static DataTable GetAllElections(string statusFilter, string search = "")
     {
         StringBuilder sb = new StringBuilder();
         sb.Append(@"
@@ -170,13 +182,19 @@ public static class ElectionsHelper
                 FROM elect_candidate
                 WHERE status = 'Approved'
                 GROUP BY election_id
-            ) pc ON pc.election_id = e.id");
+            ) pc ON pc.election_id = e.id
+            WHERE 1=1");
 
         List<MySqlParameter> parms = new List<MySqlParameter>();
         if (!string.IsNullOrEmpty(statusFilter) && statusFilter != "ALL")
         {
-            sb.Append(" WHERE e.status = @status");
+            sb.Append(" AND e.status = @status");
             parms.Add(P("@status", statusFilter));
+        }
+        if (!string.IsNullOrEmpty(search))
+        {
+            sb.Append(" AND (e.election_name LIKE @q OR e.acad_year LIKE @q)");
+            parms.Add(P("@q", "%" + search + "%"));
         }
         sb.Append(" ORDER BY e.start_date DESC");
 
@@ -324,7 +342,7 @@ public static class ElectionsHelper
     ///          manifesto, slogan, status, rejection_reason, display_order,
     ///          election_name, post_name, post_code, vote_count
     /// </summary>
-    public static DataTable GetCandidates(int electionId, int postId, string statusFilter)
+    public static DataTable GetCandidates(int electionId, int postId, string statusFilter, string search = "")
     {
         StringBuilder sb = new StringBuilder();
         sb.Append(@"
@@ -359,6 +377,11 @@ public static class ElectionsHelper
         {
             sb.Append(" AND c.status = @st");
             parms.Add(P("@st", statusFilter));
+        }
+        if (!string.IsNullOrEmpty(search))
+        {
+            sb.Append(" AND (c.candidate_name LIKE @q OR c.regno LIKE @q)");
+            parms.Add(P("@q", "%" + search + "%"));
         }
 
         sb.Append(" ORDER BY p.display_order, c.display_order, c.candidate_name");
@@ -549,6 +572,95 @@ public static class ElectionsHelper
         ExecuteNonQuery(
             "UPDATE elect_voter SET is_eligible = @e WHERE id = @id",
             P("@id", voterId), P("@e", eligible ? 1 : 0));
+    }
+
+    /// <summary>Deletes a voter from the roll only if they have NOT voted.</summary>
+    public static bool DeleteVoter(int voterId)
+    {
+        int rows = ExecuteNonQuery(
+            "DELETE FROM elect_voter WHERE id = @id AND has_voted = 0",
+            P("@id", voterId));
+        return rows > 0;
+    }
+
+    /// <summary>Batch-sets eligibility for multiple voters. Returns count updated.</summary>
+    public static int BatchSetVoterEligibility(int[] voterIds, bool eligible)
+    {
+        if (voterIds == null || voterIds.Length == 0) return 0;
+        string ids = string.Join(",", System.Array.ConvertAll(voterIds, v => v.ToString()));
+        return ExecuteNonQuery(string.Format(
+            "UPDATE elect_voter SET is_eligible = {0} WHERE id IN ({1})",
+            eligible ? 1 : 0, ids));
+    }
+
+    /// <summary>
+    /// Batch deletes voters who have NOT voted.
+    /// Voters who have voted are silently skipped. Returns count removed.
+    /// </summary>
+    public static int BatchDeleteVoters(int[] voterIds)
+    {
+        if (voterIds == null || voterIds.Length == 0) return 0;
+        string ids = string.Join(",", System.Array.ConvertAll(voterIds, v => v.ToString()));
+        return ExecuteNonQuery(string.Format(
+            "DELETE FROM elect_voter WHERE id IN ({0}) AND has_voted = 0", ids));
+    }
+
+    /// <summary>Batch-updates candidate statuses. Returns count updated.</summary>
+    public static int BatchUpdateCandidateStatus(int[] candidateIds, string status, string reason)
+    {
+        if (candidateIds == null || candidateIds.Length == 0) return 0;
+        string ids = string.Join(",", System.Array.ConvertAll(candidateIds, v => v.ToString()));
+        return ExecuteNonQuery(string.Format(
+            "UPDATE elect_candidate SET status = @st, rejection_reason = @reason WHERE id IN ({0})", ids),
+            P("@st", status), P("@reason", reason ?? ""));
+    }
+
+    /// <summary>
+    /// Batch deletes candidates that have NO votes recorded.
+    /// Candidates with votes are silently skipped. Returns count removed.
+    /// </summary>
+    public static int BatchDeleteCandidates(int[] candidateIds)
+    {
+        if (candidateIds == null || candidateIds.Length == 0) return 0;
+        string ids = string.Join(",", System.Array.ConvertAll(candidateIds, v => v.ToString()));
+        try
+        {
+            return ExecuteNonQuery(string.Format(
+                @"DELETE FROM elect_candidate WHERE id IN ({0})
+                  AND NOT EXISTS (
+                      SELECT 1 FROM elect_vote ev WHERE ev.candidate_id = elect_candidate.id
+                  )", ids));
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>Batch-sets posts active or inactive. Returns count updated.</summary>
+    public static int BatchSetPostActive(int[] postIds, bool active)
+    {
+        if (postIds == null || postIds.Length == 0) return 0;
+        string ids = string.Join(",", System.Array.ConvertAll(postIds, v => v.ToString()));
+        return ExecuteNonQuery(string.Format(
+            "UPDATE elect_post SET is_active = {0} WHERE id IN ({1})",
+            active ? 1 : 0, ids));
+    }
+
+    /// <summary>
+    /// Batch deletes posts with no linked candidates.
+    /// Posts with linked candidates are silently skipped. Returns count removed.
+    /// </summary>
+    public static int BatchDeletePosts(int[] postIds)
+    {
+        if (postIds == null || postIds.Length == 0) return 0;
+        string ids = string.Join(",", System.Array.ConvertAll(postIds, v => v.ToString()));
+        try
+        {
+            return ExecuteNonQuery(string.Format(
+                @"DELETE FROM elect_post WHERE id IN ({0})
+                  AND NOT EXISTS (
+                      SELECT 1 FROM elect_candidate ec WHERE ec.post_id = elect_post.id
+                  )", ids));
+        }
+        catch { return 0; }
     }
 
 

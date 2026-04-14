@@ -356,22 +356,35 @@ public partial class COOPERP_NewScreens_BillWaivers : System.Web.UI.Page
                 MySqlTransaction tx = conn.BeginTransaction();
                 try
                 {
-                    // ── Step 1: Validate all TIDs exist and belong to this student ──
+                    // ── Step 1: Validate all TIDs exist, belong to student, and amounts are valid ──
                     foreach (WaiverItem wi in items)
                     {
                         // FOR UPDATE locks the bill row to prevent concurrent waiver of the same bill
+                        double actualBillAmt = 0;
                         using (MySqlCommand chk = new MySqlCommand(
-                            @"SELECT TID FROM fin_studentfeestracking 
+                            @"SELECT TID, amount FROM fin_studentfeestracking 
                               WHERE TID = @tid AND regno = @r AND trans_type = 'Bill' AND post_status = 'Posted'
                               FOR UPDATE",
                             conn, tx))
                         {
                             chk.Parameters.AddWithValue("@tid", wi.TID);
                             chk.Parameters.AddWithValue("@r", regno);
-                            object chkResult = chk.ExecuteScalar();
-                            if (chkResult == null || chkResult == DBNull.Value)
-                                throw new Exception(String.Format("Bill TID {0} not found or not valid for student {1}.", wi.TID, regno));
+                            using (MySqlDataReader vr = chk.ExecuteReader())
+                            {
+                                if (!vr.Read())
+                                    throw new Exception(String.Format("Bill TID {0} not found or not valid for student {1}.", wi.TID, regno));
+                                actualBillAmt = Convert.ToDouble(vr["amount"]);
+                            }
                         }
+
+                        // Validate waive amount: must be > 0 and <= bill amount
+                        if (wi.Amount <= 0)
+                            throw new Exception(String.Format("Waive amount for TID {0} must be greater than zero.", wi.TID));
+                        if (wi.Amount > actualBillAmt + 0.01) // small tolerance for floating point
+                            throw new Exception(String.Format("Waive amount ({0:N0}) for TID {1} exceeds the bill amount ({2:N0}).", wi.Amount, wi.TID, actualBillAmt));
+                        // Cap at exact bill amount to prevent tiny floating-point overages
+                        if (wi.Amount > actualBillAmt)
+                            wi.Amount = actualBillAmt;
 
                         // Check not already waived
                         using (MySqlCommand chk2 = new MySqlCommand(

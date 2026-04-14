@@ -50,6 +50,12 @@
 
 /* -- Filter Bar ---------------------------------------- */
 .el-filters { background: #f8f9fa; border-bottom: 1px solid #e4e8f0; padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.el-filter-input {
+    border: 1px solid #ddd; border-radius: 6px;
+    padding: 5px 8px; font-size: 11px; background: #fff; color: #333;
+    min-width: 180px;
+}
+.el-filter-input:focus { border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.10); outline: none; }
 .el-filter-select {
     border: 1px solid #ddd; border-radius: 6px;
     padding: 5px 8px; font-size: 11px; background: #fff; color: #333;
@@ -217,6 +223,22 @@
 .el-empty__title { font-size: 14px; font-weight: 600; color: #888; }
 .el-empty__sub   { font-size: 11px; color: #aaa; margin-top: 3px; max-width: 280px; margin-left: auto; margin-right: auto; }
 
+/* -- Photo Upload (modal) ------------------------------ */
+.el-photo-row { display:flex; align-items:center; gap:14px; }
+.el-photo-circle { width:70px; height:70px; border-radius:50%; overflow:hidden; border:2px solid #c6d9f7;
+    flex-shrink:0; background:#f0f5ff; display:flex; align-items:center; justify-content:center;
+    font-size:22px; font-weight:700; color:#174DA4; }
+.el-photo-circle img { width:100%; height:100%; object-fit:cover; }
+.el-photo-details { flex:1; }
+.el-photo-btn { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600;
+    color:#174DA4; background:none; border:1.5px solid #c6d9f7; border-radius:6px; padding:5px 12px;
+    cursor:pointer; transition:all .15s; margin-bottom:4px; }
+.el-photo-btn:hover { background:#eff6ff; border-color:#174DA4; }
+.el-photo-btn svg { width:12px; height:12px; }
+.el-photo-input { display:none; }
+.el-photo-name { font-size:10px; color:#888; margin-top:2px; }
+.el-photo-clear { font-size:10px; color:#dc2626; cursor:pointer; text-decoration:underline; margin-left:6px; display:none; }
+
 /* -- Reason Modal -------------------------------------- */
 .el-reason-label { font-size: 12px; color: #555; margin-bottom: 6px; display: block; }
 
@@ -230,6 +252,14 @@
     .el-stats { grid-template-columns: 1fr; }
     .el-filters { flex-direction: column; }
 }
+/* -- Batch Actions ------------------------------------- */
+.el-batch-bar { display:none; align-items:center; gap:7px; padding:7px 12px; background:#fffbeb; border-bottom:1px solid #fde68a; flex-wrap:wrap; }
+.el-batch-bar.is-active { display:flex; }
+.el-batch-bar__count { font-size:11px; font-weight:600; color:#92400e; flex:1; min-width:80px; }
+.el-btn--ghost { background:transparent; color:#555; border:1px solid #ccc; }
+.el-btn--ghost:hover { border-color:#174DA4; color:#174DA4; background:rgba(23,77,164,.04); }
+.el-btn--warn { background:#e67e00; color:#fff; border:none; }
+.el-btn--warn:hover { background:#cc6f00; }
 </style>
 </asp:Content>
 
@@ -320,6 +350,7 @@
 
     <!-- Filters -->
     <div class="el-filters">
+        <asp:TextBox ID="txtSearch" runat="server" CssClass="el-filter-input" placeholder="Search name, reg no..." />
         <asp:DropDownList ID="ddlElection" runat="server" CssClass="el-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" />
         <asp:DropDownList ID="ddlPost" runat="server" CssClass="el-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed" />
         <asp:DropDownList ID="ddlStatusFilter" runat="server" CssClass="el-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed">
@@ -329,6 +360,18 @@
             <asp:ListItem Value="Rejected" Text="Rejected" />
             <asp:ListItem Value="Disqualified" Text="Disqualified" />
         </asp:DropDownList>
+        <asp:Button ID="btnSearch" runat="server" CssClass="el-btn el-btn--primary" Text="Search"
+            OnClick="btnSearch_Click" />
+    </div>
+
+    <!-- Batch Actions -->
+    <div class="el-batch-bar" id="candBatchBar">
+        <asp:HiddenField ID="hdnBatchCandIds" runat="server" />
+        <span class="el-batch-bar__count" id="candBatchCount">0 selected</span>
+        <asp:Button ID="btnBatchCandApprove" runat="server" CssClass="el-btn el-btn--success el-btn--xs" Text="&#x2713; Approve" OnClick="btnBatchCandApprove_Click" OnClientClick="return collectCandIds('Approve selected candidates?');" />
+        <asp:Button ID="btnBatchCandReject" runat="server" CssClass="el-btn el-btn--ghost el-btn--xs" Text="Reject" OnClick="btnBatchCandReject_Click" OnClientClick="return collectCandIds('Reject selected candidates?');" />
+        <asp:Button ID="btnBatchCandDisqualify" runat="server" CssClass="el-btn el-btn--ghost el-btn--xs" Text="Disqualify" OnClick="btnBatchCandDisqualify_Click" OnClientClick="return collectCandIds('Disqualify selected candidates?');" />
+        <asp:Button ID="btnBatchCandDelete" runat="server" CssClass="el-btn el-btn--warn el-btn--xs" Text="Delete" OnClick="btnBatchCandDelete_Click" OnClientClick="return collectCandIds('Delete selected candidates? This cannot be undone!');" />
     </div>
 
     <!-- Table -->
@@ -336,6 +379,7 @@
         <table class="el-table">
             <thead>
                 <tr>
+                    <th style="width:28px;text-align:center;"><input type="checkbox" id="chkAllCands" onclick="selectAllCands(this)" title="Select all" style="cursor:pointer;" /></th>
                     <th style="width:30px;">#</th>
                     <th>Candidate</th>
                     <th>Post</th>
@@ -364,6 +408,7 @@
         </div>
         <div class="el-modal__body">
             <asp:HiddenField ID="hdnCandidateId" runat="server" Value="0" />
+            <asp:HiddenField ID="hdnCandPhotoUrl" runat="server" />
 
             <!-- Student Search -->
             <div class="el-form-row">
@@ -417,6 +462,24 @@
                     <asp:ListItem Value="Rejected" Text="Rejected" />
                     <asp:ListItem Value="Disqualified" Text="Disqualified" />
                 </asp:DropDownList>
+            </div>
+
+            <!-- Photo -->
+            <div class="el-form-row">
+                <label class="el-form-label">Candidate Photo <span style="font-size:10px;font-weight:400;color:#888;">(optional)</span></label>
+                <div class="el-photo-row">
+                    <div class="el-photo-circle" id="adminPhotoCircle"></div>
+                    <div class="el-photo-details">
+                        <button type="button" class="el-photo-btn" onclick="document.getElementById('fuCandPhoto').click();">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            Upload Photo
+                        </button>
+                        <input type="file" id="fuCandPhoto" name="fuCandPhoto" accept="image/jpeg,image/png,image/gif,image/webp" class="el-photo-input" onchange="previewAdminPhoto(this)" />
+                        <div class="el-photo-name" id="adminPhotoName">No file chosen</div>
+                        <span class="el-photo-clear" id="adminPhotoClear" onclick="clearAdminPhoto()">Remove / keep existing</span>
+                    </div>
+                </div>
+                <div style="font-size:10px;color:#888;margin-top:4px;">JPG, PNG, GIF, WEBP, max 5 MB. Leave blank to keep existing photo.</div>
             </div>
         </div>
         <div class="el-modal__footer">
@@ -507,6 +570,14 @@ function openCandidateModal(id) {
             document.getElementById('<%= txtSlogan.ClientID %>').value = row.getAttribute('data-slogan') || '';
             document.getElementById('<%= txtManifesto.ClientID %>').value = row.getAttribute('data-manifesto') || '';
             setDropdown('<%= ddlModalStatus.ClientID %>', row.getAttribute('data-cstatus'));
+
+            // Photo
+            var photoUrl = row.getAttribute('data-photo') || '';
+            document.getElementById('<%= hdnCandPhotoUrl.ClientID %>').value = photoUrl;
+            adminPhotoDisplay(photoUrl);
+            document.getElementById('fuCandPhoto').value = '';
+            document.getElementById('adminPhotoName').textContent = 'No new file chosen';
+            document.getElementById('adminPhotoClear').style.display = 'none';
         }
     } else {
         // Add mode
@@ -520,6 +591,13 @@ function openCandidateModal(id) {
         clearStudent();
         document.getElementById('txtStudentSearch').style.display = '';
         document.getElementById('txtStudentSearch').value = '';
+
+        // Photo
+        document.getElementById('<%= hdnCandPhotoUrl.ClientID %>').value = '';
+        adminPhotoDisplay('');
+        document.getElementById('fuCandPhoto').value = '';
+        document.getElementById('adminPhotoName').textContent = 'No file chosen';
+        document.getElementById('adminPhotoClear').style.display = 'none';
 
         // Pre-select current filter election/post
         var elSel = document.getElementById('<%= ddlElection.ClientID %>');
@@ -645,6 +723,72 @@ function openDeleteModal(candId, name) {
 
 function closeDeleteModal() {
     document.getElementById('deleteModal').classList.remove('is-open');
+}
+
+// ─── Admin Photo Upload ─────────────────────────────────────────────────
+function adminPhotoDisplay(url) {
+    var circle = document.getElementById('adminPhotoCircle');
+    if (!circle) return;
+    if (url) {
+        circle.innerHTML = '<img src="' + url + '" alt="" />';
+    } else {
+        circle.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+    }
+}
+
+function previewAdminPhoto(input) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Photo must be 5 MB or smaller. Please choose a smaller file.');
+        input.value = '';
+        return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+        adminPhotoDisplay(ev.target.result);
+        document.getElementById('adminPhotoName').textContent = file.name;
+        document.getElementById('adminPhotoClear').style.display = 'inline';
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearAdminPhoto() {
+    document.getElementById('fuCandPhoto').value = '';
+    document.getElementById('adminPhotoName').textContent = 'No file chosen';
+    document.getElementById('adminPhotoClear').style.display = 'none';
+    var existing = document.getElementById('<%= hdnCandPhotoUrl.ClientID %>').value;
+    adminPhotoDisplay(existing);
+}
+
+// ─── Batch Candidates ───────────────────────────────────────────────────
+function selectAllCands(source) {
+    var boxes = document.querySelectorAll('.cand-chk');
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = source.checked;
+    updateCandBatchBar();
+}
+
+function updateCandBatchBar() {
+    var boxes = document.querySelectorAll('.cand-chk:checked');
+    var bar   = document.getElementById('candBatchBar');
+    var lbl   = document.getElementById('candBatchCount');
+    if (boxes.length > 0) {
+        bar.classList.add('is-active');
+        lbl.textContent = boxes.length + ' candidate(s) selected';
+    } else {
+        bar.classList.remove('is-active');
+        var all = document.getElementById('chkAllCands');
+        if (all) all.checked = false;
+    }
+}
+
+function collectCandIds(msg) {
+    var boxes = document.querySelectorAll('.cand-chk:checked');
+    if (boxes.length === 0) { alert('Please select at least one candidate.'); return false; }
+    var ids = [];
+    for (var i = 0; i < boxes.length; i++) ids.push(boxes[i].value);
+    document.getElementById('<%= hdnBatchCandIds.ClientID %>').value = ids.join(',');
+    return confirm(msg + '\n(' + boxes.length + ' candidate(s) selected)');
 }
 
 // ─── Filter to Pending (banner action) ──────────────────────────────────

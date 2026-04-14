@@ -224,6 +224,14 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
     // for latest registration. Both have been replaced with much faster alternatives.
     private string BuildBaseSql()
     {
+        // When the user is searching, include ALL students (any status)
+        // so they can look up any student by reg number, name, etc.
+        // Default listing still shows only ACTIVE students.
+        bool hasSearch = !string.IsNullOrEmpty(txtSearch.Text.Trim());
+        string statusFilter = hasSearch
+            ? "WHERE 1=1"
+            : "WHERE UPPER(COALESCE(s.new_status,'')) = 'ACTIVE'";
+
         return @"
             SELECT 
                 s.regno,
@@ -261,7 +269,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
                   AND fl.transaction_amount > 0
                 GROUP BY fl.accountcode
             ) ft ON ft.regno = s.regno
-            WHERE UPPER(COALESCE(s.new_status,'')) = 'ACTIVE'";
+            " + statusFilter;
     }
 
     private string BuildWhereClause(List<MySqlParameter> parameters)
@@ -500,7 +508,8 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
 
             long from = totalRows == 0 ? 0 : (pageIndex * pageSize) + 1;
             long to = Math.Min(totalRows, (pageIndex + 1) * pageSize);
-            litRecordInfo.Text = String.Format("Showing {0:N0} - {1:N0} of {2:N0} active students", from, to, totalRows);
+            string statusLabel = string.IsNullOrEmpty(txtSearch.Text.Trim()) ? "active students" : "students";
+            litRecordInfo.Text = String.Format("Showing {0:N0} - {1:N0} of {2:N0} {3}", from, to, totalRows, statusLabel);
 
             litPager.Text = BuildPagerHtml(pageIndex, pageSize, totalRows);
         }

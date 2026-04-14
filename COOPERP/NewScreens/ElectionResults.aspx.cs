@@ -217,7 +217,6 @@ public partial class COOPERP_NewScreens_ElectionResults : System.Web.UI.Page
         int lastPostId = -1;
         DataTable postRows = null;
         int totalVotesForPost = 0;
-        int maxVotesForPost = 0;
 
         for (int i = 0; i <= dt.Rows.Count; i++)
         {
@@ -233,7 +232,6 @@ public partial class COOPERP_NewScreens_ElectionResults : System.Web.UI.Page
                     lastPostId = postId;
                     postRows = dt.Clone();
                     totalVotesForPost = 0;
-                    maxVotesForPost = 0;
                 }
             }
 
@@ -242,7 +240,6 @@ public partial class COOPERP_NewScreens_ElectionResults : System.Web.UI.Page
                 postRows.ImportRow(dt.Rows[i]);
                 int vc = Convert.ToInt32(dt.Rows[i]["vote_count"]);
                 totalVotesForPost += vc;
-                if (vc > maxVotesForPost) maxVotesForPost = vc;
             }
         }
 

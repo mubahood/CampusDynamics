@@ -174,6 +174,28 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             case "electionresults":
                 title = "Election Results";
                 break;
+            // Load Allocation Module
+            case "loadallocationdashboard":
+                title = "Allocation Dashboard";
+                break;
+            case "loadallocations":
+                title = "Teaching Allocations";
+                break;
+            case "timetableview":
+                title = "Timetable View";
+                break;
+            case "lecturerooms":
+                title = "Lecture Rooms";
+                break;
+            case "workloadanalysis":
+                title = "Workload Analysis";
+                break;
+            case "communications":
+                title = "Communications";
+                break;
+            case "communicationanalytics":
+                title = "Communication Analytics";
+                break;
             default:
                 title = pageName.Replace("New", "").Replace("_", " ");
                 break;

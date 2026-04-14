@@ -151,6 +151,15 @@
 @media(max-width:480px){
     .el-stats { grid-template-columns: 1fr; }
 }
+/* -- Batch Actions ------------------------------------- */
+.el-batch-bar { display:none; align-items:center; gap:7px; padding:7px 12px; background:#fffbeb; border-bottom:1px solid #fde68a; flex-wrap:wrap; }
+.el-batch-bar.is-active { display:flex; }
+.el-batch-bar__count { font-size:11px; font-weight:600; color:#92400e; flex:1; min-width:80px; }
+.el-btn--xs { padding:4px 9px; font-size:10px; }
+.el-btn--ghost { background:transparent; color:#555; border:1px solid #ccc; }
+.el-btn--ghost:hover { border-color:#174DA4; color:#174DA4; background:rgba(23,77,164,.04); }
+.el-btn--warn { background:#e67e00; color:#fff; border:none; }
+.el-btn--warn:hover { background:#cc6f00; }
 </style>
 </asp:Content>
 
@@ -294,11 +303,20 @@
                 OnClick="btnSearch_Click" />
         </div>
 
+        <!-- Batch Actions -->
+        <div class="el-batch-bar" id="voterBatchBar">
+            <asp:HiddenField ID="hdnBatchVoterIds" runat="server" />
+            <span class="el-batch-bar__count" id="voterBatchCount">0 selected</span>
+            <asp:Button ID="btnBatchVoterEligible" runat="server" CssClass="el-btn el-btn--success el-btn--xs" Text="&#x2713; Set Eligible" OnClick="btnBatchVoterEligible_Click" OnClientClick="return collectVoterIds('Mark selected as ELIGIBLE?');" />
+            <asp:Button ID="btnBatchVoterIneligible" runat="server" CssClass="el-btn el-btn--ghost el-btn--xs" Text="&#x2715; Set Ineligible" OnClick="btnBatchVoterIneligible_Click" OnClientClick="return collectVoterIds('Mark selected as INELIGIBLE?');" />
+            <asp:Button ID="btnBatchVoterRemove" runat="server" CssClass="el-btn el-btn--warn el-btn--xs" Text="Remove" OnClick="btnBatchVoterRemove_Click" OnClientClick="return collectVoterIds('Remove selected voters who have NOT voted yet?');" />
+        </div>
         <!-- Table -->
         <div style="overflow-x:auto;">
             <table class="el-table">
                 <thead>
                     <tr>
+                        <th style="width:28px;text-align:center;"><input type="checkbox" id="chkAllVoters" onclick="selectAllVoters(this)" title="Select all" style="cursor:pointer;" /></th>
                         <th style="width:30px;">#</th>
                         <th>Reg No</th>
                         <th>Name</th>
@@ -307,6 +325,7 @@
                         <th style="text-align:center;">Voted</th>
                         <th>Voted At</th>
                         <th style="text-align:center;">Eligible</th>
+                        <th style="width:60px;text-align:center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -322,6 +341,10 @@
     <asp:Button ID="btnToggleEligibility" runat="server" style="display:none;"
         OnClick="btnToggleEligibility_Click" />
 
+    <!-- Hidden for single-voter delete -->
+    <asp:HiddenField ID="hdnDeleteVoterId" runat="server" Value="0" />
+    <asp:Button ID="btnDeleteVoter" runat="server" style="display:none;" OnClick="btnDeleteVoter_Click" />
+
 </asp:Panel>
 
 <script type="text/javascript">
@@ -329,6 +352,41 @@ function toggleEligibility(voterId, chk) {
     document.getElementById('<%= hdnToggleVoterId.ClientID %>').value = voterId;
     document.getElementById('<%= hdnToggleValue.ClientID %>').value = chk.checked ? '1' : '0';
     document.getElementById('<%= btnToggleEligibility.ClientID %>').click();
+}
+
+function selectAllVoters(source) {
+    var boxes = document.querySelectorAll('.voter-chk');
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = source.checked;
+    updateVoterBatchBar();
+}
+
+function updateVoterBatchBar() {
+    var boxes = document.querySelectorAll('.voter-chk:checked');
+    var bar   = document.getElementById('voterBatchBar');
+    var lbl   = document.getElementById('voterBatchCount');
+    if (boxes.length > 0) {
+        bar.classList.add('is-active');
+        lbl.textContent = boxes.length + ' voter(s) selected';
+    } else {
+        bar.classList.remove('is-active');
+        var all = document.getElementById('chkAllVoters');
+        if (all) all.checked = false;
+    }
+}
+
+function collectVoterIds(msg) {
+    var boxes = document.querySelectorAll('.voter-chk:checked');
+    if (boxes.length === 0) { alert('Please select at least one voter.'); return false; }
+    var ids = [];
+    for (var i = 0; i < boxes.length; i++) ids.push(boxes[i].value);
+    document.getElementById('<%= hdnBatchVoterIds.ClientID %>').value = ids.join(',');
+    return confirm(msg + '\n(' + boxes.length + ' voter(s) selected)');
+}
+
+function deleteVoter(voterId, name) {
+    if (!confirm('Remove "' + name + '" from this voter roll?\nOnly works if they have NOT voted yet.')) return;
+    document.getElementById('<%= hdnDeleteVoterId.ClientID %>').value = voterId;
+    document.getElementById('<%= btnDeleteVoter.ClientID %>').click();
 }
 </script>
 </asp:Content>

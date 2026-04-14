@@ -20,12 +20,27 @@ public partial class COOPERP_NewScreens_ElectionPosts : System.Web.UI.Page
     // ─── Grid Binding ────────────────────────────────────────────────────────
     private void BindGrid()
     {
-        DataTable dt = ElectionsHelper.GetAllPosts(false);
+        string search = txtSearch.Text.Trim();
+        string statusVal = ddlStatusFilter.SelectedValue;
+        bool activeOnly = (statusVal == "Active");
+        DataTable dt = ElectionsHelper.GetAllPosts(activeOnly, search);
+
+        // If "Inactive" selected, filter to inactive rows only
+        if (statusVal == "Inactive")
+        {
+            DataTable filtered = dt.Clone();
+            foreach (DataRow r in dt.Rows)
+            {
+                if (!Convert.ToBoolean(r["is_active"]))
+                    filtered.ImportRow(r);
+            }
+            dt = filtered;
+        }
         StringBuilder sb = new StringBuilder();
 
         if (dt.Rows.Count == 0)
         {
-            sb.Append("<tr><td colspan='8'>");
+            sb.Append("<tr><td colspan='9'>");
             sb.Append("<div class='el-empty'>");
             sb.Append("<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5'><path d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/><rect x='8' y='2' width='8' height='4' rx='1' ry='1'/></svg>");
             sb.Append("<div class='el-empty__title'>No election posts defined</div>");
@@ -58,6 +73,9 @@ public partial class COOPERP_NewScreens_ElectionPosts : System.Web.UI.Page
                     HttpUtility.HtmlAttributeEncode((row["eligibility"] ?? "").ToString()),
                     HttpUtility.HtmlAttributeEncode((row["responsibilities"] ?? "").ToString()),
                     maxW, order, active ? "1" : "0");
+
+                // Checkbox
+                sb.AppendFormat("<td style='text-align:center;'><input type='checkbox' class='post-chk' value='{0}' onchange='updatePostBatchBar()' /></td>", id);
 
                 sb.AppendFormat("<td style='color:#999;'>{0}</td>", rowNum);
                 sb.AppendFormat("<td><strong>{0}</strong>", name);
@@ -161,6 +179,58 @@ public partial class COOPERP_NewScreens_ElectionPosts : System.Web.UI.Page
             RedirectWithFlash("Post deleted successfully.", true);
         else
             RedirectWithFlash("Cannot delete this post — it has linked candidates.", false);
+    }
+
+    // ─── Batch Handlers ──────────────────────────────────────────────────────
+    private static int[] ParseIds(string csv)
+    {
+        if (string.IsNullOrEmpty(csv)) return new int[0];
+        string[] parts = csv.Split(new char[]{','}, StringSplitOptions.RemoveEmptyEntries);
+        System.Collections.Generic.List<int> list = new System.Collections.Generic.List<int>();
+        foreach (string p in parts)
+        {
+            int n;
+            if (int.TryParse(p.Trim(), out n)) list.Add(n);
+        }
+        return list.ToArray();
+    }
+
+    protected void btnSearch_Click(object sender, EventArgs e)
+    {
+        BindGrid();
+        LoadStats();
+    }
+
+    protected void ddlFilter_Changed(object sender, EventArgs e)
+    {
+        BindGrid();
+        LoadStats();
+    }
+
+    protected void btnBatchActivatePosts_Click(object sender, EventArgs e)
+    {
+        int[] ids = ParseIds(hdnBatchPostIds.Value);
+        if (ids.Length == 0) { BindGrid(); return; }
+        int updated = ElectionsHelper.BatchSetPostActive(ids, true);
+        RedirectWithFlash(string.Format("{0} post(s) activated.", updated), true);
+    }
+
+    protected void btnBatchDeactivatePosts_Click(object sender, EventArgs e)
+    {
+        int[] ids = ParseIds(hdnBatchPostIds.Value);
+        if (ids.Length == 0) { BindGrid(); return; }
+        int updated = ElectionsHelper.BatchSetPostActive(ids, false);
+        RedirectWithFlash(string.Format("{0} post(s) deactivated.", updated), true);
+    }
+
+    protected void btnBatchDeletePosts_Click(object sender, EventArgs e)
+    {
+        int[] ids = ParseIds(hdnBatchPostIds.Value);
+        if (ids.Length == 0) { BindGrid(); return; }
+        int removed = ElectionsHelper.BatchDeletePosts(ids);
+        int skipped = ids.Length - removed;
+        string note = skipped > 0 ? string.Format(" ({0} skipped — have candidates)", skipped) : "";
+        RedirectWithFlash(string.Format("{0} post(s) deleted{1}.", removed, note), true);
     }
 
     // ─── Flash Message Helpers ───────────────────────────────────────────────

@@ -57,12 +57,11 @@ public partial class API_doc_verification : System.Web.UI.Page
 
         else if (Request["doc"] == "StudentLedger")
         {
-            StudentLedger RPT = new StudentLedger();
-            RPT.Parameters["regno"].Value = Request["reg"];
-            RPT.Parameters["sDate"].Value = DateTime.Today.AddYears(-3);
-            RPT.Parameters["eDate"].Value = DateTime.Today;
-            ReportViewer1.Report = RPT;
-
+            // Redirect to the new HTML-based ledger export
+            string reg = Server.UrlEncode(Request["reg"] ?? "");
+            string url = "StudentLedgerExport.aspx?reg=" + reg;
+            Response.Redirect(url, true);
+            return;
         }
 
         else if (Request["doc"] == "Student Exam Card")

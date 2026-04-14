@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -18,6 +20,8 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
             HandleAjax(ajax);
             return;
         }
+
+        Page.Form.Enctype = "multipart/form-data";
 
         if (!IsPostBack)
         {
@@ -115,14 +119,15 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
         int postId = 0;
         int.TryParse(ddlPost.SelectedValue, out postId);
         string statusFilter = ddlStatusFilter.SelectedValue;
+        string search = txtSearch.Text.Trim();
 
-        DataTable dt = ElectionsHelper.GetCandidates(electionId, postId, statusFilter);
+        DataTable dt = ElectionsHelper.GetCandidates(electionId, postId, statusFilter, search);
 
         StringBuilder sb = new StringBuilder();
 
         if (dt.Rows.Count == 0)
         {
-            sb.Append("<tr><td colspan='7'>");
+            sb.Append("<tr><td colspan='8'>");
             sb.Append("<div class='el-empty'>");
             sb.Append("<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><line x1='19' y1='8' x2='19' y2='14'/><line x1='22' y1='11' x2='16' y2='11'/></svg>");
             sb.Append("<div class='el-empty__title'>No candidates found</div>");
@@ -154,13 +159,18 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
                 string rowStyle = status == "Pending"
                     ? " style='border-left:3px solid #e67e00;background:#fffdf5;'"
                     : "";
-                sb.AppendFormat("<tr data-cid='{0}' data-name='{1}' data-regno='{2}' data-slogan='{3}' data-manifesto='{4}' data-cstatus='{5}' data-eid='{6}' data-pid='{7}'{8}>",
+                sb.AppendFormat("<tr data-cid='{0}' data-name='{1}' data-regno='{2}' data-slogan='{3}' data-manifesto='{4}' data-cstatus='{5}' data-eid='{6}' data-pid='{7}' data-photo='{8}'{9}>",
                     id,
                     HttpUtility.HtmlAttributeEncode(name),
                     HttpUtility.HtmlAttributeEncode(regno),
                     HttpUtility.HtmlAttributeEncode(slogan),
                     HttpUtility.HtmlAttributeEncode(manifesto),
-                    status, elId, pId, rowStyle);
+                    status, elId, pId,
+                    HttpUtility.HtmlAttributeEncode(photoUrl),
+                    rowStyle);
+
+                // Checkbox
+                sb.AppendFormat("<td style='text-align:center;'><input type='checkbox' class='cand-chk' value='{0}' onchange='updateCandBatchBar()' /></td>", id);
 
                 // Row number
                 sb.AppendFormat("<td style='color:#999;'>{0}</td>", rowNum);
@@ -310,6 +320,12 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
         LoadStats();
     }
 
+    protected void btnSearch_Click(object sender, EventArgs e)
+    {
+        BindGrid();
+        LoadStats();
+    }
+
     // ─── Save Candidate ──────────────────────────────────────────────────────
     protected void btnSaveCandidate_Click(object sender, EventArgs e)
     {
@@ -323,7 +339,10 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
         }
 
         int electionId = 0;
-        int.TryParse(ddlModalElection.SelectedValue, out electionId);
+        // JS sets modal dropdowns client-side; read directly from POST data for reliability
+        string rawEid = Request.Form[ddlModalElection.UniqueID];
+        if (string.IsNullOrEmpty(rawEid)) rawEid = ddlModalElection.SelectedValue;
+        int.TryParse(rawEid, out electionId);
         if (electionId <= 0)
         {
             RedirectWithFlash("Please select an election.", false);
@@ -331,7 +350,9 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
         }
 
         int postId = 0;
-        int.TryParse(ddlModalPost.SelectedValue, out postId);
+        string rawPid = Request.Form[ddlModalPost.UniqueID];
+        if (string.IsNullOrEmpty(rawPid)) rawPid = ddlModalPost.SelectedValue;
+        int.TryParse(rawPid, out postId);
         if (postId <= 0)
         {
             RedirectWithFlash("Please select a post/position.", false);
@@ -343,12 +364,41 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
 
         try
         {
+            // Handle optional photo upload
+            string newPhotoUrl = "";
+            HttpPostedFile photoFile = Request.Files["fuCandPhoto"];
+            if (photoFile != null && photoFile.ContentLength > 0)
+            {
+                string ext = System.IO.Path.GetExtension(photoFile.FileName).ToLower();
+                if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp")
+                {
+                    try
+                    {
+                        string uploadDir = Server.MapPath("~/Data_Uploads/Elections/");
+                        if (!Directory.Exists(uploadDir)) Directory.CreateDirectory(uploadDir);
+                        string baseName = Regex.Replace(
+                            Path.GetFileNameWithoutExtension(photoFile.FileName), @"[^a-zA-Z0-9_\-]", "_");
+                        string fname = string.Format("{0}_{1}_{2}{3}",
+                            Regex.Replace(regno, @"[^a-zA-Z0-9]", ""),
+                            baseName, DateTime.Now.Ticks, ext);
+                        photoFile.SaveAs(Path.Combine(uploadDir, fname));
+                        newPhotoUrl = "https://eadmin.mru.ac.ug/Data_Uploads/Elections/" + fname;
+                    }
+                    catch { /* non-fatal: continue without updating photo */ }
+                }
+            }
+
+            // If no new photo uploaded, keep existing photo (from hidden field)
+            string photoUrl = !string.IsNullOrEmpty(newPhotoUrl)
+                ? newPhotoUrl
+                : hdnCandPhotoUrl.Value.Trim();
+
             ElectionsHelper.SaveCandidate(
                 candId, electionId, postId, regno, candName,
-                "", // photo_url (future feature)
+                photoUrl,
                 txtManifesto.Text.Trim(),
                 txtSlogan.Text.Trim(),
-                ddlModalStatus.SelectedValue);
+                Request.Form[ddlModalStatus.UniqueID] ?? ddlModalStatus.SelectedValue);
 
             string qs = ddlElection.SelectedValue != "0"
                 ? "&eid=" + ddlElection.SelectedValue : "";
@@ -418,6 +468,58 @@ public partial class COOPERP_NewScreens_ElectionCandidates : System.Web.UI.Page
         {
             RedirectWithFlash("Error: " + ex.Message, false);
         }
+    }
+
+    // ─── Batch Handlers ──────────────────────────────────────────────────────
+    private static int[] ParseIds(string csv)
+    {
+        if (string.IsNullOrEmpty(csv)) return new int[0];
+        string[] parts = csv.Split(new char[]{','}, StringSplitOptions.RemoveEmptyEntries);
+        System.Collections.Generic.List<int> list = new System.Collections.Generic.List<int>();
+        foreach (string p in parts)
+        {
+            int n;
+            if (int.TryParse(p.Trim(), out n)) list.Add(n);
+        }
+        return list.ToArray();
+    }
+
+    protected void btnBatchCandApprove_Click(object sender, EventArgs e)
+    {
+        int[] ids = ParseIds(hdnBatchCandIds.Value);
+        if (ids.Length == 0) { BindGrid(); return; }
+        int updated = ElectionsHelper.BatchUpdateCandidateStatus(ids, "Approved", "");
+        string qs = ddlElection.SelectedValue != "0" ? "&eid=" + ddlElection.SelectedValue : "";
+        RedirectWithFlash(string.Format("{0} candidate(s) approved.", updated), true, qs);
+    }
+
+    protected void btnBatchCandReject_Click(object sender, EventArgs e)
+    {
+        int[] ids = ParseIds(hdnBatchCandIds.Value);
+        if (ids.Length == 0) { BindGrid(); return; }
+        int updated = ElectionsHelper.BatchUpdateCandidateStatus(ids, "Rejected", "");
+        string qs = ddlElection.SelectedValue != "0" ? "&eid=" + ddlElection.SelectedValue : "";
+        RedirectWithFlash(string.Format("{0} candidate(s) rejected.", updated), true, qs);
+    }
+
+    protected void btnBatchCandDisqualify_Click(object sender, EventArgs e)
+    {
+        int[] ids = ParseIds(hdnBatchCandIds.Value);
+        if (ids.Length == 0) { BindGrid(); return; }
+        int updated = ElectionsHelper.BatchUpdateCandidateStatus(ids, "Disqualified", "");
+        string qs = ddlElection.SelectedValue != "0" ? "&eid=" + ddlElection.SelectedValue : "";
+        RedirectWithFlash(string.Format("{0} candidate(s) disqualified.", updated), true, qs);
+    }
+
+    protected void btnBatchCandDelete_Click(object sender, EventArgs e)
+    {
+        int[] ids = ParseIds(hdnBatchCandIds.Value);
+        if (ids.Length == 0) { BindGrid(); return; }
+        int removed = ElectionsHelper.BatchDeleteCandidates(ids);
+        int skipped = ids.Length - removed;
+        string note = skipped > 0 ? string.Format(" ({0} skipped — have votes)", skipped) : "";
+        string qs = ddlElection.SelectedValue != "0" ? "&eid=" + ddlElection.SelectedValue : "";
+        RedirectWithFlash(string.Format("{0} candidate(s) deleted{1}.", removed, note), true, qs);
     }
 
     // ─── Flash Helpers ───────────────────────────────────────────────────────

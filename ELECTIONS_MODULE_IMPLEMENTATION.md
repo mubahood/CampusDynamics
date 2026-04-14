@@ -1154,3 +1154,73 @@ Week 5: Phase 6 (Testing & Deployment)
 - `NewScreens/ElectionResults.aspx.cs` — `btnExportCsv_Click()` handler + `CsvEscape()`
 - `NewScreens/ElectionVoters.aspx` — Export CSV button in Voter Roll header
 - `NewScreens/ElectionVoters.aspx.cs` — `btnExportVotersCsv_Click()` handler + `CsvEscape()`
+
+---
+
+## Final Production Readiness Audit
+
+**Completed:** 2026 (Final Audit Session)
+
+### Comprehensive Audit Findings & Resolutions
+
+A full 20+ file audit was conducted across admin and portal codebases. Database schemas were verified via `DESCRIBE` queries against the live DB.
+
+#### Critical Bugs Fixed
+
+| # | Severity | Bug | Fix | File |
+|---|----------|-----|-----|------|
+| C1 | **CRITICAL** | `GetPostsForElection()` used `INNER JOIN elect_candidate` — returned 0 posts for new elections with no candidates, making self-nomination impossible | Removed JOIN; now queries `elect_post` directly with `WHERE is_active = 1` | ElectionsPortalHelper.cs |
+| H2 | **HIGH** | `status == "Results"` dead code — `Results` not in DB ENUM | Removed `\|\| status == "Results"` from isClosed check | ElectionResults.aspx.cs (Admin) |
+| M1 | **MEDIUM** | `finishvoting` AJAX endpoint had no session validation — potential CSRF | Added session token verification (`vote_token_` + eid) | ElectionVote.aspx.cs |
+
+#### New Feature: Candidate Withdrawal UI
+
+| Feature | Description | Files Modified |
+|---------|-------------|----------------|
+| **Withdraw Application Button** | Students can now withdraw Pending candidacy applications via a "Withdraw" button with confirmation dialog. Uses existing `ElectionsPortalHelper.WithdrawApplication()`. Red ghost button with hover effect, visible only for Pending status. | CandidateApplication.aspx, CandidateApplication.aspx.cs |
+| **Withdrawn Badge Style** | Added `.ca-status__badge--withdrawn` CSS (red background matching rejected style) and `GetStatusBadgeClass("Withdrawn")` case | CandidateApplication.aspx, CandidateApplication.aspx.cs |
+
+#### Dead CSS Cleanup
+
+| Item | Action | File |
+|------|--------|------|
+| `.el-badge--archived` | Removed — `Archived` status doesn't exist in DB ENUM | Elections.aspx |
+| `.el-nom-highlight` + `@keyframes el-nom-glow` | Removed — animation defined but never applied | Elections.aspx |
+
+#### Schema Verification (All Confirmed via DESCRIBE)
+
+| Table | Columns Verified |
+|-------|-----------------|
+| `elect_post` | `eligibility`, `responsibilities`, `max_winners`, `updated_at` ✅ |
+| `elect_election` | `require_registration`, `require_fees_cleared`, `allowed_programmes`, `allowed_entry_years`, `results_public`, `created_by`, `updated_at` ✅ |
+| `elect_candidate` | `status ENUM` includes `'Withdrawn'`, `updated_at` present ✅ |
+| `acad_acadyears` | `status ENUM('Active','Inactive')` ✅ |
+
+#### Test Data Setup
+
+| Action | Detail |
+|--------|--------|
+| Test student `MRU2027000002` registered as voter in Election 2 (Active) | Can test full voting flow |
+| Test student `MRU2027000002` registered as voter in Election 3 (Nominations) | Can test self-nomination + withdrawal |
+| Feature gate active | Elections tab only visible to `MRU2027000002` in PortalMaster.master |
+
+### Production Toggle Checklist
+
+When ready to go live, remove the test-student gate:
+
+1. **PortalMaster.master** (~line 130): Remove the `CurrentRegno == "MRU2027000002"` wrapper around the Elections `<li>` nav link
+2. **PortalMaster.master.cs** (~line 144): Remove `if (regno != "MRU2027000002") return;` from `LoadElectionBadge()`
+
+### Module Status: COMPLETE
+
+All phases implemented and audited:
+
+| Phase | Status |
+|-------|--------|
+| Phase 1: Database Foundation (6 tables + helpers) | ✅ Complete |
+| Phase 2: Admin Portal (5 pages + sidebar nav) | ✅ Complete |
+| Phase 3: Student Portal (3 pages + helper + nav) | ✅ Complete |
+| Phase 4.5: Polish (AutoTransition, badge, self-nomination, activity feed, seed data) | ✅ Complete |
+| Phase 5: Hardening (bug fixes, CSV exports, pending banner, vote confirmation, IP audit) | ✅ Complete |
+| Hotfixes: (v.voted_at, acad_programme.status, feature gate) | ✅ Complete |
+| Final Audit: (3 bugs fixed, Withdraw UI, dead CSS, schema verified, test data) | ✅ Complete |

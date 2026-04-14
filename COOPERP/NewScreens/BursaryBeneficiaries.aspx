@@ -461,7 +461,7 @@
                         <div class="wz-fee-breakdown__row wz-fee-breakdown__row--total"><span>Total Fees</span><span id="wzFeeTotal">—</span></div>
                     </div>
                     <div class="wz-alert wz-alert--success" style="display:block;">
-                        <strong>Bursary:</strong> <span id="wzPctLabel">—</span>% of total fees = <strong id="wzPctAmount">—</strong>
+                        <strong>Bursary:</strong> <span id="wzPctLabel">—</span>% of tuition fees = <strong id="wzPctAmount">—</strong>
                     </div>
                 </div>
                 <div id="wzSpecPctError" class="wz-alert wz-alert--error" style="display:none;"></div>
@@ -507,7 +507,7 @@
                 <tr><td>Academic Year</td><td id="wzRevYear">—</td></tr>
                 <tr><td>Semester</td><td id="wzRevSem">—</td></tr>
                 <tr><td>Study Year</td><td id="wzRevStudyYear">—</td></tr>
-                <tr id="wzRevFeesRow" style="display:none;"><td>Total Programme Fees</td><td id="wzRevTotalFees">—</td></tr>
+                <tr id="wzRevFeesRow" style="display:none;"><td>Tuition Fees</td><td id="wzRevTotalFees">—</td></tr>
                 <tr><td>Bursary Amount</td><td id="wzRevAmount" style="font-size:15px;color:#00695c;">—</td></tr>
                 <tr id="wzRevNotesRow" style="display:none;"><td>Notes</td><td id="wzRevNotes" style="font-weight:400;color:#555;">—</td></tr>
             </table>
@@ -929,7 +929,7 @@
                         var s = schemes[i];
                         var metaText = '';
                         if (s.type === 'FIXED') metaText = 'UGX ' + Number(s.amount).toLocaleString();
-                        else if (s.type === 'PERCENTAGE') metaText = s.value + '% of total fees';
+                        else if (s.type === 'PERCENTAGE') metaText = s.value + '% of tuition fees';
                         else metaText = 'Custom amount per student';
                         var sel = _wz.schemeId == s.id ? ' wz-scheme-card--selected' : '';
                         html += '<div class="wz-scheme-card' + sel + '" data-sid="' + s.id + '" data-sname="' + esc(s.name) + '" data-stype="' + s.type + '" data-sval="' + s.value + '" data-samt="' + s.amount + '" onclick="wzSelectScheme(this)">'
@@ -973,7 +973,7 @@
             desc.textContent = 'This scheme provides a fixed amount. Select the semester and confirm.';
         } else if (_wz.schemeType === 'PERCENTAGE') {
             pctRow.style.display = 'block';
-            desc.textContent = 'This scheme provides ' + _wz.schemeValue + '% of total fees. The amount will be calculated automatically.';
+            desc.textContent = 'This scheme provides ' + _wz.schemeValue + '% of tuition fees. The amount will be calculated automatically.';
             document.getElementById('wzPctLabel').textContent = _wz.schemeValue;
             wzCalcFees();
         } else if (_wz.schemeType === 'CUSTOM') {
@@ -1011,7 +1011,7 @@
                         _wz.tuition = d.tuition;
                         _wz.functional = d.functional;
                         _wz.totalFees = d.total;
-                        _wz.bursaryAmount = Math.round(d.total * _wz.schemeValue / 100);
+                        _wz.bursaryAmount = Math.round(d.tuition * _wz.schemeValue / 100);
                         if (d.study_year) _wz.studyYear = d.study_year;
                         document.getElementById('wzFeeTuition').textContent = 'UGX ' + Number(d.tuition).toLocaleString();
                         document.getElementById('wzFeeFunctional').textContent = 'UGX ' + Number(d.functional).toLocaleString();
@@ -1057,9 +1057,9 @@
         document.getElementById('wzRevStudyYear').textContent = _wz.studyYear ? 'Year ' + _wz.studyYear : '—';
         // Total fees row
         var feesRow = document.getElementById('wzRevFeesRow');
-        if (_wz.schemeType === 'PERCENTAGE' && _wz.totalFees > 0) {
+        if (_wz.schemeType === 'PERCENTAGE' && _wz.tuition > 0) {
             feesRow.style.display = '';
-            document.getElementById('wzRevTotalFees').textContent = 'UGX ' + Number(_wz.totalFees).toLocaleString() + ' (\u00d7 ' + _wz.schemeValue + '%)';
+            document.getElementById('wzRevTotalFees').textContent = 'UGX ' + Number(_wz.tuition).toLocaleString() + ' (\u00d7 ' + _wz.schemeValue + '%)';
         } else {
             feesRow.style.display = 'none';
         }

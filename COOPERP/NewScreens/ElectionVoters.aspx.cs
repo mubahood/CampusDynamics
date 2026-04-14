@@ -140,7 +140,7 @@ public partial class COOPERP_NewScreens_ElectionVoters : System.Web.UI.Page
 
         if (dt.Rows.Count == 0)
         {
-            sb.Append("<tr><td colspan='8'>");
+            sb.Append("<tr><td colspan='10'>");
             sb.Append("<div class='el-empty'>");
             sb.Append("<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/></svg>");
             sb.Append("<div class='el-empty__title'>No voters found</div>");
@@ -166,6 +166,9 @@ public partial class COOPERP_NewScreens_ElectionVoters : System.Web.UI.Page
 
                 sb.AppendFormat("<tr{0}>",
                     !isEligible ? " style='opacity:0.55;'" : "");
+
+                // Checkbox
+                sb.AppendFormat("<td style='text-align:center;'><input type='checkbox' class='voter-chk' value='{0}' onchange='updateVoterBatchBar()' /></td>", id);
 
                 // Row number
                 sb.AppendFormat("<td style='color:#999;'>{0}</td>", rowNum);
@@ -205,6 +208,15 @@ public partial class COOPERP_NewScreens_ElectionVoters : System.Web.UI.Page
                 sb.Append("<td style='text-align:center;'>");
                 sb.AppendFormat("<label class='el-toggle'><input type='checkbox' {0} onchange=\"toggleEligibility({1}, this);\" /><span class='el-toggle__slider'></span></label>",
                     isEligible ? "checked='checked'" : "", id);
+                sb.Append("</td>");
+
+                // Delete action
+                sb.Append("<td style='text-align:center;'>");
+                if (!hasVoted)
+                    sb.AppendFormat("<button type='button' class='el-btn el-btn--warn el-btn--xs' onclick=\"deleteVoter({0},'{1}')\" title='Remove voter'>&#x2715;</button>",
+                        id, HttpUtility.HtmlAttributeEncode(name.Replace("'", "\'")));
+                else
+                    sb.Append("<span style='color:#bbb;'>&#8212;</span>");
                 sb.Append("</td>");
 
                 sb.Append("</tr>");
@@ -308,6 +320,62 @@ public partial class COOPERP_NewScreens_ElectionVoters : System.Web.UI.Page
             string.Format("attachment; filename=\"{0}_Voters.csv\"", safeName));
         Response.Write(csv.ToString());
         Response.End();
+    }
+
+    // ─── Batch / Delete Handlers ─────────────────────────────────────────────
+    private static int[] ParseIds(string csv)
+    {
+        if (string.IsNullOrEmpty(csv)) return new int[0];
+        string[] parts = csv.Split(new char[]{','}, StringSplitOptions.RemoveEmptyEntries);
+        System.Collections.Generic.List<int> list = new System.Collections.Generic.List<int>();
+        foreach (string p in parts)
+        {
+            int n;
+            if (int.TryParse(p.Trim(), out n)) list.Add(n);
+        }
+        return list.ToArray();
+    }
+
+    protected void btnBatchVoterEligible_Click(object sender, EventArgs e)
+    {
+        int eid = GetSelectedElection();
+        int[] ids = ParseIds(hdnBatchVoterIds.Value);
+        if (ids.Length == 0) { RefreshAll(); return; }
+        int updated = ElectionsHelper.BatchSetVoterEligibility(ids, true);
+        RedirectWithFlash(string.Format("{0} voter(s) set as Eligible.", updated), true, "&eid=" + eid);
+    }
+
+    protected void btnBatchVoterIneligible_Click(object sender, EventArgs e)
+    {
+        int eid = GetSelectedElection();
+        int[] ids = ParseIds(hdnBatchVoterIds.Value);
+        if (ids.Length == 0) { RefreshAll(); return; }
+        int updated = ElectionsHelper.BatchSetVoterEligibility(ids, false);
+        RedirectWithFlash(string.Format("{0} voter(s) set as Ineligible.", updated), true, "&eid=" + eid);
+    }
+
+    protected void btnBatchVoterRemove_Click(object sender, EventArgs e)
+    {
+        int eid = GetSelectedElection();
+        int[] ids = ParseIds(hdnBatchVoterIds.Value);
+        if (ids.Length == 0) { RefreshAll(); return; }
+        int removed = ElectionsHelper.BatchDeleteVoters(ids);
+        int skipped = ids.Length - removed;
+        string note = skipped > 0 ? string.Format(" ({0} skipped — already voted)", skipped) : "";
+        RedirectWithFlash(string.Format("{0} voter(s) removed{1}.", removed, note), true, "&eid=" + eid);
+    }
+
+    protected void btnDeleteVoter_Click(object sender, EventArgs e)
+    {
+        int eid = GetSelectedElection();
+        int voterId = 0;
+        int.TryParse(hdnDeleteVoterId.Value, out voterId);
+        if (voterId <= 0) { RefreshAll(); return; }
+        bool ok = ElectionsHelper.DeleteVoter(voterId);
+        if (ok)
+            RedirectWithFlash("Voter removed from roll.", true, "&eid=" + eid);
+        else
+            RedirectWithFlash("Could not remove voter — they may have already voted.", false, "&eid=" + eid);
     }
 
     private static string CsvEscape(string val)

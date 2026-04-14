@@ -62,7 +62,7 @@
 /* ===== WIZARD MODAL ===================================================== */
 .bw-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9998; }
 .bw-overlay--visible { display: flex; align-items: center; justify-content: center; }
-.bw-modal { background: #fff; width: 720px; max-width: 96vw; max-height: 92vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,.18); }
+.bw-modal { background: #fff; width: 960px; max-width: 96vw; max-height: 92vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,.18); }
 .bw-modal__header { background: #05275C; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; }
 .bw-modal__title { font-size: 13px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
 .bw-modal__close { width: 24px; height: 24px; border: none; background: rgba(255,255,255,.15); cursor: pointer; color: #fff; font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center; }
@@ -112,6 +112,13 @@
 .bw-bills-table tr.bw-bill--waived { background: #f5f5f5; opacity: .6; }
 .bw-bill-check { width: 16px; height: 16px; cursor: pointer; accent-color: #05275C; }
 .bw-bills-total { text-align: right; padding: 10px; font-weight: 700; font-size: 12px; color: #05275C; border-top: 2px solid #e0e5ed; background: #f5f7fa; }
+.bw-amt-input { width: 110px; padding: 4px 7px; font-size: 11px; font-weight: 600; border: 1px solid #b0bec5; border-radius: 4px; text-align: right; background: #fff; color: #333; transition: all .2s; }
+.bw-amt-input:focus { border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.15); outline: none; }
+.bw-amt-input:disabled { background: #eee; color: #bbb; border-color: #ddd; font-weight: 400; cursor: not-allowed; }
+.bw-amt-input:not(:disabled) { background: #fffff0; border-color: #174DA4; box-shadow: 0 0 0 1px rgba(23,77,164,.08); }
+.bw-amt-input.bw-amt--error { border-color: #c62828 !important; background: #fff5f5 !important; box-shadow: 0 0 0 2px rgba(198,40,40,.12); }
+.bw-amt-input.bw-amt--partial { border-color: #e67e22 !important; background: #fffcf5 !important; box-shadow: 0 0 0 1px rgba(230,126,34,.12); }
+.bw-amt-hint { display: block; font-size: 9px; color: #888; margin-top: 1px; text-align: right; line-height: 1; }
 
 /* Empty Bills */
 .bw-empty { padding: 24px; text-align: center; color: #888; font-size: 12px; }
@@ -275,7 +282,7 @@
         <!-- Step 2: Select Bills -->
         <div class="bw-panel" id="panel2">
             <div id="bwBillsLoading" style="text-align:center;padding:20px;"><span class="bw-spinner"></span> Loading bills...</div>
-            <div id="bwBillsContent" style="display:none;"></div>
+            <div id="bwBillsContent" style="display:none;overflow-x:auto;"></div>
             <div id="bwStep2Error" style="display:none;font-size:11px;color:#c62828;margin-top:6px;"></div>
         </div>
 
@@ -502,9 +509,21 @@
             return true;
         }
         if (step === 2) {
-            var count = 0;
-            for (var t in _selectedTIDs) { if (_selectedTIDs.hasOwnProperty(t)) count++; }
+            syncAmountsFromDOM();
+            var count = 0, hasInvalid = false;
+            for (var t in _selectedTIDs) {
+                if (!_selectedTIDs.hasOwnProperty(t)) continue;
+                count++;
+                var inp = document.getElementById('bwAmt_' + t);
+                var maxAmt = inp ? parseFloat(inp.getAttribute('data-max')) : 0;
+                var val = _selectedTIDs[t];
+                if (val <= 0 || val > maxAmt) {
+                    hasInvalid = true;
+                    if (inp) inp.classList.add('bw-amt--error');
+                }
+            }
             if (count === 0) { showError(2, 'Please select at least one bill to waive.'); return false; }
+            if (hasInvalid) { showError(2, 'One or more waive amounts are invalid. Each amount must be between 1 and the bill amount.'); return false; }
             hideError(2);
             return true;
         }
@@ -634,7 +653,12 @@
             return;
         }
 
-        var html = '<table class="bw-bills-table"><thead><tr><th style="width:30px;"><input type="checkbox" id="bwCheckAll" onclick="toggleAllBills(this)" class="bw-bill-check" /></th><th>TID</th><th>Date</th><th>Item</th><th>Detail</th><th>Year</th><th>Sem</th><th class="bw-table--right">Amount</th><th>Status</th></tr></thead><tbody>';
+        var html = '<table class="bw-bills-table"><thead><tr>';
+        html += '<th style="width:30px;"><input type="checkbox" id="bwCheckAll" onclick="toggleAllBills(this)" class="bw-bill-check" /></th>';
+        html += '<th>TID</th><th>Item / Detail</th><th>Period</th>';
+        html += '<th class="bw-table--right">Bill Amount</th>';
+        html += '<th class="bw-table--right" style="min-width:130px;">Waive Amount</th>';
+        html += '<th>Status</th></tr></thead><tbody>';
 
         for (var i = 0; i < _bills.length; i++) {
             var b = _bills[i];
@@ -647,12 +671,22 @@
                 html += '<td><input type="checkbox" class="bw-bill-check" data-tid="' + b.tid + '" data-amt="' + b.amount + '" onchange="toggleBill(this)" /></td>';
             }
             html += '<td><span class="fs-code">' + b.tid + '</span></td>';
-            html += '<td>' + esc(b.date) + '</td>';
-            html += '<td><strong>' + esc(b.item_name) + '</strong></td>';
-            html += '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(b.detail) + '">' + esc(b.detail) + '</td>';
-            html += '<td>' + esc(b.acadyear) + '</td>';
-            html += '<td style="text-align:center;">' + b.semester + '</td>';
+            // Combined Item + Detail column
+            html += '<td><strong>' + esc(b.item_name) + '</strong>';
+            if (b.detail) html += '<div style="font-size:10px;color:#888;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(b.detail) + '">' + esc(b.detail) + '</div>';
+            html += '</td>';
+            // Combined Period (date + year/sem)
+            html += '<td style="white-space:nowrap;"><div>' + esc(b.date) + '</div><div style="font-size:9px;color:#888;">' + esc(b.acadyear) + ' S' + b.semester + '</div></td>';
             html += '<td class="bw-table--right"><strong>UGX ' + formatNum(b.amount) + '</strong></td>';
+            // Waive Amount — editable input, disabled until checkbox is ticked
+            if (waived) {
+                html += '<td class="bw-table--right"><span style="color:#999;font-size:10px;">Already waived</span></td>';
+            } else {
+                html += '<td class="bw-table--right">';
+                html += '<input type="text" class="bw-amt-input" id="bwAmt_' + b.tid + '" data-tid="' + b.tid + '" data-max="' + b.amount + '" value="' + formatNum(b.amount) + '" disabled oninput="onAmtInput(this)" onblur="onAmtBlur(this)" title="Check the box, then edit to set custom waive amount" />';
+                html += '<span class="bw-amt-hint" id="bwAmtHint_' + b.tid + '"></span>';
+                html += '</td>';
+            }
             html += '<td>' + (waived ? '<span class="fs-badge--amber">Waived</span>' : '<span class="fs-badge--green">Active</span>') + '</td>';
             html += '</tr>';
         }
@@ -664,17 +698,85 @@
 
     window.toggleBill = function (el) {
         var tid = el.getAttribute('data-tid');
-        var amt = parseFloat(el.getAttribute('data-amt'));
+        var fullAmt = parseFloat(el.getAttribute('data-amt'));
         var row = el.closest('tr');
+        var amtInput = document.getElementById('bwAmt_' + tid);
+        var hint = document.getElementById('bwAmtHint_' + tid);
         if (el.checked) {
-            _selectedTIDs[tid] = amt;
+            // Enable the amount input and set to full amount by default
+            if (amtInput) {
+                amtInput.disabled = false;
+                amtInput.value = formatNum(fullAmt);
+                amtInput.classList.remove('bw-amt--error', 'bw-amt--partial');
+            }
+            if (hint) hint.textContent = 'Full amount — edit to customise';
+            _selectedTIDs[tid] = fullAmt;
             if (row) row.classList.add('bw-bill--selected');
         } else {
+            // Disable and reset the amount input
+            if (amtInput) {
+                amtInput.disabled = true;
+                amtInput.value = formatNum(fullAmt);
+                amtInput.classList.remove('bw-amt--error', 'bw-amt--partial');
+            }
+            if (hint) hint.textContent = '';
             delete _selectedTIDs[tid];
             if (row) row.classList.remove('bw-bill--selected');
         }
         updateSelectionTotal();
         hideError(2);
+    };
+
+    /* Handle custom amount typing */
+    window.onAmtInput = function (inp) {
+        var tid = inp.getAttribute('data-tid');
+        var maxAmt = parseFloat(inp.getAttribute('data-max'));
+        var hint = document.getElementById('bwAmtHint_' + tid);
+        // Strip non-numeric chars except dot
+        var raw = inp.value.replace(/[^0-9.]/g, '');
+        var val = parseFloat(raw);
+        inp.classList.remove('bw-amt--error', 'bw-amt--partial');
+        if (isNaN(val) || val <= 0) {
+            inp.classList.add('bw-amt--error');
+            if (hint) hint.textContent = 'Enter amount > 0';
+            _selectedTIDs[tid] = 0; // temp invalid — validation will catch
+        } else if (val > maxAmt) {
+            inp.classList.add('bw-amt--error');
+            if (hint) hint.textContent = 'Exceeds bill (' + formatNum(maxAmt) + ')';
+            _selectedTIDs[tid] = 0;
+        } else {
+            if (val < maxAmt) {
+                inp.classList.add('bw-amt--partial');
+                if (hint) hint.textContent = 'Partial: ' + Math.round(val / maxAmt * 100) + '% of bill';
+            } else {
+                if (hint) hint.textContent = 'Full amount';
+            }
+            _selectedTIDs[tid] = val;
+        }
+        updateSelectionTotal();
+    };
+
+    window.onAmtBlur = function (inp) {
+        var tid = inp.getAttribute('data-tid');
+        var maxAmt = parseFloat(inp.getAttribute('data-max'));
+        var hint = document.getElementById('bwAmtHint_' + tid);
+        var raw = inp.value.replace(/[^0-9.]/g, '');
+        var val = parseFloat(raw);
+        inp.classList.remove('bw-amt--error', 'bw-amt--partial');
+        if (isNaN(val) || val <= 0) {
+            val = maxAmt; // reset to full on invalid
+        } else if (val > maxAmt) {
+            val = maxAmt; // cap at max
+        }
+        inp.value = formatNum(val);
+        if (val < maxAmt) {
+            inp.classList.add('bw-amt--partial');
+            if (hint) hint.textContent = 'Partial: ' + Math.round(val / maxAmt * 100) + '% of bill';
+        } else {
+            if (hint) hint.textContent = 'Full amount';
+        }
+        _selectedTIDs[tid] = val;
+        updateSelectionTotal();
     };
 
     window.toggleAllBills = function (el) {
@@ -697,6 +799,24 @@
         if (totEl) totEl.textContent = formatNum(total);
     }
 
+    /* Re-read every enabled waive-amount input back into _selectedTIDs.
+       This guarantees the JS map is in sync with whatever the user typed,
+       even if oninput/onblur didn't fire (focus still in the input, etc.). */
+    function syncAmountsFromDOM() {
+        var inputs = document.querySelectorAll('.bw-amt-input:not(:disabled)');
+        for (var i = 0; i < inputs.length; i++) {
+            var inp = inputs[i];
+            var tid = inp.getAttribute('data-tid');
+            if (!tid || !_selectedTIDs.hasOwnProperty(tid)) continue;
+            var maxAmt = parseFloat(inp.getAttribute('data-max'));
+            var raw = inp.value.replace(/[^0-9.]/g, '');
+            var val = parseFloat(raw);
+            if (isNaN(val) || val <= 0) val = 0;
+            if (val > maxAmt) val = maxAmt;
+            _selectedTIDs[tid] = val;
+        }
+    }
+
     // ── Category Radio Card Highlighting ──────────────────────────────
     document.getElementById('bwCats').addEventListener('change', function (e) {
         if (e.target.name !== 'bwCat') return;
@@ -715,6 +835,7 @@
 
     // ── Build Summary (Step 4) ────────────────────────────────────────
     function buildSummary() {
+        syncAmountsFromDOM();
         var html = '';
 
         // Student
@@ -726,6 +847,7 @@
         // Items
         html += '<div class="bw-label" style="margin-top:12px;">Bills to be waived:</div>';
         html += '<div class="bw-summary__items">';
+        html += '<div class="bw-summary__item" style="font-weight:600;font-size:10px;text-transform:uppercase;color:#555;border-bottom:2px solid #e0e5ed;padding-bottom:4px;"><span>Bill</span><span style="display:flex;gap:30px;"><span style="min-width:100px;text-align:right;">Bill Amount</span><span style="min-width:100px;text-align:right;">Waive Amount</span></span></div>';
         var total = 0;
         var items = [];
         for (var tid in _selectedTIDs) {
@@ -734,14 +856,18 @@
             total += amt;
             // Find bill detail
             var detail = 'TID ' + tid;
+            var fullAmt = amt;
             for (var b = 0; b < _bills.length; b++) {
                 if (String(_bills[b].tid) === String(tid)) {
                     detail = _bills[b].item_name + ' — ' + _bills[b].date;
+                    fullAmt = _bills[b].amount;
                     items.push({ tid: parseInt(tid), amount: amt });
                     break;
                 }
             }
-            html += '<div class="bw-summary__item"><span>TID ' + tid + ' — ' + esc(detail) + '</span><span>UGX ' + formatNum(amt) + '</span></div>';
+            var isPartial = (amt < fullAmt);
+            var partialTag = isPartial ? ' <span style="font-size:9px;background:#fff3e0;color:#e65100;padding:1px 5px;border-radius:3px;font-weight:600;">PARTIAL</span>' : '';
+            html += '<div class="bw-summary__item"><span>TID ' + tid + ' — ' + esc(detail) + partialTag + '</span><span style="display:flex;gap:30px;"><span style="min-width:100px;text-align:right;color:#888;">UGX ' + formatNum(fullAmt) + '</span><span style="min-width:100px;text-align:right;font-weight:700;">UGX ' + formatNum(amt) + '</span></span></div>';
         }
         html += '</div>';
 
@@ -762,6 +888,9 @@
         var btn = document.getElementById('btnWizApply');
         btn.disabled = true;
         btn.innerHTML = '<span class="bw-spinner"></span> Applying...';
+
+        // Sync amounts from DOM one final time before submit
+        syncAmountsFromDOM();
 
         // Build items array
         var items = [];

@@ -57,6 +57,8 @@
     cursor: pointer; min-width: 120px;
 }
 .el-filter-select:focus { border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.10); outline: none; }
+.el-filter-input { border: 1px solid #ddd; border-radius: 6px; padding: 5px 8px; font-size: 11px; background: #fff; color: #333; min-width: 180px; }
+.el-filter-input:focus { border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.10); outline: none; }
 
 /* -- Table --------------------------------------------- */
 .el-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -369,6 +371,7 @@
         </div>
     </div>
     <div class="el-filters">
+        <asp:TextBox ID="txtSearch" runat="server" CssClass="el-filter-input" placeholder="Search election name, year..." />
         <label style="font-size:10px; color:#888; text-transform:uppercase; letter-spacing:.4px; font-weight:600;">Status:</label>
         <asp:DropDownList ID="ddlStatusFilter" runat="server" CssClass="el-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlStatusFilter_Changed">
             <asp:ListItem Text="All Statuses" Value="ALL" />
@@ -379,6 +382,7 @@
             <asp:ListItem Text="Closed" Value="Closed" />
             <asp:ListItem Text="Cancelled" Value="Cancelled" />
         </asp:DropDownList>
+        <asp:Button ID="btnSearch" runat="server" CssClass="el-btn el-btn--primary el-btn--sm" Text="Search" OnClick="btnSearch_Click" />
     </div>
     <div style="overflow-x:auto;">
         <table class="el-table">

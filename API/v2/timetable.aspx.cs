@@ -91,7 +91,8 @@ public partial class API_v2_timetable : System.Web.UI.Page
                     parms.Add(new MySqlParameter("@sem", semester));
                 }
 
-                sql += " ORDER BY FIELD(t.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'), t.start_time";
+                // FIX: Day names in acad_timetable VIEW are UPPERCASE (from acad_teaching_allocation.lectureday)
+                sql += " ORDER BY FIELD(t.day_of_week, 'MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'), t.start_time";
 
                 DataTable dt = ApiHelper.Query(sql, parms.ToArray());
                 ApiHelper.Success(Response, ApiHelper.TableToList(dt));
@@ -122,7 +123,8 @@ public partial class API_v2_timetable : System.Web.UI.Page
                     parms.Add(new MySqlParameter("@sem", semester));
                 }
 
-                sql += " ORDER BY FIELD(t.day_of_week, 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'), t.start_time";
+                // FIX: Day names in acad_timetable VIEW are UPPERCASE (from acad_teaching_allocation.lectureday)
+                sql += " ORDER BY FIELD(t.day_of_week, 'MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'), t.start_time";
 
                 DataTable dt = ApiHelper.Query(sql, parms.ToArray());
                 ApiHelper.Success(Response, ApiHelper.TableToList(dt));

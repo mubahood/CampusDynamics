@@ -48,6 +48,13 @@
 }
 .cd-card__title { font-size: 13px; font-weight: 700; color: #1a1a1a; display: flex; align-items: center; gap: 7px; }
 
+/* -- Filter Bar ---------------------------------------- */
+.el-filters { background: #f8f9fa; border-bottom: 1px solid #e4e8f0; padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.el-filter-input { border: 1px solid #ddd; border-radius: 6px; padding: 5px 8px; font-size: 11px; background: #fff; color: #333; min-width: 180px; }
+.el-filter-input:focus { border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.10); outline: none; }
+.el-filter-select { border: 1px solid #ddd; border-radius: 6px; padding: 5px 8px; font-size: 11px; background: #fff; color: #333; cursor: pointer; min-width: 140px; }
+.el-filter-select:focus { border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.10); outline: none; }
+
 /* -- Table --------------------------------------------- */
 .el-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .el-table th {
@@ -162,6 +169,14 @@
     .el-stats { grid-template-columns: 1fr; }
     .el-form-row, .el-form-row3 { grid-template-columns: 1fr; }
 }
+/* -- Batch Actions ------------------------------------- */
+.el-batch-bar { display:none; align-items:center; gap:7px; padding:7px 12px; background:#fffbeb; border-bottom:1px solid #fde68a; flex-wrap:wrap; }
+.el-batch-bar.is-active { display:flex; }
+.el-batch-bar__count { font-size:11px; font-weight:600; color:#92400e; flex:1; min-width:80px; }
+.el-btn--ghost { background:transparent; color:#555; border:1px solid #ccc; }
+.el-btn--ghost:hover { border-color:#174DA4; color:#174DA4; background:rgba(23,77,164,.04); }
+.el-btn--warn { background:#e67e00; color:#fff; border:none; }
+.el-btn--warn:hover { background:#cc6f00; }
 </style>
 </asp:Content>
 
@@ -226,10 +241,29 @@
             Defined Positions
         </div>
     </div>
+    <!-- Filter Bar -->
+    <div class="el-filters">
+        <asp:TextBox ID="txtSearch" runat="server" CssClass="el-filter-input" placeholder="Search post name, code..." />
+        <asp:DropDownList ID="ddlStatusFilter" runat="server" CssClass="el-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed">
+            <asp:ListItem Text="All Posts" Value="ALL" />
+            <asp:ListItem Text="Active" Value="Active" />
+            <asp:ListItem Text="Inactive" Value="Inactive" />
+        </asp:DropDownList>
+        <asp:Button ID="btnSearch" runat="server" CssClass="el-btn el-btn--primary el-btn--sm" Text="Search" OnClick="btnSearch_Click" />
+    </div>
+    <!-- Batch Actions -->
+    <div class="el-batch-bar" id="postBatchBar">
+        <asp:HiddenField ID="hdnBatchPostIds" runat="server" />
+        <span class="el-batch-bar__count" id="postBatchCount">0 selected</span>
+        <asp:Button ID="btnBatchActivatePosts" runat="server" CssClass="el-btn el-btn--success el-btn--xs" Text="&#x2713; Activate" OnClick="btnBatchActivatePosts_Click" OnClientClick="return collectPostIds('Activate selected posts?');" />
+        <asp:Button ID="btnBatchDeactivatePosts" runat="server" CssClass="el-btn el-btn--ghost el-btn--xs" Text="Deactivate" OnClick="btnBatchDeactivatePosts_Click" OnClientClick="return collectPostIds('Deactivate selected posts?');" />
+        <asp:Button ID="btnBatchDeletePosts" runat="server" CssClass="el-btn el-btn--warn el-btn--xs" Text="Delete" OnClick="btnBatchDeletePosts_Click" OnClientClick="return collectPostIds('Delete selected posts? Only posts with no candidates will be removed.');" />
+    </div>
     <div style="overflow-x:auto;">
         <table class="el-table">
             <thead>
                 <tr>
+                    <th style="width:28px;text-align:center;"><input type="checkbox" id="chkAllPosts" onclick="selectAllPosts(this)" title="Select all" style="cursor:pointer;" /></th>
                     <th style="width:40px;">#</th>
                     <th>Post Name</th>
                     <th>Code</th>
@@ -380,5 +414,35 @@ function openDeleteModal(id, name) {
 }
 
 function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; }
+
+// ─── Batch Posts ─────────────────────────────────────────────────────────
+function selectAllPosts(source) {
+    var boxes = document.querySelectorAll('.post-chk');
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = source.checked;
+    updatePostBatchBar();
+}
+
+function updatePostBatchBar() {
+    var boxes = document.querySelectorAll('.post-chk:checked');
+    var bar   = document.getElementById('postBatchBar');
+    var lbl   = document.getElementById('postBatchCount');
+    if (boxes.length > 0) {
+        bar.classList.add('is-active');
+        lbl.textContent = boxes.length + ' post(s) selected';
+    } else {
+        bar.classList.remove('is-active');
+        var all = document.getElementById('chkAllPosts');
+        if (all) all.checked = false;
+    }
+}
+
+function collectPostIds(msg) {
+    var boxes = document.querySelectorAll('.post-chk:checked');
+    if (boxes.length === 0) { alert('Please select at least one post.'); return false; }
+    var ids = [];
+    for (var i = 0; i < boxes.length; i++) ids.push(boxes[i].value);
+    document.getElementById('<%= hdnBatchPostIds.ClientID %>').value = ids.join(',');
+    return confirm(msg + '\n(' + boxes.length + ' post(s) selected)');
+}
 </script>
 </asp:Content>

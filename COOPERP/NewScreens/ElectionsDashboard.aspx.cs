@@ -40,7 +40,8 @@ public partial class COOPERP_NewScreens_ElectionsDashboard : System.Web.UI.Page
     private void BindGrid()
     {
         string statusFilter = ddlStatusFilter.SelectedValue;
-        DataTable dt = ElectionsHelper.GetAllElections(statusFilter);
+        string search = txtSearch.Text.Trim();
+        DataTable dt = ElectionsHelper.GetAllElections(statusFilter, search);
 
         StringBuilder sb = new StringBuilder();
 
@@ -291,6 +292,12 @@ public partial class COOPERP_NewScreens_ElectionsDashboard : System.Web.UI.Page
 
     // ─── Filter Changed ──────────────────────────────────────────────────────
     protected void ddlStatusFilter_Changed(object sender, EventArgs e)
+    {
+        BindGrid();
+        LoadStats();
+    }
+
+    protected void btnSearch_Click(object sender, EventArgs e)
     {
         BindGrid();
         LoadStats();

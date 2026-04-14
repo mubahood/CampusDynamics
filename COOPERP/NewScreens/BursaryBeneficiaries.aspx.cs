@@ -764,6 +764,7 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
                             "SELECT `{0}`, `{1}` FROM fin_programme_fees WHERE progcode=@prog AND is_active='Yes' LIMIT 1",
                             colT, colF);
 
+                        double tuit = 0;
                         using (MySqlCommand cmd = new MySqlCommand(feesSql, conn))
                         {
                             cmd.Parameters.AddWithValue("@prog", progCode);
@@ -771,7 +772,7 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
                             {
                                 if (rdr.Read())
                                 {
-                                    double tuit = rdr[colT] != DBNull.Value ? Convert.ToDouble(rdr[colT]) : 0;
+                                    tuit = rdr[colT] != DBNull.Value ? Convert.ToDouble(rdr[colT]) : 0;
                                     double func = rdr[colF] != DBNull.Value ? Convert.ToDouble(rdr[colF]) : 0;
                                     totalFees = tuit + func;
                                 }
@@ -785,7 +786,7 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
                             return;
                         }
 
-                        actualAmount = Math.Round(totalFees * schemeValue / 100.0, 0);
+                        actualAmount = Math.Round(tuit * schemeValue / 100.0, 0);
                     }
                     catch (Exception exFees)
                     {
@@ -811,21 +812,7 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
                     actualAmount = schemeAmount;
                 }
 
-                // Check for duplicate (same student + scheme + year + semester)
-                using (MySqlCommand chk = new MySqlCommand(
-                    "SELECT COUNT(*) FROM scholarshipstudents WHERE adm_no=@r AND scholarshipID=@s AND scholarhipYear=@y AND scholarhipTerm=@t", conn))
-                {
-                    chk.Parameters.AddWithValue("@r", regNo);
-                    chk.Parameters.AddWithValue("@s", schemeId);
-                    chk.Parameters.AddWithValue("@y", yearVal);
-                    chk.Parameters.AddWithValue("@t", semester);
-                    if (Convert.ToInt64(chk.ExecuteScalar()) > 0)
-                    {
-                        ShowToast("This student is already a beneficiary of this scheme for " + yearVal + " Semester " + semester + ".", false);
-                        OpenModalAfterPostback("modal-add-beneficiary");
-                        return;
-                    }
-                }
+                // Duplicate check removed — students may receive multiple bursaries per semester
 
                 // Delegate to BursaryManager (atomic — all 3 tables in one transaction)
                 int itemCode = BursaryManager.GetOrCreateBillingItem(conn);
@@ -838,7 +825,7 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
                     string displayName = ddlAddScheme.SelectedItem != null ? ddlAddScheme.SelectedItem.Text : schemeVal;
                     string typeNote = "";
                     if (schemeType == "PERCENTAGE")
-                        typeNote = string.Format(" ({0}% of fees)", schemeValue.ToString("0.##"));
+                        typeNote = string.Format(" ({0}% of tuition)", schemeValue.ToString("0.##"));
                     else if (schemeType == "CUSTOM")
                         typeNote = " (custom amount)";
                     ShowToast(string.Format("Beneficiary {0} added to {1} ({2} Sem {3}) — UGX {4}{5}. Fee transaction #{6} created.",

@@ -655,13 +655,14 @@ public partial class API_v2_academic : System.Web.UI.Page
         var course = ApiHelper.FirstRowToDict(dt);
 
         // Get programmes that include this course
+        // FIX: pc.course_code not pc.courseID; pc.study_year not pc.studyYear
         DataTable dtProgs = ApiHelper.Query(
             @"SELECT DISTINCT pc.progcode, p.progname AS programme_name,
-                     pc.studyYear AS study_year, pc.semester
+                     pc.study_year AS study_year, pc.semester
               FROM acad_programmecourses pc
               LEFT JOIN acad_programme p ON pc.progcode = p.progcode
-              WHERE pc.courseID = @code
-              ORDER BY p.progname, pc.studyYear, pc.semester",
+              WHERE pc.course_code = @code
+              ORDER BY p.progname, pc.study_year, pc.semester",
             new MySqlParameter("@code", courseCode)
         );
 
@@ -760,13 +761,15 @@ public partial class API_v2_academic : System.Web.UI.Page
         if (progcode == null) return;
 
         // Get programme info
+        // FIX: p.levelCode not p.proglevel; p.couselength not p.progduration;
+        //       p.faculty_code not p.progfaculty; f.faculty_code not f.fax_code;
+        //       Removed d.dept_name/hrm_departments join — p.progdept does not exist
         DataTable dtProg = ApiHelper.Query(
             @"SELECT p.progcode, p.progname, f.faculty_name AS faculty,
-                     d.dept_name AS department, p.proglevel AS level,
-                     p.progduration AS duration_years
+                     p.levelCode AS level,
+                     p.couselength AS duration_years
               FROM acad_programme p
-              LEFT JOIN acad_faculty f ON p.progfaculty = f.fax_code
-              LEFT JOIN hrm_departments d ON p.progdept = d.ID
+              LEFT JOIN acad_faculty f ON p.faculty_code = f.faculty_code
               WHERE p.progcode = @prog
               LIMIT 1",
             new MySqlParameter("@prog", progcode)
@@ -781,15 +784,16 @@ public partial class API_v2_academic : System.Web.UI.Page
         var progInfo = ApiHelper.FirstRowToDict(dtProg);
 
         // Get all courses in programme curriculum
+        // FIX: pc.course_code not pc.courseID; pc.study_year not pc.studyYear; pc.course_type not pc.courseType
         DataTable dtCourses = ApiHelper.Query(
-            @"SELECT pc.courseID AS course_code, c.courseName AS course_name,
-                     c.CreditUnit AS credit_units, pc.studyYear AS study_year,
-                     pc.semester, pc.courseType AS course_type,
+            @"SELECT pc.course_code AS course_code, c.courseName AS course_name,
+                     c.CreditUnit AS credit_units, pc.study_year AS study_year,
+                     pc.semester, IFNULL(pc.course_type, 'CORE') AS course_type,
                      c.courseCategory AS category
               FROM acad_programmecourses pc
-              LEFT JOIN acad_course c ON pc.courseID = c.courseID
+              LEFT JOIN acad_course c ON pc.course_code = c.courseID
               WHERE pc.progcode = @prog
-              ORDER BY pc.studyYear, pc.semester, c.courseName",
+              ORDER BY pc.study_year, pc.semester, c.courseName",
             new MySqlParameter("@prog", progcode)
         );
 
