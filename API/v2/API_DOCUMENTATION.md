@@ -17,7 +17,7 @@
 3. [Student Endpoints (student.aspx)](#3-student-endpoints) — incl. 3.5-3.8 ODEL endpoints
 4. [Staff Endpoints (staff.aspx)](#4-staff-endpoints) — incl. 4.13-4.14 ODEL endpoints
 5. [Academic Endpoints (academic.aspx)](#5-academic-endpoints) — incl. 5.11-5.14 ODEL endpoints
-6. [Finance Endpoints (finance.aspx)](#6-finance-endpoints) — incl. 6.6-6.7 ODEL endpoints
+6. [Finance Endpoints (finance.aspx)](#6-finance-endpoints) — incl. 6.6-6.7 ODEL endpoints, 6.8 Fee Access Policy
 7. [Timetable Endpoints (timetable.aspx)](#7-timetable-endpoints)
 8. [Campus / Public Endpoints (campus.aspx)](#8-campus-endpoints) — incl. 8.9 Academic Calendar (ODEL)
 9. [Error Codes Reference](#9-error-codes-reference)
@@ -3248,6 +3248,449 @@ Content-Type: application/json
 - Maximum 200 students per request.
 - Accepts JSON POST body or comma-separated `students` query parameter as fallback.
 - If a student lookup fails, their entry shows `fee_status: "error"`.
+
+---
+
+### 6.8 Fee Access Status (Policy Evaluation)
+
+Evaluates a student against the university's active **Fee Access Policy** — the bursar-defined set of rules that determine whether a student may access academic services (exams, results, registration, etc.) based on their financial standing.
+
+This is the most detailed finance endpoint. It returns the student's profile, the full policy configuration, financial totals, bursary/scholarship status, per-rule evaluation results, a human-readable verdict, and actionable guidance for denied students.
+
+| Property | Value |
+|---|---|
+| **URL** | `finance.aspx?action=access_status` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid API token |
+| `action` | string | Yes | Must be `access_status` |
+| `regno` | string | Staff only | Student registration number. Students are auto-resolved from their token; staff must provide this. |
+
+**Example Request (student):**
+```
+GET /API/v2/finance.aspx?action=access_status&token=abc123
+```
+
+**Example Request (staff checking a student):**
+```
+GET /API/v2/finance.aspx?action=access_status&regno=2024/BSC/001&token=abc123
+```
+
+#### Response Structure
+
+The response always contains the same top-level keys regardless of whether access is granted or denied, ensuring consumers never encounter missing fields.
+
+| Field | Type | Description |
+|---|---|---|
+| `access_allowed` | boolean | `true` if the student passes the policy (or no policy is active) |
+| `has_policy` | boolean | `true` if an active fee access policy exists in the system |
+| `verdict` | string | `"granted"` or `"denied"` — human-readable verdict |
+| `verdict_reason` | string | Detailed explanation of why access was granted or denied |
+| `student` | object | Student profile information |
+| `policy` | object\|null | Full policy configuration (null if no active policy) |
+| `finance` | object | Student's financial summary |
+| `bursary` | object | Bursary/scholarship status |
+| `criteria` | array | Per-rule evaluation results |
+| `summary` | object | Aggregate pass/fail counters |
+| `guidance` | string | Actionable steps for denied students (empty string if granted) |
+| `evaluated_at` | string | ISO 8601 UTC timestamp of when evaluation was performed |
+
+#### `student` Object
+
+| Field | Type | Description |
+|---|---|---|
+| `regno` | string | Registration number |
+| `name` | string | Full name (surname + other names) |
+| `programme` | string | Programme name (e.g., "Bachelor of Science in Computer Science") |
+| `programme_code` | string | Programme code (e.g., "BSC-CS") |
+| `study_year` | integer | Current study year (1, 2, 3, etc.) |
+
+#### `policy` Object
+
+| Field | Type | Description |
+|---|---|---|
+| `policy_id` | integer | Database primary key of the active policy |
+| `title` | string | Policy title set by the bursar |
+| `academic_year` | string | Academic year the policy applies to (e.g., "2025/2026") |
+| `semester` | integer | Semester number (1 or 2) |
+| `combination_logic` | string | `"ALL"` or `"ANY"` — how rules are combined |
+| `combination_logic_description` | string | Human-readable explanation of the logic |
+| `notes` | string | Free-text notes entered by the bursar |
+| `updated_at` | string | ISO 8601 timestamp of last policy update |
+| `rules_enabled` | object | Boolean map of which rules are turned on |
+| `thresholds` | object | Configured threshold values for each rule |
+
+##### `policy.rules_enabled` Object
+
+| Field | Type | Description |
+|---|---|---|
+| `balance_threshold` | boolean | Whether the balance rule is enabled |
+| `payment_window` | boolean | Whether the payment window rule is enabled |
+| `percentage_paid` | boolean | Whether the percentage paid rule is enabled |
+| `bursary_exemption` | boolean | Whether the bursary exemption rule is enabled |
+| `registration` | boolean | Whether the registration rule is enabled |
+
+##### `policy.thresholds` Object
+
+Values are `null` when the corresponding rule is disabled.
+
+| Field | Type | Description |
+|---|---|---|
+| `max_balance` | decimal\|null | Maximum allowed outstanding balance (UGX) |
+| `payment_window_min_amount` | decimal\|null | Minimum payment required within the window |
+| `payment_window_start` | string\|null | Window start date (yyyy-MM-dd) |
+| `payment_window_end` | string\|null | Window end date (yyyy-MM-dd) |
+| `min_percentage_paid` | decimal\|null | Minimum percentage of total fees that must be paid |
+| `bursary_min_coverage` | decimal\|null | Minimum bursary coverage percentage for exemption |
+
+#### `finance` Object
+
+| Field | Type | Description |
+|---|---|---|
+| `total_bill` | decimal | Sum of all debit transactions (fees invoiced) |
+| `total_paid` | decimal | Sum of all credit transactions (payments made) |
+| `balance` | decimal | Signed balance: **negative** = owing, **positive** = credit |
+| `amount_owing` | decimal | Positive value of what the student owes (0 if in credit) |
+| `credit_balance` | decimal | Positive value of credit balance (0 if owing) |
+| `percentage_paid` | decimal | Percentage of total bill that has been paid (0-100+) |
+| `currency` | string | Always `"UGX"` |
+
+> **Note on financial totals:** The query uses `UNION ALL` across `fin_ledger` and `fin_studentfeestracking` (with deduplication via `NOT EXISTS`) to ensure totals match the student's fee statement page exactly.
+
+#### `bursary` Object
+
+| Field | Type | Description |
+|---|---|---|
+| `status` | string | `"None"` or `"Active: <Scheme Name>"` |
+| `scheme_name` | string | Name of the scholarship/bursary scheme |
+| `amount_offered` | decimal | Amount offered by the bursary |
+| `coverage_percent` | decimal | Percentage of total bill covered by the bursary |
+| `exempt` | boolean | `true` if the bursary short-circuited all other rules |
+
+#### `criteria` Array
+
+Each element is an object representing one evaluated rule:
+
+| Field | Type | Description |
+|---|---|---|
+| `rule` | string | Rule name: `"Balance Threshold"`, `"Payment Window"`, `"Percentage Paid"`, `"Bursary Exemption"`, `"Registration"`, or `"No Active Restriction"` |
+| `passed` | boolean | Whether the student passed this rule |
+| `enabled` | boolean | Whether this rule is enabled in the policy |
+| `detail` | string | Human-readable explanation of the evaluation result |
+| `threshold` | string\|null | The configured threshold for this rule |
+| `actual_value` | string\|null | The student's actual value against this rule |
+
+#### `summary` Object
+
+| Field | Type | Description |
+|---|---|---|
+| `total_rules` | integer | Number of rules evaluated |
+| `rules_passed` | integer | Number of rules the student passed |
+| `rules_failed` | integer | Number of rules the student failed |
+| `enabled_rules` | array | List of enabled rule names (strings) |
+
+---
+
+#### Access Decision Logic
+
+```
+1. If no active policy exists (is_active ≠ 'yes'):
+   → access_allowed = true, has_policy = false
+
+2. If policy is active but NO rules are enabled:
+   → access_allowed = true (no rules to fail)
+
+3. If Bursary Exemption is enabled AND student has an approved bursary
+   with coverage ≥ bursary_min_coverage:
+   → access_allowed = true (short-circuit, other rules skipped)
+
+4. Otherwise, evaluate all enabled rules:
+   - If combination_logic = "ALL": student must pass EVERY enabled rule
+   - If combination_logic = "ANY": student must pass AT LEAST ONE enabled rule
+
+5. Guidance is generated only when access_allowed = false,
+   with specific actionable tips per failed rule.
+```
+
+---
+
+#### Example Response — Access Denied (ALL logic, 2 rules fail)
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "access_allowed": false,
+    "has_policy": true,
+    "verdict": "denied",
+    "verdict_reason": "2 of 3 rule(s) failed. Policy requires ALL rules to pass.",
+    "student": {
+      "regno": "2024/BSC/001",
+      "name": "DOE John",
+      "programme": "Bachelor of Science in Computer Science",
+      "programme_code": "BSC-CS",
+      "study_year": 2
+    },
+    "policy": {
+      "policy_id": 1,
+      "title": "University campus access",
+      "academic_year": "2025/2026",
+      "semester": 1,
+      "combination_logic": "ALL",
+      "combination_logic_description": "Student must satisfy ALL enabled rules to pass",
+      "notes": "Enforced for Semester 1",
+      "updated_at": "2026-04-15T10:30:00Z",
+      "rules_enabled": {
+        "balance_threshold": true,
+        "payment_window": false,
+        "percentage_paid": true,
+        "bursary_exemption": false,
+        "registration": true
+      },
+      "thresholds": {
+        "max_balance": 500000,
+        "payment_window_min_amount": null,
+        "payment_window_start": null,
+        "payment_window_end": null,
+        "min_percentage_paid": 60,
+        "bursary_min_coverage": null
+      }
+    },
+    "finance": {
+      "total_bill": 2500000,
+      "total_paid": 800000,
+      "balance": -1700000,
+      "amount_owing": 1700000,
+      "credit_balance": 0,
+      "percentage_paid": 32.0,
+      "currency": "UGX"
+    },
+    "bursary": {
+      "status": "None",
+      "scheme_name": "",
+      "amount_offered": 0,
+      "coverage_percent": 0,
+      "exempt": false
+    },
+    "criteria": [
+      {
+        "rule": "Balance Threshold",
+        "passed": false,
+        "enabled": true,
+        "detail": "Outstanding balance of 1,700,000 exceeds the allowed maximum of 500,000.",
+        "threshold": "Max balance: UGX 500,000",
+        "actual_value": "UGX 1,700,000"
+      },
+      {
+        "rule": "Percentage Paid",
+        "passed": false,
+        "enabled": true,
+        "detail": "Only 32.0% of total fees paid (required: 60%).",
+        "threshold": "Min 60% paid",
+        "actual_value": "32.0%"
+      },
+      {
+        "rule": "Registration",
+        "passed": true,
+        "enabled": true,
+        "detail": "Student is registered for 2025/2026 Semester 1.",
+        "threshold": "Registered for 2025/2026 Sem 1",
+        "actual_value": "Registered"
+      }
+    ],
+    "summary": {
+      "total_rules": 3,
+      "rules_passed": 1,
+      "rules_failed": 2,
+      "enabled_rules": ["Balance Threshold", "Percentage Paid", "Registration"]
+    },
+    "guidance": "Pay at least UGX 1,200,000 to reduce the outstanding balance to the allowed maximum of UGX 500,000. Pay an additional UGX 700,000 to reach the required 60%.",
+    "evaluated_at": "2026-04-16T08:45:12Z"
+  },
+  "timestamp": "2026-04-16T08:45:12.1234567Z"
+}
+```
+
+#### Example Response — Access Granted (no policy active)
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "access_allowed": true,
+    "has_policy": false,
+    "verdict": "granted",
+    "verdict_reason": "No active fee access policy. All students are granted full access.",
+    "student": {
+      "regno": "2024/BSC/001",
+      "name": "DOE John",
+      "programme": "Bachelor of Science in Computer Science",
+      "programme_code": "BSC-CS",
+      "study_year": 2
+    },
+    "policy": null,
+    "finance": {
+      "total_bill": 0,
+      "total_paid": 0,
+      "balance": 0,
+      "percentage_paid": 0,
+      "currency": "UGX"
+    },
+    "bursary": {
+      "status": "None",
+      "scheme_name": "",
+      "amount_offered": 0,
+      "coverage_percent": 0
+    },
+    "criteria": [
+      {
+        "rule": "No Active Restriction",
+        "passed": true,
+        "enabled": false,
+        "detail": "Fee access policy is currently disabled. No restrictions are being enforced.",
+        "threshold": null
+      }
+    ],
+    "summary": {
+      "total_rules": 0,
+      "rules_passed": 0,
+      "rules_failed": 0,
+      "enabled_rules": []
+    },
+    "guidance": "No active fee access restrictions. All students are granted access.",
+    "evaluated_at": "2026-04-16T08:45:12Z"
+  },
+  "timestamp": "2026-04-16T08:45:12.1234567Z"
+}
+```
+
+#### Example Response — Bursary Exemption (short-circuit)
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "access_allowed": true,
+    "has_policy": true,
+    "verdict": "granted",
+    "verdict_reason": "Student is exempt via bursary/scholarship (Government Scholarship).",
+    "student": {
+      "regno": "2024/BSC/002",
+      "name": "SMITH Jane",
+      "programme": "Bachelor of Arts in Education",
+      "programme_code": "BA-ED",
+      "study_year": 1
+    },
+    "policy": {
+      "policy_id": 1,
+      "title": "University campus access",
+      "academic_year": "2025/2026",
+      "semester": 1,
+      "combination_logic": "ALL",
+      "combination_logic_description": "Student must satisfy ALL enabled rules to pass",
+      "notes": "",
+      "updated_at": "2026-04-15T10:30:00Z",
+      "rules_enabled": {
+        "balance_threshold": true,
+        "payment_window": false,
+        "percentage_paid": true,
+        "bursary_exemption": true,
+        "registration": false
+      },
+      "thresholds": {
+        "max_balance": 500000,
+        "payment_window_min_amount": null,
+        "payment_window_start": null,
+        "payment_window_end": null,
+        "min_percentage_paid": 60,
+        "bursary_min_coverage": 80
+      }
+    },
+    "finance": {
+      "total_bill": 2500000,
+      "total_paid": 100000,
+      "balance": -2400000,
+      "amount_owing": 2400000,
+      "credit_balance": 0,
+      "percentage_paid": 4.0,
+      "currency": "UGX"
+    },
+    "bursary": {
+      "status": "Active: Government Scholarship",
+      "scheme_name": "Government Scholarship",
+      "amount_offered": 2200000,
+      "coverage_percent": 88.0,
+      "exempt": true
+    },
+    "criteria": [
+      {
+        "rule": "Bursary Exemption",
+        "passed": true,
+        "enabled": true,
+        "detail": "Bursary/scholarship (Government Scholarship) with 88% coverage — exempt.",
+        "threshold": "Min coverage: 80%",
+        "actual_value": "88%"
+      }
+    ],
+    "summary": {
+      "total_rules": 1,
+      "rules_passed": 1,
+      "rules_failed": 0,
+      "enabled_rules": ["Balance Threshold", "Percentage Paid", "Bursary Exemption"]
+    },
+    "guidance": "",
+    "evaluated_at": "2026-04-16T08:45:12Z"
+  },
+  "timestamp": "2026-04-16T08:45:12.1234567Z"
+}
+```
+
+#### Available Access Rules
+
+| Rule | DB Column (enabled) | DB Column (threshold) | Description |
+|---|---|---|---|
+| **Balance Threshold** | `rule_min_balance_enabled` | `rule_min_balance_amount` | Deny access if outstanding balance exceeds the max amount. |
+| **Payment Window** | `rule_payment_window_enabled` | `rule_payment_min_amount`, `rule_payment_window_start`, `rule_payment_window_end` | Require a minimum payment within a specific date range. |
+| **Percentage Paid** | `rule_pct_paid_enabled` | `rule_pct_paid_minimum` | Require at least X% of total fees to be paid. |
+| **Bursary Exemption** | `rule_bursary_exempt` | `rule_bursary_min_coverage` | Auto-exempt students whose approved bursary covers ≥ X% of fees. If met, all other rules are skipped. |
+| **Registration** | `rule_require_registration` | *(none)* | Checks `acad_registration` for active registration in the policy's academic year/semester. |
+
+#### Database Tables Used
+
+| Table | Database | Purpose |
+|---|---|---|
+| `fin_fee_access_policy` | `campus_dynamics_accounts` | Stores the policy configuration (one active row at a time) |
+| `fin_ledger` | `campus_dynamics_accounts` | Primary financial ledger (debits/credits) |
+| `fin_studentfeestracking` | `campus_dynamics_accounts` | Supplementary fee tracking (UNION'd with ledger, deduplicated) |
+| `scholarshipstudents` | `campus_dynamics_accounts` | Bursary/scholarship assignments per student |
+| `scholarships` | `campus_dynamics_accounts` | Scholarship scheme definitions |
+| `acad_registration` | `campus_dynamics` | Student registration records |
+| `acad_student` | `campus_dynamics` | Student profile (name, programme) |
+| `acad_programme` | `campus_dynamics` | Programme definitions |
+
+#### Error Codes
+
+| Code | Description |
+|---|---|
+| `ACCESS_STATUS_ERROR` | General error during evaluation (DB connection, missing table, etc.) |
+| `AUTH_REQUIRED` | No valid token provided |
+| `MISSING_PARAM` | Staff request without `regno` parameter |
+
+#### Integration Notes
+
+- **Portal (Student-Facing):** The student portal's `PortalMaster.master.cs` calls `FeeAccessHelper.Evaluate()` on every page load (with 5-minute session cache). If `access_allowed = false`, a global restriction banner is displayed above page content. The banner is **not shown** when there is no restriction.
+- **Admin Checker:** The admin page `FeeAccessChecker.aspx` calls this endpoint to let staff look up any student's access status.
+- **Mobile / ODEL:** External systems can call this endpoint to gate access to resources (e.g., Moodle course materials) based on fee payment status.
+- **Caching:** The portal caches the result in the user's session for 5 minutes. API consumers should implement their own caching strategy.
+- **Balance Sign Convention:** The `finance.balance` field is **negative when the student owes money** and **positive when they have a credit**. The `finance.amount_owing` and `finance.credit_balance` fields provide unsigned convenience values.
 
 ---
 

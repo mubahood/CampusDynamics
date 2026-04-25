@@ -3,39 +3,30 @@
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
 /* ===================================================================
-   CD PAGE HEADER
-   =================================================================== */
-.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-.cd-page-header__left { display:flex; align-items:center; gap:12px; }
-.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
-.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
-.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
-
-/* ===================================================================
    NEW STUDENT REGISTRATION - Standalone Page Styles
    =================================================================== */
 
 /* -- Layout ---------------------------------------- */
-.nsr-page { max-width: 960px; margin: 0 auto; }
+.nsr-page { max-width: 930px; margin: 0 auto; }
 
 .nsr-header {
     background: #05275C;
-    color: #fff; border-radius: 0; padding: 18px 24px;
+    color: #fff; border-radius: 0; padding: 12px 16px;
     display: flex; align-items: center; justify-content: space-between;
 }
-.nsr-header h1 { margin: 0; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-.nsr-header .nsr-sub { font-size: 11px; opacity: .75; margin-top: 2px; }
+.nsr-header h1 { margin: 0; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.nsr-header .nsr-sub { font-size: 10px; opacity: .8; margin-top: 1px; }
 
 .nsr-body {
     background: #fff; border: 1px solid #e0e0e0; border-top: none;
-    border-radius: 0; padding: 24px 28px 20px;
+    border-radius: 0; padding: 14px 16px 12px;
 }
 
 /* -- Section headers ------------------------------- */
 .nsr-section {
     font-size: 10px; text-transform: uppercase; letter-spacing: .7px;
     color: #174DA4; font-weight: 700; padding: 8px 0 5px;
-    border-bottom: 2px solid #e8ecf4; margin: 22px 0 12px;
+    border-bottom: 1px solid #e8ecf4; margin: 14px 0 8px;
     display: flex; align-items: center; gap: 8px;
 }
 .nsr-section:first-child { margin-top: 0; }
@@ -44,28 +35,28 @@
 
 
 /* -- Form grid layouts ----------------------------- */
-.nsr-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.nsr-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
-.nsr-row4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
-.nsr-row-title { display: grid; grid-template-columns: 130px 1fr; gap: 14px; }
+.nsr-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.nsr-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.nsr-row4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+.nsr-row-title { display: grid; grid-template-columns: 110px 1fr; gap: 10px; }
 
 /* -- Form controls --------------------------------- */
-.nsr-group { margin-bottom: 12px; }
+.nsr-group { margin-bottom: 8px; }
 .nsr-label {
-    display: block; font-size: 11px; text-transform: uppercase;
+    display: block; font-size: 10px; text-transform: uppercase;
     letter-spacing: .4px; color: #555; font-weight: 600; margin-bottom: 4px;
 }
 .nsr-label .req { color: #dc3545; margin-left: 2px; }
 .nsr-input, .nsr-select {
-    width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 0;
-    font-size: 13px; box-sizing: border-box; background: #fff;
+    width: 100%; padding: 6px 8px; border: 1px solid #cdd8e6; border-radius: 6px;
+    font-size: 12px; box-sizing: border-box; background: #fff;
     transition: border-color .15s;
 }
 .nsr-input:focus, .nsr-select:focus {
-    border-color: #174DA4; outline: none;
+    border-color: #174DA4; outline: none; box-shadow: 0 0 0 2px rgba(23,77,164,.10);
 }
 .nsr-input:disabled, .nsr-select:disabled { background: #f5f5f5; color: #999; }
-.nsr-hint { font-size: 10px; color: #888; margin-top: 3px; }
+.nsr-hint { font-size: 9px; color: #888; margin-top: 2px; }
 .nsr-textarea { min-height: 60px; resize: vertical; }
 
 /* -- Checkbox -------------------------------------- */
@@ -78,11 +69,11 @@
 /* -- Footer ---------------------------------------- */
 .nsr-footer {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 16px 0 0; border-top: 1px solid #e4e8f0; margin-top: 20px;
+    padding: 10px 0 0; border-top: 1px solid #e4e8f0; margin-top: 12px;
 }
 .nsr-btn {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 9px 18px; border-radius: 0; font-size: 13px; font-weight: 600;
+    padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
     border: none; cursor: pointer; transition: all .15s;
 }
 .nsr-btn--primary { background: #174DA4; color: #fff; }
@@ -95,8 +86,8 @@
 
 /* -- Alert bar ------------------------------------- */
 .nsr-alert {
-    display: none; padding: 10px 14px; border-radius: 0;
-    font-size: 13px; margin: 12px 0; position: relative;
+    display: none; padding: 8px 10px; border-radius: 6px;
+    font-size: 12px; margin: 8px 0; position: relative;
 }
 .nsr-alert--err { background: #fdecea; color: #b91c1c; border-left: 4px solid #dc3545; display: block; }
 .nsr-alert--ok  { background: #e6f4ea; color: #155724; border-left: 4px solid #28a745; display: block; }
@@ -119,7 +110,7 @@
 /* -- Success result card --------------------------- */
 .nsr-result-card {
     background: #f0fdf4;
-    border: 1px solid #a5d6a7; border-radius: 4px; padding: 20px 24px;
+    border: 1px solid #a5d6a7; border-radius: 6px; padding: 14px 16px;
     text-align: center; display: none;
 }
 .nsr-result-card.show { display: block; }
@@ -130,27 +121,32 @@
 /* -- Responsive ------------------------------------ */
 @media (max-width: 768px) {
     .nsr-row2, .nsr-row3, .nsr-row4, .nsr-row-title { grid-template-columns: 1fr; }
-    .nsr-body { padding: 16px; }
-    .nsr-header { padding: 14px 16px; }
+    .nsr-body { padding: 12px; }
+    .nsr-header { padding: 10px 12px; }
     .nsr-footer { flex-direction: column; gap: 10px; }
+}
+
+.nsr-ajax-progress {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 99999;
+    background: #05275C;
+    color: #fff;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 11px;
+    box-shadow: 0 6px 20px rgba(2,8,23,.25);
 }
 </style>
 </asp:Content>
 
 <asp:Content ID="BodyContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 
-<!-- ======= PAGE HEADER =========================================== -->
-<div class="cd-page-header">
-    <div class="cd-page-header__left">
-        <div class="cd-page-header__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-        </div>
-        <div>
-            <div class="cd-page-header__title">New Student Registration</div>
-            <div class="cd-page-header__sub">Register a new student into the university system</div>
-        </div>
-    </div>
-</div>
+<asp:ScriptManagerProxy ID="smProxyNewStudentReg" runat="server" />
+
+<asp:UpdatePanel ID="upNewStudentRegistration" runat="server" UpdateMode="Conditional" ChildrenAsTriggers="true">
+<ContentTemplate>
 
 <!-- Hidden postback triggers -->
 <asp:Button ID="btnSubmitRegistration" runat="server" style="display:none;" OnClick="btnSubmitRegistration_Click" />
@@ -523,6 +519,18 @@
         </div>
     </div>
 </div>
+
+</ContentTemplate>
+<Triggers>
+    <asp:AsyncPostBackTrigger ControlID="btnSubmitRegistration" EventName="Click" />
+</Triggers>
+</asp:UpdatePanel>
+
+<asp:UpdateProgress ID="upgNewStudentRegistration" runat="server" AssociatedUpdatePanelID="upNewStudentRegistration" DisplayAfter="100">
+<ProgressTemplate>
+    <div class="nsr-ajax-progress"><span class="nsr-loading"></span> Saving student record...</div>
+</ProgressTemplate>
+</asp:UpdateProgress>
 
 <!-- ======= JAVASCRIPT ================================================= -->
 <script type="text/javascript">

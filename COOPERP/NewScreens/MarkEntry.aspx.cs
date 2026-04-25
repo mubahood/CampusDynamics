@@ -253,6 +253,14 @@ public partial class COOPERP_NewScreens_MarkEntry : System.Web.UI.Page
             bool isHistorical = IsHistoricalYear(acadyear);
             sb.Append(",\"isHistorical\":"); sb.Append(isHistorical ? "true" : "false");
 
+            // Provisional marks summary — so lecturer UI can show review status
+            ProvisionalSummary provSummary = GetProvisionalSummary(courseId, progId, acadyear, semester);
+            sb.Append(",\"provPending\":");   sb.Append(provSummary.Pending);
+            sb.Append(",\"provApproved\":");  sb.Append(provSummary.Approved);
+            sb.Append(",\"provRejected\":");  sb.Append(provSummary.Rejected);
+            sb.Append(",\"provPublished\":"); sb.Append(provSummary.Published);
+            sb.Append(",\"provTotal\":");     sb.Append(provSummary.Total);
+
             sb.Append("}");
             WriteJson(sb.ToString());
         }
@@ -612,6 +620,15 @@ public partial class COOPERP_NewScreens_MarkEntry : System.Web.UI.Page
         {
             string user = MarksAuthorizationService.GetCurrentUser();
             MarksNotificationService.NotifySubmission(courseId, progId, acadyear, semester, user);
+
+            // Provisional marks bridge: write CW/Exam/Total to acad_course_registration
+            // so ExamOfficer/Dean can review in ProvisionalMarksController.aspx
+            try
+            {
+                WriteProvisionalMarks(courseId, progId, acadyear, semester,
+                    studyYear, campusId, studSession, user);
+            }
+            catch { /* non-critical — marks already submitted to workflow */ }
         }
 
         WriteJson(MarksWorkflowService.ToJson(wr));
@@ -957,6 +974,221 @@ public partial class COOPERP_NewScreens_MarkEntry : System.Web.UI.Page
     {
         ResultsStatusService.EnsureStatusTable();
         MarksActionLogger.EnsureActionLogTable();
+        // Ensure provisional marks columns exist in acad_course_registration
+        try
+        {
+            using (MySqlConnection c = new MySqlConnection(ConnStr))
+            {
+                c.Open();
+                EnsureProvisionalMarksColumns(c);
+            }
+        }
+        catch { /* non-critical */ }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Provisional Marks Bridge
+    // Copies lecturer-entered marks from acad_examresults_faculty into the
+    // provisional_* columns of acad_course_registration so the admin
+    // ProvisionalMarksController can pick them up for review and publish.
+    // ─────────────────────────────────────────────────────────────────────
+
+    private void WriteProvisionalMarks(string courseId, string progId, string acadyear,
+        int semester, int studyYear, int campusId, string studSession, string submittedBy)
+    {
+        using (MySqlConnection conn = new MySqlConnection(ConnStr))
+        {
+            conn.Open();
+
+            // Read all rows for this sheet
+            var rows = new List<int[]>();           // [cw_entered, ex_entered, total, regno_index]
+            var regnos = new List<string>();
+
+            string readSql = @"
+                SELECT regno,
+                       COALESCE(cw_mark_entered, 0) AS cw_entered,
+                       COALESCE(ex_mark_entered, 0) AS ex_entered,
+                       COALESCE(total_mark,      0) AS total_mark
+                FROM acad_examresults_faculty
+                WHERE course_id = @course AND progid = @prog AND acad_year = @year
+                  AND semester   = @sem   AND study_year = @sy
+                  AND campus     = @campus AND stud_session = @sess";
+
+            using (MySqlCommand cmd = new MySqlCommand(readSql, conn))
+            {
+                cmd.Parameters.AddWithValue("@course", courseId);
+                cmd.Parameters.AddWithValue("@prog",   progId);
+                cmd.Parameters.AddWithValue("@year",   acadyear);
+                cmd.Parameters.AddWithValue("@sem",    semester);
+                cmd.Parameters.AddWithValue("@sy",     studyYear);
+                cmd.Parameters.AddWithValue("@campus", campusId);
+                cmd.Parameters.AddWithValue("@sess",   studSession);
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        regnos.Add(rdr["regno"].ToString());
+                        rows.Add(new int[] {
+                            Convert.ToInt32(rdr["cw_entered"]),
+                            Convert.ToInt32(rdr["ex_entered"]),
+                            Convert.ToInt32(rdr["total_mark"])
+                        });
+                    }
+                }
+            }
+
+            if (regnos.Count == 0) return;
+
+            // Update provisional columns in acad_course_registration for each student
+            string coursePredicate = GetCourseRegistrationCoursePredicate(conn);
+            if (string.IsNullOrEmpty(coursePredicate))
+            {
+                return; // No usable course column on target table
+            }
+
+            string updateSql = @"
+                UPDATE campus_dynamics_portal.acad_course_registration
+                SET provisional_course_work_marks     = @cw,
+                    provisional_exam_marks            = @ex,
+                    provisional_total_marks           = @total,
+                    provisional_marks_status          = 'pending',
+                    provisional_submitted_by          = @sub,
+                    provisional_marks_review_comments = NULL,
+                    provisional_marks_reviewed_by     = NULL,
+                    provisional_marks_review_date     = NULL
+                WHERE regno = @regno
+                  AND " + coursePredicate + @"
+                  AND acad_year = @year
+                  AND semester  = @sem";
+
+            for (int i = 0; i < regnos.Count; i++)
+            {
+                using (MySqlCommand upd = new MySqlCommand(updateSql, conn))
+                {
+                    upd.Parameters.AddWithValue("@cw",    rows[i][0]);
+                    upd.Parameters.AddWithValue("@ex",    rows[i][1]);
+                    upd.Parameters.AddWithValue("@total", rows[i][2]);
+                    upd.Parameters.AddWithValue("@sub",   submittedBy);
+                    upd.Parameters.AddWithValue("@regno", regnos[i]);
+                    upd.Parameters.AddWithValue("@course",courseId);
+                    upd.Parameters.AddWithValue("@year",  acadyear);
+                    upd.Parameters.AddWithValue("@sem",   semester);
+                    upd.ExecuteNonQuery();
+                }
+            }
+        }
+    }
+
+    // ─── Provisional summary for the load response ───────────────────────
+
+    private struct ProvisionalSummary
+    {
+        public int Pending;
+        public int Approved;
+        public int Rejected;
+        public int Published;
+        public int Total;
+    }
+
+    private ProvisionalSummary GetProvisionalSummary(string courseId, string progId,
+        string acadyear, int semester)
+    {
+        var s = new ProvisionalSummary();
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+
+                string coursePredicate = GetCourseRegistrationCoursePredicate(conn);
+                if (string.IsNullOrEmpty(coursePredicate))
+                    return s;
+
+                string sql = @"
+                    SELECT
+                        SUM(CASE WHEN COALESCE(provisional_marks_status,'pending') = 'pending'   THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN provisional_marks_status = 'approved'  THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN provisional_marks_status = 'rejected'  THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN provisional_marks_status = 'published' THEN 1 ELSE 0 END),
+                        COUNT(*)
+                    FROM campus_dynamics_portal.acad_course_registration
+                    WHERE " + coursePredicate + @"
+                      AND acad_year = @year AND semester = @sem
+                      AND provisional_total_marks IS NOT NULL";
+
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@course", courseId);
+                    cmd.Parameters.AddWithValue("@year",   acadyear);
+                    cmd.Parameters.AddWithValue("@sem",    semester);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (rdr.Read() && !rdr.IsDBNull(4))
+                        {
+                            s.Pending   = rdr.IsDBNull(0) ? 0 : Convert.ToInt32(rdr[0]);
+                            s.Approved  = rdr.IsDBNull(1) ? 0 : Convert.ToInt32(rdr[1]);
+                            s.Rejected  = rdr.IsDBNull(2) ? 0 : Convert.ToInt32(rdr[2]);
+                            s.Published = rdr.IsDBNull(3) ? 0 : Convert.ToInt32(rdr[3]);
+                            s.Total     = rdr.IsDBNull(4) ? 0 : Convert.ToInt32(rdr[4]);
+                        }
+                    }
+                }
+            }
+        }
+        catch { /* return zeroes on error */ }
+        return s;
+    }
+
+    // ─── Column-safety helpers for provisional columns ───────────────────
+
+    private static void EnsureProvisionalMarksColumns(MySqlConnection conn)
+    {
+        const string schema = "campus_dynamics_portal";
+        const string table  = "acad_course_registration";
+        try { EnsureProvCol(conn, schema, table, "provisional_course_work_marks",    "INT NULL"); }          catch { }
+        try { EnsureProvCol(conn, schema, table, "provisional_exam_marks",            "INT NULL"); }          catch { }
+        try { EnsureProvCol(conn, schema, table, "provisional_total_marks",           "INT NULL"); }          catch { }
+        try { EnsureProvCol(conn, schema, table, "provisional_marks_status",          "VARCHAR(20) NULL DEFAULT 'pending'"); } catch { }
+        try { EnsureProvCol(conn, schema, table, "provisional_marks_review_comments", "TEXT NULL"); }         catch { }
+        try { EnsureProvCol(conn, schema, table, "provisional_marks_reviewed_by",     "VARCHAR(150) NULL"); }  catch { }
+        try { EnsureProvCol(conn, schema, table, "provisional_marks_review_date",     "DATETIME NULL"); }     catch { }
+        try { EnsureProvCol(conn, schema, table, "provisional_submitted_by",          "VARCHAR(150) NULL"); }  catch { }
+        try { EnsureProvCol(conn, schema, table, "provisional_published_by",          "VARCHAR(150) NULL"); }  catch { }
+        try { EnsureProvCol(conn, schema, table, "provisional_published_date",        "DATETIME NULL"); }     catch { }
+    }
+
+    private static bool ProvColExists(MySqlConnection conn, string schema, string table, string column)
+    {
+        using (MySqlCommand cmd = new MySqlCommand(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@s AND TABLE_NAME=@t AND COLUMN_NAME=@c", conn))
+        {
+            cmd.Parameters.AddWithValue("@s", schema);
+            cmd.Parameters.AddWithValue("@t", table);
+            cmd.Parameters.AddWithValue("@c", column);
+            return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
+    }
+
+    private static void EnsureProvCol(MySqlConnection conn, string schema, string table,
+        string column, string sqlType)
+    {
+        if (ProvColExists(conn, schema, table, column)) return;
+        using (MySqlCommand cmd = new MySqlCommand(
+            "ALTER TABLE " + schema + "." + table + " ADD COLUMN " + column + " " + sqlType, conn))
+        {
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    private static string GetCourseRegistrationCoursePredicate(MySqlConnection conn)
+    {
+        bool hasCourseId = ProvColExists(conn, "campus_dynamics_portal", "acad_course_registration", "courseID");
+        bool hasCourseCode = ProvColExists(conn, "campus_dynamics_portal", "acad_course_registration", "course_code");
+
+        if (hasCourseId && hasCourseCode) return "(courseID = @course OR course_code = @course)";
+        if (hasCourseId) return "courseID = @course";
+        if (hasCourseCode) return "course_code = @course";
+        return null;
     }
 
     private void WriteJson(string json)

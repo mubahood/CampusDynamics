@@ -22,10 +22,41 @@
         }
 
         /* ===== HEADER ===== */
-        .hdr { text-align: center; margin-bottom: 18px; border-bottom: 2px solid #05275C; padding-bottom: 12px; }
-        .hdr img { height: 64px; margin-bottom: 4px; }
-        .hdr h1 { font-size: 18px; color: #05275C; letter-spacing: 1px; margin: 2px 0; }
-        .hdr h2 { font-size: 13px; color: #444; font-weight: 400; margin: 0; }
+        .hdr {
+            margin-bottom: 18px;
+            border: none;
+            padding: 10px 12px 14px;
+            border-bottom: 1px solid #d9e1ef;
+        }
+        .hdr-top {
+            display: grid;
+            grid-template-columns: 90px 1fr 90px;
+            align-items: center;
+            gap: 12px;
+        }
+        .hdr-logo-box,
+        .hdr-photo-box {
+            width: 90px;
+            height: 90px;
+            border: none;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .hdr-logo-box img { max-width: 82px; max-height: 82px; object-fit: contain; }
+        .hdr-photo-box img { width: 100%; height: 100%; object-fit: cover; }
+        .hdr-photo-placeholder {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            text-align: center; font-size: 10px; color: #6b7280; padding: 6px;
+            background: #f8fafc;
+        }
+        .hdr-main { text-align: center; }
+        .hdr h1 { font-size: 18px; color: #05275C; letter-spacing: .9px; margin: 1px 0; }
+        .hdr h2 { font-size: 12px; color: #444; font-weight: 700; margin: 1px 0 0; letter-spacing: .5px; }
+        .hdr h3 { font-size: 11px; color: #4b5563; font-weight: 500; margin: 4px 0 0; }
 
         /* ===== STUDENT INFO BLOCK ===== */
         .info-block { margin-bottom: 14px; }
@@ -107,8 +138,23 @@
 
     <!-- HEADER -->
     <div class="hdr">
-        <h1>MUTESA I ROYAL UNIVERSITY</h1>
-        <h2>STUDENT FEES PAYMENT LEDGER</h2>
+        <div class="hdr-top">
+            <div class="hdr-logo-box">
+                <img src="<%= ResolveUrl(UniversityLogoUrl) %>" alt="Muteesa I Royal University" />
+            </div>
+            <div class="hdr-main">
+                <h1><%= Server.HtmlEncode(UniversityName.ToUpperInvariant()) %></h1>
+                <h2>STUDENT FEES PAYMENT LEDGER</h2>
+                <h3>Official Statement</h3>
+            </div>
+            <div class="hdr-photo-box">
+                <% if (HasStudentPhoto) { %>
+                    <img src="<%= System.Web.HttpUtility.HtmlAttributeEncode(StudentPhotoUrl) %>" alt="Student Photo" />
+                <% } else { %>
+                    <div class="hdr-photo-placeholder">Student Photo</div>
+                <% } %>
+            </div>
+        </div>
     </div>
 
     <!-- STUDENT INFO -->
@@ -181,7 +227,7 @@
     <!-- FOOTER -->
     <div class="footer">
         <div class="left">Fees Payment Ledger for :: <%= Server.HtmlEncode(StudentName) %> [<%= Server.HtmlEncode(RegNo) %>]</div>
-        <div class="right">Page 1 of 1</div>
+        <div class="right">Generated on <%= DateTime.Now.ToString("dd/MM/yyyy HH:mm") %> · &copy; <%= DateTime.Now.Year %> <%= Server.HtmlEncode(UniversityName) %></div>
     </div>
 
     <% } %>

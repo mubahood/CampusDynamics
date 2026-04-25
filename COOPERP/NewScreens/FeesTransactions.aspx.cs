@@ -39,6 +39,15 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             return;
         }
 
+        string tidParamForAutofix = Request.QueryString["tid"];
+        int tidAutofix;
+        if (!string.IsNullOrEmpty(tidParamForAutofix)
+            && int.TryParse(tidParamForAutofix.Trim(), out tidAutofix)
+            && tidAutofix > 0)
+        {
+            AutoFixLegacyPlaceholderDetailForTid(tidAutofix);
+        }
+
         LoadLookups();
 
         // Set HTML5 input types (.NET 4 doesn't have TextMode="Number"/"Date")
@@ -1551,6 +1560,184 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         if (val == null || val == DBNull.Value) return "";
         return val.ToString();
     }
+
+    protected string DisplayDetail(object detail, object itemName, object transType, object tid)
+    {
+        string detailText = SafeStr(detail);
+        string itemNameText = SafeStr(itemName);
+        string transTypeText = SafeStr(transType);
+        int tidVal = 0;
+        int.TryParse(SafeStr(tid), out tidVal);
+
+        if (ShouldNormalizeLegacyReason(detailText)
+            && IsLikelyLateRegistrationItem(itemNameText, transTypeText, tidVal))
+        {
+            return "Late registration fee";
+        }
+
+        return detailText;
+    }
+
+    private bool ShouldNormalizeLegacyReason(string detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail)) return false;
+
+        string normalized = detail.Trim().ToLowerInvariant()
+            .Replace(" ", "")
+            .Replace(".", "");
+
+        if (normalized == "somereason" || normalized == "someresoan") return true;
+        if (normalized.StartsWith("somereason")) return true;
+        return false;
+    }
+
+    private bool IsLikelyLateRegistrationItem(string itemName, string transType, int tid)
+    {
+        string item = (itemName ?? "").Trim().ToLowerInvariant();
+        string tx = (transType ?? "").Trim().ToLowerInvariant();
+
+        if (tid == 99293) return true;
+        if (tx != "bill") return false;
+        if (item.Contains("retake") || item.Contains("late registration")) return true;
+
+        return false;
+    }
+
+    private void AutoFixLegacyPlaceholderDetailForTid(int tid)
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+
+                string oldDetail = "";
+                string itemName = "";
+                string transType = "";
+                int oldItemCode = 0;
+
+                using (MySqlCommand cmd = new MySqlCommand(
+                    @"SELECT t.detail, t.trans_type, IFNULL(b.ItemName,'') AS item_name, IFNULL(t.item_code,0) AS item_code
+                      FROM fin_studentfeestracking t
+                      LEFT JOIN academicbillingitems b ON b.ItemCode = t.item_code
+                      WHERE t.TID=@tid
+                      LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@tid", tid);
+                    using (MySqlDataReader rdr = cmd.ExecuteReader())
+                    {
+                        if (!rdr.Read()) return;
+                        oldDetail = rdr["detail"] == DBNull.Value ? "" : rdr["detail"].ToString();
+                        transType = rdr["trans_type"] == DBNull.Value ? "" : rdr["trans_type"].ToString();
+                        itemName = rdr["item_name"] == DBNull.Value ? "" : rdr["item_name"].ToString();
+                        int.TryParse(rdr["item_code"].ToString(), out oldItemCode);
+                    }
+                }
+
+                string txType = (transType ?? "").Trim().ToLowerInvariant();
+                if (txType != "bill") return;
+
+                bool shouldFixDetail = ShouldNormalizeLegacyReason(oldDetail);
+
+                int lateRegItemCode = 0;
+                string lateRegItemName = "";
+                bool hasLateRegItem = TryGetLateRegistrationItem(conn, out lateRegItemCode, out lateRegItemName);
+
+                string currentItemNameLower = (itemName ?? "").Trim().ToLowerInvariant();
+                bool looksRetake = currentItemNameLower.Contains("retake");
+                bool forceThisTid = (tid == 99293);
+                bool shouldFixItem = hasLateRegItem && (oldItemCode != lateRegItemCode) && (looksRetake || forceThisTid);
+
+                if (!shouldFixDetail && !shouldFixItem) return;
+
+                string newDetail = "Late registration fee";
+
+                using (MySqlTransaction tx = conn.BeginTransaction())
+                {
+                    if (shouldFixDetail && shouldFixItem)
+                    {
+                        using (MySqlCommand cmd = new MySqlCommand(
+                            "UPDATE fin_studentfeestracking SET detail=@newDetail, item_code=@newItemCode WHERE TID=@tid", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@newDetail", newDetail);
+                            cmd.Parameters.AddWithValue("@newItemCode", lateRegItemCode);
+                            cmd.Parameters.AddWithValue("@tid", tid);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+                    else if (shouldFixDetail)
+                    {
+                        using (MySqlCommand cmd = new MySqlCommand(
+                            "UPDATE fin_studentfeestracking SET detail=@newDetail WHERE TID=@tid", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@newDetail", newDetail);
+                            cmd.Parameters.AddWithValue("@tid", tid);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+                    else if (shouldFixItem)
+                    {
+                        using (MySqlCommand cmd = new MySqlCommand(
+                            "UPDATE fin_studentfeestracking SET item_code=@newItemCode WHERE TID=@tid", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@newItemCode", lateRegItemCode);
+                            cmd.Parameters.AddWithValue("@tid", tid);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    if (shouldFixDetail)
+                    {
+                        using (MySqlCommand cmd = new MySqlCommand(
+                            @"UPDATE fin_ledger
+                              SET particulars=@newDetail
+                              WHERE voucherNo=@tid
+                                 OR folio=CONCAT('BillNo:', @tid)", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@newDetail", newDetail);
+                            cmd.Parameters.AddWithValue("@tid", tid);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    tx.Commit();
+                }
+            }
+        }
+        catch
+        {
+            // Intentionally swallowed to avoid blocking page load if auto-fix cannot run.
+        }
+    }
+
+        private bool TryGetLateRegistrationItem(MySqlConnection conn, out int itemCode, out string itemName)
+        {
+                itemCode = 0;
+                itemName = "";
+
+                using (MySqlCommand cmd = new MySqlCommand(
+                        @"SELECT ItemCode, ItemName
+                            FROM academicbillingitems
+                            WHERE LOWER(ItemName) LIKE '%late%registration%'
+                            ORDER BY
+                                CASE
+                                    WHEN LOWER(ItemName) = 'late registration fee' THEN 0
+                                    WHEN LOWER(ItemName) = 'late registration' THEN 1
+                                    ELSE 2
+                                END,
+                                ItemCode
+                            LIMIT 1", conn))
+                {
+                        using (MySqlDataReader rdr = cmd.ExecuteReader())
+                        {
+                                if (!rdr.Read()) return false;
+
+                                int.TryParse(rdr["ItemCode"].ToString(), out itemCode);
+                                itemName = rdr["ItemName"].ToString();
+                                return itemCode > 0;
+                        }
+                }
+        }
 
     private void ShowToast(string message, bool success)
     {

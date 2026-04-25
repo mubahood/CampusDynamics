@@ -50,9 +50,14 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
                 conn.Open();
                 string username = HttpContext.Current.User.Identity.Name;
                 
-                using (MySqlCommand cmd = new MySqlCommand("myaspnet_GetUserFaculties", conn))
+                string userFacultySql = @"SELECT f.faculty_name, uf.fax_code
+                                          FROM my_aspnet_user_faculties uf
+                                          INNER JOIN acad_faculty f ON f.faculty_code = uf.fax_code
+                                          WHERE LOWER(TRIM(uf.user_name)) = LOWER(TRIM(@unm))
+                                          ORDER BY f.faculty_name";
+
+                using (MySqlCommand cmd = new MySqlCommand(userFacultySql, conn))
                 {
-                    cmd.CommandType = CommandType.StoredProcedure;
                     cmd.Parameters.AddWithValue("@unm", username);
                     
                     using (MySqlDataReader reader = cmd.ExecuteReader())
@@ -98,14 +103,14 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = "SELECT DISTINCT acad_year FROM acad_examresults_faculty_settings WHERE acad_year IS NOT NULL AND acad_year != '' ORDER BY acad_year DESC";
+                string sql = "SELECT DISTINCT acadyear FROM acad_examresults_faculty_settings WHERE acadyear IS NOT NULL AND acadyear != '' ORDER BY acadyear DESC";
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     using (MySqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            string yr = reader["acad_year"].ToString();
+                            string yr = reader["acadyear"].ToString();
                             if (!string.IsNullOrEmpty(yr))
                                 ddlAcadYear.Items.Add(new ListItem(yr, yr));
                         }
@@ -184,7 +189,7 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
                 
                 // Count total exam settings configured for this period
                 List<string> conditions = new List<string>();
-                conditions.Add("e.acad_year = @acad");
+                conditions.Add("e.acadyear = @acad");
                 conditions.Add("e.semester = @sem");
                 
                 if (!string.IsNullOrEmpty(facultyValue))
@@ -193,7 +198,7 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
                 string baseWhere = "WHERE " + string.Join(" AND ", conditions.ToArray());
                 
                 string countQuery = @"SELECT COUNT(*) FROM acad_examresults_faculty_settings e 
-                                    INNER JOIN acad_programme p ON e.prog_id = p.progcode 
+                                    INNER JOIN acad_programme p ON e.progid = p.progcode 
                                     " + baseWhere;
                 
                 using (MySqlCommand cmd = new MySqlCommand(countQuery, conn))
@@ -251,7 +256,11 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
         
         try
         {
-            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            string connStr = ConnectionString;
+            if (!connStr.Contains("Allow User Variables"))
+                connStr = connStr.TrimEnd(';') + ";Allow User Variables=True;";
+            
+            using (MySqlConnection conn = new MySqlConnection(connStr))
             {
                 conn.Open();
                 
@@ -262,7 +271,7 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
                 string campus = ddlCampus.SelectedValue;
                 
                 List<string> conditions = new List<string>();
-                conditions.Add("e.acad_year = @acad");
+                conditions.Add("e.acadyear = @acad");
                 conditions.Add("e.semester = @sem");
                 
                 if (!string.IsNullOrEmpty(facultyValue))
@@ -274,15 +283,15 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
                 string sql = @"SELECT 
                     (@row_number:=@row_number+1) as ID, 
                     e.course_id as courseID, c.courseName as course_name, p.progname as classname,
-                    e.study_year as cyear, '' as stream, 0 as EntryYear, '' as intake, e.stud_session,
+                    1 as cyear, '' as stream, 0 as EntryYear, '' as intake, e.stud_session,
                     '' as emp_name,
                     NOW() as dateCreated, NOW() as dateSubmitted, 
                     'NEW' as sheet_status,
-                    e.prog_id, e.acad_year, e.semester, '' as ExamFormat, 
+                    e.progid as prog_id, e.acadyear as acad_year, e.semester, '' as ExamFormat, 
                     e.coursework_ratio as practical_percent
                     FROM acad_examresults_faculty_settings e
                     CROSS JOIN (SELECT @row_number:=0) AS r
-                    INNER JOIN acad_programme p ON e.prog_id = p.progcode
+                    INNER JOIN acad_programme p ON e.progid = p.progcode
                     LEFT JOIN acad_course c ON e.course_id = c.courseID
                     " + whereClause + @"
                     ORDER BY p.progname, c.courseName

@@ -135,5 +135,170 @@ public static class CertificateDataHelper
         {
             // Fallback silently fails — certificate will print with whatever data the SP returned
         }
+
+        // Remap classification for masters students
+        RemapMastersClassification(DS, regno);
+    }
+
+    /// <summary>
+    /// Remaps degree classifications for all masters students in the dataset (batch operation).
+    /// Masters students use different classification labels:
+    /// - FIRST CLASS → Distinction
+    /// - SECOND CLASS UPPER / SECOND CLASS LOWER → Credit
+    /// - PASS / THIRD CLASS → Pass
+    ///
+    /// This public method checks each student's programme level (5, 6, 7, 8 = masters/graduate)
+    /// and updates the 'deg' field accordingly for batch certificates and transcripts.
+    /// </summary>
+    public static void RemapMastersClassifications(ResultsData DS)
+    {
+        try
+        {
+            DataTable dt = DS.acad_GetBatchStudentTranscriptData;
+            if (dt == null || dt.Rows.Count == 0)
+                return;
+
+            // Check if 'deg' column exists
+            if (!dt.Columns.Contains("deg"))
+                return;
+
+            string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
+            
+            // For each row in the transcript data
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                string currentReg = dt.Rows[i]["regno"] != null ? dt.Rows[i]["regno"].ToString().Trim() : "";
+                if (string.IsNullOrEmpty(currentReg))
+                    continue;
+
+                // Check if student is a masters/graduate student by programme level
+                using (MySqlConnection conn = new MySqlConnection(connStr))
+                {
+                    conn.Open();
+                    string sql = @"SELECT p.levelCode 
+                                   FROM acad_student s
+                                   JOIN acad_programme p ON p.progcode = s.progid
+                                   WHERE TRIM(s.regno) = @reg
+                                   LIMIT 1";
+
+                    using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@reg", currentReg);
+                        object levelCode = cmd.ExecuteScalar();
+                        
+                        if (levelCode != null && levelCode != DBNull.Value)
+                        {
+                            int level = 0;
+                            if (int.TryParse(levelCode.ToString(), out level))
+                            {
+                                // Masters/graduate levels: 5, 6, 7, 8
+                                if (level >= 5 && level <= 8)
+                                {
+                                    string currentDeg = dt.Rows[i]["deg"] != null ? dt.Rows[i]["deg"].ToString().Trim().ToUpper() : "";
+                                    string mappedDeg = currentDeg;
+
+                                    // Map classifications
+                                    if (currentDeg.Contains("FIRST"))
+                                        mappedDeg = "Distinction";
+                                    else if (currentDeg.Contains("SECOND"))
+                                        mappedDeg = "Credit";
+                                    else if (currentDeg.Contains("THIRD") || currentDeg.Contains("PASS"))
+                                        mappedDeg = "Pass";
+
+                                    // Update the deg field if mapping occurred
+                                    if (mappedDeg != currentDeg)
+                                        dt.Rows[i]["deg"] = mappedDeg;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Silently fail — use original classification if remapping fails
+        }
+    }
+
+    /// <summary>
+    /// Remaps degree classifications for masters students.
+    /// Masters students use different classification labels:
+    /// - FIRST CLASS → Distinction
+    /// - SECOND CLASS UPPER / SECOND CLASS LOWER → Credit
+    /// - PASS / THIRD CLASS → Pass
+    ///
+    /// This method checks the student's programme level (5, 6, 7, 8 = masters/graduate)
+    /// and updates the 'deg' field accordingly.
+    /// </summary>
+    private static void RemapMastersClassification(ResultsData DS, string regno)
+    {
+        try
+        {
+            DataTable dt = DS.acad_GetBatchStudentTranscriptData;
+            if (dt == null || dt.Rows.Count == 0)
+                return;
+
+            // Check if 'deg' column exists
+            if (!dt.Columns.Contains("deg"))
+                return;
+
+            string connStr = System.Configuration.ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
+            
+            // For each row in the transcript data
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                string currentReg = dt.Rows[i]["regno"] != null ? dt.Rows[i]["regno"].ToString().Trim() : "";
+                if (string.IsNullOrEmpty(currentReg))
+                    currentReg = regno;
+
+                // Check if student is a masters/graduate student by programme level
+                using (MySqlConnection conn = new MySqlConnection(connStr))
+                {
+                    conn.Open();
+                    string sql = @"SELECT p.levelCode 
+                                   FROM acad_student s
+                                   JOIN acad_programme p ON p.progcode = s.progid
+                                   WHERE TRIM(s.regno) = @reg
+                                   LIMIT 1";
+
+                    using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@reg", currentReg);
+                        object levelCode = cmd.ExecuteScalar();
+                        
+                        if (levelCode != null && levelCode != DBNull.Value)
+                        {
+                            int level = 0;
+                            if (int.TryParse(levelCode.ToString(), out level))
+                            {
+                                // Masters/graduate levels: 5, 6, 7, 8
+                                if (level >= 5 && level <= 8)
+                                {
+                                    string currentDeg = dt.Rows[i]["deg"] != null ? dt.Rows[i]["deg"].ToString().Trim().ToUpper() : "";
+                                    string mappedDeg = currentDeg;
+
+                                    // Map classifications
+                                    if (currentDeg.Contains("FIRST"))
+                                        mappedDeg = "Distinction";
+                                    else if (currentDeg.Contains("SECOND"))
+                                        mappedDeg = "Credit";
+                                    else if (currentDeg.Contains("THIRD") || currentDeg.Contains("PASS"))
+                                        mappedDeg = "Pass";
+
+                                    // Update the deg field if mapping occurred
+                                    if(mappedDeg != currentDeg)
+                                        dt.Rows[i]["deg"] = mappedDeg;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Silently fail — use original classification if remapping fails
+        }
     }
 }

@@ -122,7 +122,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             // xrTable1
             // 
             this.xrTable1.Dpi = 100F;
-            this.xrTable1.Font = new System.Drawing.Font("Tahoma", 5F);
+            this.xrTable1.Font = new System.Drawing.Font("Tahoma", 10F);
             this.xrTable1.LocationFloat = new DevExpress.Utils.PointFloat(2.050018F, 0F);
             this.xrTable1.Name = "xrTable1";
             this.xrTable1.Rows.AddRange(new DevExpress.XtraReports.UI.XRTableRow[] {
@@ -150,7 +150,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell1.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col1.courseid")});
             this.xrTableCell1.Dpi = 100F;
-            this.xrTableCell1.Font = new System.Drawing.Font("Times New Roman", 5F);
+            this.xrTableCell1.Font = new System.Drawing.Font("Times New Roman", 10F);
             this.xrTableCell1.Name = "xrTableCell1";
             this.xrTableCell1.StylePriority.UseFont = false;
             this.xrTableCell1.StylePriority.UseTextAlignment = false;
@@ -163,7 +163,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell2.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col1.coursename")});
             this.xrTableCell2.Dpi = 100F;
-            this.xrTableCell2.Font = new System.Drawing.Font("Times New Roman", 5F);
+            this.xrTableCell2.Font = new System.Drawing.Font("Times New Roman", 10F);
             this.xrTableCell2.Name = "xrTableCell2";
             this.xrTableCell2.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 0, 0, 0, 100F);
             this.xrTableCell2.StylePriority.UseFont = false;
@@ -178,7 +178,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell4.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col1.CreditUnits")});
             this.xrTableCell4.Dpi = 100F;
-            this.xrTableCell4.Font = new System.Drawing.Font("Times New Roman", 5F);
+            this.xrTableCell4.Font = new System.Drawing.Font("Times New Roman", 10F);
             this.xrTableCell4.Name = "xrTableCell4";
             this.xrTableCell4.StylePriority.UseFont = false;
             this.xrTableCell4.StylePriority.UseTextAlignment = false;
@@ -191,7 +191,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell3.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col1.gradept", "{0:#.0}")});
             this.xrTableCell3.Dpi = 100F;
-            this.xrTableCell3.Font = new System.Drawing.Font("Times New Roman", 5F);
+            this.xrTableCell3.Font = new System.Drawing.Font("Times New Roman", 10F);
             this.xrTableCell3.Name = "xrTableCell3";
             this.xrTableCell3.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 0, 0, 0, 100F);
             this.xrTableCell3.StylePriority.UseFont = false;
@@ -206,7 +206,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell5.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col1.grade")});
             this.xrTableCell5.Dpi = 100F;
-            this.xrTableCell5.Font = new System.Drawing.Font("Times New Roman", 5F);
+            this.xrTableCell5.Font = new System.Drawing.Font("Times New Roman", 10F);
             this.xrTableCell5.Name = "xrTableCell5";
             this.xrTableCell5.Padding = new DevExpress.XtraPrinting.PaddingInfo(8, 0, 0, 0, 100F);
             this.xrTableCell5.StylePriority.UseFont = false;
@@ -220,7 +220,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell6.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col1.result_comment")});
             this.xrTableCell6.Dpi = 100F;
-            this.xrTableCell6.Font = new System.Drawing.Font("Times New Roman", 5F);
+            this.xrTableCell6.Font = new System.Drawing.Font("Times New Roman", 10F);
             this.xrTableCell6.Name = "xrTableCell6";
             this.xrTableCell6.Padding = new DevExpress.XtraPrinting.PaddingInfo(8, 0, 0, 0, 100F);
             this.xrTableCell6.StylePriority.UseFont = false;
@@ -275,7 +275,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             // xrTable2
             // 
             this.xrTable2.Dpi = 100F;
-            this.xrTable2.Font = new System.Drawing.Font("Tahoma", 6F);
+            this.xrTable2.Font = new System.Drawing.Font("Tahoma", 10F);
             this.xrTable2.LocationFloat = new DevExpress.Utils.PointFloat(1.650147F, 0F);
             this.xrTable2.Name = "xrTable2";
             this.xrTable2.Rows.AddRange(new DevExpress.XtraReports.UI.XRTableRow[] {
@@ -301,7 +301,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell7.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col1.LogbookID")});
             this.xrTableCell7.Dpi = 100F;
-            this.xrTableCell7.Font = new System.Drawing.Font("Tahoma", 6F);
+            this.xrTableCell7.Font = new System.Drawing.Font("Tahoma", 10F);
             this.xrTableCell7.Name = "xrTableCell7";
             this.xrTableCell7.StylePriority.UseFont = false;
             this.xrTableCell7.StylePriority.UseTextAlignment = false;
@@ -337,7 +337,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.xrLabel3.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col1.SemesterScores")});
             this.xrLabel3.Dpi = 100F;
-            this.xrLabel3.Font = new System.Drawing.Font("Times New Roman", 6F, System.Drawing.FontStyle.Bold);
+            this.xrLabel3.Font = new System.Drawing.Font("Times New Roman", 11F, System.Drawing.FontStyle.Bold);
             this.xrLabel3.ForeColor = System.Drawing.Color.DarkBlue;
             this.xrLabel3.LocationFloat = new DevExpress.Utils.PointFloat(0.4999924F, 12F);
             this.xrLabel3.Name = "xrLabel3";
@@ -360,7 +360,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             // xrLabel1
             // 
             this.xrLabel1.Dpi = 100F;
-            this.xrLabel1.Font = new System.Drawing.Font("Times New Roman", 7F, System.Drawing.FontStyle.Bold);
+            this.xrLabel1.Font = new System.Drawing.Font("Times New Roman", 11F, System.Drawing.FontStyle.Bold);
             this.xrLabel1.ForeColor = System.Drawing.Color.DarkBlue;
             this.xrLabel1.LocationFloat = new DevExpress.Utils.PointFloat(2.333329F, 5F);
             this.xrLabel1.Name = "xrLabel1";
@@ -375,7 +375,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             // xrLabel10
             // 
             this.xrLabel10.Dpi = 100F;
-            this.xrLabel10.Font = new System.Drawing.Font("Times New Roman", 7F, System.Drawing.FontStyle.Bold);
+            this.xrLabel10.Font = new System.Drawing.Font("Times New Roman", 11F, System.Drawing.FontStyle.Bold);
             this.xrLabel10.LocationFloat = new DevExpress.Utils.PointFloat(285.2249F, 24.00001F);
             this.xrLabel10.Name = "xrLabel10";
             this.xrLabel10.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
@@ -388,7 +388,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             // xrLabel11
             // 
             this.xrLabel11.Dpi = 100F;
-            this.xrLabel11.Font = new System.Drawing.Font("Tahoma", 7F, System.Drawing.FontStyle.Bold);
+            this.xrLabel11.Font = new System.Drawing.Font("Tahoma", 11F, System.Drawing.FontStyle.Bold);
             this.xrLabel11.LocationFloat = new DevExpress.Utils.PointFloat(419.3365F, 16.66667F);
             this.xrLabel11.Name = "xrLabel11";
             this.xrLabel11.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
@@ -430,7 +430,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             // xrLabel6
             // 
             this.xrLabel6.Dpi = 100F;
-            this.xrLabel6.Font = new System.Drawing.Font("Times New Roman", 7F, System.Drawing.FontStyle.Bold);
+            this.xrLabel6.Font = new System.Drawing.Font("Times New Roman", 11F, System.Drawing.FontStyle.Bold);
             this.xrLabel6.LocationFloat = new DevExpress.Utils.PointFloat(304.3332F, 23.564F);
             this.xrLabel6.Name = "xrLabel6";
             this.xrLabel6.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
@@ -443,7 +443,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             // xrLabel5
             // 
             this.xrLabel5.Dpi = 100F;
-            this.xrLabel5.Font = new System.Drawing.Font("Times New Roman", 7F, System.Drawing.FontStyle.Bold);
+            this.xrLabel5.Font = new System.Drawing.Font("Times New Roman", 11F, System.Drawing.FontStyle.Bold);
             this.xrLabel5.LocationFloat = new DevExpress.Utils.PointFloat(51.74983F, 23.564F);
             this.xrLabel5.Name = "xrLabel5";
             this.xrLabel5.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
@@ -456,7 +456,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             // xrLabel4
             // 
             this.xrLabel4.Dpi = 100F;
-            this.xrLabel4.Font = new System.Drawing.Font("Times New Roman", 7F, System.Drawing.FontStyle.Bold);
+            this.xrLabel4.Font = new System.Drawing.Font("Times New Roman", 11F, System.Drawing.FontStyle.Bold);
             this.xrLabel4.LocationFloat = new DevExpress.Utils.PointFloat(3.999845F, 23.48066F);
             this.xrLabel4.Name = "xrLabel4";
             this.xrLabel4.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
@@ -484,7 +484,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.sqlDataSource1});
             this.DataMember = "campus_dynamics_acad_GetSingleStudentTranscript_Col1";
             this.DataSource = this.sqlDataSource1;
-            this.Font = new System.Drawing.Font("Tahoma", 7F);
+            this.Font = new System.Drawing.Font("Tahoma", 11F);
             this.Margins = new System.Drawing.Printing.Margins(4, 4, 0, 1);
             this.PageHeight = 827;
             this.PageWidth = 583;

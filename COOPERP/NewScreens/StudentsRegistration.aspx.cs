@@ -49,6 +49,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
             int curSem = AcademicYearHelper.GetCurrentSemester();
             if (curSem >= 1 && curSem <= 3)
                 ddlSemester.SelectedValue = curSem.ToString();
+
+            ApplyFiltersFromQueryString();
+
             // Form defaults: current period
             ddlAddSemester.SelectedValue = curSem.ToString();
             UpdateDisplayLabels();
@@ -100,6 +103,114 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
             Server.HtmlEncode(yr), Server.HtmlEncode(sem));
     }
 
+    private void ApplyFiltersFromQueryString()
+    {
+        string q = (Request.QueryString["q"] ?? "").Trim();
+        if (!string.IsNullOrEmpty(q)) txtSearch.Text = q;
+
+        SetSelectedIfExists(ddlAcadYear, Request.QueryString["ay"] ?? "");
+        SetSelectedIfExists(ddlSemester, Request.QueryString["sem"] ?? "");
+        SetSelectedIfExists(ddlStudyYear, Request.QueryString["sy"] ?? "");
+        SetSelectedIfExists(ddlRegStatus, Request.QueryString["rs"] ?? "");
+        SetSelectedIfExists(ddlProgramme, Request.QueryString["prog"] ?? "");
+        SetSelectedIfExists(ddlExamClearance, Request.QueryString["ec"] ?? "");
+        SetSelectedIfExists(ddlIDCard, Request.QueryString["idc"] ?? "");
+        SetSelectedIfExists(ddlResidence, Request.QueryString["res"] ?? "");
+        SetSelectedIfExists(ddlBilling, Request.QueryString["bill"] ?? "");
+        SetSelectedIfExists(ddlPageSize, Request.QueryString["per"] ?? "");
+    }
+
+    private void SetSelectedIfExists(ListControl control, string value)
+    {
+        if (control == null) return;
+        if (string.IsNullOrEmpty(value)) return;
+        var item = control.Items.FindByValue(value);
+        if (item != null)
+        {
+            control.ClearSelection();
+            item.Selected = true;
+        }
+    }
+
+    private int ParseQueryInt(string key, int defaultValue, int minValue, int maxValue)
+    {
+        int value;
+        if (!int.TryParse(Request.QueryString[key], out value)) value = defaultValue;
+        if (value < minValue) value = minValue;
+        if (value > maxValue) value = maxValue;
+        return value;
+    }
+
+    private string BuildListUrl(int page)
+    {
+        var query = HttpUtility.ParseQueryString(string.Empty);
+
+        if (!string.IsNullOrEmpty(txtSearch.Text.Trim())) query["q"] = txtSearch.Text.Trim();
+        if (!string.IsNullOrEmpty(ddlAcadYear.SelectedValue)) query["ay"] = ddlAcadYear.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlSemester.SelectedValue)) query["sem"] = ddlSemester.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlStudyYear.SelectedValue)) query["sy"] = ddlStudyYear.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlRegStatus.SelectedValue)) query["rs"] = ddlRegStatus.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue)) query["prog"] = ddlProgramme.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlExamClearance.SelectedValue)) query["ec"] = ddlExamClearance.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlIDCard.SelectedValue)) query["idc"] = ddlIDCard.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlResidence.SelectedValue)) query["res"] = ddlResidence.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlBilling.SelectedValue)) query["bill"] = ddlBilling.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlPageSize.SelectedValue)) query["per"] = ddlPageSize.SelectedValue;
+
+        query["page"] = (page < 1 ? 1 : page).ToString();
+
+        string q = query.ToString();
+        return ResolveUrl("~/COOPERP/NewScreens/StudentsRegistration.aspx") + (string.IsNullOrEmpty(q) ? "" : "?" + q);
+    }
+
+    private string BuildPagerHtml(int page, int totalPages)
+    {
+        if (totalPages <= 1) return "";
+
+        var html = new StringBuilder();
+
+        if (page > 1) html.AppendFormat("<a href='{0}'>Prev</a>", BuildListUrl(page - 1));
+        else html.Append("<span class='is-disabled'>Prev</span>");
+
+        int start = Math.Max(1, page - 3);
+        int end = Math.Min(totalPages, page + 3);
+
+        if (start > 1)
+        {
+            html.AppendFormat("<a href='{0}'>1</a>", BuildListUrl(1));
+            if (start > 2) html.Append("<span class='is-disabled'>…</span>");
+        }
+
+        for (int p = start; p <= end; p++)
+        {
+            if (p == page) html.AppendFormat("<span class='is-active'>{0}</span>", p);
+            else html.AppendFormat("<a href='{0}'>{1}</a>", BuildListUrl(p), p);
+        }
+
+        if (end < totalPages)
+        {
+            if (end < totalPages - 1) html.Append("<span class='is-disabled'>…</span>");
+            html.AppendFormat("<a href='{0}'>{1}</a>", BuildListUrl(totalPages), totalPages);
+        }
+
+        if (page < totalPages) html.AppendFormat("<a href='{0}'>Next</a>", BuildListUrl(page + 1));
+        else html.Append("<span class='is-disabled'>Next</span>");
+
+        return html.ToString();
+    }
+
+    private void RedirectToList(int page)
+    {
+        Response.Redirect(BuildListUrl(page), false);
+        Context.ApplicationInstance.CompleteRequest();
+    }
+
+    private void RedirectCleanList()
+    {
+        Response.Redirect(ResolveUrl("~/COOPERP/NewScreens/StudentsRegistration.aspx"), false);
+        Context.ApplicationInstance.CompleteRequest();
+    }
+
     private string GetCurrentUser()
     {
         if (Session["username"] != null && Session["username"].ToString().Trim() != "")
@@ -128,16 +239,28 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                 SUM(CASE WHEN r.regstatus = 'DISCONTINUED'    THEN 1 ELSE 0 END)  AS discontinued,
                 SUM(CASE WHEN r.regstatus = 'HALTED'          THEN 1 ELSE 0 END)  AS halted,
                 SUM(CASE WHEN r.regstatus = 'DEAD YEAR'       THEN 1 ELSE 0 END)  AS dead_year,
-                SUM(CASE WHEN s.new_status = 'ACTIVE' AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED') AND b.bill_count > 0 THEN 1 ELSE 0 END) AS billed,
-                SUM(CASE WHEN s.new_status = 'ACTIVE' AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED') AND (b.bill_count IS NULL OR b.bill_count = 0) THEN 1 ELSE 0 END) AS not_billed
+                SUM(CASE WHEN sreg.new_status = 'ACTIVE' AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                    AND EXISTS(
+                        SELECT 1
+                        FROM campus_dynamics_accounts.fin_studentfeestracking ft
+                        WHERE ft.regno = COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno))
+                          AND ft.acadyear = r.acad_year
+                          AND ft.semester = r.semester
+                          AND ft.trans_type = 'Bill'
+                    )
+                THEN 1 ELSE 0 END) AS billed,
+                SUM(CASE WHEN sreg.new_status = 'ACTIVE' AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                    AND NOT EXISTS(
+                        SELECT 1
+                        FROM campus_dynamics_accounts.fin_studentfeestracking ft
+                        WHERE ft.regno = COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno))
+                          AND ft.acadyear = r.acad_year
+                          AND ft.semester = r.semester
+                          AND ft.trans_type = 'Bill'
+                    )
+                THEN 1 ELSE 0 END) AS not_billed
             FROM acad_registration r
-            LEFT JOIN acad_student s ON s.regno = r.regno
-            LEFT JOIN (
-                SELECT regno, acadyear, semester, COUNT(*) AS bill_count
-                FROM campus_dynamics_accounts.fin_studentfeestracking
-                WHERE trans_type = 'Bill'
-                GROUP BY regno, acadyear, semester
-            ) b ON b.regno = r.regno AND b.acadyear = r.acad_year AND b.semester = r.semester
+            LEFT JOIN acad_student sreg ON TRIM(sreg.regno) = TRIM(r.regno)
             WHERE 1=1");
 
         var parms = new List<MySqlParameter>();
@@ -151,6 +274,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                 conn.Open();
                 using (var cmd = new MySqlCommand(sb.ToString(), conn))
                 {
+                    cmd.CommandTimeout = 30;
                     foreach (var p in parms) cmd.Parameters.Add(p);
                     using (var rdr = cmd.ExecuteReader())
                     {
@@ -181,43 +305,16 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     private void BindGrid()
     {
         string search = (txtSearch.Text ?? "").Trim();
-
-        // Apply page size
         int pageSize = SafeInt(ddlPageSize.SelectedValue, 50);
-        if (pageSize > 0) gvRegistration.SettingsPager.PageSize = pageSize;
+        if (pageSize < 25) pageSize = 25;
+        if (pageSize > 500) pageSize = 500;
 
-        var sb = new StringBuilder(@"
-            SELECT
-                r.ID,
-                r.regno,
-                r.acad_year,
-                r.semester,
-                r.regstatus,
-                r.studyyear,
-                CASE WHEN r.id_cardStatus = 'ISSUED' THEN 'ISSUED' ELSE 'NOT ISSUED' END AS id_cardStatus,
-                CASE WHEN r.residence_status = 'RESIDENT' THEN 'RESIDENT' ELSE 'NON-RESIDENT' END AS residence_status,
-                COALESCE(r.examClearance, 'UNCLEARED')       AS examClearance,
-                CASE WHEN r.examClearanceDate IS NULL OR r.examClearanceDate = '0000-00-00'
-                     THEN '' ELSE DATE_FORMAT(r.examClearanceDate,'%d %b %Y') END AS examClearanceDate,
-                COALESCE(r.registeredBy, '') AS registeredBy,
-                COALESCE(r.clearedBy, '')    AS clearedBy,
-                TRIM(CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,''))) AS student_name,
-                COALESCE(s.progid, '')       AS progcode,
-                COALESCE(p.progname, '')     AS progname,
-                CASE WHEN b.bill_count > 0 THEN 'BILLED' ELSE 'NOT BILLED' END AS billing_status,
-                COALESCE(b.total_billed, 0)  AS total_billed,
-                COALESCE(b.total_paid, 0)    AS total_paid
+        int page = ParseQueryInt("page", 1, 1, int.MaxValue);
+
+        var fromWhere = new StringBuilder(@"
             FROM acad_registration r
-            LEFT JOIN acad_student s   ON r.regno  = s.regno
-            LEFT JOIN acad_programme p ON s.progid = p.progcode
-            LEFT JOIN (
-                SELECT regno, acadyear, semester,
-                    COUNT(CASE WHEN trans_type = 'Bill' THEN 1 END) AS bill_count,
-                    SUM(CASE WHEN trans_type = 'Bill' THEN amount ELSE 0 END) AS total_billed,
-                    SUM(CASE WHEN trans_type = 'Payment' THEN amount ELSE 0 END) AS total_paid
-                FROM campus_dynamics_accounts.fin_studentfeestracking
-                GROUP BY regno, acadyear, semester
-            ) b ON b.regno = r.regno AND b.acadyear = r.acad_year AND b.semester = r.semester
+            LEFT JOIN acad_student sreg ON TRIM(sreg.regno) = TRIM(r.regno)
+            LEFT JOIN acad_programme preg ON sreg.progid = preg.progcode
             WHERE 1=1");
 
         var parameters = new List<MySqlParameter>();
@@ -225,74 +322,141 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         // Year / semester - only filter when not "All"
         string acadYear = ddlAcadYear.SelectedValue;
         string semStr   = ddlSemester.SelectedValue;
-        if (!string.IsNullOrEmpty(acadYear)) { sb.Append(" AND r.acad_year = @acadYear"); parameters.Add(new MySqlParameter("@acadYear", acadYear)); }
-        if (!string.IsNullOrEmpty(semStr))   { sb.Append(" AND r.semester  = @semester"); parameters.Add(new MySqlParameter("@semester", SafeInt(semStr, 1))); }
+        if (!string.IsNullOrEmpty(acadYear)) { fromWhere.Append(" AND r.acad_year = @acadYear"); parameters.Add(new MySqlParameter("@acadYear", acadYear)); }
+        if (!string.IsNullOrEmpty(semStr))   { fromWhere.Append(" AND r.semester  = @semester"); parameters.Add(new MySqlParameter("@semester", SafeInt(semStr, 1))); }
 
         // Other filters
         if (!string.IsNullOrEmpty(ddlStudyYear.SelectedValue))
         {
-            sb.Append(" AND r.studyyear = @studyYear");
+            fromWhere.Append(" AND r.studyyear = @studyYear");
             parameters.Add(new MySqlParameter("@studyYear", SafeInt(ddlStudyYear.SelectedValue, 0)));
         }
         if (!string.IsNullOrEmpty(ddlRegStatus.SelectedValue))
         {
-            sb.Append(" AND r.regstatus = @regStatus");
+            fromWhere.Append(" AND r.regstatus = @regStatus");
             parameters.Add(new MySqlParameter("@regStatus", ddlRegStatus.SelectedValue));
         }
         if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))
         {
-            sb.Append(" AND s.progid = @programme");
+            fromWhere.Append(" AND COALESCE(NULLIF(sreg.progid, ''), '') = @programme");
             parameters.Add(new MySqlParameter("@programme", ddlProgramme.SelectedValue));
         }
         if (!string.IsNullOrEmpty(ddlExamClearance.SelectedValue))
         {
-            sb.Append(" AND r.examClearance = @examClear");
+            fromWhere.Append(" AND r.examClearance = @examClear");
             parameters.Add(new MySqlParameter("@examClear", ddlExamClearance.SelectedValue));
         }
         if (!string.IsNullOrEmpty(ddlIDCard.SelectedValue))
         {
             if (ddlIDCard.SelectedValue == "ISSUED")
-                sb.Append(" AND r.id_cardStatus = 'ISSUED'");
+                fromWhere.Append(" AND r.id_cardStatus = 'ISSUED'");
             else
-                sb.Append(" AND (r.id_cardStatus IS NULL OR r.id_cardStatus != 'ISSUED')");
+                fromWhere.Append(" AND (r.id_cardStatus IS NULL OR r.id_cardStatus != 'ISSUED')");
         }
         if (!string.IsNullOrEmpty(ddlResidence.SelectedValue))
         {
             if (ddlResidence.SelectedValue == "RESIDENT")
-                sb.Append(" AND r.residence_status = 'RESIDENT'");
+                fromWhere.Append(" AND r.residence_status = 'RESIDENT'");
             else
-                sb.Append(" AND r.residence_status != 'RESIDENT'");
+                fromWhere.Append(" AND r.residence_status != 'RESIDENT'");
         }
         if (!string.IsNullOrEmpty(ddlBilling.SelectedValue))
         {
             if (ddlBilling.SelectedValue == "BILLED")
-                sb.Append(" AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=r.regno AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
+                fromWhere.Append(" AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
             else
-                sb.Append(" AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=r.regno AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
+                fromWhere.Append(" AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
         }
         if (!string.IsNullOrEmpty(search))
         {
-            sb.Append(" AND (r.regno LIKE @search OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @search OR s.progid LIKE @search)");
+            fromWhere.Append(" AND (COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno)) LIKE @search OR TRIM(CONCAT_WS(' ', NULLIF(sreg.firstname, ''), NULLIF(sreg.othername, ''))) LIKE @search OR COALESCE(NULLIF(sreg.progid, ''), '') LIKE @search)");
             parameters.Add(new MySqlParameter("@search", "%" + search + "%"));
         }
-
-        sb.Append(" ORDER BY s.firstname, s.othername, r.regno");
 
         try
         {
             using (var conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                using (var cmd = new MySqlCommand(sb.ToString(), conn))
+
+                int totalCount;
+                using (var countCmd = new MySqlCommand("SELECT COUNT(*) " + fromWhere, conn))
                 {
-                    foreach (var p in parameters) cmd.Parameters.Add(p);
+                    countCmd.CommandTimeout = 45;
+                    foreach (var p in parameters)
+                        countCmd.Parameters.AddWithValue(p.ParameterName, p.Value);
+                    totalCount = SafeInt(countCmd.ExecuteScalar(), 0);
+                }
+
+                int totalPages = totalCount <= 0 ? 1 : (int)Math.Ceiling((double)totalCount / pageSize);
+                if (page > totalPages) page = totalPages;
+                int offset = (page - 1) * pageSize;
+
+                var selectSql = new StringBuilder(@"
+                    SELECT
+                        r.ID,
+                        COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno)) AS regno,
+                        r.acad_year,
+                        r.semester,
+                        r.regstatus,
+                        r.studyyear,
+                        CASE WHEN r.id_cardStatus = 'ISSUED' THEN 'ISSUED' ELSE 'NOT ISSUED' END AS id_cardStatus,
+                        CASE WHEN r.residence_status = 'RESIDENT' THEN 'RESIDENT' ELSE 'NON-RESIDENT' END AS residence_status,
+                        COALESCE(r.examClearance, 'UNCLEARED')       AS examClearance,
+                        CASE WHEN r.examClearanceDate IS NULL OR r.examClearanceDate = '0000-00-00'
+                             THEN '' ELSE DATE_FORMAT(r.examClearanceDate,'%d %b %Y') END AS examClearanceDate,
+                        COALESCE(r.registeredBy, '') AS registeredBy,
+                        COALESCE(r.clearedBy, '')    AS clearedBy,
+                        NULLIF(TRIM(CONCAT_WS(' ', NULLIF(sreg.firstname, ''), NULLIF(sreg.othername, ''))), '') AS student_name,
+                        COALESCE(NULLIF(sreg.progid, ''), '') AS progcode,
+                        COALESCE(NULLIF(preg.progname, ''), '') AS progname,
+                        CASE WHEN EXISTS(
+                            SELECT 1
+                            FROM campus_dynamics_accounts.fin_studentfeestracking ft
+                            WHERE ft.regno = COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno))
+                              AND ft.acadyear = r.acad_year
+                              AND ft.semester = r.semester
+                              AND ft.trans_type = 'Bill'
+                        ) THEN 'BILLED' ELSE 'NOT BILLED' END AS billing_status,
+                        COALESCE((
+                            SELECT SUM(ftb.amount)
+                            FROM campus_dynamics_accounts.fin_studentfeestracking ftb
+                            WHERE ftb.regno = COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno))
+                              AND ftb.acadyear = r.acad_year
+                              AND ftb.semester = r.semester
+                              AND ftb.trans_type = 'Bill'
+                        ), 0) AS total_billed,
+                        COALESCE((
+                            SELECT SUM(ftp.amount)
+                            FROM campus_dynamics_accounts.fin_studentfeestracking ftp
+                            WHERE ftp.regno = COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno))
+                              AND ftp.acadyear = r.acad_year
+                              AND ftp.semester = r.semester
+                              AND ftp.trans_type = 'Payment'
+                        ), 0) AS total_paid
+                ");
+                selectSql.Append(fromWhere.ToString());
+                selectSql.Append(" ORDER BY sreg.firstname, sreg.othername, COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno))");
+                selectSql.Append(" LIMIT @offset, @pageSize");
+
+                using (var cmd = new MySqlCommand(selectSql.ToString(), conn))
+                {
+                    cmd.CommandTimeout = 60;
+                    foreach (var p in parameters)
+                        cmd.Parameters.AddWithValue(p.ParameterName, p.Value);
+                    cmd.Parameters.AddWithValue("@offset", offset);
+                    cmd.Parameters.AddWithValue("@pageSize", pageSize);
+
                     using (var da = new MySqlDataAdapter(cmd))
                     {
                         var dt = new DataTable();
                         da.Fill(dt);
-                        int count = dt.Rows.Count;
-                        lblRecordCount.Text  = count.ToString("N0") + " record" + (count != 1 ? "s" : "");
-                        litFooterCount.Text  = count.ToString("N0") + " record" + (count != 1 ? "s" : "");
+
+                        HydrateMissingStudentDetails(dt, conn);
+
+                        lblRecordCount.Text  = totalCount.ToString("N0") + " item" + (totalCount != 1 ? "s" : "");
+                        litFooterCount.Text  = string.Format("Page {0} of {1} ({2:N0} items)", page, totalPages, totalCount);
+                        litPager.Text        = BuildPagerHtml(page, totalPages);
                         gvRegistration.DataSource = dt;
                         gvRegistration.DataBind();
                     }
@@ -302,6 +466,100 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         catch (Exception ex)
         {
             ShowToast(false, "Error loading data: " + ex.Message);
+        }
+    }
+
+    private sealed class StudentFallbackInfo
+    {
+        public string RegNo;
+        public string StudentName;
+        public string ProgCode;
+        public string ProgName;
+    }
+
+    private void HydrateMissingStudentDetails(DataTable table, MySqlConnection conn)
+    {
+        if (table == null || table.Rows.Count == 0 || conn == null) return;
+
+        var missingEmails = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (DataRow row in table.Rows)
+        {
+            string studentName = (row["student_name"] == DBNull.Value ? "" : row["student_name"].ToString()).Trim();
+            if (!string.IsNullOrEmpty(studentName)) continue;
+
+            string regOrEmail = (row["regno"] == DBNull.Value ? "" : row["regno"].ToString()).Trim();
+            if (string.IsNullOrEmpty(regOrEmail) || regOrEmail.IndexOf('@') < 0) continue;
+
+            string key = regOrEmail.ToLowerInvariant();
+            if (seen.Add(key)) missingEmails.Add(key);
+        }
+
+        if (missingEmails.Count == 0) return;
+
+        var sql = new StringBuilder(@"
+            SELECT
+                LOWER(TRIM(s.email)) AS email_key,
+                TRIM(IFNULL(s.regno, '')) AS regno,
+                NULLIF(TRIM(CONCAT_WS(' ', NULLIF(s.firstname, ''), NULLIF(s.othername, ''))), '') AS student_name,
+                IFNULL(s.progid, '') AS progcode,
+                IFNULL(p.progname, '') AS progname
+            FROM acad_student s
+            LEFT JOIN acad_programme p ON p.progcode = s.progid
+            WHERE IFNULL(s.email, '') <> ''
+              AND LOWER(TRIM(s.email)) IN (");
+
+        for (int i = 0; i < missingEmails.Count; i++)
+        {
+            if (i > 0) sql.Append(",");
+            sql.Append("@e").Append(i);
+        }
+        sql.Append(") ORDER BY s.regno");
+
+        var byEmail = new Dictionary<string, StudentFallbackInfo>(StringComparer.OrdinalIgnoreCase);
+
+        using (var cmd = new MySqlCommand(sql.ToString(), conn))
+        {
+            cmd.CommandTimeout = 30;
+            for (int i = 0; i < missingEmails.Count; i++)
+                cmd.Parameters.AddWithValue("@e" + i, missingEmails[i]);
+
+            using (var rdr = cmd.ExecuteReader())
+            {
+                while (rdr.Read())
+                {
+                    string emailKey = rdr["email_key"].ToString();
+                    if (string.IsNullOrEmpty(emailKey) || byEmail.ContainsKey(emailKey)) continue;
+
+                    byEmail[emailKey] = new StudentFallbackInfo
+                    {
+                        RegNo = rdr["regno"].ToString().Trim(),
+                        StudentName = (rdr["student_name"] == DBNull.Value ? "" : rdr["student_name"].ToString().Trim()),
+                        ProgCode = rdr["progcode"].ToString().Trim(),
+                        ProgName = rdr["progname"].ToString().Trim()
+                    };
+                }
+            }
+        }
+
+        if (byEmail.Count == 0) return;
+
+        foreach (DataRow row in table.Rows)
+        {
+            string studentName = (row["student_name"] == DBNull.Value ? "" : row["student_name"].ToString()).Trim();
+            if (!string.IsNullOrEmpty(studentName)) continue;
+
+            string regOrEmail = (row["regno"] == DBNull.Value ? "" : row["regno"].ToString()).Trim();
+            if (string.IsNullOrEmpty(regOrEmail)) continue;
+
+            StudentFallbackInfo info;
+            if (!byEmail.TryGetValue(regOrEmail.ToLowerInvariant(), out info)) continue;
+
+            if (!string.IsNullOrEmpty(info.StudentName)) row["student_name"] = info.StudentName;
+            if (!string.IsNullOrEmpty(info.ProgCode)) row["progcode"] = info.ProgCode;
+            if (!string.IsNullOrEmpty(info.ProgName)) row["progname"] = info.ProgName;
+            if (!string.IsNullOrEmpty(info.RegNo)) row["regno"] = info.RegNo;
         }
     }
 
@@ -377,38 +635,23 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     // FILTER CHANGE HANDLERS
     // ===================================================================
 
-    protected void btnSearch_Click(object sender, EventArgs e)                   { BindGrid(); }
+    protected void btnSearch_Click(object sender, EventArgs e)                   { RedirectToList(1); }
 
-    protected void ddlAcadYear_SelectedIndexChanged(object sender, EventArgs e)   { UpdateDisplayLabels(); LoadStats(); BindGrid(); }
-    protected void ddlSemester_SelectedIndexChanged(object sender, EventArgs e)   { UpdateDisplayLabels(); LoadStats(); BindGrid(); }
-    protected void ddlStudyYear_SelectedIndexChanged(object sender, EventArgs e)  { BindGrid(); }
-    protected void ddlRegStatus_SelectedIndexChanged(object sender, EventArgs e)  { BindGrid(); }
-    protected void ddlProgramme_SelectedIndexChanged(object sender, EventArgs e)  { BindGrid(); }
-    protected void ddlExamClearance_SelectedIndexChanged(object sender, EventArgs e) { BindGrid(); }
-    protected void ddlIDCard_SelectedIndexChanged(object sender, EventArgs e)     { BindGrid(); }
-    protected void ddlResidence_SelectedIndexChanged(object sender, EventArgs e)  { BindGrid(); }
-    protected void ddlBilling_SelectedIndexChanged(object sender, EventArgs e)    { BindGrid(); }
+    protected void ddlAcadYear_SelectedIndexChanged(object sender, EventArgs e)   { RedirectToList(1); }
+    protected void ddlSemester_SelectedIndexChanged(object sender, EventArgs e)   { RedirectToList(1); }
+    protected void ddlStudyYear_SelectedIndexChanged(object sender, EventArgs e)  { RedirectToList(1); }
+    protected void ddlRegStatus_SelectedIndexChanged(object sender, EventArgs e)  { RedirectToList(1); }
+    protected void ddlProgramme_SelectedIndexChanged(object sender, EventArgs e)  { RedirectToList(1); }
+    protected void ddlExamClearance_SelectedIndexChanged(object sender, EventArgs e) { RedirectToList(1); }
+    protected void ddlIDCard_SelectedIndexChanged(object sender, EventArgs e)     { RedirectToList(1); }
+    protected void ddlResidence_SelectedIndexChanged(object sender, EventArgs e)  { RedirectToList(1); }
+    protected void ddlBilling_SelectedIndexChanged(object sender, EventArgs e)    { RedirectToList(1); }
     protected void txtSearch_TextChanged(object sender, EventArgs e)              { /* handled by btnSearch_Click */ }
-    protected void ddlPageSize_Changed(object sender, EventArgs e)               { BindGrid(); }
+    protected void ddlPageSize_Changed(object sender, EventArgs e)               { RedirectToList(1); }
 
     protected void btnReset_Click(object sender, EventArgs e)
     {
-        txtSearch.Text = "";
-        // Reset to current academic year + semester (not "All")
-        AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, true);
-        int curSem = AcademicYearHelper.GetCurrentSemester();
-        ddlSemester.SelectedValue      = (curSem >= 1 && curSem <= 3) ? curSem.ToString() : "";
-        ddlStudyYear.SelectedValue     = "";
-        ddlRegStatus.SelectedValue     = "";
-        ddlProgramme.SelectedValue     = "";
-        ddlExamClearance.SelectedValue = "";
-        ddlIDCard.SelectedValue        = "";
-        ddlResidence.SelectedValue     = "";
-        ddlBilling.SelectedValue       = "";
-        // Preserve ddlPageSize (user preference)
-        UpdateDisplayLabels();
-        LoadStats();
-        BindGrid();
+        RedirectCleanList();
     }
     protected void btnRefresh_Click(object sender, EventArgs e) { LoadStats(); BindGrid(); }
 
@@ -911,10 +1154,11 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         string search   = (txtSearch.Text ?? "").Trim();
 
         var sb = new StringBuilder(@"
-            SELECT r.regno,
-                TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
-                COALESCE(s.progid,'') AS progcode,
-                COALESCE(p.progname,'') AS progname,
+            SELECT
+                COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno)) AS regno,
+                NULLIF(TRIM(CONCAT_WS(' ', NULLIF(COALESCE(sreg.firstname, semail.firstname), ''), NULLIF(COALESCE(sreg.othername, semail.othername), ''))), '') AS student_name,
+                COALESCE(NULLIF(sreg.progid, ''), NULLIF(semail.progid, ''), '') AS progcode,
+                COALESCE(NULLIF(preg.progname, ''), NULLIF(pemail.progname, ''), '') AS progname,
                 r.studyyear, r.regstatus,
                 COALESCE(r.examClearance,'UNCLEARED') AS examClearance,
                 CASE WHEN r.id_cardStatus = 'ISSUED' THEN 'ISSUED' ELSE 'NOT ISSUED' END AS id_cardStatus,
@@ -928,8 +1172,17 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                 COALESCE(b.total_billed, 0) AS total_billed,
                 COALESCE(b.total_paid, 0)   AS total_paid
             FROM acad_registration r
-            LEFT JOIN acad_student s ON r.regno=s.regno
-            LEFT JOIN acad_programme p ON s.progid=p.progcode
+            LEFT JOIN acad_student sreg ON TRIM(sreg.regno)=TRIM(r.regno)
+            LEFT JOIN (
+                SELECT LOWER(TRIM(email)) AS email_key, MIN(regno) AS regno
+                FROM acad_student
+                WHERE IFNULL(email, '') <> ''
+                GROUP BY LOWER(TRIM(email))
+                HAVING COUNT(*) = 1
+            ) su ON su.email_key = LOWER(TRIM(r.regno))
+            LEFT JOIN acad_student semail ON semail.regno = su.regno
+            LEFT JOIN acad_programme preg ON sreg.progid=preg.progcode
+            LEFT JOIN acad_programme pemail ON semail.progid=pemail.progcode
             LEFT JOIN (
                 SELECT regno, acadyear, semester,
                     COUNT(CASE WHEN trans_type='Bill' THEN 1 END) AS bill_count,
@@ -937,7 +1190,8 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                     SUM(CASE WHEN trans_type='Payment' THEN amount ELSE 0 END) AS total_paid
                 FROM campus_dynamics_accounts.fin_studentfeestracking
                 GROUP BY regno, acadyear, semester
-            ) b ON b.regno=r.regno AND b.acadyear=r.acad_year AND b.semester=r.semester
+            ) b ON b.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno))
+               AND b.acadyear=r.acad_year AND b.semester=r.semester
             WHERE 1=1");
 
         var parameters = new List<MySqlParameter>();
@@ -945,13 +1199,13 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         if (!string.IsNullOrEmpty(semStr))   { sb.Append(" AND r.semester=@semester");  parameters.Add(new MySqlParameter("@semester", SafeInt(semStr, 1))); }
         if (!string.IsNullOrEmpty(ddlStudyYear.SelectedValue))     { sb.Append(" AND r.studyyear=@sy"); parameters.Add(new MySqlParameter("@sy", SafeInt(ddlStudyYear.SelectedValue, 0))); }
         if (!string.IsNullOrEmpty(ddlRegStatus.SelectedValue))     { sb.Append(" AND r.regstatus=@rs"); parameters.Add(new MySqlParameter("@rs", ddlRegStatus.SelectedValue)); }
-        if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))     { sb.Append(" AND s.progid=@prog"); parameters.Add(new MySqlParameter("@prog", ddlProgramme.SelectedValue)); }
+        if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))     { sb.Append(" AND COALESCE(NULLIF(sreg.progid, ''), NULLIF(semail.progid, ''))=@prog"); parameters.Add(new MySqlParameter("@prog", ddlProgramme.SelectedValue)); }
         if (!string.IsNullOrEmpty(ddlExamClearance.SelectedValue)) { sb.Append(" AND r.examClearance=@ec"); parameters.Add(new MySqlParameter("@ec", ddlExamClearance.SelectedValue)); }
         if (!string.IsNullOrEmpty(ddlIDCard.SelectedValue))        { if (ddlIDCard.SelectedValue == "ISSUED") sb.Append(" AND r.id_cardStatus='ISSUED'"); else sb.Append(" AND (r.id_cardStatus IS NULL OR r.id_cardStatus!='ISSUED')"); }
         if (!string.IsNullOrEmpty(ddlResidence.SelectedValue))     { if (ddlResidence.SelectedValue == "RESIDENT") sb.Append(" AND r.residence_status='RESIDENT'"); else sb.Append(" AND r.residence_status!='RESIDENT'"); }
-        if (!string.IsNullOrEmpty(ddlBilling.SelectedValue))        { if (ddlBilling.SelectedValue == "BILLED") sb.Append(" AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=r.regno AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); else sb.Append(" AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=r.regno AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); }
-        if (!string.IsNullOrEmpty(search))                         { sb.Append(" AND (r.regno LIKE @s OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @s)"); parameters.Add(new MySqlParameter("@s", "%" + search + "%")); }
-        sb.Append(" ORDER BY s.firstname, s.othername, r.regno");
+        if (!string.IsNullOrEmpty(ddlBilling.SelectedValue))        { if (ddlBilling.SelectedValue == "BILLED") sb.Append(" AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); else sb.Append(" AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); }
+        if (!string.IsNullOrEmpty(search))                         { sb.Append(" AND (COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno)) LIKE @s OR TRIM(CONCAT_WS(' ', NULLIF(COALESCE(sreg.firstname, semail.firstname), ''), NULLIF(COALESCE(sreg.othername, semail.othername), ''))) LIKE @s)"); parameters.Add(new MySqlParameter("@s", "%" + search + "%")); }
+        sb.Append(" ORDER BY COALESCE(sreg.firstname, semail.firstname), COALESCE(sreg.othername, semail.othername), COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno))");
 
         try
         {

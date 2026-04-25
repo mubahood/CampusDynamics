@@ -104,6 +104,7 @@
                 <a href="#odel-identity" class="api-sidebar__link">Identity &amp; Lookup</a>
                 <a href="#odel-academic" class="api-sidebar__link">Courses &amp; Curriculum</a>
                 <a href="#odel-finance" class="api-sidebar__link">Fee Clearance</a>
+                <a href="#fee-access" class="api-sidebar__link">Fee Access Policy</a>
                 <a href="#odel-calendar" class="api-sidebar__link">Academic Calendar</a>
                 <div class="api-sidebar__heading">Project</div>
                 <a href="#roadmap" class="api-sidebar__link">Roadmap</a>
@@ -1015,6 +1016,198 @@ Content-Type: application/json
                 </div>
             </div>
 
+            <!-- Fee Access Policy Evaluation -->
+            <div class="api-section" id="fee-access">
+                <div class="api-section__header">
+                    <div class="api-section__title">Fee Access Policy — Evaluation</div>
+                    <div class="api-section__desc">Evaluate a student against the bursar-defined fee access rules. Returns student profile, full policy configuration, financial summary, bursary status, per-rule results, verdict, and actionable guidance.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--live">LIVE</span> /API/v2/finance.aspx?action=access_status&amp;token=...</div>
+                        <div class="api-endpoint__info">Evaluates a student against all enabled fee-access rules and returns a comprehensive result. Students are auto-resolved from their token; staff must provide <code>?regno=</code>. The response always includes every top-level key — consumers never encounter missing fields.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>token</td><td>string</td><td class="api-param--required">Yes</td><td>Valid API token (student or staff)</td></tr>
+                            <tr><td>action</td><td>string</td><td class="api-param--required">Yes</td><td>Must be <code>access_status</code></td></tr>
+                            <tr><td>regno</td><td>string</td><td class="api-param--optional">Staff only</td><td>Student registration number. Students are automatically identified from their token.</td></tr>
+                        </table>
+
+                        <div class="api-note">The response is structured into nested objects: <code>student</code>, <code>policy</code>, <code>finance</code>, <code>bursary</code>, <code>criteria[]</code>, <code>summary</code>. This ensures maximum detail for any consumer (portal, mobile app, Moodle).</div>
+
+                        <h4 style="font-size:13px;font-weight:700;margin:16px 0 6px;color:#05275C;">Response Fields (top level)</h4>
+                        <table class="api-endpoint__params">
+                            <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                            <tr><td>access_allowed</td><td>boolean</td><td><code>true</code> if the student passes the policy (or no policy is active)</td></tr>
+                            <tr><td>has_policy</td><td>boolean</td><td><code>true</code> if an active fee access policy exists</td></tr>
+                            <tr><td>verdict</td><td>string</td><td><code>"granted"</code> or <code>"denied"</code></td></tr>
+                            <tr><td>verdict_reason</td><td>string</td><td>Human-readable explanation (e.g. "2 of 3 rule(s) failed. Policy requires ALL rules to pass.")</td></tr>
+                            <tr><td>student</td><td>object</td><td>Contains: <code>regno</code>, <code>name</code>, <code>programme</code>, <code>programme_code</code>, <code>study_year</code></td></tr>
+                            <tr><td>policy</td><td>object | null</td><td>Full policy config incl. <code>rules_enabled</code> map and <code>thresholds</code>. Null when no active policy.</td></tr>
+                            <tr><td>finance</td><td>object</td><td><code>total_bill</code>, <code>total_paid</code>, <code>balance</code> (negative=owing), <code>amount_owing</code>, <code>credit_balance</code>, <code>percentage_paid</code>, <code>currency</code></td></tr>
+                            <tr><td>bursary</td><td>object</td><td><code>status</code>, <code>scheme_name</code>, <code>amount_offered</code>, <code>coverage_percent</code>, <code>exempt</code> (short-circuit flag)</td></tr>
+                            <tr><td>criteria</td><td>array</td><td>Per-rule evaluation. Each: <code>rule</code>, <code>passed</code>, <code>enabled</code>, <code>detail</code>, <code>threshold</code>, <code>actual_value</code></td></tr>
+                            <tr><td>summary</td><td>object</td><td><code>total_rules</code>, <code>rules_passed</code>, <code>rules_failed</code>, <code>enabled_rules[]</code></td></tr>
+                            <tr><td>guidance</td><td>string</td><td>Actionable steps for denied students (empty if granted)</td></tr>
+                            <tr><td>evaluated_at</td><td>string</td><td>ISO 8601 UTC timestamp</td></tr>
+                        </table>
+
+                        <h4 style="font-size:13px;font-weight:700;margin:16px 0 6px;color:#05275C;">Access Decision Logic</h4>
+                        <div class="api-note" style="font-size:12px;line-height:1.8;">
+                            <strong>1.</strong> No active policy → <code>access_allowed = true</code>, <code>has_policy = false</code><br/>
+                            <strong>2.</strong> Policy active, no rules enabled → <code>access_allowed = true</code><br/>
+                            <strong>3.</strong> Bursary Exemption enabled &amp; student's bursary ≥ min coverage → <code>access_allowed = true</code> (other rules skipped)<br/>
+                            <strong>4.</strong> Logic = <code>ALL</code> → student must pass <strong>every</strong> enabled rule<br/>
+                            <strong>5.</strong> Logic = <code>ANY</code> → student must pass <strong>at least one</strong> enabled rule
+                        </div>
+
+                        <h4 style="font-size:13px;font-weight:700;margin:16px 0 6px;color:#05275C;">Available Access Rules</h4>
+                        <table class="api-endpoint__params">
+                            <tr><th>Rule</th><th>Threshold</th><th>Description</th></tr>
+                            <tr><td>Balance Threshold</td><td>max_balance (UGX)</td><td>Deny if outstanding balance exceeds the configured maximum</td></tr>
+                            <tr><td>Payment Window</td><td>min amount + date range</td><td>Require a minimum payment within a specific date window</td></tr>
+                            <tr><td>Percentage Paid</td><td>min % paid</td><td>Require at least X% of total fees to be paid</td></tr>
+                            <tr><td>Bursary Exemption</td><td>min coverage %</td><td>Auto-exempt students whose approved bursary covers ≥ X% of fees (short-circuits all rules)</td></tr>
+                            <tr><td>Registration</td><td>—</td><td>Require current-semester registration in <code>acad_registration</code></td></tr>
+                        </table>
+
+                        <h4 style="font-size:13px;font-weight:700;margin:16px 0 6px;color:#e74c3c;">Example — Access Denied</h4>
+                        <div class="api-code"><span class="c-comm">// GET /API/v2/finance.aspx?action=access_status&amp;regno=2024/BSC/001&amp;token=...</span>
+{
+  <span class="c-key">"success"</span>: <span class="c-num">true</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"access_allowed"</span>: <span class="c-num">false</span>,
+    <span class="c-key">"has_policy"</span>: <span class="c-num">true</span>,
+    <span class="c-key">"verdict"</span>: <span class="c-str">"denied"</span>,
+    <span class="c-key">"verdict_reason"</span>: <span class="c-str">"2 of 3 rule(s) failed. Policy requires ALL rules to pass."</span>,
+    <span class="c-key">"student"</span>: {
+      <span class="c-key">"regno"</span>: <span class="c-str">"2024/BSC/001"</span>,
+      <span class="c-key">"name"</span>: <span class="c-str">"DOE John"</span>,
+      <span class="c-key">"programme"</span>: <span class="c-str">"Bachelor of Science in Computer Science"</span>,
+      <span class="c-key">"programme_code"</span>: <span class="c-str">"BSC-CS"</span>,
+      <span class="c-key">"study_year"</span>: <span class="c-num">2</span>
+    },
+    <span class="c-key">"policy"</span>: {
+      <span class="c-key">"policy_id"</span>: <span class="c-num">1</span>,
+      <span class="c-key">"title"</span>: <span class="c-str">"University campus access"</span>,
+      <span class="c-key">"academic_year"</span>: <span class="c-str">"2025/2026"</span>,
+      <span class="c-key">"semester"</span>: <span class="c-num">1</span>,
+      <span class="c-key">"combination_logic"</span>: <span class="c-str">"ALL"</span>,
+      <span class="c-key">"combination_logic_description"</span>: <span class="c-str">"Student must satisfy ALL enabled rules to pass"</span>,
+      <span class="c-key">"rules_enabled"</span>: {
+        <span class="c-key">"balance_threshold"</span>: <span class="c-num">true</span>,
+        <span class="c-key">"payment_window"</span>: <span class="c-num">false</span>,
+        <span class="c-key">"percentage_paid"</span>: <span class="c-num">true</span>,
+        <span class="c-key">"bursary_exemption"</span>: <span class="c-num">false</span>,
+        <span class="c-key">"registration"</span>: <span class="c-num">true</span>
+      },
+      <span class="c-key">"thresholds"</span>: {
+        <span class="c-key">"max_balance"</span>: <span class="c-num">500000</span>,
+        <span class="c-key">"min_percentage_paid"</span>: <span class="c-num">60</span>
+      }
+    },
+    <span class="c-key">"finance"</span>: {
+      <span class="c-key">"total_bill"</span>: <span class="c-num">2500000</span>,
+      <span class="c-key">"total_paid"</span>: <span class="c-num">800000</span>,
+      <span class="c-key">"balance"</span>: <span class="c-num">-1700000</span>,
+      <span class="c-key">"amount_owing"</span>: <span class="c-num">1700000</span>,
+      <span class="c-key">"credit_balance"</span>: <span class="c-num">0</span>,
+      <span class="c-key">"percentage_paid"</span>: <span class="c-num">32.0</span>,
+      <span class="c-key">"currency"</span>: <span class="c-str">"UGX"</span>
+    },
+    <span class="c-key">"bursary"</span>: {
+      <span class="c-key">"status"</span>: <span class="c-str">"None"</span>,
+      <span class="c-key">"scheme_name"</span>: <span class="c-str">""</span>,
+      <span class="c-key">"amount_offered"</span>: <span class="c-num">0</span>,
+      <span class="c-key">"coverage_percent"</span>: <span class="c-num">0</span>,
+      <span class="c-key">"exempt"</span>: <span class="c-num">false</span>
+    },
+    <span class="c-key">"criteria"</span>: [
+      {
+        <span class="c-key">"rule"</span>: <span class="c-str">"Balance Threshold"</span>,
+        <span class="c-key">"passed"</span>: <span class="c-num">false</span>,
+        <span class="c-key">"enabled"</span>: <span class="c-num">true</span>,
+        <span class="c-key">"detail"</span>: <span class="c-str">"Outstanding balance of 1,700,000 exceeds the allowed maximum of 500,000."</span>,
+        <span class="c-key">"threshold"</span>: <span class="c-str">"Max balance: UGX 500,000"</span>,
+        <span class="c-key">"actual_value"</span>: <span class="c-str">"UGX 1,700,000"</span>
+      },
+      {
+        <span class="c-key">"rule"</span>: <span class="c-str">"Percentage Paid"</span>,
+        <span class="c-key">"passed"</span>: <span class="c-num">false</span>,
+        <span class="c-key">"enabled"</span>: <span class="c-num">true</span>,
+        <span class="c-key">"detail"</span>: <span class="c-str">"Only 32.0% of total fees paid (required: 60%)."</span>,
+        <span class="c-key">"threshold"</span>: <span class="c-str">"Min 60% paid"</span>,
+        <span class="c-key">"actual_value"</span>: <span class="c-str">"32.0%"</span>
+      },
+      {
+        <span class="c-key">"rule"</span>: <span class="c-str">"Registration"</span>,
+        <span class="c-key">"passed"</span>: <span class="c-num">true</span>,
+        <span class="c-key">"enabled"</span>: <span class="c-num">true</span>,
+        <span class="c-key">"detail"</span>: <span class="c-str">"Student is registered for 2025/2026 Semester 1."</span>,
+        <span class="c-key">"threshold"</span>: <span class="c-str">"Registered for 2025/2026 Sem 1"</span>,
+        <span class="c-key">"actual_value"</span>: <span class="c-str">"Registered"</span>
+      }
+    ],
+    <span class="c-key">"summary"</span>: {
+      <span class="c-key">"total_rules"</span>: <span class="c-num">3</span>,
+      <span class="c-key">"rules_passed"</span>: <span class="c-num">1</span>,
+      <span class="c-key">"rules_failed"</span>: <span class="c-num">2</span>,
+      <span class="c-key">"enabled_rules"</span>: [<span class="c-str">"Balance Threshold"</span>, <span class="c-str">"Percentage Paid"</span>, <span class="c-str">"Registration"</span>]
+    },
+    <span class="c-key">"guidance"</span>: <span class="c-str">"Pay at least UGX 1,200,000 to reduce the outstanding balance to the allowed maximum of UGX 500,000. Pay an additional UGX 700,000 to reach the required 60%."</span>,
+    <span class="c-key">"evaluated_at"</span>: <span class="c-str">"2026-04-16T08:45:12Z"</span>
+  }
+}</div>
+
+                        <h4 style="font-size:13px;font-weight:700;margin:16px 0 6px;color:#2ecc71;">Example — Access Granted (No Policy)</h4>
+                        <div class="api-code"><span class="c-comm">// When no active policy exists in the system</span>
+{
+  <span class="c-key">"success"</span>: <span class="c-num">true</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"access_allowed"</span>: <span class="c-num">true</span>,
+    <span class="c-key">"has_policy"</span>: <span class="c-num">false</span>,
+    <span class="c-key">"verdict"</span>: <span class="c-str">"granted"</span>,
+    <span class="c-key">"verdict_reason"</span>: <span class="c-str">"No active fee access policy. All students are granted full access."</span>,
+    <span class="c-key">"student"</span>: { <span class="c-key">"regno"</span>: <span class="c-str">"2024/BSC/001"</span>, <span class="c-key">"name"</span>: <span class="c-str">"DOE John"</span>, <span class="c-comm">...</span> },
+    <span class="c-key">"policy"</span>: <span class="c-num">null</span>,
+    <span class="c-key">"finance"</span>: { <span class="c-key">"total_bill"</span>: <span class="c-num">0</span>, <span class="c-key">"total_paid"</span>: <span class="c-num">0</span>, <span class="c-key">"balance"</span>: <span class="c-num">0</span>, <span class="c-comm">...</span> },
+    <span class="c-key">"criteria"</span>: [{ <span class="c-key">"rule"</span>: <span class="c-str">"No Active Restriction"</span>, <span class="c-key">"passed"</span>: <span class="c-num">true</span> }],
+    <span class="c-key">"summary"</span>: { <span class="c-key">"total_rules"</span>: <span class="c-num">0</span>, <span class="c-key">"rules_passed"</span>: <span class="c-num">0</span>, <span class="c-key">"rules_failed"</span>: <span class="c-num">0</span> },
+    <span class="c-key">"guidance"</span>: <span class="c-str">"No active fee access restrictions. All students are granted access."</span>
+  }
+}</div>
+
+                        <h4 style="font-size:13px;font-weight:700;margin:16px 0 6px;color:#9b59b6;">Example — Bursary Exemption (Short-Circuit)</h4>
+                        <div class="api-code"><span class="c-comm">// Student has a bursary that covers ≥ minimum required → all other rules skipped</span>
+{
+  <span class="c-key">"success"</span>: <span class="c-num">true</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"access_allowed"</span>: <span class="c-num">true</span>,
+    <span class="c-key">"has_policy"</span>: <span class="c-num">true</span>,
+    <span class="c-key">"verdict"</span>: <span class="c-str">"granted"</span>,
+    <span class="c-key">"verdict_reason"</span>: <span class="c-str">"Student is exempt via bursary/scholarship (Government Scholarship)."</span>,
+    <span class="c-key">"bursary"</span>: {
+      <span class="c-key">"status"</span>: <span class="c-str">"Active: Government Scholarship"</span>,
+      <span class="c-key">"scheme_name"</span>: <span class="c-str">"Government Scholarship"</span>,
+      <span class="c-key">"amount_offered"</span>: <span class="c-num">2200000</span>,
+      <span class="c-key">"coverage_percent"</span>: <span class="c-num">88.0</span>,
+      <span class="c-key">"exempt"</span>: <span class="c-num">true</span>
+    },
+    <span class="c-key">"criteria"</span>: [{
+      <span class="c-key">"rule"</span>: <span class="c-str">"Bursary Exemption"</span>,
+      <span class="c-key">"passed"</span>: <span class="c-num">true</span>,
+      <span class="c-key">"detail"</span>: <span class="c-str">"Bursary/scholarship (Government Scholarship) with 88% coverage — exempt."</span>
+    }],
+    <span class="c-key">"guidance"</span>: <span class="c-str">""</span>
+  }
+}</div>
+
+                        <div class="api-note"><strong>Integration:</strong> The student portal uses this endpoint (via <code>FeeAccessHelper</code>) to display a global restriction banner. The admin <em>Fee Access Checker</em> page also calls this endpoint. The portal caches results for 5 minutes per session.</div>
+                        <div class="api-note--warn api-note"><strong>Balance sign convention:</strong> <code>finance.balance</code> is <strong>negative</strong> when the student owes money, <strong>positive</strong> when they have a credit. Use <code>finance.amount_owing</code> and <code>finance.credit_balance</code> for unsigned convenience values.</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ODEL: Academic Calendar -->
             <div class="api-section" id="odel-calendar">
                 <div class="api-section__header">
@@ -1134,7 +1327,10 @@ GET /API/v2/campus.aspx?action=academic_calendar&amp;acad_year=2024/2025
             {name:'ODEL — Course Details & Curriculum (4 endpoints)', status:'done'},
             {name:'ODEL — Fee Clearance & Bulk Check (2 endpoints)', status:'done'},
             {name:'ODEL — Academic Calendar & Enhanced Campus (3 endpoints)', status:'done'},
-            {name:'ODEL — API Documentation v2.2', status:'done'}
+            {name:'ODEL — API Documentation v2.2', status:'done'},
+            {name:'Fee Access Policy — Evaluation Endpoint (access_status)', status:'done'},
+            {name:'Fee Access Policy — Portal Alert Integration', status:'done'},
+            {name:'Fee Access Policy — Admin Checker Page', status:'done'}
         ];
         var ul = document.getElementById('taskList');
         tasks.forEach(function(t){

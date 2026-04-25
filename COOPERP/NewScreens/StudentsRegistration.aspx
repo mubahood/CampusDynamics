@@ -7,14 +7,14 @@
 /* ===== STUDENT REGISTRATION MODULE ===================================== */
 
 /* -- Page Header ------------------------------------- */
-.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.cd-page-header { background:#fff; padding:10px 12px; margin-bottom:12px; border:1px solid #e4e8f0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
 .cd-page-header__left { display:flex; align-items:center; gap:12px; }
-.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
-.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
-.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
+.cd-page-header__icon { width:34px; height:34px; background:rgba(23,77,164,.08); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
+.cd-page-header__title { font-size:15px; font-weight:700; color:#1a1a1a; line-height:1.2; margin:0; }
+.cd-page-header__sub { font-size:11px; color:#6b7280; margin-top:1px; }
 .cd-page-header__right { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-.cd-page-header .hr-btn--primary { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3); }
-.cd-page-header .hr-btn--primary:hover { background:rgba(255,255,255,.25); color:#fff; }
+.cd-page-header .hr-btn--primary { background:#174DA4; color:#fff; border:1px solid #174DA4; }
+.cd-page-header .hr-btn--primary:hover { background:#0f3a7d; color:#fff; border-color:#0f3a7d; }
 
 /* -- Stats Dashboard ---------------------------------- */
 .rg-stats-dashboard {
@@ -289,6 +289,16 @@
     flex-wrap: wrap; gap: 6px;
 }
 .rg-grid-footer strong { color: #174DA4; }
+.rg-pager { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.rg-pager a, .rg-pager span {
+    min-width: 24px; height: 24px; padding: 0 7px;
+    display:inline-flex; align-items:center; justify-content:center;
+    border:1px solid #dde3ea; background:#fff; color:#334155;
+    text-decoration:none; font-size:11px; border-radius:3px;
+}
+.rg-pager a:hover { border-color:#174DA4; color:#174DA4; }
+.rg-pager .is-active { background:#174DA4; color:#fff; border-color:#174DA4; }
+.rg-pager .is-disabled { opacity:.5; pointer-events:none; }
 
 /* -- Modal ------------------------------------------- */
 .hr-modal-overlay {
@@ -643,17 +653,17 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <asp:TextBox ID="txtSearch" runat="server" CssClass="ct-search-box" placeholder="Search by name, reg no, student number, programme..." AutoPostBack="false" />
             </div>
-            <asp:Button ID="btnSearch" runat="server" CssClass="hr-btn hr-btn--primary hr-btn--sm" Text="Search" OnClick="btnSearch_Click" />
+            <asp:Button ID="btnSearch" runat="server" CssClass="hr-btn hr-btn--primary hr-btn--sm" Text="Search" OnClientClick="cdApplyFilters(1); return false;" />
             <asp:Label ID="lblRecordCount" runat="server" CssClass="ct-filters__count" Text="0 records" />
         </div>
         <div class="ct-filters__row">
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">Academic Year</label>
-                <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlAcadYear_SelectedIndexChanged" />
+                <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="ct-filter-select" AutoPostBack="false" />
             </div>
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">Semester</label>
-                <asp:DropDownList ID="ddlSemester" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlSemester_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlSemester" runat="server" CssClass="ct-filter-select" AutoPostBack="false">
                     <asp:ListItem Value="" Text="All Semesters" Selected="True" />
                     <asp:ListItem Value="1" Text="Semester 1" />
                     <asp:ListItem Value="2" Text="Semester 2" />
@@ -662,7 +672,7 @@
             </div>
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">Study Year</label>
-                <asp:DropDownList ID="ddlStudyYear" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlStudyYear_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlStudyYear" runat="server" CssClass="ct-filter-select" AutoPostBack="false">
                     <asp:ListItem Value="" Text="All Years" />
                     <asp:ListItem Value="1" Text="Year 1" />
                     <asp:ListItem Value="2" Text="Year 2" />
@@ -673,7 +683,7 @@
             </div>
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">Reg Status</label>
-                <asp:DropDownList ID="ddlRegStatus" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlRegStatus_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlRegStatus" runat="server" CssClass="ct-filter-select" AutoPostBack="false">
                     <asp:ListItem Value="" Text="All Statuses" />
                     <asp:ListItem Value="UNREGISTERED" Text="Unregistered" />
                     <asp:ListItem Value="REGISTERED" Text="Registered" />
@@ -686,13 +696,13 @@
             </div>
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">Programme</label>
-                <asp:DropDownList ID="ddlProgramme" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlProgramme_SelectedIndexChanged" style="min-width:160px;">
+                <asp:DropDownList ID="ddlProgramme" runat="server" CssClass="ct-filter-select" AutoPostBack="false" style="min-width:160px;">
                     <asp:ListItem Value="" Text="All Programmes" />
                 </asp:DropDownList>
             </div>
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">Exam Clearance</label>
-                <asp:DropDownList ID="ddlExamClearance" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlExamClearance_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlExamClearance" runat="server" CssClass="ct-filter-select" AutoPostBack="false">
                     <asp:ListItem Value="" Text="All" />
                     <asp:ListItem Value="UNCLEARED" Text="Uncleared" />
                     <asp:ListItem Value="CLEARED" Text="Cleared" />
@@ -701,7 +711,7 @@
             </div>
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">ID Card</label>
-                <asp:DropDownList ID="ddlIDCard" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlIDCard_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlIDCard" runat="server" CssClass="ct-filter-select" AutoPostBack="false">
                     <asp:ListItem Value="" Text="All" />
                     <asp:ListItem Value="NOT ISSUED" Text="Not Issued" />
                     <asp:ListItem Value="ISSUED" Text="Issued" />
@@ -709,7 +719,7 @@
             </div>
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">Residence</label>
-                <asp:DropDownList ID="ddlResidence" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlResidence_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlResidence" runat="server" CssClass="ct-filter-select" AutoPostBack="false">
                     <asp:ListItem Value="" Text="All" />
                     <asp:ListItem Value="RESIDENT" Text="Resident" />
                     <asp:ListItem Value="NON-RESIDENT" Text="Non-Resident" />
@@ -717,7 +727,7 @@
             </div>
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">Billing</label>
-                <asp:DropDownList ID="ddlBilling" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlBilling_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlBilling" runat="server" CssClass="ct-filter-select" AutoPostBack="false">
                     <asp:ListItem Value="" Text="All" />
                     <asp:ListItem Value="BILLED" Text="Billed" />
                     <asp:ListItem Value="NOT BILLED" Text="Not Billed" />
@@ -726,7 +736,7 @@
             <div class="ct-filter-sep"></div>
             <div class="ct-filter-grp">
                 <label class="ct-filter-grp__label">Per Page</label>
-                <asp:DropDownList ID="ddlPageSize" runat="server" CssClass="ct-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlPageSize_Changed" style="min-width:80px;">
+                <asp:DropDownList ID="ddlPageSize" runat="server" CssClass="ct-filter-select" AutoPostBack="false" style="min-width:80px;">
                     <asp:ListItem Value="25"  Text="25" />
                     <asp:ListItem Value="50"  Text="50" Selected="True" />
                     <asp:ListItem Value="100" Text="100" />
@@ -734,7 +744,7 @@
                     <asp:ListItem Value="500" Text="All (500)" />
                 </asp:DropDownList>
             </div>
-            <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" style="align-self:flex-end;" onclick="document.getElementById('<%= btnReset.ClientID %>').click()">
+            <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" style="align-self:flex-end;" onclick="cdResetFilters()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.5"></path></svg>
                 Reset
             </button>
@@ -787,12 +797,12 @@
         CssClass="reg-grid">
         <ClientSideEvents SelectionChanged="function(s,e){ updateBatchBar(); }" />
         <SettingsBehavior AllowSelectByRowClick="false" AllowSelectSingleRowOnly="false" />
-        <SettingsPager PageSize="50" AlwaysShowPager="true" Position="Bottom">
+        <SettingsPager PageSize="50" AlwaysShowPager="false" Position="Bottom" Visible="false">
             <PageSizeItemSettings Visible="false" />
         </SettingsPager>
         <Settings ShowFilterRow="false" ShowGroupPanel="false" />
         <Styles>
-            <Header Font-Size="10px" Font-Bold="true" BackColor="#f5f7fa" ForeColor="#555" />
+            <Header Font-Size="10px" Font-Bold="true" BackColor="#ffffff" ForeColor="#555" />
             <Row Font-Size="11px" />
             <AlternatingRow Enabled="true" BackColor="#fafbfc" />
             <FilterRow BackColor="#fff" />
@@ -802,10 +812,6 @@
                 <HeaderStyle HorizontalAlign="Center" />
                 <CellStyle HorizontalAlign="Center" />
             </dx:GridViewCommandColumn>
-            <dx:GridViewDataTextColumn FieldName="regno" Caption="Reg No" Width="115px">
-                <HeaderStyle HorizontalAlign="Left" />
-                <Settings AutoFilterCondition="Contains" />
-            </dx:GridViewDataTextColumn>
             <dx:GridViewDataTextColumn FieldName="student_name" Caption="Student Name" Width="190px">
                 <HeaderStyle HorizontalAlign="Left" />
                 <Settings AutoFilterCondition="Contains" />
@@ -1029,8 +1035,8 @@
             &nbsp;|&nbsp; Semester <strong><asp:Literal ID="litSemesterDisplay" runat="server" /></strong>
             &nbsp;|&nbsp; <asp:Literal ID="litFooterCount" runat="server" Text="0 records" />
         </div>
-        <div style="color:#aaa;font-size:10px;">
-            Click a stat card above to quick-filter &nbsp;·&nbsp; Shift+click to multi-select rows
+        <div class="rg-pager">
+            <asp:Literal ID="litPager" runat="server" />
         </div>
     </div>
 </div>
@@ -1306,11 +1312,54 @@ document.addEventListener('DOMContentLoaded', function() {
         tb.addEventListener('keydown', function(e) {
             if (e.keyCode === 13) {
                 e.preventDefault();
-                document.getElementById('<%= btnSearch.ClientID %>').click();
+                cdApplyFilters(1);
             }
         });
     }
+
+    [
+        '<%= ddlAcadYear.ClientID %>',
+        '<%= ddlSemester.ClientID %>',
+        '<%= ddlStudyYear.ClientID %>',
+        '<%= ddlRegStatus.ClientID %>',
+        '<%= ddlProgramme.ClientID %>',
+        '<%= ddlExamClearance.ClientID %>',
+        '<%= ddlIDCard.ClientID %>',
+        '<%= ddlResidence.ClientID %>',
+        '<%= ddlBilling.ClientID %>',
+        '<%= ddlPageSize.ClientID %>'
+    ].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function(){ cdApplyFilters(1); });
+    });
 });
+
+function cdApplyFilters(page) {
+    var q = new URLSearchParams();
+    function put(name, id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var v = (el.value || '').trim();
+        if (v !== '') q.set(name, v);
+    }
+    put('q', '<%= txtSearch.ClientID %>');
+    put('ay', '<%= ddlAcadYear.ClientID %>');
+    put('sem', '<%= ddlSemester.ClientID %>');
+    put('sy', '<%= ddlStudyYear.ClientID %>');
+    put('rs', '<%= ddlRegStatus.ClientID %>');
+    put('prog', '<%= ddlProgramme.ClientID %>');
+    put('ec', '<%= ddlExamClearance.ClientID %>');
+    put('idc', '<%= ddlIDCard.ClientID %>');
+    put('res', '<%= ddlResidence.ClientID %>');
+    put('bill', '<%= ddlBilling.ClientID %>');
+    put('per', '<%= ddlPageSize.ClientID %>');
+    q.set('page', (page && page > 0 ? page : 1).toString());
+    window.location = window.location.pathname + '?' + q.toString();
+}
+
+function cdResetFilters() {
+    window.location = window.location.pathname;
+}
 
 // -- Action Popover ----------------------------------------------------
 function closeAllActionPopovers() {
@@ -1373,15 +1422,15 @@ function doBatch(action) {
 // -- Stat-card quick filter ------------------------------------------
 function filterByStatus(status) {
     var ddl = document.getElementById('<%= ddlRegStatus.ClientID %>');
-    if (ddl) { ddl.value = status; __doPostBack('<%= ddlRegStatus.UniqueID %>', ''); }
+    if (ddl) { ddl.value = status; cdApplyFilters(1); }
 }
 function clearStatusFilter() {
     var ddl = document.getElementById('<%= ddlRegStatus.ClientID %>');
-    if (ddl) { ddl.value = ''; __doPostBack('<%= ddlRegStatus.UniqueID %>', ''); }
+    if (ddl) { ddl.value = ''; cdApplyFilters(1); }
 }
 function filterByBilling(status) {
     var ddl = document.getElementById('<%= ddlBilling.ClientID %>');
-    if (ddl) { ddl.value = status; __doPostBack('<%= ddlBilling.UniqueID %>', ''); }
+    if (ddl) { ddl.value = status; cdApplyFilters(1); }
 }
 
 // -- Modals ---------------------------------------------------------
@@ -1577,7 +1626,7 @@ function closeRegisterAllModal() {
     document.getElementById('registerAllModal').classList.remove('open');
     // Refresh page if any students were processed
     if (_ra.registered > 0 || _ra.processed > 0) {
-        __doPostBack('<%= btnRefresh.UniqueID %>', '');
+        window.location = window.location.pathname + window.location.search;
     }
 }
 

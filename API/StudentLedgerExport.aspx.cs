@@ -9,11 +9,15 @@ using MySql.Data.MySqlClient;
 public partial class API_StudentLedgerExport : System.Web.UI.Page
 {
     // ===== Public properties consumed by the ASPX template =====
+    public string UniversityName = "Muteesa I Royal University";
+    public string UniversityLogoUrl = "~/COOPERP/images/welcomelogo.png";
     public string ErrorMessage = "";
     public string RegNo = "";
     public string StudentName = "";
     public string Programme = "";
     public string SessionType = "";
+    public string StudentPhotoUrl = "";
+    public bool HasStudentPhoto = false;
     public string AcadYear = "";
     public int StudyYear = 0;
     public int Semester = 0;
@@ -100,6 +104,9 @@ public partial class API_StudentLedgerExport : System.Web.UI.Page
                 }
             }
 
+            StudentPhotoUrl = ResolveStudentPhotoUrl(conn);
+            HasStudentPhoto = !string.IsNullOrEmpty(StudentPhotoUrl);
+
             // Latest registration → acad year, semester, study year
             using (MySqlCommand cmd = new MySqlCommand(
                 "SELECT acad_year, semester, studyyear " +
@@ -117,6 +124,52 @@ public partial class API_StudentLedgerExport : System.Web.UI.Page
                 }
             }
         }
+    }
+
+    private string ResolveStudentPhotoUrl(MySqlConnection conn)
+    {
+        if (conn == null) return "";
+
+        string photoFile = "";
+        try
+        {
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT photo FROM acad_student WHERE regno = @r LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", RegNo);
+                object val = cmd.ExecuteScalar();
+                if (val != null && val != DBNull.Value)
+                    photoFile = val.ToString().Trim();
+            }
+        }
+        catch
+        {
+            try
+            {
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT photofile FROM acad_student WHERE regno = @r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", RegNo);
+                    object val = cmd.ExecuteScalar();
+                    if (val != null && val != DBNull.Value)
+                        photoFile = val.ToString().Trim();
+                }
+            }
+            catch { }
+        }
+
+        if (string.IsNullOrEmpty(photoFile) || photoFile == "-" || photoFile.Equals("default.png", StringComparison.OrdinalIgnoreCase))
+            return "";
+
+        string localPathLower = Server.MapPath("~/COOPERP/StudentInfo/photos/" + photoFile);
+        if (System.IO.File.Exists(localPathLower))
+            return ResolveUrl("~/COOPERP/StudentInfo/photos/" + photoFile);
+
+        string localPathUpper = Server.MapPath("~/COOPERP/StudentInfo/Photos/" + photoFile);
+        if (System.IO.File.Exists(localPathUpper))
+            return ResolveUrl("~/COOPERP/StudentInfo/Photos/" + photoFile);
+
+        return "https://eadmin.mru.ac.ug/COOPERP/StudentInfo/photos/" + HttpUtility.UrlEncode(photoFile);
     }
 
     // ============================================================

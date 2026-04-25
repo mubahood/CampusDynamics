@@ -24,7 +24,7 @@
         <h1>NCHE Student Exporter - Diagnostics</h1>
         
         <%
-            string connStr = "Server=102.34.160.47;Database=campus_dynamics;Uid=dbmanager;Pwd=24thdecember1977;DefaultCommandTimeout=600";
+            string connStr = ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
             int testsPassed = 0;
             int testsFailed = 0;
             

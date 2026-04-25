@@ -519,7 +519,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                             <td class="ft-col-type"><span class='ft-badge <%# GetTypeClass(Eval("trans_type")) %>'><%# HttpUtility.HtmlEncode(SafeStr(Eval("trans_type"))) %></span></td>
                             <td class="ft-col-item"><%# HttpUtility.HtmlEncode(SafeStr(Eval("item_name"))) %></td>
                             <td class="ft-col-amt"><%# FormatAmt(Eval("amount")) %></td>
-                            <td class="ft-col-detail" title='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("detail"))) %>'><%# HttpUtility.HtmlEncode(SafeStr(Eval("detail"))) %></td>
+                            <td class="ft-col-detail" title='<%# HttpUtility.HtmlAttributeEncode(DisplayDetail(Eval("detail"), Eval("item_name"), Eval("trans_type"), Eval("TID"))) %>'><%# HttpUtility.HtmlEncode(DisplayDetail(Eval("detail"), Eval("item_name"), Eval("trans_type"), Eval("TID"))) %></td>
                             <td class="ft-col-status"><span class='ft-badge <%# GetStatusClass(Eval("post_status")) %>'><%# HttpUtility.HtmlEncode(SafeStr(Eval("post_status"))) %></span></td>
                             <td class="ft-col-date"><%# FormatDateShort(Eval("trans_date")) %></td>
                             <td class="ft-col-year"><%# HttpUtility.HtmlEncode(SafeStr(Eval("acadyear"))) %></td>
@@ -533,7 +533,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                                     data-type='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("trans_type"))) %>'
                                     data-itemcode='<%# Eval("item_code") %>'
                                     data-amount='<%# Eval("amount") %>'
-                                    data-detail='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("detail"))) %>'
+                                    data-detail='<%# HttpUtility.HtmlAttributeEncode(DisplayDetail(Eval("detail"), Eval("item_name"), Eval("trans_type"), Eval("TID"))) %>'
                                     data-status='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("post_status"))) %>'
                                     data-date='<%# FormatDateISO(Eval("trans_date")) %>'
                                     data-year='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("acadyear"))) %>'

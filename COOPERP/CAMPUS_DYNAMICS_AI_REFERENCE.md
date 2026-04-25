@@ -320,6 +320,8 @@ The portal uses three connection strings (defined in `CampusDynamics_Portal/web.
 
 > **Cross-DB access**: From the academic DB connection, reference as `campus_dynamics_portal.acad_course_registration`.
 
+> **Portal wizard persistence (confirmed):** In `CampusDynamics_Portal/CourseRegistration.aspx` (Select → Confirm → Done), each selected course is saved as a separate row in `campus_dynamics_portal.acad_course_registration` for `(regno, courseID, acad_year, semester)`. The Done step re-queries the same table to display registered courses.
+
 ### Canonical JOIN Pattern (student → programme → registration)
 ```sql
 SELECT s.progid, p.progname, sp.spec AS spec_name,

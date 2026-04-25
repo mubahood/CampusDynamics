@@ -25,6 +25,10 @@
 .po-search-input:focus{border-color:#174DA4;outline:none;}
 .po-btn-search{border:none;background:#174DA4;color:#fff;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;}
 .po-btn-reset{border:1px solid #ddd;background:#fff;color:#666;padding:6px 12px;font-size:11px;cursor:pointer;}
+.po-btn-new{border:none;background:#16a34a;color:#fff;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;}
+.po-btn-new:hover{background:#138a3e;}
+.po-btn-backfill{border:1px solid #f59e0b;background:#fff7ed;color:#9a3412;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;}
+.po-btn-backfill:hover{background:#ffedd5;}
 .po-filters__count{font-size:11px;color:#174DA4;font-weight:600;margin-left:auto;background:rgba(23,77,164,.07);padding:4px 10px;}
 .po-filters__row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
 .po-filter-grp{display:flex;align-items:center;gap:3px;}
@@ -123,6 +127,11 @@
             <span class="po-card__value"><asp:Literal ID="litEmailCount" runat="server" Text="0" /></span>
             <span class="po-card__sub">Have verified MRU email</span>
         </div>
+        <div class="po-card po-card--email">
+            <span class="po-card__label">Lecturers Email Verified</span>
+            <span class="po-card__value"><asp:Literal ID="litLecturerEmailCount" runat="server" Text="0" /></span>
+            <span class="po-card__sub">Lecturers who completed email verification</span>
+        </div>
         <div class="po-card po-card--semreg">
             <span class="po-card__label">Semester Registered</span>
             <span class="po-card__value"><asp:Literal ID="litSemRegCount" runat="server" Text="0" /></span>
@@ -139,6 +148,10 @@
             </div>
             <asp:Button ID="btnSearch" runat="server" Text="Search" CssClass="po-btn-search" OnClick="btnSearch_Click" />
             <asp:Button ID="btnReset" runat="server" Text="Reset" CssClass="po-btn-reset" OnClick="btnReset_Click" CausesValidation="false" />
+            <button type="button" class="po-btn-new" onclick="openCreateModal();">Create New</button>
+            <asp:Button ID="btnRunBackfill" runat="server" Text="Run Backfill"
+                CssClass="po-btn-backfill" OnClick="btnRunBackfill_Click" CausesValidation="false"
+                OnClientClick="return confirm('Run one-time backfill now? This will set user type and normalize verified usernames to university email where safe.');" />
             <span class="po-filters__count"><asp:Literal ID="litCount" runat="server" Text="0 records" /></span>
         </div>
         <div class="po-filters__row">
@@ -148,6 +161,16 @@
                     <asp:ListItem Value="" Text="All Verified" />
                     <asp:ListItem Value="ACTIVE STUDENT" Text="Active Students" />
                     <asp:ListItem Value="ALUMNI" Text="Alumni" />
+                    <asp:ListItem Value="LECTURER" Text="Lecturers (Email Verified)" />
+                </asp:DropDownList>
+            </div>
+            <div class="po-filter-sep"></div>
+            <div class="po-filter-grp">
+                <span class="po-filter-grp__label">User Type:</span>
+                <asp:DropDownList ID="ddlUserType" runat="server" CssClass="po-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed">
+                    <asp:ListItem Value="" Text="All" />
+                    <asp:ListItem Value="STUDENT" Text="Students" />
+                    <asp:ListItem Value="LECTURER" Text="Lecturers" />
                 </asp:DropDownList>
             </div>
             <div class="po-filter-sep"></div>
@@ -185,7 +208,8 @@
                 <tr>
                     <th class="po-col-num">#</th>
                     <th>Reg No</th>
-                    <th>Student Name</th>
+                    <th>Name</th>
+                    <th>User Type</th>
                     <th>Programme</th>
                     <th>Status</th>
                     <th style="text-align:center;">Email Verified</th>
@@ -202,6 +226,7 @@
                             <td class="po-col-num"><%# Container.ItemIndex + 1 + (CurrentPage * PageSize) %></td>
                             <td class="po-col-regno"><%# Eval("regno") %></td>
                             <td><%# Eval("student_name") %></td>
+                            <td><%# GetUserTypeBadge(Eval("user_type").ToString()) %></td>
                             <td style="font-size:10px;"><%# Eval("progname") %></td>
                             <td><%# GetStatusBadge(Eval("verification_status").ToString()) %></td>
                             <td style="text-align:center;"><%# GetYesNo(Eval("verified_email_addr").ToString() != "") %></td>
@@ -213,7 +238,7 @@
                     </ItemTemplate>
                 </asp:Repeater>
                 <asp:Panel ID="pnlNoData" runat="server" Visible="false">
-                    <tr><td colspan="10" style="text-align:center;padding:40px 20px;color:#999;font-size:13px;">No students found matching your filters.</td></tr>
+                    <tr><td colspan="11" style="text-align:center;padding:40px 20px;color:#999;font-size:13px;">No records found matching your filters.</td></tr>
                 </asp:Panel>
             </tbody>
         </table>
@@ -242,22 +267,33 @@
 <div id="editModal" class="po-modal-bg">
     <div class="po-modal">
         <div class="po-modal__hdr">
-            <h3>Edit Student Portal Info</h3>
+            <h3 id="editModalTitle">Edit Student Portal Info</h3>
             <button type="button" class="po-modal__close" onclick="closeEditModal();">&times;</button>
         </div>
         <div class="po-modal__body">
             <div id="modalResult" class="po-toast"></div>
-            <div class="po-modal__row">
+            <div class="po-modal__row" id="rowCreateRegno" style="display:none;">
+                <label>Registration Number / Username</label>
+                <input type="text" id="createRegnoInput" class="po-modal__input" placeholder="e.g. 24/U/1234 or user@mru.ac.ug" />
+            </div>
+            <div class="po-modal__row" id="rowReadRegno">
                 <label>Registration Number</label>
                 <div class="po-readonly" id="lblEditRegno"></div>
             </div>
-            <div class="po-modal__row">
+            <div class="po-modal__row" id="rowReadName">
                 <label>Student Name</label>
                 <div class="po-readonly" id="lblEditName"></div>
             </div>
-            <div class="po-modal__row">
+            <div class="po-modal__row" id="rowReadProg">
                 <label>Programme</label>
                 <div class="po-readonly" id="lblEditProg" style="font-size:11px;"></div>
+            </div>
+            <div class="po-modal__row">
+                <label>User Type</label>
+                <asp:DropDownList ID="ddlEditUserType" runat="server" CssClass="po-modal__select">
+                    <asp:ListItem Value="STUDENT" Text="Student" />
+                    <asp:ListItem Value="LECTURER" Text="Lecturer" />
+                </asp:DropDownList>
             </div>
             <div class="po-modal__row">
                 <label>Verification Status</label>
@@ -269,7 +305,11 @@
             </div>
             <div class="po-modal__row">
                 <label>Verified Email</label>
-                <asp:TextBox ID="txtEditEmail" runat="server" CssClass="po-modal__input" placeholder="student@mru.ac.ug" />
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <asp:TextBox ID="txtEditEmail" runat="server" CssClass="po-modal__input" placeholder="student@mru.ac.ug" />
+                    <button type="button" id="btnFetchEmail" class="po-modal__btn po-modal__btn--cancel" style="white-space:nowrap;" onclick="fetchEmailForModal(false);">Fetch Email</button>
+                </div>
+                <div id="emailFetchHint" style="display:none;margin-top:6px;font-size:10px;color:#666;"></div>
             </div>
         </div>
         <div class="po-modal__foot">
@@ -277,17 +317,245 @@
                 CssClass="po-modal__btn po-modal__btn--danger" OnClick="btnResetVerification_Click"
                 OnClientClick="return confirm('This will clear the student\'s verification status and email. They will need to re-verify on the portal. Continue?');" />
             <button type="button" class="po-modal__btn po-modal__btn--cancel" onclick="closeEditModal();">Cancel</button>
-            <asp:Button ID="btnSaveEdit" runat="server" Text="Save Changes" CssClass="po-modal__btn po-modal__btn--save" OnClick="btnSaveEdit_Click" />
+            <button type="button" id="btnSaveEditAjax" class="po-modal__btn po-modal__btn--save" onclick="submitPortalOnboardingAjax();">Save Changes</button>
+            <asp:Button ID="btnSaveEdit" runat="server" Text="Save Changes"
+                CssClass="po-modal__btn po-modal__btn--save" OnClick="btnSaveEdit_Click"
+                Style="display:none;" CausesValidation="false" UseSubmitBehavior="false" />
         </div>
     </div>
 </div>
 
 <script type="text/javascript">
+function showModalInlineError(msg) {
+    var r = document.getElementById('modalResult');
+    if (!r) return;
+    r.className = 'po-toast po-toast--error';
+    r.style.display = 'block';
+    r.textContent = msg || 'Validation failed.';
+}
+
+function hideModalInlineError() {
+    var r = document.getElementById('modalResult');
+    if (!r) return;
+    r.className = 'po-toast';
+    r.style.display = 'none';
+    r.textContent = '';
+}
+
+function fetchEmailForModal(triggerSubmit) {
+    if (triggerSubmit === undefined) triggerSubmit = false;
+
+    var mode = (document.getElementById('<%= hdnModalMode.ClientID %>').value || '').toUpperCase();
+    var regno = '';
+
+    if (mode === 'CREATE') regno = (document.getElementById('createRegnoInput').value || '').trim();
+    else regno = (document.getElementById('<%= hdnEditRegno.ClientID %>').value || '').trim();
+
+    if (!regno) {
+        showModalInlineError('Registration Number / Username is required.');
+        return false;
+    }
+
+    hideModalInlineError();
+
+    var saveBtn = document.getElementById('btnSaveEditAjax');
+    var fetchBtn = document.getElementById('btnFetchEmail');
+    var hint = document.getElementById('emailFetchHint');
+    var emailInput = document.getElementById('<%= txtEditEmail.ClientID %>');
+    var userType = document.getElementById('<%= ddlEditUserType.ClientID %>').value || 'STUDENT';
+    if (triggerSubmit && saveBtn) saveBtn.disabled = true;
+    if (fetchBtn) fetchBtn.disabled = true;
+    if (hint) {
+        hint.style.display = 'block';
+        hint.style.color = '#666';
+        hint.textContent = 'Fetching best email...';
+    }
+
+    fetch('PortalOnboarding.aspx?ajax=resolve_email&regno=' + encodeURIComponent(regno) + '&userType=' + encodeURIComponent(userType), {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+    })
+    .then(function (resp) { return resp.json(); })
+    .then(function (data) {
+        if (data && data.error) {
+            throw new Error(data.error);
+        }
+
+        var fetchedEmail = (data && data.email ? String(data.email).trim() : '');
+        var fetchedSource = (data && data.source ? String(data.source) : '');
+        var currentEmail = (emailInput && emailInput.value ? emailInput.value.trim() : '');
+
+        if (!currentEmail && fetchedEmail && emailInput) {
+            emailInput.value = fetchedEmail;
+            currentEmail = fetchedEmail;
+        }
+
+        if (hint) {
+            hint.style.display = 'block';
+            if (currentEmail) {
+                hint.style.color = '#2e7d32';
+                hint.textContent = fetchedSource ? ('Email ready (' + fetchedSource + ')') : 'Email ready';
+            } else {
+                hint.style.color = '#c62828';
+                hint.textContent = 'No email found automatically.';
+            }
+        }
+
+        if (!currentEmail || currentEmail.indexOf('@') < 1) {
+            showModalInlineError('Could not verify a valid email. Enter a valid email, then save again.');
+            if (saveBtn) saveBtn.disabled = false;
+            if (fetchBtn) fetchBtn.disabled = false;
+            return;
+        }
+
+        if (!triggerSubmit) {
+            if (saveBtn) saveBtn.disabled = false;
+            if (fetchBtn) fetchBtn.disabled = false;
+            return;
+        }
+
+        submitPortalOnboardingAjaxWithEmail(currentEmail);
+        if (saveBtn) saveBtn.disabled = false;
+        if (fetchBtn) fetchBtn.disabled = false;
+    })
+    .catch(function (err) {
+        showModalInlineError('Email verification check failed: ' + (err && err.message ? err.message : err));
+        if (saveBtn) saveBtn.disabled = false;
+        if (fetchBtn) fetchBtn.disabled = false;
+        if (hint) {
+            hint.style.display = 'block';
+            hint.style.color = '#c62828';
+            hint.textContent = 'Fetch failed.';
+        }
+    });
+}
+
+function getCurrentPortalMode() {
+    return (document.getElementById('<%= hdnModalMode.ClientID %>').value || '').toUpperCase();
+}
+
+function getCurrentPortalRegno() {
+    var mode = getCurrentPortalMode();
+    if (mode === 'CREATE') return (document.getElementById('createRegnoInput').value || '').trim();
+    return (document.getElementById('<%= hdnEditRegno.ClientID %>').value || '').trim();
+}
+
+function submitPortalOnboardingAjax() {
+    fetchEmailForModal(true);
+}
+
+function submitPortalOnboardingAjaxWithEmail(finalEmail) {
+    var mode = getCurrentPortalMode();
+    if (mode === 'LOAD') {
+        showModalInlineError('Record is still loading. Please wait and try again.');
+        return;
+    }
+
+    var regno = getCurrentPortalRegno();
+    var status = document.getElementById('<%= ddlEditStatus.ClientID %>').value || '';
+    var userType = document.getElementById('<%= ddlEditUserType.ClientID %>').value || 'STUDENT';
+    var saveBtn = document.getElementById('btnSaveEditAjax');
+
+    if (!regno) {
+        showModalInlineError('Registration Number / Username is required.');
+        return;
+    }
+
+    if (!finalEmail || finalEmail.indexOf('@') < 1) {
+        showModalInlineError('A valid email is required before saving.');
+        return;
+    }
+
+    if (saveBtn) saveBtn.disabled = true;
+
+    var body =
+        'mode=' + encodeURIComponent(mode) +
+        '&regno=' + encodeURIComponent(regno) +
+        '&status=' + encodeURIComponent(status) +
+        '&email=' + encodeURIComponent(finalEmail) +
+        '&userType=' + encodeURIComponent(userType);
+
+    fetch('PortalOnboarding.aspx?ajax=save_onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8', 'Accept': 'application/json' },
+        body: body
+    })
+    .then(function (resp) { return resp.json(); })
+    .then(function (data) {
+        if (data && data.error) throw new Error(data.error);
+
+        closeEditModal();
+        showPoToast((data && data.message) ? data.message : 'Saved successfully.', 'success');
+        setTimeout(function () { window.location.reload(); }, 400);
+    })
+    .catch(function (err) {
+        showModalInlineError('Save failed: ' + (err && err.message ? err.message : err));
+        if (saveBtn) saveBtn.disabled = false;
+    });
+}
+
+function configureModalForCreate() {
+    document.getElementById('editModalTitle').textContent = 'Create Portal Onboarding Record';
+    document.getElementById('rowCreateRegno').style.display = 'block';
+    document.getElementById('rowReadRegno').style.display = 'none';
+    document.getElementById('rowReadName').style.display = 'none';
+    document.getElementById('rowReadProg').style.display = 'none';
+    document.getElementById('<%= btnResetVerification.ClientID %>').style.display = 'none';
+}
+
+function configureModalForEdit() {
+    document.getElementById('editModalTitle').textContent = 'Edit Student Portal Info';
+    document.getElementById('rowCreateRegno').style.display = 'none';
+    document.getElementById('rowReadRegno').style.display = 'block';
+    document.getElementById('rowReadName').style.display = 'block';
+    document.getElementById('rowReadProg').style.display = 'block';
+    document.getElementById('<%= btnResetVerification.ClientID %>').style.display = '';
+}
+
+function openCreateModal() {
+    document.getElementById('<%= hdnEditRegno.ClientID %>').value = '';
+    document.getElementById('<%= hdnModalMode.ClientID %>').value = 'CREATE';
+    configureModalForCreate();
+    document.getElementById('createRegnoInput').value = '';
+    document.getElementById('lblEditRegno').textContent = '';
+    document.getElementById('lblEditName').textContent = '';
+    document.getElementById('lblEditProg').textContent = '';
+    document.getElementById('<%= ddlEditUserType.ClientID %>').value = 'STUDENT';
+    document.getElementById('<%= ddlEditStatus.ClientID %>').value = 'ACTIVE STUDENT';
+    document.getElementById('<%= txtEditEmail.ClientID %>').value = '';
+    var hint = document.getElementById('emailFetchHint');
+    if (hint) { hint.style.display = 'none'; hint.textContent = ''; }
+    var r = document.getElementById('modalResult');
+    r.className = 'po-toast';
+    r.style.display = 'none';
+    r.textContent = '';
+    showEditModal();
+}
+
 function openEditModal(regno) {
     document.getElementById('<%= hdnEditRegno.ClientID %>').value = regno;
     document.getElementById('<%= hdnModalMode.ClientID %>').value = 'LOAD';
+    configureModalForEdit();
     __doPostBack('<%= btnSaveEdit.UniqueID %>', '');
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    var regInput = document.getElementById('createRegnoInput');
+    if (regInput) {
+        regInput.addEventListener('blur', function () {
+            var mode = (document.getElementById('<%= hdnModalMode.ClientID %>').value || '').toUpperCase();
+            if (mode === 'CREATE') fetchEmailForModal(false);
+        });
+    }
+
+    var userTypeSel = document.getElementById('<%= ddlEditUserType.ClientID %>');
+    if (userTypeSel) {
+        userTypeSel.addEventListener('change', function () {
+            fetchEmailForModal(false);
+        });
+    }
+});
+
 function closeEditModal() {
     document.getElementById('editModal').style.display = 'none';
 }

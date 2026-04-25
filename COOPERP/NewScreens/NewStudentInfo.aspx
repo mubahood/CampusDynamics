@@ -82,13 +82,13 @@
         .cd-filters {
             background: #f8f9fa;
             border-bottom: 1px solid #e0e0e0;
-            padding: 8px 12px;
+            padding: 6px 8px;
         }
         .cd-filters__top {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 6px;
+            gap: 6px;
+            margin-bottom: 4px;
         }
         .cd-search-wrap {
             position: relative;
@@ -106,9 +106,9 @@
         .cd-search-input {
             width: 100%;
             border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 6px 10px 6px 30px;
-            font-size: 12px;
+            border-radius: 5px;
+            padding: 5px 8px 5px 28px;
+            font-size: 11px;
             background: #fff;
             transition: border-color 0.15s, box-shadow 0.15s;
         }
@@ -122,9 +122,9 @@
             border: none;
             background: #174DA4;
             color: #fff;
-            border-radius: 6px;
-            padding: 6px 14px;
-            font-size: 11px;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 10px;
             font-weight: 600;
             cursor: pointer;
             white-space: nowrap;
@@ -135,9 +135,9 @@
             border: 1px solid #ddd;
             background: #fff;
             color: #666;
-            border-radius: 6px;
-            padding: 6px 12px;
-            font-size: 11px;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 10px;
             cursor: pointer;
             white-space: nowrap;
             transition: all 0.15s;
@@ -155,7 +155,7 @@
         }
         .cd-filters__row {
             display: flex;
-            gap: 6px;
+            gap: 4px;
             flex-wrap: wrap;
             align-items: center;
         }
@@ -165,7 +165,7 @@
             gap: 3px;
         }
         .cd-filter-grp__label {
-            font-size: 10px;
+            font-size: 9px;
             color: #888;
             text-transform: uppercase;
             letter-spacing: 0.3px;
@@ -174,13 +174,14 @@
         .cd-filter-select {
             border: 1px solid #ddd;
             border-radius: 4px;
-            padding: 4px 6px;
-            font-size: 11px;
-            min-width: 120px;
+            padding: 3px 5px;
+            font-size: 10px;
+            min-width: 100px;
             background: #fff;
             color: #333;
             transition: border-color 0.15s;
             cursor: pointer;
+            height: 26px;
         }
         .cd-filter-select:focus {
             border-color: #174DA4;
@@ -191,6 +192,125 @@
             height: 20px;
             background: #ddd;
             margin: 0 2px;
+        }
+
+        .cd-page-head {
+            padding: 8px 10px;
+            border-bottom: 1px solid #edf1f6;
+            background: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .cd-page-title {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            color: #05275C;
+            line-height: 1.2;
+        }
+        .cd-page-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .cd-btn-register {
+            text-decoration: none;
+            background: #05275C;
+            border-color: #05275C;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: #fff;
+        }
+        .cd-btn-register:hover {
+            background: #174DA4;
+            border-color: #174DA4;
+            color: #fff;
+        }
+
+        .cd-grid-wrap {
+            border-top: 1px solid #eef2f6;
+            background: #fff;
+            overflow: auto;
+        }
+        .cd-grid .dxgvTable {
+            border-collapse: collapse !important;
+        }
+        .cd-grid .dxgvHeader {
+            background: #fff !important;
+            border-bottom: 1px solid #e0e5ed !important;
+            font-size: 9px !important;
+            text-transform: uppercase;
+            letter-spacing: .45px;
+            color: #64748b !important;
+            font-weight: 800 !important;
+            padding: 6px 5px !important;
+        }
+        .cd-grid .dxgvDataRow td,
+        .cd-grid .dxgvDataAltRow td {
+            border-bottom: 1px solid #eef2f6 !important;
+            font-size: 10px !important;
+            color: #1f2937 !important;
+            padding: 3px 4px !important;
+            background: #fff !important;
+        }
+        .cd-grid .dxgvDataRowHover td,
+        .cd-grid .dxgvDataAltRowHover td {
+            background: #fafcff !important;
+        }
+        .cd-grid .dxgvPagerBottomPanel {
+            border-top: 1px solid #e0e5ed !important;
+            background: #fff !important;
+            padding: 6px 10px !important;
+        }
+        .cd-grid .dxpLite,
+        .cd-grid .dxpSummary {
+            font-size: 10px !important;
+            color: #64748b !important;
+        }
+
+        .cd-getpager {
+            padding: 6px 10px;
+            border-top: 1px solid #e0e5ed;
+            background: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: 10px;
+            color: #64748b;
+        }
+        .cd-getpager__links {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .cd-getpager__links a,
+        .cd-getpager__links span {
+            border: 1px solid #d4dbe8;
+            background: #fff;
+            color: #334155;
+            text-decoration: none;
+            font-size: 9px;
+            padding: 3px 7px;
+            border-radius: 6px;
+        }
+        .cd-getpager__links a:hover {
+            color: #174DA4;
+            border-color: #174DA4;
+            background: #f4f8ff;
+        }
+        .cd-getpager__links .active {
+            background: #05275C;
+            border-color: #05275C;
+            color: #fff;
         }
         
         /* Student Profile Popup Scrolling Fix */
@@ -966,6 +1086,154 @@
             font-style: italic;
             color: #aaa;
         }
+
+        /* Popup Redesign Overrides */
+        .sp-popup .dxpc-mainDiv {
+            border: 1px solid #e3e9f2 !important;
+            border-radius: 10px !important;
+            overflow: hidden !important;
+            box-shadow: 0 20px 48px rgba(2, 8, 23, 0.22) !important;
+            background: #fff !important;
+        }
+        .sp-popup .dxpc-header {
+            background: #fff !important;
+            border-bottom: 1px solid #edf1f6 !important;
+            color: #05275C !important;
+            font-size: 12px !important;
+            font-weight: 900 !important;
+            letter-spacing: .55px !important;
+            text-transform: uppercase;
+            padding: 8px 10px !important;
+        }
+        .sp-popup .dxpc-closeButton,
+        .sp-popup .dxpcCloseButton {
+            opacity: .8;
+        }
+        .sp-popup .dxpc-closeButton:hover,
+        .sp-popup .dxpcCloseButton:hover {
+            opacity: 1;
+        }
+        .sp-profile-container {
+            max-height: calc(78vh - 36px) !important;
+            background: #fff;
+        }
+        .sp-profile-header {
+            display: flex;
+            gap: 10px;
+            padding: 8px 10px;
+            background: #fff;
+            border-bottom: 1px solid #eef2f6;
+            align-items: flex-start;
+        }
+        .sp-profile-header-actions {
+            margin-left: auto;
+            flex-shrink: 0;
+            padding-top: 2px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .sp-full-edit-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .35px;
+            text-decoration: none;
+            cursor: pointer;
+            white-space: nowrap;
+            color: #fff;
+            background: #05275C;
+            border: 1px solid #05275C;
+        }
+        .sp-full-edit-btn:hover {
+            color: #fff;
+            background: #174DA4;
+            border-color: #174DA4;
+        }
+        .sp-profile-photo {
+            width: 68px;
+            height: 82px;
+            border: 1px solid #d7e0ec;
+        }
+        .sp-profile-signature {
+            width: 56px;
+            height: 20px;
+        }
+        .sp-profile-name {
+            font-size: 14px;
+            color: #05275C;
+        }
+        .sp-profile-regno {
+            font-size: 11px;
+        }
+        .sp-profile-programme,
+        .sp-profile-specialisation {
+            font-size: 10px;
+        }
+        .sp-profile-tabs-wrapper .dxtc-stripContainer {
+            background: #fff !important;
+            border-bottom: 1px solid #e6ecf3 !important;
+            padding: 0 6px !important;
+        }
+        .sp-profile-tabs-wrapper .dxtc-tab {
+            padding: 4px 7px !important;
+            font-size: 9px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase;
+            letter-spacing: .35px;
+            border-radius: 4px 4px 0 0 !important;
+            margin: 2px 1px 0 !important;
+            color: #64748b !important;
+        }
+        .sp-profile-tabs-wrapper .dxtc-activeTab {
+            color: #05275C !important;
+            border-color: #dbe6f3 !important;
+            background: #fff !important;
+        }
+        .sp-tab-content {
+            padding: 10px;
+        }
+        .sp-data-table {
+            font-size: 9px;
+        }
+        .sp-data-table th {
+            background: #fff;
+            border-top: 1px solid #edf1f6;
+            border-bottom: 1px solid #edf1f6;
+            color: #64748b;
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: .35px;
+            padding: 4px 5px;
+        }
+        .sp-data-table td {
+            padding: 4px 5px;
+            border-bottom: 1px solid #f0f3f7;
+            font-size: 10px;
+        }
+        .sp-semester-group__header {
+            font-size: 10px;
+            padding: 5px 8px;
+            background: #f8fafc;
+            border: 1px solid #e7edf5;
+            color: #334155;
+        }
+        .sp-summary-card {
+            border-radius: 6px;
+            border: 1px solid #e5ebf3;
+            border-left-width: 3px;
+            background: #fff;
+            padding: 8px;
+        }
+        .sp-empty {
+            padding: 20px;
+            font-size: 10px;
+            color: #94a3b8;
+        }
         
         /* Responsive */
         @media (max-width: 768px) {
@@ -988,14 +1256,14 @@
     
     <div class="cd-card">
         <!-- Page Header with Title and Batch Operations -->
-        <div style="padding: 10px 12px; border-bottom: 1px solid #e0e0e0; background: #fff; display: flex; justify-content: space-between; align-items: center;">
-            <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #174DA4;">
+        <div class="cd-page-head">
+            <h2 class="cd-page-title">
                 <asp:Literal ID="litPageTitle" runat="server" Text="Student Records"></asp:Literal>
             </h2>
             
             <!-- Batch Operations Button -->
-            <div style="display:flex;gap:8px;align-items:center;">
-                <a href="NewStudentRegistration.aspx?returnUrl=NewStudentInfo.aspx%3Fstatus%3DALL" class="cd-btn cd-btn--primary cd-btn--sm" style="text-decoration:none;background:#00695c;border-color:#00695c;display:inline-flex;align-items:center;gap:5px;">
+            <div class="cd-page-actions">
+                <a href="NewStudentRegistration.aspx?returnUrl=NewStudentInfo.aspx%3Fstatus%3DALL" class="cd-btn cd-btn--primary cd-btn--sm cd-btn-register">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
                     Register New Student
                 </a>
@@ -1047,15 +1315,15 @@
                     <svg class="cd-search-wrap__icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <asp:TextBox ID="txtSearch" runat="server" CssClass="cd-search-input" placeholder="Search by name, reg no, entry no, phone or email..." />
                 </div>
-                <asp:Button ID="btnSearch" runat="server" Text="Search" CssClass="cd-btn-search" OnClick="btnSearch_Click" />
-                <asp:Button ID="btnResetFilters" runat="server" Text="✕ Reset All" CssClass="cd-btn-reset" OnClick="btnResetFilters_Click" />
+                <asp:Button ID="btnSearch" runat="server" Text="Search" CssClass="cd-btn-search" OnClick="btnSearch_Click" UseSubmitBehavior="false" OnClientClick="return cdApplyFilters();" />
+                <asp:Button ID="btnResetFilters" runat="server" Text="✕ Reset All" CssClass="cd-btn-reset" OnClick="btnResetFilters_Click" UseSubmitBehavior="false" OnClientClick="return cdResetFilters();" />
                 <asp:Literal ID="litStudentCount" runat="server" />
             </div>
             <!-- Row 2: Dropdown filters -->
             <div class="cd-filters__row">
                 <div class="cd-filter-grp">
                     <span class="cd-filter-grp__label">Status</span>
-                    <asp:DropDownList ID="ddlFilterStatus" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterStatus_SelectedIndexChanged" style="min-width: 110px;">
+                    <asp:DropDownList ID="ddlFilterStatus" runat="server" CssClass="cd-filter-select" AutoPostBack="false" OnSelectedIndexChanged="ddlFilterStatus_SelectedIndexChanged" style="min-width: 90px;" onchange="cdApplyFilters()">
                         <asp:ListItem Value="" Text="All"></asp:ListItem>
                         <asp:ListItem Value="ADMITTED" Text="Admitted"></asp:ListItem>
                         <asp:ListItem Value="ACTIVE" Text="Active"></asp:ListItem>
@@ -1067,57 +1335,60 @@
                 <div class="cd-filter-sep"></div>
                 <div class="cd-filter-grp">
                     <span class="cd-filter-grp__label">Faculty</span>
-                    <asp:DropDownList ID="ddlFilterFaculty" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterFaculty_SelectedIndexChanged">
+                    <asp:DropDownList ID="ddlFilterFaculty" runat="server" CssClass="cd-filter-select" AutoPostBack="false" OnSelectedIndexChanged="ddlFilterFaculty_SelectedIndexChanged" onchange="cdApplyFilters()">
                         <asp:ListItem Value="" Text="All"></asp:ListItem>
                     </asp:DropDownList>
                 </div>
                 <div class="cd-filter-sep"></div>
                 <div class="cd-filter-grp">
                     <span class="cd-filter-grp__label">Programme</span>
-                    <dx:ASPxComboBox ID="ddlFilterProgramme" runat="server" 
-                        ValueType="System.String" TextField="progname" ValueField="progcode"
-                        IncrementalFilteringMode="Contains" EnableCallbackMode="false"
-                        DropDownStyle="DropDownList" Width="200px"
-                        AutoPostBack="true" OnSelectedIndexChanged="ddlFilterProgramme_SelectedIndexChanged"
-                        NullText="All">
-                        <ClearButton DisplayMode="Always" />
-                    </dx:ASPxComboBox>
+                    <asp:DropDownList ID="ddlFilterProgramme" runat="server" CssClass="cd-filter-select" style="min-width:160px;"
+                        AutoPostBack="false" OnSelectedIndexChanged="ddlFilterProgramme_SelectedIndexChanged" onchange="cdApplyFilters()">
+                        <asp:ListItem Value="" Text="All"></asp:ListItem>
+                    </asp:DropDownList>
                 </div>
                 <div class="cd-filter-sep"></div>
                 <div class="cd-filter-grp">
                     <span class="cd-filter-grp__label">Year</span>
-                    <asp:DropDownList ID="ddlFilterEntryYear" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterEntryYear_SelectedIndexChanged" style="min-width: 70px;">
+                    <asp:DropDownList ID="ddlFilterEntryYear" runat="server" CssClass="cd-filter-select" AutoPostBack="false" OnSelectedIndexChanged="ddlFilterEntryYear_SelectedIndexChanged" style="min-width: 62px;" onchange="cdApplyFilters()">
                         <asp:ListItem Value="" Text="All"></asp:ListItem>
                     </asp:DropDownList>
                 </div>
                 <div class="cd-filter-sep"></div>
                 <div class="cd-filter-grp">
                     <span class="cd-filter-grp__label">Session</span>
-                    <asp:DropDownList ID="ddlFilterSession" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterSession_SelectedIndexChanged" style="min-width: 80px;">
+                    <asp:DropDownList ID="ddlFilterSession" runat="server" CssClass="cd-filter-select" AutoPostBack="false" OnSelectedIndexChanged="ddlFilterSession_SelectedIndexChanged" style="min-width: 72px;" onchange="cdApplyFilters()">
                         <asp:ListItem Value="" Text="All"></asp:ListItem>
                     </asp:DropDownList>
                 </div>
                 <div class="cd-filter-sep"></div>
                 <div class="cd-filter-grp">
                     <span class="cd-filter-grp__label">Campus</span>
-                    <asp:DropDownList ID="ddlFilterCampus" runat="server" CssClass="cd-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilterCampus_SelectedIndexChanged" style="min-width: 90px;">
+                    <asp:DropDownList ID="ddlFilterCampus" runat="server" CssClass="cd-filter-select" AutoPostBack="false" OnSelectedIndexChanged="ddlFilterCampus_SelectedIndexChanged" style="min-width: 78px;" onchange="cdApplyFilters()">
                         <asp:ListItem Value="" Text="All"></asp:ListItem>
                     </asp:DropDownList>
+                </div>
+                <div class="cd-filter-sep"></div>
+                <div class="cd-filter-grp">
+                    <span class="cd-filter-grp__label">Per Page</span>
+                    <select id="cdPageSize" class="cd-filter-select" style="min-width:70px;" onchange="cdApplyFilters()">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
                 </div>
             </div>
         </div>
         
-        <div class="cd-card__body cd-p-0">
+        <div class="cd-card__body cd-p-0 cd-grid-wrap">
             <dx:ASPxGridView ID="gvStudents" runat="server" AutoGenerateColumns="False" 
-                KeyFieldName="regno" Width="100%" ClientInstanceName="gvStudents"
+            KeyFieldName="regno" Width="100%" ClientInstanceName="gvStudents" CssClass="cd-grid"
                 OnRowUpdating="gvStudents_RowUpdating" OnRowDeleting="gvStudents_RowDeleting"
-                EnableTheming="True" Theme="Glass" EnableCallBacks="false">
+            EnableTheming="False" EnableCallBacks="false">
                 
-                <SettingsPager PageSize="20" AlwaysShowPager="true" Position="Bottom">
-                    <Summary Text="Page {0} of {1} ({2} students)" />
-                </SettingsPager>
+                <SettingsPager Mode="ShowAllRecords" />
                 
-                <Settings ShowFilterRow="True" ShowFilterRowMenu="True" HorizontalScrollBarMode="Auto" />
+                <Settings ShowFilterRow="False" ShowFilterRowMenu="False" HorizontalScrollBarMode="Auto" />
                 <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" />
                 <SettingsEditing Mode="PopupEditForm" />
                 <SettingsDataSecurity AllowDelete="False" />
@@ -1275,7 +1546,7 @@
                         </DataItemTemplate>
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Curriculum Set" FieldName="is_curriculum_fully_set" VisibleIndex="17" Width="80px" ReadOnly="True">
+                    <dx:GridViewDataTextColumn Caption="Curriculum Set" FieldName="is_curriculum_fully_set" VisibleIndex="17" Width="80px" ReadOnly="True" Visible="False">
                         <EditFormSettings Visible="False" />
                         <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
                         <CellStyle HorizontalAlign="Center" />
@@ -1286,7 +1557,7 @@
                         </DataItemTemplate>
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Fail Reason" FieldName="fail_reason" VisibleIndex="18" Width="150px" ReadOnly="True">
+                    <dx:GridViewDataTextColumn Caption="Fail Reason" FieldName="fail_reason" VisibleIndex="18" Width="150px" ReadOnly="True" Visible="False">
                         <EditFormSettings Visible="False" />
                         <HeaderStyle Font-Size="11px" />
                         <CellStyle Font-Size="10px" />
@@ -1352,7 +1623,7 @@
                         <HeaderStyle Font-Size="11px" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Old Status" FieldName="stud_status" VisibleIndex="22" Width="70px" ReadOnly="True">
+                    <dx:GridViewDataTextColumn Caption="Old Status" FieldName="stud_status" VisibleIndex="22" Width="70px" ReadOnly="True" Visible="False">
                         <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
                         <CellStyle HorizontalAlign="Center" ForeColor="#999999" />
                         <EditFormSettings Visible="False" />
@@ -1449,6 +1720,12 @@
                 </Styles>
                 
             </dx:ASPxGridView>
+            <div class="cd-getpager">
+                <asp:Literal ID="litPageInfo" runat="server" />
+                <div class="cd-getpager__links">
+                    <asp:Literal ID="litPager" runat="server" />
+                </div>
+            </div>
         </div>
     </div>
     
@@ -1461,19 +1738,19 @@
     <!-- Student Profile Modal (Server-loaded) -->
     <dx:ASPxPopupControl ID="popStudentProfile" runat="server" 
         ClientInstanceName="popStudentProfile"
-        Width="950px" Height="780px"
+        Width="1020px" Height="740px"
         PopupHorizontalAlign="WindowCenter" PopupVerticalAlign="WindowCenter"
         Modal="True" CloseAction="CloseButton"
         HeaderText="Student Profile" CssClass="sp-popup"
         AllowDragging="true" ShowCloseButton="true"
         EnableCallbackAnimation="false" LoadContentViaCallback="None">
-        <HeaderStyle BackColor="#174DA4" ForeColor="White" Font-Size="13px" Font-Bold="True" Paddings-Padding="10px" />
+        <HeaderStyle BackColor="White" ForeColor="#05275C" Font-Size="12px" Font-Bold="True" Paddings-Padding="8px" />
         <ContentStyle Paddings-Padding="0px" />
         <ContentCollection>
             <dx:PopupControlContentControl runat="server">
                 <asp:Panel ID="pnlProfileContent" runat="server" CssClass="sp-profile-container">
                     <!-- Profile Header -->
-                    <div class="sp-profile-header" style="display:flex;align-items:flex-start;">
+                    <div class="sp-profile-header">
                         <div class="sp-profile-photo-wrap">
                             <asp:Image ID="imgProfilePhoto" runat="server" CssClass="sp-profile-photo" />
                             <asp:Image ID="imgProfileSignature" runat="server" CssClass="sp-profile-signature" Visible="false" />
@@ -1503,8 +1780,8 @@
                             </div>
                             <!-- Full Edit Button -->
                         </div>
-                        <div style="margin-left:auto;flex-shrink:0;padding-top:4px;">
-                            <a id="lnkFullEdit" runat="server" class="nsr-btn" style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#e65100;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;border:none;white-space:nowrap;"
+                        <div class="sp-profile-header-actions">
+                            <a id="lnkFullEdit" runat="server" class="sp-full-edit-btn"
                                title="Open full edit form for this student">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                 Full Edit
@@ -1743,7 +2020,7 @@
                                 </ContentCollection>
                             </dx:TabPage>
                             
-                            <dx:TabPage Text="All Results (Direct)">
+                            <dx:TabPage Text="All Results (Direct)" Visible="False">
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
                                         <div style="padding: 12px;">
@@ -1845,7 +2122,7 @@
                                 </ContentCollection>
                             </dx:TabPage>
                                 
-                                <dx:TabPage Text="Validation">
+                                <dx:TabPage Text="Validation" Visible="False">
                                     <ContentCollection>
                                         <dx:ContentControl runat="server">
                                             <div class="sp-tab-content" style="padding: 0;">
@@ -1896,7 +2173,7 @@
                                     </ContentCollection>
                                 </dx:TabPage>
                             
-                            <dx:TabPage Text="Faculty Registration">
+                            <dx:TabPage Text="Faculty Registration" Visible="False">
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
                                         <div class="sp-tab-content">
@@ -1941,7 +2218,7 @@
                                 </ContentCollection>
                             </dx:TabPage>
                             
-                            <dx:TabPage Text="Course Registration">
+                            <dx:TabPage Text="Course Registration" Visible="False">
                                 <ContentCollection>
                                     <dx:ContentControl runat="server">
                                         <div class="sp-tab-content">
@@ -2182,6 +2459,41 @@
     </div>
     
     <script type="text/javascript">
+        function cdQueryParam(name) {
+            var params = new URLSearchParams(window.location.search);
+            return params.get(name) || '';
+        }
+
+        function cdApplyFilters() {
+            var q = document.getElementById('<%= txtSearch.ClientID %>').value || '';
+            var status = document.getElementById('<%= ddlFilterStatus.ClientID %>').value || '';
+            var faculty = document.getElementById('<%= ddlFilterFaculty.ClientID %>').value || '';
+            var prog = document.getElementById('<%= ddlFilterProgramme.ClientID %>').value || '';
+            var year = document.getElementById('<%= ddlFilterEntryYear.ClientID %>').value || '';
+            var session = document.getElementById('<%= ddlFilterSession.ClientID %>').value || '';
+            var campus = document.getElementById('<%= ddlFilterCampus.ClientID %>').value || '';
+            var size = document.getElementById('cdPageSize').value || '20';
+
+            var params = new URLSearchParams();
+            if (q.trim() !== '') params.set('q', q.trim());
+            if (status !== '') params.set('status', status);
+            if (faculty !== '') params.set('faculty', faculty);
+            if (prog !== '') params.set('prog', prog);
+            if (year !== '') params.set('entryyear', year);
+            if (session !== '') params.set('session', session);
+            if (campus !== '') params.set('campus', campus);
+            params.set('size', size);
+            params.set('page', '1');
+
+            window.location.href = 'NewStudentInfo.aspx?' + params.toString();
+            return false;
+        }
+
+        function cdResetFilters() {
+            window.location.href = 'NewStudentInfo.aspx';
+            return false;
+        }
+
         function toggleActionPopover(btn, e) {
             if (e) {
                 e.preventDefault();
@@ -2230,6 +2542,22 @@
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.cd-action-wrapper')) {
                 closeAllPopovers();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var pageSize = cdQueryParam('size') || '20';
+            var ddlPageSize = document.getElementById('cdPageSize');
+            if (ddlPageSize) ddlPageSize.value = pageSize;
+
+            var searchInput = document.getElementById('<%= txtSearch.ClientID %>');
+            if (searchInput) {
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        cdApplyFilters();
+                    }
+                });
             }
         });
         

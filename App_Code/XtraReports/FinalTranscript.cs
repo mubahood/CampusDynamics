@@ -1041,7 +1041,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
         // Subreports (results table column headers) always stay at compact positions.
         // Only the band height changes: grow downward to reveal the thesis block.
         xrLabel29.LocationFloat    = new DevExpress.Utils.PointFloat(671.8702F, 250.8619F);
-        xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3.803968F,  265.036F);
+        xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(5.803968F,  265.036F);
         xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(392.8836F,  264.5572F);
         xrCrossBandBox1.LocationFloat    = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);
         xrCrossBandBox1.StartPointFloat  = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);

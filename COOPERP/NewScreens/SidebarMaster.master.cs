@@ -40,6 +40,9 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             case "newdashboard":
                 title = "Dashboard";
                 break;
+            case "programmesdashboard":
+                title = "Programmes Dashboard";
+                break;
             case "newfaculties":
                 title = "Faculties";
                 break;
@@ -52,11 +55,159 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             case "newprogrammecourses":
                 title = "Programme Courses";
                 break;
+            case "programmelecturers":
+                title = "Lecturers";
+                break;
+            case "programmelecturerloads":
+                title = "Lecturer Loads";
+                break;
+            case "programmeloadrequests":
+                title = "Load Requests";
+                break;
             case "newcourses":
                 title = "Course Bank";
                 break;
             case "newstudentinfo":
                 title = "Student Records";
+                break;
+            // Student Lists
+            case "activestudents":
+                title = "Active Students";
+                break;
+            case "admittedstudents":
+                title = "Admitted Students";
+                break;
+            case "allstudents":
+                title = "All Students";
+                break;
+            case "alumnistudents":
+                title = "Alumni";
+                break;
+            // Student Registration
+            case "newstudentregistration":
+                title = "Register New Student";
+                break;
+            case "studentsregistration":
+                title = "Semester Registration";
+                break;
+            case "studentsspecialisation":
+                title = "Specialisations";
+                break;
+            case "studentspromotion":
+                title = "Year Promotions";
+                break;
+            case "enrollmentanalysis":
+                title = "Enrolment Analysis";
+                break;
+            // Student Services
+            case "studentsidcards":
+                title = "ID Cards";
+                break;
+            case "idcardstatus":
+                title = "ID Card Status";
+                break;
+            case "studentdocuments":
+                title = "Student Documents";
+                break;
+            case "residenceallocation":
+                title = "Residence Allocation";
+                break;
+            case "portalonboarding":
+                title = "Portal Onboarding";
+                break;
+            case "ncheexporter":
+                title = "NCHE Data Export";
+                break;
+            case "nchestudentexporter":
+                title = "NCHE Student Exporter";
+                break;
+            // Course Registration & Exam Administration
+            case "courseregistration":
+                title = "Course Registration";
+                break;
+            case "examresultsinfo":
+                title = "Exam Results Info";
+                break;
+            case "examapproval":
+                title = "Exam Approval & Printing";
+                break;
+            case "generalmarksheets":
+                title = "General Marksheets";
+                break;
+            case "researchmarksheets":
+                title = "Research Marksheets";
+                break;
+            // Results Processing
+            case "academicresults":
+                title = "Academic Results";
+                break;
+            case "resultsrelease":
+                title = "Results Release";
+                break;
+            case "resultsupdates":
+                title = "Change Marks Request";
+                break;
+            case "resultsholdlist":
+                title = "Hold List";
+                break;
+            case "resultsauditlog":
+                title = "Results Audit Log";
+                break;
+            case "marksaudittrail":
+                title = "Marks Audit Trail";
+                break;
+            // Performance & Analytics
+            case "resultsanalytics":
+                title = "Analytics Dashboard";
+                break;
+            case "studentresultsview":
+                title = "Student Results View";
+                break;
+            case "graduationcentre":
+                title = "Graduation Centre";
+                break;
+            case "graduationanalysis":
+                title = "Graduation Analysis";
+                break;
+            case "documentcentre":
+                title = "Document Centre";
+                break;
+            // Fees Module
+            case "feesmanagement":
+                title = "Fees Dashboard";
+                break;
+            case "feesstructure":
+                title = "Fee Structure & Settings";
+                break;
+            case "feesregistration":
+                title = "Fee Registration";
+                break;
+            case "feesaudittrail":
+                title = "Fees Audit Trail";
+                break;
+            case "otherfeesbilling":
+                title = "Other Fees Billing";
+                break;
+            case "billwaivers":
+                title = "Bill Waivers";
+                break;
+            case "feestransactions":
+                title = "Transactions";
+                break;
+            case "studentledgers":
+                title = "Student Ledgers";
+                break;
+            case "bursarydashboard":
+                title = "Bursary Dashboard";
+                break;
+            case "bursaryschemes":
+                title = "Bursary Schemes";
+                break;
+            case "bursarybeneficiaries":
+                title = "Bursary Beneficiaries";
+                break;
+            case "systemvalidationstats":
+                title = "System Validation Stats";
                 break;
             // Finance Module
             case "financedashboard":

@@ -34,6 +34,17 @@
 .me-rejection { background: #fce4ec; border-left: 3px solid #c62828; padding: 10px 14px; margin-bottom: 12px; font-size: 11px; color: #c62828; }
 .me-rejection strong { font-weight: 700; }
 
+/* Provisional Review Status Banner */
+.me-prov-banner { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:9px 14px; margin-bottom:12px; font-size:11px; border-left:3px solid; }
+.me-prov-banner--pending   { background:#fff8e1; border-color:#f9a825; color:#795548; }
+.me-prov-banner--approved  { background:#e8f5e9; border-color:#2e7d32; color:#2e7d32; }
+.me-prov-banner--rejected  { background:#fce4ec; border-color:#c62828; color:#c62828; }
+.me-prov-banner--published { background:#e8f0fc; border-color:#174DA4; color:#174DA4; }
+.me-prov-banner__left { display:flex; align-items:center; gap:8px; }
+.me-prov-banner__badge { font-weight:800; text-transform:uppercase; letter-spacing:.35px; font-size:10px; padding:2px 7px; background:rgba(0,0,0,.08); border-radius:2px; }
+.me-prov-banner__counts { font-size:10px; opacity:.85; }
+.me-prov-banner__link { font-size:10px; font-weight:700; color:inherit; text-decoration:underline; cursor:pointer; white-space:nowrap; }
+
 /* Toolbar */
 .me-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; background: #f8f9fb; border: 1px solid #e0e5ed; margin-bottom: 12px; flex-wrap: wrap; }
 .me-toolbar__left { display: flex; align-items: center; gap: 8px; }
@@ -247,6 +258,7 @@
     /* Hide non-printable elements */
     .cd-sidebar, .cd-topbar, .me-toolbar, .me-keyboard, .me-archive-banner,
     .me-modal-overlay, .me-reconcile, .me-toast, .me-loading, .me-rejection,
+    #meProvBanner, .me-prov-banner,
     .me-dist, .me-missing, .me-unlock-modal, #meSubmitOverlay,
     #meImportOverlay, #meUnlockOverlay, #meReconcilePanel, #meSummary { display: none !important; }
 
@@ -327,6 +339,9 @@
 
 <!-- Rejection Banner -->
 <div id="meRejection" class="me-rejection" style="display:none;"></div>
+
+<!-- Provisional Marks Review Status Banner -->
+<div id="meProvBanner" style="display:none;"></div>
 
 <!-- Toolbar -->
 <div id="meToolbar" class="me-toolbar" style="display:none;">
@@ -595,6 +610,7 @@ var ME = (function () {
             renderArchiveBanner();
             renderLocks(data.lockState);
             renderRejection(data.rejectReason);
+            renderProvisionalBanner(data);
             renderTable();
             updateSummary();
 
@@ -677,12 +693,49 @@ var ME = (function () {
         }
     }
 
-    // ── Render Rejection Banner ────────────────────────────────────
+    // ── Render Rejection Banner ─────────────────────────────────
     function renderRejection(reason) {
         var el_ = el('meRejection');
         if (!reason) { el_.style.display = 'none'; return; }
         el_.style.display = '';
         el_.innerHTML = '<strong>Rejected by Dean:</strong> ' + esc(reason) + ' — Please correct and re-submit.';
+    }
+
+    // ── Render Provisional Marks Review Status Banner ───────────────
+    function renderProvisionalBanner(d) {
+        var banner = el('meProvBanner');
+        var total = d.provTotal || 0;
+        if (!total) { banner.style.display = 'none'; return; }
+
+        var pending   = d.provPending   || 0;
+        var approved  = d.provApproved  || 0;
+        var rejected  = d.provRejected  || 0;
+        var published = d.provPublished || 0;
+
+        // Determine dominant status for banner colour
+        var dominantCss = 'pending';
+        if (rejected > 0)        dominantCss = 'rejected';
+        else if (published >= total && total > 0) dominantCss = 'published';
+        else if (approved > 0 && pending === 0)   dominantCss = 'approved';
+
+        var icons = { pending:'&#9203;', approved:'&#10003;', rejected:'&#10007;', published:'&#9679;' };
+        var labels = { pending:'Pending Review', approved:'Approved', rejected:'Needs Attention', published:'Published' };
+
+        var countsHtml = '';
+        if (pending)   countsHtml += pending   + ' pending&nbsp;&nbsp;';
+        if (approved)  countsHtml += approved  + ' approved&nbsp;&nbsp;';
+        if (rejected)  countsHtml += rejected  + ' rejected&nbsp;&nbsp;';
+        if (published) countsHtml += published + ' published';
+
+        banner.className = 'me-prov-banner me-prov-banner--' + dominantCss;
+        banner.style.display = '';
+        banner.innerHTML =
+            '<div class="me-prov-banner__left">' +
+            '<span>' + (icons[dominantCss] || '') + '</span>' +
+            '<span><strong>Provisional Marks:</strong> ' + labels[dominantCss] + '</span>' +
+            '<span class="me-prov-banner__counts">' + countsHtml + '</span>' +
+            '</div>' +
+            '<a class="me-prov-banner__link" href="ProvisionalMarksController.aspx" target="_blank">View Review Board &rarr;</a>';
     }
 
     // ── Render Mark Table ──────────────────────────────────────────

@@ -72,6 +72,11 @@
 .em-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .em-grid{width:100%;border-collapse:collapse;font-size:13px;}
 .em-grid thead th{background:#f8f9fa;padding:10px 12px;text-align:left;font-weight:600;color:#555;font-size:11px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;border-bottom:2px solid #dee2e6;position:sticky;top:0;z-index:1;}
+.em-grid thead th.em-sortable{cursor:pointer;user-select:none;transition:color .15s;}
+.em-grid thead th.em-sortable:hover{color:var(--brand);}
+.em-grid thead th .em-sort-icon{display:inline-block;margin-left:4px;font-size:10px;color:#ccc;vertical-align:middle;}
+.em-grid thead th.em-sorted .em-sort-icon{color:var(--brand);}
+.em-grid thead th.em-sorted{color:var(--brand);}
 .em-grid tbody td{padding:10px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle;color:#333;}
 .em-grid tbody tr:hover{background:#f8f9fc;}
 .ct-col-num{width:50px;text-align:center;color:#999;font-size:12px;}
@@ -419,14 +424,24 @@
             <thead>
                 <tr>
                     <th class="ct-col-num">#</th>
-                    <th>Employee</th>
-                    <th>Staff Code</th>
-                    <th>Phone</th>
-                    <th>Type</th>
-                    <th>Department</th>
-                    <th>Station</th>
-                    <th>Status</th>
-                    <th style="text-align:right">Pay</th>
+                    <th class="em-sortable<%= QsSort=="" || QsSort=="name" ? " em-sorted" : "" %>" onclick="doSort('name')">
+                        Employee<span class="em-sort-icon"><%= (QsSort=="" || QsSort=="name") ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="code" ? " em-sorted" : "" %>" onclick="doSort('code')">
+                        Staff Code<span class="em-sort-icon"><%= QsSort=="code" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="phone" ? " em-sorted" : "" %>" onclick="doSort('phone')">
+                        Phone<span class="em-sort-icon"><%= QsSort=="phone" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="type" ? " em-sorted" : "" %>" onclick="doSort('type')">
+                        Type<span class="em-sort-icon"><%= QsSort=="type" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="dept" ? " em-sorted" : "" %>" onclick="doSort('dept')">
+                        Department<span class="em-sort-icon"><%= QsSort=="dept" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="supervisor" ? " em-sorted" : "" %>" onclick="doSort('supervisor')">
+                        Supervisor<span class="em-sort-icon"><%= QsSort=="supervisor" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="station" ? " em-sorted" : "" %>" onclick="doSort('station')">
+                        Station<span class="em-sort-icon"><%= QsSort=="station" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="status" ? " em-sorted" : "" %>" onclick="doSort('status')">
+                        Status<span class="em-sort-icon"><%= QsSort=="status" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="pay" ? " em-sorted" : "" %>" onclick="doSort('pay')" style="text-align:right">
+                        Pay<span class="em-sort-icon"><%= QsSort=="pay" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
                     <th class="ct-col-actions"></th>
                 </tr>
             </thead>
@@ -609,8 +624,8 @@
             </div>
 
             <!-- Supervisor autocomplete -->
-            <div class="hr-form-group">
-                <label class="hr-form-label">Supervisor</label>
+            <div class="hr-form-group" id="supAcGroup">
+                <label class="hr-form-label">Supervisor <span style="color:#dc2626;" title="Required">*</span></label>
                 <div class="hr-ac" id="supAcWrap">
                     <input type="text" class="hr-ac__input" id="supAcInput" autocomplete="off" placeholder="Search supervisor by name or code..." />
                     <span class="hr-ac__spinner" id="supAcSpinner"></span>
@@ -626,7 +641,72 @@
                     <span class="hr-selected-sup__code" id="supCode"></span>
                     <button type="button" class="hr-selected-sup__remove" onclick="SupAC.clear()">&times;</button>
                 </div>
-                <div class="hr-form-hint">Search by name or staff code to assign a supervisor</div>
+                <div id="supRequiredMsg" style="display:none;color:#dc2626;font-size:12px;margin-top:4px;">Supervisor is required. Please search and select a supervisor.</div>
+                <div class="hr-form-hint">Required &mdash; search by name or staff code to assign a supervisor</div>
+            </div>
+
+            <div class="hr-modal__section">Employment Status &amp; Appraisal</div>
+            <div class="hr-form-row3">
+                <div class="hr-form-group">
+                    <label class="hr-form-label">Employment Status</label>
+                    <asp:DropDownList ID="ddlEmpStatus" runat="server" CssClass="hr-form-select">
+                        <asp:ListItem Value="ACTIVE" Text="Active" Selected="True" />
+                        <asp:ListItem Value="PROBATION" Text="Probation" />
+                        <asp:ListItem Value="SUSPENDED" Text="Suspended" />
+                        <asp:ListItem Value="ON_LEAVE" Text="On Leave" />
+                        <asp:ListItem Value="TERMINATED" Text="Terminated" />
+                        <asp:ListItem Value="RESIGNED" Text="Resigned" />
+                        <asp:ListItem Value="RETIRED" Text="Retired" />
+                    </asp:DropDownList>
+                </div>
+                <div class="hr-form-group">
+                    <label class="hr-form-label">Date Joined</label>
+                    <asp:TextBox ID="txtDateJoined" runat="server" CssClass="hr-form-input" TextMode="Date" />
+                </div>
+                <div class="hr-form-group">
+                    <label class="hr-form-label">Probation End Date</label>
+                    <asp:TextBox ID="txtProbationEnd" runat="server" CssClass="hr-form-input" TextMode="Date" />
+                </div>
+            </div>
+            <div class="hr-form-row3">
+                <div class="hr-form-group">
+                    <label class="hr-form-label">To Be Appraised?</label>
+                    <asp:DropDownList ID="ddlAppraised" runat="server" CssClass="hr-form-select">
+                        <asp:ListItem Value="1" Text="Yes" Selected="True" />
+                        <asp:ListItem Value="0" Text="No" />
+                    </asp:DropDownList>
+                </div>
+                <div class="hr-form-group">
+                    <label class="hr-form-label">Appraisal Cycle</label>
+                    <asp:DropDownList ID="ddlAppraisalCycle" runat="server" CssClass="hr-form-select">
+                        <asp:ListItem Value="ANNUAL" Text="Annual" Selected="True" />
+                        <asp:ListItem Value="SEMI_ANNUAL" Text="Semi-Annual" />
+                        <asp:ListItem Value="QUARTERLY" Text="Quarterly" />
+                        <asp:ListItem Value="PROBATION" Text="Probation" />
+                    </asp:DropDownList>
+                </div>
+                <div class="hr-form-group">&nbsp;</div>
+            </div>
+            <!-- Reviewer autocomplete (counter-signer for appraisals) -->
+            <div class="hr-form-group">
+                <asp:HiddenField ID="hfReviewerID" runat="server" />
+                <label class="hr-form-label">Reviewer / Counter-Signer</label>
+                <div class="hr-ac" id="revAcWrap">
+                    <input type="text" class="hr-ac__input" id="revAcInput" autocomplete="off" placeholder="Search reviewer by name or code..." />
+                    <span class="hr-ac__spinner" id="revAcSpinner"></span>
+                    <button type="button" class="hr-ac__clear" id="revAcClear">&times;</button>
+                    <div class="hr-ac__list" id="revAcList"></div>
+                </div>
+                <div class="hr-selected-sup" id="selectedRevCard" style="display:none;">
+                    <div class="hr-selected-sup__avatar" id="revAvatar"></div>
+                    <div class="hr-selected-sup__info">
+                        <div class="hr-selected-sup__name" id="revName"></div>
+                        <div class="hr-selected-sup__detail" id="revPosition"></div>
+                    </div>
+                    <span class="hr-selected-sup__code" id="revCode"></span>
+                    <button type="button" class="hr-selected-sup__remove" onclick="RevAC.clear()">&times;</button>
+                </div>
+                <div class="hr-form-hint">The reviewer counter-signs appraisals (typically the supervisor's supervisor or HOD)</div>
             </div>
 
             <div class="hr-modal__section">Financial Details</div>
@@ -723,26 +803,37 @@
 <div class="hr-modal-overlay" id="changePwdModal">
     <div class="hr-modal hr-modal--md">
         <div class="hr-modal__header">
-            <h3>Change Password</h3>
+            <h3>Reset Employee Access</h3>
             <button type="button" class="hr-modal__close" onclick="closePwdModal()">&times;</button>
         </div>
         <div class="hr-modal__body">
             <div id="pwdResult" class="hr-result"></div>
-            <p id="pwdUserInfo" style="font-size:13px;color:#555;margin:0 0 14px;"></p>
-            <div class="hr-form-group">
-                <label class="hr-form-label">New Password <span class="req">*</span></label>
-                <asp:TextBox ID="txtNewPassword" runat="server" CssClass="hr-form-input" TextMode="Password" placeholder="Enter new password" />
+            <p id="pwdUserInfo" style="font-size:13px;color:#555;margin:0 0 10px;"></p>
+
+            <div class="hr-form-group" style="margin-bottom:12px;">
+                <label class="hr-form-label" style="margin-bottom:6px;display:block;">Type Password (optional)</label>
+                <input type="password" id="pwdManualValue" class="hr-form-input" placeholder="Leave blank to auto-generate" autocomplete="new-password" />
+                <div class="hr-form-hint" style="margin-top:6px;">If provided, this exact password will be set for the user.</div>
             </div>
-            <div class="hr-form-group">
-                <label class="hr-form-label">Confirm Password <span class="req">*</span></label>
-                <asp:TextBox ID="txtConfirmPassword" runat="server" CssClass="hr-form-input" TextMode="Password" placeholder="Repeat new password" />
+
+            <div style="background:#f8f9fc;border:1px solid #e4e7f2;border-radius:6px;padding:10px 12px;font-size:12px;color:#445;line-height:1.5;">
+                This action unlocks the account and resets the password.<br />
+                If no membership account exists, one is created automatically.
+            </div>
+            <div id="pwdTempWrap" style="display:none;margin-top:12px;">
+                <label class="hr-form-label" style="margin-bottom:6px;display:block;">Final Password</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="pwdTempValue" class="hr-form-input" readonly="readonly" style="font-family:Consolas,monospace;font-weight:600;" />
+                    <button type="button" class="hr-btn hr-btn--outline hr-btn--sm" onclick="copyTempPassword()">Copy</button>
+                </div>
+                <div class="hr-form-hint" style="margin-top:6px;">Share this once with the employee and ask them to change it immediately.</div>
             </div>
         </div>
         <div class="hr-modal__footer">
             <button type="button" class="hr-btn hr-btn--ghost" onclick="closePwdModal()">Cancel</button>
-            <button type="button" class="hr-btn hr-btn--primary" onclick="submitPwdForm()">
+            <button type="button" id="pwdSubmitBtn" class="hr-btn hr-btn--primary" onclick="submitPwdForm()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                Change Password
+                <span id="pwdSubmitBtnText">Set Password</span>
             </button>
         </div>
     </div>
@@ -1051,6 +1142,185 @@ var SupAC = (function() {
     return { init: init, clear: doClear, setSelected: setSelected };
 })();
 
+/* ===== REVIEWER AUTOCOMPLETE (same pattern as SupAC) =================== */
+var RevAC = (function() {
+    var input, list, spinner, clear, timer, xhr, activeIdx = -1, results = [], selected = null, bound = false;
+    var DEBOUNCE = 250, MIN_CHARS = 1;
+
+    function init() {
+        input   = document.getElementById('revAcInput');
+        list    = document.getElementById('revAcList');
+        spinner = document.getElementById('revAcSpinner');
+        clear   = document.getElementById('revAcClear');
+        if (!input || bound) return;
+        bound = true;
+        input.addEventListener('input', onInput);
+        input.addEventListener('keydown', onKeyDown);
+        input.addEventListener('focus', function() { if (results.length > 0 && !selected) showList(); });
+        clear.addEventListener('click', doClear);
+        document.addEventListener('click', function(e) {
+            if (input && !input.contains(e.target) && !list.contains(e.target)) hideList();
+        });
+    }
+
+    function onInput() {
+        var q = input.value.trim();
+        if (selected) deselect();
+        if (timer) clearTimeout(timer);
+        if (xhr) { xhr.abort(); xhr = null; }
+        if (q.length < MIN_CHARS) { hideList(); results = []; return; }
+        timer = setTimeout(function() { doSearch(q); }, DEBOUNCE);
+    }
+
+    function onKeyDown(e) {
+        if (!list.classList.contains('hr-ac__list--visible')) {
+            if (e.keyCode === 40 && results.length > 0) { showList(); e.preventDefault(); }
+            return;
+        }
+        if (e.keyCode === 40) { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, results.length - 1); renderActive(); }
+        else if (e.keyCode === 38) { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); renderActive(); }
+        else if (e.keyCode === 13) { e.preventDefault(); if (activeIdx >= 0 && activeIdx < results.length) selectRev(results[activeIdx]); }
+        else if (e.keyCode === 27) { hideList(); }
+    }
+
+    function doSearch(q) {
+        spinner.classList.add('hr-ac__spinner--visible');
+        clear.classList.remove('hr-ac__clear--visible');
+        if (xhr) xhr.abort();
+        xhr = new XMLHttpRequest();
+        xhr.open('GET', 'HREmployees.aspx?ajax=search_emp&q=' + encodeURIComponent(q), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4) return;
+            spinner.classList.remove('hr-ac__spinner--visible');
+            if (selected) clear.classList.add('hr-ac__clear--visible');
+            if (xhr.status === 200) {
+                try {
+                    var resp = xhr.responseText.trim();
+                    var braceCount = 0, endIdx = 0;
+                    for (var i = 0; i < resp.length; i++) {
+                        if (resp[i] === '{') braceCount++;
+                        if (resp[i] === '}') braceCount--;
+                        if (braceCount === 0 && resp[i] === '}') { endIdx = i + 1; break; }
+                    }
+                    var data = JSON.parse(resp.substring(0, endIdx));
+                    results = data.results || [];
+                    activeIdx = -1;
+                    renderList(q);
+                } catch(ex) { results = []; }
+            }
+        };
+        xhr.send();
+    }
+
+    function renderList(query) {
+        if (results.length === 0) {
+            list.innerHTML = '<div class="hr-ac__empty">No employees found for &ldquo;' + escHtml(query) + '&rdquo;</div>';
+            showList(); return;
+        }
+        var html = '';
+        for (var i = 0; i < results.length; i++) {
+            var r = results[i];
+            var initials = getInitials(r.emp_name);
+            html += '<div class="hr-ac__item' + (i === activeIdx ? ' hr-ac__item--active' : '') + '" data-idx="' + i + '">' +
+                '<div class="hr-ac__avatar">' + escHtml(initials) + '</div>' +
+                '<div class="hr-ac__info"><div class="hr-ac__name">' + highlight(r.emp_name, query) + '</div>' +
+                '<div class="hr-ac__meta">' + escHtml(r.emp_position || 'Staff') + '</div></div>' +
+                '<div class="hr-ac__code">' + highlight(r.EMP_CODE || '', query) + '</div></div>';
+        }
+        html += '<div class="hr-ac__hint">' + results.length + ' result' + (results.length !== 1 ? 's' : '') + '</div>';
+        list.innerHTML = html;
+        var items = list.querySelectorAll('.hr-ac__item');
+        for (var j = 0; j < items.length; j++) {
+            (function(idx) {
+                items[idx].addEventListener('click', function() { selectRev(results[idx]); });
+                items[idx].addEventListener('mouseenter', function() { activeIdx = idx; renderActive(); });
+            })(j);
+        }
+        showList();
+    }
+
+    function renderActive() {
+        var items = list.querySelectorAll('.hr-ac__item');
+        for (var i = 0; i < items.length; i++) items[i].className = 'hr-ac__item' + (i === activeIdx ? ' hr-ac__item--active' : '');
+        if (activeIdx >= 0 && items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+    }
+
+    function selectRev(emp) {
+        selected = emp;
+        hideList(); results = [];
+        input.value = emp.emp_name + ' [' + emp.EMP_CODE + ']';
+        input.classList.add('hr-ac__input--selected');
+        clear.classList.add('hr-ac__clear--visible');
+
+        var card = document.getElementById('selectedRevCard');
+        card.style.display = 'flex';
+        card.className = 'hr-selected-sup hr-selected-sup--visible';
+        document.getElementById('revAvatar').textContent   = getInitials(emp.emp_name);
+        document.getElementById('revName').textContent     = emp.emp_name;
+        document.getElementById('revPosition').textContent = emp.emp_position || 'Staff';
+        document.getElementById('revCode').textContent     = emp.EMP_CODE;
+        document.getElementById('<%= hfReviewerID.ClientID %>').value = emp.empID;
+    }
+
+    function deselect() {
+        selected = null;
+        if (input) input.classList.remove('hr-ac__input--selected');
+        if (clear) clear.classList.remove('hr-ac__clear--visible');
+        var card = document.getElementById('selectedRevCard');
+        if (card) { card.style.display = 'none'; card.className = 'hr-selected-sup'; }
+        document.getElementById('<%= hfReviewerID.ClientID %>').value = '';
+    }
+
+    function doClear() {
+        deselect();
+        if (input) { input.value = ''; input.focus(); }
+        hideList(); results = [];
+    }
+
+    function showList() { list.classList.add('hr-ac__list--visible'); }
+    function hideList() { list.classList.remove('hr-ac__list--visible'); activeIdx = -1; }
+
+    /* Reuse SupAC helper functions (highlight, getInitials defined in SupAC scope).
+       We need local copies since they're closure-scoped. */
+    function highlight(text, query) {
+        if (!text || !query) return escHtml(text || '');
+        var words = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').split(/\s+/).filter(function(w) { return w.length > 0; });
+        if (words.length === 0) return escHtml(text);
+        var re = new RegExp('(' + words.join('|') + ')', 'gi');
+        var parts = text.split(re);
+        var out = '';
+        for (var i = 0; i < parts.length; i++) {
+            if (re.test(parts[i])) { re.lastIndex = 0; out += '<mark>' + escHtml(parts[i]) + '</mark>'; }
+            else out += escHtml(parts[i]);
+        }
+        return out;
+    }
+    function getInitials(name) {
+        if (!name) return '?';
+        var p = name.trim().split(/\s+/);
+        if (p.length >= 2) return (p[0][0] + p[p.length - 1][0]).toUpperCase();
+        return p[0][0].toUpperCase();
+    }
+
+    function setSelected(empID, empName, empCode, empPosition) {
+        selected = { empID: empID, emp_name: empName, EMP_CODE: empCode, emp_position: empPosition };
+        if (input) {
+            input.value = empName + ' [' + empCode + ']';
+            input.classList.add('hr-ac__input--selected');
+        }
+        if (clear) clear.classList.add('hr-ac__clear--visible');
+        var card = document.getElementById('selectedRevCard');
+        if (card) { card.style.display = 'flex'; card.className = 'hr-selected-sup hr-selected-sup--visible'; }
+        document.getElementById('revAvatar').textContent   = getInitials(empName);
+        document.getElementById('revName').textContent     = empName;
+        document.getElementById('revPosition').textContent = empPosition || 'Staff';
+        document.getElementById('revCode').textContent     = empCode;
+        document.getElementById('<%= hfReviewerID.ClientID %>').value = empID;
+    }
+
+    return { init: init, clear: doClear, setSelected: setSelected };
+})();
+
 /* ===== LIGHTBOX ======================================================== */
 function openLightbox(src, name, code) {
     var lb = document.getElementById('imgLightbox');
@@ -1075,9 +1345,24 @@ function applyFilters() {
     if (dept    && dept.value)           params.push('dept='    + encodeURIComponent(dept.value));
     if (station && station.value)        params.push('station=' + encodeURIComponent(station.value));
     if (sz      && sz.value !== '50')    params.push('sz='      + encodeURIComponent(sz.value));
+    // Preserve current sort
+    var sp = new URLSearchParams(window.location.search);
+    if (sp.get('sort')) params.push('sort=' + encodeURIComponent(sp.get('sort')));
+    if (sp.get('dir'))  params.push('dir='  + encodeURIComponent(sp.get('dir')));
     window.location.href = window.location.pathname + (params.length ? '?' + params.join('&') : '');
 }
 function resetFilters() { window.location.href = window.location.pathname; }
+
+function doSort(col) {
+    var sp = new URLSearchParams(window.location.search);
+    var curSort = (sp.get('sort') || '').toLowerCase();
+    var curDir  = (sp.get('dir')  || 'ASC').toUpperCase();
+    var newDir  = (curSort === col && curDir === 'ASC') ? 'DESC' : 'ASC';
+    sp.set('sort', col);
+    sp.set('dir', newDir);
+    sp.delete('page'); // reset to page 1 on sort change
+    window.location.href = window.location.pathname + '?' + sp.toString();
+}
 function filterByStatus(val) {
     var sel = document.getElementById('<%= ddlFilterStatus.ClientID %>');
     if (sel) { sel.value = val; applyFilters(); }
@@ -1092,6 +1377,7 @@ var editMode = false;
 
 function resetEmpForm() {
     SupAC.clear();
+    RevAC.clear();
     var fields = document.querySelectorAll('#empFormModal .hr-form-input, #empFormModal .hr-form-textarea');
     for (var i = 0; i < fields.length; i++) {
         var f = fields[i];
@@ -1116,6 +1402,7 @@ function resetEmpForm() {
     }
     document.getElementById('<%= hdnEditEmpID.ClientID %>').value = '';
     document.getElementById('<%= hfSupervisorID.ClientID %>').value = '';
+    document.getElementById('<%= hfReviewerID.ClientID %>').value = '';
     var r = document.getElementById('empFormResult');
     if (r) { r.innerHTML = ''; r.className = 'hr-result'; }
 }
@@ -1123,6 +1410,7 @@ function resetEmpForm() {
 function openAddModal() {
     editMode = false;
     SupAC.init();
+    RevAC.init();
     resetEmpForm();
     document.getElementById('empFormTitle').textContent = 'New Employee';
     document.getElementById('btnEmpFormSubmit').onclick = function() { submitEmpForm(); };
@@ -1135,6 +1423,7 @@ function openAddModal() {
 function openEditModal(empID) {
     editMode = true;
     SupAC.init();
+    RevAC.init();
     resetEmpForm();
     document.getElementById('empFormTitle').textContent = 'Edit Employee';
     document.getElementById('<%= hdnEditEmpID.ClientID %>').value = empID;
@@ -1199,6 +1488,18 @@ function openEditModal(empID) {
             if (data.supervisorID && data.supervisorID !== '0' && data.supervisor_name) {
                 SupAC.setSelected(data.supervisorID, data.supervisor_name, data.supervisor_code || '', '');
             }
+
+            // Appraisal fields
+            setDdl('<%= ddlEmpStatus.ClientID %>', data.employment_status);
+            setVal('<%= txtDateJoined.ClientID %>', data.date_joined);
+            setVal('<%= txtProbationEnd.ClientID %>', data.probation_end_date);
+            setDdl('<%= ddlAppraised.ClientID %>', data.to_be_appraised);
+            setDdl('<%= ddlAppraisalCycle.ClientID %>', data.appraisal_cycle);
+
+            // Reviewer
+            if (data.reviewer_id && data.reviewer_id !== '0' && data.reviewer_name) {
+                RevAC.setSelected(data.reviewer_id, data.reviewer_name, data.reviewer_code || '', '');
+            }
         } catch(ex) {
             r.innerHTML = '<span style="color:red;">Error parsing employee data.</span>';
         }
@@ -1233,6 +1534,20 @@ function submitEmpForm() {
     // Email validation
     if (email.value.indexOf('@') === -1) { r.innerHTML = 'Please enter a valid email address.'; r.className = 'hr-result hr-result--err'; return; }
 
+    // Supervisor is required
+    var supId = document.getElementById('<%= hfSupervisorID.ClientID %>').value;
+    var supMsg = document.getElementById('supRequiredMsg');
+    var supGroup = document.getElementById('supAcGroup');
+    if (!supId || supId === '0' || supId === '') {
+        if (supMsg) { supMsg.style.display = 'block'; }
+        if (supGroup) { supGroup.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        r.innerHTML = 'Supervisor is required. Please select a supervisor before saving.';
+        r.className = 'hr-result hr-result--err';
+        return;
+    } else {
+        if (supMsg) supMsg.style.display = 'none';
+    }
+
     if (editMode) {
         document.getElementById('<%= btnEditEmployee.ClientID %>').click();
     } else {
@@ -1245,22 +1560,78 @@ function openPasswordModal(empID, empName, username) {
     closeAllActionPopovers();
     document.getElementById('<%= hdnPwdEmpID.ClientID %>').value = empID;
     document.getElementById('pwdUserInfo').innerHTML =
-        'Change password for <strong>' + escHtml(empName) + '</strong>' +
+        'Reset login access for <strong>' + escHtml(empName) + '</strong>' +
         (username ? ' (' + escHtml(username) + ')' : '');
-    document.getElementById('<%= txtNewPassword.ClientID %>').value = '';
-    document.getElementById('<%= txtConfirmPassword.ClientID %>').value = '';
-    var r = document.getElementById('pwdResult'); r.innerHTML = ''; r.className = 'hr-result';
+    var r = document.getElementById('pwdResult');
+    r.innerHTML = '';
+    r.className = 'hr-result';
+    document.getElementById('pwdTempWrap').style.display = 'none';
+    document.getElementById('pwdTempValue').value = '';
+    document.getElementById('pwdManualValue').value = '';
+    document.getElementById('pwdSubmitBtnText').textContent = 'Set Password';
     document.getElementById('changePwdModal').style.display = 'flex';
 }
 function closePwdModal() { document.getElementById('changePwdModal').style.display = 'none'; }
+
+function showResetPasswordResult(tempPassword, accountName, isProvisioned, customApplied) {
+    var wrap = document.getElementById('pwdTempWrap');
+    var value = document.getElementById('pwdTempValue');
+    var r = document.getElementById('pwdResult');
+    value.value = tempPassword || '';
+    wrap.style.display = tempPassword ? 'block' : 'none';
+    r.className = 'hr-result hr-result--ok';
+    if (customApplied) {
+        r.innerHTML = isProvisioned
+            ? ('Membership account created and typed password set for <strong>' + escHtml(accountName || '') + '</strong>.')
+            : ('Typed password set for <strong>' + escHtml(accountName || '') + '</strong>.');
+    } else {
+        r.innerHTML = isProvisioned
+            ? ('Membership account created and password generated for <strong>' + escHtml(accountName || '') + '</strong>.')
+            : ('Password generated for <strong>' + escHtml(accountName || '') + '</strong>.');
+    }
+}
+
+function copyTempPassword() {
+    var value = document.getElementById('pwdTempValue');
+    if (!value || !value.value) return;
+    value.focus();
+    value.select();
+    try { document.execCommand('copy'); } catch (e) { }
+}
+
 function submitPwdForm() {
-    var np = document.getElementById('<%= txtNewPassword.ClientID %>');
-    var cp = document.getElementById('<%= txtConfirmPassword.ClientID %>');
-    var r  = document.getElementById('pwdResult');
-    if (!np.value.trim()) { r.innerHTML = 'Please enter a new password.'; r.className = 'hr-result hr-result--err'; return; }
-    if (np.value !== cp.value) { r.innerHTML = 'Passwords do not match.'; r.className = 'hr-result hr-result--err'; return; }
-    if (np.value.length < 6) { r.innerHTML = 'Password must be at least 6 characters.'; r.className = 'hr-result hr-result--err'; return; }
-    document.getElementById('<%= btnChangePassword.ClientID %>').click();
+    var empID = document.getElementById('<%= hdnPwdEmpID.ClientID %>').value;
+    if (!empID) return;
+    var manualPwd = document.getElementById('pwdManualValue').value || '';
+
+    var r = document.getElementById('pwdResult');
+    r.className = 'hr-result';
+    r.innerHTML = 'Updating password...';
+    document.getElementById('pwdTempWrap').style.display = 'none';
+    document.getElementById('pwdSubmitBtn').disabled = true;
+    
+    fetch('?ajax=reset_pwd&id=' + encodeURIComponent(empID), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+        },
+        body: 'new_password=' + encodeURIComponent(manualPwd)
+    })
+        .then(function(resp) { return resp.json(); })
+        .then(function(data) {
+            if (data.error) {
+                r.className = 'hr-result hr-result--err';
+                r.innerHTML = data.error;
+            } else {
+                showResetPasswordResult(data.temp_password, data.username, data.provisioned, data.custom_applied);
+            }
+            document.getElementById('pwdSubmitBtn').disabled = false;
+        })
+        .catch(function(err) {
+            r.className = 'hr-result hr-result--err';
+            r.innerHTML = 'Error: ' + err.toString();
+            document.getElementById('pwdSubmitBtn').disabled = false;
+        });
 }
 
 /* ===== DELETE EMPLOYEE ================================================= */

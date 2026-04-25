@@ -49,6 +49,8 @@ public partial class COOPERP_XtraReports_Default : System.Web.UI.Page
                 DS.EnforceConstraints = false;
                 ResStatement.Fill(DS.acad_GetBatchStudentTranscriptData, Session["prog"].ToString(), Session["acad"].ToString());
                 UNIV.Fill(DS.acad_university);
+                // Remap masters classifications if applicable
+                CertificateDataHelper.RemapMastersClassifications(DS);
                 RPT.DataSource = DS;
                 LTR.DataSource = DS;
                 if (Session["Report"].ToString() == "Batch Certificates")
@@ -151,6 +153,8 @@ public partial class COOPERP_XtraReports_Default : System.Web.UI.Page
                 //ResStatement.SingleTranscript(DS.acad_GetBatchStudentTranscriptData, Session["reg"].ToString());
                 ResStatement.Fill(DS.acad_GetBatchStudentTranscriptData, Session["prog"].ToString(), Session["acad"].ToString());
                 UNIV.Fill(DS.acad_university);
+                // Remap masters classifications if applicable
+                CertificateDataHelper.RemapMastersClassifications(DS);
                 FinalTranscript TRANS_RPT = new FinalTranscript();
                 TRANS_RPT.DataSource = (DS);
                 ReportViewer1.Report = TRANS_RPT;

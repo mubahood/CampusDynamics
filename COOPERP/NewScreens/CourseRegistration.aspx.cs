@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.Text;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -10,6 +11,8 @@ using DevExpress.XtraPrinting;
 
 public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 {
+    private const int QueryPageSize = 50;
+
     private string ConnectionString
     {
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
@@ -42,9 +45,12 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 ddlAcadYear.SelectedValue = defaultYear;
             
             ddlEntryYear.SelectedValue = "-";
+
+            ApplyFiltersFromQueryString();
             
             // Courses depend on programme/study-year/semester
             LoadCourses();
+            ApplyCourseFromQueryString();
             
             UpdateDisplayLabels();
             LoadStats();
@@ -202,22 +208,41 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             }
         }
     }
+
+    private void ApplyFiltersFromQueryString()
+    {
+        SetDropDownFromQuery(ddlAcadYear, "acad");
+        SetDropDownFromQuery(ddlProgramme, "prog");
+        SetDropDownFromQuery(ddlStudyYear, "yr");
+        SetDropDownFromQuery(ddlSemester, "sem");
+        SetDropDownFromQuery(ddlEntryYear, "entyr");
+        SetDropDownFromQuery(ddlIntake, "intake");
+        SetDropDownFromQuery(ddlStatus, "status");
+        txtStudentFilter.Text = (Request.QueryString["student"] ?? string.Empty).Trim();
+    }
+
+    private void ApplyCourseFromQueryString()
+    {
+        SetDropDownFromQuery(ddlCourse, "course");
+    }
+
+    private void SetDropDownFromQuery(DropDownList ddl, string key)
+    {
+        string value = Request.QueryString[key];
+        if (!string.IsNullOrEmpty(value) && ddl.Items.FindByValue(value) != null)
+            ddl.SelectedValue = value;
+    }
     
     private void UpdateDisplayLabels()
     {
         litAcadYearDisplay.Text = ddlAcadYear.SelectedValue;
-        litSemesterDisplay.Text = ddlSemester.SelectedValue;
+        litSemesterDisplay.Text = "Yr " + ddlStudyYear.SelectedValue + ", Sem " + ddlSemester.SelectedValue;
     }
     
     private void LoadStats()
     {
-        if (string.IsNullOrEmpty(ddlProgramme.SelectedValue) || string.IsNullOrEmpty(ddlCourse.SelectedValue))
-        {
-            litPendingCount.Text = "0";
-            litRegisteredCount.Text = "0";
-            litRetakeCount.Text = "0";
-            return;
-        }
+        bool hasProgramme = !string.IsNullOrEmpty(ddlProgramme.SelectedValue);
+        bool hasCourse = !string.IsNullOrEmpty(ddlCourse.SelectedValue);
         
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -237,47 +262,54 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                                          AND cr.semester = @sem
                                    )";
             
-            using (MySqlCommand cmd = new MySqlCommand(sqlPending, conn))
+            if (hasProgramme && hasCourse)
             {
-                cmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
-                cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
-                cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                cmd.Parameters.AddWithValue("@course", ddlCourse.SelectedValue);
-                cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
-                litPendingCount.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString();
+                using (MySqlCommand cmd = new MySqlCommand(sqlPending, conn))
+                {
+                    cmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
+                    cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
+                    cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
+                    cmd.Parameters.AddWithValue("@course", ddlCourse.SelectedValue);
+                    cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+                    litPendingCount.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString();
+                }
+            }
+            else
+            {
+                litPendingCount.Text = "0";
             }
             
             // Count registered students (Normal/Regular)
-            string sqlRegistered = @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration cr
-                                    WHERE cr.courseID = @course 
-                                      AND cr.acad_year = @acad 
-                                      AND cr.semester = @sem
-                                      AND cr.prog_id = @prog
-                                      AND (cr.course_status = 'NORMAL' OR cr.course_status = 'REGULAR')";
+                        string sqlRegistered = @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration cr
+                                                                        WHERE cr.acad_year = @acad 
+                                                                            AND cr.semester = @sem
+                                                                            AND (@prog='' OR cr.prog_id = @prog)
+                                                                            AND (@course='' OR cr.courseID = @course)
+                                                                            AND (cr.course_status = 'NORMAL' OR cr.course_status = 'REGULAR')";
             
             using (MySqlCommand cmd = new MySqlCommand(sqlRegistered, conn))
             {
-                cmd.Parameters.AddWithValue("@course", ddlCourse.SelectedValue);
+                cmd.Parameters.AddWithValue("@course", hasCourse ? ddlCourse.SelectedValue : "");
                 cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
                 cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
-                cmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
+                cmd.Parameters.AddWithValue("@prog", hasProgramme ? ddlProgramme.SelectedValue : "");
                 litRegisteredCount.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString();
             }
             
             // Count retake students
-            string sqlRetake = @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration cr
-                                WHERE cr.courseID = @course 
-                                  AND cr.acad_year = @acad 
-                                  AND cr.semester = @sem
-                                  AND cr.prog_id = @prog
-                                  AND cr.course_status = 'RETAKE'";
+                        string sqlRetake = @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration cr
+                                                                WHERE cr.acad_year = @acad 
+                                                                    AND cr.semester = @sem
+                                                                    AND (@prog='' OR cr.prog_id = @prog)
+                                                                    AND (@course='' OR cr.courseID = @course)
+                                                                    AND cr.course_status = 'RETAKE'";
             
             using (MySqlCommand cmd = new MySqlCommand(sqlRetake, conn))
             {
-                cmd.Parameters.AddWithValue("@course", ddlCourse.SelectedValue);
+                cmd.Parameters.AddWithValue("@course", hasCourse ? ddlCourse.SelectedValue : "");
                 cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
                 cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
-                cmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
+                cmd.Parameters.AddWithValue("@prog", hasProgramme ? ddlProgramme.SelectedValue : "");
                 litRetakeCount.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString();
             }
         }
@@ -285,26 +317,32 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     
     private void BindGrid()
     {
-        if (string.IsNullOrEmpty(ddlProgramme.SelectedValue) || string.IsNullOrEmpty(ddlCourse.SelectedValue))
-        {
-            gvCourseReg.DataSource = null;
-            gvCourseReg.DataBind();
-            return;
-        }
+        bool hasProgramme = !string.IsNullOrEmpty(ddlProgramme.SelectedValue);
+        bool hasCourse = !string.IsNullOrEmpty(ddlCourse.SelectedValue);
+        string studentTerm = (txtStudentFilter.Text ?? string.Empty).Trim();
+        int requestedPage = GetRequestedPage();
         
         DataTable dt = new DataTable();
+        int totalRows = 0;
+        int totalPages = 1;
         
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
             string sql = "";
             
-            if (ddlStatus.SelectedValue == "Pending")
+            if (ddlStatus.SelectedValue == "Pending" && hasProgramme && hasCourse)
             {
                 // Show students who are registered in the programme but not in this course
                 sql = @"SELECT r.regno, 
                               CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) as stud_name,
                               COALESCE(sp.spec, NULLIF(s.specialisation, ''), '-') AS spec_name,
+                              @course AS course_code,
+                              @acad AS acad_year,
+                              @sem AS semester,
+                              COALESCE(s.entryyear, 0) AS entryyear,
+                              COALESCE(s.intake, '-') AS intake,
+                              COALESCE(r.regstatus, 'REGISTERED') AS reg_status,
                               'PENDING' as course_status
                        FROM acad_registration r
                        INNER JOIN acad_student s ON r.regno = s.regno
@@ -319,6 +357,11 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                                AND cr.acad_year = @acad 
                                AND cr.semester = @sem
                          )";
+
+                                if (!string.IsNullOrEmpty(studentTerm))
+                                {
+                                        sql += " AND (r.regno LIKE @studentLike OR CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) LIKE @studentLike)";
+                                }
                 
                 // Apply entry year filter
                 if (ddlEntryYear.SelectedValue != "-" && !string.IsNullOrEmpty(ddlEntryYear.SelectedValue))
@@ -332,44 +375,59 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     sql += " AND s.intake = @intake";
                 }
                 
-                sql += " ORDER BY s.firstname, s.othername";
+                                sql += " ORDER BY s.firstname, s.othername";
                 
-                btnRegisterSelected.Visible = true;
-                btnRemoveSelected.Visible = false;
+                                btnRegisterSelected.Visible = true;
+                                btnRemoveSelected.Visible = false;
             }
             else
             {
-                // Show students who are already registered in this course
-                sql = @"SELECT cr.regno, 
-                              CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) as stud_name,
-                              COALESCE(sp.spec, NULLIF(s.specialisation, ''), '-') AS spec_name,
-                              cr.course_status
+                                // Default/simple view: show already registered rows (all when no course/programme selected)
+                                                                sql = @"SELECT cr.regno, 
+                                                            CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) as stud_name,
+                                                            COALESCE(sp.spec, NULLIF(s.specialisation, ''), '-') AS spec_name,
+                                                            cr.courseID AS course_code,
+                                                            cr.acad_year AS acad_year,
+                                                            cr.semester AS semester,
+                                                            COALESCE(s.entryyear, 0) AS entryyear,
+                                                            COALESCE(s.intake, '-') AS intake,
+                                                            'REGISTERED' AS reg_status,
+                                                            cr.course_status
                        FROM campus_dynamics_portal.acad_course_registration cr
                        INNER JOIN acad_student s ON cr.regno = s.regno
                        LEFT JOIN acad_specialisation sp ON s.specialisation = CAST(sp.spec_id AS CHAR)
-                       WHERE cr.courseID = @course 
-                         AND cr.acad_year = @acad 
+                                             WHERE cr.acad_year = @acad 
                          AND cr.semester = @sem
-                         AND cr.prog_id = @prog
-                       ORDER BY s.firstname, s.othername";
+                                                 AND (@prog = '' OR cr.prog_id = @prog)
+                                                 AND (@course = '' OR cr.courseID = @course)
+                                                 AND (@entyr = 0 OR s.entryyear = @entyr)
+                                                 AND (@intake = '-' OR s.intake = @intake)
+                                                 AND (@student = '' OR cr.regno LIKE @studentLike OR CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) LIKE @studentLike)
+                                             ORDER BY cr.acad_year DESC, cr.semester DESC, s.firstname, s.othername";
                 
-                btnRegisterSelected.Visible = false;
-                btnRemoveSelected.Visible = true;
+                                btnRegisterSelected.Visible = false;
+                                btnRemoveSelected.Visible = hasCourse;
             }
-            
-            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+
+            string countSql = "SELECT COUNT(*) FROM (" + sql + ") AS x";
+            using (MySqlCommand countCmd = new MySqlCommand(countSql, conn))
             {
-                cmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
-                cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
-                cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                cmd.Parameters.AddWithValue("@course", ddlCourse.SelectedValue);
-                cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
-                
-                if (ddlEntryYear.SelectedValue != "-" && !string.IsNullOrEmpty(ddlEntryYear.SelectedValue))
-                    cmd.Parameters.AddWithValue("@entyr", int.Parse(ddlEntryYear.SelectedValue));
-                
-                if (ddlIntake.SelectedValue != "-")
-                    cmd.Parameters.AddWithValue("@intake", ddlIntake.SelectedValue);
+                AddGridParameters(countCmd, hasProgramme, hasCourse, studentTerm);
+                totalRows = Convert.ToInt32(countCmd.ExecuteScalar());
+            }
+
+            totalPages = totalRows > 0 ? (int)Math.Ceiling(totalRows / (double)QueryPageSize) : 1;
+            if (requestedPage > totalPages)
+                requestedPage = totalPages;
+
+            int offset = (requestedPage - 1) * QueryPageSize;
+            string pagedSql = sql + " LIMIT @offset, @pageSize";
+            
+            using (MySqlCommand cmd = new MySqlCommand(pagedSql, conn))
+            {
+                AddGridParameters(cmd, hasProgramme, hasCourse, studentTerm);
+                cmd.Parameters.AddWithValue("@offset", offset);
+                cmd.Parameters.AddWithValue("@pageSize", QueryPageSize);
                 
                 using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
                 {
@@ -380,6 +438,97 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         
         gvCourseReg.DataSource = dt;
         gvCourseReg.DataBind();
+        RenderQueryPager(requestedPage, totalPages, totalRows);
+    }
+
+    private void AddGridParameters(MySqlCommand cmd, bool hasProgramme, bool hasCourse, string studentTerm)
+    {
+        cmd.Parameters.AddWithValue("@prog", hasProgramme ? ddlProgramme.SelectedValue : "");
+        cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
+        cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
+        cmd.Parameters.AddWithValue("@course", hasCourse ? ddlCourse.SelectedValue : "");
+        cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+        cmd.Parameters.AddWithValue("@student", studentTerm);
+        cmd.Parameters.AddWithValue("@studentLike", string.IsNullOrEmpty(studentTerm) ? "%" : ("%" + studentTerm + "%"));
+
+        if (ddlEntryYear.SelectedValue != "-" && !string.IsNullOrEmpty(ddlEntryYear.SelectedValue))
+            cmd.Parameters.AddWithValue("@entyr", int.Parse(ddlEntryYear.SelectedValue));
+        else
+            cmd.Parameters.AddWithValue("@entyr", 0);
+
+        if (ddlIntake.SelectedValue != "-")
+            cmd.Parameters.AddWithValue("@intake", ddlIntake.SelectedValue);
+        else
+            cmd.Parameters.AddWithValue("@intake", "-");
+    }
+
+    private int GetRequestedPage()
+    {
+        int page;
+        if (int.TryParse(Request.QueryString["page"], out page) && page > 0)
+            return page;
+        return 1;
+    }
+
+    private void RenderQueryPager(int page, int totalPages, int totalRows)
+    {
+        if (totalRows <= QueryPageSize)
+        {
+            litQueryPager.Text = string.Empty;
+            return;
+        }
+
+        StringBuilder html = new StringBuilder();
+        html.Append("<div class='cr-query-pager'>");
+        html.AppendFormat("<span class='meta'>Total: {0}</span>", totalRows);
+
+        if (page > 1)
+            html.AppendFormat("<a href='{0}'>&laquo; Prev</a>", BuildPagerUrl(page - 1));
+
+        int start = Math.Max(1, page - 2);
+        int end = Math.Min(totalPages, start + 4);
+        start = Math.Max(1, end - 4);
+
+        for (int i = start; i <= end; i++)
+        {
+            if (i == page)
+                html.AppendFormat("<span class='active'>{0}</span>", i);
+            else
+                html.AppendFormat("<a href='{0}'>{1}</a>", BuildPagerUrl(i), i);
+        }
+
+        if (page < totalPages)
+            html.AppendFormat("<a href='{0}'>Next &raquo;</a>", BuildPagerUrl(page + 1));
+
+        html.AppendFormat("<span class='meta'>Page {0} of {1}</span>", page, totalPages);
+        html.Append("</div>");
+        litQueryPager.Text = html.ToString();
+    }
+
+    private string BuildPagerUrl(int page)
+    {
+        var query = HttpUtility.ParseQueryString(string.Empty);
+        query["page"] = page.ToString();
+        query["acad"] = ddlAcadYear.SelectedValue;
+
+        if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))
+            query["prog"] = ddlProgramme.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlStudyYear.SelectedValue))
+            query["yr"] = ddlStudyYear.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlSemester.SelectedValue))
+            query["sem"] = ddlSemester.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlEntryYear.SelectedValue) && ddlEntryYear.SelectedValue != "-")
+            query["entyr"] = ddlEntryYear.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlIntake.SelectedValue) && ddlIntake.SelectedValue != "-")
+            query["intake"] = ddlIntake.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlCourse.SelectedValue))
+            query["course"] = ddlCourse.SelectedValue;
+        if (!string.IsNullOrEmpty(ddlStatus.SelectedValue))
+            query["status"] = ddlStatus.SelectedValue;
+        if (!string.IsNullOrEmpty(txtStudentFilter.Text))
+            query["student"] = txtStudentFilter.Text.Trim();
+
+        return Request.Path + "?" + query.ToString();
     }
     
     protected string GetCourseStatusBadge(object status)
@@ -588,6 +737,14 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     
     protected void btnRemoveSelected_Click(object sender, EventArgs e)
     {
+        if (string.IsNullOrEmpty(ddlCourse.SelectedValue))
+        {
+            ShowMessage("Please select a course first.", "error");
+            LoadStats();
+            BindGrid();
+            return;
+        }
+
         int count = 0;
         List<string> errors = new List<string>();
         
@@ -686,6 +843,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         }
         
         string regno = txtRetakeRegNo.Text.Trim();
+        string recordType = (ddlNewRecordType.SelectedValue ?? "REGULAR").Trim().ToUpper();
+        if (recordType != "RETAKE") recordType = "REGULAR";
         string username = HttpContext.Current.User.Identity.Name;
 
         // Enforce semester active status — block retake registration if semester is closed
@@ -707,17 +866,51 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             {
                 conn.Open();
                 
-                // Check if student exists
-                string checkStudentSql = "SELECT COUNT(*) FROM acad_student WHERE regno = @regno";
+                // Check if student exists and get programme
+                string studentProg = "";
+                string checkStudentSql = "SELECT progid FROM acad_student WHERE regno = @regno LIMIT 1";
                 using (MySqlCommand checkCmd = new MySqlCommand(checkStudentSql, conn))
                 {
                     checkCmd.Parameters.AddWithValue("@regno", regno);
-                    if (Convert.ToInt32(checkCmd.ExecuteScalar()) == 0)
+                    object progObj = checkCmd.ExecuteScalar();
+                    if (progObj == null || progObj == DBNull.Value)
                     {
                         ShowMessage("Student with registration number '" + regno + "' not found.", "error");
                         LoadStats();
                         BindGrid();
                         return;
+                    }
+                    studentProg = progObj.ToString();
+                }
+
+                if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue)
+                    && !string.Equals(ddlProgramme.SelectedValue, studentProg, StringComparison.OrdinalIgnoreCase))
+                {
+                    ShowMessage("Selected student does not belong to the selected programme.", "error");
+                    LoadStats();
+                    BindGrid();
+                    return;
+                }
+
+                if (recordType == "REGULAR")
+                {
+                    string checkSemesterRegSql = @"SELECT COUNT(*) FROM acad_registration
+                                                   WHERE regno=@regno
+                                                     AND acad_year=@acad
+                                                     AND studyyear=@yr
+                                                     AND regstatus IN ('REGISTERED','CLEARED','LATE REGISTERED')";
+                    using (MySqlCommand semCmd = new MySqlCommand(checkSemesterRegSql, conn))
+                    {
+                        semCmd.Parameters.AddWithValue("@regno", regno);
+                        semCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
+                        semCmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
+                        if (Convert.ToInt32(semCmd.ExecuteScalar()) == 0)
+                        {
+                            ShowMessage("Student is not semester-registered for the selected academic year/study year.", "error");
+                            LoadStats();
+                            BindGrid();
+                            return;
+                        }
                     }
                 }
                 
@@ -735,14 +928,14 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     
                     if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
                     {
-                        ShowMessage("Student is already registered for this course.", "error");
+                        ShowMessage("Student is already registered for this course in the selected year/semester.", "error");
                         LoadStats();
                         BindGrid();
                         return;
                     }
                 }
                 
-                // Use stored procedure for proper retake handling (acc_redo_info, acad_results, logging)
+                // Use stored procedure for proper registration handling + logging
                 using (MySqlCommand spCmd = new MySqlCommand("acad_CourseRegister", conn))
                 {
                     spCmd.CommandType = CommandType.StoredProcedure;
@@ -750,8 +943,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     spCmd.Parameters.AddWithValue("@csid", ddlCourse.SelectedValue);
                     spCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
                     spCmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
-                    spCmd.Parameters.AddWithValue("@cs_stat", "RETAKE");
-                    spCmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
+                    spCmd.Parameters.AddWithValue("@cs_stat", recordType);
+                    spCmd.Parameters.AddWithValue("@prog", !string.IsNullOrEmpty(ddlProgramme.SelectedValue) ? ddlProgramme.SelectedValue : studentProg);
                     spCmd.Parameters.AddWithValue("@usr", username);
                     spCmd.Parameters.AddWithValue("@act", "Pending");
                     using (MySqlDataReader rdr = spCmd.ExecuteReader())
@@ -761,12 +954,13 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 }
             }
             
-            ShowMessage("Retake case added successfully for student: " + regno, "success");
+            ShowMessage((recordType == "RETAKE" ? "Retake" : "Regular") + " record added successfully for student: " + regno, "success");
             txtRetakeRegNo.Text = "";
+            ScriptManager.RegisterStartupScript(this, GetType(), "closeRetakeModal", "closeRetakeModal();", true);
         }
         catch (Exception ex)
         {
-            ShowMessage("Error adding retake: " + ex.Message, "error");
+            ShowMessage("Error adding new record: " + ex.Message, "error");
         }
         
         LoadStats();

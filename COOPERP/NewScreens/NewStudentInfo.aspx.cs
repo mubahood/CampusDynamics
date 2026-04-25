@@ -10,6 +10,7 @@ using System.IO;
 using System.Text;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Web;
 
 public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 {
@@ -22,6 +23,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     
     // Flag to ensure DB columns are created only once per app start
     private static bool _dbColumnsChecked = false;
+    private string _setPasswordLastDebug = "";
 
     // Status filter - can be set by query parameter or dropdown
     protected string StatusFilter
@@ -104,6 +106,21 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 HandleSetPassword();
                 return;
             }
+            else if (action == "ListStudents")
+            {
+                HandleListStudents();
+                return;
+            }
+            else if (action == "HealthSetPassword")
+            {
+                HandleHealthSetPassword();
+                return;
+            }
+            else if (action == "CheckStudentForSetPassword")
+            {
+                HandleCheckStudentForSetPassword();
+                return;
+            }
         }
         
         // Always reload programmes - ViewState is disabled so dropdowns lose items on postback
@@ -111,17 +128,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         if (!IsPostBack)
         {
-            // Initialize status filter from query string
-            if (!string.IsNullOrEmpty(Request.QueryString["status"]))
-            {
-                StatusFilter = Request.QueryString["status"].ToUpper();
-                
-                // Set the dropdown to match
-                if (ddlFilterStatus.Items.FindByValue(StatusFilter) != null)
-                    ddlFilterStatus.SelectedValue = StatusFilter;
-            }
-            
             LoadFilters();
+            ApplyFiltersFromQueryString();
+
             // Set default photo URL for JavaScript use
             hdnDefaultPhotoUrl.Value = ResolveUrl("~/COOPERP/StudentInfo/photos/default.png");
             
@@ -3009,8 +3018,116 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     
     private void BindStudentsGrid()
     {
-        gvStudents.DataSource = GetStudentsData();
+        DataTable allRows = GetStudentsData();
+        int totalRows = allRows.Rows.Count;
+
+        int pageSize = ParseQueryInt("size", 20, 10, 200);
+        int page = ParseQueryInt("page", 1, 1, 1000000);
+
+        int totalPages = totalRows > 0 ? (int)Math.Ceiling(totalRows / (double)pageSize) : 1;
+        if (page > totalPages) page = totalPages;
+
+        int offset = (page - 1) * pageSize;
+        DataTable pagedRows = allRows.Clone();
+        for (int i = offset; i < Math.Min(offset + pageSize, totalRows); i++)
+            pagedRows.ImportRow(allRows.Rows[i]);
+
+        gvStudents.DataSource = pagedRows;
         gvStudents.DataBind();
+
+        litPageInfo.Text = "Page " + page + " of " + totalPages + " | Total: " + totalRows.ToString("N0");
+        litPager.Text = BuildPagerHtml(page, totalPages, pageSize);
+    }
+
+    private int ParseQueryInt(string key, int fallback, int min, int max)
+    {
+        int parsed;
+        if (!int.TryParse(Request.QueryString[key], out parsed)) return fallback;
+        if (parsed < min) return min;
+        if (parsed > max) return max;
+        return parsed;
+    }
+
+    private void ApplyFiltersFromQueryString()
+    {
+        string status = (Request.QueryString["status"] ?? "").Trim().ToUpper();
+        string q = (Request.QueryString["q"] ?? "").Trim();
+        string faculty = (Request.QueryString["faculty"] ?? "").Trim();
+        string programme = (Request.QueryString["prog"] ?? "").Trim();
+        string entryYear = (Request.QueryString["entryyear"] ?? "").Trim();
+        string session = (Request.QueryString["session"] ?? "").Trim();
+        string campus = (Request.QueryString["campus"] ?? "").Trim();
+
+        txtSearch.Text = q;
+
+        if (!string.IsNullOrEmpty(status) && ddlFilterStatus.Items.FindByValue(status) != null)
+            ddlFilterStatus.SelectedValue = status;
+        StatusFilter = status;
+
+        if (!string.IsNullOrEmpty(faculty) && ddlFilterFaculty.Items.FindByValue(faculty) != null)
+            ddlFilterFaculty.SelectedValue = faculty;
+
+        LoadProgrammes(faculty);
+        if (!string.IsNullOrEmpty(programme) && ddlFilterProgramme.Items.FindByValue(programme) != null)
+            ddlFilterProgramme.SelectedValue = programme;
+
+        if (!string.IsNullOrEmpty(entryYear) && ddlFilterEntryYear.Items.FindByValue(entryYear) != null)
+            ddlFilterEntryYear.SelectedValue = entryYear;
+
+        if (!string.IsNullOrEmpty(session) && ddlFilterSession.Items.FindByValue(session) != null)
+            ddlFilterSession.SelectedValue = session;
+
+        if (!string.IsNullOrEmpty(campus) && ddlFilterCampus.Items.FindByValue(campus) != null)
+            ddlFilterCampus.SelectedValue = campus;
+
+        if (litPageTitle != null)
+            litPageTitle.Text = PageTitle;
+    }
+
+    private string BuildPagerHtml(int page, int totalPages, int pageSize)
+    {
+        if (totalPages <= 1) return string.Empty;
+
+        StringBuilder sb = new StringBuilder();
+        if (page > 1)
+            sb.Append("<a href='" + BuildListUrl(page - 1, pageSize) + "'>&laquo; Prev</a>");
+
+        int start = Math.Max(1, page - 2);
+        int end = Math.Min(totalPages, start + 4);
+        start = Math.Max(1, end - 4);
+
+        for (int i = start; i <= end; i++)
+        {
+            if (i == page)
+                sb.Append("<span class='active'>" + i + "</span>");
+            else
+                sb.Append("<a href='" + BuildListUrl(i, pageSize) + "'>" + i + "</a>");
+        }
+
+        if (page < totalPages)
+            sb.Append("<a href='" + BuildListUrl(page + 1, pageSize) + "'>Next &raquo;</a>");
+
+        return sb.ToString();
+    }
+
+    private string BuildListUrl(int page, int pageSize)
+    {
+        var qs = HttpUtility.ParseQueryString(string.Empty);
+
+        string q = txtSearch != null ? (txtSearch.Text ?? "").Trim() : "";
+        if (!string.IsNullOrEmpty(q)) qs["q"] = q;
+
+        if (ddlFilterStatus != null && !string.IsNullOrEmpty(ddlFilterStatus.SelectedValue)) qs["status"] = ddlFilterStatus.SelectedValue;
+        if (ddlFilterFaculty != null && !string.IsNullOrEmpty(ddlFilterFaculty.SelectedValue)) qs["faculty"] = ddlFilterFaculty.SelectedValue;
+        if (ddlFilterProgramme != null && !string.IsNullOrEmpty(ddlFilterProgramme.SelectedValue)) qs["prog"] = ddlFilterProgramme.SelectedValue;
+        if (ddlFilterEntryYear != null && !string.IsNullOrEmpty(ddlFilterEntryYear.SelectedValue)) qs["entryyear"] = ddlFilterEntryYear.SelectedValue;
+        if (ddlFilterSession != null && !string.IsNullOrEmpty(ddlFilterSession.SelectedValue)) qs["session"] = ddlFilterSession.SelectedValue;
+        if (ddlFilterCampus != null && !string.IsNullOrEmpty(ddlFilterCampus.SelectedValue)) qs["campus"] = ddlFilterCampus.SelectedValue;
+
+        qs["page"] = page.ToString();
+        qs["size"] = pageSize.ToString();
+
+        return "NewStudentInfo.aspx?" + qs.ToString();
     }
     
     #region Filters Loading
@@ -3053,6 +3170,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     private void LoadProgrammes(string facultyCode)
     {
         ddlFilterProgramme.Items.Clear();
+        ddlFilterProgramme.Items.Add(new ListItem("All", ""));
         
         try
         {
@@ -3080,10 +3198,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     {
                         while (reader.Read())
                         {
-                            ddlFilterProgramme.Items.Add(
+                            ddlFilterProgramme.Items.Add(new ListItem(
                                 reader["progname"].ToString(),
                                 reader["progcode"].ToString().Trim()
-                            );
+                            ));
                         }
                     }
                 }
@@ -3221,8 +3339,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 sql += " AND TRIM(s.new_status) = @status ";
             }
             
-            // --- Programme filter (DevExpress combobox) ---
-            string selectedProgramme = ddlFilterProgramme.Value != null ? ddlFilterProgramme.Value.ToString().Trim() : "";
+            // --- Programme filter ---
+            string selectedProgramme = ddlFilterProgramme != null ? ddlFilterProgramme.SelectedValue.Trim() : "";
             
             if (!string.IsNullOrEmpty(selectedProgramme))
             {
@@ -3331,7 +3449,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         // Reset all dropdowns
         ddlFilterStatus.SelectedIndex = 0;
         ddlFilterFaculty.SelectedIndex = 0;
-        ddlFilterProgramme.Value = null;
+        ddlFilterProgramme.SelectedIndex = 0;
         ddlFilterEntryYear.SelectedIndex = 0;
         ddlFilterSession.SelectedIndex = 0;
         ddlFilterCampus.SelectedIndex = 0;
@@ -5079,7 +5197,6 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     
     private void HandleSetPassword()
     {
-        Response.ContentType = "application/json";
         JavaScriptSerializer serializer = new JavaScriptSerializer();
         
         try
@@ -5090,8 +5207,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             
             if (string.IsNullOrEmpty(regno) || string.IsNullOrEmpty(newPassword))
             {
-                Response.Write(serializer.Serialize(new { success = false, message = "Registration number and password are required." }));
-                Response.End();
+                WriteJsonAndComplete(serializer, new { success = false, message = "Registration number and password are required." });
                 return;
             }
             
@@ -5113,26 +5229,18 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             {
                 conn.Open();
                 
-                // Step 1: Find the user ID from my_aspnet_users by name (username = regno)
-                string userId = null;
-                using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT id FROM campus_dynamics_portal.my_aspnet_users WHERE TRIM(name) = @regno", conn))
-                {
-                    cmd.Parameters.AddWithValue("@regno", regno);
-                    object result = cmd.ExecuteScalar();
-                    if (result != null && result != DBNull.Value)
-                    {
-                        userId = result.ToString();
-                    }
-                }
+                // Step 1: Resolve portal user id from regno.
+                // Supports both legacy usernames (regno) and migrated usernames (verified university email).
+                // Will automatically create a portal account if the student exists but doesn't have one yet.
+                string userId = ResolvePortalUserIdForPasswordReset(conn, regno);
                 
                 if (string.IsNullOrEmpty(userId))
                 {
-                    Response.Write(serializer.Serialize(new { 
+                    string debugSuffix = string.IsNullOrEmpty(_setPasswordLastDebug) ? "" : (" Diagnostic: " + _setPasswordLastDebug);
+                    WriteJsonAndComplete(serializer, new {
                         success = false, 
-                        message = "No portal account found for " + regno + ". The student may not have a portal account yet." 
-                    }));
-                    Response.End();
+                        message = "[SETPASSWORD_V2] Student " + regno + " not found in the system or portal account could not be created. Please verify the registration number." + debugSuffix
+                    });
                     return;
                 }
                 
@@ -5153,7 +5261,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                           IsLockedOut = 0, 
                           FailedPasswordAttemptCount = 0,
                           LastPasswordChangedDate = @now
-                      WHERE userid = @userId", conn))
+                      WHERE userId = @userId", conn))
                 {
                     cmd.Parameters.AddWithValue("@password", hashedPassword);
                     cmd.Parameters.AddWithValue("@salt", salt);
@@ -5163,29 +5271,737 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     int rows = cmd.ExecuteNonQuery();
                     if (rows > 0)
                     {
-                        Response.Write(serializer.Serialize(new { 
+                        WriteJsonAndComplete(serializer, new {
                             success = true, 
-                            message = "Password set successfully for " + regno + ". The student can now log in with the new password." 
-                        }));
+                            message = "[SETPASSWORD_V2] Password set successfully for " + regno + ". The student can now log in with the new password." 
+                        });
                     }
                     else
                     {
-                        Response.Write(serializer.Serialize(new { 
-                            success = false, 
-                            message = "No membership record found for this user. The account may be incomplete." 
-                        }));
+                        bool healed = EnsurePortalMembershipRecord(conn, userId);
+                        if (healed)
+                        {
+                            int retryRows = cmd.ExecuteNonQuery();
+                            if (retryRows > 0)
+                            {
+                                WriteJsonAndComplete(serializer, new {
+                                    success = true,
+                                    message = "[SETPASSWORD_V2] Password set successfully for " + regno + ". The account membership record was repaired automatically." 
+                                });
+                            }
+                            else
+                            {
+                                WriteJsonAndComplete(serializer, new {
+                                    success = false,
+                                    message = "[SETPASSWORD_V2] Membership repair attempted but password update still failed for this user." 
+                                });
+                            }
+                        }
+                        else
+                        {
+                            string debugSuffix = string.IsNullOrEmpty(_setPasswordLastDebug) ? "" : (" Diagnostic: " + _setPasswordLastDebug);
+                            WriteJsonAndComplete(serializer, new {
+                                success = false,
+                                message = "[SETPASSWORD_V2] No membership record found for this user. The account may be incomplete." + debugSuffix
+                            });
+                        }
                     }
                 }
             }
         }
+        catch (System.Threading.ThreadAbortException)
+        {
+            return;
+        }
         catch (Exception ex)
         {
-            Response.Write(serializer.Serialize(new { 
+            WriteJsonAndComplete(serializer, new {
                 success = false, 
-                message = "Error: " + ex.Message 
-            }));
+                message = "[SETPASSWORD_V2] Error: " + ex.Message 
+            });
         }
+
+        return;
+    }
+
+    private void HandleListStudents()
+    {
+        JavaScriptSerializer serializer = new JavaScriptSerializer();
         
+        try
+        {
+            List<object> students = new List<object>();
+            
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                
+                // Get first 20 students with email
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT regno, email FROM acad_student WHERE email IS NOT NULL AND email != '' LIMIT 20", conn))
+                {
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            students.Add(new {
+                                regno = reader["regno"].ToString(),
+                                email = reader["email"].ToString()
+                            });
+                        }
+                    }
+                }
+            }
+            
+            WriteJsonAndComplete(serializer, new {
+                success = true,
+                count = students.Count,
+                students = students
+            });
+        }
+        catch (Exception ex)
+        {
+            WriteJsonAndComplete(serializer, new {
+                success = false,
+                message = "Error: " + ex.Message
+            });
+        }
+    }
+
+    private void HandleHealthSetPassword()
+    {
+        JavaScriptSerializer serializer = new JavaScriptSerializer();
+
+        try
+        {
+            bool hasRegnoColumn = false;
+            bool hasEmailColumn = false;
+
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+
+                using (MySqlCommand cmd = new MySqlCommand(
+                    @"SELECT COLUMN_NAME 
+                      FROM information_schema.COLUMNS 
+                      WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = 'acad_student'
+                        AND COLUMN_NAME IN ('regno','email')", conn))
+                {
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            string col = reader["COLUMN_NAME"].ToString().ToLower();
+                            if (col == "regno") hasRegnoColumn = true;
+                            if (col == "email") hasEmailColumn = true;
+                        }
+                    }
+                }
+            }
+
+            WriteJsonAndComplete(serializer, new
+            {
+                success = true,
+                version = "SETPASSWORD_V2",
+                serverUtc = DateTime.UtcNow.ToString("o"),
+                checks = new
+                {
+                    hasVacConnectionString = !string.IsNullOrEmpty(ConnectionString),
+                    acadStudentHasRegno = hasRegnoColumn,
+                    acadStudentHasEmail = hasEmailColumn
+                }
+            });
+        }
+        catch (System.Threading.ThreadAbortException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            WriteJsonAndComplete(serializer, new
+            {
+                success = false,
+                version = "SETPASSWORD_V2",
+                message = "Health check error: " + ex.Message
+            });
+        }
+    }
+
+    private void HandleCheckStudentForSetPassword()
+    {
+        JavaScriptSerializer serializer = new JavaScriptSerializer();
+
+        try
+        {
+            string regno = (Request["regno"] ?? "").Trim();
+            if (string.IsNullOrEmpty(regno))
+            {
+                WriteJsonAndComplete(serializer, new
+                {
+                    success = false,
+                    version = "SETPASSWORD_V2",
+                    message = "regno is required"
+                });
+                return;
+            }
+
+            bool studentFound = false;
+            string matchedRegno = "";
+            string studentEmail = "";
+            List<string> similarRegnos = new List<string>();
+
+            using (MySqlConnection acadConn = new MySqlConnection(ConnectionString))
+            {
+                acadConn.Open();
+
+                using (MySqlCommand findStudentCmd = new MySqlCommand(
+                    "SELECT regno, email FROM acad_student WHERE LOWER(TRIM(regno)) = LOWER(@regno) LIMIT 1", acadConn))
+                {
+                    findStudentCmd.Parameters.AddWithValue("@regno", regno);
+                    using (MySqlDataReader reader = findStudentCmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            studentFound = true;
+                            matchedRegno = reader["regno"] == DBNull.Value ? "" : reader["regno"].ToString();
+                            studentEmail = reader["email"] == DBNull.Value ? "" : reader["email"].ToString();
+                        }
+                    }
+                }
+
+                if (!studentFound)
+                {
+                    string regPrefix = regno.Length >= 7 ? regno.Substring(0, 7) : regno;
+                    using (MySqlCommand similarCmd = new MySqlCommand(
+                        "SELECT regno FROM acad_student WHERE regno LIKE @prefix LIMIT 10", acadConn))
+                    {
+                        similarCmd.Parameters.AddWithValue("@prefix", regPrefix + "%");
+                        using (MySqlDataReader reader = similarCmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                similarRegnos.Add(reader["regno"].ToString());
+                            }
+                        }
+                    }
+                }
+            }
+
+            bool portalUserByRegno = false;
+            bool portalUserByEmail = false;
+            List<string> usersColumns = new List<string>();
+            List<string> membershipColumns = new List<string>();
+            string portalConnStr = ConfigurationManager.ConnectionStrings["campus_dynamics_portalConnectionString"] != null
+                ? ConfigurationManager.ConnectionStrings["campus_dynamics_portalConnectionString"].ConnectionString
+                : "";
+
+            if (!string.IsNullOrEmpty(portalConnStr))
+            {
+                using (MySqlConnection portalConn = new MySqlConnection(portalConnStr))
+                {
+                    portalConn.Open();
+
+                    using (MySqlCommand byRegCmd = new MySqlCommand(
+                        "SELECT COUNT(*) FROM campus_dynamics_portal.my_aspnet_users WHERE LOWER(TRIM(name)) = LOWER(@regno)", portalConn))
+                    {
+                        byRegCmd.Parameters.AddWithValue("@regno", regno);
+                        portalUserByRegno = Convert.ToInt32(byRegCmd.ExecuteScalar()) > 0;
+                    }
+
+                    if (!string.IsNullOrEmpty(studentEmail))
+                    {
+                        using (MySqlCommand byEmailCmd = new MySqlCommand(
+                            "SELECT COUNT(*) FROM campus_dynamics_portal.my_aspnet_users WHERE LOWER(TRIM(name)) = LOWER(@email) OR LOWER(IFNULL(verified_email,'')) = LOWER(@email)", portalConn))
+                        {
+                            byEmailCmd.Parameters.AddWithValue("@email", studentEmail);
+                            portalUserByEmail = Convert.ToInt32(byEmailCmd.ExecuteScalar()) > 0;
+                        }
+                    }
+
+                    using (MySqlCommand usersColsCmd = new MySqlCommand(
+                        @"SELECT COLUMN_NAME
+                          FROM information_schema.COLUMNS
+                          WHERE TABLE_SCHEMA = 'campus_dynamics_portal'
+                            AND TABLE_NAME = 'my_aspnet_users'
+                          ORDER BY ORDINAL_POSITION", portalConn))
+                    {
+                        using (MySqlDataReader reader = usersColsCmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                                usersColumns.Add(reader["COLUMN_NAME"].ToString());
+                        }
+                    }
+
+                    using (MySqlCommand memberColsCmd = new MySqlCommand(
+                        @"SELECT COLUMN_NAME
+                          FROM information_schema.COLUMNS
+                          WHERE TABLE_SCHEMA = 'campus_dynamics_portal'
+                            AND TABLE_NAME = 'my_aspnet_membership'
+                          ORDER BY ORDINAL_POSITION", portalConn))
+                    {
+                        using (MySqlDataReader reader = memberColsCmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                                membershipColumns.Add(reader["COLUMN_NAME"].ToString());
+                        }
+                    }
+                }
+            }
+
+            WriteJsonAndComplete(serializer, new
+            {
+                success = true,
+                version = "SETPASSWORD_V2",
+                inputRegno = regno,
+                studentFound = studentFound,
+                matchedRegno = matchedRegno,
+                studentEmail = studentEmail,
+                portalUserByRegno = portalUserByRegno,
+                portalUserByEmail = portalUserByEmail,
+                similarRegnos = similarRegnos,
+                usersColumns = usersColumns,
+                membershipColumns = membershipColumns
+            });
+        }
+        catch (System.Threading.ThreadAbortException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            WriteJsonAndComplete(serializer, new
+            {
+                success = false,
+                version = "SETPASSWORD_V2",
+                message = "CheckStudentForSetPassword error: " + ex.Message
+            });
+        }
+    }
+
+    private string ResolvePortalUserIdForPasswordReset(MySqlConnection conn, string regno)
+    {
+        if (conn == null || string.IsNullOrWhiteSpace(regno)) return null;
+        _setPasswordLastDebug = "";
+
+        regno = regno.Trim();
+
+        // Step 1: Validate the student exists in acad_student using academic database connection
+        bool studentExists = false;
+        string studentEmail = null;
+        string debugError = "";
+        // Create a separate connection to the academic database for this query
+        using (MySqlConnection acadConn = new MySqlConnection(ConnectionString))
+        {
+            try
+            {
+                acadConn.Open();
+                using (MySqlCommand validateCmd = new MySqlCommand(
+                    "SELECT regno, email FROM acad_student WHERE LOWER(TRIM(regno)) = LOWER(@regno) LIMIT 1", acadConn))
+                {
+                    validateCmd.Parameters.AddWithValue("@regno", regno);
+                    using (MySqlDataReader reader = validateCmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            studentExists = true;
+                            if (reader["email"] != DBNull.Value)
+                                studentEmail = reader["email"].ToString();
+                        }
+                        else
+                        {
+                            debugError = "Query executed but no student found with regno=" + regno;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                debugError = "Academic DB Error: " + ex.Message;
+                System.Diagnostics.Debug.WriteLine(debugError);
+            }
+        }
+
+        // If student doesn't exist in acad_student, we can't proceed
+        if (!studentExists)
+        {
+            // Student not found in main database
+            if (!string.IsNullOrEmpty(debugError))
+            {
+                _setPasswordLastDebug = debugError;
+                System.Diagnostics.Debug.WriteLine("ResolvePortalUserIdForPasswordReset failure: " + debugError);
+            }
+            return null;
+        }
+
+        // Step 2: Try direct match on registration number (legacy usernames stored as regno)
+        using (MySqlCommand directCmd = new MySqlCommand(
+            "SELECT id FROM campus_dynamics_portal.my_aspnet_users WHERE LOWER(TRIM(name)) = LOWER(@regno) LIMIT 1", conn))
+        {
+            directCmd.Parameters.AddWithValue("@regno", regno);
+            object direct = directCmd.ExecuteScalar();
+            if (direct != null && direct != DBNull.Value)
+                return direct.ToString();
+        }
+
+        // Step 3: Try match by email (for migrated accounts)
+        if (!string.IsNullOrEmpty(studentEmail))
+        {
+            using (MySqlCommand emailCmd = new MySqlCommand(
+                "SELECT u.id FROM campus_dynamics_portal.my_aspnet_users u " +
+                "WHERE LOWER(TRIM(u.name)) = LOWER(@email) OR LOWER(IFNULL(u.verified_email,'')) = LOWER(@email) " +
+                "LIMIT 1", conn))
+            {
+                emailCmd.Parameters.AddWithValue("@email", studentEmail);
+                object emailResult = emailCmd.ExecuteScalar();
+                if (emailResult != null && emailResult != DBNull.Value)
+                    return emailResult.ToString();
+            }
+        }
+
+        // Step 4: Student exists but no portal user found - CREATE ONE
+        // Generate a portal user for this student so they can set/use password
+        try
+        {
+            string portalUserId = CreatePortalUserForStudent(conn, regno, studentEmail);
+            if (!string.IsNullOrEmpty(portalUserId))
+                return portalUserId;
+            if (string.IsNullOrEmpty(_setPasswordLastDebug))
+                _setPasswordLastDebug = "Portal user creation returned no user id.";
+        }
+        catch (Exception ex)
+        {
+            _setPasswordLastDebug = "Error creating portal user: " + ex.Message;
+            System.Diagnostics.Debug.WriteLine("Error creating portal user: " + ex.Message);
+        }
+
+        // If we get here, student exists but we couldn't create or find a portal user
+        return null;
+    }
+
+    /// <summary>
+    /// Creates a new portal user account for a student who exists in acad_student but doesn't have a portal account yet.
+    /// Returns the new user ID on success, null on failure.
+    /// </summary>
+    private string CreatePortalUserForStudent(MySqlConnection conn, string regno, string email)
+    {
+        try
+        {
+            string newUserId = "";
+            string normalizedEmail = string.IsNullOrWhiteSpace(email) ? "" : email.Trim();
+            DateTime now = DateTime.UtcNow;
+            bool userCreated = false;
+            string applicationId = GetPortalApplicationId(conn);
+            string usersIdDataType = GetUsersIdDataType(conn).ToLower();
+            int usersIdMaxLen = GetUsersIdMaxLength(conn);
+            bool usersIdIsNumeric = usersIdDataType.Contains("int") || usersIdDataType.Contains("decimal") || usersIdDataType.Contains("numeric");
+
+            if (!usersIdIsNumeric)
+            {
+                newUserId = Guid.NewGuid().ToString("N");
+                if (usersIdMaxLen > 0 && newUserId.Length > usersIdMaxLen)
+                    newUserId = newUserId.Substring(0, usersIdMaxLen);
+            }
+
+            if (string.IsNullOrEmpty(applicationId))
+            {
+                _setPasswordLastDebug = "No applicationId found in campus_dynamics_portal.my_aspnet_applications";
+                return null;
+            }
+
+            try
+            {
+                if (usersIdIsNumeric)
+                {
+                    using (MySqlCommand createCmdNumeric = new MySqlCommand(
+                        @"INSERT INTO campus_dynamics_portal.my_aspnet_users 
+                          (applicationId, name, isAnonymous, lastActivityDate, verified_email, user_type, IsApproved, user_verification_status, DateCreated)
+                          VALUES (@applicationId, @name, 0, @now, @email, @type, 1, 'AUTO_CREATED', @now)", conn))
+                    {
+                        createCmdNumeric.Parameters.AddWithValue("@applicationId", applicationId);
+                        createCmdNumeric.Parameters.AddWithValue("@name", regno);
+                        createCmdNumeric.Parameters.AddWithValue("@email", normalizedEmail);
+                        createCmdNumeric.Parameters.AddWithValue("@type", "STUDENT");
+                        createCmdNumeric.Parameters.AddWithValue("@now", now);
+                        userCreated = createCmdNumeric.ExecuteNonQuery() > 0;
+                    }
+
+                    if (userCreated)
+                    {
+                        using (MySqlCommand idCmd = new MySqlCommand("SELECT LAST_INSERT_ID()", conn))
+                        {
+                            object newIdObj = idCmd.ExecuteScalar();
+                            if (newIdObj != null && newIdObj != DBNull.Value)
+                                newUserId = newIdObj.ToString();
+                        }
+                    }
+                }
+                else
+                {
+                    using (MySqlCommand createCmd = new MySqlCommand(
+                        @"INSERT INTO campus_dynamics_portal.my_aspnet_users 
+                          (id, applicationId, name, isAnonymous, lastActivityDate, verified_email, user_type, IsApproved, user_verification_status, DateCreated)
+                          VALUES (@id, @applicationId, @name, 0, @now, @email, @type, 1, 'AUTO_CREATED', @now)", conn))
+                    {
+                        createCmd.Parameters.AddWithValue("@id", newUserId);
+                        createCmd.Parameters.AddWithValue("@applicationId", applicationId);
+                        createCmd.Parameters.AddWithValue("@name", regno);
+                        createCmd.Parameters.AddWithValue("@email", normalizedEmail);
+                        createCmd.Parameters.AddWithValue("@type", "STUDENT");
+                        createCmd.Parameters.AddWithValue("@now", now);
+
+                        userCreated = createCmd.ExecuteNonQuery() > 0;
+                    }
+                }
+            }
+            catch (Exception exCreatePrimary)
+            {
+                if (usersIdIsNumeric)
+                {
+                    try
+                    {
+                        using (MySqlCommand fallbackUserCmdNumeric = new MySqlCommand(
+                            @"INSERT INTO campus_dynamics_portal.my_aspnet_users 
+                              (applicationId, name, isAnonymous, lastActivityDate)
+                              VALUES (@applicationId, @name, 0, @now)", conn))
+                        {
+                            fallbackUserCmdNumeric.Parameters.AddWithValue("@applicationId", applicationId);
+                            fallbackUserCmdNumeric.Parameters.AddWithValue("@name", regno);
+                            fallbackUserCmdNumeric.Parameters.AddWithValue("@now", now);
+                            userCreated = fallbackUserCmdNumeric.ExecuteNonQuery() > 0;
+                        }
+
+                        if (userCreated)
+                        {
+                            using (MySqlCommand idCmd = new MySqlCommand("SELECT LAST_INSERT_ID()", conn))
+                            {
+                                object newIdObj = idCmd.ExecuteScalar();
+                                if (newIdObj != null && newIdObj != DBNull.Value)
+                                    newUserId = newIdObj.ToString();
+                            }
+                        }
+                    }
+                    catch (Exception exCreateFallback)
+                    {
+                        _setPasswordLastDebug = "Users insert failed. Primary: " + exCreatePrimary.Message + " | Fallback: " + exCreateFallback.Message;
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        using (MySqlCommand fallbackUserCmd = new MySqlCommand(
+                            @"INSERT INTO campus_dynamics_portal.my_aspnet_users 
+                              (id, applicationId, name, isAnonymous, lastActivityDate)
+                              VALUES (@id, @applicationId, @name, 0, @now)", conn))
+                        {
+                            fallbackUserCmd.Parameters.AddWithValue("@id", newUserId);
+                            fallbackUserCmd.Parameters.AddWithValue("@applicationId", applicationId);
+                            fallbackUserCmd.Parameters.AddWithValue("@name", regno);
+                            fallbackUserCmd.Parameters.AddWithValue("@now", now);
+                            userCreated = fallbackUserCmd.ExecuteNonQuery() > 0;
+                        }
+                    }
+                    catch (Exception exCreateFallback)
+                    {
+                        _setPasswordLastDebug = "Users insert failed. Primary: " + exCreatePrimary.Message + " | Fallback: " + exCreateFallback.Message;
+                    }
+                }
+            }
+
+            if (!userCreated)
+                return null;
+
+            // Ensure membership row exists and has required password/salt fields
+            byte[] bootstrapSaltBytes = new byte[16];
+            using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider())
+            {
+                rng.GetBytes(bootstrapSaltBytes);
+            }
+            string bootstrapSalt = Convert.ToBase64String(bootstrapSaltBytes);
+            string bootstrapHash = HashPasswordWithSalt(Guid.NewGuid().ToString("N"), bootstrapSalt);
+
+            bool membershipCreated = false;
+            try
+            {
+                using (MySqlCommand memberCmd = new MySqlCommand(
+                    @"INSERT INTO campus_dynamics_portal.my_aspnet_membership
+                      (userId, Email, Comment, Password, PasswordKey, PasswordFormat, PasswordQuestion, PasswordAnswer, IsApproved, LastActivityDate, LastLoginDate, LastPasswordChangedDate, CreationDate, IsLockedOut, LastLockedOutDate, FailedPasswordAttemptCount, FailedPasswordAttemptWindowStart, FailedPasswordAnswerAttemptCount, FailedPasswordAnswerAttemptWindowStart)
+                      VALUES (@userId, @email, '', @password, @salt, 1, '', '', 1, @now, @now, @now, @now, 0, @now, 0, @now, 0, @now)", conn))
+                {
+                    memberCmd.Parameters.AddWithValue("@userId", newUserId);
+                    memberCmd.Parameters.AddWithValue("@email", normalizedEmail);
+                    memberCmd.Parameters.AddWithValue("@password", bootstrapHash);
+                    memberCmd.Parameters.AddWithValue("@salt", bootstrapSalt);
+                    memberCmd.Parameters.AddWithValue("@now", now);
+                    membershipCreated = memberCmd.ExecuteNonQuery() > 0;
+                }
+            }
+            catch
+            {
+                // Some deployments use userid instead of userId column naming
+                try
+                {
+                    using (MySqlCommand memberCmdAlt = new MySqlCommand(
+                        @"INSERT INTO campus_dynamics_portal.my_aspnet_membership
+                          (userId, Email, Comment, Password, PasswordKey, PasswordFormat, PasswordQuestion, PasswordAnswer, IsApproved, LastActivityDate, LastLoginDate, LastPasswordChangedDate, CreationDate, IsLockedOut, LastLockedOutDate, FailedPasswordAttemptCount, FailedPasswordAttemptWindowStart, FailedPasswordAnswerAttemptCount, FailedPasswordAnswerAttemptWindowStart)
+                          VALUES (@userId, @email, '', @password, @salt, 1, '', '', 1, @now, @now, @now, @now, 0, @now, 0, @now, 0, @now)", conn))
+                    {
+                        memberCmdAlt.Parameters.AddWithValue("@userId", newUserId);
+                        memberCmdAlt.Parameters.AddWithValue("@email", normalizedEmail);
+                        memberCmdAlt.Parameters.AddWithValue("@password", bootstrapHash);
+                        memberCmdAlt.Parameters.AddWithValue("@salt", bootstrapSalt);
+                        memberCmdAlt.Parameters.AddWithValue("@now", now);
+                        membershipCreated = memberCmdAlt.ExecuteNonQuery() > 0;
+                    }
+                }
+                catch
+                {
+                    using (MySqlCommand checkMemberCmd = new MySqlCommand(
+                        "SELECT COUNT(*) FROM campus_dynamics_portal.my_aspnet_membership WHERE userid = @userId OR userId = @userId", conn))
+                    {
+                        checkMemberCmd.Parameters.AddWithValue("@userId", newUserId);
+                        membershipCreated = Convert.ToInt32(checkMemberCmd.ExecuteScalar()) > 0;
+                    }
+                }
+            }
+
+            if (membershipCreated)
+            {
+                return newUserId;
+            }
+        }
+        catch (Exception ex)
+        {
+            _setPasswordLastDebug = "CreatePortalUserForStudent error: " + ex.Message;
+            System.Diagnostics.Debug.WriteLine("CreatePortalUserForStudent error: " + ex.Message);
+        }
+
+        return null;
+    }
+
+    private string GetPortalApplicationId(MySqlConnection conn)
+    {
+        using (MySqlCommand appCmd = new MySqlCommand(
+            "SELECT id FROM campus_dynamics_portal.my_aspnet_applications ORDER BY id LIMIT 1", conn))
+        {
+            object appId = appCmd.ExecuteScalar();
+            if (appId != null && appId != DBNull.Value)
+                return appId.ToString();
+        }
+
+        return null;
+    }
+
+    private string GetUsersIdDataType(MySqlConnection conn)
+    {
+        using (MySqlCommand cmd = new MySqlCommand(
+            @"SELECT DATA_TYPE
+              FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = 'campus_dynamics_portal'
+                AND TABLE_NAME = 'my_aspnet_users'
+                AND COLUMN_NAME = 'id'
+              LIMIT 1", conn))
+        {
+            object result = cmd.ExecuteScalar();
+            return result == null || result == DBNull.Value ? "" : result.ToString();
+        }
+    }
+
+    private int GetUsersIdMaxLength(MySqlConnection conn)
+    {
+        using (MySqlCommand cmd = new MySqlCommand(
+            @"SELECT IFNULL(CHARACTER_MAXIMUM_LENGTH, 0)
+              FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = 'campus_dynamics_portal'
+                AND TABLE_NAME = 'my_aspnet_users'
+                AND COLUMN_NAME = 'id'
+              LIMIT 1", conn))
+        {
+            object result = cmd.ExecuteScalar();
+            if (result == null || result == DBNull.Value) return 0;
+            int maxLen;
+            return int.TryParse(result.ToString(), out maxLen) ? maxLen : 0;
+        }
+    }
+
+    private bool EnsurePortalMembershipRecord(MySqlConnection conn, string userId)
+    {
+        if (conn == null || string.IsNullOrWhiteSpace(userId)) return false;
+        _setPasswordLastDebug = "";
+
+        string email = "";
+        using (MySqlCommand emailCmd = new MySqlCommand(
+            "SELECT IFNULL(verified_email, '') FROM campus_dynamics_portal.my_aspnet_users WHERE id = @userId LIMIT 1", conn))
+        {
+            emailCmd.Parameters.AddWithValue("@userId", userId);
+            object emailObj = emailCmd.ExecuteScalar();
+            if (emailObj != null && emailObj != DBNull.Value)
+                email = emailObj.ToString();
+        }
+
+        byte[] bootstrapSaltBytes = new byte[16];
+        using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider())
+        {
+            rng.GetBytes(bootstrapSaltBytes);
+        }
+        string bootstrapSalt = Convert.ToBase64String(bootstrapSaltBytes);
+        string bootstrapHash = HashPasswordWithSalt(Guid.NewGuid().ToString("N"), bootstrapSalt);
+        DateTime now = DateTime.UtcNow;
+
+        try
+        {
+            using (MySqlCommand memberCmd = new MySqlCommand(
+                @"INSERT INTO campus_dynamics_portal.my_aspnet_membership
+                  (userId, Email, Comment, Password, PasswordKey, PasswordFormat, PasswordQuestion, PasswordAnswer, IsApproved, LastActivityDate, LastLoginDate, LastPasswordChangedDate, CreationDate, IsLockedOut, LastLockedOutDate, FailedPasswordAttemptCount, FailedPasswordAttemptWindowStart, FailedPasswordAnswerAttemptCount, FailedPasswordAnswerAttemptWindowStart)
+                  VALUES (@userId, @email, '', @password, @salt, 1, '', '', 1, @now, @now, @now, @now, 0, @now, 0, @now, 0, @now)", conn))
+            {
+                memberCmd.Parameters.AddWithValue("@userId", userId);
+                memberCmd.Parameters.AddWithValue("@email", email);
+                memberCmd.Parameters.AddWithValue("@password", bootstrapHash);
+                memberCmd.Parameters.AddWithValue("@salt", bootstrapSalt);
+                memberCmd.Parameters.AddWithValue("@now", now);
+                return memberCmd.ExecuteNonQuery() > 0;
+            }
+        }
+        catch (Exception exPrimary)
+        {
+            _setPasswordLastDebug = "Membership insert failed (primary): " + exPrimary.Message;
+            try
+            {
+                using (MySqlCommand memberCmdAlt = new MySqlCommand(
+                    @"INSERT INTO campus_dynamics_portal.my_aspnet_membership
+                      (userId, Email, Comment, Password, PasswordKey, PasswordFormat, PasswordQuestion, PasswordAnswer, IsApproved, LastActivityDate, LastLoginDate, LastPasswordChangedDate, CreationDate, IsLockedOut, LastLockedOutDate, FailedPasswordAttemptCount, FailedPasswordAttemptWindowStart, FailedPasswordAnswerAttemptCount, FailedPasswordAnswerAttemptWindowStart)
+                      VALUES (@userId, @email, '', @password, @salt, 1, '', '', 1, @now, @now, @now, @now, 0, @now, 0, @now, 0, @now)", conn))
+                {
+                    memberCmdAlt.Parameters.AddWithValue("@userId", userId);
+                    memberCmdAlt.Parameters.AddWithValue("@email", email);
+                    memberCmdAlt.Parameters.AddWithValue("@password", bootstrapHash);
+                    memberCmdAlt.Parameters.AddWithValue("@salt", bootstrapSalt);
+                    memberCmdAlt.Parameters.AddWithValue("@now", now);
+                    return memberCmdAlt.ExecuteNonQuery() > 0;
+                }
+            }
+            catch (Exception exFallback)
+            {
+                _setPasswordLastDebug = "Membership insert failed (fallback): " + exFallback.Message;
+                return false;
+            }
+        }
+    }
+
+    private void WriteJsonAndComplete(JavaScriptSerializer serializer, object payload)
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+        Response.Cache.SetCacheability(System.Web.HttpCacheability.NoCache);
+        Response.Cache.SetNoStore();
+        Response.Cache.SetRevalidation(System.Web.HttpCacheRevalidation.AllCaches);
+        Response.Expires = -1;
+        Response.AppendHeader("Pragma", "no-cache");
+        Response.AppendHeader("X-SetPassword-Version", "SETPASSWORD_V2");
+        Response.Write(serializer.Serialize(payload));
+
         Response.End();
     }
     

@@ -1,0 +1,2 @@
+Warning: Using a password on the command line interface can be insecure.
+ERROR 1215 (HY000) at line 111 in file: 'e:\OneDrive\Campus Dynamics MRU\CampusDynamics\COOPERP\NewScreens\migration_programme_course_lecturer_assignment.sql': Cannot add foreign key constraint

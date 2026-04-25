@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.Text;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
@@ -58,17 +59,22 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
     // ---------------------------------------------------------------
     protected void Page_Load(object sender, EventArgs e)
     {
-        // Always reload faculty items — they aren't in ViewState.
-        // Do this before event handlers fire so SelectedValue resolves correctly.
+        // Reload faculty dropdown on every request (not in ViewState)
         LoadFacultyDropdown();
-        string postedFaculty = Request.Form[ddlFaculty.UniqueID];
-        if (!string.IsNullOrEmpty(postedFaculty))
-            TrySelect(ddlFaculty, postedFaculty);
-
+        
         if (!IsPostBack)
         {
             EnsureColumns();
             BindGrid();
+        }
+        else
+        {
+            // On postback, restore the selected faculty from form data
+            string postedFaculty = Request.Form[ddlFaculty.UniqueID] ?? "";
+            if (!string.IsNullOrEmpty(postedFaculty))
+            {
+                TrySelect(ddlFaculty, postedFaculty);
+            }
         }
     }
 
@@ -135,8 +141,82 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
             ORDER BY p.progname";
 
         DataTable dt = ExecuteQuery(sql);
-        gvMain.DataSource = dt;
-        gvMain.DataBind();
+        
+        // Build card HTML and JavaScript data array
+        StringBuilder sbCards = new StringBuilder();
+        StringBuilder sbJsonData = new StringBuilder("window.__fpData=[");
+        
+        if (dt.Rows.Count == 0)
+        {
+            sbCards.Append("<div class='fp-card-list'><div class='fp-empty'><div class='fp-empty__icon'>📋</div><div class='fp-empty__text'>No programmes found</div><div class='fp-empty__hint'>Click 'Add New Programme' to create one</div></div></div>");
+        }
+        else
+        {
+            sbCards.Append("<div class='fp-card-list'>");
+            
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                DataRow r = dt.Rows[i];
+                string progcode = r["progcode"].ToString();
+                string progname = r["progname"].ToString();
+                string faculty = r["faculty_name"].ToString();
+                string level_label = r["level_label"].ToString();
+                int levelCode = Convert.ToInt32(r["levelCode"]);
+                int duration = Convert.ToInt32(r["couselength"]);
+                string study_system = r["study_system"].ToString();
+                string is_fully_set = r["is_fully_set"].ToString();
+                int spec_count = Convert.ToInt32(r["spec_count"]);
+                
+                // Build card HTML
+                sbCards.Append("<div class='fp-card'>");
+                sbCards.Append("<div class='fp-card__header'>");
+                sbCards.AppendFormat("<div class='fp-card__title'>{0} — {1}</div>", HttpUtility.HtmlEncode(progcode), HttpUtility.HtmlEncode(progname));
+                sbCards.AppendFormat("<div class='fp-card__subtitle'>{0}</div>", HttpUtility.HtmlEncode(faculty));
+                sbCards.Append("</div>");
+                
+                sbCards.Append("<div class='fp-card__body'>");
+                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Level:</span><span class='fp-card__row__v'>{0}</span></div>", level_label);
+                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Duration:</span><span class='fp-card__row__v'>{0} year(s)</span></div>", duration);
+                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Study System:</span><span class='fp-card__row__v'>{0}</span></div>", HttpUtility.HtmlEncode(study_system));
+                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Specializations:</span><span class='fp-card__row__v'><strong>{0}</strong></span></div>", spec_count);
+                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Status:</span><span class='badge {0}'>{1}</span></div>", 
+                    (is_fully_set == "Yes" ? "badge-set-yes" : "badge-set-no"), is_fully_set);
+                sbCards.Append("</div>");
+                
+                sbCards.Append("<div class='fp-card__actions'>");
+                sbCards.AppendFormat("<button type='button' onclick=\"editProg('{0}')\">✎ Edit</button>", HttpUtility.JavaScriptStringEncode(progcode));
+                sbCards.AppendFormat("<button type='button' onclick=\"openStructure('{0}')\">≡ Structure</button>", HttpUtility.JavaScriptStringEncode(progcode));
+                sbCards.AppendFormat("<button type='button' onclick=\"openCourses('{0}')\">📖 Courses</button>", HttpUtility.JavaScriptStringEncode(progcode));
+                sbCards.AppendFormat("<button type='button' class='btn-danger' onclick=\"deleteProg('{0}','{1}')\">✕ Delete</button>", 
+                    HttpUtility.JavaScriptStringEncode(progcode), HttpUtility.JavaScriptStringEncode(progname));
+                sbCards.Append("</div>");
+                
+                sbCards.Append("</div>");
+                
+                // Build JSON data array for JavaScript filtering
+                if (i > 0) sbJsonData.Append(",");
+                sbJsonData.AppendFormat("{{code:'{0}',name:'{1}',faculty:'{2}',level:{3},level_label:'{4}',duration:{5},study_system:'{6}',fully:'{7}',spec_count:{8}}}",
+                    HttpUtility.JavaScriptStringEncode(progcode),
+                    HttpUtility.JavaScriptStringEncode(progname),
+                    HttpUtility.JavaScriptStringEncode(faculty),
+                    levelCode,
+                    level_label,
+                    duration,
+                    HttpUtility.JavaScriptStringEncode(study_system),
+                    is_fully_set,
+                    spec_count);
+            }
+            
+            sbCards.Append("</div>");
+        }
+        
+        sbJsonData.Append("];");
+        
+        litProgrammesList.Text = sbCards.ToString();
+        
+        // Register the JavaScript initialization
+        ScriptManager.RegisterStartupScript(this, GetType(), "initCards",
+            sbJsonData.ToString() + "fpInitialize(window.__fpData);", true);
     }
 
     // ---------------------------------------------------------------
@@ -284,8 +364,10 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
 
     private void TrySelect(DropDownList ddl, string value)
     {
+        ddl.ClearSelection();
         ListItem item = ddl.Items.FindByValue(value);
-        if (item != null) item.Selected = true;
+        if (item != null)
+            item.Selected = true;
     }
 
     // ---------------------------------------------------------------

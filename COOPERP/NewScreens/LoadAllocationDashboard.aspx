@@ -89,7 +89,7 @@
 </style>
 </asp:Content>
 
-<asp:Content ID="BodyContent" ContentPlaceHolderID="MainContent" runat="server">
+<asp:Content ID="BodyContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 
 <!-- Page Header -->
 <div class="ld-header">

@@ -395,4 +395,57 @@ Campus Dynamics Sidebar
 
 ---
 
+## 10. Classic-Aligned Provisional Publish Engine (April 2026 update)
+
+The provisional controllers now execute **single-row and batch actions through one centralized transition path** in `App_Code/Marks/MarksControllerShared.cs`.
+
+### What is now centralized
+
+- `ReviewProvisionalMarks` (single approve/reject)
+- `PublishMarks` (single publish)
+- `BulkAction` (multi approve/reject/publish)
+- `ExecuteBatchWorkflow` (wizard approve/publish)
+
+All four now use the same internal processor (`ProcessProvisionalAction`) to avoid contradictory outcomes between single and batch operations.
+
+### Classic grading scale alignment
+
+Publish now follows the classic/authoritative 5-point scale used by results systems:
+
+| Mark Range | Grade | Grade Point |
+|---|---|---|
+| 80–100 | A | 5.0 |
+| 75–79 | A- | 4.5 |
+| 70–74 | B+ | 4.0 |
+| 65–69 | B | 3.5 |
+| 60–64 | B- | 3.0 |
+| 55–59 | C+ | 2.5 |
+| 50–54 | C | 2.0 |
+| 45–49 | C- | 1.5 |
+| 40–44 | D | 1.0 |
+| <40 | E | 0.0 |
+
+### Publish-time consistency guarantees
+
+On publish, the centralized engine now:
+
+1. Validates complete marks (`CW`, `Exam`, `Total`) and valid source status (`pending` or `approved`)
+2. Recomputes final total as `CW + Exam` for canonical consistency
+3. Upserts into `acad_results` with full academic fields:
+	- `score`, `grade`, `gradept`, `CreditUnits`, `studyyear`, `result_comment`
+4. Recalculates and propagates **semester GPA** (`SUM(gradept*CU)/SUM(CU)`) for all rows of the same student+acad year+semester
+5. Recomputes **cumulative CGPA** across all results for the student
+6. Derives class using thresholds: `4.40/3.60/2.80/2.00`
+7. Marks provisional row as published (`provisional_marks_status='published'`) with publisher and timestamp
+
+### Batch parity rules
+
+- Batch approve now requires complete marks (`CW`, `Exam`, `Total`) exactly like single approve.
+- Batch publish executes the same core publish routine as single publish.
+- Batch responses include both successful and failed counts with first failure reason.
+
+This closes the historical gap where single and batch actions could enforce slightly different rules.
+
+---
+
 *Report generated April 8, 2026 — Campus Dynamics Marks Module v2.0.0*

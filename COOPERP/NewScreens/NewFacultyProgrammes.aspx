@@ -3,16 +3,6 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
-/* ---- Page header ---- */
-.cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-.cd-page-header__left { display:flex; align-items:center; gap:12px; }
-.cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
-.cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
-.cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
-.cd-page-header__right { display:flex; gap:8px; align-items:center; }
-.cd-page-header .hr-btn--primary { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3); }
-.cd-page-header .hr-btn--primary:hover { background:rgba(255,255,255,.25); color:#fff; }
-
 /* ---- Buttons ---- */
 .hr-btn {
     display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px;
@@ -30,38 +20,62 @@
 .hr-btn--sm { padding: 4px 10px; font-size: 11px; }
 .hr-btn--xs { padding: 2px 7px; font-size: 11px; }
 
-/* ---- Action popover ---- */
-.cd-action-wrapper { position: relative; display: inline-block; }
-.cd-action-btn {
-    background: #f0f4fa; border: 1px solid #cdd3de; color: #05275C;
-    padding: 3px 8px; border-radius: 0; cursor: pointer; font-size: 12px; font-weight: 700;
-}
-.cd-action-btn:hover { background: #dce4f0; }
-.cd-action-popover {
-    display: none; position: absolute; right: 0; top: 100%; z-index: 9999;
-    background: #fff; border: 1px solid #cdd3de;
-    min-width: 160px; padding: 4px 0;
-}
-.cd-action-popover.is-open { display: block !important; }
-.cd-action-popover button {
-    display: block; width: 100%; text-align: left; padding: 7px 14px;
-    font-size: 12px; background: none; border: none; cursor: pointer; color: #1a1a2e;
-    border-bottom: 1px solid #f0f0f0;
-}
-.cd-action-popover button:last-child { border-bottom: none; }
-.cd-action-popover button:hover { background: #f5f7fa; }
-.cd-action-popover .pop-danger { color: #dc3545; }
-.cd-action-popover .pop-danger:hover { background: #fef5f5; }
+/* ---- Stats strip ---- */
+.stats-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat-box { background: #fff; border: 1px solid #e0e5ed; padding: 12px; text-align: center; border-left: 4px solid #05275C; }
+.stat-box__value { font-size: 18px; font-weight: 700; color: #05275C; line-height: 1.2; }
+.stat-box__label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 3px; font-weight: 600; }
 
 /* ---- Filter bar ---- */
-.ct-filters {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+.filter-bar { background: #fff; border: 1px solid #e0e5ed; padding: 12px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.filter-bar__title { font-size: 13px; font-weight: 700; color: #05275C; margin-right: 4px; }
+.filter-bar label { font-size: 12px; color: #666; font-weight: 600; margin: 0; }
+.filter-bar select, .filter-bar input[type="text"] {
+    font-size: 12px; border: 1px solid #cdd3de; padding: 6px 10px; color: #1a1a2e;
+    background: #fff; height: 32px; border-radius: 0;
 }
-.ct-filters label { font-size: 12px; color: #444; font-weight: 600; }
-.ct-filters select, .ct-filters input[type="text"] {
-    font-size: 12px; border: 1px solid #cdd3de; padding: 5px 8px; color: #1a1a2e;
-    background: #fff; height: 30px; border-radius: 0;
+.filter-bar input[type="text"]::placeholder { color: #aaa; }
+.filter-bar .filter-divider { width: 1px; height: 20px; background: #e0e5ed; }
+.filter-bar .btn-filter-clear { padding: 6px 12px; font-size: 12px; }
+.filter-bar__spacer { margin-left: auto; }
+.hr-btn--addblend {
+    background: #05275C;
+    color: #fff;
+    border: 1px solid #05275C;
+    box-shadow: 0 1px 0 rgba(0,0,0,.05);
 }
+.hr-btn--addblend:hover { background: #041d45; color: #fff; }
+
+/* ---- Card grid ---- */
+.fp-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.fp-card { background: #fff; border: 1px solid #e0e5ed; border-radius: 2px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow 0.2s; }
+.fp-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+.fp-card__header { background: #f5f7fa; border-bottom: 1px solid #e0e5ed; padding: 12px; }
+.fp-card__title { font-size: 13px; font-weight: 700; color: #05275C; margin: 0; line-height: 1.3; }
+.fp-card__subtitle { font-size: 11px; color: #666; margin-top: 3px; }
+
+.fp-card__body { padding: 12px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.fp-card__row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+.fp-card__row__k { color: #666; font-weight: 600; min-width: 80px; }
+.fp-card__row__v { color: #1a1a2e; text-align: right; }
+.fp-card__row__v.badge { font-weight: 700; padding: 2px 8px; display: inline-block; }
+
+.fp-card__actions { padding: 10px 12px; border-top: 1px solid #e0e5ed; display: flex; gap: 6px; flex-wrap: wrap; }
+.fp-card__actions button { flex: 1; min-width: 90px; padding: 6px 10px; font-size: 11px; font-weight: 600; border: 1px solid #cdd3de; background: #f5f7fa; color: #05275C; cursor: pointer; border-radius: 0; transition: background 0.15s; }
+.fp-card__actions button:hover { background: #dce4f0; }
+.fp-card__actions button.btn-danger { color: #dc3545; border-color: #f5a5a5; }
+.fp-card__actions button.btn-danger:hover { background: #fef5f5; }
+
+/* ---- Badge styles ---- */
+.badge-set-yes { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; font-size: 10px; font-weight: 700; }
+.badge-set-no { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 3px 8px; font-size: 10px; font-weight: 700; }
+
+/* ---- Empty state ---- */
+.fp-empty { text-align: center; padding: 40px 20px; color: #999; }
+.fp-empty__icon { font-size: 32px; margin-bottom: 8px; opacity: 0.5; }
+.fp-empty__text { font-size: 13px; margin-bottom: 12px; }
+.fp-empty__hint { font-size: 12px; color: #aaa; }
 
 /* ---- Modal ---- */
 .hr-modal-overlay {
@@ -174,91 +188,57 @@
     <asp:Button ID="btnLoadCourses" runat="server" style="display:none" OnClick="btnLoadCourses_Click" UseSubmitBehavior="false" />
     <asp:Button ID="btnDeleteCourse" runat="server" style="display:none" OnClick="btnDeleteCourse_Click" UseSubmitBehavior="false" />
 
-    <!-- Page header -->
-    <div class="cd-page-header">
-        <div class="cd-page-header__left">
-            <div class="cd-page-header__icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                </svg>
-            </div>
-            <div>
-                <div class="cd-page-header__title">Academic Programmes</div>
-                <div class="cd-page-header__sub">Define and manage degree programmes offered by each faculty</div>
-            </div>
+    <!-- Stats strip -->
+    <div class="stats-strip">
+        <div class="stat-box">
+            <div class="stat-box__value" id="statTotalProgs">0</div>
+            <div class="stat-box__label">Total Programmes</div>
         </div>
-        <div class="cd-page-header__right">
-            <button type="button" class="hr-btn hr-btn--primary" onclick="openProgModal('NEW')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add New Programme
-            </button>
+        <div class="stat-box">
+            <div class="stat-box__value" id="statFullySet">0</div>
+            <div class="stat-box__label">Fully Configured</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-box__value" id="statFaculties">0</div>
+            <div class="stat-box__label">Faculties</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-box__value" id="statSpecializations">0</div>
+            <div class="stat-box__label">Total Specializations</div>
         </div>
     </div>
 
-    <!-- Grid card -->
-    <div class="cd-card">
-        <div class="cd-card__body cd-p-0">
-            <dx:ASPxGridView ID="gvMain" runat="server" AutoGenerateColumns="False"
-                KeyFieldName="progcode" Width="100%"
-                EnableTheming="True" Theme="Glass"
-                ClientInstanceName="gvMain"
-                EnableCallBacks="false">
-                <Settings ShowFilterRow="True" ShowFilterRowMenu="True" ShowGroupPanel="False" />
-                <SettingsBehavior AllowSort="True" AllowGroup="False" AllowFocusedRow="False" />
-                <SettingsEditing Mode="Inline" />
-                <SettingsDataSecurity AllowEdit="False" AllowDelete="False" AllowInsert="False" />
-                <SettingsPager PageSize="25" Mode="ShowPager" />
-                <Columns>
-                    <dx:GridViewDataTextColumn VisibleIndex="0" Caption=" " Width="50px" UnboundType="String">
-                        <DataItemTemplate>
-                            <div class="cd-action-wrapper">
-                                <button type="button" class="cd-action-btn"
-                                    onclick="toggleActionPopover(this,event)">&#9660;</button>
-                                <div class="cd-action-popover">
-                                    <button type="button" onclick="editProg('<%# Eval("progcode") %>')">&#9998; Edit</button>
-                                    <button type="button" onclick="openStructure('<%# Eval("progcode") %>')">&#9776; Structure</button>
-                                    <button type="button" onclick="openCourses('<%# Eval("progcode") %>')">&#128218; Courses</button>
-                                    <button type="button" class="pop-danger" onclick="deleteProg('<%# Eval("progcode") %>','<%# HttpUtility.JavaScriptStringEncode(Eval("progname").ToString()) %>')">&#128465; Delete</button>
-                                </div>
-                            </div>
-                        </DataItemTemplate>
-                        <EditFormSettings Visible="False" />
-                        <CellStyle HorizontalAlign="Center" />
-                    </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="progcode" VisibleIndex="1" Caption="Code" Width="90px" />
-                    <dx:GridViewDataTextColumn FieldName="progname" VisibleIndex="2" Caption="Programme Name" />
-                    <dx:GridViewDataTextColumn FieldName="abbrev"   VisibleIndex="3" Caption="Abbrev." Width="90px" />
-                    <dx:GridViewDataTextColumn FieldName="faculty_name" VisibleIndex="4" Caption="Faculty" />
-                    <dx:GridViewDataTextColumn FieldName="level_label"  VisibleIndex="5" Caption="Level" Width="130px" />
-                    <dx:GridViewDataTextColumn FieldName="couselength"  VisibleIndex="6" Caption="Duration" Width="75px">
-                        <CellStyle HorizontalAlign="Center" />
-                        <DataItemTemplate><%# Eval("couselength") %> yr</DataItemTemplate>
-                    </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="study_system" VisibleIndex="7" Caption="Study" Width="80px">
-                        <CellStyle HorizontalAlign="Center" />
-                    </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="spec_count" VisibleIndex="8" Caption="Specs" Width="55px" ReadOnly="True">
-                        <CellStyle HorizontalAlign="Center" />
-                        <HeaderStyle HorizontalAlign="Center" />
-                    </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="is_fully_set" VisibleIndex="9" Caption="Set?" Width="60px">
-                        <CellStyle HorizontalAlign="Center" />
-                        <HeaderStyle HorizontalAlign="Center" />
-                        <DataItemTemplate>
-                            <span class='badge <%# Eval("is_fully_set").ToString() == "Yes" ? "badge-yes" : "badge-no" %>'>
-                                <%# Eval("is_fully_set") %>
-                            </span>
-                        </DataItemTemplate>
-                    </dx:GridViewDataTextColumn>
-                </Columns>
-                <Styles>
-                    <Header Font-Size="11px" />
-                    <Cell Font-Size="12px" Paddings-Padding="5px" />
-                    <FilterRow Font-Size="11px" />
-                </Styles>
-            </dx:ASPxGridView>
-        </div>
+    <!-- Filter bar -->
+    <div class="filter-bar">
+        <span class="filter-bar__title">Academic Programmes</span>
+        <label>Search/Filter:</label>
+        <input type="text" id="fpSearchInput" placeholder="Programme code, name, or faculty..." />
+        <select id="fpFilterLevel">
+            <option value="">All Levels</option>
+            <option value="0">Elementary</option>
+            <option value="1">Certificate</option>
+            <option value="2">Diploma</option>
+            <option value="3">Bachelors Degree</option>
+            <option value="4">Post Graduate Diploma</option>
+            <option value="5">Masters Degree</option>
+            <option value="6">Doctorate</option>
+        </select>
+        <select id="fpFilterFully">
+            <option value="">All Status</option>
+            <option value="Yes">Fully Set</option>
+            <option value="No">Not Complete</option>
+        </select>
+        <div class="filter-divider"></div>
+        <button type="button" class="hr-btn hr-btn--outline btn-filter-clear" onclick="fpResetFilters()">Clear Filters</button>
+        <span class="filter-bar__spacer"></span>
+        <button type="button" class="hr-btn hr-btn--addblend" onclick="openProgModal('NEW')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add New Programme
+        </button>
     </div>
+
+    <!-- Card list -->
+    <asp:Literal ID="litProgrammesList" runat="server" />
 
     <!-- ===== Create / Edit Modal ===== -->
     <div id="progModal" class="hr-modal-overlay" style="display:none">
@@ -445,22 +425,88 @@
 
 <!-- ===== JavaScript ===== -->
 <script type="text/javascript">
-/* ---- Action popover ---- */
-function toggleActionPopover(btn, evt) {
-    evt.stopPropagation();
-    var pop = btn.nextElementSibling;
-    var isOpen = pop.classList.contains('is-open');
-    closeAllActionPopovers();
-    if (!isOpen) pop.classList.add('is-open');
+/* ---- Filter functionality ---- */
+var _fpAllData = [];
+
+function fpInitialize(data) {
+    _fpAllData = data || [];
+    document.getElementById('fpSearchInput').addEventListener('input', fpApplyFilters);
+    document.getElementById('fpFilterLevel').addEventListener('change', fpApplyFilters);
+    document.getElementById('fpFilterFully').addEventListener('change', fpApplyFilters);
+    fpUpdateStats();
 }
-function closeAllActionPopovers() {
-    document.querySelectorAll('.cd-action-popover.is-open').forEach(function(p){ p.classList.remove('is-open'); });
+
+function fpApplyFilters() {
+    var searchTerm = document.getElementById('fpSearchInput').value.toLowerCase().trim();
+    var levelFilter = document.getElementById('fpFilterLevel').value;
+    var fullyFilter = document.getElementById('fpFilterFully').value;
+    
+    var filtered = _fpAllData.filter(function(p) {
+        var matchSearch = !searchTerm || 
+            p.code.toLowerCase().indexOf(searchTerm) !== -1 ||
+            p.name.toLowerCase().indexOf(searchTerm) !== -1 ||
+            p.faculty.toLowerCase().indexOf(searchTerm) !== -1;
+        var matchLevel = !levelFilter || p.level.toString() === levelFilter;
+        var matchFully = !fullyFilter || p.fully === fullyFilter;
+        return matchSearch && matchLevel && matchFully;
+    });
+    
+    fpRenderCards(filtered);
 }
-document.addEventListener('click', closeAllActionPopovers);
+
+function fpRenderCards(programmes) {
+    var container = document.querySelector('.fp-card-list');
+    if (!container) return;
+    
+    if (programmes.length === 0) {
+        container.innerHTML = '<div class="fp-empty"><div class="fp-empty__icon">📋</div><div class="fp-empty__text">No programmes match your filters</div><div class="fp-empty__hint">Try adjusting your search or filter criteria</div></div>';
+        return;
+    }
+    
+    container.innerHTML = programmes.map(function(p) {
+        return '<div class="fp-card">' +
+            '<div class="fp-card__header">' +
+                '<div class="fp-card__title">' + _escH(p.code) + ' — ' + _escH(p.name) + '</div>' +
+                '<div class="fp-card__subtitle">' + _escH(p.faculty) + '</div>' +
+            '</div>' +
+            '<div class="fp-card__body">' +
+                '<div class="fp-card__row"><span class="fp-card__row__k">Level:</span><span class="fp-card__row__v">' + _escH(p.level_label) + '</span></div>' +
+                '<div class="fp-card__row"><span class="fp-card__row__k">Duration:</span><span class="fp-card__row__v">' + p.duration + ' year(s)</span></div>' +
+                '<div class="fp-card__row"><span class="fp-card__row__k">Study System:</span><span class="fp-card__row__v">' + _escH(p.study_system) + '</span></div>' +
+                '<div class="fp-card__row"><span class="fp-card__row__k">Specializations:</span><span class="fp-card__row__v"><strong>' + p.spec_count + '</strong></span></div>' +
+                '<div class="fp-card__row"><span class="fp-card__row__k">Status:</span><span class="badge ' + (p.fully === 'Yes' ? 'badge-set-yes' : 'badge-set-no') + '">' + p.fully + '</span></div>' +
+            '</div>' +
+            '<div class="fp-card__actions">' +
+                '<button type="button" onclick="editProg(\'' + _escA(p.code) + '\')">✎ Edit</button>' +
+                '<button type="button" onclick="openStructure(\'' + _escA(p.code) + '\')">≡ Structure</button>' +
+                '<button type="button" onclick="openCourses(\'' + _escA(p.code) + '\')">📖 Courses</button>' +
+                '<button type="button" class="btn-danger" onclick="deleteProg(\'' + _escA(p.code) + '\',\'' + _escA(p.name) + '\')">✕ Delete</button>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+
+function fpResetFilters() {
+    document.getElementById('fpSearchInput').value = '';
+    document.getElementById('fpFilterLevel').value = '';
+    document.getElementById('fpFilterFully').value = '';
+    fpApplyFilters();
+}
+
+function fpUpdateStats() {
+    var total = _fpAllData.length;
+    var fullySet = _fpAllData.filter(function(p) { return p.fully === 'Yes'; }).length;
+    var totalSpecs = _fpAllData.reduce(function(sum, p) { return sum + (p.spec_count || 0); }, 0);
+    var faculties = new Set(_fpAllData.map(function(p) { return p.faculty; })).size;
+    
+    document.getElementById('statTotalProgs').textContent = total;
+    document.getElementById('statFullySet').textContent = fullySet;
+    document.getElementById('statFaculties').textContent = faculties;
+    document.getElementById('statSpecializations').textContent = totalSpecs;
+}
 
 /* ---- Modal ---- */
 function openProgModal(mode, progcode) {
-    closeAllActionPopovers();
     document.getElementById('modalResult').style.display = 'none';
     document.getElementById('<%= hdnModalMode.ClientID %>').value = mode || 'NEW';
     document.getElementById('<%= hdnEditProgcode.ClientID %>').value = progcode || '';
@@ -483,19 +529,16 @@ function closeProgModal() {
 }
 
 function editProg(code) {
-    closeAllActionPopovers();
     document.getElementById('<%= hdnEditProgcode.ClientID %>').value = code;
     document.getElementById('<%= hdnModalMode.ClientID %>').value = 'LOAD';
     document.getElementById('<%= btnSaveProgramme.ClientID %>').click();
 }
 function deleteProg(code, name) {
-    closeAllActionPopovers();
     if (!confirm('Delete programme "' + name + '" (' + code + ')?\n\nThis will also remove all associated specialisations. This cannot be undone.')) return;
     document.getElementById('<%= hdnEditProgcode.ClientID %>').value = code;
     document.getElementById('<%= btnDeleteProgramme.ClientID %>').click();
 }
 function openStructure(code) {
-    closeAllActionPopovers();
     document.getElementById('<%= hdnStructureCode.ClientID %>').value = code;
     document.getElementById('<%= btnOpenStructure.ClientID %>').click();
 }
@@ -519,7 +562,6 @@ document.addEventListener('keydown', function(e){
 
 /* ---- Programme Courses Modal ---- */
 function openCourses(code) {
-    closeAllActionPopovers();
     document.getElementById('<%= hdnCourseProgcode.ClientID %>').value = code;
     __doPostBack('<%= btnLoadCourses.UniqueID %>', '');
 }

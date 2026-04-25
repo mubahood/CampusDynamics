@@ -39,8 +39,11 @@ public partial class API_v2_finance : System.Web.UI.Page
                 case "bulk_fee_check":
                     HandleBulkFeeCheck();
                     break;
+                case "access_status":
+                    HandleAccessStatus();
+                    break;
                 default:
-                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: ledger, balance, fees_structure, payment_history, billing_summary, fee_status, bulk_fee_check", "INVALID_ACTION");
+                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: ledger, balance, fees_structure, payment_history, billing_summary, fee_status, bulk_fee_check, access_status", "INVALID_ACTION");
                     break;
             }
         }
@@ -653,5 +656,513 @@ public partial class API_v2_finance : System.Web.UI.Page
             { "results", results }
         };
         ApiHelper.Success(Response, data);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  ACCESS STATUS — Evaluates student against the active fee-access policy
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private void HandleAccessStatus()
+    {
+        TokenInfo auth;
+        string regno = GetStudentRegNo(out auth);
+        if (regno == null) return;
+
+        try
+        {
+            string acctConn = System.Configuration.ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString;
+            string mainConn = System.Configuration.ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
+
+            DateTime evaluatedAt = DateTime.UtcNow;
+
+            // ── Student profile (name, programme, study year) ───────
+            string studentName = "", programme = "", programmeCode = "";
+            int studyYear = 0;
+            try
+            {
+                DataTable dtStudent = ApiHelper.Query(
+                    "SELECT CONCAT(COALESCE(s.surname,''),' ',COALESCE(s.othernames,'')) AS full_name, " +
+                    "s.progid, COALESCE(p.progname,'') AS programme_name, " +
+                    "COALESCE((SELECT MAX(r.studyyear) FROM acad_registration r WHERE r.regno = s.regno),1) AS study_year " +
+                    "FROM acad_student s LEFT JOIN acad_programme p ON p.progID = s.progid " +
+                    "WHERE s.regno = @reg",
+                    new MySqlParameter("@reg", regno));
+                if (dtStudent.Rows.Count > 0)
+                {
+                    studentName = dtStudent.Rows[0]["full_name"].ToString().Trim();
+                    programmeCode = dtStudent.Rows[0]["progid"] != DBNull.Value ? dtStudent.Rows[0]["progid"].ToString() : "";
+                    programme = dtStudent.Rows[0]["programme_name"].ToString();
+                    int.TryParse(dtStudent.Rows[0]["study_year"].ToString(), out studyYear);
+                }
+            }
+            catch { /* student info is supplementary — don't fail */ }
+
+            var studentInfo = new Dictionary<string, object>
+            {
+                { "regno", regno },
+                { "name", studentName },
+                { "programme", programme },
+                { "programme_code", programmeCode },
+                { "study_year", studyYear }
+            };
+
+            // ── Load active policy ──────────────────────────────────
+            DataTable dtPolicy;
+            try
+            {
+                dtPolicy = ApiHelper.QueryAccounts(
+                    "SELECT * FROM fin_fee_access_policy WHERE is_active = 'yes' ORDER BY updated_at DESC, policy_id DESC LIMIT 1");
+            }
+            catch
+            {
+                dtPolicy = new DataTable(); // Table may not exist yet
+            }
+
+            if (dtPolicy.Rows.Count == 0)
+            {
+                // No active policy — access granted, no restrictions.
+                var noPolicyCriteria = new List<Dictionary<string, object>>();
+                noPolicyCriteria.Add(new Dictionary<string, object> {
+                    { "rule", "No Active Restriction" },
+                    { "passed", true },
+                    { "enabled", false },
+                    { "detail", "Fee access policy is currently disabled. No restrictions are being enforced." },
+                    { "threshold", (object)null }
+                });
+                var noPolicy = new Dictionary<string, object>
+                {
+                    { "access_allowed", true },
+                    { "has_policy", false },
+                    { "verdict", "granted" },
+                    { "verdict_reason", "No active fee access policy. All students are granted full access." },
+                    { "student", studentInfo },
+                    { "policy", (object)null },
+                    { "finance", new Dictionary<string, object> {
+                        { "total_bill", 0 }, { "total_paid", 0 }, { "balance", 0 },
+                        { "percentage_paid", 0 }, { "currency", "UGX" }
+                    }},
+                    { "bursary", new Dictionary<string, object> {
+                        { "status", "None" }, { "scheme_name", "" },
+                        { "amount_offered", 0 }, { "coverage_percent", 0 }
+                    }},
+                    { "criteria", noPolicyCriteria },
+                    { "summary", new Dictionary<string, object> {
+                        { "total_rules", 0 }, { "rules_passed", 0 }, { "rules_failed", 0 },
+                        { "enabled_rules", new List<string>() }
+                    }},
+                    { "guidance", "No active fee access restrictions. All students are granted access." },
+                    { "evaluated_at", evaluatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ") }
+                };
+                ApiHelper.Success(Response, noPolicy);
+                return;
+            }
+
+            DataRow pol = dtPolicy.Rows[0];
+            string policyTitle = SafeStr(pol, "policy_title");
+            string acadYear = SafeStr(pol, "academic_year");
+            int semester = SafeInt(pol, "semester");
+            string logic = SafeStr(pol, "rule_logic").ToUpper() == "ANY" ? "ANY" : "ALL";
+            string policyNotes = SafeStr(pol, "notes");
+            string policyUpdatedAt = "";
+            try { DateTime upd; if (DateTime.TryParse(SafeStr(pol, "updated_at"), out upd)) policyUpdatedAt = upd.ToString("yyyy-MM-ddTHH:mm:ssZ"); } catch { }
+
+            bool balEnabled = SafeStr(pol, "rule_min_balance_enabled") == "yes";
+            decimal balMax = SafeDec(pol, "rule_min_balance_amount");
+            bool winEnabled = SafeStr(pol, "rule_payment_window_enabled") == "yes";
+            decimal winMinAmt = SafeDec(pol, "rule_payment_min_amount");
+            DateTime? winStart = SafeDate(pol, "rule_payment_window_start");
+            DateTime? winEnd = SafeDate(pol, "rule_payment_window_end");
+            bool pctEnabled = SafeStr(pol, "rule_pct_paid_enabled") == "yes";
+            decimal pctMin = SafeDec(pol, "rule_pct_paid_minimum");
+            bool bursaryExempt = SafeStr(pol, "rule_bursary_exempt") == "yes";
+            decimal bursaryMinCoverage = SafeDec(pol, "rule_bursary_min_coverage");
+            bool regRequired = SafeStr(pol, "rule_require_registration") == "yes";
+
+            // Build policy configuration object
+            var enabledRuleNames = new List<string>();
+            if (balEnabled) enabledRuleNames.Add("Balance Threshold");
+            if (winEnabled) enabledRuleNames.Add("Payment Window");
+            if (pctEnabled) enabledRuleNames.Add("Percentage Paid");
+            if (bursaryExempt) enabledRuleNames.Add("Bursary Exemption");
+            if (regRequired) enabledRuleNames.Add("Registration");
+
+            var policyConfig = new Dictionary<string, object>
+            {
+                { "policy_id", SafeInt(pol, "policy_id") },
+                { "title", policyTitle },
+                { "academic_year", acadYear },
+                { "semester", semester },
+                { "combination_logic", logic },
+                { "combination_logic_description", logic == "ANY"
+                    ? "Student passes if ANY one enabled rule is satisfied"
+                    : "Student must satisfy ALL enabled rules to pass" },
+                { "notes", policyNotes },
+                { "updated_at", policyUpdatedAt },
+                { "rules_enabled", new Dictionary<string, object> {
+                    { "balance_threshold", balEnabled },
+                    { "payment_window", winEnabled },
+                    { "percentage_paid", pctEnabled },
+                    { "bursary_exemption", bursaryExempt },
+                    { "registration", regRequired }
+                }},
+                { "thresholds", new Dictionary<string, object> {
+                    { "max_balance", balEnabled ? (object)balMax : null },
+                    { "payment_window_min_amount", winEnabled ? (object)winMinAmt : null },
+                    { "payment_window_start", winEnabled && winStart.HasValue ? (object)winStart.Value.ToString("yyyy-MM-dd") : null },
+                    { "payment_window_end", winEnabled && winEnd.HasValue ? (object)winEnd.Value.ToString("yyyy-MM-dd") : null },
+                    { "min_percentage_paid", pctEnabled ? (object)pctMin : null },
+                    { "bursary_min_coverage", bursaryExempt ? (object)bursaryMinCoverage : null }
+                }}
+            };
+
+            // ── Financial totals ────────────────────────────────────
+            DataTable dtFin = ApiHelper.QueryAccounts(
+                "SELECT " +
+                "  COALESCE(SUM(dr_amount), 0) AS total_bill, " +
+                "  COALESCE(SUM(cr_amount), 0) AS total_paid " +
+                "FROM ( " +
+                "  SELECT " +
+                "    CASE WHEN fl.transactionType='DR' THEN fl.transaction_amount ELSE 0 END AS dr_amount, " +
+                "    CASE WHEN fl.transactionType='CR' THEN fl.transaction_amount ELSE 0 END AS cr_amount " +
+                "  FROM fin_ledger fl " +
+                "  WHERE fl.accountcode = @reg AND fl.transaction_amount > 0 " +
+                "  UNION ALL " +
+                "  SELECT " +
+                "    CASE WHEN t.trans_type='Bill' THEN t.amount ELSE 0 END AS dr_amount, " +
+                "    CASE WHEN t.trans_type='Payment' THEN t.amount ELSE 0 END AS cr_amount " +
+                "  FROM fin_studentfeestracking t " +
+                "  WHERE t.regno = @reg AND t.post_status = 'Posted' " +
+                "    AND NOT EXISTS ( " +
+                "      SELECT 1 FROM fin_ledger fl2 " +
+                "      WHERE fl2.accountcode = t.regno " +
+                "        AND ( " +
+                "          fl2.voucherNo = CAST(t.TID AS CHAR) " +
+                "          OR fl2.folio = CONCAT('BillNo:', CAST(t.TID AS CHAR)) " +
+                "          OR ( " +
+                "            fl2.transaction_amount = t.amount " +
+                "            AND DATE(fl2.transactionDate) = DATE(t.trans_date) " +
+                "            AND fl2.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END " +
+                "            AND (fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '') " +
+                "          ) " +
+                "        ) " +
+                "    ) " +
+                ") AS combined",
+                new MySqlParameter("@reg", regno));
+
+            decimal totalBill = 0, totalPaid = 0;
+            if (dtFin.Rows.Count > 0)
+            {
+                totalBill = Convert.ToDecimal(dtFin.Rows[0]["total_bill"]);
+                totalPaid = Convert.ToDecimal(dtFin.Rows[0]["total_paid"]);
+            }
+            decimal balance = totalBill - totalPaid;
+            decimal pctPaidOverall = totalBill > 0 ? Math.Round(totalPaid / totalBill * 100, 1) : (totalPaid > 0 ? 100 : 0);
+
+            var financeData = new Dictionary<string, object>
+            {
+                { "total_bill", totalBill },
+                { "total_paid", totalPaid },
+                { "balance", -balance },
+                { "amount_owing", balance > 0 ? balance : 0 },
+                { "credit_balance", balance < 0 ? Math.Abs(balance) : 0 },
+                { "percentage_paid", pctPaidOverall },
+                { "currency", "UGX" }
+            };
+
+            string bursaryStatus = "None";
+            string bursarySchemeName = "";
+            decimal bursaryOffered = 0;
+            decimal bursaryCoverage = 0;
+            var criteria = new List<Dictionary<string, object>>();
+            bool bursaryShortCircuit = false;
+
+            // ── Bursary exemption ───────────────────────────────────
+            if (bursaryExempt)
+            {
+                DataTable dtBur = ApiHelper.QueryAccounts(
+                    "SELECT ss.amount_offered, s.scholarshipName " +
+                    "FROM scholarshipstudents ss " +
+                    "JOIN scholarships s ON s.scholarshipID = ss.scholarshipID " +
+                    "WHERE ss.adm_no = @reg AND ss.scholarhipYear = @ay AND ss.scholarhipTerm = @sem AND ss.status = 'Approved' LIMIT 1",
+                    new MySqlParameter("@reg", regno),
+                    new MySqlParameter("@ay", acadYear),
+                    new MySqlParameter("@sem", semester));
+
+                if (dtBur.Rows.Count > 0)
+                {
+                    bursaryOffered = Convert.ToDecimal(dtBur.Rows[0]["amount_offered"]);
+                    bursarySchemeName = dtBur.Rows[0]["scholarshipName"] != null ? dtBur.Rows[0]["scholarshipName"].ToString() : "Scholarship";
+                    bursaryStatus = "Active: " + bursarySchemeName;
+                    bursaryCoverage = totalBill > 0 ? Math.Round(bursaryOffered / totalBill * 100, 1) : 100;
+                    if (bursaryCoverage >= bursaryMinCoverage)
+                    {
+                        bursaryShortCircuit = true;
+                        criteria.Add(new Dictionary<string, object> {
+                            { "rule", "Bursary Exemption" },
+                            { "passed", true },
+                            { "enabled", true },
+                            { "detail", string.Format("Bursary/scholarship ({0}) with {1:F0}% coverage — exempt.", bursarySchemeName, bursaryCoverage) },
+                            { "threshold", string.Format("Min coverage: {0:F0}%", bursaryMinCoverage) },
+                            { "actual_value", string.Format("{0:F0}%", bursaryCoverage) }
+                        });
+                    }
+                    else
+                    {
+                        criteria.Add(new Dictionary<string, object> {
+                            { "rule", "Bursary Exemption" },
+                            { "passed", false },
+                            { "enabled", true },
+                            { "detail", string.Format("Bursary coverage {0:F0}% below required {1:F0}%.", bursaryCoverage, bursaryMinCoverage) },
+                            { "threshold", string.Format("Min coverage: {0:F0}%", bursaryMinCoverage) },
+                            { "actual_value", string.Format("{0:F0}%", bursaryCoverage) }
+                        });
+                    }
+                }
+                else
+                {
+                    bursaryStatus = "None";
+                    criteria.Add(new Dictionary<string, object> {
+                        { "rule", "Bursary Exemption" },
+                        { "passed", false },
+                        { "enabled", true },
+                        { "detail", string.Format("No approved bursary found for {0} Semester {1}.", acadYear, semester) },
+                        { "threshold", string.Format("Min coverage: {0:F0}%", bursaryMinCoverage) },
+                        { "actual_value", "No bursary" }
+                    });
+                }
+            }
+
+            if (!bursaryShortCircuit)
+            {
+                // ── Rule 1: Balance ─────────────────────────────────
+                if (balEnabled)
+                {
+                    bool pass = balance <= balMax;
+                    string balDetail;
+                    if (balance <= 0)
+                        balDetail = string.Format("Student has a credit balance of {0:N0}. No outstanding fees.", Math.Abs(balance));
+                    else if (pass)
+                        balDetail = string.Format("Outstanding balance of {0:N0} is within the allowed maximum of {1:N0}.", balance, balMax);
+                    else
+                        balDetail = string.Format("Outstanding balance of {0:N0} exceeds the allowed maximum of {1:N0}.", balance, balMax);
+                    criteria.Add(new Dictionary<string, object> {
+                        { "rule", "Balance Threshold" },
+                        { "passed", pass },
+                        { "enabled", true },
+                        { "detail", balDetail },
+                        { "threshold", string.Format("Max balance: UGX {0:N0}", balMax) },
+                        { "actual_value", string.Format("UGX {0:N0}", balance) }
+                    });
+                }
+
+                // ── Rule 2: Payment Window ──────────────────────────
+                if (winEnabled && winStart.HasValue && winEnd.HasValue)
+                {
+                    DataTable dtWin = ApiHelper.QueryAccounts(
+                        "SELECT COALESCE(SUM(fl.transaction_amount), 0) AS window_payments " +
+                        "FROM fin_ledger fl " +
+                        "WHERE fl.accountcode = @reg AND fl.transactionType = 'CR' AND fl.transaction_amount > 0 " +
+                        "  AND fl.transactionDate >= @ws AND fl.transactionDate <= @we",
+                        new MySqlParameter("@reg", regno),
+                        new MySqlParameter("@ws", winStart.Value),
+                        new MySqlParameter("@we", winEnd.Value));
+
+                    decimal windowPaid = dtWin.Rows.Count > 0 ? Convert.ToDecimal(dtWin.Rows[0]["window_payments"]) : 0;
+                    bool pass = windowPaid >= winMinAmt;
+                    criteria.Add(new Dictionary<string, object> {
+                        { "rule", "Payment Window" },
+                        { "passed", pass },
+                        { "enabled", true },
+                        { "detail", pass
+                            ? string.Format("Paid {0:N0} between {1:yyyy-MM-dd} and {2:yyyy-MM-dd} (required: {3:N0}).", windowPaid, winStart.Value, winEnd.Value, winMinAmt)
+                            : string.Format("Only paid {0:N0} between {1:yyyy-MM-dd} and {2:yyyy-MM-dd} (required: {3:N0}).", windowPaid, winStart.Value, winEnd.Value, winMinAmt) },
+                        { "threshold", string.Format("Min UGX {0:N0} between {1:yyyy-MM-dd} and {2:yyyy-MM-dd}", winMinAmt, winStart.Value, winEnd.Value) },
+                        { "actual_value", string.Format("UGX {0:N0}", windowPaid) }
+                    });
+                }
+
+                // ── Rule 3: Percentage ──────────────────────────────
+                if (pctEnabled)
+                {
+                    decimal pctPaid = totalBill > 0 ? Math.Round(totalPaid / totalBill * 100, 1) : 100;
+                    bool pass = pctPaid >= pctMin;
+                    criteria.Add(new Dictionary<string, object> {
+                        { "rule", "Percentage Paid" },
+                        { "passed", pass },
+                        { "enabled", true },
+                        { "detail", pass
+                            ? string.Format("{0:F1}% of total fees paid (required: {1:F0}%).", pctPaid, pctMin)
+                            : string.Format("Only {0:F1}% of total fees paid (required: {1:F0}%).", pctPaid, pctMin) },
+                        { "threshold", string.Format("Min {0:F0}% paid", pctMin) },
+                        { "actual_value", string.Format("{0:F1}%", pctPaid) }
+                    });
+                }
+
+                // ── Rule 4: Registration ────────────────────────────
+                if (regRequired)
+                {
+                    DataTable dtReg = ApiHelper.Query(
+                        "SELECT regno FROM acad_registration WHERE regno = @reg AND acad_year = @ay AND semester = @sem AND regstatus = 'Registered' LIMIT 1",
+                        new MySqlParameter("@reg", regno),
+                        new MySqlParameter("@ay", acadYear),
+                        new MySqlParameter("@sem", semester));
+
+                    bool pass = dtReg.Rows.Count > 0;
+                    criteria.Add(new Dictionary<string, object> {
+                        { "rule", "Registration" },
+                        { "passed", pass },
+                        { "enabled", true },
+                        { "detail", pass
+                            ? string.Format("Student is registered for {0} Semester {1}.", acadYear, semester)
+                            : string.Format("Student is NOT registered for {0} Semester {1}.", acadYear, semester) },
+                        { "threshold", string.Format("Registered for {0} Sem {1}", acadYear, semester) },
+                        { "actual_value", pass ? "Registered" : "Not registered" }
+                    });
+                }
+            }
+
+            // ── Combine ─────────────────────────────────────────────
+            bool allowed;
+            if (bursaryShortCircuit)
+            {
+                allowed = true;
+            }
+            else if (criteria.Count == 0)
+            {
+                allowed = true;
+            }
+            else if (logic == "ANY")
+            {
+                allowed = false;
+                foreach (var cr in criteria)
+                {
+                    if ((bool)cr["passed"]) { allowed = true; break; }
+                }
+            }
+            else // ALL
+            {
+                allowed = true;
+                foreach (var cr in criteria)
+                {
+                    if (!(bool)cr["passed"]) { allowed = false; break; }
+                }
+            }
+
+            // ── Summary counters ────────────────────────────────────
+            int rulesPassed = 0, rulesFailed = 0;
+            foreach (var cr in criteria) { if ((bool)cr["passed"]) rulesPassed++; else rulesFailed++; }
+
+            // ── Guidance ────────────────────────────────────────────
+            var tips = new List<string>();
+            if (!allowed)
+            {
+                foreach (var cr in criteria)
+                {
+                    if (!(bool)cr["passed"])
+                    {
+                        string rule = cr["rule"].ToString();
+                        if (rule == "Balance Threshold" && balance > balMax)
+                        {
+                            decimal excess = balance - balMax;
+                            tips.Add(string.Format("Pay at least UGX {0:N0} to reduce the outstanding balance to the allowed maximum of UGX {1:N0}.", excess, balMax));
+                        }
+                        else if (rule == "Payment Window" && winEnd.HasValue)
+                            tips.Add(string.Format("Make a payment of at least UGX {0:N0} before {1:yyyy-MM-dd}.", winMinAmt, winEnd.Value));
+                        else if (rule == "Percentage Paid")
+                        {
+                            decimal needed = (pctMin / 100 * totalBill) - totalPaid;
+                            if (needed > 0) tips.Add(string.Format("Pay an additional UGX {0:N0} to reach the required {1:F0}%.", needed, pctMin));
+                        }
+                        else if (rule == "Registration")
+                            tips.Add(string.Format("Complete your registration for {0} Semester {1} at the Academic Registrar's office.", acadYear, semester));
+                        else if (rule == "Bursary Exemption")
+                            tips.Add("Contact the Scholarships Office about your bursary status.");
+                    }
+                }
+            }
+
+            // ── Verdict reason ──────────────────────────────────────
+            string verdictReason;
+            if (bursaryShortCircuit)
+                verdictReason = string.Format("Student is exempt via bursary/scholarship ({0}).", bursarySchemeName);
+            else if (criteria.Count == 0)
+                verdictReason = "No rules are enabled in the active policy. All students pass by default.";
+            else if (allowed && logic == "ANY")
+                verdictReason = string.Format("{0} of {1} rule(s) passed. Policy requires ANY one rule to pass.", rulesPassed, criteria.Count);
+            else if (allowed)
+                verdictReason = string.Format("All {0} rule(s) passed.", criteria.Count);
+            else if (logic == "ANY")
+                verdictReason = string.Format("No rules passed (0 of {0}). Policy requires at least one to pass.", criteria.Count);
+            else
+                verdictReason = string.Format("{0} of {1} rule(s) failed. Policy requires ALL rules to pass.", rulesFailed, criteria.Count);
+
+            var bursaryData = new Dictionary<string, object>
+            {
+                { "status", bursaryStatus },
+                { "scheme_name", bursarySchemeName },
+                { "amount_offered", bursaryOffered },
+                { "coverage_percent", bursaryCoverage },
+                { "exempt", bursaryShortCircuit }
+            };
+
+            var summaryData = new Dictionary<string, object>
+            {
+                { "total_rules", criteria.Count },
+                { "rules_passed", rulesPassed },
+                { "rules_failed", rulesFailed },
+                { "enabled_rules", enabledRuleNames }
+            };
+
+            var data = new Dictionary<string, object>
+            {
+                { "access_allowed", allowed },
+                { "has_policy", true },
+                { "verdict", allowed ? "granted" : "denied" },
+                { "verdict_reason", verdictReason },
+                { "student", studentInfo },
+                { "policy", policyConfig },
+                { "finance", financeData },
+                { "bursary", bursaryData },
+                { "criteria", criteria },
+                { "summary", summaryData },
+                { "guidance", string.Join(" ", tips.ToArray()) },
+                { "evaluated_at", evaluatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ") }
+            };
+            ApiHelper.Success(Response, data);
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error evaluating access status: " + ex.Message, "ACCESS_STATUS_ERROR");
+        }
+    }
+
+    // ─── Helpers for access_status ───────────────────────────────────────
+
+    private static string SafeStr(DataRow row, string col)
+    {
+        if (!row.Table.Columns.Contains(col) || row[col] == null || row[col] == DBNull.Value) return "";
+        return row[col].ToString();
+    }
+
+    private static int SafeInt(DataRow row, string col)
+    {
+        if (!row.Table.Columns.Contains(col) || row[col] == null || row[col] == DBNull.Value) return 0;
+        int v;
+        return int.TryParse(row[col].ToString(), out v) ? v : 0;
+    }
+
+    private static decimal SafeDec(DataRow row, string col)
+    {
+        if (!row.Table.Columns.Contains(col) || row[col] == null || row[col] == DBNull.Value) return 0;
+        decimal v;
+        return decimal.TryParse(row[col].ToString(), out v) ? v : 0;
+    }
+
+    private static DateTime? SafeDate(DataRow row, string col)
+    {
+        if (!row.Table.Columns.Contains(col) || row[col] == null || row[col] == DBNull.Value) return null;
+        DateTime v;
+        if (DateTime.TryParse(row[col].ToString(), out v)) return v;
+        return null;
     }
 }

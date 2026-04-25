@@ -4,12 +4,6 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
     <style type="text/css">
-        /* ---- Page Header ---- */
-        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
-        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
-        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
-        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
         /* Stats Bar - Compact Inline */
         .cr-stats-bar {
             display: flex;
@@ -321,6 +315,98 @@
         .qe-status-badge--inactive { background: #f8d7da; color: #721c24; }
         .qe-status-badge--deferred { background: #fff3cd; color: #856404; }
 
+        .cr-query-pager {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            padding: 10px;
+            border-top: 1px solid #e0e0e0;
+            background: #fff;
+            font-size: 11px;
+        }
+        .cr-query-pager a,
+        .cr-query-pager span {
+            display: inline-block;
+            min-width: 24px;
+            text-align: center;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            color: #495057;
+            text-decoration: none;
+            background: #fff;
+        }
+        .cr-query-pager a:hover {
+            background: #f1f3f5;
+        }
+        .cr-query-pager .active {
+            background: #174DA4;
+            border-color: #174DA4;
+            color: #fff;
+            font-weight: 600;
+        }
+        .cr-query-pager .meta {
+            border: none;
+            background: transparent;
+            padding: 0 4px;
+            min-width: auto;
+            color: #666;
+        }
+
+        .cr-table-wrap { overflow-x: auto; }
+
+        .cr-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.45);
+            z-index: 9500;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .cr-modal-overlay.show { display: flex; }
+        .cr-modal {
+            background: #fff;
+            border: 1px solid #d8dde6;
+            width: 100%;
+            max-width: 520px;
+        }
+        .cr-modal__head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            border-bottom: 1px solid #e6ebf2;
+            background: #f8fafc;
+        }
+        .cr-modal__title { font-size: 12px; font-weight: 700; color: #05275C; }
+        .cr-modal__close {
+            border: none;
+            background: transparent;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            color: #4b5563;
+        }
+        .cr-modal__body { padding: 12px; }
+        .cr-modal__foot {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 10px 12px;
+            border-top: 1px solid #e6ebf2;
+            background: #f8fafc;
+        }
+
+        @media (max-width: 900px) {
+            .cr-batch-bar { flex-direction: column; align-items: stretch; }
+            .cr-batch-actions { flex-wrap: wrap; }
+            .cr-batch-btn { width: 100%; justify-content: center; }
+            .cr-filter-row { flex-direction: column; align-items: stretch; }
+            .cr-filter-select { width: 100% !important; min-width: 100%; }
+        }
+
         /* Print Styles */
         @media print {
             .cr-batch-bar, .cr-filter-row, .cr-retake-panel, .qe-overlay { display: none !important; }
@@ -329,18 +415,8 @@
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
-<!-- ======= PAGE HEADER =========================================== -->
-<div class="cd-page-header">
-    <div class="cd-page-header__left">
-        <div class="cd-page-header__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-        </div>
-        <div>
-            <div class="cd-page-header__title">Course Registration</div>
-            <div class="cd-page-header__sub">Manage student exam eligibility and module registration</div>
-        </div>
-    </div>
-</div>
+    <asp:UpdatePanel ID="upCourseReg" runat="server" UpdateMode="Conditional">
+        <ContentTemplate>
     <!-- Stats Bar -->
     <div class="cr-stats-bar">
         <div class="cr-stat-item">
@@ -349,7 +425,7 @@
         </div>
         <div class="cr-stat-item">
             <span class="cr-stat-item__label">Semester:</span>
-            <span class="cr-stat-item__value"><asp:Literal ID="litSemesterDisplay" runat="server">1</asp:Literal></span>
+            <span class="cr-stat-item__value"><asp:Literal ID="litSemesterDisplay" runat="server">Yr 1, Sem 1</asp:Literal></span>
         </div>
         <div class="cr-stat-item cr-stat-item--pending">
             <span class="cr-stat-item__label">Pending:</span>
@@ -373,13 +449,13 @@
     <!-- Filter Row -->
     <div class="cr-filter-row" id="filterRow">
         <span class="cr-filter-row__label">Academic Year:</span>
-        <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="cr-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlAcadYear_SelectedIndexChanged"></asp:DropDownList>
+        <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="cr-filter-select"></asp:DropDownList>
         
         <span class="cr-filter-row__label">Programme:</span>
-        <asp:DropDownList ID="ddlProgramme" runat="server" CssClass="cr-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlProgramme_SelectedIndexChanged" Width="250px"></asp:DropDownList>
+        <asp:DropDownList ID="ddlProgramme" runat="server" CssClass="cr-filter-select" Width="250px"></asp:DropDownList>
         
         <span class="cr-filter-row__label">Study Year:</span>
-        <asp:DropDownList ID="ddlStudyYear" runat="server" CssClass="cr-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlStudyYear_SelectedIndexChanged">
+        <asp:DropDownList ID="ddlStudyYear" runat="server" CssClass="cr-filter-select">
             <asp:ListItem Value="1" Text="Year 1" Selected="True"></asp:ListItem>
             <asp:ListItem Value="2" Text="Year 2"></asp:ListItem>
             <asp:ListItem Value="3" Text="Year 3"></asp:ListItem>
@@ -388,16 +464,16 @@
         </asp:DropDownList>
         
         <span class="cr-filter-row__label">Semester:</span>
-        <asp:DropDownList ID="ddlSemester" runat="server" CssClass="cr-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlSemester_SelectedIndexChanged">
+        <asp:DropDownList ID="ddlSemester" runat="server" CssClass="cr-filter-select">
             <asp:ListItem Value="1" Text="Sem 1" Selected="True"></asp:ListItem>
             <asp:ListItem Value="2" Text="Sem 2"></asp:ListItem>
         </asp:DropDownList>
         
         <span class="cr-filter-row__label">Entry Year:</span>
-        <asp:DropDownList ID="ddlEntryYear" runat="server" CssClass="cr-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlEntryYear_SelectedIndexChanged"></asp:DropDownList>
+        <asp:DropDownList ID="ddlEntryYear" runat="server" CssClass="cr-filter-select"></asp:DropDownList>
         
         <span class="cr-filter-row__label">Intake:</span>
-        <asp:DropDownList ID="ddlIntake" runat="server" CssClass="cr-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlIntake_SelectedIndexChanged">
+        <asp:DropDownList ID="ddlIntake" runat="server" CssClass="cr-filter-select">
             <asp:ListItem Value="-" Text="-- All --" Selected="True"></asp:ListItem>
             <asp:ListItem Value="JANUARY" Text="January"></asp:ListItem>
             <asp:ListItem Value="FEBRUARY" Text="February"></asp:ListItem>
@@ -414,29 +490,48 @@
         </asp:DropDownList>
         
         <span class="cr-filter-row__label">Course:</span>
-        <asp:DropDownList ID="ddlCourse" runat="server" CssClass="cr-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlCourse_SelectedIndexChanged" Width="300px"></asp:DropDownList>
+        <asp:DropDownList ID="ddlCourse" runat="server" CssClass="cr-filter-select" Width="300px"></asp:DropDownList>
         
         <span class="cr-filter-row__label">Status:</span>
-        <asp:DropDownList ID="ddlStatus" runat="server" CssClass="cr-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlStatus_SelectedIndexChanged">
-            <asp:ListItem Value="Pending" Text="Pending" Selected="True"></asp:ListItem>
-            <asp:ListItem Value="Registered" Text="Registered"></asp:ListItem>
+        <asp:DropDownList ID="ddlStatus" runat="server" CssClass="cr-filter-select">
+            <asp:ListItem Value="Pending" Text="Pending"></asp:ListItem>
+            <asp:ListItem Value="Registered" Text="Registered" Selected="True"></asp:ListItem>
         </asp:DropDownList>
+
+        <span class="cr-filter-row__label">Student:</span>
+        <asp:TextBox ID="txtStudentFilter" runat="server" CssClass="cr-filter-select" Width="220px" placeholder="Reg No or Name"></asp:TextBox>
+        <button type="button" class="cr-batch-btn" onclick="applyFiltersGet()">Apply</button>
     </div>
     
     <!-- Message Display -->
-    <asp:Panel ID="pnlMessage" runat="server" CssClass="cr-message" Visible="false">
+    <asp:Panel ID="pnlMessage" runat="server" CssClass="cr-message" Visible="false" aria-live="polite" role="status">
         <asp:Literal ID="litMessage" runat="server"></asp:Literal>
     </asp:Panel>
     
     <!-- Retake Panel -->
-    <div class="cr-retake-panel" id="retakePanel">
-        <div class="cr-retake-panel__title">Add Retake Case</div>
-        <div class="cr-retake-row">
-            <span class="cr-filter-row__label">Reg No:</span>
-            <asp:TextBox ID="txtRetakeRegNo" runat="server" CssClass="cr-retake-input" placeholder="Enter Student Reg No"></asp:TextBox>
-            
-            <asp:Button ID="btnAddRetake" runat="server" Text="Add Retake" CssClass="cr-batch-btn cr-batch-btn--primary" OnClick="btnAddRetake_Click" />
-            <button type="button" class="cr-batch-btn" onclick="toggleRetakePanel()">Cancel</button>
+    <div class="cr-modal-overlay" id="retakeModalOverlay" role="dialog" aria-modal="true" aria-labelledby="retakeModalTitle">
+        <div class="cr-modal">
+            <div class="cr-modal__head">
+                <span class="cr-modal__title" id="retakeModalTitle">Add New Record</span>
+                <button type="button" class="cr-modal__close" onclick="closeRetakeModal()" aria-label="Close">&times;</button>
+            </div>
+            <div class="cr-modal__body">
+                <div class="cr-retake-row">
+                    <span class="cr-filter-row__label">Reg No:</span>
+                    <asp:TextBox ID="txtRetakeRegNo" runat="server" CssClass="cr-retake-input" placeholder="Enter Student Reg No"></asp:TextBox>
+                </div>
+                <div class="cr-retake-row" style="margin-top:8px;">
+                    <span class="cr-filter-row__label">Record Type:</span>
+                    <asp:DropDownList ID="ddlNewRecordType" runat="server" CssClass="cr-filter-select" Width="220px">
+                        <asp:ListItem Value="REGULAR" Text="Regular Course Registration" Selected="True"></asp:ListItem>
+                        <asp:ListItem Value="RETAKE" Text="Retake Course Registration"></asp:ListItem>
+                    </asp:DropDownList>
+                </div>
+            </div>
+            <div class="cr-modal__foot">
+                <button type="button" class="cr-batch-btn" onclick="closeRetakeModal()">Cancel</button>
+                <asp:Button ID="btnAddRetake" runat="server" Text="Add Record" CssClass="cr-batch-btn cr-batch-btn--primary" OnClick="btnAddRetake_Click" OnClientClick="return validateAddRecordForm();" />
+            </div>
         </div>
     </div>
     
@@ -444,24 +539,24 @@
     <div class="cd-card">
         <div class="cr-batch-bar">
             <div class="cr-batch-actions">
-                <asp:Button ID="btnRegisterSelected" runat="server" Text="Register Selected" CssClass="cr-batch-btn cr-batch-btn--success" OnClick="btnRegisterSelected_Click" OnClientClick="return confirm('Register selected students for this course?');" />
-                <asp:Button ID="btnRemoveSelected" runat="server" Text="Remove Selected" CssClass="cr-batch-btn cr-batch-btn--danger" OnClick="btnRemoveSelected_Click" OnClientClick="return confirm('Remove registration for selected students?');" Visible="false" />
-                <button type="button" class="cr-batch-btn" onclick="toggleRetakePanel()">
+                <asp:Button ID="btnRegisterSelected" runat="server" Text="Register Selected" CssClass="cr-batch-btn cr-batch-btn--success" OnClick="btnRegisterSelected_Click" OnClientClick="return validateBatchAction('register');" />
+                <asp:Button ID="btnRemoveSelected" runat="server" Text="Remove Selected" CssClass="cr-batch-btn cr-batch-btn--danger" OnClick="btnRemoveSelected_Click" OnClientClick="return validateBatchAction('remove');" Visible="false" />
+                <button type="button" class="cr-batch-btn" onclick="openRetakeModal()">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    Add Retake
+                    Add New Record
                 </button>
             </div>
             <div>
                 <asp:Button ID="btnExportExcel" runat="server" Text="Export Excel" CssClass="cr-batch-btn" OnClick="btnExportExcel_Click" />
             </div>
         </div>
-        <div class="cd-card__body">
+        <div class="cd-card__body cr-table-wrap">
             <dx:ASPxGridView ID="gvCourseReg" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="regno" 
-                CssClass="cr-grid" OnCustomCallback="gvCourseReg_CustomCallback">
-                <SettingsPager PageSize="50" AlwaysShowPager="true" Position="TopAndBottom">
+            CssClass="cr-grid" ClientInstanceName="gvCourseReg" OnCustomCallback="gvCourseReg_CustomCallback">
+                <SettingsPager PageSize="50" Visible="false" Mode="ShowAllRecords">
                 </SettingsPager>
-                <SettingsBehavior AllowFocusedRow="true" ConfirmDelete="true" />
-                <Settings ShowFilterRow="false" ShowFilterRowMenu="false" />
+            <SettingsBehavior AllowFocusedRow="true" ConfirmDelete="true" AllowSort="true" />
+            <Settings ShowFilterRow="true" ShowFilterRowMenu="true" />
                 <SettingsSearchPanel Visible="true" ShowApplyButton="true" />
                 <Columns>
                     <dx:GridViewCommandColumn ShowSelectCheckbox="true" SelectAllCheckboxMode="Page" VisibleIndex="0" Width="30px">
@@ -477,7 +572,13 @@
                     </dx:GridViewDataTextColumn>
                     <dx:GridViewDataTextColumn FieldName="spec_name" Caption="Specialisation" VisibleIndex="3" Width="200px">
                     </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="course_status" Caption="Course Status" VisibleIndex="4" Width="100px">
+                    <dx:GridViewDataTextColumn FieldName="course_code" Caption="Course" VisibleIndex="4" Width="110px" />
+                    <dx:GridViewDataTextColumn FieldName="acad_year" Caption="Acad Year" VisibleIndex="5" Width="90px" />
+                    <dx:GridViewDataTextColumn FieldName="semester" Caption="Sem" VisibleIndex="6" Width="50px" />
+                    <dx:GridViewDataTextColumn FieldName="entryyear" Caption="Entry Year" VisibleIndex="7" Width="80px" />
+                    <dx:GridViewDataTextColumn FieldName="intake" Caption="Intake" VisibleIndex="8" Width="90px" />
+                    <dx:GridViewDataTextColumn FieldName="reg_status" Caption="Reg Status" VisibleIndex="9" Width="100px" />
+                    <dx:GridViewDataTextColumn FieldName="course_status" Caption="Course Status" VisibleIndex="10" Width="110px">
                         <DataItemTemplate>
                             <%# GetCourseStatusBadge(Eval("course_status")) %>
                         </DataItemTemplate>
@@ -491,12 +592,19 @@
             </dx:ASPxGridView>
             <dx:ASPxGridViewExporter ID="gvExporter" runat="server" GridViewID="gvCourseReg">
             </dx:ASPxGridViewExporter>
+            <asp:Literal ID="litQueryPager" runat="server"></asp:Literal>
         </div>
     </div>
     
     <!-- Loading Panel -->
     <dx:ASPxLoadingPanel ID="lpLoading" runat="server" ClientInstanceName="lpLoading" Modal="true" Text="Processing...">
     </dx:ASPxLoadingPanel>
+        </ContentTemplate>
+        <Triggers>
+            <asp:PostBackTrigger ControlID="btnExportExcel" />
+            <asp:PostBackTrigger ControlID="btnPrintResults" />
+        </Triggers>
+    </asp:UpdatePanel>
 
     <!-- === Quick Edit Modal === -->
     <div class="qe-overlay" id="qeOverlay">
@@ -690,20 +798,128 @@
             }
         }
         
-        function toggleRetakePanel() {
-            var panel = document.getElementById('retakePanel');
-            if (panel.classList.contains('show')) {
-                panel.classList.remove('show');
+        function openRetakeModal() {
+            var modal = document.getElementById('retakeModalOverlay');
+            if (!modal) return;
+            modal.classList.add('show');
+            var input = document.getElementById('<%= txtRetakeRegNo.ClientID %>');
+            if (input) input.focus();
+        }
+
+        function closeRetakeModal() {
+            var modal = document.getElementById('retakeModalOverlay');
+            if (!modal) return;
+            modal.classList.remove('show');
+        }
+
+        function validateAddRecordForm() {
+            var regInput = document.getElementById('<%= txtRetakeRegNo.ClientID %>');
+            if (!regInput || !regInput.value.trim()) {
+                alert('Please enter a student registration number.');
+                return false;
+            }
+
+            var course = document.getElementById('<%= ddlCourse.ClientID %>');
+            if (!course || !course.value) {
+                alert('Please select a course first.');
+                return false;
+            }
+
+            return true;
+        }
+
+        function validateBatchAction(actionType) {
+            var course = document.getElementById('<%= ddlCourse.ClientID %>');
+            if (!course || !course.value) {
+                alert('Please select a course first.');
+                return false;
+            }
+
+            if (typeof gvCourseReg !== 'undefined' && gvCourseReg.GetSelectedRowCount && gvCourseReg.GetSelectedRowCount() <= 0) {
+                alert('Select at least one student.');
+                return false;
+            }
+
+            if (actionType === 'register') {
+                return confirm('Register selected students for this course?');
+            }
+            return confirm('Remove registration for selected students?');
+        }
+
+        function applyFiltersGet() {
+            var params = new URLSearchParams(window.location.search);
+            params.set('page', '1');
+
+            var acad = document.getElementById('<%= ddlAcadYear.ClientID %>').value;
+            var prog = document.getElementById('<%= ddlProgramme.ClientID %>').value;
+            var yr = document.getElementById('<%= ddlStudyYear.ClientID %>').value;
+            var sem = document.getElementById('<%= ddlSemester.ClientID %>').value;
+            var entyr = document.getElementById('<%= ddlEntryYear.ClientID %>').value;
+            var intake = document.getElementById('<%= ddlIntake.ClientID %>').value;
+            var course = document.getElementById('<%= ddlCourse.ClientID %>').value;
+            var status = document.getElementById('<%= ddlStatus.ClientID %>').value;
+            var student = document.getElementById('<%= txtStudentFilter.ClientID %>').value.trim();
+
+            setOrRemove(params, 'acad', acad);
+            setOrRemove(params, 'prog', prog);
+            setOrRemove(params, 'yr', yr);
+            setOrRemove(params, 'sem', sem);
+            setOrRemove(params, 'entyr', entyr && entyr !== '-' ? entyr : '');
+            setOrRemove(params, 'intake', intake && intake !== '-' ? intake : '');
+            setOrRemove(params, 'course', course);
+            setOrRemove(params, 'status', status);
+            setOrRemove(params, 'student', student);
+
+            window.location.href = window.location.pathname + '?' + params.toString();
+        }
+
+        function setOrRemove(params, key, value) {
+            if (value && value.length > 0) {
+                params.set(key, value);
             } else {
-                panel.classList.add('show');
+                params.delete(key);
             }
         }
-        
-        // Show filters by default on load
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('filterRow').classList.add('show');
-            document.querySelector('.cr-filter-toggle').classList.add('active');
+
+        function wireGetFilters() {
+            var ids = [
+                '<%= ddlAcadYear.ClientID %>',
+                '<%= ddlProgramme.ClientID %>',
+                '<%= ddlStudyYear.ClientID %>',
+                '<%= ddlSemester.ClientID %>',
+                '<%= ddlEntryYear.ClientID %>',
+                '<%= ddlIntake.ClientID %>',
+                '<%= ddlCourse.ClientID %>',
+                '<%= ddlStatus.ClientID %>'
+            ];
+            for (var i = 0; i < ids.length; i++) {
+                var el = document.getElementById(ids[i]);
+                if (el) el.addEventListener('change', applyFiltersGet);
+            }
+
+            var student = document.getElementById('<%= txtStudentFilter.ClientID %>');
+            if (student) {
+                student.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        applyFiltersGet();
+                    }
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', wireGetFilters);
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeRetakeModal();
         });
+
+        document.addEventListener('click', function (e) {
+            var modal = document.getElementById('retakeModalOverlay');
+            if (modal && e.target === modal) closeRetakeModal();
+        });
+        
+        // Filters are hidden by default; user toggles when needed.
 
         // === Quick Edit Modal =================================
         function openQuickEdit(regno) {

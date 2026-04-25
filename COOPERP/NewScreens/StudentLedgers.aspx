@@ -518,7 +518,7 @@
 
     window.printStatement = function(regno){
         if (!regno) return;
-        window.open('<%= ResolveUrl("~/API/StudentLedgerExport.aspx") %>?reg=' + encodeURIComponent(regno), '_blank');
+        window.open('/API/StudentLedgerExport.aspx?reg=' + encodeURIComponent(regno), '_blank');
     };
 
     window.viewLedgerDetails = function(regno){
