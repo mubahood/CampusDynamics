@@ -66,59 +66,80 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         string action = Request.QueryString["action"];
         if (!string.IsNullOrEmpty(action))
         {
+            bool handledAction = false;
+
             if (action == "PreviewBatchStatus")
             {
                 HandlePreviewBatchStatus();
-                return;
+                handledAction = true;
             }
             else if (action == "ApplyBatchStatus")
             {
                 HandleApplyBatchStatus();
-                return;
+                handledAction = true;
             }
             else if (action == "PreviewBatchValidation")
             {
                 HandlePreviewBatchValidation();
-                return;
+                handledAction = true;
             }
             else if (action == "ApplyBatchValidation")
             {
                 HandleApplyBatchValidation();
-                return;
+                handledAction = true;
             }
             else if (action == "PreviewSummaryReport")
             {
                 HandlePreviewSummaryReport();
-                return;
+                handledAction = true;
             }
             else if (action == "ExportSummaryReport")
             {
                 HandleExportSummaryReport();
-                return;
+                handledAction = true;
             }
             else if (action == "ExportPerformanceReport")
             {
                 HandleExportPerformanceReport();
-                return;
+                handledAction = true;
             }
             else if (action == "SetPassword")
             {
                 HandleSetPassword();
-                return;
+                handledAction = true;
+            }
+            else if (action == "SetPhoto")
+            {
+                HandleSetPhoto();
+                handledAction = true;
+            }
+            else if (action == "GenerateAcademicDocument")
+            {
+                HandleGenerateAcademicDocument();
+                handledAction = true;
             }
             else if (action == "ListStudents")
             {
                 HandleListStudents();
-                return;
+                handledAction = true;
             }
             else if (action == "HealthSetPassword")
             {
                 HandleHealthSetPassword();
-                return;
+                handledAction = true;
             }
             else if (action == "CheckStudentForSetPassword")
             {
                 HandleCheckStudentForSetPassword();
+                handledAction = true;
+            }
+
+            // For action endpoints (JSON/PDF/etc), stop normal page rendering lifecycle.
+            // Returning from Page_Load alone is not enough in WebForms; the page can still render.
+            if (handledAction)
+            {
+                Response.SuppressContent = true;
+                HttpContext.Current.ApplicationInstance.CompleteRequest();
                 return;
             }
         }
@@ -140,6 +161,26 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         }
         // Always bind data (DevExpress grids need rebind on postback too for callbacks)
         BindStudentsGrid();
+    }
+
+    protected string BuildViewProfileOnclick(object regnoObj)
+    {
+        string regno = HttpUtility.JavaScriptStringEncode(Convert.ToString(regnoObj) ?? string.Empty);
+        return string.Format("openStudentProfile(\"{0}\"); closeAllActionPopovers(); return false;", regno);
+    }
+
+    protected string BuildEditOnclick(object keyValueObj)
+    {
+        string key = HttpUtility.JavaScriptStringEncode(Convert.ToString(keyValueObj) ?? string.Empty);
+        return string.Format("gridEditRow(\"gvStudents\", \"{0}\"); return false;", key);
+    }
+
+    protected string BuildSetPasswordOnclick(object regnoObj, object firstNameObj, object otherNameObj)
+    {
+        string regno = HttpUtility.JavaScriptStringEncode(Convert.ToString(regnoObj) ?? string.Empty);
+        string studentName = ((Convert.ToString(firstNameObj) ?? string.Empty).Trim() + " " + (Convert.ToString(otherNameObj) ?? string.Empty).Trim()).Trim();
+        studentName = HttpUtility.JavaScriptStringEncode(studentName);
+        return string.Format("openSetPasswordModal(\"{0}\", \"{1}\"); closeAllActionPopovers(); return false;", regno, studentName);
     }
     
     /// <summary>
@@ -3757,6 +3798,105 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         catch { }
         return defaultValue;
     }
+
+        private List<string> BuildRegnoAliases(string regno)
+        {
+            var aliases = new List<string>();
+            string value = (regno ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(value)) return aliases;
+
+            aliases.Add(value);
+
+            string[] parts = value.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length > 4)
+            {
+                for (int len = parts.Length - 1; len >= 4; len--)
+                {
+                    string candidate = string.Join("/", parts.Take(len).ToArray());
+                    if (!aliases.Exists(a => string.Equals(a, candidate, StringComparison.OrdinalIgnoreCase)))
+                        aliases.Add(candidate);
+                }
+            }
+
+            return aliases;
+        }
+
+        private string GetAwardClassFromCgpa(decimal cgpa)
+        {
+            if (cgpa >= 4.40m) return "FIRST CLASS";
+            if (cgpa >= 3.60m) return "SECOND CLASS UPPER";
+            if (cgpa >= 2.80m) return "SECOND CLASS LOWER";
+            if (cgpa >= 2.00m) return "PASS";
+            return "RETAKE";
+        }
+
+        private void LoadStudentResultsFallback(DataTable dtAllResults, string regno)
+        {
+            if (dtAllResults == null || string.IsNullOrWhiteSpace(regno)) return;
+
+            List<string> aliases = BuildRegnoAliases(regno);
+            if (aliases.Count == 0) return;
+
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+
+                StringBuilder sql = new StringBuilder();
+                sql.Append(@"SELECT
+                                COALESCE(r.studyyear, 0) AS studyyear,
+                                COALESCE(r.semester, 0) AS semester,
+                                COALESCE(r.courseid, '') AS courseid,
+                                COALESCE(c.coursename, r.courseid, '') AS coursename,
+                                COALESCE(NULLIF(r.CreditUnits, 0), NULLIF(c.credit_hrs, 0), 3) AS CreditUnits,
+                                COALESCE(r.score, 0) AS score,
+                                COALESCE(r.grade, '') AS grade,
+                                COALESCE(r.gradept, 0) AS gradept,
+                                COALESCE(r.gpa, 0) AS gpa,
+                                COALESCE(r.acad, '') AS acad
+                             FROM acad_results r
+                             LEFT JOIN acad_course c ON c.courseid = r.courseid
+                             WHERE ");
+
+                var clauses = new List<string>();
+                for (int i = 0; i < aliases.Count; i++)
+                {
+                    clauses.Add("TRIM(r.regno) = @reg" + i);
+                    clauses.Add("TRIM(r.regno) LIKE @regp" + i);
+                }
+
+                sql.Append("(");
+                sql.Append(string.Join(" OR ", clauses));
+                sql.Append(") ORDER BY COALESCE(r.studyyear,0) ASC, COALESCE(r.semester,0) ASC, r.courseid ASC");
+
+                using (MySqlCommand cmd = new MySqlCommand(sql.ToString(), conn))
+                {
+                    for (int i = 0; i < aliases.Count; i++)
+                    {
+                        cmd.Parameters.AddWithValue("@reg" + i, aliases[i]);
+                        cmd.Parameters.AddWithValue("@regp" + i, aliases[i] + "/%");
+                    }
+
+                    using (MySqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            DataRow row = dtAllResults.NewRow();
+                            row["studyyear"] = reader["studyyear"] != DBNull.Value ? Convert.ToInt32(reader["studyyear"]) : 0;
+                            row["semester"] = reader["semester"] != DBNull.Value ? Convert.ToInt32(reader["semester"]) : 0;
+                            row["courseid"] = reader["courseid"] != DBNull.Value ? reader["courseid"].ToString() : "";
+                            row["coursename"] = reader["coursename"] != DBNull.Value ? reader["coursename"].ToString() : "";
+                            row["CreditUnits"] = reader["CreditUnits"] != DBNull.Value ? Convert.ToDecimal(reader["CreditUnits"]) : 0m;
+                            row["score"] = reader["score"] != DBNull.Value ? Convert.ToDecimal(reader["score"]) : 0m;
+                            row["grade"] = reader["grade"] != DBNull.Value ? reader["grade"].ToString() : "";
+                            row["gradept"] = reader["gradept"] != DBNull.Value ? Convert.ToDecimal(reader["gradept"]) : 0m;
+                            row["gpa"] = reader["gpa"] != DBNull.Value ? Convert.ToDecimal(reader["gpa"]) : 0m;
+                            row["acad"] = reader["acad"] != DBNull.Value ? reader["acad"].ToString() : "";
+                            dtAllResults.Rows.Add(row);
+                        }
+                    }
+                }
+            }
+        }
     
     private void LoadStudentResults(string regno)
     {
@@ -3786,10 +3926,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             {
                 conn.Open();
                 
-                // Loop through years 1-6 and semesters 1-3 to get all results
+                // Loop through years 1-6 and semesters 1-4 to get all results
                 for (int yr = 1; yr <= 6; yr++)
                 {
-                    for (int sem = 1; sem <= 3; sem++)
+                    for (int sem = 1; sem <= 4; sem++)
                     {
                         // Get semester results
                         using (MySqlCommand cmd = new MySqlCommand("acad_GetSemesterResults", conn))
@@ -3855,6 +3995,67 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         }
                     }
                 }
+            }
+
+            // Fallback: if stored procedures returned no rows, query acad_results directly
+            // using regno aliases (supports shortened/full regno variants).
+            if (dtAllResults.Rows.Count == 0)
+            {
+                LoadStudentResultsFallback(dtAllResults, regno);
+            }
+
+            // Recalculate summary metrics from the final dataset to keep values consistent
+            passed = 0;
+            failed = 0;
+            totalCredits = 0;
+            decimal weightedGpSum = 0;
+            decimal weightedCreditSum = 0;
+
+            foreach (DataRow row in dtAllResults.Rows)
+            {
+                string grade = row["grade"] != DBNull.Value ? row["grade"].ToString() : "";
+                decimal credits = row["CreditUnits"] != DBNull.Value ? Convert.ToDecimal(row["CreditUnits"]) : 0m;
+                decimal gp = row["gradept"] != DBNull.Value ? Convert.ToDecimal(row["gradept"]) : 0m;
+
+                if (!string.IsNullOrEmpty(grade) && grade != "F" && grade != "X" && grade != "NE" && grade != "I")
+                {
+                    passed++;
+                    totalCredits += credits;
+                }
+                else if (grade == "F" || grade == "X")
+                {
+                    failed++;
+                }
+
+                weightedGpSum += gp * credits;
+                weightedCreditSum += credits;
+            }
+
+            if (dtAllResults.Rows.Count > 0)
+            {
+                // Latest semester GPA from available rows
+                DataView semView = new DataView(dtAllResults);
+                DataTable semesters = semView.ToTable(true, "studyyear", "semester");
+                semesters.DefaultView.Sort = "studyyear DESC, semester DESC";
+                if (semesters.DefaultView.Count > 0)
+                {
+                    int y = Convert.ToInt32(semesters.DefaultView[0]["studyyear"]);
+                    int s = Convert.ToInt32(semesters.DefaultView[0]["semester"]);
+                    DataRow[] latestRows = dtAllResults.Select(string.Format("studyyear = {0} AND semester = {1}", y, s));
+                    decimal semGpSum = 0m;
+                    decimal semCuSum = 0m;
+                    foreach (DataRow r in latestRows)
+                    {
+                        decimal cu = r["CreditUnits"] != DBNull.Value ? Convert.ToDecimal(r["CreditUnits"]) : 0m;
+                        decimal gpt = r["gradept"] != DBNull.Value ? Convert.ToDecimal(r["gradept"]) : 0m;
+                        semGpSum += gpt * cu;
+                        semCuSum += cu;
+                    }
+                    lastGPA = semCuSum > 0 ? semGpSum / semCuSum : 0m;
+                }
+
+                lastCGPA = weightedCreditSum > 0 ? weightedGpSum / weightedCreditSum : 0m;
+                lastAwardClass = GetAwardClassFromCgpa(lastCGPA);
             }
             
             // Set summary stats
@@ -5194,6 +5395,176 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     #endregion
     
     #region Set Password
+
+    private void HandleSetPhoto()
+    {
+        JavaScriptSerializer serializer = new JavaScriptSerializer();
+
+        try
+        {
+            string regno = (Request.Form["regno"] ?? string.Empty).Trim();
+            HttpPostedFile postedFile = Request.Files["photoFile"];
+
+            if (string.IsNullOrEmpty(regno))
+            {
+                WriteJsonAndComplete(serializer, new { success = false, message = "Registration number is required." });
+                return;
+            }
+
+            if (postedFile == null || postedFile.ContentLength <= 0)
+            {
+                WriteJsonAndComplete(serializer, new { success = false, message = "Please select a photo to upload." });
+                return;
+            }
+
+            string ext = Path.GetExtension(postedFile.FileName ?? string.Empty).ToLowerInvariant();
+            if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".bmp" && ext != ".gif")
+            {
+                WriteJsonAndComplete(serializer, new { success = false, message = "Only image files are allowed (jpg, jpeg, png, bmp, gif)." });
+                return;
+            }
+
+            byte[] originalBytes;
+            using (Stream input = postedFile.InputStream)
+            {
+                int length = Convert.ToInt32(input.Length);
+                originalBytes = new byte[length];
+                input.Read(originalBytes, 0, length);
+            }
+
+            imageManager im = new imageManager();
+            byte[] thumbBytes = im.MakeThumb(originalBytes);
+
+            string fileName = Guid.NewGuid().ToString("N") + ".jpg";
+            string photosFolder = Server.MapPath("~/COOPERP/StudentInfo/photos/");
+            if (!Directory.Exists(photosFolder))
+            {
+                Directory.CreateDirectory(photosFolder);
+            }
+
+            string savePath = Path.Combine(photosFolder, fileName);
+            File.WriteAllBytes(savePath, thumbBytes);
+
+            int rows;
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand("UPDATE acad_student SET photofile = @photofile WHERE regno = @regno", conn))
+                {
+                    cmd.Parameters.AddWithValue("@photofile", fileName);
+                    cmd.Parameters.AddWithValue("@regno", regno);
+                    rows = cmd.ExecuteNonQuery();
+                }
+            }
+
+            if (rows <= 0)
+            {
+                WriteJsonAndComplete(serializer, new { success = false, message = "Student not found. Photo was not updated." });
+                return;
+            }
+
+            WriteJsonAndComplete(serializer, new
+            {
+                success = true,
+                message = "Photo updated successfully.",
+                photoUrl = ResolveUrl("~/COOPERP/StudentInfo/photos/" + fileName)
+            });
+            return;
+        }
+        catch (System.Threading.ThreadAbortException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            WriteJsonAndComplete(serializer, new { success = false, message = "Error updating photo: " + ex.Message });
+            return;
+        }
+    }
+
+    private void HandleGenerateAcademicDocument()
+    {
+        try
+        {
+            string documentType = (Request["documentType"] ?? Request["type"] ?? Request["doc"] ?? string.Empty).Trim();
+            string regnosRaw = (Request["regnos"] ?? string.Empty).Trim();
+
+            if (string.IsNullOrEmpty(regnosRaw))
+            {
+                string singleRegno = (Request["regno"] ?? string.Empty).Trim();
+                if (!string.IsNullOrEmpty(singleRegno))
+                    regnosRaw = singleRegno;
+            }
+
+            if (string.IsNullOrEmpty(documentType) && string.IsNullOrEmpty(regnosRaw))
+            {
+                WriteAcademicDocumentHelpAndComplete();
+                return;
+            }
+
+            if (string.IsNullOrEmpty(documentType))
+            {
+                WriteHtmlErrorAndComplete("Document type is required. Use documentType=Transcript or documentType=Certificate.");
+                return;
+            }
+
+            List<string> regnos = ParseRegnos(regnosRaw);
+            if (regnos.Count == 0)
+            {
+                WriteHtmlErrorAndComplete("Select at least one student before generating academic documents. You can pass regno=... for a single student or regnos=REG1,REG2 for batch generation.");
+                return;
+            }
+
+            AcademicDocumentPdfService service = new AcademicDocumentPdfService();
+            AcademicDocumentPdfService.ExportResult result = service.GeneratePdf(documentType, regnos);
+
+            if (result == null || !result.Success || result.Content == null || result.Content.Length == 0)
+            {
+                WriteHtmlErrorAndComplete(result != null ? result.Message : "The academic document could not be generated.");
+                return;
+            }
+
+            WriteBinaryFileAndComplete(result.Content, result.ContentType, result.FileName);
+        }
+        catch (System.Threading.ThreadAbortException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            WriteHtmlErrorAndComplete("Error generating academic document: " + ex.Message);
+        }
+    }
+
+    private List<string> ParseRegnos(string raw)
+    {
+        List<string> values = new List<string>();
+        if (string.IsNullOrWhiteSpace(raw))
+            return values;
+
+        string[] parts = raw.Split(new char[] { ',', ';', '\r', '\n', '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (string part in parts)
+        {
+            string value = (part ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(value))
+                continue;
+
+            bool exists = false;
+            for (int i = 0; i < values.Count; i++)
+            {
+                if (string.Equals(values[i], value, StringComparison.OrdinalIgnoreCase))
+                {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if (!exists)
+                values.Add(value);
+        }
+
+        return values;
+    }
     
     private void HandleSetPassword()
     {
@@ -5993,6 +6364,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     private void WriteJsonAndComplete(JavaScriptSerializer serializer, object payload)
     {
         Response.Clear();
+        Response.Buffer = true;
         Response.ContentType = "application/json";
         Response.Cache.SetCacheability(System.Web.HttpCacheability.NoCache);
         Response.Cache.SetNoStore();
@@ -6001,8 +6373,73 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         Response.AppendHeader("Pragma", "no-cache");
         Response.AppendHeader("X-SetPassword-Version", "SETPASSWORD_V2");
         Response.Write(serializer.Serialize(payload));
+        Response.Flush();
+        HttpContext.Current.ApplicationInstance.CompleteRequest();
+    }
 
-        Response.End();
+    private void WriteBinaryFileAndComplete(byte[] content, string contentType, string fileName)
+    {
+        Response.Clear();
+        Response.Buffer = true;
+        Response.ContentType = string.IsNullOrEmpty(contentType) ? "application/octet-stream" : contentType;
+        Response.Cache.SetCacheability(System.Web.HttpCacheability.NoCache);
+        Response.Cache.SetNoStore();
+        Response.Cache.SetRevalidation(System.Web.HttpCacheRevalidation.AllCaches);
+        Response.Expires = -1;
+        Response.AppendHeader("Pragma", "no-cache");
+        Response.AppendHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+        Response.AppendHeader("Content-Length", content != null ? content.Length.ToString() : "0");
+        Response.BinaryWrite(content);
+        Response.Flush();
+        HttpContext.Current.ApplicationInstance.CompleteRequest();
+    }
+
+    private void WriteHtmlErrorAndComplete(string message)
+    {
+        Response.Clear();
+        Response.Buffer = true;
+        Response.ContentType = "text/html";
+        Response.Cache.SetCacheability(System.Web.HttpCacheability.NoCache);
+        Response.Cache.SetNoStore();
+
+        string safeMessage = HttpUtility.HtmlEncode(message ?? "An error occurred.");
+        Response.Write("<!DOCTYPE html><html><head><title>Academic Documents</title><style>body{font-family:Segoe UI,Arial,sans-serif;background:#f8fafc;padding:24px;color:#1f2937}.card{max-width:640px;margin:40px auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.06)}h2{margin:0 0 10px;font-size:20px;color:#174DA4}p{margin:0;font-size:14px;line-height:1.6}</style></head><body><div class='card'><h2>Academic Document Generation</h2><p>" + safeMessage + "</p></div></body></html>");
+        Response.Flush();
+        HttpContext.Current.ApplicationInstance.CompleteRequest();
+    }
+
+    private void WriteAcademicDocumentHelpAndComplete()
+    {
+        Response.Clear();
+        Response.Buffer = true;
+        Response.ContentType = "text/html";
+        Response.Cache.SetCacheability(System.Web.HttpCacheability.NoCache);
+        Response.Cache.SetNoStore();
+
+        string endpoint = ResolveUrl("~/COOPERP/NewScreens/NewStudentInfo.aspx?action=GenerateAcademicDocument");
+        string transcriptExample = endpoint + "&documentType=Transcript&regno=STUDENT_REGNO";
+        string certificateExample = endpoint + "&documentType=Certificate&regno=STUDENT_REGNO";
+        string batchExample = endpoint + "&documentType=Transcript&regnos=REG001,REG002,REG003";
+
+        Response.Write(
+            "<!DOCTYPE html><html><head><title>Academic Documents</title>" +
+            "<style>body{font-family:Segoe UI,Arial,sans-serif;background:#f8fafc;padding:24px;color:#1f2937}.card{max-width:760px;margin:40px auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.06)}h2{margin:0 0 10px;font-size:20px;color:#174DA4}p,li{font-size:14px;line-height:1.7}code{display:block;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;margin:8px 0;color:#0f172a;word-break:break-all}ul{padding-left:20px}</style></head><body>" +
+            "<div class='card'>" +
+            "<h2>Academic Document Generation</h2>" +
+            "<p>This endpoint generates the same transcript and certificate PDFs used by the classic system.</p>" +
+            "<ul>" +
+            "<li>Supported document types: <strong>Transcript</strong>, <strong>Certificate</strong></li>" +
+            "<li>Single student: pass <strong>regno</strong></li>" +
+            "<li>Batch generation: pass <strong>regnos</strong> as a comma-separated list</li>" +
+            "</ul>" +
+            "<p><strong>Examples</strong></p>" +
+            "<code>" + HttpUtility.HtmlEncode(transcriptExample) + "</code>" +
+            "<code>" + HttpUtility.HtmlEncode(certificateExample) + "</code>" +
+            "<code>" + HttpUtility.HtmlEncode(batchExample) + "</code>" +
+            "<p>From the New Student Info screen, the recommended path remains the row action or batch menu because it fills these parameters automatically.</p>" +
+            "</div></body></html>");
+        Response.Flush();
+        HttpContext.Current.ApplicationInstance.CompleteRequest();
     }
     
     /// <summary>

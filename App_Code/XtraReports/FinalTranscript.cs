@@ -351,20 +351,20 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrSubreport2
             // 
             this.xrSubreport2.Dpi = 100F;
-            this.xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(392.8836F, 290.06F);
+            this.xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(389F, 290.06F);
             this.xrSubreport2.Name = "xrSubreport2";
             this.xrSubreport2.ParameterBindings.Add(new DevExpress.XtraReports.UI.ParameterBinding("reg", null, "acad_GetBatchStudentTranscriptData.regno"));
             this.xrSubreport2.ReportSource = new FinalTranscriptCol2();
-            this.xrSubreport2.SizeF = new System.Drawing.SizeF(374.5331F, 23.00003F);
+            this.xrSubreport2.SizeF = new System.Drawing.SizeF(378.5F, 23.00003F);
             // 
             // xrSubreport1
             // 
             this.xrSubreport1.Dpi = 100F;
-            this.xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3.803968F, 290.54F);
+            this.xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3F, 290.54F);
             this.xrSubreport1.Name = "xrSubreport1";
             this.xrSubreport1.ParameterBindings.Add(new DevExpress.XtraReports.UI.ParameterBinding("reg", null, "acad_GetBatchStudentTranscriptData.regno"));
             this.xrSubreport1.ReportSource = new FinalTranscriptCol1();
-            this.xrSubreport1.SizeF = new System.Drawing.SizeF(382.1643F, 23.00003F);
+            this.xrSubreport1.SizeF = new System.Drawing.SizeF(385F, 23.00003F);
             // 
             // xrPictureBox2
             // 
@@ -497,9 +497,9 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrPictureBox1.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Image", null, "acad_university.logo")});
             this.xrPictureBox1.Dpi = 100F;
-            this.xrPictureBox1.LocationFloat = new DevExpress.Utils.PointFloat(133.7046F, 0.3333282F);
+            this.xrPictureBox1.LocationFloat = new DevExpress.Utils.PointFloat(165F, 4F);
             this.xrPictureBox1.Name = "xrPictureBox1";
-            this.xrPictureBox1.SizeF = new System.Drawing.SizeF(492.5188F, 118.4734F);
+            this.xrPictureBox1.SizeF = new System.Drawing.SizeF(430F, 96F);
             this.xrPictureBox1.Sizing = DevExpress.XtraPrinting.ImageSizeMode.ZoomImage;
             // 
             // GroupFooter1
@@ -523,10 +523,10 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrLabel15,
             this.xrLabel14});
             this.GroupFooter1.Dpi = 100F;
-            this.GroupFooter1.HeightF = 140F;
+            this.GroupFooter1.HeightF = 95F;
             this.GroupFooter1.Name = "GroupFooter1";
             this.GroupFooter1.PageBreak = DevExpress.XtraReports.UI.PageBreak.AfterBand;
-            this.GroupFooter1.PrintAtBottom = true;
+            this.GroupFooter1.PrintAtBottom = false;
             // 
             // ── Thesis block — placed in GroupHeader1, below the results subreports ────
             //
@@ -616,7 +616,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrLine7,
             this.xrPageInfo1});
             this.xrPanel1.Dpi = 100F;
-            this.xrPanel1.LocationFloat = new DevExpress.Utils.PointFloat(7.08334F, 58F);
+            this.xrPanel1.LocationFloat = new DevExpress.Utils.PointFloat(7.08334F, 28F);
             this.xrPanel1.Name = "xrPanel1";
             this.xrPanel1.SizeF = new System.Drawing.SizeF(753.2498F, 71.66667F);
             this.xrPanel1.StylePriority.UseBackColor = false;
@@ -854,6 +854,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrCrossBandBox1
             // 
             this.xrCrossBandBox1.BorderColor = System.Drawing.Color.DarkBlue;
+            this.xrCrossBandBox1.Borders = ((DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Right) 
+            | DevExpress.XtraPrinting.BorderSide.Top);
             this.xrCrossBandBox1.BorderWidth = 1F;
             this.xrCrossBandBox1.Dpi = 100F;
             this.xrCrossBandBox1.EndBand = this.GroupHeader1;
@@ -1041,8 +1043,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
         // Subreports (results table column headers) always stay at compact positions.
         // Only the band height changes: grow downward to reveal the thesis block.
         xrLabel29.LocationFloat    = new DevExpress.Utils.PointFloat(671.8702F, 250.8619F);
-        xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(5.803968F,  265.036F);
-        xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(392.8836F,  264.5572F);
+        xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3F, 265.036F);
+        xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(389F, 264.5572F);
         xrCrossBandBox1.LocationFloat    = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);
         xrCrossBandBox1.StartPointFloat  = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);
         xrCrossBandBox1.EndPointFloat    = new DevExpress.Utils.PointFloat(0.6666629F, 289.3122F);

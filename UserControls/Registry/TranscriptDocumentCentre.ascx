@@ -52,14 +52,102 @@
     .auto-style12 {
         height: 18px;
     }
+
+    .transcript-centre
+    {
+        font-size: 12px;
+    }
+
+    .transcript-centre td
+    {
+        vertical-align: middle;
+    }
+
+    .transcript-centre .dxgvControl
+    {
+        border-radius: 6px;
+    }
+
+    .transcript-centre .dxgvTable td,
+    .transcript-centre .dxgvHeader td
+    {
+        padding-top: 6px;
+        padding-bottom: 6px;
+    }
+
+    .transcript-centre .dxgvHeader,
+    .transcript-centre .dxgvPagerBottomPanel
+    {
+        font-weight: 600;
+    }
+
+    .transcript-centre .compact-actions td
+    {
+        padding-bottom: 6px;
+    }
 </style>
 
+<script type="text/javascript">
+    var transcriptSearchTimer = null;
+
+    function transcriptBeginGridAction() {
+        if (typeof lp_processing !== 'undefined' && lp_processing)
+            lp_processing.Show();
+    }
+
+    function transcriptEndGridAction() {
+        if (typeof lp_processing !== 'undefined' && lp_processing)
+            lp_processing.Hide();
+    }
+
+    function transcriptApplyQuickSearch(forceImmediate) {
+        if (typeof gvMarksheetInfo === 'undefined' || !gvMarksheetInfo || typeof txtSearch === 'undefined' || !txtSearch)
+            return;
+
+        if (transcriptSearchTimer)
+            clearTimeout(transcriptSearchTimer);
+
+        var trigger = function () {
+            transcriptBeginGridAction();
+            gvMarksheetInfo.PerformCallback('SEARCH|' + encodeURIComponent(txtSearch.GetText() || ''));
+        };
+
+        if (forceImmediate === true)
+            trigger();
+        else
+            transcriptSearchTimer = setTimeout(trigger, 320);
+    }
+
+    function transcriptClearQuickSearch() {
+        if (typeof gvMarksheetInfo === 'undefined' || !gvMarksheetInfo)
+            return;
+
+        if (typeof txtSearch !== 'undefined' && txtSearch)
+            txtSearch.SetText('');
+
+        transcriptBeginGridAction();
+        gvMarksheetInfo.PerformCallback('CLEARSEARCH');
+    }
+
+    function transcriptApplyFilters() {
+        if (typeof gvMarksheetInfo === 'undefined' || !gvMarksheetInfo)
+            return;
+
+        var programme = (typeof txtProgramme !== 'undefined' && txtProgramme && txtProgramme.GetValue() != null) ? txtProgramme.GetValue().toString() : '-';
+        var academicYear = (typeof txtAcadYear !== 'undefined' && txtAcadYear) ? (txtAcadYear.GetValue() || '') : '';
+
+        transcriptBeginGridAction();
+        gvMarksheetInfo.PerformCallback('FILTERS|' + encodeURIComponent(programme) + '|' + encodeURIComponent(academicYear));
+    }
+</script>
+
 <dx:ASPxRoundPanel ID="ASPxRoundPanel1" runat="server" 
-    HeaderText="System Applications" ShowHeader="False" Width="100%" DefaultButton="txtSearch">
+    HeaderText="System Applications" ShowHeader="False" Width="100%" DefaultButton="cmdSearch" EnableViewState="False">
     <PanelCollection>
 <dx:PanelContent ID="PanelContent1" runat="server" SupportsDisabledAttribute="True">
     <%--<asp:UpdatePanel ID="UpdatePanel1" runat="server">
         <ContentTemplate>--%>
+            <div class="transcript-centre">
             <table class="style1">
                 <tr>
                     <td>
@@ -91,10 +179,10 @@
                                         <tr>
                                             <td class="auto-style9">Programme:</td>
                                             <td class="auto-style6">
-                                                <dx:ASPxComboBox ID="txtProgramme" runat="server" DataSourceID="dsProgrammes" IncrementalFilteringMode="Contains" SelectedIndex="0" TextField="progname" TextFormatString="{1}" ValueField="progcode" Width="350px" AutoPostBack="True" Height="35px" OnSelectedIndexChanged="txtProgramme_SelectedIndexChanged">
+                                                <dx:ASPxComboBox ID="txtProgramme" runat="server" DataSourceID="dsProgrammes" IncrementalFilteringMode="Contains" TextField="progname" TextFormatString="{1}" ValueField="progcode" Width="350px" AutoPostBack="False" Height="35px" OnSelectedIndexChanged="txtProgramme_SelectedIndexChanged" OnDataBound="txtProgramme_DataBound" NullText="All Programmes" ClientInstanceName="txtProgramme">
                                                     <ClientSideEvents TextChanged="function(s, e) {
            lp_processing.Show();
-}" />
+}" SelectedIndexChanged="function(s, e) { transcriptApplyFilters(); }" />
                                                     <Columns>
                                                         <dx:ListBoxColumn Caption="Code" FieldName="progcode" />
                                                         <dx:ListBoxColumn Caption="Programme" FieldName="progname" Width="250px" />
@@ -104,12 +192,42 @@
                                             </td>
                                             <td class="auto-style3">Academic Year:</td>
                                             <td class="auto-style10">
-                                                <dx:ASPxComboBox ID="txtAcadYear" runat="server" AutoPostBack="True" OnSelectedIndexChanged="txtAcadYear_SelectedIndexChanged" Height="35px">
+                                                <dx:ASPxComboBox ID="txtAcadYear" runat="server" AutoPostBack="False" OnSelectedIndexChanged="txtAcadYear_SelectedIndexChanged" Height="35px" ClientInstanceName="txtAcadYear" NullText="All Academic Years">
                                                     <ClientSideEvents TextChanged="function(s, e) {
 	 lp_processing.Show();
-}" />
+}" SelectedIndexChanged="function(s, e) { transcriptApplyFilters(); }" />
                                                     <Paddings PaddingLeft="5px" />
                                                 </dx:ASPxComboBox>
+                                            </td>
+                                            <td>&nbsp;</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="auto-style9">Student Filter:</td>
+                                            <td class="auto-style6">
+                                                <table class="style1 compact-actions" cellpadding="0" cellspacing="0">
+                                                    <tr>
+                                                        <td style="padding-right:6px;">
+                                                            <dx:ASPxTextBox ID="txtSearch" runat="server" Width="260px" Height="35px" NullText="Search by student name, regno or entry number..." AutoPostBack="False" OnTextChanged="txtSearch_TextChanged" ClientInstanceName="txtSearch">
+                                                                <ClientSideEvents KeyUp="function(s, e) { transcriptApplyQuickSearch(false); }" />
+                                                            </dx:ASPxTextBox>
+                                                        </td>
+                                                        <td style="width:84px;">
+                                                            <dx:ASPxButton ID="cmdSearch" runat="server" Height="35px" Width="80px" Text="Search" AutoPostBack="False" OnClick="cmdSearch_Click">
+                                                                <ClientSideEvents Click="function(s, e) { e.processOnServer = false; transcriptApplyQuickSearch(true); }" />
+                                                                <Image IconID="find_find_16x16">
+                                                                </Image>
+                                                            </dx:ASPxButton>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                            <td class="auto-style3">&nbsp;</td>
+                                            <td class="auto-style10">
+                                                <dx:ASPxButton ID="cmdClearSearch" runat="server" Height="35px" Width="170px" Text="Clear Student Filter" AutoPostBack="False" OnClick="cmdClearSearch_Click">
+                                                    <ClientSideEvents Click="function(s, e) { e.processOnServer = false; transcriptClearQuickSearch(); }" />
+                                                    <Image IconID="actions_cancel_16x16">
+                                                    </Image>
+                                                </dx:ASPxButton>
                                             </td>
                                             <td>&nbsp;</td>
                                         </tr>
@@ -236,8 +354,9 @@ lp_processing.Show();
                 </tr>
                 <tr>
                     <td>
-                        <dx:ASPxGridView ID="gvMarksheetInfo" runat="server" AutoGenerateColumns="False" ClientInstanceName="gvMarksheetInfo" DataSourceID="dsMarksheetInfo" KeyFieldName="regno" Width="100%" OnHtmlDataCellPrepared="gvMarksheetInfo_HtmlDataCellPrepared">
-                            <SettingsSearchPanel Visible="True" />
+                        <dx:ASPxGridView ID="gvMarksheetInfo" runat="server" AutoGenerateColumns="False" ClientInstanceName="gvMarksheetInfo" DataSourceID="dsMarksheetInfo" KeyFieldName="regno" Width="100%" OnHtmlDataCellPrepared="gvMarksheetInfo_HtmlDataCellPrepared" OnCustomCallback="gvMarksheetInfo_CustomCallback">
+                            <ClientSideEvents BeginCallback="function(s, e) { transcriptBeginGridAction(); }" EndCallback="function(s, e) { transcriptEndGridAction(); }" />
+                            <SettingsSearchPanel Visible="False" />
                             <Columns>
                                 <dx:GridViewDataTextColumn Caption="Stud No" FieldName="regno" VisibleIndex="1" Width="80px">
                                 </dx:GridViewDataTextColumn>
@@ -281,9 +400,10 @@ lp_processing.Show();
                                 </dx:GridViewDataTextColumn>
                             </Columns>
                             <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" />
-                            <SettingsPager Mode="ShowAllRecords" PageSize="50">
+                            <SettingsPager Mode="ShowPager" PageSize="25" AlwaysShowPager="True">
+                                <PageSizeItemSettings Visible="True" ShowAllItem="False" Items="25,50,100" />
                             </SettingsPager>
-                            <Settings ShowFilterRow="True" ShowFilterRowMenu="True" />
+                            <Settings ShowFilterRow="True" ShowFilterRowMenu="True" VerticalScrollBarMode="Auto" VerticalScrollableHeight="520" />
                         </dx:ASPxGridView>
                     </td>
                 </tr>
@@ -295,10 +415,10 @@ lp_processing.Show();
                 </tr>
                 <tr>
                     <td>
-                        <asp:ObjectDataSource ID="dsMarksheetInfo" runat="server" OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" TypeName="ResultsDataTableAdapters.acad_Get_GraduationCompletionDataTableAdapter">
+                        <asp:ObjectDataSource ID="dsMarksheetInfo" runat="server" OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" TypeName="ResultsDataTableAdapters.acad_Get_GraduationCompletionDataTableAdapter" OnSelecting="dsMarksheetInfo_Selecting">
                             <SelectParameters>
-                                <asp:ControlParameter ControlID="txtAcadYear" Name="acad" PropertyName="Value" Type="String" />
-                                <asp:ControlParameter ControlID="txtProgramme" Name="prog" PropertyName="Value" Type="String" />
+                                <asp:ControlParameter ControlID="txtAcadYear" Name="acad" PropertyName="Value" Type="String" DefaultValue="" />
+                                <asp:ControlParameter ControlID="txtProgramme" DefaultValue="-" Name="prog" PropertyName="Value" Type="String" />
                                 <asp:Parameter DefaultValue="0" Name="yr" Type="Int32" />
                                 <asp:Parameter DefaultValue="GRAD" Name="cat" Type="String" />
                                 <asp:ControlParameter ControlID="txtPrintGradDate" Name="gdt" PropertyName="Value" Type="DateTime" />
@@ -661,6 +781,7 @@ if(e.processOnServer) lp_processing.Show();
                     </td>
                 </tr>
             </table>
+            </div>
        <%-- </ContentTemplate>
     </asp:UpdatePanel>--%>
         </dx:PanelContent>

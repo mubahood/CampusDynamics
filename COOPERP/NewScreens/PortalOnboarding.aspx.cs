@@ -924,6 +924,93 @@ public partial class COOPERP_NewScreens_PortalOnboarding : Page
         }
     }
 
+    protected void btnDeleteRecord_Click(object sender, EventArgs e)
+    {
+        string regno = (hdnEditRegno.Value ?? "").Trim();
+        if (string.IsNullOrEmpty(regno)) { BindData(); return; }
+
+        try
+        {
+            int deleted = 0;
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                using (var tx = conn.BeginTransaction())
+                {
+                    int userId = 0;
+                    using (var cmdUser = new MySqlCommand(
+                        "SELECT id FROM campus_dynamics_portal.my_aspnet_users WHERE name=@regno LIMIT 1", conn, tx))
+                    {
+                        cmdUser.Parameters.AddWithValue("@regno", regno);
+                        object uv = cmdUser.ExecuteScalar();
+                        if (uv != null && uv != DBNull.Value)
+                            int.TryParse(uv.ToString(), out userId);
+                    }
+
+                    if (userId <= 0)
+                        throw new Exception("Record not found.");
+
+                    if (TableExists(conn, tx, "campus_dynamics_portal", "my_aspnet_usersinroles") &&
+                        ColumnExists(conn, tx, "campus_dynamics_portal", "my_aspnet_usersinroles", "userId"))
+                    {
+                        using (var cmd = new MySqlCommand(
+                            "DELETE FROM campus_dynamics_portal.my_aspnet_usersinroles WHERE userId=@uid", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@uid", userId);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    if (TableExists(conn, tx, "campus_dynamics_portal", "my_aspnet_membership") &&
+                        ColumnExists(conn, tx, "campus_dynamics_portal", "my_aspnet_membership", "userId"))
+                    {
+                        using (var cmd = new MySqlCommand(
+                            "DELETE FROM campus_dynamics_portal.my_aspnet_membership WHERE userId=@uid", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@uid", userId);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    if (TableExists(conn, tx, "campus_dynamics_portal", "portal_email_otp"))
+                    {
+                        using (var cmd = new MySqlCommand(
+                            "DELETE FROM campus_dynamics_portal.portal_email_otp WHERE LOWER(regno)=LOWER(@regno) OR LOWER(email)=LOWER(@regno)", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@regno", regno);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    using (var cmdDelete = new MySqlCommand(
+                        "DELETE FROM campus_dynamics_portal.my_aspnet_users WHERE id=@uid", conn, tx))
+                    {
+                        cmdDelete.Parameters.AddWithValue("@uid", userId);
+                        deleted = cmdDelete.ExecuteNonQuery();
+                    }
+
+                    tx.Commit();
+                }
+            }
+
+            BindData();
+            if (deleted > 0)
+            {
+                string js = "closeEditModal();showPoToast('Record deleted for " + JsEsc(regno) + ".','success');";
+                ScriptManager.RegisterStartupScript(this, GetType(), "del_ok", js, true);
+            }
+            else
+            {
+                ShowModalError("Delete failed: Record not found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            BindData();
+            ShowModalError("Delete failed: " + ex.Message);
+        }
+    }
+
     private void LoadStudentForEdit(string regno)
     {
         BindData(); // Always rebind the grid
@@ -1004,6 +1091,37 @@ public partial class COOPERP_NewScreens_PortalOnboarding : Page
             "r.className='po-toast po-toast--error';r.style.display='block';" +
             "r.textContent='" + JsEsc(msg) + "';})();";
         ScriptManager.RegisterStartupScript(this, GetType(), "err", js, true);
+    }
+
+    private static bool TableExists(MySqlConnection conn, MySqlTransaction tx, string schema, string table)
+    {
+        try
+        {
+            using (var cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=@s AND TABLE_NAME=@t", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@s", schema);
+                cmd.Parameters.AddWithValue("@t", table);
+                return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+            }
+        }
+        catch { return false; }
+    }
+
+    private static bool ColumnExists(MySqlConnection conn, MySqlTransaction tx, string schema, string table, string column)
+    {
+        try
+        {
+            using (var cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@s AND TABLE_NAME=@t AND COLUMN_NAME=@c", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@s", schema);
+                cmd.Parameters.AddWithValue("@t", table);
+                cmd.Parameters.AddWithValue("@c", column);
+                return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+            }
+        }
+        catch { return false; }
     }
 
     private static string JsEsc(string s)

@@ -5,6 +5,7 @@ using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using ResultsDataTableAdapters;
+using DevExpress.Web;
 
 public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web.UI.UserControl
 {
@@ -14,8 +15,12 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
         {
             txtAcadYear.DataSource = SettingsFile.ReturnAcademicYrs();
             txtAcadYear.DataBind();
-            txtAcadYear.Text = SettingsFile.ReturnDefaultGraduationYr();
+            if (txtAcadYear.Items.FindByValue("") == null)
+                txtAcadYear.Items.Insert(0, new ListEditItem("All Academic Years", ""));
+
+            SyncAcademicYearSelection("");
             txtMastersSenatDate.Date = DateTime.Today;
+            ApplyStudentSearchFilter();
         }
         pop_details.HeaderText = SettingsFile.AppName;
 
@@ -44,7 +49,7 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
             return;
         }
 
-        Session["acad"] = txtAcadYear.Text;
+        Session["acad"] = GetSelectedAcademicYear();
         Session["prog"] = txtProgramme.Value;
         Session["cat"] = txtDocument.Text;
         Session["reg"] = gvMarksheetInfo.GetRowValues(gvMarksheetInfo.FocusedRowIndex, "regno");
@@ -61,9 +66,9 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
         try
         {
             // Validate required selections
-            if (string.IsNullOrEmpty(txtAcadYear.Text))
+            if (string.IsNullOrWhiteSpace(GetSelectedAcademicYear()))
             {
-                lbl_msg.Text = "Please select an Academic Year";
+                lbl_msg.Text = "Please select a specific Academic Year";
                 pop_msgBox.ShowOnPageLoad = true;
                 return;
             }
@@ -101,7 +106,7 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
 
             // Store in Session (Default.aspx.cs reads these to populate report parameters)
             Session["Report"]              = "Masters Letter of Award";
-            Session["acad"]                = txtAcadYear.Text;
+            Session["acad"]                = GetSelectedAcademicYear();
             Session["prog"]                = txtProgramme.Value;
             Session["cat"]                 = "Masters Letter of Award";
             Session["reg"]                 = reg;
@@ -189,6 +194,8 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
     }
     protected void txtAcadYear_SelectedIndexChanged(object sender, EventArgs e)
     {
+        ApplyStudentSearchFilter();
+        gvMarksheetInfo.PageIndex = 0;
         gvMarksheetInfo.DataBind();
     }
     
@@ -230,6 +237,163 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
     {
         txtTranscriptFormat.DataBind();
         txtTranscriptFormat.SelectedIndex = 0;
+        ApplyStudentSearchFilter();
+        gvMarksheetInfo.PageIndex = 0;
+        gvMarksheetInfo.DataBind();
+    }
+
+    protected void txtProgramme_DataBound(object sender, EventArgs e)
+    {
+        if (txtProgramme.Items.FindByValue("-") == null)
+            txtProgramme.Items.Insert(0, new ListEditItem("All Programmes", "-"));
+
+        if (!IsPostBack)
+        {
+            txtProgramme.SelectedIndex = 0;
+            txtProgramme.Value = "-";
+        }
+    }
+
+    protected void txtSearch_TextChanged(object sender, EventArgs e)
+    {
+        ApplyStudentSearchFilter();
+        gvMarksheetInfo.PageIndex = 0;
+        gvMarksheetInfo.DataBind();
+    }
+
+    protected void cmdSearch_Click(object sender, EventArgs e)
+    {
+        ApplyStudentSearchFilter();
+        gvMarksheetInfo.PageIndex = 0;
+        gvMarksheetInfo.DataBind();
+    }
+
+    protected void cmdClearSearch_Click(object sender, EventArgs e)
+    {
+        txtSearch.Text = string.Empty;
+        ApplyStudentSearchFilter();
+        gvMarksheetInfo.PageIndex = 0;
+        gvMarksheetInfo.DataBind();
+    }
+
+    protected void gvMarksheetInfo_CustomCallback(object sender, ASPxGridViewCustomCallbackEventArgs e)
+    {
+        string parameter = e.Parameters ?? string.Empty;
+        string[] parts = parameter.Split('|');
+        string action = parts.Length > 0 ? (parts[0] ?? string.Empty).Trim().ToUpperInvariant() : string.Empty;
+
+        if (action == "SEARCH")
+        {
+            txtSearch.Text = parts.Length > 1 ? HttpUtility.UrlDecode(parts[1] ?? string.Empty) : string.Empty;
+            ApplyStudentSearchFilter();
+            gvMarksheetInfo.PageIndex = 0;
+        }
+        else if (action == "CLEARSEARCH")
+        {
+            txtSearch.Text = string.Empty;
+            ApplyStudentSearchFilter();
+            gvMarksheetInfo.PageIndex = 0;
+        }
+        else if (action == "FILTERS")
+        {
+            string selectedProgramme = parts.Length > 1 ? HttpUtility.UrlDecode(parts[1] ?? string.Empty) : "-";
+            if (string.IsNullOrWhiteSpace(selectedProgramme))
+                selectedProgramme = "-";
+
+            if (txtProgramme.Items.FindByValue(selectedProgramme) != null)
+                txtProgramme.Value = selectedProgramme;
+            else
+                txtProgramme.Value = "-";
+
+            string selectedAcadYear = parts.Length > 2 ? HttpUtility.UrlDecode(parts[2] ?? string.Empty) : string.Empty;
+            SyncAcademicYearSelection(selectedAcadYear);
+
+            txtTranscriptFormat.DataBind();
+            if (txtTranscriptFormat.Items.Count > 0 && txtTranscriptFormat.SelectedIndex < 0)
+                txtTranscriptFormat.SelectedIndex = 0;
+
+            ApplyStudentSearchFilter();
+            gvMarksheetInfo.PageIndex = 0;
+        }
+
+        gvMarksheetInfo.DataBind();
+    }
+
+    protected void dsMarksheetInfo_Selecting(object sender, ObjectDataSourceSelectingEventArgs e)
+    {
+        if (e == null || e.InputParameters == null)
+            return;
+
+        string acad = Convert.ToString(e.InputParameters["acad"] ?? string.Empty).Trim();
+        if (acad == "-" || acad.Equals("ALL", StringComparison.OrdinalIgnoreCase) || acad.Equals("ALL ACADEMIC YEARS", StringComparison.OrdinalIgnoreCase))
+            acad = string.Empty;
+
+        e.InputParameters["acad"] = acad;
+    }
+
+    private void SyncAcademicYearSelection(string academicYear)
+    {
+        if (txtAcadYear == null)
+            return;
+
+        string targetYear = (academicYear ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(targetYear))
+            targetYear = string.Empty;
+
+        if (targetYear.Equals("ALL", StringComparison.OrdinalIgnoreCase) ||
+            targetYear.Equals("ALL ACADEMIC YEARS", StringComparison.OrdinalIgnoreCase))
+            targetYear = string.Empty;
+
+        ListEditItem byValue = txtAcadYear.Items.FindByValue(targetYear);
+        if (byValue != null)
+        {
+            txtAcadYear.Value = byValue.Value;
+            txtAcadYear.Text = byValue.Text;
+            return;
+        }
+
+        ListEditItem byText = txtAcadYear.Items.FindByText(targetYear);
+        if (byText != null)
+        {
+            txtAcadYear.Value = byText.Value;
+            txtAcadYear.Text = byText.Text;
+            return;
+        }
+
+        txtAcadYear.Text = targetYear;
+    }
+
+    private string GetSelectedAcademicYear()
+    {
+        if (txtAcadYear == null)
+            return string.Empty;
+
+        object value = txtAcadYear.Value;
+        string selected = value == null ? string.Empty : value.ToString().Trim();
+
+        if (string.IsNullOrWhiteSpace(selected) ||
+            selected == "-" ||
+            selected.Equals("ALL", StringComparison.OrdinalIgnoreCase) ||
+            selected.Equals("ALL ACADEMIC YEARS", StringComparison.OrdinalIgnoreCase))
+            return string.Empty;
+
+        return selected;
+    }
+
+    private void ApplyStudentSearchFilter()
+    {
+        if (gvMarksheetInfo == null)
+            return;
+
+        string searchText = txtSearch != null ? (txtSearch.Text ?? string.Empty).Trim() : string.Empty;
+        if (string.IsNullOrEmpty(searchText))
+        {
+            gvMarksheetInfo.FilterExpression = string.Empty;
+            return;
+        }
+
+        searchText = searchText.Replace("'", "''").Replace("[", "[[]").Replace("%", "[%]").Replace("*", "[*]");
+        gvMarksheetInfo.FilterExpression = string.Format("Contains([regno], '{0}') OR Contains([entryno], '{0}') OR Contains([stud_name], '{0}')", searchText);
     }
     protected void cmdSetGraduationInfo_Click(object sender, EventArgs e)
     {

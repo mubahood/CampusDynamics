@@ -316,6 +316,9 @@
             <asp:Button ID="btnResetVerification" runat="server" Text="Reset Verification"
                 CssClass="po-modal__btn po-modal__btn--danger" OnClick="btnResetVerification_Click"
                 OnClientClick="return confirm('This will clear the student\'s verification status and email. They will need to re-verify on the portal. Continue?');" />
+            <asp:Button ID="btnDeleteRecord" runat="server" Text="Delete Record"
+                CssClass="po-modal__btn po-modal__btn--danger" OnClick="btnDeleteRecord_Click"
+                OnClientClick="return confirm('This will permanently delete this portal onboarding record and login profile. Continue?');" />
             <button type="button" class="po-modal__btn po-modal__btn--cancel" onclick="closeEditModal();">Cancel</button>
             <button type="button" id="btnSaveEditAjax" class="po-modal__btn po-modal__btn--save" onclick="submitPortalOnboardingAjax();">Save Changes</button>
             <asp:Button ID="btnSaveEdit" runat="server" Text="Save Changes"
@@ -501,6 +504,7 @@ function configureModalForCreate() {
     document.getElementById('rowReadName').style.display = 'none';
     document.getElementById('rowReadProg').style.display = 'none';
     document.getElementById('<%= btnResetVerification.ClientID %>').style.display = 'none';
+    document.getElementById('<%= btnDeleteRecord.ClientID %>').style.display = 'none';
 }
 
 function configureModalForEdit() {
@@ -510,6 +514,7 @@ function configureModalForEdit() {
     document.getElementById('rowReadName').style.display = 'block';
     document.getElementById('rowReadProg').style.display = 'block';
     document.getElementById('<%= btnResetVerification.ClientID %>').style.display = '';
+    document.getElementById('<%= btnDeleteRecord.ClientID %>').style.display = '';
 }
 
 function openCreateModal() {

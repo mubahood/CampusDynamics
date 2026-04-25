@@ -237,7 +237,28 @@
         .cd-grid-wrap {
             border-top: 1px solid #eef2f6;
             background: #fff;
-            overflow: auto;
+            overflow-x: auto;
+            overflow-y: visible;
+        }
+        .cd-grid,
+        .cd-grid > div,
+        .cd-grid [class*="dxgvCSD"],
+        .cd-grid [class*="dxgvControl"],
+        .cd-grid [class*="dxgvTable"],
+        .cd-grid .dxgvPagerBottomPanel,
+        .cd-grid .dxgvFooter,
+        .cd-grid .dxgvFooterPanel,
+        .cd-grid .dxgvDataRow td.cd-action-cell,
+        .cd-grid .dxgvDataAltRow td.cd-action-cell {
+            overflow: visible !important;
+        }
+        .cd-action-wrapper {
+            position: relative;
+            display: inline-block;
+            z-index: 50;
+        }
+        .cd-action-wrapper .cd-action-popover.show {
+            z-index: 2147483646 !important;
         }
         .cd-grid .dxgvTable {
             border-collapse: collapse !important;
@@ -1286,6 +1307,10 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         Export Summary Report
                     </a>
+                    <a href="javascript:void(0);" class="cd-batch-menu__item" onclick="openAcademicDocumentModalForBatch()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
+                        Generate Academic Documents
+                    </a>
                     <a href="javascript:void(0);" class="cd-batch-menu__item" onclick="openBatchPromotionModal()">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
                         Promote Students
@@ -1389,7 +1414,7 @@
                 <SettingsPager Mode="ShowAllRecords" />
                 
                 <Settings ShowFilterRow="False" ShowFilterRowMenu="False" HorizontalScrollBarMode="Auto" />
-                <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" />
+                <SettingsBehavior AllowFocusedRow="True" ConfirmDelete="True" AllowSelectByRowClick="True" />
                 <SettingsEditing Mode="PopupEditForm" />
                 <SettingsDataSecurity AllowDelete="False" />
                 
@@ -1429,7 +1454,12 @@
                 </EditFormLayoutProperties>
                 
                 <Columns>
-                    <dx:GridViewDataTextColumn Caption="" VisibleIndex="0" Width="45px" Settings-AllowSort="False" Settings-AllowAutoFilter="False">
+                    <dx:GridViewCommandColumn SelectAllCheckboxMode="Page" ShowSelectCheckbox="True" VisibleIndex="0" Width="28px">
+                        <HeaderStyle HorizontalAlign="Center" />
+                        <CellStyle HorizontalAlign="Center" />
+                    </dx:GridViewCommandColumn>
+
+                    <dx:GridViewDataTextColumn Caption="" VisibleIndex="1" Width="45px" Settings-AllowSort="False" Settings-AllowAutoFilter="False">
                         <DataItemTemplate>
                             <img class="cd-student-thumb" 
                                  src='<%# (!String.IsNullOrEmpty(Eval("photofile") as string) && (Eval("photofile").ToString().Trim() != "-") && (Eval("photofile").ToString().Trim().Length > 1)) ? ResolveUrl("~/COOPERP/StudentInfo/photos/") + Eval("photofile").ToString().Trim() : ResolveUrl("~/COOPERP/StudentInfo/photos/default.png") %>' 
@@ -1444,22 +1474,22 @@
                         <CellStyle HorizontalAlign="Center" Paddings-Padding="2px" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Reg No" FieldName="entryno" VisibleIndex="1" Width="120px">
+                    <dx:GridViewDataTextColumn Caption="Reg No" FieldName="entryno" VisibleIndex="2" Width="120px">
                         <CellStyle Font-Bold="True"></CellStyle>
                         <HeaderStyle Font-Size="11px" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Entry No" FieldName="regno" VisibleIndex="2" Width="85px">
+                    <dx:GridViewDataTextColumn Caption="Entry No" FieldName="regno" VisibleIndex="3" Width="85px">
                         <HeaderStyle Font-Size="11px" />
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Year" FieldName="entryyear" VisibleIndex="3" Width="45px">
+                    <dx:GridViewDataTextColumn Caption="Year" FieldName="entryyear" VisibleIndex="4" Width="45px">
                         <HeaderStyle Font-Size="11px" HorizontalAlign="Center" />
                         <CellStyle HorizontalAlign="Center" />
                     </dx:GridViewDataTextColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Student Name" VisibleIndex="4" Width="160px">
+                    <dx:GridViewDataTextColumn Caption="Student Name" VisibleIndex="5" Width="160px">
                         <DataItemTemplate>
                             <%# Eval("firstname") %> <%# Eval("othername") %>
                         </DataItemTemplate>
@@ -1661,39 +1691,61 @@
                         <DataItemTemplate>
                             <div class="cd-action-wrapper">
                                 <button type="button" class="cd-action-trigger" onclick="toggleActionPopover(this, event)">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                    &#8942;
                                 </button>
                                 <div class="cd-action-popover">
                                     <ul class="cd-action-popover__menu">
                                         <li class="cd-action-popover__item">
-                                            <a href="javascript:void(0);" class="cd-action-popover__btn cd-action-popover__btn--view" 
-                                               data-regno='<%# Eval("regno") %>' onclick="openStudentProfile(this.getAttribute('data-regno'))">
+                                            <a href="javascript:void(0);" class="cd-action-popover__btn cd-action-popover__btn--view"
+                                               data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
+                                               onclick='openStudentProfile(this.getAttribute("data-regno")); closeAllActionPopovers(); return false;' role="menuitem">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                                 View Profile
                                             </a>
                                         </li>
                                         <li class="cd-action-popover__item">
-                                            <button type="button" class="cd-action-popover__btn cd-action-popover__btn--edit" data-key='<%# Container.KeyValue %>' onclick="gridEditRow('gvStudents', this.getAttribute('data-key'))">
+                                            <button type="button" class="cd-action-popover__btn cd-action-popover__btn--edit"
+                                                    data-key='<%# HttpUtility.HtmlAttributeEncode((Container.KeyValue ?? "").ToString()) %>'
+                                                    onclick='gridEditRow("gvStudents", this.getAttribute("data-key")); return false;' role="menuitem">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                                 Edit
                                             </button>
                                         </li>
                                         <li class="cd-action-popover__item">
-                                            <a class="cd-action-popover__btn" style="color:#e65100;font-weight:600;" 
-                                               href='<%# "NewStudentRegistration.aspx?edit=" + HttpUtility.UrlEncode((Eval("regno") ?? "").ToString()) + "&returnUrl=" + HttpUtility.UrlEncode("NewStudentInfo.aspx?status=ALL&search=" + HttpUtility.UrlEncode((Eval("regno") ?? "").ToString())) %>'
-                                               data-regno='<%# Eval("regno") %>'>
+                                            <a href='<%# "NewStudentRegistration.aspx?edit=" + HttpUtility.UrlEncode((Eval("regno") ?? "").ToString()) + "&returnUrl=" + HttpUtility.UrlEncode("NewStudentInfo.aspx?status=ALL&search=" + HttpUtility.UrlEncode((Eval("regno") ?? "").ToString())) %>'
+                                               class="cd-action-popover__btn" style="color:#e65100;font-weight:600;" onclick="closeAllActionPopovers()" role="menuitem">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e65100" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                                 Full Edit
                                             </a>
                                         </li>
                                         <li class="cd-action-popover__divider"></li>
                                         <li class="cd-action-popover__item">
-                                            <button type="button" class="cd-action-popover__btn cd-action-popover__btn--password" 
-                                                data-regno='<%# Eval("regno") %>'
-                                                data-name='<%# HttpUtility.HtmlAttributeEncode((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()) %>'
-                                                onclick="openSetPasswordModal(this.getAttribute('data-regno'), this.getAttribute('data-name'))">
+                                            <button type="button" class="cd-action-popover__btn cd-action-popover__btn--password"
+                                                    data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
+                                                    data-student='<%# HttpUtility.HtmlAttributeEncode(((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()).Trim()) %>'
+                                                    onclick='openSetPasswordModal(this.getAttribute("data-regno"), this.getAttribute("data-student")); closeAllActionPopovers(); return false;' role="menuitem">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                                                 Set Password
+                                            </button>
+                                        </li>
+                                        <li class="cd-action-popover__item">
+                                            <button type="button" class="cd-action-popover__btn cd-action-popover__btn--photo"
+                                                    data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
+                                                    data-student='<%# HttpUtility.HtmlAttributeEncode(((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()).Trim()) %>'
+                                                    data-photo='<%# HttpUtility.HtmlAttributeEncode((!String.IsNullOrEmpty(Eval("photofile") as string) && (Eval("photofile").ToString().Trim() != "-") && (Eval("photofile").ToString().Trim().Length > 1)) ? ResolveUrl("~/COOPERP/StudentInfo/photos/") + Eval("photofile").ToString().Trim() : ResolveUrl("~/COOPERP/StudentInfo/photos/default.png")) %>'
+                                                    onclick='openSetPhotoModal(this.getAttribute("data-regno"), this.getAttribute("data-student"), this.getAttribute("data-photo")); closeAllActionPopovers(); return false;' role="menuitem">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                                                Set Photo
+                                            </button>
+                                        </li>
+                                        <li class="cd-action-popover__divider"></li>
+                                        <li class="cd-action-popover__item">
+                                            <button type="button" class="cd-action-popover__btn"
+                                                    data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
+                                                    data-student='<%# HttpUtility.HtmlAttributeEncode(((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()).Trim()) %>'
+                                                    onclick='openAcademicDocumentModalForSingle(this.getAttribute("data-regno"), this.getAttribute("data-student")); closeAllActionPopovers(); return false;' role="menuitem">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
+                                                Academic Documents
                                             </button>
                                         </li>
                                     </ul>
@@ -2113,7 +2165,7 @@
                                             </asp:Repeater>
                                             
                                             <asp:Panel ID="pnlNoDirectResults" runat="server" Visible="false" CssClass="sp-empty">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                                                 <div style="margin-top:12px;font-weight:500;">No results found in Faculty Results table</div>
                                                 <div style="color:#6c757d;font-size:11px;margin-top:4px;">This student may not have any exam results recorded yet.</div>
                                             </asp:Panel>
@@ -2457,6 +2509,89 @@
             </div>
         </div>
     </div>
+
+    <!-- Set Photo Modal -->
+    <div id="setPhotoOverlay" class="cd-modal-overlay">
+        <div class="cd-modal" style="max-width: 420px;">
+            <div class="cd-modal__header">
+                <h3 class="cd-modal__title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                    Set Student Photo
+                </h3>
+                <button type="button" class="cd-modal__close" onclick="closeSetPhotoModal()">&times;</button>
+            </div>
+            <div class="cd-modal__body">
+                <div style="background: #f0f4ff; border: 1px solid #c4d9f8; padding: 10px 12px; margin-bottom: 14px;">
+                    <div style="font-size: 10px; color: #666; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Student</div>
+                    <div id="photoStudentName" style="font-size: 13px; font-weight: 600; color: #333;"></div>
+                    <div id="photoStudentRegno" style="font-size: 11px; color: #174DA4; font-weight: 500;"></div>
+                </div>
+
+                <div class="cd-photo-preview" id="photoPreviewWrap">
+                    <span id="photoPreviewPrompt" class="cd-photo-preview__prompt">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        Select a photo
+                    </span>
+                    <img id="photoPreviewImg" class="cd-photo-preview__img" alt="Photo Preview" style="display:none;" />
+                </div>
+
+                <div class="cd-form-group">
+                    <label class="cd-file-label" for="photoFileInput">Choose Photo</label>
+                    <input id="photoFileInput" class="cd-file-input" type="file" accept="image/*" onchange="previewPhotoFile(this)" />
+                </div>
+
+                <div id="photoStatusMsg" style="display: none; padding: 8px 10px; font-size: 11px; margin-top: 8px;"></div>
+            </div>
+            <div class="cd-modal__footer">
+                <button type="button" class="cd-btn cd-btn--outline" onclick="closeSetPhotoModal()">Cancel</button>
+                <button type="button" id="btnSetPhoto" class="cd-btn cd-btn--primary" onclick="submitSetPhoto()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Upload Photo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Academic Documents Modal -->
+    <div id="academicDocumentOverlay" class="cd-modal-overlay">
+        <div class="cd-modal" style="max-width: 460px;">
+            <div class="cd-modal__header">
+                <h3 class="cd-modal__title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
+                    Academic Documents
+                </h3>
+                <button type="button" class="cd-modal__close" onclick="closeAcademicDocumentModal()">&times;</button>
+            </div>
+            <div class="cd-modal__body">
+                <div style="background: #f0f4ff; border: 1px solid #c4d9f8; padding: 10px 12px; margin-bottom: 14px;">
+                    <div style="font-size: 10px; color: #666; text-transform: uppercase; font-weight: 600; margin-bottom: 2px;">Scope</div>
+                    <div id="docScopeTitle" style="font-size: 13px; font-weight: 600; color: #333;"></div>
+                    <div id="docScopeMeta" style="font-size: 11px; color: #174DA4; font-weight: 500;"></div>
+                </div>
+
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Document Type</label>
+                    <select id="ddlAcademicDocumentType" class="cd-form-input">
+                        <option value="Transcript">Transcript</option>
+                        <option value="Certificate">Certificate</option>
+                    </select>
+                </div>
+
+                <div style="font-size: 11px; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 12px; line-height: 1.5;">
+                    The generated PDF uses the same classic academic document templates and data logic currently used in the old system, but is exported directly for download from this page.
+                </div>
+
+                <div id="docStatusMsg" style="display: none; padding: 8px 10px; font-size: 11px; margin-top: 10px;"></div>
+            </div>
+            <div class="cd-modal__footer">
+                <button type="button" class="cd-btn cd-btn--outline" onclick="closeAcademicDocumentModal()">Cancel</button>
+                <button type="button" id="btnGenerateAcademicDocument" class="cd-btn cd-btn--primary" onclick="submitAcademicDocumentGeneration()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
     
     <script type="text/javascript">
         function cdQueryParam(name) {
@@ -2494,56 +2629,65 @@
             return false;
         }
 
+        // ============================================================
+        function closeAllActionPopovers() {
+            document.querySelectorAll('.cd-action-popover.show').forEach(function(p) {
+                p.classList.remove('show');
+                p.classList.remove('cd-action-popover--top');
+            });
+        }
+
         function toggleActionPopover(btn, e) {
             if (e) {
                 e.preventDefault();
                 e.stopPropagation();
             }
-            
-            var wrapper = btn.parentElement;
-            var popover = wrapper.querySelector('.cd-action-popover');
-            
-            if (!popover) return;
-            
-            // Close all other popovers first
-            document.querySelectorAll('.cd-action-popover.show').forEach(function(p) {
-                if (p !== popover) p.classList.remove('show');
-            });
-            
-            // Toggle this popover
-            popover.classList.toggle('show');
-            
-            // Position check
-            if (popover.classList.contains('show')) {
-                var rect = popover.getBoundingClientRect();
-                if (rect.bottom > window.innerHeight) {
-                    popover.classList.add('cd-action-popover--top');
-                } else {
-                    popover.classList.remove('cd-action-popover--top');
-                }
+
+            var wrapper = btn.closest('.cd-action-wrapper');
+            var pop = wrapper ? wrapper.querySelector('.cd-action-popover') : null;
+            if (!pop) return;
+
+            var wasOpen = pop.classList.contains('show');
+            closeAllActionPopovers();
+
+            if (!wasOpen) {
+                pop.classList.add('show');
+
+                setTimeout(function() {
+                    var rect = pop.getBoundingClientRect();
+                    if (rect.bottom > window.innerHeight || rect.bottom > (document.documentElement.clientHeight || window.innerHeight)) {
+                        pop.classList.add('cd-action-popover--top');
+                    } else {
+                        pop.classList.remove('cd-action-popover--top');
+                    }
+                }, 0);
             }
         }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.cd-action-wrapper')) {
+                closeAllActionPopovers();
+            }
+        });
+
+        window.closeAllActionPopovers = closeAllActionPopovers;
+        window.toggleActionPopover = toggleActionPopover;
         
         function gridEditRow(gridName, keyValue) {
             var grid = ASPxClientControl.GetControlCollection().GetByName(gridName);
             if (grid) {
                 grid.StartEditRowByKey(keyValue);
             }
-            closeAllPopovers();
+            closeAllActionPopovers();
         }
         
-        function closeAllPopovers() {
-            document.querySelectorAll('.cd-action-popover.show').forEach(function(p) {
-                p.classList.remove('show');
-            });
-        }
-        
-        // Close popovers when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.cd-action-wrapper')) {
-                closeAllPopovers();
-            }
-        });
+        // Close on scroll or resize
+        window.addEventListener('scroll', closeAllActionPopovers, true);
+        window.addEventListener('resize', closeAllActionPopovers);
+
+        // Alias for any code that still calls closeAllPopovers
+        function closeAllPopovers() { closeAllActionPopovers(); }
+        function hideRowAction() { closeAllActionPopovers(); }
 
         document.addEventListener('DOMContentLoaded', function() {
             var pageSize = cdQueryParam('size') || '20';
@@ -2565,7 +2709,7 @@
         var _spRegno = '';
         
         function openSetPasswordModal(regno, studentName) {
-            closeAllPopovers();
+            closeAllActionPopovers();
             if (!regno) {
                 alert('No registration number provided');
                 return;
@@ -2710,6 +2854,141 @@
                 submitSetPassword();
             }
         });
+
+        // ===== Set Photo Modal Functions =====
+        var _photoRegno = '';
+        var _photoFile = null;
+
+        function openSetPhotoModal(regno, studentName, photoUrl) {
+            if (!regno) {
+                alert('No registration number provided');
+                return;
+            }
+
+            _photoRegno = regno;
+            _photoFile = null;
+
+            document.getElementById('photoStudentName').innerText = studentName || '';
+            document.getElementById('photoStudentRegno').innerText = regno;
+            document.getElementById('photoFileInput').value = '';
+
+            var img = document.getElementById('photoPreviewImg');
+            var prompt = document.getElementById('photoPreviewPrompt');
+            if (photoUrl) {
+                img.src = photoUrl;
+                img.style.display = 'block';
+                prompt.style.display = 'none';
+            } else {
+                img.src = '';
+                img.style.display = 'none';
+                prompt.style.display = 'block';
+            }
+
+            hidePhotoStatus();
+            document.getElementById('btnSetPhoto').disabled = false;
+            document.getElementById('setPhotoOverlay').style.display = 'flex';
+        }
+
+        function closeSetPhotoModal() {
+            document.getElementById('setPhotoOverlay').style.display = 'none';
+            _photoRegno = '';
+            _photoFile = null;
+            hidePhotoStatus();
+        }
+
+        function previewPhotoFile(input) {
+            if (!input || !input.files || input.files.length === 0) {
+                _photoFile = null;
+                return;
+            }
+
+            _photoFile = input.files[0];
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = document.getElementById('photoPreviewImg');
+                var prompt = document.getElementById('photoPreviewPrompt');
+                img.src = e.target.result;
+                img.style.display = 'block';
+                prompt.style.display = 'none';
+            };
+            reader.readAsDataURL(_photoFile);
+        }
+
+        function showPhotoStatus(message, isError) {
+            var el = document.getElementById('photoStatusMsg');
+            el.style.display = 'block';
+            el.innerText = message;
+            if (isError) {
+                el.style.background = '#f8d7da';
+                el.style.color = '#721c24';
+                el.style.border = '1px solid #f5c6cb';
+            } else {
+                el.style.background = '#d4edda';
+                el.style.color = '#155724';
+                el.style.border = '1px solid #c3e6cb';
+            }
+        }
+
+        function hidePhotoStatus() {
+            var el = document.getElementById('photoStatusMsg');
+            el.style.display = 'none';
+            el.innerText = '';
+        }
+
+        function submitSetPhoto() {
+            if (!_photoRegno) {
+                showPhotoStatus('No student selected. Please try again.', true);
+                return;
+            }
+            if (!_photoFile) {
+                showPhotoStatus('Please select a photo first.', true);
+                return;
+            }
+
+            var btn = document.getElementById('btnSetPhoto');
+            btn.disabled = true;
+            btn.innerHTML = '<span style="margin-right:4px;">&#9203;</span> Uploading...';
+            hidePhotoStatus();
+
+            var fd = new FormData();
+            fd.append('regno', _photoRegno);
+            fd.append('photoFile', _photoFile);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', window.location.pathname + '?action=SetPhoto', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Upload Photo';
+
+                    if (xhr.status === 200) {
+                        try {
+                            var result = JSON.parse(xhr.responseText);
+                            if (result.success) {
+                                showPhotoStatus(result.message || 'Photo updated successfully.', false);
+                                setTimeout(function() {
+                                    window.location.reload();
+                                }, 700);
+                            } else {
+                                showPhotoStatus(result.message || 'Failed to upload photo.', true);
+                            }
+                        } catch (e) {
+                            showPhotoStatus('Unexpected response from server.', true);
+                        }
+                    } else {
+                        showPhotoStatus('Server error. Please try again.', true);
+                    }
+                }
+            };
+            xhr.send(fd);
+        }
+
+        document.getElementById('setPhotoOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSetPhotoModal();
+            }
+        });
         
         // Open Student Profile - triggers server-side load
         function openStudentProfile(regno) {
@@ -2768,6 +3047,8 @@
             if (e.key === 'Escape') {
                 closeLightbox();
                 closeBatchStatusModal();
+                closeSetPasswordModal();
+                closeSetPhotoModal();
             }
         });
         
@@ -2785,6 +3066,147 @@
         });
         
         // ========== BATCH OPERATIONS ==========
+
+        var _academicDocumentMode = '';
+        var _academicDocumentSingleRegno = '';
+        var _academicDocumentSelectedRegnos = [];
+
+        function normalizeRegnoList(values) {
+            var seen = {};
+            var list = [];
+            (values || []).forEach(function(v) {
+                var value = (v == null ? '' : String(v)).trim();
+                if (!value) return;
+                var key = value.toUpperCase();
+                if (seen[key]) return;
+                seen[key] = true;
+                list.push(value);
+            });
+            return list;
+        }
+
+        function getSelectedStudentRegnos(callback) {
+            var grid = ASPxClientControl.GetControlCollection().GetByName('gvStudents');
+            if (!grid || typeof grid.GetSelectedFieldValues !== 'function') {
+                callback([]);
+                return;
+            }
+
+            grid.GetSelectedFieldValues('regno', function(values) {
+                callback(normalizeRegnoList(values));
+            });
+        }
+
+        function openAcademicDocumentModalForSingle(regno, studentName) {
+            _academicDocumentMode = 'single';
+            _academicDocumentSingleRegno = regno || '';
+            _academicDocumentSelectedRegnos = _academicDocumentSingleRegno ? [_academicDocumentSingleRegno] : [];
+
+            document.getElementById('docScopeTitle').innerText = studentName || 'Selected student';
+            document.getElementById('docScopeMeta').innerText = _academicDocumentSingleRegno;
+            document.getElementById('ddlAcademicDocumentType').value = 'Transcript';
+            hideAcademicDocumentStatus();
+            document.getElementById('academicDocumentOverlay').style.display = 'flex';
+        }
+
+        function openAcademicDocumentModalForBatch() {
+            document.getElementById('batchMenu').classList.remove('show');
+            getSelectedStudentRegnos(function(regnos) {
+                if (!regnos || regnos.length === 0) {
+                    alert('Select at least one student from the grid first. Batch document generation uses the checked rows on the current page.');
+                    return;
+                }
+
+                _academicDocumentMode = 'batch';
+                _academicDocumentSingleRegno = '';
+                _academicDocumentSelectedRegnos = regnos;
+
+                document.getElementById('docScopeTitle').innerText = regnos.length + ' selected student(s)';
+                document.getElementById('docScopeMeta').innerText = 'Documents will be generated for the checked rows.';
+                document.getElementById('ddlAcademicDocumentType').value = 'Transcript';
+                hideAcademicDocumentStatus();
+                document.getElementById('academicDocumentOverlay').style.display = 'flex';
+            });
+        }
+
+        function closeAcademicDocumentModal() {
+            document.getElementById('academicDocumentOverlay').style.display = 'none';
+            _academicDocumentMode = '';
+            _academicDocumentSingleRegno = '';
+            _academicDocumentSelectedRegnos = [];
+            hideAcademicDocumentStatus();
+        }
+
+        function showAcademicDocumentStatus(message, isError) {
+            var el = document.getElementById('docStatusMsg');
+            el.style.display = 'block';
+            el.innerText = message;
+            if (isError) {
+                el.style.background = '#f8d7da';
+                el.style.color = '#721c24';
+                el.style.border = '1px solid #f5c6cb';
+            } else {
+                el.style.background = '#d4edda';
+                el.style.color = '#155724';
+                el.style.border = '1px solid #c3e6cb';
+            }
+        }
+
+        function hideAcademicDocumentStatus() {
+            var el = document.getElementById('docStatusMsg');
+            el.style.display = 'none';
+            el.innerText = '';
+        }
+
+        function submitAcademicDocumentGeneration() {
+            var documentType = document.getElementById('ddlAcademicDocumentType').value;
+            var regnos = _academicDocumentMode === 'single'
+                ? normalizeRegnoList([_academicDocumentSingleRegno])
+                : normalizeRegnoList(_academicDocumentSelectedRegnos);
+
+            if (!documentType) {
+                showAcademicDocumentStatus('Please choose a document type.', true);
+                return;
+            }
+
+            if (!regnos || regnos.length === 0) {
+                showAcademicDocumentStatus('No students are selected for document generation.', true);
+                return;
+            }
+
+            var btn = document.getElementById('btnGenerateAcademicDocument');
+            btn.disabled = true;
+            btn.innerHTML = '<span style="margin-right:4px;">&#9203;</span> Preparing PDF...';
+            hideAcademicDocumentStatus();
+
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = window.location.pathname + '?action=GenerateAcademicDocument';
+            form.target = '_blank';
+            form.style.display = 'none';
+
+            function addField(name, value) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                form.appendChild(input);
+            }
+
+            addField('documentType', documentType);
+            addField('mode', _academicDocumentMode || 'single');
+            addField('regnos', regnos.join(','));
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+
+            setTimeout(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download PDF';
+                showAcademicDocumentStatus('If the file did not start downloading, allow pop-ups for this page and try again.', false);
+            }, 1200);
+        }
         
         // Toggle batch operations menu
         function toggleBatchMenu(event) {
@@ -3099,7 +3521,7 @@
             
             // Show loading
             document.getElementById('btnApplyBatchValidation').disabled = true;
-            document.getElementById('btnApplyBatchValidation').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"></circle><path d="M14.31 8l5.74 9.94"></path></svg> Validating...';
+            document.getElementById('btnApplyBatchValidation').innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"></circle><path d="M14.31 8l5.74 9.94"></path></svg> Validating...';
             
             // Make AJAX call to apply validation
             var xhr = new XMLHttpRequest();
@@ -4237,20 +4659,68 @@
         /* Password Toggle Button */
         .cd-pwd-toggle {
             position: absolute;
-            right: 6px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
+            right: 1px;
+            top: 1px;
+            bottom: 1px;
             border: none;
+            background: transparent;
+            padding: 0 8px;
             cursor: pointer;
-            color: #999;
-            padding: 2px;
-            line-height: 1;
-            transition: color 0.15s;
+            color: #888;
         }
         .cd-pwd-toggle:hover {
-            color: #174DA4;
+            color: #333;
+        }
+
+        /* Photo Upload Modal Styles */
+        .cd-photo-preview {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 150px;
+            height: 180px;
+            margin: 0 auto 12px auto;
+            border: 2px dashed #c4d9f8;
+            background-color: #f0f4ff;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .cd-photo-preview__img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+        }
+        .cd-photo-preview__prompt {
+            text-align: center;
+            font-size: 11px;
+            color: #667;
+        }
+        .cd-photo-preview__prompt svg {
+            display: block;
+            margin: 0 auto 6px auto;
+            width: 24px;
+            height: 24px;
+            stroke: #889;
+        }
+        .cd-file-input {
+            display: none;
+        }
+        .cd-file-label {
+            display: block;
+            width: 100%;
+            text-align: center;
+            padding: 8px 12px;
+            background-color: #e2e8f0;
+            color: #2d3748;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .cd-file-label:hover {
+            background-color: #cbd5e0;
         }
     </style>
-    
+
 </asp:Content>

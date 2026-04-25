@@ -26,6 +26,13 @@ using MySql.Data.MySqlClient;
 /// </summary>
 public partial class COOPERP_NewScreens_DoubleBillingController : System.Web.UI.Page
 {
+    // ── Literal controls declared for server-side grid rendering ──
+    protected System.Web.UI.WebControls.Literal litRows;
+    protected System.Web.UI.WebControls.Literal litMeta;
+    protected System.Web.UI.WebControls.Literal litPager;
+    protected System.Web.UI.WebControls.Literal litTotal2;
+    protected System.Web.UI.WebControls.Literal litPager2;
+
     // ── Connection strings ─────────────────────────────────────────────
     private string AcctConnStr
     {
@@ -48,9 +55,9 @@ public partial class COOPERP_NewScreens_DoubleBillingController : System.Web.UI.
             return;
         }
 
-        // On first page view, ensure the case log table exists.
-        // This is a cheap DDL (IF NOT EXISTS) — runs once until table is present.
+        // On first page view: ensure schema, then bind table.
         EnsureSchema();
+        BindGrid();
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -104,6 +111,172 @@ public partial class COOPERP_NewScreens_DoubleBillingController : System.Web.UI.
         {
             // Non-fatal — page still renders even if DDL fails (e.g. no CREATE privilege)
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  GRID BINDING (server-side GET-based pagination)
+    // ══════════════════════════════════════════════════════════════════
+    private void BindGrid()
+    {
+        string q      = (Request.QueryString["q"]      ?? "").Trim();
+        string status = (Request.QueryString["status"] ?? "").Trim();
+        int    ps     = 50;
+        int    pg     = 1;
+        int.TryParse(Request.QueryString["ps"], out ps);
+        int.TryParse(Request.QueryString["pg"], out pg);
+        if (ps < 1)  ps = 50;
+        if (ps > 500) ps = 500;
+        if (pg < 1)  pg = 1;
+
+        var rowsHtml  = new StringBuilder();
+        var metaHtml  = new StringBuilder();
+        var pagerHtml = new StringBuilder();
+
+        try
+        {
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+
+                // ── Count ──
+                string countSql =
+                    "SELECT COUNT(*) FROM fin_double_billing_cases WHERE 1=1" +
+                    (string.IsNullOrEmpty(q)      ? "" : " AND regno LIKE @q") +
+                    (string.IsNullOrEmpty(status) ? "" : " AND status = @st");
+                long total = 0;
+                using (var cmd = new MySqlCommand(countSql, conn))
+                {
+                    cmd.CommandTimeout = 20;
+                    if (!string.IsNullOrEmpty(q))      cmd.Parameters.AddWithValue("@q",  "%" + q + "%");
+                    if (!string.IsNullOrEmpty(status)) cmd.Parameters.AddWithValue("@st", status);
+                    total = Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
+                }
+
+                int pageCount = (int)Math.Max(1, Math.Ceiling((double)total / ps));
+                if (pg > pageCount) pg = pageCount;
+                int offset = (pg - 1) * ps;
+                long from  = total == 0 ? 0 : offset + 1;
+                long to    = Math.Min(offset + ps, total);
+
+                // ── Rows ──
+                string rowsSql =
+                    "SELECT regno, dup_count, dup_dr_amount, m1_count, m2_count, m3_count, m4_count, " +
+                    "       status, last_scanned_at, fixed_at, entries_deleted " +
+                    "FROM fin_double_billing_cases WHERE 1=1" +
+                    (string.IsNullOrEmpty(q)      ? "" : " AND regno LIKE @q") +
+                    (string.IsNullOrEmpty(status) ? "" : " AND status = @st") +
+                    " ORDER BY FIELD(status,'Detected','Fixed','Clean'), last_scanned_at DESC" +
+                    " LIMIT @lim OFFSET @off";
+
+                using (var cmd = new MySqlCommand(rowsSql, conn))
+                {
+                    cmd.CommandTimeout = 30;
+                    if (!string.IsNullOrEmpty(q))      cmd.Parameters.AddWithValue("@q",  "%" + q + "%");
+                    if (!string.IsNullOrEmpty(status)) cmd.Parameters.AddWithValue("@st", status);
+                    cmd.Parameters.AddWithValue("@lim", ps);
+                    cmd.Parameters.AddWithValue("@off", offset);
+
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        while (rdr.Read())
+                        {
+                            string regno    = rdr.GetString("regno");
+                            int    dups     = rdr.IsDBNull(rdr.GetOrdinal("dup_count"))    ? 0 : rdr.GetInt32("dup_count");
+                            long   drAmt    = rdr.IsDBNull(rdr.GetOrdinal("dup_dr_amount")) ? 0L : rdr.GetInt64("dup_dr_amount");
+                            string st       = rdr.IsDBNull(rdr.GetOrdinal("status"))       ? "" : rdr.GetString("status");
+                            string scanned  = rdr.IsDBNull(rdr.GetOrdinal("last_scanned_at")) ? "—" : rdr.GetDateTime("last_scanned_at").ToString("d MMM yyyy HH:mm");
+                            int    m1 = rdr.IsDBNull(rdr.GetOrdinal("m1_count")) ? 0 : rdr.GetInt32("m1_count");
+                            int    m2 = rdr.IsDBNull(rdr.GetOrdinal("m2_count")) ? 0 : rdr.GetInt32("m2_count");
+                            int    m3 = rdr.IsDBNull(rdr.GetOrdinal("m3_count")) ? 0 : rdr.GetInt32("m3_count");
+                            int    m4 = rdr.IsDBNull(rdr.GetOrdinal("m4_count")) ? 0 : rdr.GetInt32("m4_count");
+
+                            string pillCls  = st == "Fixed"    ? "dbc-pill--fixed"
+                                            : st == "Clean"    ? "dbc-pill--clean"
+                                            : st == "Detected" ? "dbc-pill--detected"
+                                            :                    "dbc-pill--error";
+
+                            var meths = new StringBuilder();
+                            if (m1 > 0) meths.Append("<span class=\"dbc-meth\">M1</span>");
+                            if (m2 > 0) meths.Append("<span class=\"dbc-meth\">M2</span>");
+                            if (m3 > 0) meths.Append("<span class=\"dbc-meth\">M3</span>");
+                            if (m4 > 0) meths.Append("<span class=\"dbc-meth\">M4</span>");
+                            if (meths.Length == 0) meths.Append("<span style=\"color:#aaa;\">—</span>");
+
+                            string fixBtn = st != "Fixed"
+                                ? string.Format("<button class=\"dbc-row-btn dbc-row-btn--fix\" onclick=\"fixOne('{0}')\">&#x2714; Fix</button>",
+                                    JsEsc(regno))
+                                : "<span style=\"color:#2e7d32;font-size:10px;font-weight:700;\">&#x2714; Fixed</span>";
+
+                            rowsHtml.AppendFormat(
+                                "<tr>" +
+                                "<td><span class=\"dbc-code\">{0}</span></td>" +
+                                "<td class=\"r\" style=\"font-weight:800;color:#c62828;\">{1}</td>" +
+                                "<td class=\"r\">UGX {2}</td>" +
+                                "<td><div class=\"dbc-meth-pills\">{3}</div></td>" +
+                                "<td class=\"c\"><span class=\"dbc-pill {4}\">{5}</span></td>" +
+                                "<td style=\"font-size:10px;color:#6b7280;white-space:nowrap;\">{6}</td>" +
+                                "<td class=\"c\" style=\"white-space:nowrap;\">" +
+                                "<button class=\"dbc-row-btn dbc-row-btn--details\" onclick=\"showDetails('{7}','')\" style=\"margin-right:4px;\">&#128269; Details</button>" +
+                                "{8}</td>" +
+                                "</tr>",
+                                Server.HtmlEncode(regno),
+                                dups.ToString("N0"),
+                                drAmt.ToString("N0"),
+                                meths,
+                                pillCls, Server.HtmlEncode(st),
+                                Server.HtmlEncode(scanned),
+                                JsEsc(regno),
+                                fixBtn);
+                        }
+                    }
+                }
+
+                if (rowsHtml.Length == 0)
+                {
+                    rowsHtml.Append(
+                        "<tr><td colspan=\"7\" class=\"dbc-empty\">" +
+                        "<div class=\"dbc-empty__icon\">&#128269;</div>" +
+                        "<div class=\"dbc-empty__text\">No cases found. Run a scan to detect double billing.</div>" +
+                        "</td></tr>");
+                }
+
+                // ── Meta ──
+                metaHtml.AppendFormat("Showing <strong>{0}</strong>–<strong>{1}</strong> of <strong>{2}</strong> record{3}",
+                    from, to, total, total == 1 ? "" : "s");
+
+                // ── Pager ──
+                string baseUrl = "DoubleBillingController.aspx?pg={0}" +
+                    (string.IsNullOrEmpty(q)      ? "" : "&q=" + Uri.EscapeDataString(q)) +
+                    (string.IsNullOrEmpty(status) ? "" : "&status=" + Uri.EscapeDataString(status)) +
+                    "&ps=" + ps;
+
+                if (pg > 1)   pagerHtml.AppendFormat("<a href=\"{0}\">&laquo;</a>", string.Format(baseUrl, 1));
+                if (pg > 1)   pagerHtml.AppendFormat("<a href=\"{0}\">&#8249;</a>", string.Format(baseUrl, pg - 1));
+
+                int lo = Math.Max(1,         pg - 3);
+                int hi = Math.Min(pageCount, pg + 3);
+                for (int i = lo; i <= hi; i++)
+                {
+                    if (i == pg)
+                        pagerHtml.AppendFormat("<span class=\"active\">{0}</span>", i);
+                    else
+                        pagerHtml.AppendFormat("<a href=\"{0}\">{1}</a>", string.Format(baseUrl, i), i);
+                }
+
+                if (pg < pageCount) pagerHtml.AppendFormat("<a href=\"{0}\">&#8250;</a>",  string.Format(baseUrl, pg + 1));
+                if (pg < pageCount) pagerHtml.AppendFormat("<a href=\"{0}\">&raquo;</a>",  string.Format(baseUrl, pageCount));
+            }
+        }
+        catch (Exception ex)
+        {
+            rowsHtml.Append("<tr><td colspan=\"7\" style=\"color:#c62828;padding:12px;\">Error loading cases: " + Server.HtmlEncode(ex.Message) + "</td></tr>");
+        }
+
+        litRows.Text   = rowsHtml.ToString();
+        litMeta.Text   = metaHtml.ToString();
+        litTotal2.Text = metaHtml.ToString();
+        litPager.Text  = pagerHtml.ToString();
+        litPager2.Text = pagerHtml.ToString();
     }
 
     // ══════════════════════════════════════════════════════════════════
