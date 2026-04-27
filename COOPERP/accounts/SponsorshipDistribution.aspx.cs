@@ -107,12 +107,69 @@ public partial class COOPERP_accounts_SponsorshipDistribution : System.Web.UI.Pa
     }
     protected void cmdApproveJournal_Click(object sender, EventArgs e)
     {
+        int batchId = -1;
+        int transactionCount = 0;
+        decimal totalDebit = 0m;
+        decimal totalCredit = 0m;
+
         try
         {
             if (HttpContext.Current.User.IsInRole("Administrator") || HttpContext.Current.User.IsInRole("Bursar"))
             {
-                fin_journalnumbersTableAdapter LEDGER = new fin_journalnumbersTableAdapter();
-                lbl_msg.Text = LEDGER.fin_ApproveJournal_Safe(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name, "Normal Journal").ToString();
+                int journalNo = int.Parse(Session["jno"].ToString());
+                string currentUser = HttpContext.Current.User.Identity.Name;
+
+                using (MySqlConnection conn = new MySqlConnection(FinanceSystemRealignmentHelper.GetFinanceConnectionString()))
+                {
+                    conn.Open();
+
+                    batchId = FinanceSystemRealignmentHelper.CreateTransactionBatch(
+                        conn,
+                        "SponsorshipDistribution",
+                        currentUser,
+                        "Sponsorship Distribution #" + journalNo,
+                        "SponsorshipDistribution");
+
+                    string validationMessage;
+                    bool isReadyForApproval = FinanceSystemRealignmentHelper.TryPrepareBatchForVoucher(
+                        conn,
+                        "fin_ledger",
+                        "voucherNo",
+                        journalNo,
+                        batchId,
+                        out transactionCount,
+                        out totalDebit,
+                        out totalCredit,
+                        out validationMessage);
+
+                    if (!isReadyForApproval)
+                    {
+                        if (batchId > 0)
+                            FinanceSystemRealignmentHelper.MarkBatchFailed(conn, batchId, validationMessage);
+
+                        lbl_msg.Text = validationMessage;
+                        pop_messagebox.ShowOnPageLoad = true;
+                        return;
+                    }
+
+                    fin_journalnumbersTableAdapter LEDGER = new fin_journalnumbersTableAdapter();
+                    lbl_msg.Text = LEDGER.fin_ApproveJournal_Safe(journalNo, currentUser, "Normal Journal").ToString();
+
+                    if (batchId > 0)
+                    {
+                        FinanceSystemRealignmentHelper.LogAction(
+                            conn,
+                            "Validate",
+                            "fin_ledger",
+                            journalNo,
+                            batchId,
+                            currentUser,
+                            "POST_APPROVAL",
+                            "Sponsorship distribution passed pre-posting double-entry validation and was approved.");
+
+                        FinanceSystemRealignmentHelper.MarkBatchComplete(conn, batchId, transactionCount, totalDebit, totalCredit);
+                    }
+                }
                 gvParticulars.DataBind();
                 ButtonManager();
             }
@@ -121,7 +178,23 @@ public partial class COOPERP_accounts_SponsorshipDistribution : System.Web.UI.Pa
                 lbl_msg.Text = "Sorry. Only Bursar Approves Journals. See Your Bursar";
             }
         }
-        catch (Exception) { }
+        catch (Exception ex)
+        {
+            if (batchId > 0)
+            {
+                try
+                {
+                    using (MySqlConnection conn = new MySqlConnection(FinanceSystemRealignmentHelper.GetFinanceConnectionString()))
+                    {
+                        conn.Open();
+                        FinanceSystemRealignmentHelper.MarkBatchFailed(conn, batchId, ex.Message);
+                    }
+                }
+                catch { }
+            }
+
+            lbl_msg.Text = "Approval Error: " + ex.Message;
+        }
         pop_messagebox.ShowOnPageLoad = true;
     }
 

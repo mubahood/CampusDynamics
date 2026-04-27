@@ -212,7 +212,7 @@ public partial class COOPERP_NewScreens_TeacherDashboard : System.Web.UI.Page
                 conn.Open();
                 StringBuilder json = new StringBuilder("{\"courses\":[");
 
-                int totalCourses = 0, marksComplete = 0, pendingEntry = 0, submitted = 0;
+                int totalCourses = 0, marksComplete = 0, pendingEntry = 0, pendingExam = 0, submitted = 0;
                 int? nearestDeadline = null;
 
                 // Get teacher's assignments for this period
@@ -306,9 +306,50 @@ public partial class COOPERP_NewScreens_TeacherDashboard : System.Web.UI.Page
                             courseId, progId, year, sem, studyYear, campusId, session);
                         if (statusInfo.RejectReason != null) rejectReason = statusInfo.RejectReason;
 
+                        bool statusPublished =
+                            status == ResultsStatusService.STATUS_PROVISIONAL_PUBLISHED ||
+                            status == ResultsStatusService.STATUS_FINAL_PUBLISHED;
+
+                        // Pending marks (active students only, and only when sheet not published)
+                        if (!statusPublished)
+                        {
+                            using (MySqlCommand pmCmd = new MySqlCommand(
+                                @"SELECT
+                                        SUM(CASE WHEN es.coursework IS NULL THEN 1 ELSE 0 END) AS pending_coursework,
+                                        SUM(CASE WHEN es.exam IS NULL THEN 1 ELSE 0 END) AS pending_exam
+                                   FROM acad_examsheet es
+                                   LEFT JOIN acad_student s ON s.regno = es.regno
+                                  WHERE es.CourseCode = @c
+                                    AND es.progid = @p
+                                    AND es.acadyear = @y
+                                    AND es.semester = @s
+                                    AND UPPER(IFNULL(s.new_status,'')) = 'ACTIVE'", conn))
+                            {
+                                pmCmd.Parameters.AddWithValue("@c", courseId);
+                                pmCmd.Parameters.AddWithValue("@p", progId);
+                                pmCmd.Parameters.AddWithValue("@y", year);
+                                pmCmd.Parameters.AddWithValue("@s", sem);
+
+                                using (MySqlDataReader pmRdr = pmCmd.ExecuteReader())
+                                {
+                                    if (pmRdr.Read())
+                                    {
+                                        int pcw = 0;
+                                        int pex = 0;
+                                        if (pmRdr["pending_coursework"] != DBNull.Value)
+                                            pcw = Convert.ToInt32(pmRdr["pending_coursework"]);
+                                        if (pmRdr["pending_exam"] != DBNull.Value)
+                                            pex = Convert.ToInt32(pmRdr["pending_exam"]);
+
+                                        pendingEntry += pcw;
+                                        pendingExam += pex;
+                                    }
+                                }
+                            }
+                        }
+
                         // Update stats
                         if (entered >= expected && expected > 0) marksComplete++;
-                        if (status == "DRAFT" && entered < expected) pendingEntry++;
                         if (status == "SUBMITTED") submitted++;
 
                         // Deadline info
@@ -379,6 +420,7 @@ public partial class COOPERP_NewScreens_TeacherDashboard : System.Web.UI.Page
                 json.AppendFormat("\"total_courses\":{0},", totalCourses);
                 json.AppendFormat("\"marks_complete\":{0},", marksComplete);
                 json.AppendFormat("\"pending_entry\":{0},", pendingEntry);
+                json.AppendFormat("\"pending_exam\":{0},", pendingExam);
                 json.AppendFormat("\"submitted\":{0},", submitted);
                 json.AppendFormat("\"nearest_deadline\":{0}", nearestDeadline.HasValue ? nearestDeadline.Value.ToString() : "null");
                 json.Append("}}");

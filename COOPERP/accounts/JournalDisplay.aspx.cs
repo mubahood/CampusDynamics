@@ -86,12 +86,70 @@ public partial class COOPERP_accounts_JournalDisplay : System.Web.UI.Page
     }
     protected void cmdApproveJournal_Click(object sender, EventArgs e)
     {
+        int batchId = -1;
+        int transactionCount = 0;
+        decimal totalDebit = 0m;
+        decimal totalCredit = 0m;
+
         try
         {
             if (HttpContext.Current.User.IsInRole("Administrator") || HttpContext.Current.User.IsInRole("Bursar"))
             {
-                fin_journalnumbersTableAdapter LEDGER = new fin_journalnumbersTableAdapter();
-                lbl_msg.Text = LEDGER.fin_ApproveJournal_Safe(int.Parse(Session["jno"].ToString()), HttpContext.Current.User.Identity.Name,rb_openingBalance.SelectedItem.ToString()).ToString();
+                int journalNo = int.Parse(Session["jno"].ToString());
+                string currentUser = HttpContext.Current.User.Identity.Name;
+                string journalTypeParam = rb_openingBalance.SelectedItem.ToString();
+
+                using (MySqlConnection conn = new MySqlConnection(FinanceSystemRealignmentHelper.GetFinanceConnectionString()))
+                {
+                    conn.Open();
+
+                    batchId = FinanceSystemRealignmentHelper.CreateTransactionBatch(
+                        conn,
+                        "JournalEntry",
+                        currentUser,
+                        "Journal Entry #" + journalNo,
+                        "JournalDisplay");
+
+                    string validationMessage;
+                    bool isReadyForApproval = FinanceSystemRealignmentHelper.TryPrepareBatchForVoucher(
+                        conn,
+                        "fin_ledger",
+                        "voucherNo",
+                        journalNo,
+                        batchId,
+                        out transactionCount,
+                        out totalDebit,
+                        out totalCredit,
+                        out validationMessage);
+
+                    if (!isReadyForApproval)
+                    {
+                        if (batchId > 0)
+                            FinanceSystemRealignmentHelper.MarkBatchFailed(conn, batchId, validationMessage);
+
+                        lbl_msg.Text = validationMessage;
+                        pop_messagebox.ShowOnPageLoad = true;
+                        return;
+                    }
+
+                    fin_journalnumbersTableAdapter LEDGER = new fin_journalnumbersTableAdapter();
+                    lbl_msg.Text = LEDGER.fin_ApproveJournal_Safe(journalNo, currentUser, journalTypeParam).ToString();
+
+                    if (batchId > 0)
+                    {
+                        FinanceSystemRealignmentHelper.LogAction(
+                            conn,
+                            "Validate",
+                            "fin_ledger",
+                            journalNo,
+                            batchId,
+                            currentUser,
+                            "POST_APPROVAL",
+                            "Journal entry passed pre-posting double-entry validation and was approved.");
+
+                        FinanceSystemRealignmentHelper.MarkBatchComplete(conn, batchId, transactionCount, totalDebit, totalCredit);
+                    }
+                }
                 gvParticulars.DataBind();
                 ButtonManager();
             }
@@ -102,6 +160,19 @@ public partial class COOPERP_accounts_JournalDisplay : System.Web.UI.Page
         }
         catch (Exception ex)
         {
+            if (batchId > 0)
+            {
+                try
+                {
+                    using (MySqlConnection conn = new MySqlConnection(FinanceSystemRealignmentHelper.GetFinanceConnectionString()))
+                    {
+                        conn.Open();
+                        FinanceSystemRealignmentHelper.MarkBatchFailed(conn, batchId, ex.Message);
+                    }
+                }
+                catch { }
+            }
+
             // B5 FIX: Show approval error instead of swallowing silently
             lbl_msg.Text = "Approval Error: " + ex.Message;
         }

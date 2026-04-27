@@ -37,6 +37,11 @@ public class ExamPass : DevExpress.XtraReports.UI.XtraReport
     private XRTableCell xrTableCell7;
     private XRTableCell xrTableCell8;
     private XRSubreport xrSubreport1;
+    private XRPanel xrPolicyPanel;
+    private XRLabel xrPolicyHeader;
+    private XRLabel xrPolicyStatusBadge;
+    private XRLabel xrFinancialSummary;
+    private XRLabel xrQualificationSummary;
     private XRCrossBandBox xrCrossBandBox1;
     private XRLabel xrLabel7;
     private XRBarCode xrBarCode1;
@@ -103,6 +108,11 @@ public class ExamPass : DevExpress.XtraReports.UI.XtraReport
             this.GroupHeader1 = new DevExpress.XtraReports.UI.GroupHeaderBand();
             this.xrLabel8 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrSubreport1 = new DevExpress.XtraReports.UI.XRSubreport();
+            this.xrPolicyPanel = new DevExpress.XtraReports.UI.XRPanel();
+            this.xrPolicyHeader = new DevExpress.XtraReports.UI.XRLabel();
+            this.xrPolicyStatusBadge = new DevExpress.XtraReports.UI.XRLabel();
+            this.xrFinancialSummary = new DevExpress.XtraReports.UI.XRLabel();
+            this.xrQualificationSummary = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel4 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLine1 = new DevExpress.XtraReports.UI.XRLine();
             this.xrTable1 = new DevExpress.XtraReports.UI.XRTable();
@@ -206,6 +216,7 @@ public class ExamPass : DevExpress.XtraReports.UI.XtraReport
             this.GroupHeader1.Controls.AddRange(new DevExpress.XtraReports.UI.XRControl[] {
             this.xrLabel8,
             this.xrSubreport1,
+            this.xrPolicyPanel,
             this.xrLabel4,
             this.xrLine1,
             this.xrTable1,
@@ -215,7 +226,7 @@ public class ExamPass : DevExpress.XtraReports.UI.XtraReport
             this.GroupHeader1.Dpi = 100F;
             this.GroupHeader1.GroupFields.AddRange(new DevExpress.XtraReports.UI.GroupField[] {
             new DevExpress.XtraReports.UI.GroupField("regno", DevExpress.XtraReports.UI.XRColumnSortOrder.Ascending)});
-            this.GroupHeader1.HeightF = 474.619F;
+            this.GroupHeader1.HeightF = 601.2857F;
             this.GroupHeader1.Name = "GroupHeader1";
             this.GroupHeader1.PageBreak = DevExpress.XtraReports.UI.PageBreak.BeforeBand;
             // 
@@ -247,6 +258,107 @@ public class ExamPass : DevExpress.XtraReports.UI.XtraReport
             this.xrSubreport1.ParameterBindings.Add(new DevExpress.XtraReports.UI.ParameterBinding("sems", null, "campus_dynamics_acad_ExamPass.sem"));
             this.xrSubreport1.ReportSource = new ExamCardCourses();
             this.xrSubreport1.SizeF = new System.Drawing.SizeF(780.9523F, 76.19049F);
+            // 
+            // xrPolicyPanel
+            // 
+            this.xrPolicyPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(250)))), ((int)(((byte)(252)))));
+            this.xrPolicyPanel.Borders = ((DevExpress.XtraPrinting.BorderSide)((((DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Top) 
+            | DevExpress.XtraPrinting.BorderSide.Right) 
+            | DevExpress.XtraPrinting.BorderSide.Bottom)));
+            this.xrPolicyPanel.Controls.AddRange(new DevExpress.XtraReports.UI.XRControl[] {
+            this.xrQualificationSummary,
+            this.xrFinancialSummary,
+            this.xrPolicyStatusBadge,
+            this.xrPolicyHeader});
+            this.xrPolicyPanel.Dpi = 100F;
+            this.xrPolicyPanel.LocationFloat = new DevExpress.Utils.PointFloat(9.785706F, 473.2381F);
+            this.xrPolicyPanel.Name = "xrPolicyPanel";
+            this.xrPolicyPanel.SizeF = new System.Drawing.SizeF(780.9524F, 118.0476F);
+            this.xrPolicyPanel.StylePriority.UseBackColor = false;
+            this.xrPolicyPanel.StylePriority.UseBorders = false;
+            // 
+            // xrPolicyHeader
+            // 
+            this.xrPolicyHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(64)))), ((int)(((byte)(175)))));
+            this.xrPolicyHeader.Dpi = 100F;
+            this.xrPolicyHeader.Font = new System.Drawing.Font("Tahoma", 9.5F, System.Drawing.FontStyle.Bold);
+            this.xrPolicyHeader.ForeColor = System.Drawing.Color.White;
+            this.xrPolicyHeader.LocationFloat = new DevExpress.Utils.PointFloat(0F, 0F);
+            this.xrPolicyHeader.Multiline = true;
+            this.xrPolicyHeader.Name = "xrPolicyHeader";
+            this.xrPolicyHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(10, 2, 0, 0, 100F);
+            this.xrPolicyHeader.SizeF = new System.Drawing.SizeF(780.9524F, 26F);
+            this.xrPolicyHeader.StylePriority.UseBackColor = false;
+            this.xrPolicyHeader.StylePriority.UseFont = false;
+            this.xrPolicyHeader.StylePriority.UseForeColor = false;
+            this.xrPolicyHeader.StylePriority.UsePadding = false;
+            this.xrPolicyHeader.StylePriority.UseTextAlignment = false;
+            this.xrPolicyHeader.Text = "FINANCIALS & QUALIFICATION SUMMARY";
+            this.xrPolicyHeader.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleLeft;
+            // 
+            // xrPolicyStatusBadge
+            // 
+            this.xrPolicyStatusBadge.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(220)))), ((int)(((byte)(252)))), ((int)(((byte)(231)))));
+            this.xrPolicyStatusBadge.Borders = DevExpress.XtraPrinting.BorderSide.None;
+            this.xrPolicyStatusBadge.Dpi = 100F;
+            this.xrPolicyStatusBadge.Font = new System.Drawing.Font("Tahoma", 8.5F, System.Drawing.FontStyle.Bold);
+            this.xrPolicyStatusBadge.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(101)))), ((int)(((byte)(52)))));
+            this.xrPolicyStatusBadge.LocationFloat = new DevExpress.Utils.PointFloat(10F, 33F);
+            this.xrPolicyStatusBadge.Multiline = true;
+            this.xrPolicyStatusBadge.Name = "xrPolicyStatusBadge";
+            this.xrPolicyStatusBadge.Padding = new DevExpress.XtraPrinting.PaddingInfo(8, 8, 0, 0, 100F);
+            this.xrPolicyStatusBadge.SizeF = new System.Drawing.SizeF(262.5F, 22.5F);
+            this.xrPolicyStatusBadge.StylePriority.UseBackColor = false;
+            this.xrPolicyStatusBadge.StylePriority.UseBorders = false;
+            this.xrPolicyStatusBadge.StylePriority.UseFont = false;
+            this.xrPolicyStatusBadge.StylePriority.UseForeColor = false;
+            this.xrPolicyStatusBadge.StylePriority.UsePadding = false;
+            this.xrPolicyStatusBadge.StylePriority.UseTextAlignment = false;
+            this.xrPolicyStatusBadge.Text = "QUALIFICATION: PENDING CHECK";
+            this.xrPolicyStatusBadge.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleLeft;
+            // 
+            // xrFinancialSummary
+            // 
+            this.xrFinancialSummary.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(239)))), ((int)(((byte)(246)))), ((int)(((byte)(255)))));
+            this.xrFinancialSummary.Borders = DevExpress.XtraPrinting.BorderSide.None;
+            this.xrFinancialSummary.Dpi = 100F;
+            this.xrFinancialSummary.Font = new System.Drawing.Font("Tahoma", 8.5F, System.Drawing.FontStyle.Bold);
+            this.xrFinancialSummary.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
+            this.xrFinancialSummary.LocationFloat = new DevExpress.Utils.PointFloat(10F, 59.47618F);
+            this.xrFinancialSummary.Multiline = true;
+            this.xrFinancialSummary.Name = "xrFinancialSummary";
+            this.xrFinancialSummary.Padding = new DevExpress.XtraPrinting.PaddingInfo(8, 8, 0, 0, 100F);
+            this.xrFinancialSummary.SizeF = new System.Drawing.SizeF(760.9524F, 24F);
+            this.xrFinancialSummary.StylePriority.UseBackColor = false;
+            this.xrFinancialSummary.StylePriority.UseBorders = false;
+            this.xrFinancialSummary.StylePriority.UseFont = false;
+            this.xrFinancialSummary.StylePriority.UseForeColor = false;
+            this.xrFinancialSummary.StylePriority.UsePadding = false;
+            this.xrFinancialSummary.StylePriority.UseTextAlignment = false;
+            this.xrFinancialSummary.Text = "Financials: Bill - | Paid - | Balance - | Percentage Paid -";
+            this.xrFinancialSummary.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleLeft;
+            // 
+            // xrQualificationSummary
+            // 
+            this.xrQualificationSummary.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(253)))), ((int)(((byte)(244)))));
+            this.xrQualificationSummary.Borders = DevExpress.XtraPrinting.BorderSide.None;
+            this.xrQualificationSummary.CanGrow = false;
+            this.xrQualificationSummary.Dpi = 100F;
+            this.xrQualificationSummary.Font = new System.Drawing.Font("Tahoma", 8F);
+            this.xrQualificationSummary.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(22)))), ((int)(((byte)(101)))), ((int)(((byte)(52)))));
+            this.xrQualificationSummary.LocationFloat = new DevExpress.Utils.PointFloat(10F, 87.47617F);
+            this.xrQualificationSummary.Multiline = true;
+            this.xrQualificationSummary.Name = "xrQualificationSummary";
+            this.xrQualificationSummary.Padding = new DevExpress.XtraPrinting.PaddingInfo(8, 8, 2, 0, 100F);
+            this.xrQualificationSummary.SizeF = new System.Drawing.SizeF(760.9524F, 21.57143F);
+            this.xrQualificationSummary.StylePriority.UseBackColor = false;
+            this.xrQualificationSummary.StylePriority.UseBorders = false;
+            this.xrQualificationSummary.StylePriority.UseFont = false;
+            this.xrQualificationSummary.StylePriority.UseForeColor = false;
+            this.xrQualificationSummary.StylePriority.UsePadding = false;
+            this.xrQualificationSummary.StylePriority.UseTextAlignment = false;
+            this.xrQualificationSummary.Text = "Qualification checks will appear here.";
+            this.xrQualificationSummary.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleLeft;
             // 
             // xrLabel4
             // 
@@ -488,6 +600,7 @@ public class ExamPass : DevExpress.XtraReports.UI.XtraReport
             this.xrPictureBox5.Name = "xrPictureBox5";
             this.xrPictureBox5.SizeF = new System.Drawing.SizeF(786.9047F, 70.61905F);
             this.xrPictureBox5.Sizing = DevExpress.XtraPrinting.ImageSizeMode.StretchImage;
+            this.xrPictureBox5.Visible = false;
             // 
             // xrPictureBox4
             // 
@@ -507,6 +620,7 @@ public class ExamPass : DevExpress.XtraReports.UI.XtraReport
             this.xrPictureBox3.Name = "xrPictureBox3";
             this.xrPictureBox3.SizeF = new System.Drawing.SizeF(114.2857F, 52.38095F);
             this.xrPictureBox3.Sizing = DevExpress.XtraPrinting.ImageSizeMode.ZoomImage;
+            this.xrPictureBox3.Visible = false;
             // 
             // xrLabel10
             // 
@@ -558,14 +672,14 @@ public class ExamPass : DevExpress.XtraReports.UI.XtraReport
             // 
             this.xrBarCode1.AutoModule = true;
             this.xrBarCode1.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
-            new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_ExamPass.regno", "https://eadmin.mru.ac.ug/API/doc_verification.aspx?doc=StudentLedger&reg={0}")});
+            new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_ExamPass.regno", "https://eadmin.mru.ac.ug/API/doc_verification.aspx?doc=StudentExamCardVerification&reg={0}&sid={0}")});
             this.xrBarCode1.Dpi = 100F;
-            this.xrBarCode1.LocationFloat = new DevExpress.Utils.PointFloat(677.3333F, 34.0477F);
-            this.xrBarCode1.Module = 5.08F;
+            this.xrBarCode1.LocationFloat = new DevExpress.Utils.PointFloat(648.3333F, 23.0477F);
+            this.xrBarCode1.Module = 7F;
             this.xrBarCode1.Name = "xrBarCode1";
             this.xrBarCode1.Padding = new DevExpress.XtraPrinting.PaddingInfo(0, 0, 0, 0, 100F);
             this.xrBarCode1.ShowText = false;
-            this.xrBarCode1.SizeF = new System.Drawing.SizeF(65.71423F, 61.21429F);
+            this.xrBarCode1.SizeF = new System.Drawing.SizeF(96F, 96F);
             this.xrBarCode1.StylePriority.UsePadding = false;
             qrCodeGenerator1.CompactionMode = DevExpress.XtraPrinting.BarCode.QRCodeCompactionMode.Byte;
             qrCodeGenerator1.ErrorCorrectionLevel = DevExpress.XtraPrinting.BarCode.QRCodeErrorCorrectionLevel.M;

@@ -136,6 +136,67 @@
                       <Image Url="~/COOPERP/images/tick-button.png">
                       </Image>
                   </dx:MenuItem>
+                  <dx:MenuItem Text="Finance System Realignment">
+                      <Items>
+                          <dx:MenuItem Text="* Transaction Batch Monitor"
+                              NavigateUrl="~/COOPERP/Finance/Admin/TransactionBatchMonitor.aspx">
+                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Double-Entry Validation"
+                              NavigateUrl="~/COOPERP/Finance/Admin/DoubleEntryValidation.aspx">
+                              <Image Url="~/COOPERP/images/tick-button.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Accounting Period Management"
+                              NavigateUrl="~/COOPERP/Finance/Admin/PeriodManagement.aspx">
+                              <Image Url="~/COOPERP/images/clipboard-list.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Reversal and Correction Approvals"
+                              NavigateUrl="~/COOPERP/Finance/Admin/ReversalApprovals.aspx">
+                              <Image Url="~/COOPERP/images/clipboard--pencil.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Transaction Audit Trail"
+                              NavigateUrl="~/COOPERP/Finance/Admin/TransactionAuditTrail.aspx">
+                              <Image Url="~/COOPERP/images/reports-stack.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Bank Reconciliation Import Validation"
+                              NavigateUrl="~/COOPERP/Finance/Admin/BankReconciliationImport.aspx">
+                              <Image Url="~/COOPERP/images/clipboard-invoice.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Chart of Accounts Lifecycle Management"
+                              NavigateUrl="~/COOPERP/Finance/Admin/AccountManagement.aspx">
+                              <Image Url="~/COOPERP/images/hammer-screwdriver.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Period Close Management"
+                              NavigateUrl="~/COOPERP/Finance/Admin/PeriodClose.aspx">
+                              <Image Url="~/COOPERP/images/sticky-notes-pin.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Initiate Reversal Request"
+                              NavigateUrl="~/COOPERP/Finance/Admin/ReversalRequest.aspx">
+                              <Image Url="~/COOPERP/images/clipboard--pencil.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Bank Reconciliation Matching"
+                              NavigateUrl="~/COOPERP/Finance/Admin/BankRecoMatching.aspx">
+                              <Image Url="~/COOPERP/images/reports-stack.png">
+                              </Image>
+                          </dx:MenuItem>
+                          <dx:MenuItem Text="* Initiate Correction Request"
+                              NavigateUrl="~/COOPERP/Finance/Admin/CorrectionRequest.aspx">
+                              <Image Url="~/COOPERP/images/clipboard--pencil.png">
+                              </Image>
+                          </dx:MenuItem>
+                      </Items>
+                      <Image Url="~/COOPERP/images/clipboard-list.png">
+                      </Image>
+                  </dx:MenuItem>
                   <dx:MenuItem Text="Settings">
                       <Items>
                           <dx:MenuItem Text="Company Information" NavigateUrl="~/COOPERP/accounts/CompanyInfo.aspx">

@@ -104,17 +104,25 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
             ? "0"
             : "COUNT(DISTINCT " + courseExpr + ")";
 
+        // Main stats query (all records)
         StringBuilder sql = new StringBuilder(@"
             SELECT
                 COUNT(DISTINCT cr.regno) AS active_students,
                 " + courseCountSql + @" AS course_count,
                 COUNT(*) AS marks_records,
-                SUM(CASE WHEN COALESCE(cr.provisional_marks_status,'pending') = 'published' THEN 1 ELSE 0 END) AS published_count,
-                SUM(CASE WHEN COALESCE(cr.provisional_marks_status,'pending') = 'approved' THEN 1 ELSE 0 END) AS approved_count,
+                SUM(CASE WHEN UPPER(IFNULL(TRIM(cr.provisional_marks_status),'PENDING')) = 'PUBLISHED' THEN 1 ELSE 0 END) AS published_count,
+                SUM(CASE WHEN UPPER(IFNULL(TRIM(cr.provisional_marks_status),'')) = 'APPROVED' THEN 1 ELSE 0 END) AS approved_count,
                 SUM(CASE WHEN (cr.provisional_course_work_marks IS NOT NULL OR cr.provisional_exam_marks IS NOT NULL)
-                              AND COALESCE(cr.provisional_marks_status,'pending') = 'pending' THEN 1 ELSE 0 END) AS pending_count,
-                SUM(CASE WHEN cr.provisional_course_work_marks IS NULL THEN 1 ELSE 0 END) AS missing_coursework_count,
-                SUM(CASE WHEN cr.provisional_exam_marks IS NULL THEN 1 ELSE 0 END) AS missing_exam_count
+                              AND UPPER(IFNULL(TRIM(cr.provisional_marks_status),'PENDING')) <> 'PUBLISHED' THEN 1 ELSE 0 END) AS pending_count,
+                SUM(CASE WHEN cr.provisional_course_work_marks IS NULL AND UPPER(IFNULL(TRIM(cr.provisional_marks_status),'PENDING')) <> 'PUBLISHED' THEN 1 ELSE 0 END) AS missing_coursework_count,
+                SUM(CASE WHEN cr.provisional_exam_marks IS NULL AND UPPER(IFNULL(TRIM(cr.provisional_marks_status),'PENDING')) <> 'PUBLISHED' THEN 1 ELSE 0 END) AS missing_exam_count
+            FROM campus_dynamics_portal.acad_course_registration cr");
+
+        // Active student stats query
+        StringBuilder sqlActive = new StringBuilder(@"
+            SELECT
+                SUM(CASE WHEN cr.provisional_course_work_marks IS NULL AND UPPER(IFNULL(TRIM(cr.provisional_marks_status),'PENDING')) <> 'PUBLISHED' THEN 1 ELSE 0 END) AS not_entered_cw,
+                SUM(CASE WHEN cr.provisional_exam_marks IS NULL AND UPPER(IFNULL(TRIM(cr.provisional_marks_status),'PENDING')) <> 'PUBLISHED' THEN 1 ELSE 0 END) AS not_entered_exam
             FROM campus_dynamics_portal.acad_course_registration cr
             INNER JOIN acad_student s ON s.regno = cr.regno
             WHERE UPPER(COALESCE(s.new_status,'')) = 'ACTIVE'");
@@ -126,16 +134,19 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
             if (!string.IsNullOrEmpty(year))
             {
                 sql.Append(" AND cr.acad_year = @year");
+                sqlActive.Append(" AND cr.acad_year = @year");
                 cmd.Parameters.AddWithValue("@year", year);
             }
             if (!string.IsNullOrEmpty(semester))
             {
                 sql.Append(" AND CAST(cr.semester AS CHAR) = @semester");
+                sqlActive.Append(" AND CAST(cr.semester AS CHAR) = @semester");
                 cmd.Parameters.AddWithValue("@semester", semester);
             }
             if (!string.IsNullOrEmpty(programme))
             {
                 sql.Append(" AND cr.prog_id = @programme");
+                sqlActive.Append(" AND cr.prog_id = @programme");
                 cmd.Parameters.AddWithValue("@programme", programme);
             }
 
@@ -143,7 +154,7 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
             using (MySqlDataReader rdr = cmd.ExecuteReader())
             {
                 if (!rdr.Read()) return new DashboardStats();
-                return new DashboardStats
+                var stats = new DashboardStats
                 {
                     activeStudents = ToInt(rdr[0]),
                     courseCount = ToInt(rdr[1]),
@@ -154,6 +165,46 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
                     missingCourseworkCount = ToInt(rdr[6]),
                     missingExamCount = ToInt(rdr[7])
                 };
+                rdr.Close();
+
+                // Get active student stats
+                cmd.CommandText = sqlActive.ToString();
+                using (MySqlDataReader rdrActive = cmd.ExecuteReader())
+                {
+                    if (rdrActive.Read())
+                    {
+                        stats.notEnteredCourseworkActive = ToInt(rdrActive[0]);
+                        stats.notEnteredExamActive = ToInt(rdrActive[1]);
+                    }
+                }
+
+                // Get top courses with missing marks
+                cmd.CommandText = @"
+                    SELECT " + courseExpr + @" AS course, COUNT(*) as missing_count
+                    FROM campus_dynamics_portal.acad_course_registration cr
+                    INNER JOIN acad_student s ON s.regno = cr.regno
+                    WHERE UPPER(COALESCE(s.new_status,'')) = 'ACTIVE'
+                      AND (cr.provisional_course_work_marks IS NULL OR cr.provisional_exam_marks IS NULL)
+                      AND UPPER(IFNULL(TRIM(cr.provisional_marks_status),'PENDING')) <> 'PUBLISHED'" +
+                    (string.IsNullOrEmpty(year) ? "" : " AND cr.acad_year = @year") +
+                    (string.IsNullOrEmpty(semester) ? "" : " AND CAST(cr.semester AS CHAR) = @semester") +
+                    (string.IsNullOrEmpty(programme) ? "" : " AND cr.prog_id = @programme") +
+                    @" GROUP BY " + courseExpr + @" ORDER BY missing_count DESC LIMIT 10";
+
+                using (MySqlDataReader rdrTop = cmd.ExecuteReader())
+                {
+                    stats.topMissingCourses = new List<TopCourse>();
+                    while (rdrTop.Read())
+                    {
+                        stats.topMissingCourses.Add(new TopCourse
+                        {
+                            course = rdrTop[0]?.ToString() ?? "-",
+                            missingCount = ToInt(rdrTop[1])
+                        });
+                    }
+                }
+
+                return stats;
             }
         }
     }
@@ -198,6 +249,12 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
         public string text { get; set; }
     }
 
+    private class TopCourse
+    {
+        public string course { get; set; }
+        public int missingCount { get; set; }
+    }
+
     private class DashboardStats
     {
         public int activeStudents { get; set; }
@@ -208,5 +265,8 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
         public int pendingCount { get; set; }
         public int missingCourseworkCount { get; set; }
         public int missingExamCount { get; set; }
+        public int notEnteredCourseworkActive { get; set; }
+        public int notEnteredExamActive { get; set; }
+        public List<TopCourse> topMissingCourses { get; set; }
     }
 }

@@ -14,7 +14,7 @@
 .td-welcome__period { background: rgba(255,255,255,.12); padding: 6px 14px; font-size: 11px; font-weight: 600; }
 
 /* Stats */
-.td-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; }
+.td-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 16px; }
 .td-stat { background: #fff; border: 1px solid #e0e5ed; padding: 12px 14px; display: flex; align-items: center; gap: 10px; position: relative; overflow: hidden; }
 .td-stat::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tc, #ccc); }
 .td-stat__icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -23,8 +23,10 @@
 .td-stat--courses   { --tc: #174DA4; } .td-stat--courses .td-stat__icon   { background: #e8f0fc; } .td-stat--courses .td-stat__val   { color: #174DA4; }
 .td-stat--complete  { --tc: #2e7d32; } .td-stat--complete .td-stat__icon  { background: #e6f4ea; } .td-stat--complete .td-stat__val  { color: #2e7d32; }
 .td-stat--pending   { --tc: #e65100; } .td-stat--pending .td-stat__icon   { background: #fff3e0; } .td-stat--pending .td-stat__val   { color: #e65100; }
+.td-stat--pending-exam { --tc: #8e24aa; } .td-stat--pending-exam .td-stat__icon { background: #f3e5f5; } .td-stat--pending-exam .td-stat__val { color: #8e24aa; }
 .td-stat--submitted { --tc: #1565c0; } .td-stat--submitted .td-stat__icon { background: #e3f2fd; } .td-stat--submitted .td-stat__val { color: #1565c0; }
 .td-stat--deadline  { --tc: #c62828; } .td-stat--deadline .td-stat__icon  { background: #fde8e8; } .td-stat--deadline .td-stat__val  { color: #c62828; }
+.td-metric-note { margin: -8px 0 14px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e0e5ed; font-size: 10px; color: #6b7280; }
 
 /* Section Container */
 .td-section { background: #fff; border: 1px solid #e0e5ed; margin-bottom: 16px; }
@@ -140,9 +142,13 @@
         <div class="td-stat__icon"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M6.5 11.5 3 8l1-1 2.5 2.5L12 4l1 1-6.5 6.5Z"/></svg></div>
         <div><div class="td-stat__val" id="stat-complete">0</div><div class="td-stat__label">Marks Complete</div></div>
     </div>
-    <div class="td-stat td-stat--pending">
+    <div class="td-stat td-stat--pending" title="Counts ACTIVE students in non-published sheets where coursework is NULL.">
         <div class="td-stat__icon"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm1 4v4H5"/></svg></div>
-        <div><div class="td-stat__val" id="stat-pending">0</div><div class="td-stat__label">Pending Entry</div></div>
+        <div><div class="td-stat__val" id="stat-pending">0</div><div class="td-stat__label">Pending Coursework</div></div>
+    </div>
+    <div class="td-stat td-stat--pending-exam" title="Counts ACTIVE students in non-published sheets where exam is NULL.">
+        <div class="td-stat__icon"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M2 2h12v10H2z"/><path d="M4 4h8v2H4z"/><path d="M4 7h2v2H4zM7 7h2v2H7zM10 7h2v2h-2zM4 10h8v1H4z"/></svg></div>
+        <div><div class="td-stat__val" id="stat-pending-exam">0</div><div class="td-stat__label">Pending Exam Marks</div></div>
     </div>
     <div class="td-stat td-stat--submitted">
         <div class="td-stat__icon"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="m12.14 8.753-5.482 4.796c-.646.566-1.658.106-1.658-.753V3.204a1 1 0 0 1 1.659-.753l5.48 4.796a1 1 0 0 1 0 1.506z"/></svg></div>
@@ -152,6 +158,11 @@
         <div class="td-stat__icon"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 3v5h4"/></svg></div>
         <div><div class="td-stat__val" id="stat-deadline">--</div><div class="td-stat__label">Days to Deadline</div></div>
     </div>
+</div>
+
+<div class="td-metric-note">
+    Pending Coursework = ACTIVE students with <strong>coursework = NULL</strong> in non-published sheets. &nbsp;|&nbsp;
+    Pending Exam Marks = ACTIVE students with <strong>exam = NULL</strong> in non-published sheets.
 </div>
 
 <!-- Courses Section -->
@@ -236,6 +247,7 @@ var TD = (function () {
         document.getElementById('stat-courses').textContent = s.total_courses || 0;
         document.getElementById('stat-complete').textContent = s.marks_complete || 0;
         document.getElementById('stat-pending').textContent = s.pending_entry || 0;
+        document.getElementById('stat-pending-exam').textContent = s.pending_exam || 0;
         document.getElementById('stat-submitted').textContent = s.submitted || 0;
         document.getElementById('stat-deadline').textContent = s.nearest_deadline !== undefined && s.nearest_deadline !== null
             ? (s.nearest_deadline < 0 ? 'Overdue' : s.nearest_deadline + 'd')

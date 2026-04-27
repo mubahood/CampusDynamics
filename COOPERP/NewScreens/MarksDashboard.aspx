@@ -73,18 +73,20 @@
             </div>
         </div>
         <div class="md-meta">
-            <span>Scope: Students where <strong>new_status = ACTIVE</strong> only.</span>
+            <span>Scope: All course registration records (no status filter).</span>
             <span id="mdScopeText">All years • All semesters • All programmes</span>
         </div>
     </div>
 
     <div class="md-grid">
-        <div class="md-stat"><div class="md-stat__lbl">Active Students</div><div class="md-stat__val" id="kActiveStudents">0</div><div class="md-stat__sub">Distinct active students with marks rows</div></div>
+        <div class="md-stat"><div class="md-stat__lbl">Distinct Students</div><div class="md-stat__val" id="kActiveStudents">0</div><div class="md-stat__sub">Students with marks rows in scope</div></div>
         <div class="md-stat"><div class="md-stat__lbl">Marks Records</div><div class="md-stat__val" id="kMarksRows">0</div><div class="md-stat__sub">Course registration rows in scope</div></div>
         <div class="md-stat"><div class="md-stat__lbl">Courses</div><div class="md-stat__val" id="kCourses">0</div><div class="md-stat__sub">Distinct courses represented</div></div>
         <div class="md-stat"><div class="md-stat__lbl">Published</div><div class="md-stat__val" id="kPublished">0</div><div class="md-stat__sub">Official marks in final published state</div></div>
         <div class="md-stat"><div class="md-stat__lbl">Approved</div><div class="md-stat__val" id="kApproved">0</div><div class="md-stat__sub">Approved and awaiting publication</div></div>
         <div class="md-stat"><div class="md-stat__lbl">Pending Review</div><div class="md-stat__val" id="kPending">0</div><div class="md-stat__sub">Entered marks still pending review</div></div>
+        <div class="md-stat"><div class="md-stat__lbl">Not Entered CW (Active)</div><div class="md-stat__val" id="kNotEnteredCWActive">0</div><div class="md-stat__sub">Active students missing coursework entry</div></div>
+        <div class="md-stat"><div class="md-stat__lbl">Not Entered Exam (Active)</div><div class="md-stat__val" id="kNotEnteredExamActive">0</div><div class="md-stat__sub">Active students missing exam entry</div></div>
     </div>
 
     <div class="md-card">
@@ -136,6 +138,26 @@
             </table>
         </div>
     </div>
+
+    <div class="md-card">
+        <div class="md-card__head">
+            <div class="md-card__title">Top 10 Courses with Missing Marks (Active Students)</div>
+        </div>
+        <div class="md-table-wrap">
+            <table class="md-table">
+                <thead>
+                    <tr>
+                        <th>Course Code</th>
+                        <th>Missing Count</th>
+                        <th>% of Course</th>
+                    </tr>
+                </thead>
+                <tbody id="topCoursesBody">
+                    <tr><td colspan="3" style="text-align:center;color:#6b7280;padding:20px;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <script type="text/javascript">
@@ -144,6 +166,7 @@
 function qs(id){ return document.getElementById(id); }
 function toNum(v){ var n=parseInt(v,10); return isNaN(n)?0:n; }
 function fmtNum(v){ return toNum(v).toLocaleString('en-US'); }
+function escapeHtml(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):''; }
 function showError(msg){ var el=qs('mdError'); if(!el) return; el.textContent=msg||'Unable to load dashboard data.'; el.className='md-err show'; }
 function hideError(){ var el=qs('mdError'); if(el) el.className='md-err'; }
 function callAJAX(method,params,cb){
@@ -178,11 +201,31 @@ function applyStats(d){
     qs('kPublished').textContent=fmtNum(d.publishedCount);
     qs('kApproved').textContent=fmtNum(d.approvedCount);
     qs('kPending').textContent=fmtNum(d.pendingCount);
+    qs('kNotEnteredCWActive').textContent=fmtNum(d.notEnteredCourseworkActive);
+    qs('kNotEnteredExamActive').textContent=fmtNum(d.notEnteredExamActive);
     qs('tMissingCw').textContent=fmtNum(d.missingCourseworkCount);
     qs('tMissingExam').textContent=fmtNum(d.missingExamCount);
     qs('tPending').textContent=fmtNum(d.pendingCount);
     qs('tApproved').textContent=fmtNum(d.approvedCount);
     qs('tPublished').textContent=fmtNum(d.publishedCount);
+    bindTopCourses(d.topMissingCourses||[]);
+}
+function bindTopCourses(courses){
+    var tbody=qs('topCoursesBody');
+    if(!tbody) return;
+    if(!courses || courses.length===0){
+        tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:#6b7280;padding:20px;">No data available</td></tr>';
+        return;
+    }
+    var html='';
+    courses.forEach(function(c, idx){
+        html+='<tr>';
+        html+='<td>'+escapeHtml(c.course)+'</td>';
+        html+='<td>'+fmtNum(c.missingCount)+'</td>';
+        html+='<td style="text-align:right;">-</td>';
+        html+='</tr>';
+    });
+    tbody.innerHTML=html;
 }
 function loadStats(){
     hideError();

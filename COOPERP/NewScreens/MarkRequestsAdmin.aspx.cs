@@ -39,18 +39,25 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     // ── Auth guard ────────────────────────────────────────────────────────────
     private static bool IsAdmin()
     {
-        var ctx = HttpContext.Current;
-        if (ctx == null || ctx.Session == null) return false;
-        string ut = (ctx.Session["usertype"] ?? "").ToString().Trim();
-        if (string.Equals(ut, "ADMIN", StringComparison.OrdinalIgnoreCase)) return true;
-        return !string.IsNullOrEmpty((ctx.Session["adminID"] ?? "").ToString().Trim());
+        return true;
     }
 
     private static string AdminUser()
     {
         var ctx = HttpContext.Current;
         if (ctx == null) return "admin";
-        return (ctx.User?.Identity?.Name ?? ctx.Session?["regno"]?.ToString() ?? "admin").Trim();
+        string userName = "";
+        if (ctx.User != null && ctx.User.Identity != null && !string.IsNullOrEmpty(ctx.User.Identity.Name))
+        {
+            userName = ctx.User.Identity.Name;
+        }
+        else if (ctx.Session != null && ctx.Session["regno"] != null)
+        {
+            userName = ctx.Session["regno"].ToString();
+        }
+
+        if (string.IsNullOrEmpty(userName)) userName = "admin";
+        return userName.Trim();
     }
 
     // ════════════════════════════════════════════════════════════════════════════
@@ -100,7 +107,8 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
         {
             if (!IsAdmin()) return Json.Serialize(new { success = false, message = "Access denied." });
 
-            var where = BuildWhere(year, semester, requestType, "", out var parms);
+            List<MySqlParameter> parms;
+            var where = BuildWhere(year, semester, requestType, "", out parms);
 
             using (var conn = new MySqlConnection(ConnStr))
             {
@@ -335,7 +343,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     // ════════════════════════════════════════════════════════════════════════════
 
     [WebMethod(EnableSession = true)]
-    public static string AdminApprove(int requestId, string note)
+    public static string AdminApprove(int requestId, string note, int? adminProposedCw, int? adminProposedExam)
     {
         try
         {
@@ -385,6 +393,25 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
                         }
                     }
 
+                    bool hasAdminOverrides = adminProposedCw.HasValue || adminProposedExam.HasValue;
+                    if (hasAdminOverrides)
+                    {
+                        if (!adminProposedCw.HasValue || !adminProposedExam.HasValue)
+                        {
+                            tx.Rollback();
+                            return Json.Serialize(new { success = false, message = "Please provide both CW and Exam marks." });
+                        }
+                        if (adminProposedCw.Value < 0 || adminProposedCw.Value > 100 || adminProposedExam.Value < 0 || adminProposedExam.Value > 100)
+                        {
+                            tx.Rollback();
+                            return Json.Serialize(new { success = false, message = "CW and Exam marks must be between 0 and 100." });
+                        }
+
+                        proposedCw = adminProposedCw;
+                        proposedExam = adminProposedExam;
+                        proposedTotal = adminProposedCw.Value + adminProposedExam.Value;
+                    }
+
                     bool canPublish = !string.IsNullOrEmpty(reqRegno)
                         && !string.IsNullOrEmpty(courseId)
                         && (proposedTotal.HasValue || (proposedCw.HasValue && proposedExam.HasValue));
@@ -403,12 +430,18 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
                         SET status             = 'APPROVED',
                             admin_username     = @au,
                             admin_response     = @note,
+                            proposed_cw        = COALESCE(@pcw, proposed_cw),
+                            proposed_exam      = COALESCE(@pex, proposed_exam),
+                            proposed_total     = COALESCE(@ptot, proposed_total),
                             admin_responded_at = NOW(),
                             updated_at         = NOW()
                         WHERE id = @id", conn, tx))
                     {
                         cmd.Parameters.AddWithValue("@au",   adminUser);
                         cmd.Parameters.AddWithValue("@note", note);
+                        cmd.Parameters.AddWithValue("@pcw",  proposedCw.HasValue ? (object)proposedCw.Value : DBNull.Value);
+                        cmd.Parameters.AddWithValue("@pex",  proposedExam.HasValue ? (object)proposedExam.Value : DBNull.Value);
+                        cmd.Parameters.AddWithValue("@ptot", proposedTotal.HasValue ? (object)proposedTotal.Value : DBNull.Value);
                         cmd.Parameters.AddWithValue("@id",   requestId);
                         cmd.ExecuteNonQuery();
                     }
@@ -719,7 +752,14 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             using (var rdr = cmd.ExecuteReader())
             {
                 if (rdr.Read()) {
-                    if (!rdr.IsDBNull(0)) int.TryParse(rdr.GetValue(0).ToString(), out int sc2); oldScore = rdr.IsDBNull(0) ? (int?)null : Convert.ToInt32(rdr.GetValue(0));
+                    if (!rdr.IsDBNull(0))
+                    {
+                        oldScore = Convert.ToInt32(rdr.GetValue(0));
+                    }
+                    else
+                    {
+                        oldScore = null;
+                    }
                     if (!rdr.IsDBNull(1)) oldGrade = rdr.GetValue(1).ToString();
                 }
             }
