@@ -324,11 +324,36 @@ public partial class UserControls_Registry_TranscriptDocumentCentre : System.Web
         if (e == null || e.InputParameters == null)
             return;
 
+        // ── @acad: normalise sentinel values → empty string (SP treats '' as "all years") ──
         string acad = Convert.ToString(e.InputParameters["acad"] ?? string.Empty).Trim();
-        if (acad == "-" || acad.Equals("ALL", StringComparison.OrdinalIgnoreCase) || acad.Equals("ALL ACADEMIC YEARS", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(acad) || acad == "-" ||
+            acad.Equals("ALL", StringComparison.OrdinalIgnoreCase) ||
+            acad.Equals("ALL ACADEMIC YEARS", StringComparison.OrdinalIgnoreCase))
             acad = string.Empty;
-
         e.InputParameters["acad"] = acad;
+
+        // ── @prog: normalise sentinel values → "-" (SP treats '-' as "all programmes") ──
+        string prog = Convert.ToString(e.InputParameters["prog"] ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(prog) ||
+            prog.Equals("ALL", StringComparison.OrdinalIgnoreCase) ||
+            prog.Equals("ALL PROGRAMMES", StringComparison.OrdinalIgnoreCase))
+            prog = "-";
+        e.InputParameters["prog"] = prog;
+
+        // ── @gdt: txtPrintGradDate is hidden and always empty in this centre.
+        //   Type changed to String in ASCX so ASP.NET passes the DefaultValue "1900-01-01" as a string.
+        //   Convert string → DateTime here; the SP treats 1900-01-01 as "no graduation-date filter". ──
+        object gdtRaw = e.InputParameters["gdt"];
+        DateTime gdtParsed = new DateTime(1900, 1, 1);
+        bool gdtIsEmpty = (gdtRaw == null || gdtRaw == DBNull.Value);
+        if (!gdtIsEmpty)
+        {
+            string gdtStr = gdtRaw.ToString().Trim();
+            if (!DateTime.TryParse(gdtStr, out gdtParsed) || gdtParsed.Year < 1900)
+                gdtIsEmpty = true;
+        }
+        if (gdtIsEmpty) gdtParsed = new DateTime(1900, 1, 1);
+        e.InputParameters["gdt"] = gdtParsed;
     }
 
     private void SyncAcademicYearSelection(string academicYear)

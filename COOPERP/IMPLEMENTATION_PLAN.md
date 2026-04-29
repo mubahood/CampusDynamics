@@ -139,16 +139,67 @@
 - [x] B12-T1: Plan and stage Batch 12 scope — correction request workflow, Phase 3 migration scripts, year-end stored procedures
 - [x] B12-T2: Create * Correction Request admin interface (transaction lookup → correction form → paired reversal+repost → Pending approval)
 - [x] B12-T3: Add * Correction Request to Finance System Realignment admin menu
-- [ ] B12-T4: Create Phase3_1_Backfill_Batches.sql — retroactively populate fin_transaction_batch from existing transactions
-- [ ] B12-T5: Create Phase3_2_Backfill_Sequences.sql — populate fin_voucher_sequence with current max numbers per type
-- [ ] B12-T6: Create Phase3_3_Link_Ledger_to_Batch.sql — backfill fin_ledger.batch_id from voucher number matching
-- [ ] B12-T7: Create Phase3_4_Populate_Reversals.sql — retroactively link existing reversed transactions in fin_transaction_reversal
-- [ ] B12-T8: Create sp_PostDepreciation.sql — MySQL-compatible depreciation posting stored procedure
-- [ ] B12-T9: Create sp_YearEndClose.sql — MySQL-compatible year-end close stored procedure
-- [ ] B12-T10: Validate Batch 12 code changes and integration readiness
+- [x] B12-T4: Create Phase3_1_Backfill_Batches.sql — retroactively populate fin_transaction_batch from existing transactions
+- [x] B12-T5: Create Phase3_2_Backfill_Sequences.sql — populate fin_voucher_sequence with current max numbers per type
+- [x] B12-T6: Create Phase3_3_Link_Ledger_to_Batch.sql — backfill fin_ledger.batch_id from voucher number matching
+- [x] B12-T7: Create Phase3_4_Populate_Reversals.sql — retroactively link existing reversed transactions in fin_transaction_reversal
+- [x] B12-T8: Create sp_PostDepreciation.sql — MySQL-compatible depreciation posting stored procedure
+- [x] B12-T9: Create sp_YearEndClose.sql — MySQL-compatible year-end close stored procedure
+- [x] B12-T10: Validate Batch 12 code changes and integration readiness
 
 ## Batch 12 Notes
 - Batch 12 completes the correction request workflow (Phase 5) and all Phase 3 data migration scripts.
 - Phase 3 scripts are DBA-executed, idempotent, and leave legacy tables untouched.
 - sp_PostDepreciation and sp_YearEndClose complete the full period-close stored procedure suite from Phase 6.
 - CorrectionRequest.aspx plugs into the existing ReversalApprovals.aspx approval queue as a 'Correction' type.
+
+## Next Batch Checklist (Batch 13)
+
+- [x] B13-T1: Plan and stage Batch 13 scope — ledger approval-routing + finance realignment dashboard widgets
+- [x] B13-T2: Update LedgersCentre legacy adjustments to route through ReversalRequest / CorrectionRequest instead of direct reversal/correction posting
+- [x] B13-T3: Surface pending reversal/correction request status from fin_transaction_reversal in LedgersCentre
+- [x] B13-T4: Enhance portal dashboard with Finance System Realignment widgets (batch health, compliance, period status, audit activity)
+- [x] B13-T5: Validate Batch 13 code changes and integration readiness
+
+## Batch 13 Notes
+- Batch 13 removes the last legacy bypass path that still modifies ledger data directly without the new approval workflow.
+- Dashboard enhancements are additive and degrade safely when roadmap tables are not yet present.
+
+## Next Batch Checklist (Batch 14)
+
+- [x] B14-T1: Plan and stage Batch 14 scope — reversal approval detail workflow + audit trail export enhancements
+- [x] B14-T2: Enhance ReversalApprovals.aspx to show original + reversal/request detail side-by-side before actioning
+- [x] B14-T3: Add best-effort email notification on reversal/correction approval or rejection
+- [x] B14-T4: Enhance TransactionAuditTrail.aspx to display human-readable old/new JSON detail
+- [x] B14-T5: Add PDF export action for TransactionAuditTrail search results
+- [x] B14-T6: Validate Batch 14 code changes and integration readiness
+
+## Batch 14 Notes
+- Batch 14 closes the remaining roadmap gaps in the approval and audit viewer workflows.
+- Notification delivery is best-effort and degrades safely when a requester email cannot be resolved.
+
+## Next Batch Checklist (Batch 15)
+
+- [x] B15-T1: Plan and stage Batch 15 scope — remaining Phase 4 transaction workflow gaps
+- [x] B15-T2: Integrate CreateJournal.aspx with transaction batch creation, pre-posting validation, approval logging, and posted-state action locking
+- [x] B15-T3: Integrate NightAudit.aspx finish flow with NightAuditRun batch creation and audit logging
+- [x] B15-T4: Resolve roadmap BankTransfers.aspx.cs deliverable to the live ContraVoucher.aspx.cs bank-transfer workflow already implemented in earlier batches
+- [x] B15-T5: Validate Batch 15 code changes and integration readiness
+
+## Batch 15 Notes
+- Batch 15 closes two confirmed Phase 4 workflow gaps that existed in live code: `CreateJournal.aspx` and `NightAudit.aspx`.
+- `CreateJournal.aspx` now uses the same safe approval pattern already proven in `ViewJournal.aspx` and `JournalDisplay.aspx`.
+- `NightAudit.aspx` now emits a `NightAuditRun` transaction batch and audit record on completion, while degrading safely if the roadmap tables are not yet deployed.
+- The roadmap references `BankTransfers.aspx.cs`, but the live codebase uses `ContraVoucher.aspx.cs` for the bank-transfer/contra flow. That workflow was already batch-tracked and upgraded in Batch 9, so the roadmap item is now treated as resolved by mapping rather than as a missing file.
+
+## Next Batch Checklist (Batch 16)
+
+- [x] B16-T1: Plan and stage Batch 16 scope — complete the remaining operational roadmap gaps in NightAudit and PeriodClose
+- [ ] B16-T2: Enhance NightAudit.aspx with schema-aware automatic summarized GL posting orchestration and visible completion feedback
+- [ ] B16-T3: Upgrade PeriodClose.aspx into an ordered month-end workflow with per-step execution buttons, skip guards, and execution history
+- [ ] B16-T4: Validate Batch 16 code changes and integration readiness
+
+## Batch 16 Notes
+- Batch 16 focuses on the remaining roadmap items that are partially present but not yet complete in behavior.
+- `NightAudit.aspx` still needs automatic summary-post orchestration beyond simple batch logging.
+- `PeriodClose.aspx` exists, but still needs roadmap-aligned step execution order, cannot-skip enforcement, and user/action history visibility.

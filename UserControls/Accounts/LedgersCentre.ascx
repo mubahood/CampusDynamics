@@ -327,8 +327,8 @@
                                                 <td>
                                                     <dx:ASPxComboBox ID="txtType" runat="server" ClientInstanceName="cboAdjType" AutoPostBack="True" Height="35px" SelectedIndex="0" Width="100%">
                                                         <Items>
-                                                            <dx:ListEditItem Selected="True" Text="Reverse Transaction" Value="Reverse Transaction" />
-                                                            <dx:ListEditItem Text="Correct Amount" Value="Correct Amount" />
+                                                            <dx:ListEditItem Selected="True" Text="Request Reversal" Value="Request Reversal" />
+                                                            <dx:ListEditItem Text="Request Correction" Value="Request Correction" />
                                                         </Items>
                                                         <Paddings PaddingLeft="10px" />
                                                     </dx:ASPxComboBox>
@@ -343,7 +343,7 @@
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td class="auto-style7">Reversal Reason:</td>
+                                                <td class="auto-style7">Request Notes:</td>
                                                 <td>
                                                     <dx:ASPxMemo ID="txt_reason" runat="server" Height="71px" Width="100%">
                                                     </dx:ASPxMemo>
@@ -355,7 +355,7 @@
                                                     <dx:ASPxButton ID="cmdProcess" runat="server" Height="35px" OnClick="cmdProcess_Click" Text="Process Adjustment" Width="100%">
                                                         <ClientSideEvents Click="function(s, e) {
     var op = cboAdjType.GetValue() || 'adjustment';
-    var msg = 'Process ' + op + ' on the selected transaction(s)?\n\nThis action will modify ledger records and cannot be easily undone.';
+    var msg = 'Continue with ' + op + ' for the selected transaction?\n\nYou will be redirected into the Finance System Realignment approval workflow.';
     e.processOnServer = confirm(msg);
     if (e.processOnServer) { panel_billling.Show(); }
 }" />

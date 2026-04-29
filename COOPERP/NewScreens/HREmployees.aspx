@@ -307,6 +307,10 @@
         <div class="em-page-header__sub">Manage employee records, profiles and credentials</div>
     </div>
     <div class="em-page-header__actions">
+        <button type="button" class="hr-btn hr-btn--outline" onclick="exportEmployees()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Employees + Contracts
+        </button>
         <button type="button" class="hr-btn hr-btn--primary" onclick="openAddModal()">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Employee
@@ -1370,6 +1374,27 @@ function filterByStatus(val) {
 function filterByType(val) {
     var sel = document.getElementById('<%= ddlFilterType.ClientID %>');
     if (sel) { sel.value = val; applyFilters(); }
+}
+
+function exportEmployees() {
+    var q       = document.getElementById('<%= txtSearch.ClientID %>');
+    var status  = document.getElementById('<%= ddlFilterStatus.ClientID %>');
+    var type    = document.getElementById('<%= ddlFilterType.ClientID %>');
+    var dept    = document.getElementById('<%= ddlFilterDept.ClientID %>');
+    var station = document.getElementById('<%= ddlFilterStation.ClientID %>');
+    var params = [];
+    params.push('action=export_employees');
+    if (q       && q.value.trim()) params.push('q=' + encodeURIComponent(q.value.trim()));
+    if (status  && status.value)   params.push('status=' + encodeURIComponent(status.value));
+    if (type    && type.value)     params.push('type=' + encodeURIComponent(type.value));
+    if (dept    && dept.value)     params.push('dept=' + encodeURIComponent(dept.value));
+    if (station && station.value)  params.push('station=' + encodeURIComponent(station.value));
+
+    var sp = new URLSearchParams(window.location.search);
+    if (sp.get('sort')) params.push('sort=' + encodeURIComponent(sp.get('sort')));
+    if (sp.get('dir'))  params.push('dir=' + encodeURIComponent(sp.get('dir')));
+
+    window.location.href = window.location.pathname + '?' + params.join('&');
 }
 
 /* ===== EMPLOYEE FORM MODAL (Add + Edit shared) ========================= */

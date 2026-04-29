@@ -165,6 +165,122 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
     {
         e.ErrorText = e.Exception.InnerException.Message;
     }
+    protected void cmdApproveJournal_Click(object sender, EventArgs e)
+    {
+        int batchId = -1;
+        int transactionCount = 0;
+        decimal totalDebit = 0m;
+        decimal totalCredit = 0m;
+
+        try
+        {
+            string errorMsg;
+            if (!IsInOpenFinancialPeriod(out errorMsg))
+            {
+                lbl_msg.Text = errorMsg;
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+
+            if (!(HttpContext.Current.User.IsInRole("Administrator") || HttpContext.Current.User.IsInRole("Bursar")))
+            {
+                lbl_msg.Text = "Sorry. Only Bursar Approve Journals. See Your Bursar";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+
+            if (Session["jno"] == null)
+            {
+                lbl_msg.Text = "Error! Create or select a journal before approval.";
+                pop_messagebox.ShowOnPageLoad = true;
+                return;
+            }
+
+            int journalNo = int.Parse(Session["jno"].ToString());
+            string currentUser = HttpContext.Current.User.Identity.Name;
+            string journalTypeParam = rb_openingBalance.SelectedItem == null
+                ? "Normal Journal"
+                : rb_openingBalance.SelectedItem.ToString();
+
+            using (MySqlConnection conn = new MySqlConnection(FinanceSystemRealignmentHelper.GetFinanceConnectionString()))
+            {
+                conn.Open();
+
+                batchId = FinanceSystemRealignmentHelper.CreateTransactionBatch(
+                    conn,
+                    "JournalEntry",
+                    currentUser,
+                    "Create Journal #" + journalNo,
+                    "CreateJournal");
+
+                string validationMessage;
+                bool isReadyForApproval = FinanceSystemRealignmentHelper.TryPrepareBatchForVoucher(
+                    conn,
+                    "fin_ledger",
+                    "voucherNo",
+                    journalNo,
+                    batchId,
+                    out transactionCount,
+                    out totalDebit,
+                    out totalCredit,
+                    out validationMessage);
+
+                if (!isReadyForApproval)
+                {
+                    if (batchId > 0)
+                    {
+                        FinanceSystemRealignmentHelper.MarkBatchFailed(conn, batchId, validationMessage);
+                    }
+
+                    lbl_msg.Text = validationMessage;
+                    pop_messagebox.ShowOnPageLoad = true;
+                    return;
+                }
+
+                fin_journalnumbersTableAdapter journalAdapter = new fin_journalnumbersTableAdapter();
+                lbl_msg.Text = journalAdapter.fin_ApproveJournal_Safe(journalNo, currentUser, journalTypeParam).ToString();
+
+                if (batchId > 0)
+                {
+                    FinanceSystemRealignmentHelper.LogAction(
+                        conn,
+                        "Validate",
+                        "fin_ledger",
+                        journalNo,
+                        batchId,
+                        currentUser,
+                        "POST_APPROVAL",
+                        "Journal created in CreateJournal passed pre-posting double-entry validation and was approved.");
+
+                    FinanceSystemRealignmentHelper.MarkBatchComplete(conn, batchId, transactionCount, totalDebit, totalCredit);
+                }
+            }
+
+            gvParticulars.DataBind();
+            gvDetails.DataBind();
+            UpdateBalanceIndicator();
+            ButtonManager();
+        }
+        catch (Exception ex)
+        {
+            if (batchId > 0)
+            {
+                try
+                {
+                    using (MySqlConnection conn = new MySqlConnection(FinanceSystemRealignmentHelper.GetFinanceConnectionString()))
+                    {
+                        conn.Open();
+                        FinanceSystemRealignmentHelper.MarkBatchFailed(conn, batchId, ex.Message);
+                    }
+                }
+                catch { }
+            }
+
+            lbl_msg.Text = "Approval Error: " + ex.Message;
+        }
+
+        pop_messagebox.ShowOnPageLoad = true;
+    }
     protected void gvParticulars_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
     {
         e.Cell.Height = 30;
@@ -180,6 +296,13 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
             if (txtType.Text == "Receipt")
             {
                 cmdCreateNew.Text = "New Receipt";
+                cmdApproveJournal.Text = "Approve Receipt";
+                cmdPrintJournal.Text = "Print Receipt";
+            }
+            else
+            {
+                cmdApproveJournal.Text = "Approve Journal";
+                cmdPrintJournal.Text = "Print Journal";
             }
             string journal_currency = gvParticulars.GetRowValues(0, "journal_currency").ToString();
             if (journal_currency != "UGX")
@@ -225,6 +348,7 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
             {
 
                 cmdAddItem.Visible = false;
+                cmdApproveJournal.Enabled = false;
                 gvDetails.SettingsContextMenu.Enabled = false;
                 gvDetails.SettingsEditing.Mode = DevExpress.Web.GridViewEditingMode.Inline;
                 gvParticulars.SettingsEditing.Mode = DevExpress.Web.GridViewEditingMode.Inline;
@@ -235,6 +359,7 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
             {
 
                 cmdAddItem.Visible = true;
+                cmdApproveJournal.Enabled = true;
                 gvDetails.SettingsContextMenu.Enabled = true;
                 gvDetails.SettingsEditing.Mode = DevExpress.Web.GridViewEditingMode.Batch;
                 gvParticulars.SettingsEditing.Mode = DevExpress.Web.GridViewEditingMode.Batch;
@@ -244,6 +369,8 @@ public partial class COOPERP_accounts_CreateJournal : System.Web.UI.Page
         {
             // B7 FIX: ButtonManager failure is non-critical - default to Create New
             cmdCreateNew.Text = "Create New";
+            cmdApproveJournal.Text = "Approve Journal";
+            cmdApproveJournal.Enabled = true;
         }
     }
 

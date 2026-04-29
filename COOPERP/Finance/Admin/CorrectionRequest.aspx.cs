@@ -37,6 +37,13 @@ public partial class COOPERP_Finance_Admin_CorrectionRequest : System.Web.UI.Pag
         if (!IsPostBack)
         {
             BindRecentRequests();
+
+            string voucherFromQuery = Request.QueryString["voucher"];
+            if (!string.IsNullOrEmpty(voucherFromQuery))
+            {
+                txtVoucherNo.Text = voucherFromQuery.Trim();
+                btnSearch_Click(btnSearch, EventArgs.Empty);
+            }
         }
     }
 

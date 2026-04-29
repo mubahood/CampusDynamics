@@ -6387,7 +6387,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         Response.Cache.SetRevalidation(System.Web.HttpCacheRevalidation.AllCaches);
         Response.Expires = -1;
         Response.AppendHeader("Pragma", "no-cache");
-        Response.AppendHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+        bool isPdf = !string.IsNullOrEmpty(Response.ContentType)
+            && Response.ContentType.IndexOf("application/pdf", StringComparison.OrdinalIgnoreCase) >= 0;
+        string dispositionType = isPdf ? "inline" : "attachment";
+        Response.AppendHeader("Content-Disposition", dispositionType + "; filename=\"" + fileName + "\"");
         Response.AppendHeader("Content-Length", content != null ? content.Length.ToString() : "0");
         Response.BinaryWrite(content);
         Response.Flush();

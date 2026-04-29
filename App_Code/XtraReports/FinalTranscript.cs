@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Collections;
 using System.ComponentModel;
@@ -59,7 +59,6 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     private XRLabel xrLabel26;
     private XRPictureBox xrPictureBox3;
     private XRLabel xrLabel10;
-    private XRCrossBandBox xrCrossBandBox1;
     private XRLabel xrLabel29;
     private GroupHeaderBand GroupHeader2;
     private GroupFooterBand GroupFooter2;
@@ -70,6 +69,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     private XRLabel lblSupervisorValue;
     private XRLine xrLineThesisTop;
     private XRLine xrLineThesisBottom;
+    private XRLine xrLine8;
 	/// <summary>
 	/// Required designer variable.
 	/// </summary>
@@ -155,12 +155,12 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrLabel15 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel14 = new DevExpress.XtraReports.UI.XRLabel();
             this.PageFooter = new DevExpress.XtraReports.UI.PageFooterBand();
-            this.xrCrossBandBox1 = new DevExpress.XtraReports.UI.XRCrossBandBox();
             this.GroupHeader2 = new DevExpress.XtraReports.UI.GroupHeaderBand();
             this.GroupFooter2 = new DevExpress.XtraReports.UI.GroupFooterBand();
             this.xrSubreport3 = new DevExpress.XtraReports.UI.XRSubreport();
             this.xrLineThesisTop = new DevExpress.XtraReports.UI.XRLine();
             this.xrLineThesisBottom = new DevExpress.XtraReports.UI.XRLine();
+            this.xrLine8 = new DevExpress.XtraReports.UI.XRLine();
             ((System.ComponentModel.ISupportInitialize)(this.resultsData1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this)).BeginInit();
             // 
@@ -233,8 +233,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel29
             // 
             this.xrLabel29.Dpi = 100F;
-            this.xrLabel29.Font = new System.Drawing.Font("Times New Roman", 5F);
-            this.xrLabel29.LocationFloat = new DevExpress.Utils.PointFloat(671.8702F, 276.36F);
+            this.xrLabel29.Font = new System.Drawing.Font("Calibri", 5F);
+            this.xrLabel29.LocationFloat = new DevExpress.Utils.PointFloat(671.8702F, 239.4F);
             this.xrLabel29.Name = "xrLabel29";
             this.xrLabel29.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel29.SizeF = new System.Drawing.SizeF(97.59283F, 11.3334F);
@@ -246,8 +246,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel37
             // 
             this.xrLabel37.Dpi = 100F;
-            this.xrLabel37.Font = new System.Drawing.Font("Tahoma", 6F, System.Drawing.FontStyle.Bold);
-            this.xrLabel37.LocationFloat = new DevExpress.Utils.PointFloat(15.85321F, 173.2456F);
+            this.xrLabel37.Font = new System.Drawing.Font("Calibri", 6F, System.Drawing.FontStyle.Bold);
+            this.xrLabel37.LocationFloat = new DevExpress.Utils.PointFloat(15.85321F, 136.5F);
             this.xrLabel37.Name = "xrLabel37";
             this.xrLabel37.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel37.SizeF = new System.Drawing.SizeF(89.08978F, 12.14422F);
@@ -262,11 +262,11 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrBarCode2.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "acad_GetBatchStudentTranscriptData.regno", "https://eadmin.mru.ac.ug/API/doc_verification.aspx?doc=Transcript&reg={0}")});
             this.xrBarCode2.Dpi = 100F;
-            this.xrBarCode2.LocationFloat = new DevExpress.Utils.PointFloat(11.52839F, 186.4588F);
+            this.xrBarCode2.LocationFloat = new DevExpress.Utils.PointFloat(11.52839F, 149.5F);
             this.xrBarCode2.Name = "xrBarCode2";
             this.xrBarCode2.Padding = new DevExpress.XtraPrinting.PaddingInfo(10, 10, 0, 0, 100F);
             this.xrBarCode2.ShowText = false;
-            this.xrBarCode2.SizeF = new System.Drawing.SizeF(100.3167F, 75.6245F);
+            this.xrBarCode2.SizeF = new System.Drawing.SizeF(100.3167F, 92F);
             qrCodeGenerator1.CompactionMode = DevExpress.XtraPrinting.BarCode.QRCodeCompactionMode.Byte;
             qrCodeGenerator1.ErrorCorrectionLevel = DevExpress.XtraPrinting.BarCode.QRCodeErrorCorrectionLevel.H;
             qrCodeGenerator1.Version = DevExpress.XtraPrinting.BarCode.QRCodeVersion.Version8;
@@ -275,8 +275,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel2
             // 
             this.xrLabel2.Dpi = 100F;
-            this.xrLabel2.Font = new System.Drawing.Font("Times New Roman", 10F, System.Drawing.FontStyle.Bold);
-            this.xrLabel2.LocationFloat = new DevExpress.Utils.PointFloat(3.624992F, 137.6846F);
+            this.xrLabel2.Font = new System.Drawing.Font("Calibri", 10F, System.Drawing.FontStyle.Bold);
+            this.xrLabel2.LocationFloat = new DevExpress.Utils.PointFloat(3.624992F, 101F);
             this.xrLabel2.Name = "xrLabel2";
             this.xrLabel2.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel2.SizeF = new System.Drawing.SizeF(763.75F, 13.83336F);
@@ -289,7 +289,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // 
             this.xrLine6.Dpi = 100F;
             this.xrLine6.ForeColor = System.Drawing.Color.DarkBlue;
-            this.xrLine6.LocationFloat = new DevExpress.Utils.PointFloat(5.25F, 168.1429F);
+            this.xrLine6.LocationFloat = new DevExpress.Utils.PointFloat(5.25F, 131F);
             this.xrLine6.Name = "xrLine6";
             this.xrLine6.SizeF = new System.Drawing.SizeF(762.5F, 2.083328F);
             this.xrLine6.StylePriority.UseForeColor = false;
@@ -298,7 +298,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // 
             this.xrLine5.Dpi = 100F;
             this.xrLine5.ForeColor = System.Drawing.Color.DarkBlue;
-            this.xrLine5.LocationFloat = new DevExpress.Utils.PointFloat(5.25F, 135.1429F);
+            this.xrLine5.LocationFloat = new DevExpress.Utils.PointFloat(5.25F, 98F);
             this.xrLine5.Name = "xrLine5";
             this.xrLine5.SizeF = new System.Drawing.SizeF(762.5F, 2.083328F);
             this.xrLine5.StylePriority.UseForeColor = false;
@@ -306,7 +306,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel1
             // 
             this.xrLabel1.Dpi = 100F;
-            this.xrLabel1.LocationFloat = new DevExpress.Utils.PointFloat(93.1667F, 120.3333F);
+            this.xrLabel1.LocationFloat = new DevExpress.Utils.PointFloat(93.1667F, 83F);
             this.xrLabel1.Name = "xrLabel1";
             this.xrLabel1.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel1.SizeF = new System.Drawing.SizeF(570.8334F, 13.83331F);
@@ -318,8 +318,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel38
             // 
             this.xrLabel38.Dpi = 100F;
-            this.xrLabel38.Font = new System.Drawing.Font("Times New Roman", 8F, System.Drawing.FontStyle.Bold);
-            this.xrLabel38.LocationFloat = new DevExpress.Utils.PointFloat(241.9015F, 237.2679F);
+            this.xrLabel38.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel38.LocationFloat = new DevExpress.Utils.PointFloat(241.9015F, 193F);
             this.xrLabel38.Name = "xrLabel38";
             this.xrLabel38.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel38.SizeF = new System.Drawing.SizeF(431.9905F, 11.33328F);
@@ -329,8 +329,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel34
             // 
             this.xrLabel34.Dpi = 100F;
-            this.xrLabel34.Font = new System.Drawing.Font("Times New Roman", 9F);
-            this.xrLabel34.LocationFloat = new DevExpress.Utils.PointFloat(127.8163F, 236.518F);
+            this.xrLabel34.Font = new System.Drawing.Font("Calibri", 9F);
+            this.xrLabel34.LocationFloat = new DevExpress.Utils.PointFloat(127.8163F, 193F);
             this.xrLabel34.Name = "xrLabel34";
             this.xrLabel34.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel34.SizeF = new System.Drawing.SizeF(94.03407F, 11.33331F);
@@ -340,8 +340,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel30
             // 
             this.xrLabel30.Dpi = 100F;
-            this.xrLabel30.Font = new System.Drawing.Font("Times New Roman", 8F, System.Drawing.FontStyle.Bold);
-            this.xrLabel30.LocationFloat = new DevExpress.Utils.PointFloat(242.9015F, 185.8513F);
+            this.xrLabel30.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel30.LocationFloat = new DevExpress.Utils.PointFloat(242.9015F, 147F);
             this.xrLabel30.Name = "xrLabel30";
             this.xrLabel30.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel30.SizeF = new System.Drawing.SizeF(277.5929F, 11.33339F);
@@ -351,20 +351,20 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrSubreport2
             // 
             this.xrSubreport2.Dpi = 100F;
-            this.xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(389F, 290.06F);
+            this.xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(390F, 220F);
             this.xrSubreport2.Name = "xrSubreport2";
             this.xrSubreport2.ParameterBindings.Add(new DevExpress.XtraReports.UI.ParameterBinding("reg", null, "acad_GetBatchStudentTranscriptData.regno"));
             this.xrSubreport2.ReportSource = new FinalTranscriptCol2();
-            this.xrSubreport2.SizeF = new System.Drawing.SizeF(378.5F, 23.00003F);
+            this.xrSubreport2.SizeF = new System.Drawing.SizeF(383F, 23.00003F);
             // 
             // xrSubreport1
             // 
             this.xrSubreport1.Dpi = 100F;
-            this.xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3F, 290.54F);
+            this.xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3F, 220F);
             this.xrSubreport1.Name = "xrSubreport1";
             this.xrSubreport1.ParameterBindings.Add(new DevExpress.XtraReports.UI.ParameterBinding("reg", null, "acad_GetBatchStudentTranscriptData.regno"));
             this.xrSubreport1.ReportSource = new FinalTranscriptCol1();
-            this.xrSubreport1.SizeF = new System.Drawing.SizeF(385F, 23.00003F);
+            this.xrSubreport1.SizeF = new System.Drawing.SizeF(383F, 23.00003F);
             // 
             // xrPictureBox2
             // 
@@ -373,9 +373,9 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrPictureBox2.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("ImageUrl", null, "acad_GetBatchStudentTranscriptData.photo")});
             this.xrPictureBox2.Dpi = 100F;
-            this.xrPictureBox2.LocationFloat = new DevExpress.Utils.PointFloat(678.9771F, 171.625F);
+            this.xrPictureBox2.LocationFloat = new DevExpress.Utils.PointFloat(670F, 134.5F);
             this.xrPictureBox2.Name = "xrPictureBox2";
-            this.xrPictureBox2.SizeF = new System.Drawing.SizeF(86.74243F, 74.55296F);
+            this.xrPictureBox2.SizeF = new System.Drawing.SizeF(97F, 90F);
             this.xrPictureBox2.Sizing = DevExpress.XtraPrinting.ImageSizeMode.ZoomImage;
             this.xrPictureBox2.StylePriority.UseBackColor = false;
             this.xrPictureBox2.StylePriority.UseBorders = false;
@@ -383,8 +383,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel13
             // 
             this.xrLabel13.Dpi = 100F;
-            this.xrLabel13.Font = new System.Drawing.Font("Times New Roman", 8F, System.Drawing.FontStyle.Bold);
-            this.xrLabel13.LocationFloat = new DevExpress.Utils.PointFloat(242.5682F, 199.5833F);
+            this.xrLabel13.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel13.LocationFloat = new DevExpress.Utils.PointFloat(242.5682F, 158.5F);
             this.xrLabel13.Name = "xrLabel13";
             this.xrLabel13.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel13.SizeF = new System.Drawing.SizeF(277.9263F, 12.16666F);
@@ -394,8 +394,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel12
             // 
             this.xrLabel12.Dpi = 100F;
-            this.xrLabel12.Font = new System.Drawing.Font("Times New Roman", 9F);
-            this.xrLabel12.LocationFloat = new DevExpress.Utils.PointFloat(128.2993F, 211.8447F);
+            this.xrLabel12.Font = new System.Drawing.Font("Calibri", 9F);
+            this.xrLabel12.LocationFloat = new DevExpress.Utils.PointFloat(128.2993F, 170F);
             this.xrLabel12.Name = "xrLabel12";
             this.xrLabel12.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel12.SizeF = new System.Drawing.SizeF(110.5359F, 11.33328F);
@@ -405,8 +405,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel11
             // 
             this.xrLabel11.Dpi = 100F;
-            this.xrLabel11.Font = new System.Drawing.Font("Times New Roman", 9F);
-            this.xrLabel11.LocationFloat = new DevExpress.Utils.PointFloat(127.3731F, 198.5833F);
+            this.xrLabel11.Font = new System.Drawing.Font("Calibri", 9F);
+            this.xrLabel11.LocationFloat = new DevExpress.Utils.PointFloat(127.3731F, 158.5F);
             this.xrLabel11.Name = "xrLabel11";
             this.xrLabel11.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel11.SizeF = new System.Drawing.SizeF(112.4621F, 11.33331F);
@@ -416,8 +416,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel9
             // 
             this.xrLabel9.Dpi = 100F;
-            this.xrLabel9.Font = new System.Drawing.Font("Times New Roman", 9F);
-            this.xrLabel9.LocationFloat = new DevExpress.Utils.PointFloat(127.0833F, 185.6847F);
+            this.xrLabel9.Font = new System.Drawing.Font("Calibri", 9F);
+            this.xrLabel9.LocationFloat = new DevExpress.Utils.PointFloat(127.0833F, 147F);
             this.xrLabel9.Name = "xrLabel9";
             this.xrLabel9.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel9.SizeF = new System.Drawing.SizeF(113.2007F, 10.49992F);
@@ -427,8 +427,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel8
             // 
             this.xrLabel8.Dpi = 100F;
-            this.xrLabel8.Font = new System.Drawing.Font("Times New Roman", 9F);
-            this.xrLabel8.LocationFloat = new DevExpress.Utils.PointFloat(127.7104F, 224.4167F);
+            this.xrLabel8.Font = new System.Drawing.Font("Calibri", 9F);
+            this.xrLabel8.LocationFloat = new DevExpress.Utils.PointFloat(127.7104F, 181.5F);
             this.xrLabel8.Name = "xrLabel8";
             this.xrLabel8.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel8.SizeF = new System.Drawing.SizeF(112.1987F, 11.33331F);
@@ -438,8 +438,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel7
             // 
             this.xrLabel7.Dpi = 100F;
-            this.xrLabel7.Font = new System.Drawing.Font("Times New Roman", 9F);
-            this.xrLabel7.LocationFloat = new DevExpress.Utils.PointFloat(127.4584F, 172.2557F);
+            this.xrLabel7.Font = new System.Drawing.Font("Calibri", 9F);
+            this.xrLabel7.LocationFloat = new DevExpress.Utils.PointFloat(127.4584F, 135.5F);
             this.xrLabel7.Name = "xrLabel7";
             this.xrLabel7.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel7.SizeF = new System.Drawing.SizeF(111.1174F, 12.16663F);
@@ -449,8 +449,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel6
             // 
             this.xrLabel6.Dpi = 100F;
-            this.xrLabel6.Font = new System.Drawing.Font("Times New Roman", 8F, System.Drawing.FontStyle.Bold);
-            this.xrLabel6.LocationFloat = new DevExpress.Utils.PointFloat(242.9015F, 212.5833F);
+            this.xrLabel6.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel6.LocationFloat = new DevExpress.Utils.PointFloat(242.9015F, 170F);
             this.xrLabel6.Name = "xrLabel6";
             this.xrLabel6.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel6.SizeF = new System.Drawing.SizeF(277.5929F, 11.33331F);
@@ -460,8 +460,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel5
             // 
             this.xrLabel5.Dpi = 100F;
-            this.xrLabel5.Font = new System.Drawing.Font("Times New Roman", 8F, System.Drawing.FontStyle.Bold);
-            this.xrLabel5.LocationFloat = new DevExpress.Utils.PointFloat(242.5682F, 225.0852F);
+            this.xrLabel5.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel5.LocationFloat = new DevExpress.Utils.PointFloat(242.5682F, 181.5F);
             this.xrLabel5.Name = "xrLabel5";
             this.xrLabel5.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel5.SizeF = new System.Drawing.SizeF(278.2596F, 11.33334F);
@@ -471,8 +471,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel4
             // 
             this.xrLabel4.Dpi = 100F;
-            this.xrLabel4.Font = new System.Drawing.Font("Times New Roman", 8F, System.Drawing.FontStyle.Bold);
-            this.xrLabel4.LocationFloat = new DevExpress.Utils.PointFloat(242.5682F, 172.2556F);
+            this.xrLabel4.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel4.LocationFloat = new DevExpress.Utils.PointFloat(242.5682F, 135.5F);
             this.xrLabel4.Name = "xrLabel4";
             this.xrLabel4.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel4.SizeF = new System.Drawing.SizeF(396.928F, 12.1667F);
@@ -482,8 +482,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // xrLabel3
             // 
             this.xrLabel3.Dpi = 100F;
-            this.xrLabel3.Font = new System.Drawing.Font("Times New Roman", 10F, System.Drawing.FontStyle.Bold);
-            this.xrLabel3.LocationFloat = new DevExpress.Utils.PointFloat(4.500007F, 151.5179F);
+            this.xrLabel3.Font = new System.Drawing.Font("Calibri", 10F, System.Drawing.FontStyle.Bold);
+            this.xrLabel3.LocationFloat = new DevExpress.Utils.PointFloat(4.500007F, 115F);
             this.xrLabel3.Name = "xrLabel3";
             this.xrLabel3.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrLabel3.SizeF = new System.Drawing.SizeF(762.9167F, 14.95834F);
@@ -499,7 +499,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrPictureBox1.Dpi = 100F;
             this.xrPictureBox1.LocationFloat = new DevExpress.Utils.PointFloat(165F, 4F);
             this.xrPictureBox1.Name = "xrPictureBox1";
-            this.xrPictureBox1.SizeF = new System.Drawing.SizeF(430F, 96F);
+            this.xrPictureBox1.SizeF = new System.Drawing.SizeF(430F, 75F);
             this.xrPictureBox1.Sizing = DevExpress.XtraPrinting.ImageSizeMode.ZoomImage;
             // 
             // GroupFooter1
@@ -509,6 +509,13 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.lblSupervisorLabel = new DevExpress.XtraReports.UI.XRLabel();
             this.lblSupervisorValue = new DevExpress.XtraReports.UI.XRLabel();
             this.GroupFooter1.Controls.AddRange(new DevExpress.XtraReports.UI.XRControl[] {
+            this.xrLine8,
+            this.xrLineThesisTop,
+            this.lblThesisLabel,
+            this.lblThesisValue,
+            this.lblSupervisorLabel,
+            this.lblSupervisorValue,
+            this.xrLineThesisBottom,
             this.xrPanel1,
             this.xrLabel25,
             this.xrLabel24,
@@ -523,89 +530,99 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrLabel15,
             this.xrLabel14});
             this.GroupFooter1.Dpi = 100F;
-            this.GroupFooter1.HeightF = 95F;
+            this.GroupFooter1.HeightF = 44F;
             this.GroupFooter1.Name = "GroupFooter1";
             this.GroupFooter1.PageBreak = DevExpress.XtraReports.UI.PageBreak.AfterBand;
             this.GroupFooter1.PrintAtBottom = false;
+            this.GroupFooter1.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.GroupFooter1_BeforePrint);
             // 
-            // ── Thesis block — placed in GroupHeader1, below the results subreports ────
+            // ── Thesis block — lives in GroupFooter1, positions relative to GroupFooter1 top ──
             //
-            // xrLineThesisTop — separator above thesis block (Y just below subreports)
+            // xrLineThesisTop — brand separator above thesis block
             //
             this.xrLineThesisTop.Dpi = 100F;
-            this.xrLineThesisTop.ForeColor = System.Drawing.Color.DarkBlue;
-            this.xrLineThesisTop.LocationFloat = new DevExpress.Utils.PointFloat(4F, 293F);
+            this.xrLineThesisTop.ForeColor = System.Drawing.Color.FromArgb(5, 52, 135);
+            this.xrLineThesisTop.LineWidth = 2;
+            this.xrLineThesisTop.LocationFloat = new DevExpress.Utils.PointFloat(3F, 4F);
             this.xrLineThesisTop.Name = "xrLineThesisTop";
-            this.xrLineThesisTop.SizeF = new System.Drawing.SizeF(761.3333F, 1.5F);
+            this.xrLineThesisTop.Visible = false;
+            this.xrLineThesisTop.SizeF = new System.Drawing.SizeF(767F, 2F);
             //
-            // lblThesisLabel — "RESEARCH / THESIS TITLE:" heading, bold dark blue
+            // lblThesisLabel — "RESEARCH / THESIS TITLE:" heading
             //
             this.lblThesisLabel.Dpi = 100F;
-            this.lblThesisLabel.Font = new System.Drawing.Font("Times New Roman", 9F, System.Drawing.FontStyle.Bold);
-            this.lblThesisLabel.ForeColor = System.Drawing.Color.DarkBlue;
-            this.lblThesisLabel.LocationFloat = new DevExpress.Utils.PointFloat(4F, 297F);
+            this.lblThesisLabel.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.lblThesisLabel.ForeColor = System.Drawing.Color.FromArgb(5, 52, 135);
+            this.lblThesisLabel.LocationFloat = new DevExpress.Utils.PointFloat(5F, 9F);
             this.lblThesisLabel.Name = "lblThesisLabel";
             this.lblThesisLabel.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.lblThesisLabel.SizeF = new System.Drawing.SizeF(761.3333F, 13F);
+            this.lblThesisLabel.SizeF = new System.Drawing.SizeF(767F, 12F);
             this.lblThesisLabel.StylePriority.UseFont = false;
             this.lblThesisLabel.StylePriority.UseForeColor = false;
             this.lblThesisLabel.Text = "RESEARCH / THESIS TITLE:";
+            this.lblThesisLabel.Visible = false;
             this.lblThesisLabel.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.lblThesisLabel_BeforePrint);
             //
-            // lblThesisValue — actual title text, large bold italic, multiline
+            // lblThesisValue — actual title text, bold italic, multiline
             //
             this.lblThesisValue.Dpi = 100F;
-            this.lblThesisValue.Font = new System.Drawing.Font("Times New Roman", 11F, (System.Drawing.FontStyle)(System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic));
-            this.lblThesisValue.LocationFloat = new DevExpress.Utils.PointFloat(4F, 312F);
+            this.lblThesisValue.Font = new System.Drawing.Font("Calibri", 10F, System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic);
+            this.lblThesisValue.LocationFloat = new DevExpress.Utils.PointFloat(5F, 23F);
             this.lblThesisValue.Multiline = true;
             this.lblThesisValue.Name = "lblThesisValue";
             this.lblThesisValue.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.lblThesisValue.SizeF = new System.Drawing.SizeF(761.3333F, 30F);
+            this.lblThesisValue.SizeF = new System.Drawing.SizeF(767F, 26F);
             this.lblThesisValue.StylePriority.UseFont = false;
             this.lblThesisValue.Text = "";
+            this.lblThesisValue.Visible = false;
             this.lblThesisValue.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.lblThesisValue_BeforePrint);
             //
             // lblSupervisorLabel — "SUPERVISOR:" tag
             //
             this.lblSupervisorLabel.Dpi = 100F;
-            this.lblSupervisorLabel.Font = new System.Drawing.Font("Times New Roman", 9F, System.Drawing.FontStyle.Bold);
-            this.lblSupervisorLabel.LocationFloat = new DevExpress.Utils.PointFloat(4F, 346F);
+            this.lblSupervisorLabel.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.lblSupervisorLabel.ForeColor = System.Drawing.Color.FromArgb(5, 52, 135);
+            this.lblSupervisorLabel.LocationFloat = new DevExpress.Utils.PointFloat(5F, 53F);
             this.lblSupervisorLabel.Name = "lblSupervisorLabel";
             this.lblSupervisorLabel.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.lblSupervisorLabel.SizeF = new System.Drawing.SizeF(110F, 13F);
+            this.lblSupervisorLabel.SizeF = new System.Drawing.SizeF(90F, 12F);
             this.lblSupervisorLabel.StylePriority.UseFont = false;
+            this.lblSupervisorLabel.StylePriority.UseForeColor = false;
             this.lblSupervisorLabel.Text = "SUPERVISOR:";
+            this.lblSupervisorLabel.Visible = false;
             this.lblSupervisorLabel.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.lblSupervisorLabel_BeforePrint);
             //
-            // lblSupervisorValue — supervisor name, bold
+            // lblSupervisorValue — supervisor name
             //
             this.lblSupervisorValue.Dpi = 100F;
-            this.lblSupervisorValue.Font = new System.Drawing.Font("Times New Roman", 10F, System.Drawing.FontStyle.Bold);
-            this.lblSupervisorValue.LocationFloat = new DevExpress.Utils.PointFloat(118F, 346F);
+            this.lblSupervisorValue.Font = new System.Drawing.Font("Calibri", 9F, System.Drawing.FontStyle.Bold);
+            this.lblSupervisorValue.LocationFloat = new DevExpress.Utils.PointFloat(97F, 53F);
             this.lblSupervisorValue.Name = "lblSupervisorValue";
             this.lblSupervisorValue.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.lblSupervisorValue.SizeF = new System.Drawing.SizeF(500F, 13F);
+            this.lblSupervisorValue.SizeF = new System.Drawing.SizeF(500F, 12F);
             this.lblSupervisorValue.StylePriority.UseFont = false;
             this.lblSupervisorValue.Text = "";
+            this.lblSupervisorValue.Visible = false;
             this.lblSupervisorValue.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.lblSupervisorValue_BeforePrint);
             //
-            // xrLineThesisBottom — separator below thesis block
+            // xrLineThesisBottom — brand separator below thesis block
             //
             this.xrLineThesisBottom.Dpi = 100F;
-            this.xrLineThesisBottom.ForeColor = System.Drawing.Color.DarkBlue;
-            this.xrLineThesisBottom.LocationFloat = new DevExpress.Utils.PointFloat(4F, 362F);
+            this.xrLineThesisBottom.ForeColor = System.Drawing.Color.FromArgb(5, 52, 135);
+            this.xrLineThesisBottom.LineWidth = 2;
+            this.xrLineThesisBottom.LocationFloat = new DevExpress.Utils.PointFloat(3F, 68F);
             this.xrLineThesisBottom.Name = "xrLineThesisBottom";
-            this.xrLineThesisBottom.SizeF = new System.Drawing.SizeF(761.3333F, 1.5F);
-            // Add thesis controls to GroupHeader1 (below the subreports)
-            this.GroupHeader1.Controls.Add(this.xrLineThesisTop);
-            this.GroupHeader1.Controls.Add(this.lblThesisLabel);
-            this.GroupHeader1.Controls.Add(this.lblThesisValue);
-            this.GroupHeader1.Controls.Add(this.lblSupervisorLabel);
-            this.GroupHeader1.Controls.Add(this.lblSupervisorValue);
-            this.GroupHeader1.Controls.Add(this.xrLineThesisBottom);
+            this.xrLineThesisBottom.Visible = false;
+            this.xrLineThesisBottom.SizeF = new System.Drawing.SizeF(767F, 2F);
+            // xrLine8 — branded HR separator between results and footer (always visible)
+            this.xrLine8.Dpi = 100F;
+            this.xrLine8.ForeColor = System.Drawing.Color.FromArgb(5, 52, 135);
+            this.xrLine8.LineWidth = 2;
+            this.xrLine8.LocationFloat = new DevExpress.Utils.PointFloat(3F, 0F);
+            this.xrLine8.Name = "xrLine8";
+            this.xrLine8.SizeF = new System.Drawing.SizeF(767F, 2F);
             // 
-            // xrPanel1
-            // 
+            // xrPanel1 — right col: NB disclaimer + signature block
             this.xrPanel1.BackColor = System.Drawing.Color.Empty;
             this.xrPanel1.Controls.AddRange(new DevExpress.XtraReports.UI.XRControl[] {
             this.xrLabel27,
@@ -616,255 +633,222 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrLine7,
             this.xrPageInfo1});
             this.xrPanel1.Dpi = 100F;
-            this.xrPanel1.LocationFloat = new DevExpress.Utils.PointFloat(7.08334F, 28F);
+            this.xrPanel1.LocationFloat = new DevExpress.Utils.PointFloat(470F, 3F);
             this.xrPanel1.Name = "xrPanel1";
-            this.xrPanel1.SizeF = new System.Drawing.SizeF(753.2498F, 71.66667F);
+            this.xrPanel1.SizeF = new System.Drawing.SizeF(300F, 52F);
             this.xrPanel1.StylePriority.UseBackColor = false;
             // 
-            // xrLabel27
-            // 
+            // xrLabel27 — NB disclaimer text
             this.xrLabel27.Dpi = 100F;
-            this.xrLabel27.Font = new System.Drawing.Font("Times New Roman", 6F);
-            this.xrLabel27.LocationFloat = new DevExpress.Utils.PointFloat(24.17424F, 5F);
+            this.xrLabel27.Font = new System.Drawing.Font("Calibri", 7F);
+            this.xrLabel27.LocationFloat = new DevExpress.Utils.PointFloat(20F, 4F);
             this.xrLabel27.Multiline = true;
             this.xrLabel27.Name = "xrLabel27";
             this.xrLabel27.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel27.SizeF = new System.Drawing.SizeF(289.7348F, 27.66663F);
+            this.xrLabel27.SizeF = new System.Drawing.SizeF(120F, 22F);
             this.xrLabel27.StylePriority.UseFont = false;
-            this.xrLabel27.Text = "1. This transcript is invalid without an official seal\r\n2. The transcript can be " +
-    "verified using a QR Code";
+            this.xrLabel27.Text = "1. Invalid without official seal\r\n2. Verify via QR Code";
             // 
-            // xrLabel26
-            // 
+            // xrLabel26 — NB bold tag
             this.xrLabel26.Dpi = 100F;
-            this.xrLabel26.Font = new System.Drawing.Font("Times New Roman", 6F, System.Drawing.FontStyle.Bold);
-            this.xrLabel26.LocationFloat = new DevExpress.Utils.PointFloat(5.111688F, 5F);
+            this.xrLabel26.Font = new System.Drawing.Font("Calibri", 7F, System.Drawing.FontStyle.Bold);
+            this.xrLabel26.LocationFloat = new DevExpress.Utils.PointFloat(2F, 4F);
             this.xrLabel26.Name = "xrLabel26";
             this.xrLabel26.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel26.SizeF = new System.Drawing.SizeF(18.06811F, 22.99998F);
+            this.xrLabel26.SizeF = new System.Drawing.SizeF(18F, 18F);
             this.xrLabel26.StylePriority.UseFont = false;
             this.xrLabel26.Text = "NB";
             // 
-            // xrPictureBox3
-            // 
+            // xrPictureBox3 — registrar seal (right of panel)
             this.xrPictureBox3.Dpi = 100F;
             this.xrPictureBox3.Image = ((System.Drawing.Image)(resources.GetObject("xrPictureBox3.Image")));
-            this.xrPictureBox3.LocationFloat = new DevExpress.Utils.PointFloat(596.4753F, 0F);
+            this.xrPictureBox3.LocationFloat = new DevExpress.Utils.PointFloat(148F, 0F);
             this.xrPictureBox3.Name = "xrPictureBox3";
-            this.xrPictureBox3.SizeF = new System.Drawing.SizeF(152.9224F, 47.66663F);
+            this.xrPictureBox3.SizeF = new System.Drawing.SizeF(148F, 36F);
             this.xrPictureBox3.Sizing = DevExpress.XtraPrinting.ImageSizeMode.ZoomImage;
             // 
-            // xrLabel10
-            // 
+            // xrLabel10 — registrar name
             this.xrLabel10.Dpi = 100F;
-            this.xrLabel10.Font = new System.Drawing.Font("Times New Roman", 8F, System.Drawing.FontStyle.Bold);
-            this.xrLabel10.LocationFloat = new DevExpress.Utils.PointFloat(596.1421F, 50.99998F);
+            this.xrLabel10.Font = new System.Drawing.Font("Calibri", 7F, System.Drawing.FontStyle.Bold);
+            this.xrLabel10.LocationFloat = new DevExpress.Utils.PointFloat(148F, 38F);
             this.xrLabel10.Name = "xrLabel10";
             this.xrLabel10.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel10.SizeF = new System.Drawing.SizeF(153.2556F, 10.16668F);
+            this.xrLabel10.SizeF = new System.Drawing.SizeF(148F, 10F);
             this.xrLabel10.StylePriority.UseFont = false;
             this.xrLabel10.StylePriority.UseTextAlignment = false;
             this.xrLabel10.Text = "Dr. Musisi Fred Kamoga";
             this.xrLabel10.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopCenter;
             // 
-            // xrLabel28
-            // 
+            // xrLabel28 — Sign label
             this.xrLabel28.Dpi = 100F;
-            this.xrLabel28.Font = new System.Drawing.Font("Times New Roman", 8F, System.Drawing.FontStyle.Bold);
-            this.xrLabel28.LocationFloat = new DevExpress.Utils.PointFloat(544.3961F, 34.16661F);
+            this.xrLabel28.Font = new System.Drawing.Font("Calibri", 7F, System.Drawing.FontStyle.Bold);
+            this.xrLabel28.LocationFloat = new DevExpress.Utils.PointFloat(110F, 28F);
             this.xrLabel28.Name = "xrLabel28";
             this.xrLabel28.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel28.SizeF = new System.Drawing.SizeF(51.74603F, 16.83335F);
+            this.xrLabel28.SizeF = new System.Drawing.SizeF(36F, 12F);
             this.xrLabel28.StylePriority.UseFont = false;
             this.xrLabel28.StylePriority.UseTextAlignment = false;
             this.xrLabel28.Text = "Sign";
             this.xrLabel28.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopCenter;
             // 
-            // xrLine7
-            // 
+            // xrLine7 — signature dotted line
             this.xrLine7.Dpi = 100F;
             this.xrLine7.LineStyle = System.Drawing.Drawing2D.DashStyle.Dot;
-            this.xrLine7.LocationFloat = new DevExpress.Utils.PointFloat(596.8088F, 47.99998F);
+            this.xrLine7.LocationFloat = new DevExpress.Utils.PointFloat(148F, 36F);
             this.xrLine7.Name = "xrLine7";
-            this.xrLine7.SizeF = new System.Drawing.SizeF(153.5889F, 2F);
+            this.xrLine7.SizeF = new System.Drawing.SizeF(148F, 2F);
             // 
-            // xrPageInfo1
-            // 
+            // xrPageInfo1 — print date
             this.xrPageInfo1.Dpi = 100F;
-            this.xrPageInfo1.Font = new System.Drawing.Font("Times New Roman", 7F, System.Drawing.FontStyle.Bold);
+            this.xrPageInfo1.Font = new System.Drawing.Font("Calibri", 6.5F, System.Drawing.FontStyle.Bold);
             this.xrPageInfo1.Format = "{0:dd MMMM yyyy}";
-            this.xrPageInfo1.LocationFloat = new DevExpress.Utils.PointFloat(592.2424F, 61.83331F);
+            this.xrPageInfo1.LocationFloat = new DevExpress.Utils.PointFloat(148F, 48F);
             this.xrPageInfo1.Name = "xrPageInfo1";
             this.xrPageInfo1.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.xrPageInfo1.PageInfo = DevExpress.XtraPrinting.PageInfo.DateTime;
-            this.xrPageInfo1.SizeF = new System.Drawing.SizeF(158.5984F, 9.833321F);
+            this.xrPageInfo1.SizeF = new System.Drawing.SizeF(148F, 8F);
             this.xrPageInfo1.StylePriority.UseFont = false;
             this.xrPageInfo1.StylePriority.UseTextAlignment = false;
             this.xrPageInfo1.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleCenter;
+            this.xrPageInfo1.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleCenter;
             // 
-            // xrLabel25
-            // 
+            // xrLabel25 — min_load value | Col2 row3 value
             this.xrLabel25.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "acad_GetBatchStudentTranscriptData.min_load")});
             this.xrLabel25.Dpi = 100F;
-            this.xrLabel25.Font = new System.Drawing.Font("Times New Roman", 6F);
-            this.xrLabel25.LocationFloat = new DevExpress.Utils.PointFloat(560.3788F, 14.40908F);
+            this.xrLabel25.Font = new System.Drawing.Font("Calibri", 8F);
+            this.xrLabel25.LocationFloat = new DevExpress.Utils.PointFloat(358F, 30F);
             this.xrLabel25.Name = "xrLabel25";
             this.xrLabel25.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel25.SizeF = new System.Drawing.SizeF(148.5454F, 10.49998F);
+            this.xrLabel25.SizeF = new System.Drawing.SizeF(108F, 11F);
             this.xrLabel25.StylePriority.UseFont = false;
-            this.xrLabel25.Text = "xrLabel23";
+            this.xrLabel25.Text = "";
             // 
-            // xrLabel24
-            // 
+            // xrLabel24 — Min Grad Load label | Col2 row3
             this.xrLabel24.Dpi = 100F;
-            this.xrLabel24.Font = new System.Drawing.Font("Times New Roman", 6F, System.Drawing.FontStyle.Bold);
-            this.xrLabel24.LocationFloat = new DevExpress.Utils.PointFloat(452.3239F, 14.09087F);
+            this.xrLabel24.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel24.LocationFloat = new DevExpress.Utils.PointFloat(258F, 30F);
             this.xrLabel24.Name = "xrLabel24";
             this.xrLabel24.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel24.SizeF = new System.Drawing.SizeF(107.8882F, 10.49998F);
+            this.xrLabel24.SizeF = new System.Drawing.SizeF(98F, 11F);
             this.xrLabel24.StylePriority.UseFont = false;
-            this.xrLabel24.Text = "Minimum Graduation Load:";
+            this.xrLabel24.Text = "Min. Grad. Load:";
             // 
-            // xrLabel23
-            // 
+            // xrLabel23 — totalCU value | Col2 row1 value
             this.xrLabel23.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "acad_GetBatchStudentTranscriptData.totalCU")});
             this.xrLabel23.Dpi = 100F;
-            this.xrLabel23.Font = new System.Drawing.Font("Times New Roman", 6F);
-            this.xrLabel23.LocationFloat = new DevExpress.Utils.PointFloat(509.3788F, 0F);
+            this.xrLabel23.Font = new System.Drawing.Font("Calibri", 8F);
+            this.xrLabel23.LocationFloat = new DevExpress.Utils.PointFloat(358F, 5F);
             this.xrLabel23.Name = "xrLabel23";
             this.xrLabel23.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel23.SizeF = new System.Drawing.SizeF(147.1022F, 10.49998F);
+            this.xrLabel23.SizeF = new System.Drawing.SizeF(108F, 11F);
             this.xrLabel23.StylePriority.UseFont = false;
-            this.xrLabel23.Text = "xrLabel23";
+            this.xrLabel23.Text = "";
             // 
-            // xrLabel22
-            // 
+            // xrLabel22 — Total Credits label | Col2 row1
             this.xrLabel22.Dpi = 100F;
-            this.xrLabel22.Font = new System.Drawing.Font("Times New Roman", 6F, System.Drawing.FontStyle.Bold);
-            this.xrLabel22.LocationFloat = new DevExpress.Utils.PointFloat(452.2804F, 0F);
+            this.xrLabel22.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel22.LocationFloat = new DevExpress.Utils.PointFloat(258F, 5F);
             this.xrLabel22.Name = "xrLabel22";
             this.xrLabel22.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel22.SizeF = new System.Drawing.SizeF(56.26877F, 10.49998F);
+            this.xrLabel22.SizeF = new System.Drawing.SizeF(98F, 11F);
             this.xrLabel22.StylePriority.UseFont = false;
             this.xrLabel22.Text = "Total Credits:";
             // 
-            // xrLabel20
-            // 
+            // xrLabel20 — Class of Award label | Col1 row2
             this.xrLabel20.Dpi = 100F;
-            this.xrLabel20.Font = new System.Drawing.Font("Times New Roman", 6F, System.Drawing.FontStyle.Bold);
-            this.xrLabel20.LocationFloat = new DevExpress.Utils.PointFloat(12.08905F, 13.70172F);
+            this.xrLabel20.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel20.LocationFloat = new DevExpress.Utils.PointFloat(5F, 18F);
             this.xrLabel20.Name = "xrLabel20";
             this.xrLabel20.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel20.SizeF = new System.Drawing.SizeF(64.73476F, 12.99998F);
+            this.xrLabel20.SizeF = new System.Drawing.SizeF(80F, 11F);
             this.xrLabel20.StylePriority.UseFont = false;
             this.xrLabel20.Text = "Class of Award:";
             // 
-            // xrLabel21
-            // 
+            // xrLabel21 — deg value | Col1 row2 value
             this.xrLabel21.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "acad_GetBatchStudentTranscriptData.deg")});
             this.xrLabel21.Dpi = 100F;
-            this.xrLabel21.Font = new System.Drawing.Font("Times New Roman", 6F);
-            this.xrLabel21.LocationFloat = new DevExpress.Utils.PointFloat(77.28227F, 15.12781F);
+            this.xrLabel21.Font = new System.Drawing.Font("Calibri", 8F);
+            this.xrLabel21.LocationFloat = new DevExpress.Utils.PointFloat(87F, 18F);
             this.xrLabel21.Name = "xrLabel21";
             this.xrLabel21.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel21.SizeF = new System.Drawing.SizeF(360.9658F, 12.16665F);
+            this.xrLabel21.SizeF = new System.Drawing.SizeF(163F, 11F);
             this.xrLabel21.StylePriority.UseFont = false;
-            this.xrLabel21.Text = "xrLabel16";
+            this.xrLabel21.Text = "";
             // 
-            // xrLabel19
-            // 
+            // xrLabel19 — Award label | Col1 row1
             this.xrLabel19.Dpi = 100F;
-            this.xrLabel19.Font = new System.Drawing.Font("Times New Roman", 6F, System.Drawing.FontStyle.Bold);
-            this.xrLabel19.LocationFloat = new DevExpress.Utils.PointFloat(12.66667F, 0F);
+            this.xrLabel19.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel19.LocationFloat = new DevExpress.Utils.PointFloat(5F, 5F);
             this.xrLabel19.Name = "xrLabel19";
             this.xrLabel19.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel19.SizeF = new System.Drawing.SizeF(33.06811F, 12.99998F);
+            this.xrLabel19.SizeF = new System.Drawing.SizeF(80F, 11F);
             this.xrLabel19.StylePriority.UseFont = false;
             this.xrLabel19.Text = "Award:";
             // 
-            // xrLabel18
-            // 
+            // xrLabel18 — CGPA label | Col2 row2
             this.xrLabel18.Dpi = 100F;
-            this.xrLabel18.Font = new System.Drawing.Font("Times New Roman", 6F, System.Drawing.FontStyle.Bold);
-            this.xrLabel18.LocationFloat = new DevExpress.Utils.PointFloat(453.7159F, 26.7046F);
+            this.xrLabel18.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel18.LocationFloat = new DevExpress.Utils.PointFloat(258F, 18F);
             this.xrLabel18.Name = "xrLabel18";
             this.xrLabel18.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel18.SizeF = new System.Drawing.SizeF(33.06808F, 10.49998F);
+            this.xrLabel18.SizeF = new System.Drawing.SizeF(98F, 11F);
             this.xrLabel18.StylePriority.UseFont = false;
             this.xrLabel18.Text = "CGPA:";
             // 
-            // xrLabel17
-            // 
+            // xrLabel17 — Completion Date label | Col1 row3
             this.xrLabel17.Dpi = 100F;
-            this.xrLabel17.Font = new System.Drawing.Font("Times New Roman", 6F, System.Drawing.FontStyle.Bold);
-            this.xrLabel17.LocationFloat = new DevExpress.Utils.PointFloat(11.86172F, 28.10225F);
+            this.xrLabel17.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel17.LocationFloat = new DevExpress.Utils.PointFloat(5F, 30F);
             this.xrLabel17.Name = "xrLabel17";
             this.xrLabel17.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel17.SizeF = new System.Drawing.SizeF(71.40144F, 12.16665F);
+            this.xrLabel17.SizeF = new System.Drawing.SizeF(80F, 11F);
             this.xrLabel17.StylePriority.UseFont = false;
             this.xrLabel17.Text = "Completion Date:";
             // 
-            // xrLabel16
-            // 
+            // xrLabel16 — prog value | Col1 row1 value
             this.xrLabel16.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "acad_GetBatchStudentTranscriptData.prog")});
             this.xrLabel16.Dpi = 100F;
-            this.xrLabel16.Font = new System.Drawing.Font("Times New Roman", 6F);
-            this.xrLabel16.LocationFloat = new DevExpress.Utils.PointFloat(46.20446F, 0F);
+            this.xrLabel16.Font = new System.Drawing.Font("Calibri", 8F);
+            this.xrLabel16.LocationFloat = new DevExpress.Utils.PointFloat(87F, 5F);
             this.xrLabel16.Name = "xrLabel16";
             this.xrLabel16.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel16.SizeF = new System.Drawing.SizeF(390.1326F, 12.99998F);
+            this.xrLabel16.SizeF = new System.Drawing.SizeF(163F, 11F);
             this.xrLabel16.StylePriority.UseFont = false;
-            this.xrLabel16.Text = "xrLabel16";
+            this.xrLabel16.Text = "";
             // 
-            // xrLabel15
-            // 
+            // xrLabel15 — cgpa value | Col2 row2 value
             this.xrLabel15.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "acad_GetBatchStudentTranscriptData.cgpa")});
             this.xrLabel15.Dpi = 100F;
-            this.xrLabel15.Font = new System.Drawing.Font("Times New Roman", 6F);
-            this.xrLabel15.LocationFloat = new DevExpress.Utils.PointFloat(488.3788F, 26.07763F);
+            this.xrLabel15.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.xrLabel15.LocationFloat = new DevExpress.Utils.PointFloat(358F, 18F);
             this.xrLabel15.Name = "xrLabel15";
             this.xrLabel15.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel15.SizeF = new System.Drawing.SizeF(149.1325F, 10.49998F);
+            this.xrLabel15.SizeF = new System.Drawing.SizeF(108F, 11F);
             this.xrLabel15.StylePriority.UseFont = false;
+            this.xrLabel15.Text = "";
             // 
-            // xrLabel14
-            // 
+            // xrLabel14 — formated_comp_date value | Col1 row3 value
             this.xrLabel14.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "acad_GetBatchStudentTranscriptData.formated_comp_date")});
             this.xrLabel14.Dpi = 100F;
-            this.xrLabel14.Font = new System.Drawing.Font("Times New Roman", 6F);
-            this.xrLabel14.LocationFloat = new DevExpress.Utils.PointFloat(83.3826F, 28.67614F);
+            this.xrLabel14.Font = new System.Drawing.Font("Calibri", 8F);
+            this.xrLabel14.LocationFloat = new DevExpress.Utils.PointFloat(87F, 30F);
             this.xrLabel14.Name = "xrLabel14";
             this.xrLabel14.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel14.SizeF = new System.Drawing.SizeF(216.4773F, 12.16665F);
+            this.xrLabel14.SizeF = new System.Drawing.SizeF(163F, 11F);
             this.xrLabel14.StylePriority.UseFont = false;
-            this.xrLabel14.Text = "xrLabel14";
+            this.xrLabel14.Text = "";
             // 
             // PageFooter
             // 
             this.PageFooter.Dpi = 100F;
             this.PageFooter.HeightF = 0F;
             this.PageFooter.Name = "PageFooter";
-            // 
-            // xrCrossBandBox1
-            // 
-            this.xrCrossBandBox1.BorderColor = System.Drawing.Color.DarkBlue;
-            this.xrCrossBandBox1.Borders = ((DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Right) 
-            | DevExpress.XtraPrinting.BorderSide.Top);
-            this.xrCrossBandBox1.BorderWidth = 1F;
-            this.xrCrossBandBox1.Dpi = 100F;
-            this.xrCrossBandBox1.EndBand = this.GroupHeader1;
-            this.xrCrossBandBox1.EndPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 314.81F);
-            this.xrCrossBandBox1.LocationFloat = new DevExpress.Utils.PointFloat(0.6666629F, 288.67F);
-            this.xrCrossBandBox1.Name = "xrCrossBandBox1";
-            this.xrCrossBandBox1.StartBand = this.GroupHeader1;
-            this.xrCrossBandBox1.StartPointFloat = new DevExpress.Utils.PointFloat(0.6666629F, 288.67F);
-            this.xrCrossBandBox1.WidthF = 768.3329F;
             // 
             // GroupHeader2
             // 
@@ -904,11 +888,9 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.PageFooter,
             this.GroupHeader2,
             this.GroupFooter2});
-            this.CrossBandControls.AddRange(new DevExpress.XtraReports.UI.XRCrossBandControl[] {
-            this.xrCrossBandBox1});
             this.DataMember = "acad_GetBatchStudentTranscriptData";
             this.DataSource = this.resultsData1;
-            this.Font = new System.Drawing.Font("Times New Roman", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.Font = new System.Drawing.Font("Calibri", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.Margins = new System.Drawing.Printing.Margins(27, 27, 3, 0);
             this.PageHeight = 1169;
             this.PageWidth = 827;
@@ -987,71 +969,99 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
         return !string.IsNullOrEmpty(title);
     }
 
-    /// <summary>"RESEARCH TITLE" label — hidden for non-masters or if no thesis.</summary>
+    // These individual BeforePrint handlers are defensive no-ops.
+    // Actual visibility is set in GroupFooter1_BeforePrint before these fire.
     private void lblThesisLabel_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
-        EnsureThesisData();
-        if (!ShouldShowThesisSection())
-            e.Cancel = true;
+        var lbl = sender as XRLabel;
+        if (lbl == null || !lbl.Visible) e.Cancel = true;
     }
-
-    /// <summary>Research title value — hidden for non-masters or if no thesis.</summary>
     private void lblThesisValue_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
-        if (!ShouldShowThesisSection())
-        {
-            e.Cancel = true;
-        }
-        else
-        {
-            (sender as XRLabel).Text = GetThesisColumnSafe("thesis_title");
-        }
+        var lbl = sender as XRLabel;
+        if (lbl == null || !lbl.Visible) e.Cancel = true;
     }
-
-    /// <summary>"SUPERVISOR" label — hidden for non-masters or if no thesis/supervisor.</summary>
     private void lblSupervisorLabel_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
-        string supervisor = GetThesisColumnSafe("supervisor_name");
-        if (!ShouldShowThesisSection() || string.IsNullOrEmpty(supervisor))
-            e.Cancel = true;
+        var lbl = sender as XRLabel;
+        if (lbl == null || !lbl.Visible) e.Cancel = true;
     }
-
-    /// <summary>Supervisor name value — hidden for non-masters or if no thesis/supervisor.</summary>
     private void lblSupervisorValue_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
-        string supervisor = GetThesisColumnSafe("supervisor_name");
-        if (!ShouldShowThesisSection() || string.IsNullOrEmpty(supervisor))
-        {
-            e.Cancel = true;
-        }
-        else
-        {
-            (sender as XRLabel).Text = supervisor;
-        }
+        var lbl = sender as XRLabel;
+        if (lbl == null || !lbl.Visible) e.Cancel = true;
     }
 
-    // ── Dynamic header height: collapse thesis rows for non-graduate students ──
-    private const float HEADER_HEIGHT_WITH_THESIS = 316.2F;
-    private const float HEADER_HEIGHT_NO_THESIS = 290.7F;
-    private const float SHIFT_AMOUNT = 25.5F;
+    // ── GroupFooter1 dynamic layout — repositions content based on thesis presence ──
+    private const float THESIS_BLOCK_HEIGHT = 72F;  // lines + label + value + supervisor
+    private const float FOOTER_CONTENT_Y_BASE = 5F; // undergrad: content immediately below HR
 
-    private void GroupHeader1_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    private void GroupFooter1_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
+        // Reset per-student so batch printing always re-enriches each student
+        _thesisDataEnriched = false;
         EnsureThesisData();
         bool hasThesis = ShouldShowThesisSection();
 
-        // Subreports (results table column headers) always stay at compact positions.
-        // Only the band height changes: grow downward to reveal the thesis block.
-        xrLabel29.LocationFloat    = new DevExpress.Utils.PointFloat(671.8702F, 250.8619F);
-        xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3F, 265.036F);
-        xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(389F, 264.5572F);
-        xrCrossBandBox1.LocationFloat    = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);
-        xrCrossBandBox1.StartPointFloat  = new DevExpress.Utils.PointFloat(0.6666629F, 263.1667F);
-        xrCrossBandBox1.EndPointFloat    = new DevExpress.Utils.PointFloat(0.6666629F, 289.3122F);
+        // ── Thesis block visibility ──
+        xrLineThesisTop.Visible    = hasThesis;
+        lblThesisLabel.Visible     = hasThesis;
+        lblThesisValue.Visible     = hasThesis;
+        xrLineThesisBottom.Visible = hasThesis;
+
+        string supervisor = hasThesis ? GetThesisColumnSafe("supervisor_name") : "";
+        bool hasSupervisor = hasThesis && !string.IsNullOrEmpty(supervisor);
+        lblSupervisorLabel.Visible = hasSupervisor;
+        lblSupervisorValue.Visible = hasSupervisor;
+        if (hasSupervisor) lblSupervisorValue.Text = supervisor;
 
         if (hasThesis)
-            GroupHeader1.HeightF = 370F;   // compact (290.7) + thesis block (~79)
-        else
-            GroupHeader1.HeightF = HEADER_HEIGHT_NO_THESIS;
+        {
+            string title = GetThesisColumnSafe("thesis_title");
+            lblThesisValue.Text = string.IsNullOrEmpty(title) ? "[Title not provided]" : title;
+        }
+
+        // ── Reposition footer content (Col1, Col2, Panel) ──
+        float contentY = hasThesis ? (THESIS_BLOCK_HEIGHT + 4F) : FOOTER_CONTENT_Y_BASE;
+
+        // Col1 rows
+        xrLabel19.LocationFloat = new DevExpress.Utils.PointFloat(5F,   contentY);
+        xrLabel16.LocationFloat = new DevExpress.Utils.PointFloat(87F,  contentY);
+        xrLabel20.LocationFloat = new DevExpress.Utils.PointFloat(5F,   contentY + 12F);
+        xrLabel21.LocationFloat = new DevExpress.Utils.PointFloat(87F,  contentY + 12F);
+        xrLabel17.LocationFloat = new DevExpress.Utils.PointFloat(5F,   contentY + 24F);
+        xrLabel14.LocationFloat = new DevExpress.Utils.PointFloat(87F,  contentY + 24F);
+        // Col2 rows
+        xrLabel22.LocationFloat = new DevExpress.Utils.PointFloat(258F, contentY);
+        xrLabel23.LocationFloat = new DevExpress.Utils.PointFloat(358F, contentY);
+        xrLabel18.LocationFloat = new DevExpress.Utils.PointFloat(258F, contentY + 12F);
+        xrLabel15.LocationFloat = new DevExpress.Utils.PointFloat(358F, contentY + 12F);
+        xrLabel24.LocationFloat = new DevExpress.Utils.PointFloat(258F, contentY + 24F);
+        xrLabel25.LocationFloat = new DevExpress.Utils.PointFloat(358F, contentY + 24F);
+        // Col3: panel
+        xrPanel1.LocationFloat  = new DevExpress.Utils.PointFloat(470F, contentY - 2F);
+
+        // ── Band height: ensure the panel (H=52) always fits below the content rows ──
+        // Panel is at Y=(contentY-2), H=52 → bottom edge = contentY+50
+        // Content rows span 3×12px = 36px → bottom edge = contentY+36
+        // Add 4px bottom padding → required height = contentY + 54
+        GroupFooter1.HeightF = hasThesis
+            ? (THESIS_BLOCK_HEIGHT + 4F + 54F)  // thesis block + content rows + panel clearance
+            : (FOOTER_CONTENT_Y_BASE + 54F);    // just content rows + panel clearance
+    }
+
+    private void GroupHeader1_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        // Reset flag per student so GroupFooter1_BeforePrint re-enriches thesis data for each student
+        _thesisDataEnriched = false;
+
+        // Position subreports and RegNo label consistently
+        xrLabel29.LocationFloat    = new DevExpress.Utils.PointFloat(671.8702F, 214F);
+        xrSubreport1.LocationFloat = new DevExpress.Utils.PointFloat(3F, 220F);
+        xrSubreport2.LocationFloat = new DevExpress.Utils.PointFloat(390F, 220F);
+
+        // GroupHeader1 has a compact static height; subreports expand the band
+        // as needed to show all semester results.  The thesis section is in GroupFooter1.
+        GroupHeader1.HeightF = 224F;
     }
 }

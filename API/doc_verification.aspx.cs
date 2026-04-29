@@ -805,8 +805,6 @@ public partial class API_doc_verification : System.Web.UI.Page
             ? HttpUtility.HtmlEncode(snapshot.Guidance)
             : "Please clear the outstanding policy requirements, then generate the card again from the student portal.";
 
-        string checkerUrl = ResolveUrl("~/COOPERP/NewScreens/FeeAccessChecker.aspx");
-
         string html = "<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1' /><title>Exam Card Access Denied</title>"
             + "<style>"
             + ":root{--pri:#05275C;--acc:#174DA4;--ok:#047857;--okbg:#f0faf3;--err:#b91c1c;--errbg:#fef4f2;--bd:#e0e0e0;--txt:#1a1a2e;--mut:#667085;}"
@@ -844,7 +842,7 @@ public partial class API_doc_verification : System.Web.UI.Page
             + finance
             + checks
             + "<div class='fac-guidance'><strong>Next Step:</strong> " + guidance + "</div>"
-            + "<div class='fac-actions'><button class='fac-btn fac-btn--pri' onclick='window.location.href=\"" + checkerUrl + "\"'>Open Fee Access Checker</button><button class='fac-btn' onclick='window.location.reload()'>Retry</button></div>"
+            + "<div class='fac-actions'><button class='fac-btn' onclick='window.location.reload()'>Retry</button></div>"
             + "</div></div>"
             + "<script>(function(){var p=new URLSearchParams(window.location.search);var reg=p.get('reg');if(reg){var e=document.createElement('div');e.style.cssText='padding:0 18px 16px;color:#667085;font-size:12px';e.innerHTML='Student ID: <strong style=\"color:#111827\">'+reg.replace(/</g,'&lt;')+'</strong>';var card=document.querySelector('.fac-card');if(card) card.insertBefore(e, card.children[1]);}})();</script>"
             + "</body></html>";

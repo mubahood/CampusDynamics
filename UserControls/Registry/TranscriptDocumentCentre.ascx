@@ -421,8 +421,8 @@ lp_processing.Show();
                                 <asp:ControlParameter ControlID="txtProgramme" DefaultValue="-" Name="prog" PropertyName="Value" Type="String" />
                                 <asp:Parameter DefaultValue="0" Name="yr" Type="Int32" />
                                 <asp:Parameter DefaultValue="GRAD" Name="cat" Type="String" />
-                                <asp:ControlParameter ControlID="txtPrintGradDate" Name="gdt" PropertyName="Value" Type="DateTime" />
-                                <asp:Parameter DefaultValue="1" Name="sems" Type="String" />
+                                <asp:ControlParameter ControlID="txtPrintGradDate" Name="gdt" PropertyName="Value" Type="String" DefaultValue="1900-01-01" />
+                                <asp:Parameter DefaultValue="0" Name="sems" Type="String" />
                                 <asp:Parameter DefaultValue="-" Name="intk" Type="String" />
                             </SelectParameters>
                         </asp:ObjectDataSource>

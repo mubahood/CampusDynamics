@@ -1,5 +1,7 @@
 using System;
 using System.Data;
+using System.Collections.Generic;
+using System.Text;
 using System.Web.UI.WebControls;
 using MySql.Data.MySqlClient;
 
@@ -107,6 +109,12 @@ public partial class COOPERP_Finance_Admin_ReversalApprovals : System.Web.UI.Pag
 
     protected void gvApprovals_RowCommand(object sender, GridViewCommandEventArgs e)
     {
+        if (e.CommandName == "ViewRequest")
+        {
+            ShowRequestDetail(e.CommandArgument.ToString());
+            return;
+        }
+
         if (e.CommandName != "ApproveReversal" && e.CommandName != "RejectReversal")
             return;
 
@@ -117,6 +125,7 @@ public partial class COOPERP_Finance_Admin_ReversalApprovals : System.Web.UI.Pag
         hdnReversalId.Value = reversalId;
         hdnAction.Value     = action;
         txtComments.Text    = string.Empty;
+        ShowRequestDetail(reversalId);
 
         lblActionTitle.Text = action == "Approve"
             ? string.Format("Approving Request REV-{0} — Enter any approval notes:", reversalId.PadLeft(5, '0'))
@@ -185,6 +194,8 @@ public partial class COOPERP_Finance_Admin_ReversalApprovals : System.Web.UI.Pag
                     upd.Parameters.AddWithValue("@rid",      reversalId);
                     upd.ExecuteNonQuery();
                 }
+
+                TrySendApprovalNotification(conn, reversalId, action, approver, storedComment);
             }
 
             pnlActionPanel.Visible = false;
@@ -212,6 +223,207 @@ public partial class COOPERP_Finance_Admin_ReversalApprovals : System.Web.UI.Pag
         lblApprovalInfo.ForeColor = System.Drawing.Color.Gray;
         lblApprovalInfo.Text = "Action cancelled. No changes made.";
         BindApprovals();
+    }
+
+    private void ShowRequestDetail(string reversalId)
+    {
+        DataTable originalLines = CreateOriginalLineSchema();
+        DataTable requestedLines = CreateRequestedLineSchema();
+
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(FinanceSystemRealignmentHelper.GetFinanceConnectionString()))
+            {
+                conn.Open();
+
+                string voucherCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", new[] { "voucherno", "voucher_no", "voucher_number", "ref_no" });
+                string accountCodeCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", new[] { "account_code", "acc_code", "code" });
+                string drcrCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", new[] { "dr_cr", "entry_type", "drcr", "type" });
+                string amountCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", new[] { "amount", "entry_amount", "value" });
+                string narrationCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", new[] { "narration", "description", "remarks", "memo" });
+
+                DataTable detail = new DataTable();
+                using (MySqlCommand cmd = new MySqlCommand(@"
+                    SELECT reversal_id, reversal_type, original_voucherno, original_amount,
+                           requested_by, requested_at, reversal_reason, reversal_notes,
+                           approved_by, approved_at, approval_comments
+                    FROM fin_transaction_reversal
+                    WHERE reversal_id = @rid
+                    LIMIT 1;", conn))
+                {
+                    cmd.Parameters.AddWithValue("@rid", reversalId);
+                    using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
+                        da.Fill(detail);
+                }
+
+                if (detail.Rows.Count == 0)
+                {
+                    pnlRequestDetail.Visible = false;
+                    return;
+                }
+
+                DataRow row = detail.Rows[0];
+                string originalVoucher = row["original_voucherno"].ToString();
+
+                lblRequestDetail.Text = string.Format(
+                    "<b>Request:</b> REV-{0} &nbsp;|&nbsp; <b>Type:</b> {1} &nbsp;|&nbsp; <b>Original Voucher:</b> {2} &nbsp;|&nbsp; <b>Requested By:</b> {3} &nbsp;|&nbsp; <b>Requested At:</b> {4}",
+                    reversalId.PadLeft(5, '0'),
+                    Server.HtmlEncode(row["reversal_type"].ToString()),
+                    Server.HtmlEncode(originalVoucher),
+                    Server.HtmlEncode(row["requested_by"].ToString()),
+                    row["requested_at"] == DBNull.Value ? "-" : Convert.ToDateTime(row["requested_at"]).ToString("yyyy-MM-dd HH:mm"));
+
+                requestedLines.Rows.Add("Reason", row["reversal_reason"] == DBNull.Value ? "-" : row["reversal_reason"].ToString());
+                requestedLines.Rows.Add("Notes", row["reversal_notes"] == DBNull.Value ? "-" : row["reversal_notes"].ToString());
+                requestedLines.Rows.Add("Amount", row["original_amount"] == DBNull.Value ? "0.00" : Convert.ToDecimal(row["original_amount"]).ToString("N2"));
+                requestedLines.Rows.Add("Approval State", row["approved_at"] == DBNull.Value ? "Pending" : "Actioned");
+                if (row["approval_comments"] != DBNull.Value)
+                    requestedLines.Rows.Add("Approval Comments", row["approval_comments"].ToString());
+
+                if (voucherCol != null && amountCol != null)
+                {
+                    string sql = string.Format(@"
+                        SELECT
+                            l.ledger_id AS LedgerId,
+                            {0} AS AccountCode,
+                            {1} AS EntryType,
+                            l.{2} AS Amount,
+                            {3} AS Narration
+                        FROM fin_ledger l
+                        WHERE l.{4} = @voucher
+                        ORDER BY l.ledger_id;",
+                        accountCodeCol != null ? "l." + accountCodeCol : "''",
+                        drcrCol != null ? "l." + drcrCol : "''",
+                        amountCol,
+                        narrationCol != null ? "l." + narrationCol : "''",
+                        voucherCol);
+
+                    using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@voucher", originalVoucher);
+                        using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
+                            da.Fill(originalLines);
+                    }
+                }
+            }
+
+            gvOriginalLines.DataSource = originalLines;
+            gvOriginalLines.DataBind();
+            gvRequestedLines.DataSource = requestedLines;
+            gvRequestedLines.DataBind();
+            pnlRequestDetail.Visible = true;
+        }
+        catch
+        {
+            pnlRequestDetail.Visible = false;
+        }
+    }
+
+    private static DataTable CreateOriginalLineSchema()
+    {
+        DataTable dt = new DataTable();
+        dt.Columns.Add("LedgerId");
+        dt.Columns.Add("AccountCode");
+        dt.Columns.Add("EntryType");
+        dt.Columns.Add("Amount", typeof(decimal));
+        dt.Columns.Add("Narration");
+        return dt;
+    }
+
+    private static DataTable CreateRequestedLineSchema()
+    {
+        DataTable dt = new DataTable();
+        dt.Columns.Add("FieldName");
+        dt.Columns.Add("FieldValue");
+        return dt;
+    }
+
+    private void TrySendApprovalNotification(MySqlConnection conn, string reversalId, string action, string approver, string comments)
+    {
+        try
+        {
+            DataTable dt = new DataTable();
+            using (MySqlCommand cmd = new MySqlCommand(@"
+                SELECT original_voucherno, reversal_type, requested_by, reversal_reason
+                FROM fin_transaction_reversal
+                WHERE reversal_id = @rid
+                LIMIT 1;", conn))
+            {
+                cmd.Parameters.AddWithValue("@rid", reversalId);
+                using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
+                    da.Fill(dt);
+            }
+
+            if (dt.Rows.Count == 0)
+                return;
+
+            DataRow row = dt.Rows[0];
+            string requestedBy = row["requested_by"] == DBNull.Value ? string.Empty : row["requested_by"].ToString();
+            string recipientEmail = ResolveUserEmail(conn, requestedBy);
+            if (string.IsNullOrWhiteSpace(recipientEmail))
+                return;
+
+            string status = action == "Approve" ? "Approved" : "Rejected";
+            StringBuilder sb = new StringBuilder();
+            sb.Append("Dear ").Append(string.IsNullOrWhiteSpace(requestedBy) ? "User" : requestedBy).Append(",<br/><br/>");
+            sb.Append("Your finance ").Append(Server.HtmlEncode(row["reversal_type"].ToString()).ToLowerInvariant())
+              .Append(" request for voucher <b>").Append(Server.HtmlEncode(row["original_voucherno"].ToString())).Append("</b> has been <b>")
+              .Append(status).Append("</b>.<br/><br/>");
+            sb.Append("<b>Reason:</b> ").Append(Server.HtmlEncode(row["reversal_reason"].ToString())).Append("<br/>");
+            sb.Append("<b>Actioned By:</b> ").Append(Server.HtmlEncode(approver)).Append("<br/>");
+            sb.Append("<b>Comments:</b> ").Append(Server.HtmlEncode(comments)).Append("<br/><br/>");
+            sb.Append("Regards,<br/>Campus Dynamics Finance Realignment");
+
+            EmailSenderProtocol.SendHtmlEmail(
+                sb.ToString(),
+                recipientEmail,
+                "Finance Request " + status + " - " + row["original_voucherno"],
+                "Campus Dynamics");
+        }
+        catch
+        {
+            // Notification failures must never block the approval path.
+        }
+    }
+
+    private static string ResolveUserEmail(MySqlConnection conn, string username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            return null;
+
+        if (username.Contains("@"))
+            return username;
+
+        string[] tableCandidates = { "users", "tbl_users", "sec_users", "useraccounts", "staff", "employees", "fin_users" };
+        string[] userColumns = { "username", "user_name", "userid", "user_id", "staff_id", "emailusername", "loginname" };
+        string[] emailColumns = { "email", "email_address", "emailaddress", "work_email", "personal_email" };
+
+        for (int t = 0; t < tableCandidates.Length; t++)
+        {
+            string tableName = tableCandidates[t];
+            if (!FinanceSystemRealignmentHelper.TableExists(conn, tableName))
+                continue;
+
+            string userCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, tableName, userColumns);
+            string emailCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, tableName, emailColumns);
+            if (string.IsNullOrEmpty(userCol) || string.IsNullOrEmpty(emailCol))
+                continue;
+
+            using (MySqlCommand cmd = new MySqlCommand(
+                string.Format("SELECT {0} FROM {1} WHERE {2} = @u LIMIT 1;", emailCol, tableName, userCol), conn))
+            {
+                cmd.Parameters.AddWithValue("@u", username);
+                object result = cmd.ExecuteScalar();
+                if (result != null && result != DBNull.Value)
+                {
+                    string email = result.ToString();
+                    if (!string.IsNullOrWhiteSpace(email) && email.Contains("@"))
+                        return email;
+                }
+            }
+        }
+
+        return null;
     }
 
     // ─── DataTable Schema ─────────────────────────────────────────────────────

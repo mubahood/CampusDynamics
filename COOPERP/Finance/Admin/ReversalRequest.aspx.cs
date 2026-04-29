@@ -29,6 +29,13 @@ public partial class COOPERP_Finance_Admin_ReversalRequest : System.Web.UI.Page
         if (!IsPostBack)
         {
             BindRecentRequests();
+
+            string voucherFromQuery = Request.QueryString["voucher"];
+            if (!string.IsNullOrEmpty(voucherFromQuery))
+            {
+                txtVoucherNo.Text = voucherFromQuery.Trim();
+                btnSearch_Click(btnSearch, EventArgs.Empty);
+            }
         }
     }
 

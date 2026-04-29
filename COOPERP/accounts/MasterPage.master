@@ -136,6 +136,11 @@
                       <Image Url="~/COOPERP/images/tick-button.png">
                       </Image>
                   </dx:MenuItem>
+                  <dx:MenuItem Text="* Finance Realignment Admin"
+                      NavigateUrl="~/COOPERP/Finance/Admin/TransactionBatchMonitor.aspx">
+                      <Image Url="~/COOPERP/images/clipboard-list.png">
+                      </Image>
+                  </dx:MenuItem>
                   <dx:MenuItem Text="Finance System Realignment">
                       <Items>
                           <dx:MenuItem Text="* Transaction Batch Monitor"

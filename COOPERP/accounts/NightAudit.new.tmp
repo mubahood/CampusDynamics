@@ -1,0 +1,614 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using MySql.Data.MySqlClient;
+
+public partial class COOPERP_accounts_NightAudit : System.Web.UI.Page
+{
+    private int CurrentStage = 0;
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        CurrentStage = int.Parse(rbl_nightaudit.SelectedIndex.ToString());
+        ButtonControl();
+        UserControl uc = LoadControls();
+        rp_controls.Controls.Clear();
+        rp_controls.Controls.Add(uc);
+    }
+    protected void rbl_nightaudit_ValueChanged(object sender, EventArgs e)
+    {
+        ButtonControl();
+        headerManager(rbl_nightaudit.SelectedIndex);
+    }
+
+    void ButtonControl()
+    {
+        rp_controls.HeaderText = rbl_nightaudit.SelectedItem.Text;
+        //Next Button
+        if (CurrentStage < 5)
+        {
+            cmdNext.Text = "Next";
+            cmdNext.Visible = true;
+        }
+        else
+        {
+            //cmdNext.Visible=false;
+            cmdNext.Text = "Finish Audit";
+
+        }
+
+        //Previous Button
+        if (CurrentStage > 0)
+        {
+
+            cmdPrevious.Text = "Previous";
+        }
+        else
+        {
+            cmdPrevious.Text = "Start Audit";
+
+        }
+
+    }
+    protected void cmdPrevious_Click(object sender, EventArgs e)
+    {
+        if (CurrentStage > 0)
+        {
+            CurrentStage = CurrentStage - 1;
+            rbl_nightaudit.SelectedIndex = CurrentStage;
+            headerManager(CurrentStage);
+            rp_controls.HeaderText = rbl_nightaudit.SelectedItem.Text;
+            ButtonControl();
+            UserControl uc = LoadControls();
+            rp_controls.Controls.Clear();
+            rp_controls.Controls.Add(uc);
+        }
+    }
+    void headerManager(int curStage)
+    {
+        if (curStage == 3)
+        {
+            Session["typ"] = "DR";
+        }
+        else if (curStage == 4)
+        {
+            Session["typ"] = "CR";
+        }
+        else if (curStage == 1)
+        {
+            Session["typ"] = "CheckIn Pending";
+        }
+        else if (curStage == 2)
+        {
+            Session["typ"] = "Checked-In";
+        }
+    }
+    protected void cmdNext_Click(object sender, EventArgs e)
+    {
+        if (CurrentStage < 5)
+        {
+            CurrentStage = CurrentStage + 1;
+            rbl_nightaudit.SelectedIndex = CurrentStage;
+            headerManager(CurrentStage);
+            rp_controls.HeaderText = rbl_nightaudit.SelectedItem.Text;
+            ButtonControl();
+            UserControl uc = LoadControls();
+            rp_controls.Controls.Clear();
+            rp_controls.Controls.Add(uc);
+        }
+        else
+        {
+            string completionMessage;
+            System.Drawing.Color messageColor;
+            bool completed = CompleteNightAudit(out completionMessage, out messageColor);
+
+            lblNightAuditInfo.ForeColor = messageColor;
+            lblNightAuditInfo.Text = completionMessage;
+
+            if (completed)
+            {
+                cmdNext.Enabled = false;
+                cmdPrevious.Enabled = false;
+            }
+        }
+
+
+    }
+
+    public UserControl LoadControls()
+    {
+        string userControlPath;
+
+        if (CurrentStage == 1)
+        {
+            userControlPath = "../../UserControls/Accounts/AuditTodayBookings.ascx";
+        }
+        else if (CurrentStage == 0)
+        {
+            userControlPath = "../../UserControls/Accounts/AuditStartAudit.ascx";
+        }
+        else if (CurrentStage == 5)
+        {
+            userControlPath = "../../UserControls/Accounts/AuditCompleteAudit.ascx";
+        }
+        else if (CurrentStage == 3)
+        {
+            userControlPath = "../../UserControls/Accounts/AuditTodayBillings.ascx";
+        }
+        else if (CurrentStage == 4)
+        {
+            userControlPath = "../../UserControls/Accounts/AuditTodayBillings.ascx";
+        }
+        else
+        {
+            userControlPath = "../../UserControls/Accounts/AuditTodayBookings.ascx";
+        }
+        UserControl ctl = Page.LoadControl(userControlPath) as UserControl;
+
+        // Finally return the fully initialized UC
+        return ctl;
+    }
+
+    private bool CompleteNightAudit(out string completionMessage, out System.Drawing.Color messageColor)
+    {
+        int batchId = -1;
+        int transactionCount = 0;
+        decimal totalDebit = 0m;
+        decimal totalCredit = 0m;
+
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(FinanceSystemRealignmentHelper.GetFinanceConnectionString()))
+            {
+                conn.Open();
+
+                string currentUser = HttpContext.Current.User.Identity.Name;
+                DateTime businessDate = DateTime.Today;
+                string batchReference = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "NightAudit {0:yyyy-MM-dd} by {1}",
+                    businessDate,
+                    currentUser);
+
+                batchId = FinanceSystemRealignmentHelper.CreateTransactionBatch(
+                    conn,
+                    "NightAuditRun",
+                    currentUser,
+                    batchReference,
+                    "NightAudit");
+
+                FinanceSystemRealignmentHelper.LogAction(
+                    conn,
+                    "Create",
+                    "night_audit",
+                    batchId,
+                    batchId,
+                    currentUser,
+                    "NIGHT_AUDIT_START",
+                    "Night audit completion workflow started from the NightAudit wizard.");
+
+                string postingMessage;
+                bool postingCompleted = TryPostNightAuditSummary(
+                    conn,
+                    currentUser,
+                    businessDate,
+                    batchId,
+                    out transactionCount,
+                    out totalDebit,
+                    out totalCredit,
+                    out postingMessage);
+
+                if (!postingCompleted)
+                {
+                    if (batchId > 0)
+                    {
+                        FinanceSystemRealignmentHelper.LogAction(
+                            conn,
+                            "Validate",
+                            "night_audit",
+                            batchId,
+                            batchId,
+                            currentUser,
+                            "NIGHT_AUDIT_SUMMARY_SKIPPED",
+                            postingMessage);
+
+                        FinanceSystemRealignmentHelper.MarkBatchFailed(conn, batchId, postingMessage);
+                    }
+
+                    completionMessage = postingMessage;
+                    messageColor = System.Drawing.Color.DarkOrange;
+                    return false;
+                }
+
+                if (batchId > 0)
+                {
+                    FinanceSystemRealignmentHelper.LogAction(
+                        conn,
+                        "Insert",
+                        "fin_ledger",
+                        batchId,
+                        batchId,
+                        currentUser,
+                        "NIGHT_AUDIT_COMPLETE",
+                        "Night audit summary posted successfully to the general ledger.");
+
+                    FinanceSystemRealignmentHelper.MarkBatchComplete(conn, batchId, transactionCount, totalDebit, totalCredit);
+                }
+
+                completionMessage = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Night audit completed successfully. Batch #{0} posted {1} GL summary line(s) with total DR {2:N2} and total CR {3:N2}.",
+                    batchId,
+                    transactionCount,
+                    totalDebit,
+                    totalCredit);
+                messageColor = System.Drawing.Color.DarkGreen;
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            if (batchId > 0)
+            {
+                try
+                {
+                    using (MySqlConnection conn = new MySqlConnection(FinanceSystemRealignmentHelper.GetFinanceConnectionString()))
+                    {
+                        conn.Open();
+                        FinanceSystemRealignmentHelper.MarkBatchFailed(conn, batchId, ex.Message);
+                    }
+                }
+                catch { }
+            }
+
+            completionMessage = "Night audit completion failed: " + ex.Message;
+            messageColor = System.Drawing.Color.DarkRed;
+            return false;
+        }
+    }
+
+    private static bool TryPostNightAuditSummary(
+        MySqlConnection conn,
+        string currentUser,
+        DateTime businessDate,
+        int batchId,
+        out int transactionCount,
+        out decimal totalDebit,
+        out decimal totalCredit,
+        out string postingMessage)
+    {
+        transactionCount = 0;
+        totalDebit = 0m;
+        totalCredit = 0m;
+        postingMessage = string.Empty;
+
+        if (conn == null)
+        {
+            postingMessage = "Night audit summary posting could not start because the finance connection was not available.";
+            return false;
+        }
+
+        decimal summaryAmount;
+        string sourceDescription;
+        if (!TryResolveNightAuditSummaryAmount(conn, businessDate, out summaryAmount, out sourceDescription, out postingMessage))
+        {
+            return false;
+        }
+
+        string receivableAccount;
+        string incomeAccount;
+        if (!TryResolveNightAuditAccounts(conn, out receivableAccount, out incomeAccount, out postingMessage))
+        {
+            return false;
+        }
+
+        if (!FinanceSystemRealignmentHelper.TableExists(conn, "fin_ledger"))
+        {
+            postingMessage = "Night audit summary posting requires fin_ledger, but that table is not available in the current finance database.";
+            return false;
+        }
+
+        string voucherColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "voucherno", "voucherNo");
+        string accountColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "account_code", "accountcode");
+        string typeColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "dr_cr", "transactionType");
+        string amountColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "amount", "transaction_amount");
+        string textColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "narration", "particulars");
+        string dateColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "entry_date", "transactionDate");
+
+        if (string.IsNullOrWhiteSpace(voucherColumn)
+            || string.IsNullOrWhiteSpace(accountColumn)
+            || string.IsNullOrWhiteSpace(typeColumn)
+            || string.IsNullOrWhiteSpace(amountColumn)
+            || string.IsNullOrWhiteSpace(textColumn)
+            || string.IsNullOrWhiteSpace(dateColumn))
+        {
+            postingMessage = "Night audit summary posting could not continue because the required GL columns were not found on fin_ledger in the current environment.";
+            return false;
+        }
+
+        int nextVoucher = FinanceSystemRealignmentHelper.GetNextVoucherNumber(conn, "NightAudit");
+        string voucherNumber = nextVoucher > 0
+            ? FinanceSystemRealignmentHelper.FormatVoucherNumber("NAD", nextVoucher, businessDate.Year.ToString(CultureInfo.InvariantCulture))
+            : string.Format(CultureInfo.InvariantCulture, "NAD-{0:yyyyMMddHHmmss}", businessDate);
+
+        int periodId = ResolveCurrentAccountingPeriodId(conn, businessDate);
+        string narration = string.Format(
+            CultureInfo.InvariantCulture,
+            "Night audit revenue summary for {0:yyyy-MM-dd} ({1})",
+            businessDate,
+            sourceDescription);
+
+        InsertNightAuditLedgerLine(conn, batchId, periodId, voucherNumber, receivableAccount, "DR", summaryAmount, narration, currentUser, businessDate);
+        InsertNightAuditLedgerLine(conn, batchId, periodId, voucherNumber, incomeAccount, "CR", summaryAmount, narration, currentUser, businessDate);
+
+        transactionCount = 2;
+        totalDebit = summaryAmount;
+        totalCredit = summaryAmount;
+        postingMessage = string.Format(
+            CultureInfo.InvariantCulture,
+            "Night audit summary auto-posted from {0} using receivable account {1} and income account {2}.",
+            sourceDescription,
+            receivableAccount,
+            incomeAccount);
+        return true;
+    }
+
+    private static bool TryResolveNightAuditSummaryAmount(
+        MySqlConnection conn,
+        DateTime businessDate,
+        out decimal summaryAmount,
+        out string sourceDescription,
+        out string resolutionMessage)
+    {
+        summaryAmount = 0m;
+        sourceDescription = string.Empty;
+        resolutionMessage = string.Empty;
+
+        string[] candidateTables = new[]
+        {
+            "night_audit_summary",
+            "night_audit_entries",
+            "hotel_folio_transactions",
+            "hotel_billings",
+            "hotel_room_billings",
+            "reservation_billing",
+            "booking_billings"
+        };
+
+        for (int i = 0; i < candidateTables.Length; i++)
+        {
+            string tableName = candidateTables[i];
+            if (!FinanceSystemRealignmentHelper.TableExists(conn, tableName))
+            {
+                continue;
+            }
+
+            string dateColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, tableName,
+                "audit_date", "posting_date", "entry_date", "transaction_date", "bill_date", "created_at");
+            string amountColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, tableName,
+                "amount", "total_amount", "net_amount", "bill_amount", "charge_amount", "transaction_amount");
+            string statusColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, tableName,
+                "status", "post_status", "record_status");
+
+            if (string.IsNullOrWhiteSpace(dateColumn) || string.IsNullOrWhiteSpace(amountColumn))
+            {
+                continue;
+            }
+
+            string sql = "SELECT COALESCE(SUM(" + QuoteIdentifier(amountColumn) + "), 0) FROM " + QuoteIdentifier(tableName)
+                + " WHERE DATE(" + QuoteIdentifier(dateColumn) + ") = @businessDate";
+
+            if (!string.IsNullOrWhiteSpace(statusColumn))
+            {
+                sql += " AND UPPER(COALESCE(" + QuoteIdentifier(statusColumn) + ", '')) NOT IN ('VOID', 'CANCELLED', 'DELETED')";
+            }
+
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@businessDate", businessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                object scalar = cmd.ExecuteScalar();
+                decimal amount;
+                if (scalar != null && decimal.TryParse(scalar.ToString(), out amount) && amount > 0m)
+                {
+                    summaryAmount = amount;
+                    sourceDescription = tableName;
+                    resolutionMessage = string.Empty;
+                    return true;
+                }
+            }
+        }
+
+        resolutionMessage = string.Format(
+            CultureInfo.InvariantCulture,
+            "Night audit summary posting could not find source billing data for {0:yyyy-MM-dd}. No supported night-audit source table is available in the current finance database, so automatic GL posting was not attempted.",
+            businessDate);
+        return false;
+    }
+
+    private static bool TryResolveNightAuditAccounts(
+        MySqlConnection conn,
+        out string receivableAccount,
+        out string incomeAccount,
+        out string resolutionMessage)
+    {
+        receivableAccount = string.Empty;
+        incomeAccount = string.Empty;
+        resolutionMessage = string.Empty;
+
+        if (!FinanceSystemRealignmentHelper.TableExists(conn, "fin_subaccounts"))
+        {
+            resolutionMessage = "Night audit summary posting requires fin_subaccounts so receivable and income accounts can be resolved.";
+            return false;
+        }
+
+        string accountCodeColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_subaccounts", "AccountCode", "account_code", "accountcode");
+        string accountNameColumn = FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_subaccounts", "AccountName", "account_name", "accountname");
+
+        if (string.IsNullOrWhiteSpace(accountCodeColumn) || string.IsNullOrWhiteSpace(accountNameColumn))
+        {
+            resolutionMessage = "Night audit summary posting could not resolve chart-of-accounts columns from fin_subaccounts.";
+            return false;
+        }
+
+        receivableAccount = ResolvePreferredAccount(conn, accountCodeColumn, accountNameColumn,
+            new[] { "%ACCOMMOD%", "%HOSTEL%", "%ROOM%", "%RECEIVABLE%", "%AR%" });
+        incomeAccount = ResolvePreferredAccount(conn, accountCodeColumn, accountNameColumn,
+            new[] { "%ACCOMMOD%", "%REVENUE%", "%INCOME%" });
+
+        if (string.IsNullOrWhiteSpace(receivableAccount) || string.IsNullOrWhiteSpace(incomeAccount))
+        {
+            resolutionMessage = "Night audit summary posting could not resolve a receivable/income account pair from fin_subaccounts.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static string ResolvePreferredAccount(
+        MySqlConnection conn,
+        string accountCodeColumn,
+        string accountNameColumn,
+        IEnumerable<string> namePatterns)
+    {
+        List<string> patterns = new List<string>(namePatterns);
+        for (int i = 0; i < patterns.Count; i++)
+        {
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT " + QuoteIdentifier(accountCodeColumn) + " FROM fin_subaccounts WHERE UPPER(" + QuoteIdentifier(accountNameColumn) + ") LIKE @pattern ORDER BY " + QuoteIdentifier(accountCodeColumn) + " LIMIT 1;",
+                conn))
+            {
+                cmd.Parameters.AddWithValue("@pattern", patterns[i].ToUpperInvariant());
+                object scalar = cmd.ExecuteScalar();
+                if (scalar != null && !string.IsNullOrWhiteSpace(scalar.ToString()))
+                {
+                    return scalar.ToString();
+                }
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static int ResolveCurrentAccountingPeriodId(MySqlConnection conn, DateTime businessDate)
+    {
+        if (!FinanceSystemRealignmentHelper.TableExists(conn, "fin_accounting_periods"))
+        {
+            return 0;
+        }
+
+        using (MySqlCommand cmd = new MySqlCommand(@"
+            SELECT period_id
+            FROM fin_accounting_periods
+            WHERE @businessDate BETWEEN start_date AND end_date
+            ORDER BY period_id DESC
+            LIMIT 1;", conn))
+        {
+            cmd.Parameters.AddWithValue("@businessDate", businessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            object scalar = cmd.ExecuteScalar();
+            int periodId;
+            return scalar != null && int.TryParse(scalar.ToString(), out periodId) ? periodId : 0;
+        }
+    }
+
+    private static void InsertNightAuditLedgerLine(
+        MySqlConnection conn,
+        int batchId,
+        int periodId,
+        string voucherNumber,
+        string accountCode,
+        string drCr,
+        decimal amount,
+        string narration,
+        string currentUser,
+        DateTime businessDate)
+    {
+        List<string> columns = new List<string>();
+        List<string> values = new List<string>();
+        MySqlCommand cmd = new MySqlCommand();
+        cmd.Connection = conn;
+
+        AddInsertValue(columns, values, cmd, "voucherno", voucherNumber);
+        AddInsertValue(columns, values, cmd, "account_code", accountCode);
+        AddInsertValue(columns, values, cmd, "dr_cr", drCr);
+        AddInsertValue(columns, values, cmd, "amount", amount);
+        AddInsertValue(columns, values, cmd, "narration", narration);
+        AddInsertValue(columns, values, cmd, "entry_date", businessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        AddInsertValue(columns, values, cmd, "batch_id", batchId > 0 ? (object)batchId : DBNull.Value);
+        AddInsertValue(columns, values, cmd, "fiscal_period_id", periodId > 0 ? (object)periodId : DBNull.Value);
+        AddInsertValue(columns, values, cmd, "adjustment_type", "Original");
+        AddInsertValue(columns, values, cmd, "source_system", "NightAudit");
+        AddInsertValue(columns, values, cmd, "teller", currentUser);
+
+        if (columns.Count < 6)
+        {
+            throw new InvalidOperationException("Night audit summary posting could not map the required fin_ledger columns in the current environment.");
+        }
+
+        cmd.CommandText = "INSERT INTO fin_ledger (" + string.Join(", ", columns.ToArray()) + ") VALUES (" + string.Join(", ", values.ToArray()) + ");";
+        cmd.ExecuteNonQuery();
+    }
+
+    private static void AddInsertValue(
+        List<string> columns,
+        List<string> values,
+        MySqlCommand cmd,
+        string preferredColumn,
+        object value)
+    {
+        if (value == null)
+        {
+            return;
+        }
+
+        string actualColumn = ResolveLedgerColumn(cmd.Connection, preferredColumn);
+        if (string.IsNullOrWhiteSpace(actualColumn))
+        {
+            return;
+        }
+
+        string parameterName = "@p" + columns.Count.ToString(CultureInfo.InvariantCulture);
+        columns.Add(QuoteIdentifier(actualColumn));
+        values.Add(parameterName);
+        cmd.Parameters.AddWithValue(parameterName, value);
+    }
+
+    private static string ResolveLedgerColumn(MySqlConnection conn, string preferredColumn)
+    {
+        switch (preferredColumn)
+        {
+            case "voucherno":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "voucherno", "voucherNo");
+            case "account_code":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "account_code", "accountcode");
+            case "dr_cr":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "dr_cr", "transactionType");
+            case "amount":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "amount", "transaction_amount");
+            case "narration":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "narration", "particulars");
+            case "entry_date":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "entry_date", "transactionDate");
+            case "batch_id":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "batch_id");
+            case "fiscal_period_id":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "fiscal_period_id", "period_id");
+            case "adjustment_type":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "adjustment_type");
+            case "source_system":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "source_system");
+            case "teller":
+                return FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", "teller");
+            default:
+                return string.Empty;
+        }
+    }
+
+    private static string QuoteIdentifier(string identifier)
+    {
+        return string.IsNullOrWhiteSpace(identifier)
+            ? string.Empty
+            : "`" + identifier.Replace("`", "``") + "`";
+    }
+}

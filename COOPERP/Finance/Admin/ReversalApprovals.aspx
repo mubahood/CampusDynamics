@@ -6,6 +6,42 @@
         <p style="margin:0 0 12px 0;color:#444;">Review and approve or reject reversal/correction requests with full audit traceability. All actions are logged.</p>
         <asp:Label ID="lblApprovalInfo" runat="server" ForeColor="#0b5394"></asp:Label>
 
+        <asp:Panel ID="pnlRequestDetail" runat="server" Visible="false"
+            style="margin-top:14px;padding:14px;border:1px solid #c0c0c0;background:#fbfbfb;border-radius:4px;">
+            <h3 style="margin:0 0 10px 0;color:#05275C;font-size:16px;">Request Review</h3>
+            <asp:Label ID="lblRequestDetail" runat="server" style="display:block;margin-bottom:10px;color:#333;"></asp:Label>
+
+            <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+                <div style="flex:1;min-width:300px;">
+                    <div style="font-weight:bold;margin-bottom:6px;color:#05275C;">Original Voucher Lines</div>
+                    <asp:GridView ID="gvOriginalLines" runat="server" Width="100%" AutoGenerateColumns="false"
+                        GridLines="Horizontal" style="font-size:12px;">
+                        <HeaderStyle BackColor="#05275C" ForeColor="White" Font-Bold="True" />
+                        <AlternatingRowStyle BackColor="#f5f8ff" />
+                        <Columns>
+                            <asp:BoundField DataField="LedgerId" HeaderText="Ledger ID" />
+                            <asp:BoundField DataField="AccountCode" HeaderText="Account" />
+                            <asp:BoundField DataField="EntryType" HeaderText="Dr/Cr" />
+                            <asp:BoundField DataField="Amount" HeaderText="Amount" DataFormatString="{0:N2}" />
+                            <asp:BoundField DataField="Narration" HeaderText="Narration" />
+                        </Columns>
+                    </asp:GridView>
+                </div>
+                <div style="flex:1;min-width:300px;">
+                    <div style="font-weight:bold;margin-bottom:6px;color:#05275C;">Requested Adjustment Summary</div>
+                    <asp:GridView ID="gvRequestedLines" runat="server" Width="100%" AutoGenerateColumns="false"
+                        GridLines="Horizontal" style="font-size:12px;">
+                        <HeaderStyle BackColor="#336699" ForeColor="White" Font-Bold="True" />
+                        <AlternatingRowStyle BackColor="#f8fbff" />
+                        <Columns>
+                            <asp:BoundField DataField="FieldName" HeaderText="Field" />
+                            <asp:BoundField DataField="FieldValue" HeaderText="Value" />
+                        </Columns>
+                    </asp:GridView>
+                </div>
+            </div>
+        </asp:Panel>
+
         <%-- Approval/Rejection comments panel (hidden until action is clicked) --%>
         <asp:Panel ID="pnlActionPanel" runat="server" Visible="false"
             style="margin-top:14px;padding:14px;border:1px solid #c0c0c0;background:#f8f8f8;border-radius:4px;">
@@ -45,6 +81,9 @@
                 <asp:BoundField DataField="Status" HeaderText="Status" />
                 <asp:TemplateField HeaderText="Actions">
                     <ItemTemplate>
+                        <asp:LinkButton ID="lbView" runat="server" CommandName="ViewRequest"
+                            CommandArgument='<%# Eval("ReversalId") %>'
+                            style="color:#05275C;font-weight:bold;margin-right:10px;">View</asp:LinkButton>
                         <asp:LinkButton ID="lbApprove" runat="server" CommandName="ApproveReversal"
                             CommandArgument='<%# Eval("ReversalId") %>'
                             Visible='<%# (string)Eval("Status") == "Pending" %>'

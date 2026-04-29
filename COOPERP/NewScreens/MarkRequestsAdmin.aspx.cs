@@ -202,11 +202,9 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
                 parms.Add(new MySqlParameter("@rt", requestType));
             }
             search = (search ?? "").Trim();
-            if (!string.IsNullOrEmpty(search))
-            {
-                conditions.Append(" AND (r.regno LIKE @s OR r.course_id LIKE @s OR IFNULL(s.StudentName,'') LIKE @s)");
+            bool hasSearch = !string.IsNullOrEmpty(search);
+            if (hasSearch)
                 parms.Add(new MySqlParameter("@s", "%" + search + "%"));
-            }
 
             var requests = new List<object>();
             using (var conn = new MySqlConnection(ConnStr))
@@ -229,6 +227,10 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
                     try
                     {
                         requests.Clear();
+                        string whereClause = conditions.ToString();
+                        if (hasSearch)
+                            whereClause += " AND (r.regno LIKE @s OR r.course_id LIKE @s OR " + nameExpr + " LIKE @s)";
+
                         string sql = @"
                             SELECT
                                 r.id, r.regno,
@@ -263,7 +265,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
                                 AND ar.acad = r.acad_year AND ar.semester = r.semester
                             LEFT JOIN hrm_employee le ON le.empID = r.lecturer_id
                             LEFT JOIN hrm_employee se ON se.empID = r.supervisor_id
-                            " + conditions + @"
+                            " + whereClause + @"
                             ORDER BY
                                 CASE r.status
                                     WHEN 'PENDING_ADMIN'     THEN 0

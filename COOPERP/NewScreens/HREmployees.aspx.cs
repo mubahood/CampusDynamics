@@ -91,6 +91,12 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
 
         if (!string.IsNullOrEmpty(action))
         {
+            if (string.Equals(action, "export_employees", StringComparison.OrdinalIgnoreCase))
+            {
+                WriteEmployeesExportCsv();
+                return;
+            }
+
             HandleAjaxAction(action);
             return;
         }
@@ -1189,6 +1195,135 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
         DataRow r = dt.Rows[0];
         Response.Write(string.Format("{{\"total\":{0},\"academic\":{1},\"admin\":{2},\"active\":{3}}}",
             r["total"], r["academic"], r["admin"], r["active_contracts"]));
+    }
+
+    private void WriteEmployeesExportCsv()
+    {
+        string search = (Request.QueryString["q"] ?? string.Empty).Trim();
+        string dept = (Request.QueryString["dept"] ?? string.Empty).Trim();
+        string station = (Request.QueryString["station"] ?? string.Empty).Trim();
+        string empType = (Request.QueryString["type"] ?? string.Empty).Trim();
+        string status = (Request.QueryString["status"] ?? string.Empty).Trim();
+
+        StringBuilder sql = new StringBuilder();
+        sql.Append(@"SELECT
+            e.empID,
+            e.EMP_CODE,
+            e.emp_name,
+            e.emp_email,
+            e.emp_phone,
+            e.EmpType,
+            IFNULL(d.dept_name, '') AS department,
+            IFNULL(st.station_name, '') AS station,
+            IFNULL(j.jobname, '') AS job_title,
+            IFNULL(c.contractStatus, '') AS contract_status,
+            c.contractStart,
+            c.contractEnd,
+            IFNULL(ps.scale_name, '') AS pay_scale,
+            IFNULL(ps.basicpay, c.fixedamount) AS basic_pay,
+            IFNULL(c.fixedamount, 0) AS contract_fixed_amount,
+            IFNULL(c.ID, 0) AS contract_id
+        FROM hrm_employee e
+        LEFT JOIN hrm_emp_contracts c ON c.empID = e.empID AND c.ID = (
+            SELECT MAX(c2.ID) FROM hrm_emp_contracts c2 WHERE c2.empID = e.empID
+        )
+        LEFT JOIN hrm_departments d ON d.ID = c.departmentID
+        LEFT JOIN hrm_stations st ON st.ID = e.Entry_Satation
+        LEFT JOIN hrm_payscales ps ON ps.ID = c.payscale
+        LEFT JOIN hrm_jobs j ON j.ID = c.jobID
+        WHERE 1=1 ");
+
+        List<MySqlParameter> parms = new List<MySqlParameter>();
+        if (!string.IsNullOrEmpty(search))
+        {
+            sql.Append(" AND (e.emp_name LIKE @search OR e.EMP_CODE LIKE @search OR e.emp_email LIKE @search OR e.emp_phone LIKE @search OR e.usernames LIKE @search) ");
+            parms.Add(new MySqlParameter("@search", "%" + search + "%"));
+        }
+        if (!string.IsNullOrEmpty(dept))
+        {
+            sql.Append(" AND c.departmentID = @dept ");
+            parms.Add(new MySqlParameter("@dept", dept));
+        }
+        if (!string.IsNullOrEmpty(station))
+        {
+            sql.Append(" AND e.Entry_Satation = @station ");
+            parms.Add(new MySqlParameter("@station", station));
+        }
+        if (!string.IsNullOrEmpty(empType))
+        {
+            sql.Append(" AND e.EmpType = @empType ");
+            parms.Add(new MySqlParameter("@empType", empType));
+        }
+        if (!string.IsNullOrEmpty(status))
+        {
+            if (string.Equals(status, "NONE", StringComparison.OrdinalIgnoreCase))
+                sql.Append(" AND (IFNULL(c.contractStatus,'') = '' OR UPPER(IFNULL(c.contractStatus,'')) <> 'VALID') ");
+            else
+            {
+                sql.Append(" AND c.contractStatus = @status ");
+                parms.Add(new MySqlParameter("@status", status));
+            }
+        }
+
+        sql.Append(" ORDER BY " + GetOrderByClause() + " ");
+
+        DataTable dt = ExecuteQuery(sql.ToString(), parms.ToArray());
+
+        StringBuilder csv = new StringBuilder();
+        csv.AppendLine("Employee ID,Staff Code,Employee Name,Email,Phone,Employee Type,Department,Station,Job Title,Contract Status,Contract Start,Contract End,Pay Scale,Basic Pay,Contract Fixed Amount,Contract ID");
+
+        foreach (DataRow row in dt.Rows)
+        {
+            csv.Append(EscapeCsv(SafeVal(row["empID"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["EMP_CODE"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["emp_name"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["emp_email"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["emp_phone"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["EmpType"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["department"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["station"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["job_title"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["contract_status"]))).Append(',')
+               .Append(EscapeCsv(FormatDateCsv(row["contractStart"]))).Append(',')
+               .Append(EscapeCsv(FormatDateCsv(row["contractEnd"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["pay_scale"]))).Append(',')
+               .Append(EscapeCsv(FormatAmountCsv(row["basic_pay"]))).Append(',')
+               .Append(EscapeCsv(FormatAmountCsv(row["contract_fixed_amount"]))).Append(',')
+               .Append(EscapeCsv(SafeVal(row["contract_id"])))
+               .AppendLine();
+        }
+
+        string fileName = "employees_contracts_" + DateTime.Now.ToString("yyyyMMdd_HHmm") + ".csv";
+        Response.Clear();
+        Response.ContentType = "text/csv; charset=utf-8";
+        Response.AddHeader("Content-Disposition", "attachment; filename=" + fileName);
+        Response.Write("\uFEFF");
+        Response.Write(csv.ToString());
+        Response.End();
+    }
+
+    private string EscapeCsv(string value)
+    {
+        if (value == null) value = string.Empty;
+        string clean = value.Replace("\r", " ").Replace("\n", " ");
+        if (clean.IndexOf('"') >= 0 || clean.IndexOf(',') >= 0)
+            return "\"" + clean.Replace("\"", "\"\"") + "\"";
+        return clean;
+    }
+
+    private string FormatAmountCsv(object val)
+    {
+        if (val == null || val == DBNull.Value) return string.Empty;
+        decimal d;
+        if (decimal.TryParse(val.ToString(), out d)) return d.ToString("0.##");
+        return val.ToString();
+    }
+
+    private string FormatDateCsv(object val)
+    {
+        if (val == null || val == DBNull.Value) return string.Empty;
+        DateTime dt;
+        return DateTime.TryParse(val.ToString(), out dt) ? dt.ToString("yyyy-MM-dd") : val.ToString();
     }
 
     private void WriteResetPwdAjax()

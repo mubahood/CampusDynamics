@@ -93,6 +93,14 @@
                                 </Columns>
                             </dx:ASPxComboBox>
                         </td>
+                        <td>
+                            <dx:ASPxRadioButtonList ID="rb_openingBalance" runat="server" Height="35px" RepeatDirection="Horizontal" SelectedIndex="0" Width="250px">
+                                <Items>
+                                    <dx:ListEditItem Selected="True" Text="Normal Journal" Value="Normal Journal" />
+                                    <dx:ListEditItem Text="Opening Balance" Value="Opening Balance" />
+                                </Items>
+                            </dx:ASPxRadioButtonList>
+                        </td>
                         <td class="auto-style11">Ref No:</td>
                         <td>
                             <dx:ASPxTextBox ID="txtRefNo" runat="server" AutoPostBack="true" OnTextChanged="txtRefNo_TextChanged" Height="35px" Width="170px" />
@@ -103,6 +111,18 @@
                         <td>
                             <dx:ASPxButton ID="cmdCreateNew" runat="server" Height="35px" OnClick="cmdCreateNew_Click" Text="Create New" Width="170px">
                                 <Image Url="~/COOPERP/images/tick-button.png">
+                                </Image>
+                            </dx:ASPxButton>
+                        </td>
+                        <td>
+                            <dx:ASPxButton ID="cmdApproveJournal" runat="server" Height="35px" OnClick="cmdApproveJournal_Click" Text="Approve Journal" Width="170px">
+                                <Image Url="~/COOPERP/images/tick-button.png">
+                                </Image>
+                            </dx:ASPxButton>
+                        </td>
+                        <td>
+                            <dx:ASPxButton ID="cmdPrintJournal" runat="server" Height="35px" OnClick="cmdPrintJournal_Click" Text="Print Journal" Width="170px">
+                                <Image Url="~/COOPERP/images/printer.png">
                                 </Image>
                             </dx:ASPxButton>
                         </td>

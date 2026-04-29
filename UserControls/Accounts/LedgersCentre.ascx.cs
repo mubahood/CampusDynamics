@@ -4,14 +4,21 @@ using System.Linq;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+using System.Configuration;
+using System.Collections;
 using Systems.Settings.SD;
 using CoopERPDataTableAdapters;
+using MySql.Data.MySqlClient;
 
 public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserControl
 {
+    private const string PendingFinanceRequestsSessionKey = "PendingFinanceRequests_LedgersCentre";
+
     protected void Page_Load(object sender, EventArgs e)
     {
         pop_msgbox.HeaderText = "Campus Dynamics ERP";
+        EnsurePendingFinanceRequestMapLoaded();
+
         if (!IsPostBack)
         {
             if (DateTime.Today.Month > 7)
@@ -31,13 +38,13 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
             
         }
 
-        if (txtType.Text == "Correct Amount")
+        if (txtType.Text == "Request Correction")
         {
-            txtNewAmount.Enabled = true;
-            txt_reason.Enabled = false;
+            txtNewAmount.Enabled = false;
+            txt_reason.Enabled = true;
 
         }
-        else if (txtType.Text == "Reverse Transaction")
+        else if (txtType.Text == "Request Reversal")
         {
             txtNewAmount.Enabled = false;
             txt_reason.Enabled = true;
@@ -75,6 +82,25 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
     protected void gvLedger_HtmlRowCreated(object sender, DevExpress.Web.ASPxGridViewTableRowEventArgs e)
     {
         e.Row.Height = 35;
+
+        try
+        {
+            object voucherValue = gvLedger.GetRowValues(e.VisibleIndex, "voucherno");
+            if (voucherValue == null)
+                return;
+
+            string voucherNo = voucherValue.ToString();
+            string pendingType;
+            if (PendingFinanceRequestMap.TryGetValue(voucherNo, out pendingType))
+            {
+                e.Row.BackColor = System.Drawing.Color.FromArgb(255, 249, 196);
+                e.Row.ToolTip = "Pending Finance System Realignment request: " + pendingType;
+            }
+        }
+        catch
+        {
+            // Row decoration must never break grid rendering
+        }
     }
     protected void cmdProcess_Click(object sender, EventArgs e)
     {
@@ -82,52 +108,48 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
         pop_msgbox.Width = 350;
         pop_msgbox.Height = 145;
 
-        // B13 FIX: Block all ledger operations outside open financial period
-        string periodError;
-        if (!IsInOpenFinancialPeriod(out periodError))
+        AdjustmentsCentreTableAdapters.fin_ledgerTableAdapter ADJ = new AdjustmentsCentreTableAdapters.fin_ledgerTableAdapter();
+        int noRows = gvLedger.VisibleRowCount, counter = 0;
+
+        if (txtType.Text == "Request Reversal" || txtType.Text == "Request Correction")
         {
-            lbl_msgbox.Text = periodError;
-            pop_msgbox.ShowOnPageLoad = true;
+            string selectedVoucher = GetSingleSelectedVoucher();
+            if (string.IsNullOrEmpty(selectedVoucher))
+            {
+                lbl_msgbox.Text = "Please select exactly one voucher to continue with the approval workflow.";
+                pop_msgbox.ShowOnPageLoad = true;
+                return;
+            }
+
+            string pendingType;
+            if (PendingFinanceRequestMap.TryGetValue(selectedVoucher, out pendingType))
+            {
+                lbl_msgbox.Text = "A pending " + pendingType + " request already exists for voucher " + selectedVoucher + ".";
+                pop_msgbox.ShowOnPageLoad = true;
+                return;
+            }
+
+            string targetUrl = txtType.Text == "Request Reversal"
+                ? "~/COOPERP/Finance/Admin/ReversalRequest.aspx?voucher=" + Server.UrlEncode(selectedVoucher)
+                : "~/COOPERP/Finance/Admin/CorrectionRequest.aspx?voucher=" + Server.UrlEncode(selectedVoucher);
+
+            if (!string.IsNullOrWhiteSpace(txt_reason.Text))
+            {
+                Session["FinanceRealignmentRequestNotes"] = txt_reason.Text.Trim();
+            }
+            Session["FinanceRealignmentSourceVoucher"] = selectedVoucher;
+
+            Response.Redirect(targetUrl, false);
+            Context.ApplicationInstance.CompleteRequest();
             return;
         }
 
-        AdjustmentsCentreTableAdapters.fin_ledgerTableAdapter ADJ = new AdjustmentsCentreTableAdapters.fin_ledgerTableAdapter();
-        int noRows = gvLedger.VisibleRowCount, counter = 0;
-        if (txtType.Text.Contains("Reverse"))
-        {
-            // B4 FIX: Only Administrator or Bursar can reverse transactions
-            if (!HttpContext.Current.User.IsInRole("Administrator") && !HttpContext.Current.User.IsInRole("Bursar"))
-            {
-                lbl_msgbox.Text = "Sorry! Only Administrator or Bursar can reverse transactions";
-            }
-            else if (txt_reason.Text == "")
-            {
-                lbl_msgbox.Text = "Error! You MUST enter a reason for the reversal";
-            }
-            else
-            {
-                for (int i = 0; i < noRows; i++)
-                {
-                    if (gvLedger.Selection.IsRowSelected(i))
-                    {
-                        ADJ.fin_TransactionReversal(int.Parse(gvLedger.GetRowValues(i, "voucherno").ToString()),
-                            HttpContext.Current.User.Identity.Name, txt_reason.Text);
-                        counter++;
-                    }
-                }
-                lbl_msgbox.Text = counter + " transactions reversed successfully";
-                // F8: Audit log — transaction reversal
-                AuditLogger.Log("TRANSACTION_REVERSED",
-                    string.Format("Reason={0}, Count={1}", txt_reason.Text, counter),
-                    null, null, null, null);
-                gvLedger.DataBind();
-            }
-            pop_msgbox.ShowOnPageLoad = true;
-           
-        }
-        
         else if (txtType.Text.Contains("Correct Amount"))
         {
+            lbl_msgbox.Text = "Manual amount correction has been retired. Use Request Correction instead.";
+            pop_msgbox.ShowOnPageLoad = true;
+            return;
+
             for (int i = 0; i < noRows; i++)
             {
                 if (gvLedger.Selection.IsRowSelected(i))
@@ -235,5 +257,100 @@ public partial class UserControls_Accounts_LedgersCentre : System.Web.UI.UserCon
             return false;
         }
         return true;
+    }
+
+    private string GetSingleSelectedVoucher()
+    {
+        string selectedVoucher = null;
+        int selectedCount = 0;
+
+        for (int i = 0; i < gvLedger.VisibleRowCount; i++)
+        {
+            if (!gvLedger.Selection.IsRowSelected(i))
+                continue;
+
+            object value = gvLedger.GetRowValues(i, "voucherno");
+            if (value == null)
+                continue;
+
+            selectedVoucher = value.ToString();
+            selectedCount++;
+            if (selectedCount > 1)
+                return null;
+        }
+
+        return selectedCount == 1 ? selectedVoucher : null;
+    }
+
+    private IDictionary<string, string> PendingFinanceRequestMap
+    {
+        get
+        {
+            object raw = Session[PendingFinanceRequestsSessionKey];
+            if (raw == null)
+            {
+                raw = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                Session[PendingFinanceRequestsSessionKey] = raw;
+            }
+            return (IDictionary<string, string>)raw;
+        }
+    }
+
+    private void EnsurePendingFinanceRequestMapLoaded()
+    {
+        if (Session[PendingFinanceRequestsSessionKey] != null)
+            return;
+
+        Dictionary<string, string> pendingMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            string cs = ResolveFinanceConnectionString();
+            if (string.IsNullOrEmpty(cs))
+            {
+                Session[PendingFinanceRequestsSessionKey] = pendingMap;
+                return;
+            }
+
+            using (MySqlConnection conn = new MySqlConnection(cs))
+            {
+                conn.Open();
+
+                using (MySqlCommand cmd = new MySqlCommand(@"
+                    SELECT original_voucherno,
+                           GROUP_CONCAT(DISTINCT reversal_type ORDER BY reversal_type SEPARATOR ', ') AS pending_types
+                    FROM fin_transaction_reversal
+                    WHERE approved_at IS NULL
+                    GROUP BY original_voucherno;", conn))
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        string voucher = rdr["original_voucherno"] == DBNull.Value ? "" : rdr["original_voucherno"].ToString();
+                        if (voucher == "") continue;
+                        pendingMap[voucher] = rdr["pending_types"] == DBNull.Value ? "Pending request" : rdr["pending_types"].ToString();
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore — UI can still function without status decoration.
+        }
+
+        Session[PendingFinanceRequestsSessionKey] = pendingMap;
+    }
+
+    private string ResolveFinanceConnectionString()
+    {
+        var cs = ConfigurationManager.ConnectionStrings["campus_dynamics_portalConnectionString"];
+        if (cs != null && !string.IsNullOrEmpty(cs.ConnectionString))
+            return cs.ConnectionString;
+
+        cs = ConfigurationManager.ConnectionStrings["LocalMySqlServer"];
+        if (cs != null && !string.IsNullOrEmpty(cs.ConnectionString))
+            return cs.ConnectionString;
+
+        return null;
     }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Collections;
 using System.ComponentModel;
@@ -214,7 +214,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             this.xrTable2.Borders = ((DevExpress.XtraPrinting.BorderSide)(((DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Right) 
             | DevExpress.XtraPrinting.BorderSide.Bottom)));
             this.xrTable2.Dpi = 100F;
-            this.xrTable2.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTable2.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTable2.ForeColor = System.Drawing.Color.DarkBlue;
             this.xrTable2.LocationFloat = new DevExpress.Utils.PointFloat(37.16665F, 0F);
             this.xrTable2.Name = "xrTable2";
@@ -321,7 +321,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // 
             this.xrLabel1.BackColor = System.Drawing.Color.DarkBlue;
             this.xrLabel1.Dpi = 100F;
-            this.xrLabel1.Font = new System.Drawing.Font("Tahoma", 11F, System.Drawing.FontStyle.Bold);
+            this.xrLabel1.Font = new System.Drawing.Font("Calibri", 11F, System.Drawing.FontStyle.Bold);
             this.xrLabel1.ForeColor = System.Drawing.Color.White;
             this.xrLabel1.LocationFloat = new DevExpress.Utils.PointFloat(0.9999911F, 87.66666F);
             this.xrLabel1.Name = "xrLabel1";
@@ -338,7 +338,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // 
             this.xrTable1.Borders = DevExpress.XtraPrinting.BorderSide.None;
             this.xrTable1.Dpi = 100F;
-            this.xrTable1.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTable1.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTable1.ForeColor = System.Drawing.Color.DarkBlue;
             this.xrTable1.LocationFloat = new DevExpress.Utils.PointFloat(37.49999F, 41F);
             this.xrTable1.Name = "xrTable1";
@@ -417,7 +417,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTable3
             // 
             this.xrTable3.Dpi = 100F;
-            this.xrTable3.Font = new System.Drawing.Font("Tahoma", 11F, System.Drawing.FontStyle.Bold);
+            this.xrTable3.Font = new System.Drawing.Font("Calibri", 11F, System.Drawing.FontStyle.Bold);
             this.xrTable3.ForeColor = System.Drawing.Color.Black;
             this.xrTable3.LocationFloat = new DevExpress.Utils.PointFloat(12.16667F, 12.5F);
             this.xrTable3.Name = "xrTable3";
@@ -481,7 +481,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTable5
             // 
             this.xrTable5.Dpi = 100F;
-            this.xrTable5.Font = new System.Drawing.Font("Tahoma", 11F, System.Drawing.FontStyle.Bold);
+            this.xrTable5.Font = new System.Drawing.Font("Calibri", 11F, System.Drawing.FontStyle.Bold);
             this.xrTable5.ForeColor = System.Drawing.Color.Black;
             this.xrTable5.LocationFloat = new DevExpress.Utils.PointFloat(13.08334F, 79.41666F);
             this.xrTable5.Name = "xrTable5";
@@ -535,7 +535,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTable4
             // 
             this.xrTable4.Dpi = 100F;
-            this.xrTable4.Font = new System.Drawing.Font("Tahoma", 11F, System.Drawing.FontStyle.Bold);
+            this.xrTable4.Font = new System.Drawing.Font("Calibri", 11F, System.Drawing.FontStyle.Bold);
             this.xrTable4.ForeColor = System.Drawing.Color.Black;
             this.xrTable4.LocationFloat = new DevExpress.Utils.PointFloat(13.08334F, 10.5F);
             this.xrTable4.Name = "xrTable4";
@@ -603,7 +603,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell13
             // 
             this.xrTableCell13.Dpi = 100F;
-            this.xrTableCell13.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell13.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell13.Name = "xrTableCell13";
             this.xrTableCell13.StylePriority.UseFont = false;
             this.xrTableCell13.Text = "AB";
@@ -612,7 +612,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell14
             // 
             this.xrTableCell14.Dpi = 100F;
-            this.xrTableCell14.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell14.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell14.Name = "xrTableCell14";
             this.xrTableCell14.StylePriority.UseFont = false;
             this.xrTableCell14.Text = "RE";
@@ -629,7 +629,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // 
             this.xrLabel2.BackColor = System.Drawing.Color.DarkBlue;
             this.xrLabel2.Dpi = 100F;
-            this.xrLabel2.Font = new System.Drawing.Font("Tahoma", 11F, System.Drawing.FontStyle.Bold);
+            this.xrLabel2.Font = new System.Drawing.Font("Calibri", 11F, System.Drawing.FontStyle.Bold);
             this.xrLabel2.ForeColor = System.Drawing.Color.White;
             this.xrLabel2.LocationFloat = new DevExpress.Utils.PointFloat(1.583557F, 147.9167F);
             this.xrLabel2.Name = "xrLabel2";
@@ -652,7 +652,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell17
             // 
             this.xrTableCell17.Dpi = 100F;
-            this.xrTableCell17.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell17.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell17.Name = "xrTableCell17";
             this.xrTableCell17.StylePriority.UseFont = false;
             this.xrTableCell17.Weight = 0.17187087795170936D;
@@ -672,7 +672,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell18
             // 
             this.xrTableCell18.Dpi = 100F;
-            this.xrTableCell18.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell18.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell18.Name = "xrTableCell18";
             this.xrTableCell18.StylePriority.UseFont = false;
             this.xrTableCell18.Weight = 0.17187087795170936D;
@@ -680,7 +680,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell19
             // 
             this.xrTableCell19.Dpi = 100F;
-            this.xrTableCell19.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell19.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell19.Name = "xrTableCell19";
             this.xrTableCell19.StylePriority.UseFont = false;
             this.xrTableCell19.Text = "AC";
@@ -696,7 +696,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell21
             // 
             this.xrTableCell21.Dpi = 100F;
-            this.xrTableCell21.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell21.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell21.Name = "xrTableCell21";
             this.xrTableCell21.StylePriority.UseFont = false;
             this.xrTableCell21.Text = "RR";
@@ -724,7 +724,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell23
             // 
             this.xrTableCell23.Dpi = 100F;
-            this.xrTableCell23.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell23.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell23.Name = "xrTableCell23";
             this.xrTableCell23.StylePriority.UseFont = false;
             this.xrTableCell23.Weight = 0.17187087795170936D;
@@ -732,7 +732,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell24
             // 
             this.xrTableCell24.Dpi = 100F;
-            this.xrTableCell24.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell24.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell24.Name = "xrTableCell24";
             this.xrTableCell24.StylePriority.UseFont = false;
             this.xrTableCell24.Text = "EC";
@@ -748,7 +748,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell26
             // 
             this.xrTableCell26.Dpi = 100F;
-            this.xrTableCell26.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell26.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell26.Name = "xrTableCell26";
             this.xrTableCell26.StylePriority.UseFont = false;
             this.xrTableCell26.Text = "RT";
@@ -776,7 +776,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell28
             // 
             this.xrTableCell28.Dpi = 100F;
-            this.xrTableCell28.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell28.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell28.Name = "xrTableCell28";
             this.xrTableCell28.StylePriority.UseFont = false;
             this.xrTableCell28.Weight = 0.17187087795170936D;
@@ -784,7 +784,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell29
             // 
             this.xrTableCell29.Dpi = 100F;
-            this.xrTableCell29.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell29.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell29.Name = "xrTableCell29";
             this.xrTableCell29.StylePriority.UseFont = false;
             this.xrTableCell29.Text = "DY";
@@ -800,7 +800,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell31
             // 
             this.xrTableCell31.Dpi = 100F;
-            this.xrTableCell31.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell31.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell31.Name = "xrTableCell31";
             this.xrTableCell31.StylePriority.UseFont = false;
             this.xrTableCell31.Text = "SE";
@@ -828,7 +828,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell33
             // 
             this.xrTableCell33.Dpi = 100F;
-            this.xrTableCell33.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell33.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell33.Name = "xrTableCell33";
             this.xrTableCell33.StylePriority.UseFont = false;
             this.xrTableCell33.Weight = 0.17187087795170936D;
@@ -836,7 +836,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell34
             // 
             this.xrTableCell34.Dpi = 100F;
-            this.xrTableCell34.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell34.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell34.Name = "xrTableCell34";
             this.xrTableCell34.StylePriority.UseFont = false;
             this.xrTableCell34.Text = "IP";
@@ -852,7 +852,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell36
             // 
             this.xrTableCell36.Dpi = 100F;
-            this.xrTableCell36.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell36.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell36.Name = "xrTableCell36";
             this.xrTableCell36.StylePriority.UseFont = false;
             this.xrTableCell36.Text = "WD";
@@ -880,7 +880,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell38
             // 
             this.xrTableCell38.Dpi = 100F;
-            this.xrTableCell38.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell38.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell38.Name = "xrTableCell38";
             this.xrTableCell38.StylePriority.UseFont = false;
             this.xrTableCell38.Weight = 0.17187087795170936D;
@@ -888,7 +888,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell39
             // 
             this.xrTableCell39.Dpi = 100F;
-            this.xrTableCell39.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell39.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell39.Name = "xrTableCell39";
             this.xrTableCell39.StylePriority.UseFont = false;
             this.xrTableCell39.Text = "NE";
@@ -904,7 +904,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             // xrTableCell41
             // 
             this.xrTableCell41.Dpi = 100F;
-            this.xrTableCell41.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold);
+            this.xrTableCell41.Font = new System.Drawing.Font("Calibri", 9.75F, System.Drawing.FontStyle.Bold);
             this.xrTableCell41.Name = "xrTableCell41";
             this.xrTableCell41.StylePriority.UseFont = false;
             this.xrTableCell41.Text = "NA";
@@ -935,7 +935,7 @@ public class FinalTranscript_KeytoGrades : DevExpress.XtraReports.UI.XtraReport
             this.xrCrossBandBox1});
             this.DataMember = "campus_dynamics_acad_GetStudentGradingSystemDetails";
             this.DataSource = this.sqlDataSource1;
-            this.Font = new System.Drawing.Font("Tahoma", 9.75F);
+            this.Font = new System.Drawing.Font("Calibri", 9.75F);
             this.Margins = new System.Drawing.Printing.Margins(32, 31, 10, 13);
             this.PageHeight = 1169;
             this.PageWidth = 827;
