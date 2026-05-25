@@ -1014,7 +1014,7 @@ public partial class API_v2_apply : System.Web.UI.Page
                      IFNULL(p.couselength, '') AS duration, IFNULL(p.study_system, '') AS award_type,
                      IFNULL(p.levelCode, '') AS level_code
               FROM acad_programme p
-              LEFT JOIN acad_faculty f ON f.fax_code = p.faculty_code
+              LEFT JOIN acad_faculty f ON f.faculty_code = p.faculty_code
               " + where + " ORDER BY f.faculty_name, p.progname",
             parms.ToArray());
 
@@ -1026,7 +1026,7 @@ public partial class API_v2_apply : System.Web.UI.Page
 
     private void HandleFaculties()
     {
-        DataTable dt = ApiHelper.Query("SELECT fax_code AS faculty_code, faculty_name FROM acad_faculty ORDER BY faculty_name");
+        DataTable dt = ApiHelper.Query("SELECT faculty_code, faculty_name FROM acad_faculty ORDER BY faculty_name");
         ApiHelper.Success(Response, ApiHelper.TableToList(dt));
     }
 
