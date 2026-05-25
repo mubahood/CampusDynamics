@@ -125,13 +125,13 @@ public partial class API_v2_apply : System.Web.UI.Page
             ApiHelper.Error(Response, "Account creation failed. Please try again.", "SERVER_ERROR"); return;
         }
 
-        // Insert membership row
+        // Insert membership row — lastLockoutDate omitted intentionally (NULL default for new accounts)
         PortalExecute(
             @"INSERT INTO my_aspnet_membership
                 (userId, password, passwordFormat, passwordKey, email, isApproved, isLockedOut,
-                 creationDate, lastLoginDate, lastPasswordChangedDate, lastLockoutDate,
+                 creationDate, lastLoginDate, lastPasswordChangedDate,
                  failedPasswordAttemptCount, failedPasswordAttemptWindowStart)
-              VALUES (@uid, @pwd, 1, @salt, @email, 1, 0, @now, @now, @now, @now, 0, @now)",
+              VALUES (@uid, @pwd, 1, @salt, @email, 1, 0, @now, @now, @now, 0, @now)",
             new MySqlParameter("@uid",   userId),
             new MySqlParameter("@pwd",   hashed),
             new MySqlParameter("@salt",  salt),
