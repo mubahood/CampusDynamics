@@ -1003,7 +1003,7 @@ public partial class API_v2_apply : System.Web.UI.Page
         string campus  = ApiHelper.Param(Request, "campus",  "");
         string q       = ApiHelper.Param(Request, "q",       "");
 
-        var where = new StringBuilder("WHERE p.is_active = 'Yes'");
+        var where = new StringBuilder("WHERE 1=1");
         var parms = new List<MySqlParameter>();
 
         if (!string.IsNullOrEmpty(faculty)) { where.Append(" AND p.faculty_code=@fac"); parms.Add(new MySqlParameter("@fac", faculty)); }
@@ -1011,7 +1011,8 @@ public partial class API_v2_apply : System.Web.UI.Page
 
         DataTable dt = ApiHelper.Query(
             @"SELECT p.progcode, p.progname, p.faculty_code, f.faculty_name,
-                     '' AS duration, '' AS award_type
+                     IFNULL(p.couselength, '') AS duration, IFNULL(p.study_system, '') AS award_type,
+                     IFNULL(p.levelCode, '') AS level_code
               FROM acad_programme p
               LEFT JOIN acad_faculty f ON f.fax_code = p.faculty_code
               " + where + " ORDER BY f.faculty_name, p.progname",
