@@ -236,11 +236,17 @@ public partial class API_v2_apply : System.Web.UI.Page
         otp   = otp.Trim();
 
         DataTable userDt = PortalQuery(
-            "SELECT id FROM my_aspnet_users WHERE user_type='APPLICANT' AND (LOWER(TRIM(name))=@em OR LOWER(TRIM(IFNULL(verified_email,'')))=@em) LIMIT 1",
+            @"SELECT id, IFNULL(user_full_name,'') AS full_name, IFNULL(user_mobile,'') AS phone
+              FROM my_aspnet_users
+              WHERE user_type='APPLICANT'
+                AND (LOWER(TRIM(name))=@em OR LOWER(TRIM(IFNULL(verified_email,'')))=@em) LIMIT 1",
             new MySqlParameter("@em", email));
 
         if (userDt.Rows.Count == 0) { ApiHelper.Error(Response, "Account not found.", "NOT_FOUND"); return; }
-        int userId = Convert.ToInt32(userDt.Rows[0]["id"]);
+
+        int    userId   = Convert.ToInt32(userDt.Rows[0]["id"]);
+        string fullName = userDt.Rows[0]["full_name"].ToString();
+        string phone    = userDt.Rows[0]["phone"].ToString();
 
         DataTable tkDt = PortalQuery(
             "SELECT id FROM apply_email_tokens WHERE user_id=@uid AND token=@t AND token_type='EMAIL_VERIFY_OTP' AND used=0 AND expires_at >= @now LIMIT 1",
@@ -255,7 +261,18 @@ public partial class API_v2_apply : System.Web.UI.Page
         PortalExecute("UPDATE my_aspnet_users SET verified_email=name WHERE id=@uid",
             new MySqlParameter("@uid", userId));
 
-        ApiHelper.Success(Response, new Dictionary<string, object> { { "verified", true } }, "Email verified successfully.");
+        TokenInfo token = TokenManager.CreateToken(userId.ToString(), "applicant", fullName, Request.UserHostAddress);
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "verified",   true },
+            { "token",      token.Token },
+            { "user_id",    userId },
+            { "email",      email },
+            { "full_name",  fullName },
+            { "phone",      phone },
+            { "expires_at", token.ExpiresAt.ToString("o") }
+        }, "Email verified successfully.");
     }
 
     private void HandleResendOtp()
