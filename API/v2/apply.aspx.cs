@@ -1011,7 +1011,7 @@ public partial class API_v2_apply : System.Web.UI.Page
 
         DataTable dt = ApiHelper.Query(
             @"SELECT p.progcode, p.progname, p.faculty_code, f.faculty_name,
-                     IFNULL(p.duration, '') AS duration, IFNULL(p.award_type, '') AS award_type
+                     '' AS duration, '' AS award_type
               FROM acad_programme p
               LEFT JOIN acad_faculty f ON f.fax_code = p.faculty_code
               " + where + " ORDER BY f.faculty_name, p.progname",
