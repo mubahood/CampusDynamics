@@ -17,10 +17,33 @@ using MySql.Data.MySqlClient;
 /// </summary>
 public partial class API_v2_apply : System.Web.UI.Page
 {
+    private static volatile bool _columnsEnsured = false;
+
+    private static void EnsureApplyColumns()
+    {
+        if (_columnsEnsured) return;
+        try
+        {
+            using (MySqlConnection conn = ApiHelper.GetConnection())
+            {
+                conn.Open();
+                // acad_applicant_choices.stud_reg_no — added by migration but often missing
+                long n = Convert.ToInt64(new MySqlCommand(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
+                    "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='acad_applicant_choices' AND COLUMN_NAME='stud_reg_no'", conn).ExecuteScalar());
+                if (n == 0)
+                    new MySqlCommand("ALTER TABLE acad_applicant_choices ADD COLUMN stud_reg_no VARCHAR(50) NULL", conn).ExecuteNonQuery();
+            }
+        }
+        catch { /* best-effort: don't block the API if DDL fails */ }
+        finally { _columnsEnsured = true; }
+    }
+
     protected void Page_Load(object sender, EventArgs e)
     {
         if (ApiHelper.HandleCors(Request, Response)) return;
         if (ApiHelper.IsRateLimited(Request, Response, action: Request["action"] == "login" ? "login" : "")) return;
+        EnsureApplyColumns();
 
         string action = ApiHelper.Param(Request, "action", "").ToLower();
 
