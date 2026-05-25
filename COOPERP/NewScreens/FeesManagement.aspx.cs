@@ -91,6 +91,12 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
     private const string ENROLLED_WHERE = @"
         AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')";
 
+    // Excludes bursaries (item 75), bill waivers, and balance-fix adjustments — leaving only real cash
+    private const string CASH_PAY_COND = @"
+        AND ft.item_code != 75
+        AND ft.detail NOT LIKE 'Bill Waiver%'
+        AND ft.detail NOT LIKE 'Balance Fix%'";
+
     // ===================================================================
     // PAGE LIFECYCLE
     // ===================================================================
@@ -211,6 +217,9 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
         try { LoadLatestBillings(yearFilter, semFilter); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadLatestBillings error: " + ex.Message); }
 
+        try { LoadPaymentChannels(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadPaymentChannels error: " + ex.Message); }
+
         LoadPaidButUnregistered();
     }
 
@@ -243,17 +252,31 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
         }
         litStatEnrolled.Text = enrolledCount.ToString("N0");
 
-        // (b) Financial totals — current year, enrolled only
-        double billed = 0, paid = 0, balance = 0;
+        // (b) Financial totals — current year, enrolled only (cash vs non-cash split)
+        double billed = 0, cashReceived = 0, bursaries = 0, waivers = 0, totalCredits = 0, balance = 0;
         using (var conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
             string sql = @"
                 SELECT
                     COALESCE(SUM(CASE WHEN ft.trans_type='Bill' THEN ft.amount ELSE 0 END),0) AS total_billed,
-                    COALESCE(SUM(CASE WHEN ft.trans_type='Payment' THEN ft.amount ELSE 0 END),0) AS total_paid,
+                    COALESCE(SUM(CASE WHEN ft.trans_type='Payment'
+                                      AND ft.item_code != 75
+                                      AND ft.detail NOT LIKE 'Bill Waiver%'
+                                      AND ft.detail NOT LIKE 'Balance Fix%'
+                                      THEN ft.amount ELSE 0 END),0) AS cash_received,
+                    COALESCE(SUM(CASE WHEN ft.trans_type='Payment' AND ft.item_code = 75
+                                      THEN ft.amount ELSE 0 END),0) AS bursaries,
+                    COALESCE(SUM(CASE WHEN ft.trans_type='Payment'
+                                      AND (ft.detail LIKE 'Bill Waiver%' OR ft.detail LIKE 'Balance Fix%')
+                                      THEN ft.amount ELSE 0 END),0) AS waivers_adj,
+                    COALESCE(SUM(CASE WHEN ft.trans_type='Payment' THEN ft.amount ELSE 0 END),0) AS total_all_credits,
                     SUM(CASE WHEN ft.trans_type='Bill' THEN 1 ELSE 0 END) AS bill_count,
-                    SUM(CASE WHEN ft.trans_type='Payment' THEN 1 ELSE 0 END) AS pay_count
+                    SUM(CASE WHEN ft.trans_type='Payment'
+                             AND ft.item_code != 75
+                             AND ft.detail NOT LIKE 'Bill Waiver%'
+                             AND ft.detail NOT LIKE 'Balance Fix%'
+                             THEN 1 ELSE 0 END) AS cash_count
                 FROM fin_studentfeestracking ft" + ENROLLED_JOIN + @"
                 WHERE ft.acadyear = @ay" + ENROLLED_WHERE + semSqlFT;
 
@@ -266,31 +289,36 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                 {
                     if (rdr.Read())
                     {
-                        billed = rdr["total_billed"] != DBNull.Value ? Convert.ToDouble(rdr["total_billed"]) : 0;
-                        paid   = rdr["total_paid"]   != DBNull.Value ? Convert.ToDouble(rdr["total_paid"])   : 0;
-                        long billCnt  = rdr["bill_count"]   != DBNull.Value ? Convert.ToInt64(rdr["bill_count"])    : 0;
-                        long payCnt   = rdr["pay_count"]    != DBNull.Value ? Convert.ToInt64(rdr["pay_count"])     : 0;
+                        billed        = Convert.ToDouble(rdr["total_billed"]);
+                        cashReceived  = Convert.ToDouble(rdr["cash_received"]);
+                        bursaries     = Convert.ToDouble(rdr["bursaries"]);
+                        waivers       = Convert.ToDouble(rdr["waivers_adj"]);
+                        totalCredits  = Convert.ToDouble(rdr["total_all_credits"]);
+                        long billCnt  = Convert.ToInt64(rdr["bill_count"]);
+                        long cashCnt  = Convert.ToInt64(rdr["cash_count"]);
 
-                        balance = billed - paid;
+                        balance = billed - totalCredits;
                         if (balance < 0) balance = 0;
-                        double rate = billed > 0 ? (paid / billed) * 100 : 0;
+                        double cashRate = billed > 0 ? (cashReceived / billed) * 100 : 0;
 
-                        litStatBilled.Text   = FormatCurrency(billed);
-                        litStatPaid.Text     = FormatCurrency(paid);
-                        litStatBalance.Text  = FormatCurrency(balance);
+                        litStatBilled.Text    = FormatCurrency(billed);
+                        litStatPaid.Text      = FormatCurrency(cashReceived);
+                        litStatBalance.Text   = FormatCurrency(balance);
                         litStatBillCount.Text = string.Format("{0:N0} invoices", billCnt);
-                        litStatPayCount.Text  = string.Format("{0:N0} payments", payCnt);
-                        litStatCollRate.Text  = string.Format("{0:F1}% collection rate", rate);
+                        litStatPayCount.Text  = string.Format("{0:N0} cash payments", cashCnt);
+                        litStatCollRate.Text  = string.Format("{0:F1}% cash collection", cashRate);
 
-                        hfDonutPaid.Value = paid.ToString("F0");
+                        hfDonutPaid.Value = cashReceived.ToString("F0");
                         hfDonutBal.Value  = balance.ToString("F0");
+
+                        litCashBreakdown.Text = BuildCreditBreakdownHtml(cashReceived, bursaries, waivers, totalCredits, billed, cashRate);
                     }
                 }
             }
         }
 
         // (c) Year-over-Year comparison
-        try { LoadYoYTrends(yearFilter, semFilter, enrolledCount, billed, paid, balance); }
+        try { LoadYoYTrends(yearFilter, semFilter, enrolledCount, billed, cashReceived, balance); }
         catch { /* YoY is non-critical */ }
     }
 
@@ -335,7 +363,7 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
             }
         }
 
-        // Previous year financials
+        // Previous year financials — cash only for accurate comparison
         double prevBilled = 0, prevPaid = 0;
         using (var conn = new MySqlConnection(AcctConnStr))
         {
@@ -343,7 +371,11 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
             string sql = @"
                 SELECT
                     COALESCE(SUM(CASE WHEN ft.trans_type='Bill' THEN ft.amount ELSE 0 END),0) AS total_billed,
-                    COALESCE(SUM(CASE WHEN ft.trans_type='Payment' THEN ft.amount ELSE 0 END),0) AS total_paid
+                    COALESCE(SUM(CASE WHEN ft.trans_type='Payment'
+                                      AND ft.item_code != 75
+                                      AND ft.detail NOT LIKE 'Bill Waiver%'
+                                      AND ft.detail NOT LIKE 'Balance Fix%'
+                                      THEN ft.amount ELSE 0 END),0) AS total_paid
                 FROM fin_studentfeestracking ft" + ENROLLED_JOIN + @"
                 WHERE ft.acadyear = @ay" + ENROLLED_WHERE + semSqlFT;
 
@@ -530,15 +562,17 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
 
     private void LoadMonthlyPayments(string yearFilter, string semFilter)
     {
-        string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
-        var labels = new List<string>();
-        var payValues = new List<string>();
-        var billValues = new List<string>();
+        string semSql   = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
+        string semSqlNc = string.IsNullOrEmpty(semFilter) ? "" : " AND fnc.semester = @sem";
+        string semSql2  = string.IsNullOrEmpty(semFilter) ? "" : " AND ft2.semester = @sem";
+        var labels       = new List<string>();
+        var cashValues   = new List<string>();
+        var nonCashValues= new List<string>();
+        var billValues   = new List<string>();
 
         using (var conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
-            // Past 12 months from today, with correlated subqueries for enrolled-only totals
             string sql = @"
                 SELECT DATE_FORMAT(m.month_start, '%b-%y') AS month_label,
                        m.month_start,
@@ -548,9 +582,22 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                         INNER JOIN campus_dynamics.acad_registration r ON r.regno = ft.regno AND r.acad_year = ft.acadyear
                             AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
                         WHERE ft.trans_type = 'Payment'
+                          AND ft.item_code != 75
+                          AND ft.detail NOT LIKE 'Bill Waiver%'
+                          AND ft.detail NOT LIKE 'Balance Fix%'
                           AND DATE_FORMAT(ft.trans_date, '%Y-%m') = DATE_FORMAT(m.month_start, '%Y-%m')
                           AND ft.trans_date IS NOT NULL" + semSql + @"
-                       ) AS total_paid,
+                       ) AS cash_received,
+                       (SELECT COALESCE(SUM(fnc.amount),0)
+                        FROM fin_studentfeestracking fnc
+                        INNER JOIN campus_dynamics.acad_student snc ON snc.regno = fnc.regno AND snc.new_status = 'ACTIVE'
+                        INNER JOIN campus_dynamics.acad_registration rnc ON rnc.regno = fnc.regno AND rnc.acad_year = fnc.acadyear
+                            AND rnc.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                        WHERE fnc.trans_type = 'Payment'
+                          AND (fnc.item_code = 75 OR fnc.detail LIKE 'Bill Waiver%' OR fnc.detail LIKE 'Balance Fix%')
+                          AND DATE_FORMAT(fnc.trans_date, '%Y-%m') = DATE_FORMAT(m.month_start, '%Y-%m')
+                          AND fnc.trans_date IS NOT NULL" + semSqlNc + @"
+                       ) AS non_cash,
                        (SELECT COALESCE(SUM(ft2.amount),0)
                         FROM fin_studentfeestracking ft2
                         INNER JOIN campus_dynamics.acad_student s2 ON s2.regno = ft2.regno AND s2.new_status = 'ACTIVE'
@@ -558,7 +605,7 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                             AND r2.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
                         WHERE ft2.trans_type = 'Bill'
                           AND DATE_FORMAT(ft2.trans_date, '%Y-%m') = DATE_FORMAT(m.month_start, '%Y-%m')
-                          AND ft2.trans_date IS NOT NULL" + semSql.Replace("ft.", "ft2.") + @"
+                          AND ft2.trans_date IS NOT NULL" + semSql2 + @"
                        ) AS total_billed
                 FROM (
                     SELECT DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL n MONTH), '%Y-%m-01') AS month_start
@@ -577,16 +624,18 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                     while (rdr.Read())
                     {
                         labels.Add(rdr["month_label"].ToString());
-                        payValues.Add(Convert.ToDouble(rdr["total_paid"]).ToString("F0"));
+                        cashValues.Add(Convert.ToDouble(rdr["cash_received"]).ToString("F0"));
+                        nonCashValues.Add(Convert.ToDouble(rdr["non_cash"]).ToString("F0"));
                         billValues.Add(Convert.ToDouble(rdr["total_billed"]).ToString("F0"));
                     }
                 }
             }
         }
 
-        hfMonthLabels.Value = string.Join(",", labels.ToArray());
-        hfMonthValues.Value = string.Join(",", payValues.ToArray());
+        hfMonthLabels.Value     = string.Join(",", labels.ToArray());
+        hfMonthValues.Value     = string.Join(",", cashValues.ToArray());
         hfMonthBillValues.Value = string.Join(",", billValues.ToArray());
+        hfMonthNonCash.Value    = string.Join(",", nonCashValues.ToArray());
     }
 
     // ===================================================================
@@ -612,6 +661,9 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                         INNER JOIN campus_dynamics.acad_registration r ON r.regno = ft.regno AND r.acad_year = ft.acadyear
                             AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
                         WHERE ft.trans_type = 'Payment'
+                          AND ft.item_code != 75
+                          AND ft.detail NOT LIKE 'Bill Waiver%'
+                          AND ft.detail NOT LIKE 'Balance Fix%'
                           AND DATE(ft.trans_date) = d.date
                           AND ft.trans_date IS NOT NULL" + semSql + @"
                        ) AS daily_paid
@@ -919,6 +971,107 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                 : string.Format("{0:N0} student/item combination(s) have multiple bills", duplicateBills));
 
         litAnomalyCards.Text = cards.ToString();
+    }
+
+    // ===================================================================
+    // CREDIT BREAKDOWN HTML BUILDER
+    // ===================================================================
+
+    private string BuildCreditBreakdownHtml(double cash, double bursary, double waiver, double total, double billed, double cashRate)
+    {
+        double bursaryRate = billed > 0 ? (bursary / billed * 100) : 0;
+        double waiverRate  = billed > 0 ? (waiver  / billed * 100) : 0;
+        double totalRate   = billed > 0 ? (total   / billed * 100) : 0;
+
+        return string.Format(
+            "<div class='fd-credits-row'>" +
+              "<div class='fd-credit-card fd-credit-card--cash'>" +
+                "<div class='fd-credit-card__icon'>" +
+                  "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#15803d' stroke-width='2'><rect x='1' y='4' width='22' height='16' rx='2'/><line x1='1' y1='10' x2='23' y2='10'/></svg>" +
+                "</div>" +
+                "<div class='fd-credit-card__label'>Cash Received</div>" +
+                "<div class='fd-credit-card__value'>{0}</div>" +
+                "<div class='fd-credit-card__sub'>Mobile Money &amp; Bank Deposits &mdash; {1:F1}% of billed</div>" +
+              "</div>" +
+              "<div class='fd-credit-card fd-credit-card--bursary'>" +
+                "<div class='fd-credit-card__icon'>" +
+                  "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#1d4ed8' stroke-width='2'><path d='M22 12h-4l-3 9L9 3l-3 9H2'/></svg>" +
+                "</div>" +
+                "<div class='fd-credit-card__label'>Bursaries &amp; Scholarships</div>" +
+                "<div class='fd-credit-card__value'>{2}</div>" +
+                "<div class='fd-credit-card__sub'>Non-cash govt &amp; institutional grants &mdash; {3:F1}% of billed</div>" +
+              "</div>" +
+              "<div class='fd-credit-card fd-credit-card--waiver'>" +
+                "<div class='fd-credit-card__icon'>" +
+                  "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#b45309' stroke-width='2'><polyline points='20 6 9 17 4 12'/><path d='M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2'/></svg>" +
+                "</div>" +
+                "<div class='fd-credit-card__label'>Waivers &amp; Adjustments</div>" +
+                "<div class='fd-credit-card__value'>{4}</div>" +
+                "<div class='fd-credit-card__sub'>Bill corrections &amp; reconciliation fixes &mdash; {5:F1}% of billed</div>" +
+              "</div>" +
+              "<div class='fd-credit-card fd-credit-card--net'>" +
+                "<div class='fd-credit-card__icon'>" +
+                  "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='#05275C' stroke-width='2'><line x1='12' y1='1' x2='12' y2='23'/><path d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/></svg>" +
+                "</div>" +
+                "<div class='fd-credit-card__label'>Total Credits Applied</div>" +
+                "<div class='fd-credit-card__value'>{6}</div>" +
+                "<div class='fd-credit-card__sub'>Cash + Bursaries + Waivers &mdash; {7:F1}% coverage</div>" +
+              "</div>" +
+            "</div>",
+            FormatCurrency(cash),    cashRate,
+            FormatCurrency(bursary), bursaryRate,
+            FormatCurrency(waiver),  waiverRate,
+            FormatCurrency(total),   totalRate);
+    }
+
+    // ===================================================================
+    // PAYMENT CHANNELS (cash only — Mobile Money, Direct Bank, Other)
+    // ===================================================================
+
+    private void LoadPaymentChannels(string yearFilter, string semFilter)
+    {
+        string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
+        var labels = new List<string>();
+        var values = new List<string>();
+
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            string sql = @"
+                SELECT
+                  CASE
+                    WHEN ft.detail REGEXP 'MTN|Airtel|Mobile.Money|MoMo' THEN 'Mobile Money'
+                    WHEN ft.detail REGEXP 'Stanbic|Centenary|DFCU|Equity|Absa|PostBank|Crane|Orient|Tropical|KCB|[Bb]ank' THEN 'Direct Bank'
+                    ELSE 'Other Cash'
+                  END AS channel,
+                  COALESCE(SUM(ft.amount), 0) AS total
+                FROM fin_studentfeestracking ft" + ENROLLED_JOIN + @"
+                WHERE ft.trans_type = 'Payment'
+                  AND ft.item_code != 75
+                  AND ft.detail NOT LIKE 'Bill Waiver%'
+                  AND ft.detail NOT LIKE 'Balance Fix%'
+                  AND ft.acadyear = @ay" + ENROLLED_WHERE + semSql + @"
+                GROUP BY channel
+                ORDER BY total DESC";
+
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                cmd.Parameters.AddWithValue("@ay", yearFilter);
+                AddSemParam(cmd, semFilter);
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        labels.Add(rdr["channel"].ToString());
+                        values.Add(Convert.ToDouble(rdr["total"]).ToString("F0"));
+                    }
+                }
+            }
+        }
+
+        hfChannelLabels.Value = string.Join(",", labels.ToArray());
+        hfChannelValues.Value = string.Join(",", values.ToArray());
     }
 
     // ===================================================================

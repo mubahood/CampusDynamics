@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.IO;
 using System.Text;
 using System.Web;
 using System.Web.Script.Serialization;
@@ -29,6 +30,8 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
                 case "station":
                 case "status":
                 case "pay":
+                case "contractstart":
+                case "contractend":
                     return sort;
                 default:
                     return string.Empty;
@@ -225,12 +228,14 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
             body.AppendFormat("<td>{0}</td>", HttpUtility.HtmlEncode(SafeVal(r["jobname"])));
             body.AppendFormat("<td class='ct-col-pay'>{0}<div class='emp-scale'>{1}</div></td>", FormatAmount(r["basicpay"]), HttpUtility.HtmlEncode(SafeVal(r["scale_name"])));
             body.AppendFormat("<td>{0}</td>", GetStatusBadge(r["contractStatus"]));
-            body.AppendFormat("<td class='ct-col-actions'>{0}</td>", GetActionButtonsHtml(r["empID"], r["emp_name"], r["usernames"], r["emp_email"]));
+            body.AppendFormat("<td style='white-space:nowrap;font-size:12px;color:#555;'>{0}</td>", FormatDate(r["contractStart"]));
+            body.AppendFormat("<td style='white-space:nowrap;font-size:12px;color:#555;'>{0}</td>", FormatDate(r["contractEnd"]));
+            body.AppendFormat("<td class='ct-col-actions'>{0}</td>", GetActionButtonsHtml(r["empID"], r["emp_name"], r["usernames"], r["emp_email"], r["EMP_CODE"]));
             body.Append("</tr>");
         }
 
         if (body.Length == 0)
-            body.Append("<tr><td colspan='10' class='ct-empty-state'>No employees found.</td></tr>");
+            body.Append("<tr><td colspan='12' class='ct-empty-state'>No employees found.</td></tr>");
 
         litGridBody.Text = body.ToString();
         litPagerInfo.Text = string.Format("Showing {0} employee(s)", dt.Rows.Count);
@@ -257,6 +262,10 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
                 return "c.contractStatus " + QsSortDir + ", e.emp_name ASC";
             case "pay":
                 return "IFNULL(ps.basicpay, c.fixedamount) " + QsSortDir + ", e.emp_name ASC";
+            case "contractstart":
+                return "c.contractStart " + QsSortDir + ", e.emp_name ASC";
+            case "contractend":
+                return "c.contractEnd " + QsSortDir + ", e.emp_name ASC";
             case "name":
             case "":
             default:
@@ -1006,6 +1015,12 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
                 case "reset_pwd":
                     WriteResetPwdAjax();
                     break;
+                case "fix_login":
+                    WriteFixLoginAjax();
+                    break;
+                case "set_photo":
+                    WriteSetPhotoAjax();
+                    break;
                 default:
                     WriteJson(new Dictionary<string, object> { { "error", "Unknown action" } });
                     break;
@@ -1345,12 +1360,30 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
             }
 
             DataRow emp = dt.Rows[0];
-            string empName = SafeVal(emp["emp_name"]);
-            string username = NormalizeLoginValue(emp["usernames"]);
-            string email = NormalizeLoginValue(emp["emp_email"]);
-            string phone = NormalizeLoginValue(emp["emp_phone"]);
+            string empName      = SafeVal(emp["emp_name"]);
+            string storedUname  = NormalizeLoginValue(emp["usernames"]);
+            string email        = NormalizeLoginValue(emp["emp_email"]);
+            string phone        = NormalizeLoginValue(emp["emp_phone"]);
             string manualPassword = SafeVal(Request["new_password"]).Trim();
 
+            // ── Save username submitted by operator back to hrm_employee ──
+            string submittedUsername = SafeVal(Request["new_username"]).Trim();
+            bool usernameWritten = false;
+            string savedUsername = storedUname;
+
+            if (!string.IsNullOrEmpty(submittedUsername) &&
+                !string.Equals(submittedUsername, storedUname, StringComparison.OrdinalIgnoreCase))
+            {
+                ExecuteNonQuery(
+                    "UPDATE hrm_employee SET usernames = @u WHERE empID = @id",
+                    new MySqlParameter("@u", submittedUsername),
+                    new MySqlParameter("@id", empID));
+                savedUsername = submittedUsername;
+                usernameWritten = true;
+            }
+
+            // Effective username for membership lookup: submitted → stored → email → phone
+            string username = !string.IsNullOrEmpty(submittedUsername) ? submittedUsername : storedUname;
             if (string.IsNullOrEmpty(username))
             {
                 if (!string.IsNullOrEmpty(email)) username = email;
@@ -1359,7 +1392,7 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
 
             if (string.IsNullOrEmpty(username))
             {
-                WriteJson(new Dictionary<string, object> { { "error", "This employee has no username, email, or phone on record." } });
+                WriteJson(new Dictionary<string, object> { { "error", "Please enter a system username for this employee." } });
                 return;
             }
 
@@ -1390,15 +1423,11 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
                 provisioned = true;
             }
 
-            // Account exists - proceed with reset
+            // Account exists — unlock if needed, then reset
             if (user.IsLockedOut)
-            {
                 provider.UnlockUser(user.UserName);
-            }
 
-            // Reset password and get the new temporary password
             string generatedPassword = provider.ResetPassword(user.UserName, null);
-
             if (string.IsNullOrEmpty(generatedPassword))
             {
                 WriteJson(new Dictionary<string, object> { { "error", "Password reset returned an empty temporary password. Please retry." } });
@@ -1429,16 +1458,290 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
 
             WriteJson(new Dictionary<string, object>
             {
-                { "success", true },
-                { "temp_password", finalPassword },
-                { "username", user.UserName },
-                { "provisioned", provisioned },
-                { "custom_applied", customApplied }
+                { "success",          true },
+                { "temp_password",    finalPassword },
+                { "username",         user.UserName },
+                { "provisioned",      provisioned },
+                { "custom_applied",   customApplied },
+                { "username_written", usernameWritten },
+                { "saved_username",   savedUsername }
             });
         }
         catch (Exception ex)
         {
             WriteJson(new Dictionary<string, object> { { "error", ex.Message } });
+        }
+    }
+
+    private void WriteFixLoginAjax()
+    {
+        int empID;
+        if (!int.TryParse(Request.QueryString["id"], out empID) || empID <= 0)
+        {
+            WriteJson(new Dictionary<string, object> { { "error", "Invalid employee id." } });
+            return;
+        }
+
+        try
+        {
+            DataTable dt = ExecuteQuery(
+                "SELECT emp_name, usernames, emp_email FROM hrm_employee WHERE empID = @id LIMIT 1",
+                new MySqlParameter("@id", empID));
+
+            if (dt.Rows.Count == 0)
+            {
+                WriteJson(new Dictionary<string, object> { { "error", "Employee record not found." } });
+                return;
+            }
+
+            DataRow emp = dt.Rows[0];
+            string empName = SafeVal(emp["emp_name"]);
+            string existingUsername = NormalizeLoginValue(emp["usernames"]);
+            string email = NormalizeLoginValue(emp["emp_email"]);
+            string manualPassword = SafeVal(Request["new_password"]).Trim();
+
+            List<string> log = new List<string>();
+            bool usernameWritten = false;
+
+            // Username is always the full email address
+            string targetUsername = !string.IsNullOrEmpty(email) ? email : existingUsername;
+            if (!string.IsNullOrEmpty(email))
+                log.Add("Username set to email address '" + email + "'.");
+
+            if (string.IsNullOrEmpty(targetUsername))
+            {
+                WriteJson(new Dictionary<string, object> { { "error", "Cannot derive a username — employee has no email and no existing username on record." } });
+                return;
+            }
+
+            // Write username to hrm_employee.usernames if missing or different
+            if (!string.Equals(existingUsername, targetUsername, StringComparison.OrdinalIgnoreCase))
+            {
+                ExecuteNonQuery(
+                    "UPDATE hrm_employee SET usernames = @u WHERE empID = @id",
+                    new MySqlParameter("@u", targetUsername),
+                    new MySqlParameter("@id", empID));
+                log.Add("Updated hrm_employee.usernames to '" + targetUsername + "'.");
+                usernameWritten = true;
+            }
+            else
+            {
+                log.Add("Username already set to '" + targetUsername + "' — no change needed.");
+            }
+
+            // Find or provision membership account
+            MembershipUser user;
+            MembershipProvider provider;
+            bool provisioned = false;
+
+            if (!TryResolveMembershipUser(targetUsername, email, out user, out provider))
+            {
+                log.Add("No membership account found — provisioning...");
+                string provisionError;
+                string provisionedUsername;
+                bool autoCreated = AutoProvisionMembershipAccount(empName, targetUsername, email, out provisionedUsername, out provisionError);
+                if (!autoCreated)
+                {
+                    WriteJson(new Dictionary<string, object>
+                    {
+                        { "error", "Account provision failed: " + provisionError },
+                        { "log", log }
+                    });
+                    return;
+                }
+                log.Add("Provisioned membership account '" + provisionedUsername + "'.");
+                provisioned = true;
+
+                if (!TryResolveMembershipUser(provisionedUsername, email, out user, out provider))
+                {
+                    if (!TryResolveMembershipUser(targetUsername, email, out user, out provider))
+                    {
+                        WriteJson(new Dictionary<string, object>
+                        {
+                            { "error", "Account was provisioned but could not be resolved. Please retry in a moment." },
+                            { "log", log }
+                        });
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                log.Add("Found existing account '" + user.UserName + "' via " + provider.Name + ".");
+
+                // If the account was found under a different username (e.g. display name 'Dr. Patrick'
+                // instead of the email), rename it in my_aspnet_users so login by email works.
+                if (!string.Equals(user.UserName, targetUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        ExecuteNonQuery(
+                            "UPDATE my_aspnet_users SET name = @newName WHERE name = @oldName",
+                            new MySqlParameter("@newName", targetUsername),
+                            new MySqlParameter("@oldName", user.UserName));
+                        log.Add("Renamed membership account from '" + user.UserName + "' to '" + targetUsername + "'.");
+
+                        // Re-resolve so the user object reflects the new username
+                        MembershipUser renamedUser;
+                        MembershipProvider renamedProvider;
+                        if (TryResolveMembershipUser(targetUsername, email, out renamedUser, out renamedProvider))
+                        {
+                            user = renamedUser;
+                            provider = renamedProvider;
+                        }
+                    }
+                    catch (Exception renameEx)
+                    {
+                        log.Add("Warning: could not rename membership account — " + renameEx.Message);
+                    }
+                }
+            }
+
+            // Unlock if locked out
+            if (user.IsLockedOut)
+            {
+                provider.UnlockUser(user.UserName);
+                log.Add("Account was locked — now unlocked.");
+            }
+
+            // Reset password
+            string generatedPassword = provider.ResetPassword(user.UserName, null);
+            if (string.IsNullOrEmpty(generatedPassword))
+            {
+                WriteJson(new Dictionary<string, object>
+                {
+                    { "error", "Password reset returned empty. Please retry." },
+                    { "log", log }
+                });
+                return;
+            }
+
+            string finalPassword = generatedPassword;
+            bool customApplied = false;
+
+            if (!string.IsNullOrEmpty(manualPassword))
+            {
+                if (manualPassword.Length < 6)
+                {
+                    WriteJson(new Dictionary<string, object>
+                    {
+                        { "error", "Password too short. Use at least 6 characters." },
+                        { "log", log }
+                    });
+                    return;
+                }
+                bool changed = provider.ChangePassword(user.UserName, generatedPassword, manualPassword);
+                if (!changed)
+                {
+                    WriteJson(new Dictionary<string, object>
+                    {
+                        { "error", "Could not apply specified password. Try a stronger one or leave blank for auto-generate." },
+                        { "log", log }
+                    });
+                    return;
+                }
+                finalPassword = manualPassword;
+                customApplied = true;
+                log.Add("Password set to specified value.");
+            }
+            else
+            {
+                log.Add("Password auto-generated.");
+            }
+
+            log.Add("Login fix complete.");
+
+            WriteJson(new Dictionary<string, object>
+            {
+                { "success", true },
+                { "username", user.UserName },
+                { "password", finalPassword },
+                { "provisioned", provisioned },
+                { "username_written", usernameWritten },
+                { "custom_applied", customApplied },
+                { "log", log }
+            });
+        }
+        catch (Exception ex)
+        {
+            WriteJson(new Dictionary<string, object> { { "error", ex.Message } });
+        }
+    }
+
+    private void WriteSetPhotoAjax()
+    {
+        int empID;
+        if (!int.TryParse(Request.QueryString["id"], out empID) || empID <= 0)
+        {
+            WriteJson(new Dictionary<string, object> { { "error", "Invalid employee id." } });
+            return;
+        }
+
+        try
+        {
+            DataTable dt = ExecuteQuery("SELECT EMP_CODE, emp_name FROM hrm_employee WHERE empID = @id LIMIT 1", new MySqlParameter("@id", empID));
+            if (dt.Rows.Count == 0)
+            {
+                WriteJson(new Dictionary<string, object> { { "error", "Employee record not found." } });
+                return;
+            }
+
+            string empCode = SafeVal(dt.Rows[0]["EMP_CODE"]).Trim();
+            if (string.IsNullOrEmpty(empCode))
+            {
+                WriteJson(new Dictionary<string, object> { { "error", "Employee code is missing for this record." } });
+                return;
+            }
+
+            HttpPostedFile postedFile = Request.Files["photoFile"];
+            if (postedFile == null || postedFile.ContentLength <= 0)
+            {
+                WriteJson(new Dictionary<string, object> { { "error", "Please select a photo to upload." } });
+                return;
+            }
+
+            if (postedFile.ContentLength > (5 * 1024 * 1024))
+            {
+                WriteJson(new Dictionary<string, object> { { "error", "Photo file is too large. Maximum allowed size is 5 MB." } });
+                return;
+            }
+
+            string ext = Path.GetExtension(postedFile.FileName ?? string.Empty).ToLowerInvariant();
+            if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".bmp" && ext != ".gif")
+            {
+                WriteJson(new Dictionary<string, object> { { "error", "Only image files are allowed (jpg, jpeg, png, bmp, gif)." } });
+                return;
+            }
+
+            byte[] originalBytes;
+            using (var ms = new MemoryStream())
+            {
+                postedFile.InputStream.CopyTo(ms);
+                originalBytes = ms.ToArray();
+            }
+
+            imageManager im = new imageManager();
+            byte[] thumbBytes = im.MakeThumb(originalBytes);
+
+            string photosFolder = Server.MapPath("~/COOPERP/staffimages/");
+            if (!Directory.Exists(photosFolder))
+                Directory.CreateDirectory(photosFolder);
+
+            string fileStem = SanitizeStaffPhotoFileName(empCode);
+            string fileName = fileStem + ".jpg";
+            string savePath = Path.Combine(photosFolder, fileName);
+            File.WriteAllBytes(savePath, thumbBytes);
+
+            WriteJson(new Dictionary<string, object>
+            {
+                { "success", true },
+                { "message", "Photo updated successfully." },
+                { "photoUrl", ResolveUrl("~/COOPERP/staffimages/" + fileName) + "?v=" + DateTime.UtcNow.Ticks }
+            });
+        }
+        catch (Exception ex)
+        {
+            WriteJson(new Dictionary<string, object> { { "error", "Error updating photo: " + ex.Message } });
         }
     }
 
@@ -1924,8 +2227,25 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
     protected string GetPhotoUrl(object empCode)
     {
         if (empCode == null || empCode == DBNull.Value) return "../staffimages/default.jpg";
-        string code = empCode.ToString().Replace("/", "_");
+        string code = SanitizeStaffPhotoFileName(empCode.ToString());
         return "../staffimages/" + code + ".jpg";
+    }
+
+    private string SanitizeStaffPhotoFileName(string code)
+    {
+        string value = (code ?? string.Empty).Trim().Replace("/", "_").Replace("\\", "_");
+        if (string.IsNullOrEmpty(value)) return "default";
+
+        StringBuilder sb = new StringBuilder(value.Length);
+        for (int i = 0; i < value.Length; i++)
+        {
+            char c = value[i];
+            if (char.IsLetterOrDigit(c) || c == '_' || c == '-') sb.Append(c);
+            else sb.Append('_');
+        }
+
+        string normalized = sb.ToString().Trim('_');
+        return string.IsNullOrEmpty(normalized) ? "default" : normalized;
     }
 
     protected string GetStatusBadge(object status)
@@ -1961,20 +2281,26 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
         return "openEditModal(" + empID + ")";
     }
 
-    protected string GetActionButtonsHtml(object empID, object empNameObj, object usernameObj, object emailObj)
+    protected string GetActionButtonsHtml(object empID, object empNameObj, object usernameObj, object emailObj, object empCodeObj)
     {
         string id = empID.ToString();
         string dotsSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='5' r='1'></circle><circle cx='12' cy='12' r='1'></circle><circle cx='12' cy='19' r='1'></circle></svg>";
         string viewSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'></path><circle cx='12' cy='12' r='3'></circle></svg>";
         string editSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M12 20h9'></path><path d='M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'></path></svg>";
         string pwdSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='3' y='11' width='18' height='11' rx='2' ry='2'></rect><path d='M7 11V7a5 5 0 0 1 10 0v4'></path></svg>";
+        string photoSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'></path><circle cx='12' cy='13' r='4'></circle></svg>";
 
         string empName = SafeVal(empNameObj).Replace("'", "\\'");
         string username = SafeVal(usernameObj).Replace("'", "\\'");
         string email = SafeVal(emailObj).Replace("'", "\\'");
+        string photoUrl = GetPhotoUrl(empCodeObj);
+        string photoUrlJs = HttpUtility.JavaScriptStringEncode(photoUrl);
+        string empNameJs = HttpUtility.JavaScriptStringEncode(SafeVal(empNameObj));
+        string emailJs = HttpUtility.JavaScriptStringEncode(SafeVal(emailObj));
         if (username == "-") username = "";
         if (email == "-") email = "";
         string displayUsername = string.IsNullOrEmpty(username) ? email : username;
+        string fixSvg = "<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M9 12l2 2 4-4'/><circle cx='12' cy='12' r='10'/></svg>";
 
         return "<div class='cd-action-wrapper'>" +
             "<button type='button' class='cd-action-trigger' onclick='toggleActionPopover(this, event)'>" + dotsSvg + "</button>" +
@@ -1982,8 +2308,10 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
             "<ul class='cd-action-popover__menu'>" +
             "<li class='cd-action-popover__item'><button type='button' class='cd-action-popover__btn cd-action-popover__btn--view' onclick='openEmployeeProfile(" + id + ")'>" + viewSvg + " View Profile</button></li>" +
             "<li class='cd-action-popover__item'><button type='button' class='cd-action-popover__btn cd-action-popover__btn--edit' onclick='openEditModal(" + id + ")'>" + editSvg + " Edit</button></li>" +
+            "<li class='cd-action-popover__item'><button type='button' class='cd-action-popover__btn cd-action-popover__btn--success' onclick='openSetPhotoModal(" + id + ",\"" + empNameJs + "\",\"" + photoUrlJs + "\")'>" + photoSvg + " Set Photo</button></li>" +
             "<li class='cd-action-popover__divider'></li>" +
             "<li class='cd-action-popover__item'><button type='button' class='cd-action-popover__btn cd-action-popover__btn--password' onclick='openPasswordModal(" + id + "," + '"' + empName + '"' + "," + '"' + displayUsername + '"' + ")'>" + pwdSvg + " Change Password</button></li>" +
+            "<li class='cd-action-popover__item'><button type='button' class='cd-action-popover__btn cd-action-popover__btn--fix' onclick='openFixLoginModal(" + id + ",\"" + empNameJs + "\",\"" + emailJs + "\")'>" + fixSvg + " Fix Login</button></li>" +
             "</ul></div></div>";
     }
 

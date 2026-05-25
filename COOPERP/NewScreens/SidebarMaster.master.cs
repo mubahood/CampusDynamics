@@ -12,6 +12,12 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        if (Session["username"] == null)
+        {
+            Response.Redirect("~/Default.aspx");
+            return;
+        }
+
         // Set footer text
         lbl_footer.Text = "© " + DateTime.Now.Year + " Mutesa I Royal University - Powered by Campus Dynamics";
         
@@ -216,6 +222,12 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             case "chartofaccounts":
                 title = "Chart of Accounts";
                 break;
+            case "mainaccountscontroller":
+                title = "Main Accounts Controller";
+                break;
+            case "subaccountscontroller":
+                title = "Sub Accounts Controller";
+                break;
             case "generalledger":
                 title = "General Ledger";
                 break;
@@ -346,6 +358,9 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
                 break;
             case "communicationanalytics":
                 title = "Communication Analytics";
+                break;
+            case "knowledgebasemanagement":
+                title = "Knowledgebase Management";
                 break;
             default:
                 title = pageName.Replace("New", "").Replace("_", " ");

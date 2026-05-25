@@ -1,6 +1,6 @@
 ﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="StudentsRegistration.aspx.cs" Inherits="COOPERP_NewScreens_StudentsRegistration" Title="Student Registration - Campus Dynamics" %>
 
-<%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
+<%-- DevExpress grid replaced with native HTML table + Repeater --%>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
@@ -257,29 +257,31 @@
 .cd-action-popover__divider { height: 1px; background: #f0f0f0; margin: 3px 0; }
 .cd-card,.cd-card__body,.dxgvCSD,.dxgvControl_Glass,.dxgvTable_Glass,.dxgvDataRow_Glass td,td.rg-action-cell { overflow: visible !important; }
 
-/* -- Grid Tweaks ------------------------------------- */
-.dxgvControl_Glass { border: none !important; }
-.dxgvHeader_Glass td {
-    font-size: 10px !important; text-transform: uppercase !important;
-    letter-spacing: .4px !important; background: #f5f7fa !important;
-    color: #666 !important; border-bottom: 2px solid #e4e8f0 !important;
-    padding: 9px 10px !important; font-weight: 600 !important;
+/* -- Native Registration Table ----------------------- */
+.sr-table-wrap { overflow-x: auto; }
+.sr-table { width: 100%; border-collapse: collapse; }
+.sr-table thead th {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .4px;
+    background: #f5f7fa; color: #666; border-bottom: 2px solid #e4e8f0;
+    padding: 9px 10px; font-weight: 600; white-space: nowrap;
+    position: sticky; top: 0; z-index: 2;
 }
-.dxgvDataRow_Glass td, .dxgvDataRowAlt_Glass td {
-    font-size: 11px !important; padding: 8px 10px !important;
-    border-bottom: 1px solid #f2f3f5 !important; vertical-align: middle !important;
-}
-.dxgvDataRow_Glass:hover td,
-.dxgvDataRowAlt_Glass:hover td { background: #f0f4ff !important; }
-.dxgvPagerBar_Glass { background: #fafbfc !important; border-top: 1px solid #e4e8f0 !important; font-size: 11px !important; padding: 4px 8px !important; }
-.dxgvFilterRow_Glass td { background: #fff !important; padding: 5px 8px !important; }
-
+.sr-table thead th.th-chk { width: 34px; text-align: center; }
+.sr-table tbody tr { border-bottom: 1px solid #f2f3f5; transition: background .1s; }
+.sr-table tbody tr:hover td { background: #f0f4ff; }
+.sr-table tbody td { font-size: 11px; padding: 8px 10px; vertical-align: middle; }
+.sr-table tbody td.td-chk { text-align: center; width: 34px; }
+.sr-chk, .sr-chk-all { cursor: pointer; width: 14px; height: 14px; accent-color: #174DA4; }
 /* Row status tints */
-.rg-row-late  td { background: #fffdf0 !important; }
-.rg-row-cleared td { background: #f0f7ff !important; }
-.rg-row-discont td { background: #fff8f8 !important; }
-.rg-row-halted  td { background: #fff9f0 !important; }
-.rg-row-dead    td { background: #f8f8f8 !important; }
+.sr-row--late   td { background: #fffdf0; }
+.sr-row--cleared td { background: #f0f7ff; }
+.sr-row--discont td { background: #fff8f8; }
+.sr-row--halted  td { background: #fff9f0; }
+.sr-row--dead    td { background: #f8f8f8; }
+.sr-nodata {
+    text-align: center; padding: 48px 24px; color: #888; font-size: 12px;
+    border-top: 1px solid #f0f2f5;
+}
 
 /* -- Grid Footer ------------------------------------- */
 .rg-grid-footer {
@@ -495,6 +497,7 @@
 
 <%-- Hidden batch action buttons --%>
 <asp:HiddenField ID="hdnChangeStatusID" runat="server" />
+<asp:HiddenField ID="hdnBatchIds"       runat="server" />
 <asp:Button ID="btnBatchRegister"      runat="server" style="display:none;" OnClick="btnBatchRegister_Click" />
 <asp:Button ID="btnBatchLateRegister"  runat="server" style="display:none;" OnClick="btnBatchLateRegister_Click" />
 <asp:Button ID="btnBatchClear"         runat="server" style="display:none;" OnClick="btnBatchClear_Click" />
@@ -651,7 +654,7 @@
         <div class="ct-filters__top">
             <div class="ct-search-wrap">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <asp:TextBox ID="txtSearch" runat="server" CssClass="ct-search-box" placeholder="Search by name, reg no, student number, programme..." AutoPostBack="false" />
+                <asp:TextBox ID="txtSearch" runat="server" CssClass="ct-search-box" placeholder="Search by name, reg no, student number, programme..." AutoPostBack="false" aria-label="Search students by name, registration number or programme" />
             </div>
             <asp:Button ID="btnSearch" runat="server" CssClass="hr-btn hr-btn--primary hr-btn--sm" Text="Search" OnClientClick="cdApplyFilters(1); return false;" />
             <asp:Label ID="lblRecordCount" runat="server" CssClass="ct-filters__count" Text="0 records" />
@@ -752,7 +755,7 @@
     </div>
 
     <!-- Batch Toolbar -->
-    <div class="rg-batch-bar" id="batchBar">
+    <div class="rg-batch-bar" id="batchBar" role="toolbar" aria-label="Batch actions for selected students" aria-hidden="true">
         <div class="rg-batch-info">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
             <strong id="batchSelCount">0</strong>&nbsp;student(s) selected
@@ -783,250 +786,225 @@
             Delete
         </button>
         <div class="rg-batch-sep"></div>
-        <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="gvRegistration.UnselectRows(); updateBatchBar();" style="color:#888;">
+        <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="srClearSelection()" style="color:#888;" aria-label="Clear all selections">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             Clear Selection
         </button>
     </div>
 
     <!-- Grid -->
-    <dx:ASPxGridView ID="gvRegistration" runat="server" AutoGenerateColumns="False"
-        KeyFieldName="ID" Width="100%" ClientInstanceName="gvRegistration"
-        OnHtmlDataCellPrepared="gvRegistration_HtmlDataCellPrepared"
-        OnHtmlRowPrepared="gvRegistration_HtmlRowPrepared"
-        CssClass="reg-grid">
-        <ClientSideEvents SelectionChanged="function(s,e){ updateBatchBar(); }" />
-        <SettingsBehavior AllowSelectByRowClick="false" AllowSelectSingleRowOnly="false" />
-        <SettingsPager PageSize="50" AlwaysShowPager="false" Position="Bottom" Visible="false">
-            <PageSizeItemSettings Visible="false" />
-        </SettingsPager>
-        <Settings ShowFilterRow="false" ShowGroupPanel="false" />
-        <Styles>
-            <Header Font-Size="10px" Font-Bold="true" BackColor="#ffffff" ForeColor="#555" />
-            <Row Font-Size="11px" />
-            <AlternatingRow Enabled="true" BackColor="#fafbfc" />
-            <FilterRow BackColor="#fff" />
-        </Styles>
-        <Columns>
-            <dx:GridViewCommandColumn ShowSelectCheckbox="True" Width="34px" SelectAllCheckboxMode="AllPages">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" />
-            </dx:GridViewCommandColumn>
-            <dx:GridViewDataTextColumn FieldName="student_name" Caption="Student Name" Width="190px">
-                <HeaderStyle HorizontalAlign="Left" />
-                <Settings AutoFilterCondition="Contains" />
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="progcode" Caption="Programme" Width="95px">
-                <HeaderStyle HorizontalAlign="Left" />
-                <Settings AutoFilterCondition="Contains" />
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="acad_year" Caption="Acad. Year" Width="90px">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" Font-Size="10px" />
-                <Settings AutoFilterCondition="Contains" />
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="semester" Caption="Sem" Width="50px">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" />
-                <DataItemTemplate>
-                    <span style="font-size:10px;font-weight:600;color:#174DA4;background:rgba(23,77,164,.08);padding:1px 7px;border-radius:3px;">
-                        Sem <%# Eval("semester") %>
-                    </span>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="studyyear" Caption="Yr" Width="44px">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" />
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="residence_status" Caption="Res." Width="75px">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" />
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="regstatus" Caption="Reg Status" Width="120px">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" />
-                <DataItemTemplate>
-                    <span class='rg-badge rg-badge--<%# GetStatusClass(Eval("regstatus").ToString()) %>'><%# Eval("regstatus") %></span>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="examClearance" Caption="Exam Clearance" Width="105px">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" />
-                <DataItemTemplate>
-                    <span class='rg-badge rg-badge--<%# GetClearanceClass(Eval("examClearance").ToString()) %>'><%# Eval("examClearance") %></span>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="id_cardStatus" Caption="ID Card" Width="80px">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" />
-                <DataItemTemplate>
-                    <span class='rg-badge rg-badge--<%# GetIDCardClass(Eval("id_cardStatus").ToString()) %>'><%# Eval("id_cardStatus") %></span>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="billing_status" Caption="Billing" Width="100px">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" />
-                <DataItemTemplate>
-                    <span class='rg-badge rg-badge--<%# GetBillingClass(Eval("billing_status").ToString()) %>'><%# Eval("billing_status") %></span>
-                    <%# Convert.ToDouble(Eval("total_billed") == DBNull.Value ? 0 : Eval("total_billed")) > 0 ? "<span class='rg-billing-amt'>" + Convert.ToDouble(Eval("total_billed")).ToString("N0") + "</span>" : "" %>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="registeredBy" Caption="Reg By" Width="90px">
-                <HeaderStyle HorizontalAlign="Left" />
-                <CellStyle Font-Size="10px" ForeColor="#888" />
-                <Settings AutoFilterCondition="Contains" />
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn FieldName="examClearanceDate" Caption="Cleared On" Width="90px">
-                <HeaderStyle HorizontalAlign="Left" />
-                <CellStyle Font-Size="10px" ForeColor="#888" />
-            </dx:GridViewDataTextColumn>
-            <dx:GridViewDataTextColumn VisibleIndex="99" Caption=" " Width="44px"
-                Settings-AllowSort="False" Settings-AllowAutoFilter="False">
-                <HeaderStyle HorizontalAlign="Center" />
-                <CellStyle HorizontalAlign="Center" CssClass="rg-action-cell" />
-                <DataItemTemplate>
-                    <div class="cd-action-wrapper">
-                        <button type="button" class="cd-action-trigger" onclick="toggleActionPopover(this, event)" title="Actions">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle>
-                            </svg>
-                        </button>
-                        <div class="cd-action-popover">
-
-                            <%-- -- Registration Actions -- --%>
-                            <div class="cd-action-popover__section">Registration</div>
-                            <ul class="cd-action-popover__menu">
-                                <li class="cd-action-popover__item" style='<%# ShowIf(Eval("regstatus"),"UNREGISTERED") %>'>
-                                    <asp:LinkButton ID="btnRegister" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--success"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnRegister_Click"
-                                        OnClientClick="return confirm('Register this student?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                        Register
-                                    </asp:LinkButton>
-                                </li>
-                                <li class="cd-action-popover__item" style='<%# ShowIf(Eval("regstatus"),"UNREGISTERED") %>'>
-                                    <asp:LinkButton ID="btnLateRegister" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--amber"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnLateRegister_Click"
-                                        OnClientClick="return confirm('Mark this student as Late Registered?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                        Late Register
-                                    </asp:LinkButton>
-                                </li>
-                                <li class="cd-action-popover__item" style='<%# ShowIfIn(Eval("regstatus"),"REGISTERED|LATE REGISTERED") %>'>
-                                    <asp:LinkButton ID="btnClear" runat="server" CssClass="cd-action-popover__btn"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnClear_Click"
-                                        OnClientClick="return confirm('Clear this student for exams?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                                        Clear for Exams
-                                    </asp:LinkButton>
-                                </li>
-                                <li class="cd-action-popover__item" style='<%# ShowIf(Eval("examClearance"),"CLEARED") %>'>
-                                    <asp:LinkButton ID="btnUndoClear" runat="server" CssClass="cd-action-popover__btn"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnUndoClear_Click"
-                                        OnClientClick="return confirm('Undo exam clearance? Student will revert to Registered.');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.5"></path></svg>
-                                        Undo Clearance
-                                    </asp:LinkButton>
-                                </li>
-                                <li class="cd-action-popover__item" style='<%# ShowIfIn(Eval("regstatus"),"REGISTERED|LATE REGISTERED") %>'>
-                                    <asp:LinkButton ID="btnUnregister" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--danger"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnUnregister_Click"
-                                        OnClientClick="return confirm('Undo registration for this student?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                        Undo Registration
-                                    </asp:LinkButton>
-                                </li>
-                            </ul>
-
-                            <%-- -- Special Status -- --%>
-                            <div class="cd-action-popover__section" style='<%# ShowIfNotIn(Eval("regstatus"),"DISCONTINUED|DEAD YEAR|HALTED") %>'>Special Status</div>
-                            <ul class="cd-action-popover__menu">
-                                <li class="cd-action-popover__item" style='<%# ShowIfNotIn(Eval("regstatus"),"DISCONTINUED|DEAD YEAR") %>'>
-                                    <asp:LinkButton ID="btnDiscontinue" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--danger"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnDiscontinue_Click"
-                                        OnClientClick="return confirm('Mark this student as Discontinued? This is a significant change.');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
-                                        Discontinue
-                                    </asp:LinkButton>
-                                </li>
-                                <li class="cd-action-popover__item" style='<%# ShowIfNotIn(Eval("regstatus"),"HALTED|DISCONTINUED|DEAD YEAR") %>'>
-                                    <asp:LinkButton ID="btnHalt" runat="server" CssClass="cd-action-popover__btn"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnHalt_Click"
-                                        OnClientClick="return confirm('Halt registration for this student?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-                                        Halt
-                                    </asp:LinkButton>
-                                </li>
-                                <li class="cd-action-popover__item" style='<%# ShowIfNot(Eval("regstatus"),"DEAD YEAR") %>'>
-                                    <asp:LinkButton ID="btnDeadYear" runat="server" CssClass="cd-action-popover__btn"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnDeadYear_Click"
-                                        OnClientClick="return confirm('Mark this semester as a Dead Year for this student?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                        Mark Dead Year
-                                    </asp:LinkButton>
-                                </li>
-                                <li class="cd-action-popover__item" style='<%# ShowIfIn(Eval("regstatus"),"DISCONTINUED|HALTED|DEAD YEAR") %>'>
-                                    <asp:LinkButton ID="btnReactivate" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--success"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnReactivate_Click"
-                                        OnClientClick="return confirm('Reactivate this student (reset to Unregistered)?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                                        Reactivate
-                                    </asp:LinkButton>
-                                </li>
-                            </ul>
-
-                            <%-- -- ID Card -- --%>
-                            <div class="cd-action-popover__section">ID Card</div>
-                            <ul class="cd-action-popover__menu">
-                                <li class="cd-action-popover__item" style='<%# ShowIfNot(Eval("id_cardStatus"),"ISSUED") %>'>
-                                    <asp:LinkButton ID="btnIssueIDCard" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--success"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnIssueIDCard_Click"
-                                        OnClientClick="return confirm('Mark ID card as Issued for this student?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
-                                        Issue ID Card
-                                    </asp:LinkButton>
-                                </li>
-                                <li class="cd-action-popover__item" style='<%# ShowIf(Eval("id_cardStatus"),"ISSUED") %>'>
-                                    <asp:LinkButton ID="btnRevokeIDCard" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--danger"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnRevokeIDCard_Click"
-                                        OnClientClick="return confirm('Revoke this student\'s ID card?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
-                                        Revoke ID Card
-                                    </asp:LinkButton>
-                                </li>
-                            </ul>
-
-                            <%-- -- Change Status (generic) -- --%>
-                            <div class="cd-action-popover__divider"></div>
-                            <ul class="cd-action-popover__menu">
-                                <li class="cd-action-popover__item">
-                                    <button type="button" class="cd-action-popover__btn"
-                                        onclick="openChangeStatusModal('<%# Eval("ID") %>','<%# JsEncode(Eval("student_name")) %>','<%# JsEncode(Eval("regno")) %>','<%# JsEncode(Eval("regstatus")) %>')">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                        Change Status...
+    <div class="sr-table-wrap" role="region" aria-label="Student registration records">
+        <table class="sr-table" role="grid" aria-label="Student registrations">
+            <thead role="rowgroup">
+                <tr role="row">
+                    <th class="th-chk" role="columnheader" scope="col" aria-label="Select all rows">
+                        <input type="checkbox" id="chkSelAll" class="sr-chk-all" onclick="srSelectAll(this)" aria-label="Select all students on this page" />
+                    </th>
+                    <th role="columnheader" scope="col">Student</th>
+                    <th role="columnheader" scope="col">Programme</th>
+                    <th role="columnheader" scope="col" style="text-align:center;">Acad Year</th>
+                    <th role="columnheader" scope="col" style="text-align:center;">Sem</th>
+                    <th role="columnheader" scope="col" style="text-align:center;">Yr</th>
+                    <th role="columnheader" scope="col" style="text-align:center;">Res.</th>
+                    <th role="columnheader" scope="col" style="text-align:center;">Reg Status</th>
+                    <th role="columnheader" scope="col" style="text-align:center;">Exam Clearance</th>
+                    <th role="columnheader" scope="col" style="text-align:center;">ID Card</th>
+                    <th role="columnheader" scope="col" style="text-align:center;">Billing</th>
+                    <th role="columnheader" scope="col">Reg By</th>
+                    <th role="columnheader" scope="col">Cleared On</th>
+                    <th role="columnheader" scope="col" aria-label="Row actions"></th>
+                </tr>
+            </thead>
+            <tbody role="rowgroup">
+                <asp:Repeater ID="rptRegistrations" runat="server">
+                    <ItemTemplate>
+                        <tr role="row" data-id='<%# Eval("ID") %>' class='<%# GetRowClass(Eval("regstatus").ToString()) %>'>
+                            <td class="td-chk" role="gridcell">
+                                <input type="checkbox" class="sr-chk" value='<%# Eval("ID") %>'
+                                       aria-label='<%# "Select " + Server.HtmlEncode((Eval("student_name") ?? "").ToString()) %>'
+                                       onclick="srRowCheck(this)" />
+                            </td>
+                            <td role="gridcell">
+                                <div style="font-weight:600;color:#1a1a2e;line-height:1.3;"><%# Server.HtmlEncode((Eval("student_name") ?? "").ToString().Trim() != "" ? Eval("student_name").ToString() : "—") %></div>
+                                <div style="font-size:10px;color:#174DA4;font-weight:600;margin-top:1px;"><%# Server.HtmlEncode((Eval("regno") ?? "").ToString()) %></div>
+                            </td>
+                            <td role="gridcell" title='<%# Server.HtmlEncode((Eval("progname") ?? "").ToString()) %>'>
+                                <span style="font-size:11px;"><%# Server.HtmlEncode((Eval("progcode") ?? "").ToString()) %></span>
+                            </td>
+                            <td role="gridcell" style="font-size:10px;text-align:center;white-space:nowrap;"><%# Eval("acad_year") %></td>
+                            <td role="gridcell" style="text-align:center;">
+                                <span style="font-size:10px;font-weight:600;color:#174DA4;background:rgba(23,77,164,.08);padding:1px 7px;">Sem <%# Eval("semester") %></span>
+                            </td>
+                            <td role="gridcell" style="text-align:center;font-weight:600;"><%# Eval("studyyear") %></td>
+                            <td role="gridcell" style="text-align:center;font-size:10px;color:#555;white-space:nowrap;"><%# Server.HtmlEncode((Eval("residence_status") ?? "").ToString()) %></td>
+                            <td role="gridcell" style="text-align:center;">
+                                <span class='rg-badge rg-badge--<%# GetStatusClass(Eval("regstatus").ToString()) %>' aria-label='Registration status: <%# Eval("regstatus") %>'><%# Eval("regstatus") %></span>
+                            </td>
+                            <td role="gridcell" style="text-align:center;">
+                                <span class='rg-badge rg-badge--<%# GetClearanceClass(Eval("examClearance").ToString()) %>' aria-label='Exam clearance: <%# Eval("examClearance") %>'><%# Eval("examClearance") %></span>
+                            </td>
+                            <td role="gridcell" style="text-align:center;">
+                                <span class='rg-badge rg-badge--<%# GetIDCardClass(Eval("id_cardStatus").ToString()) %>' aria-label='ID card: <%# Eval("id_cardStatus") %>'><%# Eval("id_cardStatus") %></span>
+                            </td>
+                            <td role="gridcell" style="text-align:center;">
+                                <span class='rg-badge rg-badge--<%# GetBillingClass(Eval("billing_status").ToString()) %>' aria-label='Billing: <%# Eval("billing_status") %>'><%# Eval("billing_status") %></span>
+                                <%# Convert.ToDouble(Eval("total_billed") == DBNull.Value ? 0 : Eval("total_billed")) > 0 ? "<span class='rg-billing-amt'>" + Convert.ToDouble(Eval("total_billed")).ToString("N0") + "</span>" : "" %>
+                            </td>
+                            <td role="gridcell" style="font-size:10px;color:#888;"><%# Server.HtmlEncode((Eval("registeredBy") ?? "").ToString()) %></td>
+                            <td role="gridcell" style="font-size:10px;color:#888;white-space:nowrap;"><%# Server.HtmlEncode((Eval("examClearanceDate") ?? "").ToString()) %></td>
+                            <td role="gridcell" class="rg-action-cell">
+                                <div class="cd-action-wrapper">
+                                    <button type="button" class="cd-action-trigger" onclick="toggleActionPopover(this, event)" title="Actions" aria-haspopup="true" aria-label='<%# "Actions for " + Server.HtmlEncode((Eval("student_name") ?? "").ToString()) %>'>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle>
+                                        </svg>
                                     </button>
-                                </li>
-                            </ul>
+                                    <div class="cd-action-popover" role="menu">
 
-                            <%-- -- Delete Registration -- --%>
-                            <div class="cd-action-popover__divider"></div>
-                            <ul class="cd-action-popover__menu">
-                                <li class="cd-action-popover__item">
-                                    <asp:LinkButton ID="btnDeleteReg" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--danger"
-                                        CommandArgument='<%# Eval("ID") %>' OnClick="btnDeleteReg_Click"
-                                        OnClientClick="return confirm('DELETE this registration record permanently?\n\nThis cannot be undone. Continue?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                        Delete Registration
-                                    </asp:LinkButton>
-                                </li>
-                            </ul>
+                                        <%-- -- Registration Actions -- --%>
+                                        <div class="cd-action-popover__section" role="presentation">Registration</div>
+                                        <ul class="cd-action-popover__menu" role="none">
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIf(Eval("regstatus"),"UNREGISTERED") %>'>
+                                                <asp:LinkButton ID="btnRegister" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--success"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnRegister_Click"
+                                                    OnClientClick="return confirm('Register this student?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                    Register
+                                                </asp:LinkButton>
+                                            </li>
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIf(Eval("regstatus"),"UNREGISTERED") %>'>
+                                                <asp:LinkButton ID="btnLateRegister" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--amber"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnLateRegister_Click"
+                                                    OnClientClick="return confirm('Mark this student as Late Registered?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                                    Late Register
+                                                </asp:LinkButton>
+                                            </li>
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIfIn(Eval("regstatus"),"REGISTERED|LATE REGISTERED") %>'>
+                                                <asp:LinkButton ID="btnClear" runat="server" CssClass="cd-action-popover__btn"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnClear_Click"
+                                                    OnClientClick="return confirm('Clear this student for exams?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                                    Clear for Exams
+                                                </asp:LinkButton>
+                                            </li>
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIf(Eval("examClearance"),"CLEARED") %>'>
+                                                <asp:LinkButton ID="btnUndoClear" runat="server" CssClass="cd-action-popover__btn"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnUndoClear_Click"
+                                                    OnClientClick="return confirm('Undo exam clearance? Student will revert to Registered.');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.5"></path></svg>
+                                                    Undo Clearance
+                                                </asp:LinkButton>
+                                            </li>
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIfIn(Eval("regstatus"),"REGISTERED|LATE REGISTERED") %>'>
+                                                <asp:LinkButton ID="btnUnregister" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--danger"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnUnregister_Click"
+                                                    OnClientClick="return confirm('Undo registration for this student?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                    Undo Registration
+                                                </asp:LinkButton>
+                                            </li>
+                                        </ul>
 
-                        </div>
-                    </div>
-                </DataItemTemplate>
-            </dx:GridViewDataTextColumn>
-        </Columns>
-    </dx:ASPxGridView>
+                                        <%-- -- Special Status -- --%>
+                                        <div class="cd-action-popover__section" role="presentation" style='<%# ShowIfNotIn(Eval("regstatus"),"DISCONTINUED|DEAD YEAR|HALTED") %>'>Special Status</div>
+                                        <ul class="cd-action-popover__menu" role="none">
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIfNotIn(Eval("regstatus"),"DISCONTINUED|DEAD YEAR") %>'>
+                                                <asp:LinkButton ID="btnDiscontinue" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--danger"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnDiscontinue_Click"
+                                                    OnClientClick="return confirm('Mark this student as Discontinued? This is a significant change.');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+                                                    Discontinue
+                                                </asp:LinkButton>
+                                            </li>
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIfNotIn(Eval("regstatus"),"HALTED|DISCONTINUED|DEAD YEAR") %>'>
+                                                <asp:LinkButton ID="btnHalt" runat="server" CssClass="cd-action-popover__btn"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnHalt_Click"
+                                                    OnClientClick="return confirm('Halt registration for this student?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                                                    Halt
+                                                </asp:LinkButton>
+                                            </li>
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIfNot(Eval("regstatus"),"DEAD YEAR") %>'>
+                                                <asp:LinkButton ID="btnDeadYear" runat="server" CssClass="cd-action-popover__btn"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnDeadYear_Click"
+                                                    OnClientClick="return confirm('Mark this semester as a Dead Year for this student?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                                    Mark Dead Year
+                                                </asp:LinkButton>
+                                            </li>
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIfIn(Eval("regstatus"),"DISCONTINUED|HALTED|DEAD YEAR") %>'>
+                                                <asp:LinkButton ID="btnReactivate" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--success"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnReactivate_Click"
+                                                    OnClientClick="return confirm('Reactivate this student (reset to Unregistered)?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                                    Reactivate
+                                                </asp:LinkButton>
+                                            </li>
+                                        </ul>
+
+                                        <%-- -- ID Card -- --%>
+                                        <div class="cd-action-popover__section" role="presentation">ID Card</div>
+                                        <ul class="cd-action-popover__menu" role="none">
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIfNot(Eval("id_cardStatus"),"ISSUED") %>'>
+                                                <asp:LinkButton ID="btnIssueIDCard" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--success"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnIssueIDCard_Click"
+                                                    OnClientClick="return confirm('Mark ID card as Issued for this student?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                                                    Issue ID Card
+                                                </asp:LinkButton>
+                                            </li>
+                                            <li class="cd-action-popover__item" role="none" style='<%# ShowIf(Eval("id_cardStatus"),"ISSUED") %>'>
+                                                <asp:LinkButton ID="btnRevokeIDCard" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--danger"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnRevokeIDCard_Click"
+                                                    OnClientClick="return confirm('Revoke this student\'s ID card?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                                                    Revoke ID Card
+                                                </asp:LinkButton>
+                                            </li>
+                                        </ul>
+
+                                        <%-- -- Change Status (generic) -- --%>
+                                        <div class="cd-action-popover__divider" role="separator"></div>
+                                        <ul class="cd-action-popover__menu" role="none">
+                                            <li class="cd-action-popover__item" role="none">
+                                                <button type="button" class="cd-action-popover__btn" role="menuitem"
+                                                    onclick="openChangeStatusModal('<%# Eval("ID") %>','<%# JsEncode(Eval("student_name")) %>','<%# JsEncode(Eval("regno")) %>','<%# JsEncode(Eval("regstatus")) %>')">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                                    Change Status...
+                                                </button>
+                                            </li>
+                                        </ul>
+
+                                        <%-- -- Delete Registration -- --%>
+                                        <div class="cd-action-popover__divider" role="separator"></div>
+                                        <ul class="cd-action-popover__menu" role="none">
+                                            <li class="cd-action-popover__item" role="none">
+                                                <asp:LinkButton ID="btnDeleteReg" runat="server" CssClass="cd-action-popover__btn cd-action-popover__btn--danger"
+                                                    CommandArgument='<%# Eval("ID") %>' OnClick="btnDeleteReg_Click"
+                                                    OnClientClick="return confirm('DELETE this registration record permanently?\n\nThis cannot be undone. Continue?');" role="menuitem">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                                    Delete Registration
+                                                </asp:LinkButton>
+                                            </li>
+                                        </ul>
+
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </ItemTemplate>
+                </asp:Repeater>
+            </tbody>
+        </table>
+    </div>
+    <asp:Panel ID="pnlNoData" runat="server" Visible="false">
+        <div class="sr-nodata" role="status" aria-live="polite">
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5" style="margin-bottom:8px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <div>No registration records found matching the current filters.</div>
+            <div style="font-size:11px;color:#aaa;margin-top:4px;">Try adjusting your filters or search term.</div>
+        </div>
+    </asp:Panel>
 
     <!-- Grid Footer -->
     <div class="rg-grid-footer">
@@ -1168,7 +1146,7 @@
 </div>
 
 <!-- ======= TOAST NOTIFICATION ======================================== -->
-<div id="regToast" class="rg-toast">
+<div id="regToast" class="rg-toast" role="alert" aria-live="assertive" aria-atomic="true">
     <svg id="regToastIcon" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
     <span id="regToastMsg"></span>
 </div>
@@ -1377,13 +1355,38 @@ function toggleActionPopover(btn, e) {
 }
 document.addEventListener('click', function() { closeAllActionPopovers(); });
 
+// -- Selection helpers (native checkboxes, replaces DevExpress API) --
+function srGetCheckedIds() {
+    var ids = [];
+    document.querySelectorAll('.sr-chk:checked').forEach(function(cb) { ids.push(cb.value); });
+    return ids;
+}
+function srGetCount() { return document.querySelectorAll('.sr-chk:checked').length; }
+function srSelectAll(masterCb) {
+    document.querySelectorAll('.sr-chk').forEach(function(cb) { cb.checked = masterCb.checked; });
+    updateBatchBar();
+}
+function srRowCheck() {
+    var total = document.querySelectorAll('.sr-chk').length;
+    var chked = srGetCount();
+    var mc = document.getElementById('chkSelAll');
+    if (mc) { mc.checked = (total > 0 && chked === total); mc.indeterminate = (chked > 0 && chked < total); }
+    updateBatchBar();
+}
+function srClearSelection() {
+    document.querySelectorAll('.sr-chk').forEach(function(cb) { cb.checked = false; });
+    var mc = document.getElementById('chkSelAll');
+    if (mc) { mc.checked = false; mc.indeterminate = false; }
+    updateBatchBar();
+}
+
 // -- Batch Toolbar --------------------------------------------------
 function updateBatchBar() {
-    var count = gvRegistration.GetSelectedRowCount();
+    var count = srGetCount();
     var bar   = document.getElementById('batchBar');
     var badge = document.getElementById('batchSelCount');
-    if (count > 0) { bar.classList.add('show'); badge.textContent = count; }
-    else            { bar.classList.remove('show'); }
+    if (count > 0) { bar.classList.add('show'); badge.textContent = count; bar.setAttribute('aria-hidden','false'); }
+    else            { bar.classList.remove('show'); bar.setAttribute('aria-hidden','true'); }
 }
 
 // -- Batch Actions --------------------------------------------------
@@ -1412,10 +1415,11 @@ var _batchMsgs = {
     'delete'     : 'PERMANENTLY DELETE registration records for selected students? This cannot be undone!'
 };
 function doBatch(action) {
-    var count = gvRegistration.GetSelectedRowCount();
-    if (count === 0) { showToast(false, 'Please select at least one student.'); return; }
-    var msg = _batchMsgs[action].replace('selected', count + ' selected');
+    var ids = srGetCheckedIds();
+    if (ids.length === 0) { showToast(false, 'Please select at least one student.'); return; }
+    var msg = (_batchMsgs[action] || 'Apply action?').replace('selected', ids.length + ' selected');
     if (!confirm(msg)) return;
+    document.getElementById('<%= hdnBatchIds.ClientID %>').value = ids.join(',');
     document.getElementById(_batchBtnMap[action]).click();
 }
 

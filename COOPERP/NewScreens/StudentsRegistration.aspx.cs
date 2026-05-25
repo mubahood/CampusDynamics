@@ -457,8 +457,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                         lblRecordCount.Text  = totalCount.ToString("N0") + " item" + (totalCount != 1 ? "s" : "");
                         litFooterCount.Text  = string.Format("Page {0} of {1} ({2:N0} items)", page, totalPages, totalCount);
                         litPager.Text        = BuildPagerHtml(page, totalPages);
-                        gvRegistration.DataSource = dt;
-                        gvRegistration.DataBind();
+                        rptRegistrations.DataSource = dt;
+                        rptRegistrations.DataBind();
+                        pnlNoData.Visible = (dt.Rows.Count == 0);
                     }
                 }
             }
@@ -594,6 +595,19 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         return "";
     }
 
+    protected string GetRowClass(string status)
+    {
+        switch ((status ?? "").ToUpper().Trim())
+        {
+            case "LATE REGISTERED": return "sr-row--late";
+            case "CLEARED":         return "sr-row--cleared";
+            case "DISCONTINUED":    return "sr-row--discont";
+            case "HALTED":          return "sr-row--halted";
+            case "DEAD YEAR":       return "sr-row--dead";
+            default:                return "";
+        }
+    }
+
     protected string GetStatusClass(string s)
     {
         switch ((s ?? "").ToUpper().Trim())
@@ -661,29 +675,13 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
     protected void btnRegister_Click(object sender, EventArgs e)
     {
-        int id = GetLinkButtonID(sender);
-        if (id <= 0) return;
-        if (DoSetStatus(id, "REGISTERED", "registeredBy", "regstatus", "UNREGISTERED"))
-        {
-            AutoBillStudent(id);
-            ShowToast(true, "Student registered & billed successfully.");
-        }
-        else
-            ShowToast(false, "Could not register student. They may already be registered.");
+        ShowToast(false, "Semester registration is now student self-service. Students must register through the student portal.");
         LoadStats(); BindGrid();
     }
 
     protected void btnLateRegister_Click(object sender, EventArgs e)
     {
-        int id = GetLinkButtonID(sender);
-        if (id <= 0) return;
-        if (DoSetStatus(id, "LATE REGISTERED", "registeredBy", "regstatus", "UNREGISTERED"))
-        {
-            AutoBillStudent(id);
-            ShowToast(true, "Student late-registered & billed successfully.");
-        }
-        else
-            ShowToast(false, "Could not late-register student. Check their current status.");
+        ShowToast(false, "Semester registration is now student self-service. Students must register through the student portal.");
         LoadStats(); BindGrid();
     }
 
@@ -932,21 +930,38 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
     private void RunBatch(string action)
     {
-        var keys = gvRegistration.GetSelectedFieldValues("ID");
-        if (keys == null || keys.Count == 0)
+        if (action == "register" || action == "late")
+        {
+            ShowToast(false, "Semester registration is now student self-service. Students must register through the student portal.");
+            return;
+        }
+        string idsRaw = (hdnBatchIds.Value ?? "").Trim();
+        hdnBatchIds.Value = "";
+        if (string.IsNullOrEmpty(idsRaw))
+        {
+            ShowToast(false, "No students selected.");
+            return;
+        }
+        var idList = new List<int>();
+        foreach (string s in idsRaw.Split(','))
+        {
+            int id;
+            if (int.TryParse(s.Trim(), out id) && id > 0)
+                idList.Add(id);
+        }
+        if (idList.Count == 0)
         {
             ShowToast(false, "No students selected.");
             return;
         }
         int processed = 0, skipped = 0;
-        foreach (object key in keys)
+        foreach (int id in idList)
         {
-            int id = Convert.ToInt32(key);
             bool ok = false;
             switch (action)
             {
-                case "register":    ok = DoSetStatus(id, "REGISTERED",     "registeredBy", "regstatus", "UNREGISTERED"); if (ok) AutoBillStudent(id);  break;
-                case "late":        ok = DoSetStatus(id, "LATE REGISTERED","registeredBy", "regstatus", "UNREGISTERED"); if (ok) AutoBillStudent(id);  break;
+                case "register":    break;
+                case "late":        break;
                 case "clear":       ok = ClearStudent(id);  break;
                 case "undoreg":     ok = BatchUndoReg(id);  break;
                 case "undoclear":   ok = BatchUndoClear(id); break;
@@ -958,7 +973,6 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
             }
             if (ok) processed++; else skipped++;
         }
-        gvRegistration.Selection.UnselectAll();
         string msg = processed + (action == "delete" ? " registration(s) deleted." : " student(s) updated.");
         if (skipped > 0) msg += " " + skipped + " skipped.";
         ShowToast(processed > 0, msg);
@@ -989,17 +1003,15 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
             ShowAddRegError("Please select an academic year.");
             return;
         }
-        // Enforce current academic year only
-        if (!AcademicYearHelper.IsCurrentAcademicYear(acadYear))
-        {
-            ShowAddRegError(string.Format(
-                "Registration is only allowed for the current academic year ({0}). You selected {1}.",
-                AcademicYearHelper.GetCurrentYearDisplay(), acadYear));
-            return;
-        }
         if (semester < 1 || semester > 3)
         {
             ShowAddRegError("Please select a valid semester.");
+            return;
+        }
+
+        if (status == "REGISTERED" || status == "LATE REGISTERED")
+        {
+            ShowAddRegError("Semester registration is now student self-service. Students must register through the student portal.");
             return;
         }
 
@@ -1072,7 +1084,13 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                         object val = cmd2.ExecuteScalar();
                         if (val != null) newId = Convert.ToInt64(val);
                     }
-                    if (newId > 0) AutoBillStudent((int)newId);
+                    if (newId > 0)
+                    {
+                        string billWarn = AutoBillStudent((int)newId);
+                        if (!string.IsNullOrEmpty(billWarn))
+                            ScriptManager.RegisterStartupScript(this, GetType(), "billWarn",
+                                "setTimeout(function(){showToast(false,'" + billWarn.Replace("'", "\\'") + "');},600);", true);
+                    }
                 }
             }
 
@@ -1110,6 +1128,12 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
         string newStatus = ddlNewStatus.SelectedValue;
         if (string.IsNullOrEmpty(newStatus)) { ShowToast(false, "Please select a status."); return; }
+
+        if (newStatus == "REGISTERED" || newStatus == "LATE REGISTERED")
+        {
+            ShowToast(false, "Semester registration is now student self-service. Students must register through the student portal.");
+            return;
+        }
 
         try
         {
@@ -1261,37 +1285,6 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     }
 
     // ===================================================================
-    // GRID EVENTS
-    // ===================================================================
-
-    protected void gvRegistration_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
-    {
-        e.Cell.Style["vertical-align"] = "middle";
-
-        // Programme tooltip
-        if (e.DataColumn.FieldName == "progcode")
-        {
-            object progname = e.GetValue("progname");
-            if (progname != null && progname.ToString().Trim() != "")
-                e.Cell.Attributes["title"] = progname.ToString();
-        }
-    }
-
-    protected void gvRegistration_HtmlRowPrepared(object sender, DevExpress.Web.ASPxGridViewTableRowEventArgs e)
-    {
-        if (e.RowType != DevExpress.Web.GridViewRowType.Data) return;
-        string status = (e.GetValue("regstatus") ?? "").ToString();
-        switch (status.ToUpper())
-        {
-            case "LATE REGISTERED": e.Row.CssClass = "rg-row-late";    break;
-            case "CLEARED":         e.Row.CssClass = "rg-row-cleared"; break;
-            case "DISCONTINUED":    e.Row.CssClass = "rg-row-discont"; break;
-            case "HALTED":          e.Row.CssClass = "rg-row-halted";  break;
-            case "DEAD YEAR":       e.Row.CssClass = "rg-row-dead";    break;
-        }
-    }
-
-    // ===================================================================
     // DATABASE OPERATION PRIMITIVES
     // ===================================================================
 
@@ -1323,15 +1316,18 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     }
 
     /// <summary>
-    /// Auto-bill a student after registration. Safe to call multiple times
-    /// - the SP has a pre-check that skips if already billed.
+    /// Auto-bill a student after registration. Safe to call multiple times —
+    /// fin_TermlyItemBillingFN has a pre-check that skips already-billed items.
+    /// Returns null on success (or already billed). Returns a warning string
+    /// when billing could not be confirmed — registration is never blocked.
+    /// Failures are also logged to fin_billing_errors for admin review.
     /// </summary>
-    private void AutoBillStudent(int regId)
+    private string AutoBillStudent(int regId)
     {
+        string regno = "", acadYear = "";
+        int semester = 0;
         try
         {
-            string regno = "", acadYear = "";
-            int semester = 0;
             using (var conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
@@ -1341,14 +1337,14 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                     cmd.Parameters.AddWithValue("@id", regId);
                     using (var rdr = cmd.ExecuteReader())
                     {
-                        if (!rdr.Read()) return;
+                        if (!rdr.Read()) return null;
                         regno    = rdr["regno"].ToString();
                         acadYear = rdr["acad_year"].ToString();
                         semester = Convert.ToInt32(rdr["semester"]);
                     }
                 }
             }
-            if (string.IsNullOrEmpty(regno)) return;
+            if (string.IsNullOrEmpty(regno)) return null;
 
             using (var conn = new MySqlConnection(AcctConnStr))
             {
@@ -1361,14 +1357,54 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                     cmd.Parameters.AddWithValue("@p_acadyear", acadYear);
                     cmd.Parameters.AddWithValue("@p_semester",  semester);
                     cmd.Parameters.AddWithValue("@p_user",     GetCurrentUser());
-                    using (var rdr = cmd.ExecuteReader())
-                    {
-                        while (rdr.NextResult()) { }
-                    }
+                    using (var rdr = cmd.ExecuteReader()) { while (rdr.NextResult()) { } }
+                }
+
+                using (var chk = new MySqlCommand(
+                    "SELECT COUNT(*) FROM fin_studentfeestracking WHERE TRIM(regno)=TRIM(@r) AND acadyear=@a AND semester=@s AND trans_type='Bill'", conn))
+                {
+                    chk.Parameters.AddWithValue("@r", regno);
+                    chk.Parameters.AddWithValue("@a", acadYear);
+                    chk.Parameters.AddWithValue("@s", semester);
+                    if (Convert.ToInt32(chk.ExecuteScalar()) > 0)
+                        return null;
+                }
+            }
+
+            string warn = "Billing could not be confirmed for " + regno + " (" + acadYear + " Sem " + semester + "). Please use Fix Billing or Bill Student to complete.";
+            LogBillingError(regno, acadYear, semester, warn, "AutoBill-NoRows");
+            return warn;
+        }
+        catch (Exception ex)
+        {
+            string warn = "Auto-billing failed for " + regno + " (" + acadYear + " Sem " + semester + "): " + ex.Message;
+            try { LogBillingError(regno, acadYear, semester, warn, "AutoBill-Exception"); } catch { }
+            return warn;
+        }
+    }
+
+    private void LogBillingError(string regno, string acadYear, int semester, string message, string source)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    @"INSERT IGNORE INTO fin_billing_errors (regno, acad_year, semester, triggered_by, trigger_source, error_message)
+                      VALUES (@r, @a, @s, @u, @src, @msg)", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r",   regno ?? "");
+                    cmd.Parameters.AddWithValue("@a",   acadYear ?? "");
+                    cmd.Parameters.AddWithValue("@s",   semester);
+                    cmd.Parameters.AddWithValue("@u",   GetCurrentUser() ?? "SYSTEM");
+                    cmd.Parameters.AddWithValue("@src", source ?? "AutoBill");
+                    cmd.Parameters.AddWithValue("@msg", message ?? "");
+                    cmd.ExecuteNonQuery();
                 }
             }
         }
-        catch { /* billing failure should not block registration */ }
+        catch { }
     }
 
     // ===================================================================
@@ -1410,6 +1446,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     /// </summary>
     private void HandlePreviewRegisterAll()
     {
+        // Admin registration disabled — students self-register via the portal
+        Response.Write("{\"error\":\"Semester registration is now student self-service. Students must register through the student portal.\"}");
+        return;
         string curYear = AcademicYearHelper.GetCurrentAcademicYear();
         int curSem = AcademicYearHelper.GetCurrentSemester();
         if (string.IsNullOrEmpty(curYear) || curSem < 1)
@@ -1522,6 +1561,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     /// </summary>
     private void HandleRegisterBatch()
     {
+        // Admin registration disabled — students self-register via the portal
+        Response.Write("{\"error\":\"Semester registration is now student self-service. Students must register through the student portal.\"}");
+        return;
         string body;
         using (var reader = new StreamReader(Request.InputStream))
         {
@@ -1569,8 +1611,16 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                 if (regOk)
                 {
                     registered++;
-                    try { AutoBillStudent(id); billed++; results.Add(string.Format("{{\"id\":{0},\"s\":\"ok\"}}", id)); }
-                    catch { results.Add(string.Format("{{\"id\":{0},\"s\":\"reg_ok_bill_fail\"}}", id)); }
+                    string billWarn = AutoBillStudent(id);
+                    if (string.IsNullOrEmpty(billWarn))
+                    {
+                        billed++;
+                        results.Add(string.Format("{{\"id\":{0},\"s\":\"ok\"}}", id));
+                    }
+                    else
+                    {
+                        results.Add(string.Format("{{\"id\":{0},\"s\":\"reg_ok_bill_warn\",\"m\":\"{1}\"}}", id, JsEncode(billWarn)));
+                    }
                 }
                 else
                 {

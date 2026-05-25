@@ -90,11 +90,12 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
         litSessionOptions.Text = sbSess.ToString();
 
         // ── Department filter ──
-        DataTable dtDept = ExecuteQuery(
-            @"SELECT DISTINCT IFNULL(e.department,'Unassigned') AS dept
-              FROM appraisal_records ar
-              INNER JOIN hrm_employee e ON e.empID = ar.employee_id
-              ORDER BY dept");
+                string deptExpr = GetDepartmentSelectExpression("e");
+                DataTable dtDept = ExecuteQuery(string.Format(
+                        @"SELECT DISTINCT {0} AS dept
+                            FROM appraisal_records ar
+                            INNER JOIN hrm_employee e ON e.empID = ar.employee_id
+                            ORDER BY dept", deptExpr));
 
         StringBuilder sbDept = new StringBuilder();
         sbDept.Append("<option value=''>All Departments</option>");
@@ -125,12 +126,13 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
         StringBuilder sbSt = new StringBuilder();
         sbSt.Append("<option value=''>All Statuses</option>");
         string[][] statuses = new string[][] {
-            new string[] { "PENDING", "Pending" },
+            new string[] { "PENDING", "Not Started" },
             new string[] { "EMPLOYEE_IN_PROGRESS", "Employee In Progress" },
+            new string[] { "RETURNED", "Returned to Employee" },
             new string[] { "EMPLOYEE_SUBMITTED", "Employee Submitted" },
-            new string[] { "SUPERVISOR_IN_PROGRESS", "Supervisor In Progress" },
-            new string[] { "RETURNED", "Returned" },
-            new string[] { "COMPLETED", "Completed" },
+            new string[] { "SUPERVISOR_IN_PROGRESS", "Supervisor Reviewing" },
+            new string[] { "COMPLETED", "Awaiting HR Review" },
+            new string[] { "HR_REVIEWED", "HR Reviewed" },
             new string[] { "CANCELLED", "Cancelled" }
         };
         foreach (string[] st in statuses)
@@ -146,13 +148,14 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     //  BUILD WHERE CLAUSE
     // ═══════════════════════════════════════════════════════════════════
-    private string BuildWhereClause(string arAlias, string empAlias)
+    private string BuildWhereClause(string arAlias, string empAlias, MySqlConnection conn)
     {
         StringBuilder sb = new StringBuilder(" WHERE 1=1");
+        string deptExpr = BuildDepartmentSqlExpression(conn, empAlias);
         if (QsSession > 0)
             sb.AppendFormat(" AND {0}.session_id = {1}", arAlias, QsSession);
         if (!string.IsNullOrEmpty(QsDepartment))
-            sb.AppendFormat(" AND IFNULL({0}.department,'Unassigned') = @dept", empAlias);
+            sb.AppendFormat(" AND {0} = @dept", deptExpr);
         if (!string.IsNullOrEmpty(QsCategory))
             sb.AppendFormat(" AND {0}.staff_category = @cat", arAlias);
         if (!string.IsNullOrEmpty(QsStatus))
@@ -198,15 +201,15 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadSummaryKpis(MySqlConnection conn)
     {
-        string where = BuildWhereClause("ar", "e");
+        string where = BuildWhereClause("ar", "e", conn);
         string sql = string.Format(
             @"SELECT
-                COUNT(*)                                                                      AS total,
-                SUM(CASE WHEN ar.status = 'COMPLETED' THEN 1 ELSE 0 END)                     AS completed,
-                SUM(CASE WHEN ar.status NOT IN ('COMPLETED','CANCELLED') THEN 1 ELSE 0 END)  AS outstanding,
-                ROUND(AVG(CASE WHEN ar.status = 'COMPLETED' THEN ar.final_percentage END),1)  AS avg_score,
-                ROUND(MIN(CASE WHEN ar.status = 'COMPLETED' THEN ar.final_percentage END),1)  AS min_score,
-                ROUND(MAX(CASE WHEN ar.status = 'COMPLETED' THEN ar.final_percentage END),1)  AS max_score
+                COUNT(*)                                                                                    AS total,
+                SUM(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED') THEN 1 ELSE 0 END)                  AS completed,
+                SUM(CASE WHEN ar.status NOT IN ('COMPLETED','HR_REVIEWED','CANCELLED') THEN 1 ELSE 0 END)   AS outstanding,
+                ROUND(AVG(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED') THEN ar.final_percentage END),1) AS avg_score,
+                ROUND(MIN(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED') THEN ar.final_percentage END),1) AS min_score,
+                ROUND(MAX(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED') THEN ar.final_percentage END),1) AS max_score
               FROM appraisal_records ar
               INNER JOIN hrm_employee e ON e.empID = ar.employee_id
               {0}", where);
@@ -240,7 +243,7 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadScoreDistribution(MySqlConnection conn)
     {
-        string where = BuildWhereClause("ar", "e");
+        string where = BuildWhereClause("ar", "e", conn);
         string sql = string.Format(
             @"SELECT
                 SUM(CASE WHEN ar.final_percentage >= 90 THEN 1 ELSE 0 END)                               AS outstanding,
@@ -252,7 +255,7 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
               FROM appraisal_records ar
               INNER JOIN hrm_employee e ON e.empID = ar.employee_id
               {0}
-              AND ar.status = 'COMPLETED'", where);
+              AND ar.status IN ('COMPLETED','HR_REVIEWED')", where);
 
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
@@ -305,21 +308,22 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadDepartmentSummary(MySqlConnection conn)
     {
-        string where = BuildWhereClause("ar", "e");
+                string where = BuildWhereClause("ar", "e", conn);
+                string deptExpr = BuildDepartmentSqlExpression(conn, "e");
         string sql = string.Format(
             @"SELECT
-                IFNULL(e.department,'Unassigned') AS department,
+                                {0} AS department,
                 COUNT(*) AS total,
-                SUM(CASE WHEN ar.status = 'COMPLETED' THEN 1 ELSE 0 END) AS completed,
-                SUM(CASE WHEN ar.status NOT IN ('COMPLETED','CANCELLED') THEN 1 ELSE 0 END) AS outstanding,
-                ROUND(AVG(CASE WHEN ar.status = 'COMPLETED' THEN ar.final_percentage END),1) AS avg_score,
-                ROUND(MIN(CASE WHEN ar.status = 'COMPLETED' THEN ar.final_percentage END),1) AS min_score,
-                ROUND(MAX(CASE WHEN ar.status = 'COMPLETED' THEN ar.final_percentage END),1) AS max_score
+                SUM(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED') THEN 1 ELSE 0 END) AS completed,
+                SUM(CASE WHEN ar.status NOT IN ('COMPLETED','HR_REVIEWED','CANCELLED') THEN 1 ELSE 0 END) AS outstanding,
+                ROUND(AVG(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED') THEN ar.final_percentage END),1) AS avg_score,
+                ROUND(MIN(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED') THEN ar.final_percentage END),1) AS min_score,
+                ROUND(MAX(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED') THEN ar.final_percentage END),1) AS max_score
               FROM appraisal_records ar
               INNER JOIN hrm_employee e ON e.empID = ar.employee_id
-              {0}
-              GROUP BY IFNULL(e.department,'Unassigned')
-              ORDER BY COUNT(*) DESC", where);
+                            {1}
+                            GROUP BY {0}
+                            ORDER BY COUNT(*) DESC", deptExpr, where);
 
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
@@ -362,27 +366,28 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadDetailedRecords(MySqlConnection conn)
     {
-        string where = BuildWhereClause("ar", "e");
+                string where = BuildWhereClause("ar", "e", conn);
+                string deptExpr = BuildDepartmentSqlExpression(conn, "e");
         string sql = string.Format(
             @"SELECT
                 ar.record_id, ar.status, ar.staff_category,
                 ar.final_percentage, ar.classification,
                 ar.employee_submitted_at, ar.supervisor_submitted_at,
                 e.emp_name, e.EMP_CODE,
-                IFNULL(e.department,'Unassigned') AS department,
+                                {0} AS department,
                 s.session_title,
                 sup.emp_name AS supervisor_name
               FROM appraisal_records ar
               INNER JOIN hrm_employee e   ON e.empID = ar.employee_id
               INNER JOIN appraisal_sessions s ON s.session_id = ar.session_id
               LEFT  JOIN hrm_employee sup ON sup.empID = ar.reviewer_id
-              {0}
+                            {1}
               ORDER BY
-                FIELD(ar.status,'COMPLETED','SUPERVISOR_IN_PROGRESS','EMPLOYEE_SUBMITTED',
+                FIELD(ar.status,'HR_REVIEWED','COMPLETED','SUPERVISOR_IN_PROGRESS','EMPLOYEE_SUBMITTED',
                       'EMPLOYEE_IN_PROGRESS','RETURNED','PENDING','CANCELLED'),
                 ar.final_percentage DESC,
                 e.emp_name ASC
-              LIMIT 500", where);
+                            LIMIT 500", deptExpr, where);
 
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
@@ -441,32 +446,33 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
     {
         try
         {
-            string where = BuildWhereClause("ar", "e");
-            string sql = string.Format(
-                @"SELECT
-                    e.EMP_CODE AS 'Employee Code',
-                    e.emp_name AS 'Employee Name',
-                    IFNULL(e.department,'Unassigned') AS 'Department',
-                    ar.staff_category AS 'Category',
-                    ar.status AS 'Status',
-                    ar.final_percentage AS 'Score (%)',
-                    ar.classification AS 'Classification',
-                    sup.emp_name AS 'Supervisor',
-                    s.session_title AS 'Session',
-                    DATE_FORMAT(ar.employee_submitted_at,'%Y-%m-%d %H:%i') AS 'Employee Submitted',
-                    DATE_FORMAT(ar.supervisor_submitted_at,'%Y-%m-%d %H:%i') AS 'Supervisor Submitted',
-                    DATE_FORMAT(ar.created_at,'%Y-%m-%d %H:%i') AS 'Created'
-                  FROM appraisal_records ar
-                  INNER JOIN hrm_employee e   ON e.empID = ar.employee_id
-                  INNER JOIN appraisal_sessions s ON s.session_id = ar.session_id
-                  LEFT  JOIN hrm_employee sup ON sup.empID = ar.reviewer_id
-                  {0}
-                  ORDER BY e.department, e.emp_name", where);
-
             DataTable dt;
             using (MySqlConnection conn = new MySqlConnection(ConnStr))
             {
                 conn.Open();
+                string deptExpr = BuildDepartmentSqlExpression(conn, "e");
+                string where = BuildWhereClause("ar", "e", conn);
+                string sql = string.Format(
+                    @"SELECT
+                        e.EMP_CODE AS 'Employee Code',
+                        e.emp_name AS 'Employee Name',
+                        {0} AS 'Department',
+                        ar.staff_category AS 'Category',
+                        ar.status AS 'Status',
+                        ar.final_percentage AS 'Score (%)',
+                        ar.classification AS 'Classification',
+                        sup.emp_name AS 'Supervisor',
+                        s.session_title AS 'Session',
+                        DATE_FORMAT(ar.employee_submitted_at,'%Y-%m-%d %H:%i') AS 'Employee Submitted',
+                        DATE_FORMAT(ar.supervisor_submitted_at,'%Y-%m-%d %H:%i') AS 'Supervisor Submitted',
+                        DATE_FORMAT(ar.created_at,'%Y-%m-%d %H:%i') AS 'Created'
+                      FROM appraisal_records ar
+                      INNER JOIN hrm_employee e   ON e.empID = ar.employee_id
+                      INNER JOIN appraisal_sessions s ON s.session_id = ar.session_id
+                      LEFT  JOIN hrm_employee sup ON sup.empID = ar.reviewer_id
+                      {1}
+                      ORDER BY {0}, e.emp_name", deptExpr, where);
+
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     AddFilterParams(cmd);
@@ -586,12 +592,13 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
     {
         switch (status.ToUpper())
         {
-            case "PENDING":                return "Pending";
+            case "PENDING":                return "Not Started";
             case "EMPLOYEE_IN_PROGRESS":   return "Emp. In Progress";
-            case "EMPLOYEE_SUBMITTED":     return "Emp. Submitted";
-            case "SUPERVISOR_IN_PROGRESS": return "Sup. In Progress";
             case "RETURNED":               return "Returned";
-            case "COMPLETED":              return "Completed";
+            case "EMPLOYEE_SUBMITTED":     return "Emp. Submitted";
+            case "SUPERVISOR_IN_PROGRESS": return "Sup. Reviewing";
+            case "COMPLETED":              return "Awaiting HR";
+            case "HR_REVIEWED":            return "HR Reviewed";
             case "CANCELLED":              return "Cancelled";
             default:                       return status;
         }
@@ -603,10 +610,11 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
         {
             case "PENDING":                return "pending";
             case "EMPLOYEE_IN_PROGRESS":   return "emp-prog";
+            case "RETURNED":               return "returned";
             case "EMPLOYEE_SUBMITTED":     return "emp-done";
             case "SUPERVISOR_IN_PROGRESS": return "sup-prog";
-            case "RETURNED":               return "returned";
             case "COMPLETED":              return "completed";
+            case "HR_REVIEWED":            return "hr-reviewed";
             case "CANCELLED":              return "cancelled";
             default:                       return "pending";
         }
@@ -623,6 +631,66 @@ public partial class COOPERP_NewScreens_AppraisalReports : System.Web.UI.Page
     {
         if (val == null || val == DBNull.Value) return "";
         return val.ToString();
+    }
+
+    private string GetDepartmentSelectExpression(string employeeAlias)
+    {
+        using (MySqlConnection conn = new MySqlConnection(ConnStr))
+        {
+            conn.Open();
+            return BuildDepartmentSqlExpression(conn, employeeAlias);
+        }
+    }
+
+    private string BuildDepartmentSqlExpression(MySqlConnection conn, string employeeAlias)
+    {
+        if (ColumnExists(conn, "hrm_employee", "department"))
+        {
+            return string.Format("IFNULL(NULLIF(TRIM({0}.department),''), 'Unassigned')", employeeAlias);
+        }
+
+        if (TableExists(conn, "hrm_emp_contracts") && TableExists(conn, "hrm_departments") && ColumnExists(conn, "hrm_emp_contracts", "departmentID"))
+        {
+            string deptColumn = ColumnExists(conn, "hrm_departments", "dept_name")
+                ? "dept_name"
+                : (ColumnExists(conn, "hrm_departments", "department") ? "department" : "");
+
+            string sortColumn = ColumnExists(conn, "hrm_emp_contracts", "contractStart")
+                ? "contractStart"
+                : (ColumnExists(conn, "hrm_emp_contracts", "created_at") ? "created_at" : "empID");
+
+            if (!string.IsNullOrEmpty(deptColumn))
+            {
+                return string.Format(
+                    "IFNULL(NULLIF(TRIM((SELECT d.{0} FROM hrm_emp_contracts c LEFT JOIN hrm_departments d ON c.departmentID = d.ID WHERE c.empID = {1}.empID ORDER BY (CASE WHEN IFNULL(c.contractStatus,'')='VALID' THEN 0 ELSE 1 END), c.{2} DESC LIMIT 1)),''), 'Unassigned')",
+                    deptColumn,
+                    employeeAlias,
+                    sortColumn);
+            }
+        }
+
+        return "'Unassigned'";
+    }
+
+    private bool TableExists(MySqlConnection conn, string tableName)
+    {
+        using (MySqlCommand cmd = new MySqlCommand(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @t", conn))
+        {
+            cmd.Parameters.AddWithValue("@t", tableName);
+            return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
+    }
+
+    private bool ColumnExists(MySqlConnection conn, string tableName, string columnName)
+    {
+        using (MySqlCommand cmd = new MySqlCommand(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @t AND COLUMN_NAME = @c", conn))
+        {
+            cmd.Parameters.AddWithValue("@t", tableName);
+            cmd.Parameters.AddWithValue("@c", columnName);
+            return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════

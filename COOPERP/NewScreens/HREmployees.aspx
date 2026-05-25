@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="HREmployees.aspx.cs" Inherits="COOPERP_NewScreens_HREmployees" Title="Employee Management - Campus Dynamics" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="HREmployees.aspx.cs" Inherits="COOPERP_NewScreens_HREmployees" Title="Employee Management - Campus Dynamics" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
@@ -439,13 +439,15 @@
                     <th class="em-sortable<%= QsSort=="dept" ? " em-sorted" : "" %>" onclick="doSort('dept')">
                         Department<span class="em-sort-icon"><%= QsSort=="dept" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
                     <th class="em-sortable<%= QsSort=="supervisor" ? " em-sorted" : "" %>" onclick="doSort('supervisor')">
-                        Supervisor<span class="em-sort-icon"><%= QsSort=="supervisor" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
-                    <th class="em-sortable<%= QsSort=="station" ? " em-sorted" : "" %>" onclick="doSort('station')">
-                        Station<span class="em-sort-icon"><%= QsSort=="station" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
-                    <th class="em-sortable<%= QsSort=="status" ? " em-sorted" : "" %>" onclick="doSort('status')">
-                        Status<span class="em-sort-icon"><%= QsSort=="status" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                        Job Title<span class="em-sort-icon"><%= QsSort=="supervisor" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
                     <th class="em-sortable<%= QsSort=="pay" ? " em-sorted" : "" %>" onclick="doSort('pay')" style="text-align:right">
                         Pay<span class="em-sort-icon"><%= QsSort=="pay" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="status" ? " em-sorted" : "" %>" onclick="doSort('status')">
+                        Status<span class="em-sort-icon"><%= QsSort=="status" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="contractstart" ? " em-sorted" : "" %>" onclick="doSort('contractstart')">
+                        Contract Start<span class="em-sort-icon"><%= QsSort=="contractstart" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
+                    <th class="em-sortable<%= QsSort=="contractend" ? " em-sorted" : "" %>" onclick="doSort('contractend')">
+                        Contract End<span class="em-sort-icon"><%= QsSort=="contractend" ? (QsSortDir=="ASC" ? "&#9650;" : "&#9660;") : "&#9650;&#9660;" %></span></th>
                     <th class="ct-col-actions"></th>
                 </tr>
             </thead>
@@ -812,25 +814,31 @@
         </div>
         <div class="hr-modal__body">
             <div id="pwdResult" class="hr-result"></div>
-            <p id="pwdUserInfo" style="font-size:13px;color:#555;margin:0 0 10px;"></p>
+            <p id="pwdUserInfo" style="font-size:13px;color:#555;margin:0 0 14px;"></p>
 
-            <div class="hr-form-group" style="margin-bottom:12px;">
-                <label class="hr-form-label" style="margin-bottom:6px;display:block;">Type Password (optional)</label>
-                <input type="password" id="pwdManualValue" class="hr-form-input" placeholder="Leave blank to auto-generate" autocomplete="new-password" />
-                <div class="hr-form-hint" style="margin-top:6px;">If provided, this exact password will be set for the user.</div>
+            <div class="hr-form-group" style="margin-bottom:14px;">
+                <label class="hr-form-label" style="margin-bottom:6px;display:block;">System Username <span style="color:#888;font-size:11px;">(optional)</span></label>
+                <input type="text" id="pwdUsernameValue" class="hr-form-input" placeholder="e.g. jdoe or jdoe@mru.ac.ug" autocomplete="off" style="font-family:Consolas,monospace;" />
+                <div class="hr-form-hint" style="margin-top:6px;">Login username stored on the employee record. Leave blank to keep the current username.</div>
             </div>
 
-            <div style="background:#f8f9fc;border:1px solid #e4e7f2;border-radius:6px;padding:10px 12px;font-size:12px;color:#445;line-height:1.5;">
-                This action unlocks the account and resets the password.<br />
+            <div class="hr-form-group" style="margin-bottom:14px;">
+                <label class="hr-form-label" style="margin-bottom:6px;display:block;">New Password <span style="color:#888;font-weight:400;">(optional)</span></label>
+                <input type="password" id="pwdManualValue" class="hr-form-input" placeholder="Leave blank to auto-generate a password" autocomplete="new-password" />
+                <div class="hr-form-hint" style="margin-top:6px;">If provided, this exact password will be set. If left blank, a secure password is generated.</div>
+            </div>
+
+            <div style="background:#f8f9fc;border:1px solid #e4e7f2;padding:10px 12px;font-size:12px;color:#445;line-height:1.6;">
+                This action saves the username, unlocks the account and resets the password.<br />
                 If no membership account exists, one is created automatically.
             </div>
-            <div id="pwdTempWrap" style="display:none;margin-top:12px;">
+            <div id="pwdTempWrap" style="display:none;margin-top:14px;">
                 <label class="hr-form-label" style="margin-bottom:6px;display:block;">Final Password</label>
                 <div style="display:flex;gap:8px;align-items:center;">
                     <input type="text" id="pwdTempValue" class="hr-form-input" readonly="readonly" style="font-family:Consolas,monospace;font-weight:600;" />
                     <button type="button" class="hr-btn hr-btn--outline hr-btn--sm" onclick="copyTempPassword()">Copy</button>
                 </div>
-                <div class="hr-form-hint" style="margin-top:6px;">Share this once with the employee and ask them to change it immediately.</div>
+                <div class="hr-form-hint" style="margin-top:6px;">Share this once with the employee and ask them to change it on first login.</div>
             </div>
         </div>
         <div class="hr-modal__footer">
@@ -838,6 +846,91 @@
             <button type="button" id="pwdSubmitBtn" class="hr-btn hr-btn--primary" onclick="submitPwdForm()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 <span id="pwdSubmitBtnText">Set Password</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ Set Photo Modal ═══════════════════════════════════════════════ -->
+<div class="hr-modal-overlay" id="setPhotoModal">
+    <div class="hr-modal hr-modal--md">
+        <div class="hr-modal__header">
+            <h3>Set Employee Photo</h3>
+            <button type="button" class="hr-modal__close" onclick="closeSetPhotoModal()">&times;</button>
+        </div>
+        <div class="hr-modal__body">
+            <div id="photoResult" class="hr-result"></div>
+            <p id="photoUserInfo" style="font-size:13px;color:#555;margin:0 0 10px;"></p>
+
+            <div style="display:flex;justify-content:center;align-items:center;margin:6px 0 12px;">
+                <img id="photoPreviewImg" src="../staffimages/default.jpg" alt="Preview" style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:2px solid #dfe7f5;background:#fff;" />
+            </div>
+
+            <div class="hr-form-group" style="margin-bottom:12px;">
+                <label class="hr-form-label" style="margin-bottom:6px;display:block;">Choose Photo</label>
+                <input type="file" id="photoFileInput" class="hr-form-input" accept="image/*" onchange="previewEmployeePhotoFile(this)" />
+                <div class="hr-form-hint" style="margin-top:6px;">Accepted: jpg, jpeg, png, bmp, gif. Max 5 MB.</div>
+            </div>
+        </div>
+        <div class="hr-modal__footer">
+            <button type="button" class="hr-btn hr-btn--ghost" onclick="closeSetPhotoModal()">Cancel</button>
+            <button type="button" id="photoSubmitBtn" class="hr-btn hr-btn--primary" onclick="submitSetPhotoForm()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span id="photoSubmitBtnText">Upload Photo</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ Fix Login Modal ═══════════════════════════════════════════════ -->
+<div class="hr-modal-overlay" id="fixLoginModal" style="display:none;">
+    <div class="hr-modal hr-modal--md">
+        <div class="hr-modal__header">
+            <h3>Fix Login Access</h3>
+            <button type="button" class="hr-modal__close" onclick="closeFixLoginModal()">&times;</button>
+        </div>
+        <div class="hr-modal__body">
+            <div id="fixLoginResult" class="hr-result"></div>
+            <p id="fixLoginUserInfo" style="font-size:13px;color:#555;margin:0 0 10px;"></p>
+
+            <div class="hr-form-group" style="margin-bottom:12px;">
+                <label class="hr-form-label" style="margin-bottom:6px;display:block;">New Password (optional)</label>
+                <input type="password" id="fixLoginPassword" class="hr-form-input" placeholder="Leave blank to auto-generate" autocomplete="new-password" />
+                <div class="hr-form-hint" style="margin-top:6px;">Minimum 6 characters. Leave blank to auto-generate.</div>
+            </div>
+
+            <div style="background:#f8f9fc;border:1px solid #e4e7f2;border-radius:6px;padding:10px 12px;font-size:12px;color:#445;line-height:1.7;">
+                This action will:<br />
+                &bull; Set the login username from the employee's email address (if missing)<br />
+                &bull; Create a membership account if none exists<br />
+                &bull; Unlock the account if it is locked<br />
+                &bull; Reset and set the password
+            </div>
+
+            <div id="fixLoginLogWrap" style="display:none;margin-top:12px;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#174DA4;font-weight:700;margin-bottom:4px;">Steps Taken</div>
+                <ul id="fixLoginLog" style="margin:0;padding-left:18px;font-size:12px;color:#333;line-height:1.8;"></ul>
+            </div>
+
+            <div id="fixLoginPwdWrap" style="display:none;margin-top:12px;">
+                <label class="hr-form-label" style="margin-bottom:6px;display:block;">Login Credentials</label>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:12px;color:#555;min-width:72px;">Username:</span>
+                    <input type="text" id="fixLoginUsername" class="hr-form-input" readonly="readonly" style="font-family:Consolas,monospace;font-weight:600;" />
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span style="font-size:12px;color:#555;min-width:72px;">Password:</span>
+                    <input type="text" id="fixLoginPwdValue" class="hr-form-input" readonly="readonly" style="font-family:Consolas,monospace;font-weight:600;" />
+                    <button type="button" class="hr-btn hr-btn--outline hr-btn--sm" onclick="copyFixLoginPassword()">Copy</button>
+                </div>
+                <div class="hr-form-hint" style="margin-top:6px;">Share these with the employee and ask them to change the password on first login.</div>
+            </div>
+        </div>
+        <div class="hr-modal__footer">
+            <button type="button" class="hr-btn hr-btn--ghost" onclick="closeFixLoginModal()">Cancel</button>
+            <button type="button" id="fixLoginSubmitBtn" class="hr-btn hr-btn--primary" onclick="submitFixLogin()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                <span id="fixLoginSubmitBtnText">Fix Login</span>
             </button>
         </div>
     </div>
@@ -1585,18 +1678,124 @@ function openPasswordModal(empID, empName, username) {
     closeAllActionPopovers();
     document.getElementById('<%= hdnPwdEmpID.ClientID %>').value = empID;
     document.getElementById('pwdUserInfo').innerHTML =
-        'Reset login access for <strong>' + escHtml(empName) + '</strong>' +
-        (username ? ' (' + escHtml(username) + ')' : '');
+        'Reset login access for <strong>' + escHtml(empName) + '</strong>';
     var r = document.getElementById('pwdResult');
     r.innerHTML = '';
     r.className = 'hr-result';
     document.getElementById('pwdTempWrap').style.display = 'none';
     document.getElementById('pwdTempValue').value = '';
     document.getElementById('pwdManualValue').value = '';
-    document.getElementById('pwdSubmitBtnText').textContent = 'Set Password';
+    document.getElementById('pwdUsernameValue').value = username || '';
+    document.getElementById('pwdSubmitBtnText').textContent = 'Save & Set Password';
     document.getElementById('changePwdModal').style.display = 'flex';
+    // Focus username if empty so operator fills it in
+    var unFld = document.getElementById('pwdUsernameValue');
+    if (!unFld.value) { setTimeout(function() { unFld.focus(); }, 120); }
 }
 function closePwdModal() { document.getElementById('changePwdModal').style.display = 'none'; }
+
+/* ===== SET PHOTO MODAL ================================================ */
+var _photoEmpId = '';
+var _photoFile = null;
+
+function openSetPhotoModal(empID, empName, photoUrl) {
+    closeAllActionPopovers();
+    _photoEmpId = empID || '';
+    _photoFile = null;
+
+    document.getElementById('photoUserInfo').innerHTML =
+        'Set profile photo for <strong>' + escHtml(empName || '') + '</strong>';
+    document.getElementById('photoFileInput').value = '';
+
+    var preview = document.getElementById('photoPreviewImg');
+    preview.src = (photoUrl && photoUrl.trim()) ? photoUrl : '../staffimages/default.jpg';
+
+    var r = document.getElementById('photoResult');
+    r.innerHTML = '';
+    r.className = 'hr-result';
+
+    document.getElementById('photoSubmitBtn').disabled = false;
+    document.getElementById('photoSubmitBtnText').textContent = 'Upload Photo';
+    document.getElementById('setPhotoModal').style.display = 'flex';
+}
+
+function closeSetPhotoModal() {
+    document.getElementById('setPhotoModal').style.display = 'none';
+    _photoEmpId = '';
+    _photoFile = null;
+}
+
+function previewEmployeePhotoFile(input) {
+    if (!input || !input.files || input.files.length === 0) {
+        _photoFile = null;
+        return;
+    }
+
+    var file = input.files[0];
+    if (file && file.size > (5 * 1024 * 1024)) {
+        var r = document.getElementById('photoResult');
+        r.className = 'hr-result hr-result--err';
+        r.innerHTML = 'Photo is too large. Maximum allowed size is 5 MB.';
+        input.value = '';
+        _photoFile = null;
+        return;
+    }
+
+    _photoFile = file;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('photoPreviewImg').src = e.target.result;
+    };
+    reader.readAsDataURL(_photoFile);
+}
+
+function submitSetPhotoForm() {
+    if (!_photoEmpId) return;
+
+    var r = document.getElementById('photoResult');
+    if (!_photoFile) {
+        r.className = 'hr-result hr-result--err';
+        r.innerHTML = 'Please choose a photo first.';
+        return;
+    }
+
+    var btn = document.getElementById('photoSubmitBtn');
+    var btnText = document.getElementById('photoSubmitBtnText');
+    btn.disabled = true;
+    btnText.textContent = 'Uploading...';
+    r.className = 'hr-result';
+    r.innerHTML = 'Uploading photo...';
+
+    var fd = new FormData();
+    fd.append('photoFile', _photoFile);
+
+    fetch('?ajax=set_photo&id=' + encodeURIComponent(_photoEmpId), {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.error) {
+            r.className = 'hr-result hr-result--err';
+            r.innerHTML = data.error;
+        } else if (data.success) {
+            r.className = 'hr-result hr-result--ok';
+            r.innerHTML = data.message || 'Photo updated successfully.';
+            setTimeout(function() { window.location.reload(); }, 650);
+        } else {
+            r.className = 'hr-result hr-result--err';
+            r.innerHTML = 'Failed to update photo.';
+        }
+        btn.disabled = false;
+        btnText.textContent = 'Upload Photo';
+    })
+    .catch(function(err) {
+        r.className = 'hr-result hr-result--err';
+        r.innerHTML = 'Error: ' + err.toString();
+        btn.disabled = false;
+        btnText.textContent = 'Upload Photo';
+    });
+}
 
 function showResetPasswordResult(tempPassword, accountName, isProvisioned, customApplied) {
     var wrap = document.getElementById('pwdTempWrap');
@@ -1627,20 +1826,20 @@ function copyTempPassword() {
 function submitPwdForm() {
     var empID = document.getElementById('<%= hdnPwdEmpID.ClientID %>').value;
     if (!empID) return;
+    var newUsername = (document.getElementById('pwdUsernameValue').value || '').trim();
     var manualPwd = document.getElementById('pwdManualValue').value || '';
 
     var r = document.getElementById('pwdResult');
     r.className = 'hr-result';
+
     r.innerHTML = 'Updating password...';
     document.getElementById('pwdTempWrap').style.display = 'none';
     document.getElementById('pwdSubmitBtn').disabled = true;
-    
+
     fetch('?ajax=reset_pwd&id=' + encodeURIComponent(empID), {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-        },
-        body: 'new_password=' + encodeURIComponent(manualPwd)
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body: 'new_username=' + encodeURIComponent(newUsername) + '&new_password=' + encodeURIComponent(manualPwd)
     })
         .then(function(resp) { return resp.json(); })
         .then(function(data) {
@@ -1648,6 +1847,10 @@ function submitPwdForm() {
                 r.className = 'hr-result hr-result--err';
                 r.innerHTML = data.error;
             } else {
+                if (data.username_written) {
+                    r.className = 'hr-result hr-result--ok';
+                    r.innerHTML = 'Username saved as <strong>' + escHtml(data.saved_username || newUsername) + '</strong>.';
+                }
                 showResetPasswordResult(data.temp_password, data.username, data.provisioned, data.custom_applied);
             }
             document.getElementById('pwdSubmitBtn').disabled = false;
@@ -1657,6 +1860,97 @@ function submitPwdForm() {
             r.innerHTML = 'Error: ' + err.toString();
             document.getElementById('pwdSubmitBtn').disabled = false;
         });
+}
+
+/* ===== FIX LOGIN MODAL ================================================= */
+var _fixLoginEmpId = '';
+
+function openFixLoginModal(empID, empName, email) {
+    closeAllActionPopovers();
+    _fixLoginEmpId = empID || '';
+
+    document.getElementById('fixLoginUserInfo').innerHTML =
+        'Fix login access for <strong>' + escHtml(empName || '') + '</strong>' +
+        (email ? ' (' + escHtml(email) + ')' : '');
+
+    var r = document.getElementById('fixLoginResult');
+    r.innerHTML = ''; r.className = 'hr-result';
+    document.getElementById('fixLoginPassword').value = '';
+    document.getElementById('fixLoginLogWrap').style.display = 'none';
+    document.getElementById('fixLoginLog').innerHTML = '';
+    document.getElementById('fixLoginPwdWrap').style.display = 'none';
+    document.getElementById('fixLoginUsername').value = '';
+    document.getElementById('fixLoginPwdValue').value = '';
+    document.getElementById('fixLoginSubmitBtn').disabled = false;
+    document.getElementById('fixLoginSubmitBtnText').textContent = 'Fix Login';
+    document.getElementById('fixLoginModal').style.display = 'flex';
+}
+
+function closeFixLoginModal() {
+    document.getElementById('fixLoginModal').style.display = 'none';
+    _fixLoginEmpId = '';
+}
+
+function submitFixLogin() {
+    if (!_fixLoginEmpId) return;
+    var pwd = document.getElementById('fixLoginPassword').value || '';
+    var r = document.getElementById('fixLoginResult');
+    r.className = 'hr-result'; r.innerHTML = 'Fixing login...';
+
+    var logWrap = document.getElementById('fixLoginLogWrap');
+    var logList = document.getElementById('fixLoginLog');
+    var pwdWrap = document.getElementById('fixLoginPwdWrap');
+    logWrap.style.display = 'none'; logList.innerHTML = ''; pwdWrap.style.display = 'none';
+
+    var btn = document.getElementById('fixLoginSubmitBtn');
+    var btnText = document.getElementById('fixLoginSubmitBtnText');
+    btn.disabled = true; btnText.textContent = 'Working...';
+
+    fetch('?ajax=fix_login&id=' + encodeURIComponent(_fixLoginEmpId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body: 'new_password=' + encodeURIComponent(pwd)
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        btn.disabled = false; btnText.textContent = 'Fix Login';
+
+        if (data.log && data.log.length) {
+            logList.innerHTML = '';
+            for (var i = 0; i < data.log.length; i++) {
+                var li = document.createElement('li');
+                li.textContent = data.log[i];
+                logList.appendChild(li);
+            }
+            logWrap.style.display = 'block';
+        }
+
+        if (data.error) {
+            r.className = 'hr-result hr-result--err';
+            r.innerHTML = escHtml(data.error);
+        } else if (data.success) {
+            r.className = 'hr-result hr-result--ok';
+            r.innerHTML = 'Login fixed for <strong>' + escHtml(data.username || '') + '</strong>.';
+            document.getElementById('fixLoginUsername').value = data.username || '';
+            document.getElementById('fixLoginPwdValue').value = data.password || '';
+            pwdWrap.style.display = 'block';
+        } else {
+            r.className = 'hr-result hr-result--err';
+            r.innerHTML = 'Unexpected response from server.';
+        }
+    })
+    .catch(function(err) {
+        btn.disabled = false; btnText.textContent = 'Fix Login';
+        r.className = 'hr-result hr-result--err';
+        r.innerHTML = 'Error: ' + err.toString();
+    });
+}
+
+function copyFixLoginPassword() {
+    var v = document.getElementById('fixLoginPwdValue');
+    if (!v || !v.value) return;
+    v.focus(); v.select();
+    try { document.execCommand('copy'); } catch(e) {}
 }
 
 /* ===== DELETE EMPLOYEE ================================================= */
@@ -1780,6 +2074,8 @@ function closeProfile() { document.getElementById('profileOverlay').classList.re
         if (e.key === 'Escape') {
             closeEmpFormModal();
             closePwdModal();
+            closeSetPhotoModal();
+            closeFixLoginModal();
             closeProfile();
             closeLightbox();
         }

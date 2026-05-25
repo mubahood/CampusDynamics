@@ -57,6 +57,13 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
     // ===============================================================
     protected void Page_Load(object sender, EventArgs e)
     {
+        // AJAX: delete student
+        if (Request.QueryString["ajax"] == "delete")
+        {
+            HandleDeleteStudent();
+            return;
+        }
+
         // ALWAYS reload dropdown items - ViewState is disabled on master page,
         // so dropdown items are lost on every postback. ASP.NET's second
         // ProcessPostData pass will restore user selections from posted form data
@@ -401,6 +408,67 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
     }
 
     // ===============================================================
+    //  AJAX: DELETE STUDENT
+    // ===============================================================
+    private void HandleDeleteStudent()
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+        string regno = (Request.QueryString["regno"] ?? "").Trim();
+        if (string.IsNullOrEmpty(regno))
+        {
+            Response.Write("{\"ok\":false,\"error\":\"Registration number required.\"}");
+            Response.End(); return;
+        }
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+
+                // Safety check: block delete if the student has any financial transactions
+                using (MySqlCommand chk = new MySqlCommand(
+                    "SELECT COUNT(*) FROM fin_studentfeestracking WHERE regno = @r", conn))
+                {
+                    chk.Parameters.AddWithValue("@r", regno);
+                    long txCount = Convert.ToInt64(chk.ExecuteScalar());
+                    if (txCount > 0)
+                        throw new Exception(string.Format(
+                            "Cannot delete {0}: {1} fee transaction(s) exist. Reverse all transactions first.", regno, txCount));
+                }
+
+                MySqlTransaction tx = conn.BeginTransaction();
+                try
+                {
+                    // Delete semester enrolment
+                    using (MySqlCommand d1 = new MySqlCommand(
+                        "DELETE FROM acad_student_semester WHERE regno = @r", conn, tx))
+                    { d1.Parameters.AddWithValue("@r", regno); d1.ExecuteNonQuery(); }
+
+                    // Delete programme enrolment
+                    using (MySqlCommand d2 = new MySqlCommand(
+                        "DELETE FROM acad_student_programme WHERE regno = @r", conn, tx))
+                    { d2.Parameters.AddWithValue("@r", regno); d2.ExecuteNonQuery(); }
+
+                    // Delete core student record
+                    using (MySqlCommand d3 = new MySqlCommand(
+                        "DELETE FROM acad_student WHERE regno = @r", conn, tx))
+                    { d3.Parameters.AddWithValue("@r", regno); d3.ExecuteNonQuery(); }
+
+                    tx.Commit();
+                }
+                catch { tx.Rollback(); throw; }
+            }
+            Response.Write("{\"ok\":true,\"message\":\"Student " + regno.Replace("\"", "") + " deleted successfully.\"}");
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"ok\":false,\"error\":\"" + ex.Message.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}");
+        }
+        Response.End();
+    }
+
+    // ===============================================================
     //  LOAD EXISTING STUDENT FOR EDIT MODE
     // ===============================================================
     private void LoadStudentForEdit(string regno)
@@ -718,8 +786,6 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         string aLevelSchool = (txtALevelSchool.Text ?? "").Trim();
         string aLevelIndex  = (txtALevelIndex.Text ?? "").Trim();
 
-        bool registerNow    = chkRegisterNow.Checked;
-
         // -- Server-side validation ----------------------------------
         if (string.IsNullOrEmpty(fullName))
         { ShowError("Please enter the student's full name."); return; }
@@ -735,16 +801,6 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
         { ShowError("Please select an entry year."); return; }
         if (string.IsNullOrEmpty(billing))
         { ShowError("Please select a billing system."); return; }
-
-        // Enforce current academic year — entry year must match
-        int parsedEntryYear = SafeInt(entryYear, 0);
-        if (parsedEntryYear > 0 && !AcademicYearHelper.IsCurrentEntryYear(parsedEntryYear))
-        {
-            ShowError(string.Format(
-                "Registration is only allowed for the current academic year ({0}). Entry year {1} does not match.",
-                AcademicYearHelper.GetCurrentYearDisplay(), entryYear));
-            return;
-        }
 
         // Parse DOB
         DateTime birthDate = new DateTime(1980, 1, 1);
@@ -878,12 +934,80 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                 }
 
                 // -- Step 6: Register applicant (acad_student + acad_registration)
-                using (var cmd = new MySqlCommand("acad_RegisterApplicant", conn))
+                // Inline equivalent of acad_RegisterApplicant SP — bypasses any SP-level
+                // academic-year restriction so registration works for any entry year.
+                int eyrInt = SafeInt(entryYear, DateTime.Now.Year);
+                string acadYearForReg = string.Format("{0}/{1}", eyrInt, eyrInt + 1);
+
+                // 6a: Look up prog/session/spec from applicant choices
+                string regProg = "", regSess = "", regSpec = "", regNewNo = "";
+                using (var cmd = new MySqlCommand(
+                    "SELECT prog_id, adm_session, sub_comb FROM acad_applicant_choices WHERE stud_entry_no=@eno AND choice=1 LIMIT 1", conn))
                 {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@eyr", SafeInt(entryYear, DateTime.Now.Year));
                     cmd.Parameters.AddWithValue("@eno", entryNo);
+                    using (var rdr = cmd.ExecuteReader())
+                        if (rdr.Read())
+                        {
+                            regProg = rdr["prog_id"]    != DBNull.Value ? rdr["prog_id"].ToString()    : "";
+                            regSess = rdr["adm_session"] != DBNull.Value ? rdr["adm_session"].ToString() : "";
+                            regSpec = rdr["sub_comb"]   != DBNull.Value ? rdr["sub_comb"].ToString()   : "";
+                        }
+                }
+                using (var cmd = new MySqlCommand(
+                    "SELECT stud_reg_no FROM acad_applications WHERE stud_entry_no=@eno LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@eno", entryNo);
+                    object v = cmd.ExecuteScalar();
+                    if (v != null && v != DBNull.Value) regNewNo = v.ToString();
+                }
+
+                // 6b: Insert into acad_student
+                using (var cmd = new MySqlCommand(@"
+                    INSERT IGNORE INTO acad_student(
+                        entryno, regno, firstname, dob, gender, nationality, religion,
+                        entrymethod, progid, studPhone, email, entryyear, studsesion,
+                        home_dist, intake, gradSystemID, othername, duration, specialisation, studcampus
+                    )
+                    SELECT stud_reg_no, stud_entry_no,
+                        REPLACE(SUBSTRING_INDEX(stud_name,' ',3), SUBSTRING_INDEX(stud_name,' ',1), ''),
+                        stud_birthdate,
+                        IF(stud_sex='M','MALE',IF(stud_sex='F','FEMALE',stud_sex)),
+                        stud_nationality, stud_religion, stud_entry_method,
+                        @prog, stud_phone, stud_email, stud_entry_year, @sess, home_district,
+                        stud_intake, 1,
+                        UPPER(SUBSTRING_INDEX(stud_name,' ',1)),
+                        Acad_GetApplicantDetails(6, @prog),
+                        @spec, stud_campus
+                    FROM acad_applications WHERE stud_entry_no=@eno", conn))
+                {
+                    cmd.Parameters.AddWithValue("@prog", regProg);
+                    cmd.Parameters.AddWithValue("@sess", regSess);
+                    cmd.Parameters.AddWithValue("@spec", regSpec);
+                    cmd.Parameters.AddWithValue("@eno",  entryNo);
+                    cmd.ExecuteNonQuery();
+                }
+
+                // 6c: Insert into acad_registration
+                using (var cmd = new MySqlCommand(@"
+                    INSERT IGNORE INTO acad_registration(
+                        regno, acad_year, semester, regstatus, studyyear,
+                        id_cardStatus, residence_status, reg_CardStatus,
+                        examClearance, clearedBy, registeredBy
+                    ) VALUES(@eno, @acad_year, 1, 'UNREGISTERED', 1, '-', '-', '-', 'UNCLEARED', '-', @usr)", conn))
+                {
+                    cmd.Parameters.AddWithValue("@eno",       entryNo);
+                    cmd.Parameters.AddWithValue("@acad_year", acadYearForReg);
+                    cmd.Parameters.AddWithValue("@usr",       GetCurrentUser());
+                    cmd.ExecuteNonQuery();
+                }
+
+                // 6d: Activity log
+                using (var cmd = new MySqlCommand(@"
+                    INSERT INTO acad_activity_log(user_id, page_function, par, comments, access_date)
+                    VALUES(@usr, 'Applicant Registration', @par, 'Registered Applicant', NOW())", conn))
+                {
                     cmd.Parameters.AddWithValue("@usr", GetCurrentUser());
+                    cmd.Parameters.AddWithValue("@par", string.Format("prog: {0} Reg No: {1}", regProg, regNewNo));
                     cmd.ExecuteNonQuery();
                 }
 
@@ -900,33 +1024,12 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                     cmd.ExecuteNonQuery();
                 }
 
-                // -- Step 8: Immediate registration + auto-billing --
-                if (registerNow)
-                {
-                    using (var cmd = new MySqlCommand(
-                        "UPDATE acad_registration SET regstatus='REGISTERED', registeredBy=@usr WHERE regno=@rno AND regstatus='UNREGISTERED'",
-                        conn))
-                    {
-                        cmd.Parameters.AddWithValue("@rno", regNo);
-                        cmd.Parameters.AddWithValue("@usr", GetCurrentUser());
-                        cmd.ExecuteNonQuery();
-                    }
-                    int regId = 0;
-                    using (var cmd = new MySqlCommand(
-                        "SELECT ID FROM acad_registration WHERE regno=@rno ORDER BY ID DESC LIMIT 1", conn))
-                    {
-                        cmd.Parameters.AddWithValue("@rno", regNo);
-                        object val = cmd.ExecuteScalar();
-                        if (val != null) regId = Convert.ToInt32(val);
-                    }
-                    if (regId > 0) AutoBillStudent(regId);
-                }
+                // -- Step 8: Immediate registration disabled — students self-register via the portal --
 
                 // -- Success - show result via JS -------------------
-                string jsRegNow = registerNow ? "true" : "false";
                 ScriptManager.RegisterStartupScript(this, GetType(), "regSuccess",
                     string.Format("showSuccess('{0}','{1}',{2});",
-                        EscapeJs(entryNo), EscapeJs(regNo), jsRegNow), true);
+                        EscapeJs(entryNo), EscapeJs(regNo), "false"), true);
             }
         }
         catch (Exception ex)

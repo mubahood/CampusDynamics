@@ -17,23 +17,35 @@
 .mra-input,.mra-select{height:28px;border:1px solid #cdd8e6;border-radius:0;background:#fff;padding:4px 6px;font-size:11px;color:#1f2937;font-family:inherit;min-width:0;width:100%}
 .mra-input:focus,.mra-select:focus{outline:none;border-color:#174DA4;box-shadow:0 0 0 3px rgba(23,77,164,.12)}
 .mra-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.mra-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:28px;padding:0 8px;border-radius:0;border:1px solid #d2dae6;background:#fff;color:#05275C;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
+.mra-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;height:28px;padding:0 8px;border-radius:0;border:1px solid #d2dae6;background:#fff;color:#05275C;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;text-decoration:none}
 .mra-btn:hover{color:#174DA4;border-color:#174DA4;background:#f4f8ff}
 .mra-btn[disabled]{opacity:.55;cursor:not-allowed}
 .mra-btn--primary{background:#05275C;color:#fff;border-color:#05275C}
 .mra-btn--primary:hover{background:#174DA4;color:#fff;border-color:#174DA4}
 .mra-btn--danger{background:#b42318;color:#fff;border-color:#b42318}
 .mra-btn--danger:hover{background:#8e1c15;color:#fff;border-color:#8e1c15}
+.mra-btn--warn{background:#92400e;color:#fff;border-color:#92400e}
+.mra-btn--warn:hover{background:#78350f;color:#fff;border-color:#78350f}
+.mra-btn--cur{background:#05275C;color:#fff;border-color:#05275C;cursor:default}
+.mra-btn--cur:hover{background:#05275C;color:#fff;border-color:#05275C}
+.mra-btn--sm{height:24px;padding:0 6px;font-size:9px}
 .mra-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:8px}
 .mra-stat{background:#fff;border:1px solid #e3e9f2;border-radius:0;padding:7px 8px;min-height:74px;display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0}
 .mra-stat__lbl{font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800}
 .mra-stat__val{font-size:22px;color:#05275C;line-height:1;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mra-stat__sub{font-size:10px;color:#6b7280}
+.mra-batch-bar{display:none;padding:6px 8px;background:#ede9fe;border-bottom:1px solid #c4b5fd;align-items:center;gap:8px;flex-wrap:wrap}
+.mra-batch-bar.show{display:flex}
+.mra-batch-bar__label{font-size:11px;font-weight:800;color:#5b21b6;flex:1}
+.mra-head-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mra-qs-input{height:28px;border:1px solid #cdd8e6;border-radius:0;background:#fff;padding:4px 6px;font-size:11px;color:#1f2937;font-family:inherit;width:180px}
+.mra-qs-input:focus{outline:none;border-color:#174DA4;box-shadow:0 0 0 3px rgba(23,77,164,.12)}
 .mra-table-wrap{overflow-x:auto;overflow-y:hidden;background:#fff;max-width:100%}
-.mra-table{width:100%;min-width:0;border-collapse:collapse;table-layout:fixed}
-.mra-table th{background:#f8fafc;border-bottom:1px solid #e0e5ed;font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;padding:6px 6px;text-align:left;white-space:normal;word-break:break-word}
+.mra-table{width:100%;min-width:980px;border-collapse:collapse;table-layout:fixed}
+.mra-table th{background:#f8fafc;border-bottom:1px solid #e0e5ed;font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;padding:6px;text-align:left;white-space:normal;word-break:break-word}
 .mra-table td{border-bottom:1px solid #eef2f6;font-size:10px;color:#1f2937;padding:6px;vertical-align:top;word-break:break-word;overflow-wrap:anywhere}
 .mra-table tbody tr:last-child td{border-bottom:none}
+.mra-chk{width:13px;height:13px;cursor:pointer;accent-color:#05275C}
 .mra-pill{display:inline-block;padding:2px 6px;border-radius:0;font-size:9px;font-weight:900;letter-spacing:.35px;text-transform:uppercase}
 .mra-pill--PENDING_LECTURER{background:#fef3c7;color:#92400e}
 .mra-pill--PENDING_SUPERVISOR{background:#e0f2fe;color:#0c4a6e}
@@ -41,129 +53,178 @@
 .mra-pill--APPROVED{background:#e6f4ea;color:#2e7d32}
 .mra-pill--REJECTED{background:#fee2e2;color:#b42318}
 .mra-pill--CANCELLED{background:#f3f4f6;color:#374151}
+.mra-chip{display:inline-block;padding:2px 5px;border-radius:0;font-size:9px;font-weight:800;letter-spacing:.3px;text-transform:uppercase}
+.mra-chip--change{background:#fef3c7;color:#92400e}
+.mra-chip--missing{background:#fee2e2;color:#b42318}
 .mra-note{font-size:10px;color:#6b7280;line-height:1.35}
 .mra-strong{font-weight:800;color:#05275C}
-.mra-loading{opacity:.7;pointer-events:none}
-.mra-right{text-align:right}
-.mra-action-wrap{display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap}
+.mra-code{font-family:monospace;font-size:10px;color:#374151}
+.mra-action-wrap{display:flex;gap:3px;justify-content:flex-end;flex-wrap:wrap}
+.mra-menu-wrap{position:relative;display:inline-block;}
+.mra-menu{display:none;position:absolute;right:0;top:100%;min-width:130px;background:#fff;border:1px solid #d5dce8;box-shadow:0 4px 16px rgba(5,39,92,.13);z-index:200;margin-top:1px;}
+.mra-menu.open{display:block;}
+.mra-menu-item{display:block;width:100%;text-align:left;padding:7px 10px;border:none;border-bottom:1px solid #f1f5f9;background:none;font-size:10px;font-weight:700;color:#1f2937;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.mra-menu-item:last-child{border-bottom:none;}
+.mra-menu-item:hover{background:#f4f8ff;color:#174DA4;}
+.mra-menu-item--danger{color:#b42318;}
+.mra-menu-item--danger:hover{background:#fef2f2;color:#b42318;}
+.mra-menu-item--warn{color:#92400e;}
+.mra-menu-item--warn:hover{background:#fffbeb;color:#92400e;}
+.mra-marks-compare{display:flex;gap:4px}
+.mra-mark-box{border:1px solid #e3e9f2;padding:4px 5px;min-width:56px;flex:1}
+.mra-mark-box__lbl{font-size:8px;text-transform:uppercase;letter-spacing:.3px;color:#94a3b8;font-weight:800;margin-bottom:2px}
+.mra-mark-box__row{font-size:9px;color:#374151;line-height:1.4}
+.mra-mark-box__row span{font-weight:800;color:#05275C}
+.mra-trail-quote{font-size:10px;color:#374151;border-left:2px solid #e3e9f2;padding-left:5px;margin-bottom:3px;line-height:1.35}
+.mra-trail-resp{font-size:9px;color:#64748b;line-height:1.35;margin-bottom:2px}
+.mra-trail-actors{font-size:9px;color:#94a3b8;margin-top:3px}
+.mra-pager{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-top:1px solid #e3e9f2;background:#fafbfc;font-size:11px;color:#64748b;flex-wrap:wrap;gap:6px}
+.mra-pager__nav{display:flex;gap:4px;flex-wrap:wrap}
+/* Modal */
 .mra-modal{position:fixed;inset:0;background:rgba(5,39,92,.35);display:none;align-items:center;justify-content:center;padding:12px;z-index:9999}
 .mra-modal.show{display:flex}
-.mra-modal__panel{width:100%;max-width:460px;background:#fff;border:1px solid #d5dce8;border-radius:0}
+.mra-modal__panel{width:100%;max-width:480px;background:#fff;border:1px solid #d5dce8;border-radius:0}
 .mra-modal__head{padding:8px;border-bottom:1px solid #e8edf5;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .mra-modal__title{font-size:11px;font-weight:900;letter-spacing:.4px;text-transform:uppercase;color:#05275C}
 .mra-modal__body{padding:8px;display:flex;flex-direction:column;gap:6px}
-.mra-modal__hint{font-size:10px;color:#64748b;line-height:1.35}
+.mra-modal__hint{font-size:10px;color:#64748b;line-height:1.4}
+.mra-modal__ctx{background:#f8fafc;border:1px solid #e3e9f2;padding:6px;font-size:10px;color:#374151;line-height:1.4}
 .mra-modal__marks{display:none;border:1px solid #e5eaf3;padding:6px}
 .mra-modal__marks.show{display:block}
+.mra-modal__marks-hint{font-size:9px;color:#64748b;margin-bottom:5px}
 .mra-modal__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .mra-modal__mark{display:flex;flex-direction:column;gap:3px}
 .mra-modal__mark label{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800}
 .mra-modal__mark input{height:28px;border:1px solid #cdd8e6;border-radius:0;padding:4px 6px;font-size:11px;color:#1f2937;font-family:inherit;width:100%;min-width:0}
 .mra-modal__mark input:focus{outline:none;border-color:#174DA4;box-shadow:0 0 0 3px rgba(23,77,164,.12)}
 .mra-modal__mark--total input{background:#f8fafc;color:#05275C;font-weight:800}
-.mra-modal__textarea{min-height:92px;resize:vertical;border:1px solid #cdd8e6;border-radius:0;padding:6px;font-size:11px;color:#1f2937;font-family:inherit}
+.mra-modal__textarea{min-height:80px;resize:vertical;border:1px solid #cdd8e6;border-radius:0;padding:6px;font-size:11px;color:#1f2937;font-family:inherit;width:100%}
 .mra-modal__textarea:focus{outline:none;border-color:#174DA4;box-shadow:0 0 0 3px rgba(23,77,164,.12)}
 .mra-modal__foot{padding:8px;border-top:1px solid #e8edf5;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}
 .mra-modal__error{display:none;border:1px solid #fecaca;background:#fef2f2;color:#b42318;padding:6px;font-size:10px}
 .mra-modal__error.show{display:block}
+.mra-modal__ok{display:none;border:1px solid #bbf7d0;background:#f0fdf4;color:#166534;padding:6px;font-size:10px}
+.mra-modal__ok.show{display:block}
 @media (max-width:1250px){.mra-grid{grid-template-columns:repeat(3,minmax(0,1fr));}.mra-filters{grid-template-columns:repeat(3,minmax(0,1fr));}.mra-fg--search{grid-column:span 3;}}
 @media (max-width:900px){.mra-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.mra-filters{grid-template-columns:repeat(2,minmax(0,1fr));}.mra-fg--search{grid-column:span 2;}}
-@media (max-width:640px){.mra-grid,.mra-filters,.mra-modal__grid{grid-template-columns:1fr;}.mra-fg--search{grid-column:span 1;}.mra-head{align-items:flex-start}.mra-right{text-align:left}.mra-action-wrap{justify-content:flex-start}}
+@media (max-width:640px){.mra-grid,.mra-filters,.mra-modal__grid{grid-template-columns:1fr;}.mra-fg--search{grid-column:span 1;}.mra-head{align-items:flex-start}.mra-action-wrap{justify-content:flex-start}}
 </style>
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
-<div class="mra-wrap" id="mraWrap">
-    <div id="mraError" class="mra-error"></div>
+<div class="mra-wrap">
+    <div id="mraGlobalError" class="mra-error"></div>
 
-    <div class="mra-card" id="mraFilterCard">
+    <!-- Filter card -->
+    <div class="mra-card">
         <div class="mra-head">
             <div>
-                <div class="mra-title">Mark Requests Admin Controller</div>
-                <div class="mra-sub">Full visibility + intervention controls (approve, reject, force close).</div>
+                <div class="mra-title">Mark Requests &mdash; Admin Controller</div>
+                <div class="mra-sub">Full visibility + intervention controls (approve, reject, reopen, push, force close).</div>
             </div>
             <div class="mra-actions">
-                <button type="button" class="mra-btn mra-btn--primary" id="mraApply">Apply</button>
-                <button type="button" class="mra-btn" id="mraReset">Reset</button>
-                <button type="button" class="mra-btn" id="mraRefresh">Refresh</button>
+                <button type="button" class="mra-btn mra-btn--primary" onclick="applyFilters()">Apply</button>
+                <button type="button" class="mra-btn" onclick="clearFilters()">Reset</button>
             </div>
         </div>
-
         <div class="mra-filters">
             <div class="mra-fg">
                 <label>Academic Year</label>
-                <select id="mraYear" class="mra-select"></select>
+                <select id="mraYear" class="mra-select">
+                    <option value="">All Years</option>
+                    <asp:Literal ID="litYearOpts" runat="server"/>
+                </select>
             </div>
             <div class="mra-fg">
                 <label>Semester</label>
                 <select id="mraSemester" class="mra-select">
-                    <option value="">All Semesters</option>
-                    <option value="1">Sem 1</option>
-                    <option value="2">Sem 2</option>
-                    <option value="3">Sem 3</option>
+                    <option value="">All</option>
+                    <option value="1"<%= Sel(FilterSem,"1") %>>Sem 1</option>
+                    <option value="2"<%= Sel(FilterSem,"2") %>>Sem 2</option>
+                    <option value="3"<%= Sel(FilterSem,"3") %>>Sem 3</option>
                 </select>
             </div>
             <div class="mra-fg">
-                <label>Request Type</label>
+                <label>Type</label>
                 <select id="mraType" class="mra-select">
-                    <option value="ALL">All Types</option>
-                    <option value="MARK_CHANGE">Mark Change</option>
-                    <option value="MISSING_MARK">Missing Mark</option>
+                    <option value=""<%= Sel(FilterType,"") %>>All Types</option>
+                    <option value="MARK_CHANGE"<%= Sel(FilterType,"MARK_CHANGE") %>>Mark Change</option>
+                    <option value="MISSING_MARK"<%= Sel(FilterType,"MISSING_MARK") %>>Missing Mark</option>
                 </select>
             </div>
             <div class="mra-fg">
                 <label>Status</label>
                 <select id="mraStatus" class="mra-select">
-                    <option value="ALL">All Statuses</option>
-                    <option value="PENDING_LECTURER">Pending Lecturer</option>
-                    <option value="PENDING_SUPERVISOR">Pending Supervisor</option>
-                    <option value="PENDING_ADMIN">Pending Admin</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="REJECTED">Rejected</option>
-                    <option value="CANCELLED">Cancelled</option>
+                    <option value="ALL"<%= string.IsNullOrEmpty(FilterStatus) ? " selected" : "" %>>All Statuses</option>
+                    <option value="PENDING_LECTURER"<%= Sel(FilterStatus,"PENDING_LECTURER") %>>Pending Lecturer</option>
+                    <option value="PENDING_SUPERVISOR"<%= Sel(FilterStatus,"PENDING_SUPERVISOR") %>>Pending Supervisor</option>
+                    <option value="PENDING_ADMIN"<%= Sel(FilterStatus,"PENDING_ADMIN") %>>Pending Admin</option>
+                    <option value="APPROVED"<%= Sel(FilterStatus,"APPROVED") %>>Approved</option>
+                    <option value="REJECTED"<%= Sel(FilterStatus,"REJECTED") %>>Rejected</option>
+                    <option value="CANCELLED"<%= Sel(FilterStatus,"CANCELLED") %>>Cancelled</option>
                 </select>
             </div>
             <div class="mra-fg mra-fg--search">
                 <label>Search</label>
-                <input type="text" id="mraSearch" class="mra-input" placeholder="Reg no, student, course" />
+                <input type="text" id="mraSearch" class="mra-input" placeholder="Reg no, name, course..."
+                       value="<%= HE(FilterQ) %>"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();applyFilters();}"/>
             </div>
         </div>
     </div>
 
-    <div class="mra-grid">
-        <div class="mra-stat"><div class="mra-stat__lbl">Total</div><div class="mra-stat__val" id="sTotal">0</div><div class="mra-stat__sub">All requests in scope</div></div>
-        <div class="mra-stat"><div class="mra-stat__lbl">Pending Admin</div><div class="mra-stat__val" id="sPendingAdmin">0</div><div class="mra-stat__sub">Requires immediate action</div></div>
-        <div class="mra-stat"><div class="mra-stat__lbl">Pending Supervisor/Lecturer</div><div class="mra-stat__val" id="sPendingOther">0</div><div class="mra-stat__sub">Stuck before admin stage</div></div>
-        <div class="mra-stat"><div class="mra-stat__lbl">Approved</div><div class="mra-stat__val" id="sApproved">0</div><div class="mra-stat__sub">Resolved as approved</div></div>
-        <div class="mra-stat"><div class="mra-stat__lbl">Rejected + Cancelled</div><div class="mra-stat__val" id="sClosed">0</div><div class="mra-stat__sub">Closed without approval</div></div>
-    </div>
+    <!-- Stats row (server-rendered) -->
+    <asp:Literal ID="litStats" runat="server"/>
 
+    <!-- Requests table card -->
     <div class="mra-card">
         <div class="mra-head">
             <div class="mra-title">Requests</div>
-            <div class="mra-sub"><span id="mraCount">0</span> records</div>
+            <div class="mra-head-tools">
+                <span class="mra-sub"><asp:Literal ID="litCount" runat="server" Text="0"/> records</span>
+                <input type="text" id="mraQs" class="mra-qs-input" placeholder="Quick search this page..." oninput="applyQs()"/>
+                <select id="mraSize" class="mra-select" style="width:auto;min-width:95px;" onchange="applyFilters()">
+                    <option value="25"<%= Sel(FilterSize.ToString(),"25") %>>25 / page</option>
+                    <option value="50"<%= Sel(FilterSize.ToString(),"50") %>>50 / page</option>
+                    <option value="100"<%= Sel(FilterSize.ToString(),"100") %>>100 / page</option>
+                    <option value="200"<%= Sel(FilterSize.ToString(),"200") %>>200 / page</option>
+                </select>
+                <button type="button" class="mra-btn" onclick="window.location.reload()">Refresh</button>
+            </div>
         </div>
+
+        <!-- Batch action bar -->
+        <div class="mra-batch-bar" id="mraBatchBar">
+            <span class="mra-batch-bar__label" id="mraBatchCount">0 selected</span>
+            <button type="button" class="mra-btn mra-btn--primary mra-btn--sm" onclick="openBatchModal('approve')">Approve Selected</button>
+            <button type="button" class="mra-btn mra-btn--sm" onclick="openBatchModal('reject')">Reject Selected</button>
+            <button type="button" class="mra-btn mra-btn--danger mra-btn--sm" onclick="openBatchModal('force')">Force Close</button>
+            <button type="button" class="mra-btn mra-btn--sm" onclick="clearSelection()">Clear Selection</button>
+        </div>
+
         <div class="mra-table-wrap">
-            <table class="mra-table">
+            <table class="mra-table" id="mraTable">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Student / Course</th>
-                        <th>Scope</th>
-                        <th>Type / Status</th>
-                        <th>Original</th>
-                        <th>Proposed</th>
+                        <th style="width:28px;text-align:center;"><input type="checkbox" class="mra-chk" id="mraSelectAll" onclick="selectAll(this)" title="Select all"/></th>
+                        <th style="width:38px;">ID</th>
+                        <th style="width:160px;">Student</th>
+                        <th style="width:155px;">Course</th>
+                        <th style="width:95px;">Type / Status</th>
+                        <th style="width:130px;">Marks</th>
                         <th>Trail</th>
-                        <th class="mra-right">Actions</th>
+                        <th style="width:170px;text-align:right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="mraRows">
-                    <tr><td colspan="8" class="mra-note">Loading...</td></tr>
+                    <asp:Literal ID="litRows" runat="server"/>
                 </tbody>
             </table>
         </div>
+        <asp:Literal ID="litPager" runat="server"/>
     </div>
 
+    <!-- Action modal -->
     <div class="mra-modal" id="mraModal" aria-hidden="true">
         <div class="mra-modal__panel" role="dialog" aria-modal="true" aria-labelledby="mraModalTitle">
             <div class="mra-modal__head">
@@ -172,25 +233,27 @@
             </div>
             <div class="mra-modal__body">
                 <div class="mra-modal__hint" id="mraModalHint"></div>
+                <div class="mra-modal__ctx" id="mraModalCtx" style="display:none;"></div>
                 <div class="mra-modal__marks" id="mraApproveMarks">
-                    <div class="mra-modal__hint">Adjust marks before approval (optional). Leave blank to keep existing proposed marks.</div>
+                    <div class="mra-modal__marks-hint">Adjust marks before approval (optional). Leave blank to keep existing proposed marks.</div>
                     <div class="mra-modal__grid">
                         <div class="mra-modal__mark">
-                            <label>CW (0-100)</label>
-                            <input type="number" id="mraApproveCw" min="0" max="100" placeholder="CW" />
+                            <label>CW (0&ndash;40)</label>
+                            <input type="number" id="mraApproveCw" min="0" max="40" placeholder="CW"/>
                         </div>
                         <div class="mra-modal__mark">
-                            <label>Exam (0-100)</label>
-                            <input type="number" id="mraApproveExam" min="0" max="100" placeholder="Exam" />
+                            <label>Exam (0&ndash;60)</label>
+                            <input type="number" id="mraApproveExam" min="0" max="60" placeholder="Exam"/>
                         </div>
                         <div class="mra-modal__mark mra-modal__mark--total">
                             <label>Total</label>
-                            <input type="number" id="mraApproveTotal" readonly="readonly" placeholder="Auto" />
+                            <input type="number" id="mraApproveTotal" readonly="readonly" placeholder="Auto"/>
                         </div>
                     </div>
                 </div>
                 <textarea id="mraModalNote" class="mra-modal__textarea" placeholder="Enter note..."></textarea>
                 <div class="mra-modal__error" id="mraModalError"></div>
+                <div class="mra-modal__ok" id="mraModalOk"></div>
             </div>
             <div class="mra-modal__foot">
                 <button type="button" class="mra-btn" id="mraModalCancel">Cancel</button>
@@ -203,19 +266,239 @@
 <script type="text/javascript">
 (function(){
 'use strict';
-function byId(id){return document.getElementById(id);} 
-function txt(v){return (v===null||v===undefined||v==='')?'-':String(v);} 
-function num(v){var n=parseInt(v,10);return isNaN(n)?0:n;} 
-function esc(s){return String(s||'').replace(/[&<>\"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
-function money(v){var n=num(v); return n.toLocaleString('en-US');}
+function byId(id){return document.getElementById(id);}
+function num(v){var n=parseInt(v,10);return isNaN(n)?0:n;}
 
-function showError(msg){var e=byId('mraError'); if(!e)return; e.textContent=msg||'Something went wrong.'; e.className='mra-error show';}
-function hideError(){var e=byId('mraError'); if(e)e.className='mra-error';}
-function setLoading(on){var w=byId('mraWrap'); if(!w)return; w.className='mra-wrap'+(on?' mra-loading':'');}
-var modalState={action:'',requestId:0};
-var _mraRowsById={};
+// ── Modal state ───────────────────────────────────────────────────────────────
+var modalState={action:'',requestId:0,isBatch:false,batchIds:[]};
 
-function ajax(method, payload, done){
+// ── Filter navigation (GET-based) ─────────────────────────────────────────────
+function applyFilters(){
+    var sp=new URLSearchParams();
+    var year   =byId('mraYear').value;
+    var sem    =byId('mraSemester').value;
+    var type   =byId('mraType').value;
+    var status =byId('mraStatus').value;
+    var q      =(byId('mraSearch').value||'').trim();
+    var size   =byId('mraSize').value;
+    if(year)   sp.set('year',   year);
+    if(sem)    sp.set('sem',    sem);
+    if(type)   sp.set('type',   type);
+    if(status) sp.set('status', status);
+    if(q)      sp.set('q',      q);
+    if(size && size!=='50') sp.set('size', size);
+    var qs=sp.toString();
+    window.location.href=window.location.pathname+(qs?'?'+qs:'');
+}
+function clearFilters(){
+    window.location.href=window.location.pathname;
+}
+
+// ── Quick search (client-side, filters visible rows) ─────────────────────────
+function applyQs(){
+    var qs=(byId('mraQs').value||'').trim().toLowerCase();
+    var rows=document.querySelectorAll('#mraRows tr[data-search]');
+    for(var i=0;i<rows.length;i++){
+        var ds=(rows[i].getAttribute('data-search')||'').toLowerCase();
+        rows[i].style.display=(!qs||ds.indexOf(qs)>=0)?'':'none';
+    }
+}
+
+// ── Checkbox / batch selection ────────────────────────────────────────────────
+function getSelectedIds(){
+    var chks=document.querySelectorAll('.mra-row-chk:checked');
+    var ids=[];
+    for(var i=0;i<chks.length;i++) ids.push(num(chks[i].value));
+    return ids.filter(function(x){return x>0;});
+}
+function onChkChange(){
+    var ids=getSelectedIds();
+    var n=ids.length;
+    var bar=byId('mraBatchBar');
+    var lbl=byId('mraBatchCount');
+    if(bar) bar.className='mra-batch-bar'+(n>0?' show':'');
+    if(lbl) lbl.textContent=n+' selected';
+    // update select-all indeterminate state
+    var all=byId('mraSelectAll');
+    if(!all) return;
+    var total=document.querySelectorAll('.mra-row-chk').length;
+    all.indeterminate=(n>0&&n<total);
+    all.checked=(n>0&&n===total);
+}
+function selectAll(el){
+    var chks=document.querySelectorAll('.mra-row-chk');
+    for(var i=0;i<chks.length;i++) chks[i].checked=el.checked;
+    onChkChange();
+}
+function clearSelection(){
+    var chks=document.querySelectorAll('.mra-row-chk');
+    for(var i=0;i<chks.length;i++) chks[i].checked=false;
+    var all=byId('mraSelectAll');
+    if(all){all.checked=false;all.indeterminate=false;}
+    onChkChange();
+}
+
+// ── Dropdown menus ─────────────────────────────────────────────────────────────
+function closeAllMenus(){
+    var menus=document.querySelectorAll('.mra-menu.open');
+    for(var i=0;i<menus.length;i++) menus[i].className='mra-menu';
+}
+function toggleMenu(wrapId){
+    var wrap=byId(wrapId);
+    if(!wrap) return;
+    var menu=wrap.querySelector('.mra-menu');
+    if(!menu) return;
+    var isOpen=menu.className.indexOf('open')>=0;
+    closeAllMenus();
+    if(!isOpen) menu.className='mra-menu open';
+}
+
+// ── Mark helpers ──────────────────────────────────────────────────────────────
+function parseMarkOrNull(v){
+    if(v===null||v===undefined)return null;
+    var s=String(v).trim();
+    if(s==='')return null;
+    var n=parseInt(s,10);
+    return isNaN(n)?null:n;
+}
+function calcTotal(){
+    var cw=parseMarkOrNull(byId('mraApproveCw').value);
+    var ex=parseMarkOrNull(byId('mraApproveExam').value);
+    var tot=byId('mraApproveTotal');
+    if(!tot)return;
+    tot.value=(cw!==null&&ex!==null)?String(cw+ex):'';
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function modalError(msg){
+    var e=byId('mraModalError');
+    if(!e)return;
+    if(msg){e.textContent=msg;e.className='mra-modal__error show';}
+    else{e.textContent='';e.className='mra-modal__error';}
+}
+function modalOk(msg){
+    var e=byId('mraModalOk');
+    if(!e)return;
+    if(msg){e.textContent=msg;e.className='mra-modal__ok show';}
+    else{e.textContent='';e.className='mra-modal__ok';}
+}
+
+// ── Open modal — single item ──────────────────────────────────────────────────
+function openModal(action,id){
+    modalState.action=action;
+    modalState.requestId=num(id);
+    modalState.isBatch=false;
+    modalState.batchIds=[];
+    _showModal(action,id);
+}
+
+// ── Open modal — batch ────────────────────────────────────────────────────────
+function openBatchModal(action){
+    var ids=getSelectedIds();
+    if(ids.length===0){alert('Select at least one request first.');return;}
+    modalState.action=action;
+    modalState.requestId=0;
+    modalState.isBatch=true;
+    modalState.batchIds=ids;
+    _showModal(action,null);
+}
+
+// ── Internal: configure and show modal ───────────────────────────────────────
+function _showModal(action,id){
+    var row=id?document.querySelector('tr[data-id="'+id+'"]'):null;
+    var title=byId('mraModalTitle'),hint=byId('mraModalHint'),note=byId('mraModalNote'),submit=byId('mraModalSubmit');
+    var ctx=byId('mraModalCtx');
+    var marksWrap=byId('mraApproveMarks'),cw=byId('mraApproveCw'),ex=byId('mraApproveExam'),tot=byId('mraApproveTotal');
+    if(!title||!hint||!note||!submit)return;
+
+    modalError('');modalOk('');
+    note.value='';note.disabled=false;submit.disabled=false;
+    if(cw)cw.value='';if(ex)ex.value='';if(tot)tot.value='';
+    if(marksWrap)marksWrap.className='mra-modal__marks';
+    if(ctx)ctx.style.display='none';
+
+    var isBatch=modalState.isBatch;
+    var batchN=isBatch?modalState.batchIds.length:0;
+
+    if(action==='approve'){
+        title.textContent=isBatch?('Approve '+batchN+' Requests'):'Approve Request #'+id;
+        hint.textContent=isBatch
+            ?'All selected requests will be approved. Marks will be published where proposed marks are available.'
+            :'This request will be approved and marks published if proposed marks are available.';
+        note.placeholder='Optional approval note';
+        submit.textContent='Approve';
+        submit.className='mra-btn mra-btn--primary';
+        if(!isBatch){
+            if(marksWrap)marksWrap.className='mra-modal__marks show';
+            if(row&&cw){cw.value=row.getAttribute('data-pcw')||row.getAttribute('data-ocw')||'';}
+            if(row&&ex){ex.value=row.getAttribute('data-pex')||row.getAttribute('data-oex')||'';}
+            calcTotal();
+        }
+        if(isBatch&&ctx){
+            ctx.textContent=batchN+' requests selected for batch approval.';
+            ctx.style.display='block';
+        }
+    } else if(action==='reject'){
+        title.textContent=isBatch?('Reject '+batchN+' Requests'):'Reject Request #'+id;
+        hint.textContent='Provide a rejection reason (minimum 5 characters). Admin can reject any request regardless of current stage.';
+        note.placeholder='Required rejection reason';
+        submit.textContent='Reject';
+        submit.className='mra-btn mra-btn--danger';
+        if(isBatch&&ctx){
+            ctx.textContent=batchN+' requests selected for batch rejection.';
+            ctx.style.display='block';
+        }
+    } else if(action==='force'){
+        title.textContent=isBatch?('Force Close '+batchN+' Requests'):'Force Close Request #'+id;
+        hint.textContent='Provide reason (minimum 5 characters). This overrides workflow state and cancels the request.';
+        note.placeholder='Required force-close reason';
+        submit.textContent='Force Close';
+        submit.className='mra-btn mra-btn--danger';
+        if(isBatch&&ctx){
+            ctx.textContent=batchN+' requests selected for batch force close.';
+            ctx.style.display='block';
+        }
+    } else if(action==='reopen'){
+        title.textContent='Reopen Request #'+id;
+        hint.textContent='This will reset the request to PENDING_ADMIN so it can be reviewed again. Provide an optional note.';
+        note.placeholder='Optional note';
+        submit.textContent='Reopen';
+        submit.className='mra-btn mra-btn--primary';
+    } else if(action==='marks'){
+        title.textContent='Update Marks — Request #'+id;
+        hint.textContent='Directly update proposed marks on this request. Status remains unchanged.';
+        note.placeholder='Optional note';
+        submit.textContent='Update Marks';
+        submit.className='mra-btn mra-btn--warn';
+        if(marksWrap)marksWrap.className='mra-modal__marks show';
+        if(row&&cw){cw.value=row.getAttribute('data-pcw')||row.getAttribute('data-ocw')||'';}
+        if(row&&ex){ex.value=row.getAttribute('data-pex')||row.getAttribute('data-oex')||'';}
+        calcTotal();
+    }
+
+    if(!isBatch&&row&&ctx&&action!=='approve'){
+        var name=row.getAttribute('data-name')||'';
+        var rn=row.getAttribute('data-regno')||'';
+        var course=row.getAttribute('data-course')||'';
+        ctx.textContent='#'+id+' — '+name+(rn?' ('+rn+')':'')+' — '+course;
+        ctx.style.display='block';
+    }
+
+    var modal=byId('mraModal');
+    if(modal){modal.className='mra-modal show';modal.setAttribute('aria-hidden','false');}
+    setTimeout(function(){note.focus();},80);
+}
+
+// ── Close modal ───────────────────────────────────────────────────────────────
+function closeModal(){
+    var modal=byId('mraModal');
+    if(modal){modal.className='mra-modal';modal.setAttribute('aria-hidden','true');}
+    modalState.action='';modalState.requestId=0;modalState.isBatch=false;modalState.batchIds=[];
+    modalError('');modalOk('');
+}
+
+// ── AJAX helper ───────────────────────────────────────────────────────────────
+function ajax(method,payload,done){
     var xhr=new XMLHttpRequest();
     xhr.open('POST','MarkRequestsAdmin.aspx/'+method,true);
     xhr.setRequestHeader('Content-Type','application/json; charset=utf-8');
@@ -223,303 +506,122 @@ function ajax(method, payload, done){
         try{
             var raw=JSON.parse(xhr.responseText);
             var data=(raw&&raw.d!==undefined)?raw.d:raw;
-            if(typeof data==='string'){ data=JSON.parse(data); }
+            if(typeof data==='string'){data=JSON.parse(data);}
             done(data||{success:false,message:'Empty response'});
-        }catch(ex){ done({success:false,message:'Invalid response format.'}); }
+        }catch(ex){done({success:false,message:'Invalid response format.'});}
     };
-    xhr.onerror=function(){ done({success:false,message:'Network error.'}); };
+    xhr.onerror=function(){done({success:false,message:'Network error.'});};
     xhr.send(JSON.stringify(payload||{}));
 }
 
-function filters(){
-    return {
-        year: byId('mraYear').value || '',
-        semester: byId('mraSemester').value || '',
-        requestType: byId('mraType').value || 'ALL',
-        statusFilter: byId('mraStatus').value || 'ALL',
-        search: (byId('mraSearch').value || '').trim()
-    };
-}
-
-function setYears(years){
-    var el=byId('mraYear'); if(!el)return;
-    var html='<option value="">All Years</option>';
-    (years||[]).forEach(function(y){ html+='<option value="'+esc(y.value||'')+'">'+esc(y.text||'')+'</option>'; });
-    el.innerHTML=html;
-}
-
-function applyStats(s){
-    s=s||{};
-    var pendingOther=num(s.pendingLecturer)+num(s.pendingSupervisor);
-    byId('sTotal').textContent=money(s.total);
-    byId('sPendingAdmin').textContent=money(s.pendingAdmin);
-    byId('sPendingOther').textContent=money(pendingOther);
-    byId('sApproved').textContent=money(s.approved);
-    byId('sClosed').textContent=money(num(s.rejected)+num(s.cancelled));
-}
-
-function canAct(status){
-    status=(status||'').toUpperCase();
-    return status==='PENDING_LECTURER' || status==='PENDING_SUPERVISOR' || status==='PENDING_ADMIN';
-}
-
-function rowHtml(r){
-    var status=txt(r.status).toUpperCase();
-    var action='';
-    if(canAct(status)){
-        action += '<button type="button" class="mra-btn mra-btn--primary" data-act="approve" data-id="'+esc(r.id)+'">Approve</button> ';
-        action += '<button type="button" class="mra-btn" data-act="reject" data-id="'+esc(r.id)+'">Reject</button> ';
-    }
-    action += '<button type="button" class="mra-btn mra-btn--danger" data-act="force" data-id="'+esc(r.id)+'">Force Close</button>';
-
-    var trail=[];
-    if(r.student_reason){ trail.push('<div class="mra-note"><span class="mra-strong">Student:</span> '+esc(r.student_reason)+'</div>'); }
-    if(r.lecturer_response){ trail.push('<div class="mra-note"><span class="mra-strong">Lecturer:</span> '+esc(r.lecturer_response)+'</div>'); }
-    if(r.supervisor_response){ trail.push('<div class="mra-note"><span class="mra-strong">Supervisor:</span> '+esc(r.supervisor_response)+'</div>'); }
-    if(r.admin_response){ trail.push('<div class="mra-note"><span class="mra-strong">Admin:</span> '+esc(r.admin_response)+'</div>'); }
-    if(trail.length===0){ trail.push('<div class="mra-note">-</div>'); }
-
-    var scope='Y'+esc(r.acad_year)+' / S'+esc(r.semester);
-    return ''+
-    '<tr data-id="'+esc(r.id)+'">'+
-      '<td>#'+esc(r.id)+'</td>'+
-      '<td><div class="mra-strong">'+esc(r.student_name||r.regno)+'</div><div class="mra-note">'+esc(r.regno)+'</div><div class="mra-note">'+esc(r.course_name||r.course_id)+' ('+esc(r.course_id)+')</div></td>'+
-      '<td><div>'+scope+'</div><div class="mra-note">Created: '+esc(r.created_at)+'</div><div class="mra-note">Updated: '+esc(r.updated_at)+'</div></td>'+
-      '<td><div class="mra-note">'+esc((r.request_type||'').replace('_',' '))+'</div><span class="mra-pill mra-pill--'+esc(status)+'">'+esc(status.replace(/_/g,' '))+'</span></td>'+
-      '<td><div class="mra-note">CW: '+txt(r.orig_cw)+'</div><div class="mra-note">Exam: '+txt(r.orig_exam)+'</div><div class="mra-note"><span class="mra-strong">Total: '+txt(r.orig_total)+'</span></div><div class="mra-note">Grade: '+txt(r.orig_grade)+'</div></td>'+
-      '<td><div class="mra-note">CW: '+txt(r.proposed_cw)+'</div><div class="mra-note">Exam: '+txt(r.proposed_exam)+'</div><div class="mra-note"><span class="mra-strong">Total: '+txt(r.proposed_total)+'</span></div></td>'+
-      '<td>'+trail.join('')+'<div class="mra-note">Lec: '+txt(r.lecturer_name)+'</div><div class="mra-note">Sup: '+txt(r.supervisor_name)+'</div><div class="mra-note">Admin: '+txt(r.admin_username)+'</div></td>'+
-            '<td class="mra-right"><div class="mra-action-wrap">'+action+'</div></td>'+
-    '</tr>';
-}
-
-function renderRows(items){
-    var tbody=byId('mraRows'); if(!tbody)return;
-    _mraRowsById={};
-    if(!items || !items.length){
-        tbody.innerHTML='<tr><td colspan="8" class="mra-note">No mark requests found for the selected filters.</td></tr>';
-        byId('mraCount').textContent='0';
-        return;
-    }
-    for(var j=0;j<items.length;j++){
-        _mraRowsById[String(items[j].id)]=items[j];
-    }
-    var html='';
-    for(var i=0;i<items.length;i++){ html+=rowHtml(items[i]); }
-    tbody.innerHTML=html;
-    byId('mraCount').textContent=String(items.length);
-}
-
-function parseMarkOrNull(v){
-    if(v===null || v===undefined) return null;
-    var s=String(v).trim();
-    if(s==='') return null;
-    var n=parseInt(s,10);
-    return isNaN(n)?null:n;
-}
-
-function setApproveTotal(){
-    var cw=parseMarkOrNull(byId('mraApproveCw').value);
-    var ex=parseMarkOrNull(byId('mraApproveExam').value);
-    var total=byId('mraApproveTotal');
-    if(!total) return;
-    total.value=(cw!==null && ex!==null)? String(cw+ex) : '';
-}
-
-function loadStatsAndRequests(showBusy){
-    hideError();
-    if(showBusy!==false) setLoading(true);
-    var f=filters();
-    ajax('GetStats',{year:f.year,semester:f.semester,requestType:f.requestType},function(sRes){
-        if(!sRes || !sRes.success){ if(showBusy!==false) setLoading(false); showError((sRes&&sRes.message)||'Failed to load stats.'); return; }
-        applyStats(sRes.stats||{});
-        ajax('GetRequests',f,function(rRes){
-            if(showBusy!==false) setLoading(false);
-            if(!rRes || !rRes.success){ showError((rRes&&rRes.message)||'Failed to load requests.'); return; }
-            renderRows(rRes.requests||[]);
-        });
-    });
-}
-
-function modalError(msg){
-    var e=byId('mraModalError');
-    if(!e) return;
-    if(msg){ e.textContent=msg; e.className='mra-modal__error show'; }
-    else { e.textContent=''; e.className='mra-modal__error'; }
-}
-
-function openModal(action,id){
-    modalState.action=action;
-    modalState.requestId=num(id);
-    var row=_mraRowsById[String(id)] || null;
-    var title=byId('mraModalTitle'), hint=byId('mraModalHint'), note=byId('mraModalNote'), submit=byId('mraModalSubmit');
-    var marksWrap=byId('mraApproveMarks'), cw=byId('mraApproveCw'), ex=byId('mraApproveExam'), total=byId('mraApproveTotal');
-    if(!title||!hint||!note||!submit) return;
-    modalError('');
-    note.value='';
-    note.disabled=false;
-    submit.disabled=false;
-    if(cw) cw.value='';
-    if(ex) ex.value='';
-    if(total) total.value='';
-    if(marksWrap) marksWrap.className='mra-modal__marks';
-
-    if(action==='approve'){
-        title.textContent='Approve Request #'+modalState.requestId;
-        hint.textContent='Optional admin note. This request will be approved and marks published if proposed marks are available.';
-        note.placeholder='Optional approval note';
-        submit.textContent='Approve';
-        submit.className='mra-btn mra-btn--primary';
-        if(marksWrap) marksWrap.className='mra-modal__marks show';
-        if(cw && row){
-            var prefCw = (row.proposed_cw!==null && row.proposed_cw!==undefined) ? row.proposed_cw : row.orig_cw;
-            cw.value = (prefCw!==null && prefCw!==undefined) ? String(prefCw) : '';
-        }
-        if(ex && row){
-            var prefEx = (row.proposed_exam!==null && row.proposed_exam!==undefined) ? row.proposed_exam : row.orig_exam;
-            ex.value = (prefEx!==null && prefEx!==undefined) ? String(prefEx) : '';
-        }
-        setApproveTotal();
-    } else if(action==='reject'){
-        title.textContent='Reject Request #'+modalState.requestId;
-        hint.textContent='Provide rejection reason (minimum 5 characters).';
-        note.placeholder='Required rejection reason';
-        submit.textContent='Reject';
-        submit.className='mra-btn';
-    } else if(action==='force'){
-        title.textContent='Force Close Request #'+modalState.requestId;
-        hint.textContent='Provide reason (minimum 5 characters). This overrides workflow state.';
-        note.placeholder='Required force-close reason';
-        submit.textContent='Force Close';
-        submit.className='mra-btn mra-btn--danger';
-    }
-
-    var modal=byId('mraModal');
-    if(modal){ modal.className='mra-modal show'; modal.setAttribute('aria-hidden','false'); }
-    note.focus();
-}
-
-function closeModal(){
-    var modal=byId('mraModal');
-    if(modal){ modal.className='mra-modal'; modal.setAttribute('aria-hidden','true'); }
-    modalState.action='';
-    modalState.requestId=0;
-    modalError('');
-}
-
-function submitModalAction(){
-    var id=modalState.requestId;
+// ── Submit modal action ───────────────────────────────────────────────────────
+function submitAction(){
     var action=modalState.action;
-    var noteEl=byId('mraModalNote'), submit=byId('mraModalSubmit');
-    if(!id || !action || !noteEl || !submit){ modalError('Invalid action context.'); return; }
+    var id=modalState.requestId;
+    var isBatch=modalState.isBatch;
+    var batchIds=modalState.batchIds;
+    var noteEl=byId('mraModalNote'),submit=byId('mraModalSubmit');
+    if(!action||!noteEl||!submit){modalError('Invalid action context.');return;}
 
     var txtVal=(noteEl.value||'').trim();
-    var method='', payload={requestId:id};
+    var method='',payload={};
 
-    if(action==='approve'){
-        var cwVal=parseMarkOrNull(byId('mraApproveCw').value);
-        var exVal=parseMarkOrNull(byId('mraApproveExam').value);
-        var oneProvided = (cwVal!==null || exVal!==null);
-        if(oneProvided && (cwVal===null || exVal===null)){
-            modalError('Please provide both CW and Exam marks, or leave both blank.');
-            return;
+    if(isBatch){
+        // batch actions
+        if(action==='approve'||action==='reject'||action==='force'){
+            if((action==='reject'||action==='force')&&txtVal.length<5){
+                modalError((action==='reject'?'Rejection':'Force-close')+' reason must be at least 5 characters.');return;
+            }
+            method='AdminBatch';
+            payload={ids:batchIds.join(','),action:action,note:txtVal};
+        } else {
+            modalError('Unknown batch action.');return;
         }
-        if(cwVal!==null && (cwVal<0 || cwVal>100)){ modalError('CW mark must be 0-100.'); return; }
-        if(exVal!==null && (exVal<0 || exVal>100)){ modalError('Exam mark must be 0-100.'); return; }
-        method='AdminApprove';
-        payload.note=txtVal;
-        payload.adminProposedCw=cwVal;
-        payload.adminProposedExam=exVal;
-    } else if(action==='reject'){
-        if(txtVal.length<5){ modalError('Rejection reason must be at least 5 characters.'); return; }
-        method='AdminReject';
-        payload.reason=txtVal;
-    } else if(action==='force'){
-        if(txtVal.length<5){ modalError('Force close reason must be at least 5 characters.'); return; }
-        method='AdminForceClose';
-        payload.reason=txtVal;
     } else {
-        modalError('Unknown action.');
-        return;
+        if(!id){modalError('No request selected.');return;}
+        if(action==='approve'){
+            var cwVal=parseMarkOrNull(byId('mraApproveCw').value);
+            var exVal=parseMarkOrNull(byId('mraApproveExam').value);
+            var oneProvided=(cwVal!==null||exVal!==null);
+            if(oneProvided&&(cwVal===null||exVal===null)){modalError('Please provide both CW and Exam marks, or leave both blank.');return;}
+            if(cwVal!==null&&(cwVal<0||cwVal>40)){modalError('CW mark must be 0–40.');return;}
+            if(exVal!==null&&(exVal<0||exVal>60)){modalError('Exam mark must be 0–60.');return;}
+            method='AdminApprove';
+            payload={requestId:id,note:txtVal,adminProposedCw:cwVal,adminProposedExam:exVal};
+        } else if(action==='reject'){
+            if(txtVal.length<5){modalError('Rejection reason must be at least 5 characters.');return;}
+            method='AdminReject';
+            payload={requestId:id,reason:txtVal};
+        } else if(action==='force'){
+            if(txtVal.length<5){modalError('Force close reason must be at least 5 characters.');return;}
+            method='AdminForceClose';
+            payload={requestId:id,reason:txtVal};
+        } else if(action==='reopen'){
+            method='AdminReopen';
+            payload={requestId:id,note:txtVal};
+        } else if(action==='marks'){
+            var cwVal=parseMarkOrNull(byId('mraApproveCw').value);
+            var exVal=parseMarkOrNull(byId('mraApproveExam').value);
+            if(cwVal!==null&&(cwVal<0||cwVal>40)){modalError('CW mark must be 0–40.');return;}
+            if(exVal!==null&&(exVal<0||exVal>60)){modalError('Exam mark must be 0–60.');return;}
+            method='AdminUpdateMarks';
+            payload={requestId:id,cw:cwVal,exam:exVal,note:txtVal};
+        } else {
+            modalError('Unknown action.');return;
+        }
     }
 
     modalError('');
-    submit.disabled=true;
-    noteEl.disabled=true;
-    var oldText=submit.textContent;
+    submit.disabled=true;noteEl.disabled=true;
+    var oldTxt=submit.textContent;
     submit.textContent='Processing...';
 
     ajax(method,payload,function(res){
-        submit.disabled=false;
-        noteEl.disabled=false;
-        submit.textContent=oldText;
-        if(!res || !res.success){ modalError((res&&res.message)||'Action failed.'); return; }
-        closeModal();
-        hideError();
-        loadStatsAndRequests(false);
+        submit.disabled=false;noteEl.disabled=false;
+        submit.textContent=oldTxt;
+        if(!res||!res.success){modalError((res&&res.message)||'Action failed.');return;}
+        modalOk((res&&res.message)||'Done.');
+        submit.disabled=true;
+        setTimeout(function(){closeModal();window.location.reload();},900);
     });
 }
 
-function doAction(action,id){
-    id=num(id);
-    if(!id){ showError('Invalid request id.'); return; }
-    if(action==='approve' || action==='reject' || action==='force'){
-        openModal(action,id);
-    }
-}
-
-function bindEvents(){
-    byId('mraApply').onclick=loadStatsAndRequests;
-    byId('mraRefresh').onclick=loadStatsAndRequests;
-    byId('mraReset').onclick=function(){
-        byId('mraYear').value='';
-        byId('mraSemester').value='';
-        byId('mraType').value='ALL';
-        byId('mraStatus').value='ALL';
-        byId('mraSearch').value='';
-        loadStatsAndRequests();
-    };
-    byId('mraSearch').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); loadStatsAndRequests(); } });
-    byId('mraRows').addEventListener('click',function(e){
-        var btn=e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
-        if(!btn) return;
-        e.preventDefault();
-        doAction(btn.getAttribute('data-act'), btn.getAttribute('data-id'));
-    });
-
-    byId('mraModalClose').onclick=closeModal;
-    byId('mraModalCancel').onclick=closeModal;
-    byId('mraModalSubmit').onclick=submitModalAction;
-    byId('mraModal').addEventListener('click',function(e){
-        if(e.target && e.target.id==='mraModal') closeModal();
-    });
-    byId('mraApproveCw').addEventListener('input',setApproveTotal);
-    byId('mraApproveExam').addEventListener('input',setApproveTotal);
-    document.addEventListener('keydown',function(e){
-        if(e.key==='Escape'){ closeModal(); }
-        if(e.key==='Enter'){
-            var m=byId('mraModal');
-            if(m && m.className.indexOf('show')>=0 && document.activeElement!==byId('mraModalNote')){
-                e.preventDefault();
-                submitModalAction();
-            }
+// ── Event wiring ──────────────────────────────────────────────────────────────
+byId('mraModalClose').onclick=closeModal;
+byId('mraModalCancel').onclick=closeModal;
+byId('mraModalSubmit').onclick=submitAction;
+byId('mraModal').addEventListener('click',function(e){if(e.target&&e.target.id==='mraModal')closeModal();});
+byId('mraApproveCw').addEventListener('input',calcTotal);
+byId('mraApproveExam').addEventListener('input',calcTotal);
+document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){closeModal();}
+    if(e.key==='Enter'){
+        var m=byId('mraModal');
+        if(m&&m.className.indexOf('show')>=0&&document.activeElement!==byId('mraModalNote')){
+            e.preventDefault();submitAction();
         }
-    });
-}
-
-function init(){
-    hideError();
-    setLoading(true);
-    ajax('GetInit',{},function(res){
-        setLoading(false);
-        if(!res || !res.success){ showError((res&&res.message)||'Failed to initialize page.'); return; }
-        setYears(res.years||[]);
-        bindEvents();
-        loadStatsAndRequests();
-    });
-}
-
-init();
+    }
+});
+// wire up all row checkboxes (including future ones via delegation)
+document.getElementById('mraRows').addEventListener('change',function(e){
+    if(e.target&&e.target.classList.contains('mra-row-chk'))onChkChange();
+});
+// close open dropdown menus on outside click or Escape
+document.addEventListener('click',function(e){
+    if(!e.target.closest||!e.target.closest('.mra-menu-wrap')) closeAllMenus();
+});
+document.addEventListener('keydown',function(e){
+    if(e.key==='Escape') closeAllMenus();
+},{capture:true});
+// expose required functions to global scope (onclick attrs in server-rendered HTML)
+window.openModal=openModal;
+window.openBatchModal=openBatchModal;
+window.selectAll=selectAll;
+window.clearSelection=clearSelection;
+window.toggleMenu=toggleMenu;
+window.applyFilters=applyFilters;
+window.clearFilters=clearFilters;
+window.applyQs=applyQs;
 })();
 </script>
 </asp:Content>

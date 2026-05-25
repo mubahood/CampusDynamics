@@ -15,15 +15,18 @@
 1. [Response Format](#1-response-format)
 2. [Authentication (auth.aspx)](#2-authentication) — incl. 2.4 Ping (ODEL)
 3. [Student Endpoints (student.aspx)](#3-student-endpoints) — incl. 3.5-3.8 ODEL endpoints
-4. [Staff Endpoints (staff.aspx)](#4-staff-endpoints) — incl. 4.13-4.14 ODEL endpoints
+4. [Staff Endpoints (staff.aspx)](#4-staff-endpoints) — incl. 4.13-4.14 ODEL endpoints, 4.15-4.20 Mark Requests
 5. [Academic Endpoints (academic.aspx)](#5-academic-endpoints) — incl. 5.11-5.14 ODEL endpoints
 6. [Finance Endpoints (finance.aspx)](#6-finance-endpoints) — incl. 6.6-6.7 ODEL endpoints, 6.8 Fee Access Policy
 7. [Timetable Endpoints (timetable.aspx)](#7-timetable-endpoints)
 8. [Campus / Public Endpoints (campus.aspx)](#8-campus-endpoints) — incl. 8.9 Academic Calendar (ODEL)
-9. [Error Codes Reference](#9-error-codes-reference)
-10. [Grading & Classification Scales](#10-grading--classification-scales)
-11. [Database Schema Notes](#11-database-schema-notes)
-12. [Known Limitations](#12-known-limitations)
+8a. [Support Tickets (support.aspx)](#8a-support-tickets-supportaspx) — Student help-desk ticketing system
+9. [Applicant Endpoints (apply.aspx)](#9-applicant-endpoints-applyaspx) — Full application lifecycle for mobile app
+10. [Admissions Management (admissions.aspx)](#10-admissions-management-admissionsaspx) — Staff-side admissions
+11. [Error Codes Reference](#11-error-codes-reference)
+12. [Grading & Classification Scales](#12-grading--classification-scales)
+13. [Database Schema Notes](#13-database-schema-notes)
+14. [Known Limitations](#14-known-limitations)
 Appendix: [Quick Reference & ODEL Integration Summary](#appendix-quick-reference)
 
 ---
@@ -843,6 +846,78 @@ GET /API/v2/student.aspx?action=by_programme&token=abc123&progcode=BSC-IT&status
 - Pagination via `page` and `per_page` (max 500 per page).
 - Optional `acad_year` filter checks `acad_registration` for that academic year.
 - Sorted alphabetically by name.
+
+---
+
+### 3.9 ID Card Printing Status
+
+Returns the student's ID card printing status from the OmniPass card system. Results are cached for 6 hours in the `acad_student` table — pass `refresh=1` to force a live API call.
+
+| Property | Value |
+|---|---|
+| **URL** | `student.aspx?action=id_card` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `regno` | string | Staff only | Student registration number. Students always get their own card. |
+| `refresh` | `1` / `0` | No | Pass `1` to bypass the 6-hour cache and call OmniPass live. Default: `0`. |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "regno": "MRU2025003204",
+    "status": "PRINTED",
+    "status_label": "Printed",
+    "card_printed": true,
+    "message": "ID card has been printed and is ready for collection.",
+    "collection_note": "Your ID card is ready. Please visit the Student Services office with your admission letter or registration slip to collect it.",
+    "checked_at": "2026-05-24 08:15",
+    "from_cache": true,
+    "card_record": {
+      "card_id": 412,
+      "card_type": "STUDENT",
+      "print_status": "PRINTED",
+      "expiry_date": "2027-08-31",
+      "acadyear": "2026/2027",
+      "semester": "1",
+      "date_created": "2026-05-20 09:00"
+    }
+  }
+}
+```
+
+**`status` Values:**
+
+| Value | `status_label` | `card_printed` | Meaning |
+|---|---|---|---|
+| `PRINTED` | Printed | `true` | Card has been printed — ready for collection |
+| `NOT_PRINTED` | Not Printed | `false` | Card is in the batch queue but not yet printed |
+| `NOT_FOUND` | Not in System | `false` | Student not found in OmniPass — visit Student Services |
+| `ERROR` | Check Failed | `false` | OmniPass API call failed; try again or visit Student Services |
+| `UNKNOWN` | Unknown | `false` | No status on record yet — try `refresh=1` |
+
+**`card_record` field:**  
+Present when an `acad_student_cards` record exists. This tracks the internal card management workflow (`PENDING → READY → PRINTED → TAKEN`). It is separate from the OmniPass printing status and may be `null` if no card has been issued in the system yet.
+
+**`from_cache`:**  
+`true` means the result came from the database cache (up to 6 hours old). `false` means it was retrieved live from OmniPass this request. Pass `?refresh=1` to always get a live result.
+
+**`collection_note`:**  
+Human-readable guidance string ready to display directly to the student in the app.
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `MISSING_PARAM` | Staff must supply ?regno= |
+| `UNAUTHORIZED` | Missing or invalid token |
 
 ---
 
@@ -1876,6 +1951,287 @@ GET /API/v2/staff.aspx?action=by_department&token=abc123&department_id=5&role=ac
 - Defaults to `Active` contract status if not specified.
 - `role` filter is case-insensitive and matches the `EmpType` field.
 - Returns department and faculty metadata alongside the staff list.
+
+---
+
+### 4.15 List My Mark Requests
+
+A teacher retrieves their own submitted mark change/correction requests, with optional status filter and pagination.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=mark_requests_list` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `status` | string | No | all | Filter by status: `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED` |
+| `page` | int | No | 1 | Page number |
+| `size` | int | No | 20 | Page size (max 100) |
+
+**Example Request:**
+```
+GET /API/v2/staff.aspx?action=mark_requests_list&token=abc123&status=PENDING
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "total": 2,
+    "page": 1,
+    "size": 20,
+    "pages": 1,
+    "requests": [
+      {
+        "id": 7,
+        "teacher_username": "jdoe",
+        "course_id": "CS101",
+        "course_name": "Introduction to Computing",
+        "regno": "MRU2025000001",
+        "student_name": "John Mukasa",
+        "registration_id": 4521,
+        "acad_year": "2024/2025",
+        "semester": 1,
+        "request_type": "MARK_CHANGE",
+        "reason": "Student exam paper was misread — correct exam score is 52 not 42.",
+        "old_cw": 30,
+        "old_exam": 42,
+        "old_total": 72,
+        "new_cw": 30,
+        "new_exam": 52,
+        "new_total": 82,
+        "status": "PENDING",
+        "admin_comment": null,
+        "decided_by": null,
+        "created_at": "2025-04-10 09:15",
+        "decided_at": null
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 4.16 Create Mark Request
+
+A teacher submits a mark change or correction request for admin approval.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=create_mark_request` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `course_id` | string | Yes | — | Course code (e.g. `CS101`) |
+| `regno` | string | Yes | — | Student registration number |
+| `reason` | string | Yes | — | Detailed explanation of the change request |
+| `registration_id` | int | No | — | ID from `acad_course_registration` — links request to the exact mark record. If supplied, `old_cw`/`old_exam` are auto-populated from the current record values |
+| `acad_year` | string | No | `""` | Academic year (e.g. `2024/2025`) |
+| `semester` | int | No | 1 | Semester number |
+| `request_type` | string | No | `MARK_CHANGE` | One of: `MARK_CHANGE`, `INITIAL_SUBMISSION`, `CORRECTION`, `OTHER` |
+| `old_cw` | decimal | No | — | Current coursework marks (0–40). Auto-filled from record if `registration_id` supplied |
+| `old_exam` | decimal | No | — | Current exam marks (0–60). Auto-filled from record if `registration_id` supplied |
+| `new_cw` | decimal | No | — | Requested new coursework marks (0–40) |
+| `new_exam` | decimal | No | — | Requested new exam marks (0–60) |
+
+**Validation Rules:**
+- A duplicate PENDING request for the same teacher/course/student/semester is rejected with `DUPLICATE_REQUEST`.
+- `old_cw` / `new_cw` must be 0–40; `old_exam` / `new_exam` must be 0–60.
+- `request_type` must be one of the four valid values above.
+
+**Example Request:**
+```
+POST /API/v2/staff.aspx?action=create_mark_request
+Body: token=abc123&course_id=CS101&regno=MRU2025000001&registration_id=4521
+      &reason=Exam paper misread&request_type=MARK_CHANGE&new_cw=30&new_exam=52
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "message": "Mark change request submitted and is pending admin review",
+  "data": {
+    "id": 7,
+    "status": "PENDING",
+    "request_type": "MARK_CHANGE",
+    "old_cw": 30,
+    "old_exam": 42,
+    "new_cw": 30,
+    "new_exam": 52
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | Meaning |
+|---|---|
+| `DUPLICATE_REQUEST` | A PENDING request already exists for this teacher/course/student/semester |
+| `VALIDATION_ERROR` | Invalid mark values or request_type |
+| `MISSING_PARAM` | Required field missing |
+| `FORBIDDEN` | Non-staff token used |
+
+---
+
+### 4.17 Mark Request Detail
+
+Get the full detail of a single mark request. By default returns only the authenticated teacher's own requests.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=mark_request_detail` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `id` | int | Yes | — | Mark request ID |
+| `admin` | int | No | 0 | Pass `1` to allow any staff to fetch any request (for admin screens) |
+
+**Example Request:**
+```
+GET /API/v2/staff.aspx?action=mark_request_detail&token=abc123&id=7
+```
+
+**Example Response:** Same shape as a single object from 4.15's `requests` array.
+
+---
+
+### 4.18 Cancel Mark Request
+
+A teacher cancels their own PENDING request. Only PENDING requests can be cancelled.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=cancel_mark_request` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff — own requests only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `id` | int | Yes | — | Mark request ID to cancel |
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "message": "Mark request cancelled",
+  "data": { "id": 7, "status": "CANCELLED" }
+}
+```
+
+**Error Codes:**
+
+| Code | Meaning |
+|---|---|
+| `INVALID_STATUS` | Request is not PENDING (already decided or cancelled) |
+| `NOT_FOUND` | Request not found or does not belong to this teacher |
+
+---
+
+### 4.19 Admin — List All Mark Requests
+
+An admin/supervisor lists ALL mark requests across all teachers, with full filtering. Default filter is `status=PENDING`.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=admin_mark_requests` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `status` | string | No | `PENDING` | Status filter. Pass empty string for all statuses |
+| `teacher_username` | string | No | — | Filter by specific teacher |
+| `course_id` | string | No | — | Filter by course |
+| `acad_year` | string | No | — | Filter by academic year |
+| `semester` | int | No | — | Filter by semester |
+| `page` | int | No | 1 | Page number |
+| `size` | int | No | 20 | Page size (max 100) |
+
+**Example Request:**
+```
+GET /API/v2/staff.aspx?action=admin_mark_requests&token=abc123&status=PENDING&acad_year=2024/2025
+```
+
+**Example Response:** Same shape as 4.15 (total, page, size, pages, requests array).
+
+---
+
+### 4.20 Decide Mark Request (Approve / Reject)
+
+An admin approves or rejects a mark change request. When approved and the request has a `registration_id` plus `new_cw`/`new_exam` values, the marks are automatically applied to `acad_course_registration` and the record's status is reset to `approved` (unlocking it from `published`).
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=decide_mark_request` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff — intended for admin/HOD users) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `id` | int | Yes | — | Mark request ID |
+| `decision` | string | Yes | — | `APPROVED` or `REJECTED` |
+| `admin_comment` | string | No | `""` | Reason or comment for the decision |
+
+**Mark Application Logic (on APPROVED):**
+1. If `registration_id` is set AND `new_cw` or `new_exam` is present: marks are updated in `acad_course_registration` automatically.
+2. If `registration_id` is missing: request is approved but marks must be applied manually.
+3. If no new mark values were supplied: request is approved but no marks are changed.
+
+**Example Request:**
+```
+POST /API/v2/staff.aspx?action=decide_mark_request
+Body: token=abc123&id=7&decision=APPROVED&admin_comment=Verified against original script
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "message": "Request approved",
+  "data": {
+    "id": 7,
+    "decision": "APPROVED",
+    "decided_by": "admin_user",
+    "mark_update": "Marks updated: CW=30, Exam=52, Total=82"
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | Meaning |
+|---|---|
+| `INVALID_STATUS` | Request is not PENDING |
+| `NOT_FOUND` | Request ID not found |
+| `VALIDATION_ERROR` | `decision` value not `APPROVED` or `REJECTED` |
 
 ---
 
@@ -4068,15 +4424,14 @@ curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=campuses"
 
 ### 8.5 Notices (Authenticated)
 
-Returns active campus notices with pagination.
+Returns published campus notices for the authenticated user, filtered by their role (student or staff).
+Notices are sourced from `sys_communications` in the portal database.
 
 | Property | Value |
 |---|---|
 | **URL** | `campus.aspx?action=notices` |
 | **Method** | `GET` or `POST` |
 | **Auth Required** | Yes |
-
-> **⚠️ Note:** This endpoint requires the `acad_notices` table, which **does not currently exist** in production.
 
 **Parameters:**
 
@@ -4103,12 +4458,18 @@ curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=notices&token=a1b2c3d4e
       {
         "notice_id": "1",
         "title": "Examination Timetable Released",
-        "content": "The examination timetable for Semester 2 has been released...",
-        "created_by": "Academic Registrar",
-        "date_created": "2025-06-01 09:00",
-        "target_audience": "All Students"
+        "preview": "The examination timetable for Semester 2 has been released. Please check...",
+        "target_audience": "STUDENT",
+        "priority": "HIGH",
+        "is_force_read": "0",
+        "author": "Academic Registrar",
+        "published_at": "2025-06-01 09:00",
+        "attachment_count": "2",
+        "is_read": "1",
+        "read_at": "2025-06-02 14:30"
       }
     ],
+    "unread_count": 3,
     "pagination": {
       "page": 1,
       "limit": 10,
@@ -4121,10 +4482,122 @@ curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=notices&token=a1b2c3d4e
 
 **Notes:**
 
-- Queries `acad_notices WHERE Archive_Status = 'Active'`.
-- Ordered by `Notice_date DESC` (newest first).
-- Pagination: `LIMIT @limit OFFSET (page-1)*limit`.
-- Required table: `acad_notices` (see Section 12).
+- Source: `sys_communications` in `campus_dynamics_portal` database.
+- Filtered by `status = 'PUBLISHED'` and `target_audience IN ('BOTH', user_role)`.
+- Student tokens see `STUDENT` and `BOTH` notices; staff tokens see `STAFF` and `BOTH` notices.
+- `preview` is truncated to 300 characters — use `notice_detail` for full content.
+- `is_read` is `1` if the user has opened this notice, `0` otherwise.
+- Ordered by `priority DESC, published_at DESC`.
+
+---
+
+### 8.5a Notice Detail (Authenticated)
+
+Returns a single notice with full content and attachments. Auto-marks the notice as read for the current user.
+
+| Property | Value |
+|---|---|
+| **URL** | `campus.aspx?action=notice_detail` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `notice_detail` |
+| `token` | string | Yes | Valid auth token |
+| `notice_id` | int | Yes | ID of the notice (`sys_communications.ID`) |
+
+**Example Request:**
+
+```bash
+curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=notice_detail&token=a1b2c3d4e5f6...&notice_id=1"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "notice_id": "1",
+    "title": "Examination Timetable Released",
+    "content": "<p>The examination timetable for Semester 2 has been released. Students are advised to...</p>",
+    "target_audience": "STUDENT",
+    "priority": "HIGH",
+    "is_force_read": "0",
+    "allow_comments": "0",
+    "author": "Academic Registrar",
+    "published_at": "2025-06-01 09:00",
+    "created_at": "2025-05-31 16:00",
+    "attachment_count": "2",
+    "is_read": "1",
+    "read_at": "2025-06-02 14:30",
+    "attachments": [
+      {
+        "attachment_id": "5",
+        "file_name": "exam_timetable_sem2.pdf",
+        "file_path": "Data_Uploads/Communications/exam_timetable_sem2.pdf",
+        "file_type": "application/pdf",
+        "file_size": "524288"
+      }
+    ]
+  }
+}
+```
+
+**Error Responses:**
+
+| Code | Meaning |
+|---|---|
+| `NOT_FOUND` | Notice does not exist or is not published / not visible to this user type |
+| `MISSING_PARAM` | `notice_id` not provided |
+| `INVALID_PARAM` | `notice_id` is not a number |
+
+---
+
+### 8.5b Mark Notice as Read (Authenticated)
+
+Marks a specific notice as read for the authenticated user. Safe to call multiple times (idempotent).
+
+| Property | Value |
+|---|---|
+| **URL** | `campus.aspx?action=mark_read` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `action` | string | Yes | Must be `mark_read` |
+| `token` | string | Yes | Valid auth token |
+| `notice_id` | int | Yes | ID of the notice to mark as read |
+
+**Example Request:**
+
+```bash
+curl "https://eadmin.mru.ac.ug/API/v2/campus.aspx?action=mark_read&token=a1b2c3d4e5f6...&notice_id=1"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "notice_id": 1,
+    "marked_read": true
+  }
+}
+```
+
+**Notes:**
+
+- Inserts into `sys_communication_reads(communication_id, user_id, read_at)`.
+- On duplicate key, does nothing (first read timestamp is preserved).
+- `notice_detail` action also auto-marks the notice as read when fetched.
 
 ---
 
@@ -4557,20 +5030,13 @@ CREATE TABLE acad_exam_timetable (
 );
 ```
 
-#### `acad_notices` (for campus.aspx → notices)
+#### Notices — `sys_communications` (portal DB: campus_dynamics_portal)
 
-Expected columns:
-```sql
-CREATE TABLE acad_notices (
-    ID INT AUTO_INCREMENT PRIMARY KEY,
-    Notice_Title VARCHAR(500),
-    Notice_detail TEXT,
-    Author VARCHAR(200),
-    Notice_date DATETIME,
-    Target_category VARCHAR(100),     -- e.g. 'All Students', 'Staff', etc.
-    Archive_Status VARCHAR(20)        -- 'Active' or 'Archived'
-);
-```
+The notices endpoint reads from `sys_communications` in the portal database, which is also used by the web portal notice board. The migration in `NewScreens/migrations/comm_module_migration.sql` creates this table.
+
+Key columns: `ID`, `title`, `content`, `target_audience` (`STUDENT`/`STAFF`/`BOTH`), `priority`, `is_force_read`, `status` (`PUBLISHED`/`DRAFT`), `created_by_name`, `published_at`.
+
+Read tracking: `sys_communication_reads(communication_id, user_id, read_at)` — unique per user per notice.
 
 ### Photo Files
 
@@ -4708,6 +5174,1957 @@ Webhook support for real-time notifications (enrollment changes, grade updates, 
 
 ---
 
-*Last updated: July 2025*  
-*API Version: 2.2 (ODEL Integration Release — 14 new endpoints + 2 enhanced for Moodle integration)*  
+## 8a. Support Tickets (support.aspx)
+
+**Endpoint file:** `support.aspx`  
+**Base URL:** `https://eadmin.mru.ac.ug/API/v2/support.aspx`  
+**Database:** `campus_dynamics_portal` — tables `support_tickets`, `support_ticket_messages`, `support_ticket_attachments`
+
+The support ticket system lets students submit complaints/requests and track responses from staff. Staff see all tickets and can reply, reassign, change priority, and update status.
+
+### Database Schema
+
+#### `support_tickets`
+| Column | Type | Notes |
+|---|---|---|
+| `ticket_id` | INT PK | Auto-increment |
+| `submitter_regno` | VARCHAR(50) | Student regno or staff username |
+| `submitter_name` | VARCHAR(150) | Display name at time of submission |
+| `submitter_type` | ENUM | `STUDENT`, `LECTURER`, `STAFF` |
+| `issue_type` | VARCHAR(80) | Full category string e.g. `Academic — Results & Marks` |
+| `subject` | VARCHAR(250) | |
+| `status` | ENUM | `OPEN`, `IN_PROGRESS`, `AWAITING_REPLY`, `RESOLVED`, `CLOSED` |
+| `priority` | ENUM | `LOW`, `NORMAL`, `HIGH`, `URGENT` (default `NORMAL`) |
+| `assigned_to` | VARCHAR(100) | Staff username, nullable |
+| `created_at` | DATETIME | |
+| `updated_at` | DATETIME | Auto-updated |
+| `closed_at` | DATETIME | Set when CLOSED or RESOLVED |
+| `closed_by` | VARCHAR(100) | |
+
+#### `support_ticket_messages`
+| Column | Type | Notes |
+|---|---|---|
+| `message_id` | INT PK | |
+| `ticket_id` | INT FK | |
+| `sender_regno` | VARCHAR(50) | |
+| `sender_name` | VARCHAR(150) | |
+| `sender_role` | ENUM | `SUBMITTER`, `ADMIN`, `SYSTEM` |
+| `message` | TEXT | For SYSTEM messages: `STATUS_CHANGE:{STATUS}` |
+| `is_internal` | TINYINT(1) | `1` = staff-only note, never visible to students |
+| `created_at` | DATETIME | |
+
+#### `support_ticket_attachments`
+| Column | Type | Notes |
+|---|---|---|
+| `attachment_id` | INT PK | |
+| `ticket_id` | INT | |
+| `message_id` | INT | Which message this file belongs to (nullable = ticket-level) |
+| `original_name` | VARCHAR(255) | Original filename |
+| `stored_name` | VARCHAR(255) | GUID-based filename on disk |
+| `file_size` | INT | Bytes |
+| `mime_type` | VARCHAR(100) | |
+| `uploaded_by` | VARCHAR(100) | |
+| `uploaded_at` | DATETIME | |
+
+### Status Flow
+
+```
+OPEN  ──(student reply)──▶  IN_PROGRESS
+OPEN  ──(admin reply)───▶  AWAITING_REPLY
+IN_PROGRESS ──(admin reply)──▶  AWAITING_REPLY
+AWAITING_REPLY ──(student reply)──▶  IN_PROGRESS
+Any (except CLOSED) ──(staff action)──▶  RESOLVED
+Any (except CLOSED) ──(staff or owner)──▶  CLOSED
+```
+
+Status transitions are auto-applied by `AddMessage()`: admin reply → `AWAITING_REPLY`; student reply → `IN_PROGRESS`. Tickets in `RESOLVED` or `CLOSED` do not accept new replies.
+
+### Ticket Reference Format
+
+`TKT-00001` (5-digit zero-padded `ticket_id`)
+
+### Valid Issue Types
+
+Use `action=issue_types` to get the canonical list. Categories:
+- **Academic**: Results & Marks, Transcripts & Certificates, Course Registration, Other
+- **Financial**: Fees & Payments, Receipt or Invoice, Financial Aid, Other
+- **Registration**: Semester Registration, Course Registration, Programme Change, Other
+- **Other**: Portal Login Issue, System Error or Bug, General Inquiry, Complaint or Suggestion
+
+### File Upload Rules
+
+- Allowed extensions: `.jpg`, `.jpeg`, `.png`, `.gif`, `.pdf`, `.doc`, `.docx`, `.txt`
+- Max file size: **5 MB per file**
+- Stored as `{GUID}.{ext}` in `~/COOPERP/Support/Uploads/`
+
+---
+
+### 8a.1 Issue Types (Public — no token required)
+
+Returns the canonical list of issue type values for the create form.
+
+| Property | Value |
+|---|---|
+| **URL** | `support.aspx?action=issue_types` |
+| **Method** | GET |
+| **Auth** | None |
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "issue_types": [
+      { "category": "Academic", "value": "Academic — Results & Marks" },
+      { "category": "Academic", "value": "Academic — Transcripts & Certificates" },
+      { "category": "Financial", "value": "Financial — Fees & Payments" }
+    ]
+  }
+}
+```
+
+---
+
+### 8a.2 List Tickets
+
+Returns a paginated list of tickets. Students see only their own; staff see all.
+
+| Property | Value |
+|---|---|
+| **URL** | `support.aspx?action=list&token=...` |
+| **Method** | GET |
+| **Auth** | Required |
+
+**Parameters (students):**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `status` | string | `ALL` | Filter: `OPEN`, `IN_PROGRESS`, `AWAITING_REPLY`, `RESOLVED`, `CLOSED` |
+| `page` | int | 1 | Page number |
+| `size` | int | 20 | Items per page (max 100) |
+
+**Additional parameters (staff only):**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `issue_type` | string | Prefix match e.g. `Academic` |
+| `priority` | string | `LOW`, `NORMAL`, `HIGH`, `URGENT` |
+| `assigned_to` | string | Staff username |
+| `q` | string | Search submitter name, regno, or subject |
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 12,
+    "page": 1,
+    "size": 20,
+    "pages": 1,
+    "tickets": [
+      {
+        "ticket_id": "3",
+        "issue_type": "Academic — Results & Marks",
+        "subject": "Missing mark for MTH101",
+        "status": "AWAITING_REPLY",
+        "priority": "HIGH",
+        "assigned_to": "registrar",
+        "created_at": "2025-06-01 08:00:00",
+        "updated_at": "2025-06-02 14:30:00",
+        "ref": "TKT-00003",
+        "status_label": "Awaiting Reply",
+        "status_color": "#7c3aed",
+        "status_bg": "rgba(124,58,237,.12)",
+        "priority_color": "#d97706",
+        "issue_short": "Academic",
+        "issue_color": "#174DA4"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 8a.3 Ticket Detail
+
+Returns a single ticket with full message thread and attachment list.
+
+| Property | Value |
+|---|---|
+| **URL** | `support.aspx?action=detail&ticket_id=3&token=...` |
+| **Method** | GET |
+| **Auth** | Required (student must own the ticket) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `ticket_id` | int | Yes | ID of the ticket |
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "ticket_id": "3",
+    "submitter_regno": "MRU2024000012",
+    "submitter_name": "John Doe",
+    "submitter_type": "STUDENT",
+    "issue_type": "Academic — Results & Marks",
+    "subject": "Missing mark for MTH101",
+    "status": "AWAITING_REPLY",
+    "priority": "HIGH",
+    "assigned_to": "registrar",
+    "created_at": "2025-06-01 08:00:00",
+    "updated_at": "2025-06-02 14:30:00",
+    "closed_at": null,
+    "closed_by": null,
+    "ref": "TKT-00003",
+    "status_label": "Awaiting Reply",
+    "status_color": "#7c3aed",
+    "status_bg": "rgba(124,58,237,.12)",
+    "priority_color": "#d97706",
+    "issue_short": "Academic",
+    "issue_color": "#174DA4",
+    "messages": [
+      {
+        "message_id": "1",
+        "sender_regno": "MRU2024000012",
+        "sender_name": "John Doe",
+        "sender_role": "SUBMITTER",
+        "message": "My mark for MTH101 is missing from the portal...",
+        "is_internal": "0",
+        "created_at": "2025-06-01 08:00:00"
+      },
+      {
+        "message_id": "2",
+        "sender_regno": "registrar",
+        "sender_name": "Academic Registrar",
+        "sender_role": "ADMIN",
+        "message": "We are looking into this. Please allow 48 hours.",
+        "is_internal": "0",
+        "created_at": "2025-06-02 14:30:00"
+      }
+    ],
+    "attachments": [
+      {
+        "attachment_id": "1",
+        "message_id": "1",
+        "original_name": "exam_card.jpg",
+        "stored_name": "a1b2c3d4.jpg",
+        "file_size": "204800",
+        "mime_type": "image/jpeg",
+        "download_url": "support.aspx?action=attachment&ticket_id=3&attachment_id=1"
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- `sender_role = SYSTEM` messages have `message = "STATUS_CHANGE:{STATUS}"` — render as timeline events, not chat bubbles.
+- Staff see messages where `is_internal = 1`; students never see these.
+
+---
+
+### 8a.4 Create Ticket
+
+Submit a new support ticket.
+
+| Property | Value |
+|---|---|
+| **URL** | `support.aspx?action=create` |
+| **Method** | POST |
+| **Auth** | Required |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `issue_type` | string | Yes | Full issue type value from `issue_types` action |
+| `subject` | string | Yes | Short title (max 250 chars) |
+| `message` | string | Yes | Initial message / description |
+| `priority` | string | No | `LOW`, `NORMAL`, `HIGH`, `URGENT` (default `NORMAL`) |
+
+**Rate limit:** Students may submit at most **5 tickets per 60 minutes**.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Ticket submitted successfully",
+  "data": {
+    "ticket_id": 3,
+    "ref": "TKT-00003",
+    "status": "OPEN",
+    "priority": "NORMAL"
+  }
+}
+```
+
+**Errors:**
+
+| Code | Meaning |
+|---|---|
+| `RATE_LIMITED` | Student has submitted 5 or more tickets in the last hour |
+| `MISSING_PARAM` | `issue_type`, `subject`, or `message` not provided |
+
+---
+
+### 8a.5 Reply to Ticket
+
+Add a message to an existing ticket.
+
+| Property | Value |
+|---|---|
+| **URL** | `support.aspx?action=reply` |
+| **Method** | POST (supports multipart for file attachments) |
+| **Auth** | Required (student must own the ticket) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `ticket_id` | int | Yes | Ticket to reply to |
+| `message` | string | Yes | Reply text |
+| `is_internal` | `0`/`1` | No (staff only) | If `1`, message is visible to staff only |
+| Files | multipart | No | Up to 3 files, 5 MB each, allowed extensions only |
+
+**Status auto-advance:**
+- Student reply → ticket status becomes `IN_PROGRESS` (unless already CLOSED/RESOLVED)
+- Admin reply → ticket status becomes `AWAITING_REPLY` (unless already CLOSED/RESOLVED)
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Reply added",
+  "data": {
+    "message_id": 5,
+    "ticket_id": 3,
+    "is_internal": false
+  }
+}
+```
+
+**Errors:**
+
+| Code | Meaning |
+|---|---|
+| `TICKET_CLOSED` | Ticket is CLOSED or RESOLVED — open a new ticket |
+| `FORBIDDEN` | Student trying to reply to another user's ticket |
+
+---
+
+### 8a.6 Update Ticket (Staff Only)
+
+Change status, priority, and/or assigned handler in one call.
+
+| Property | Value |
+|---|---|
+| **URL** | `support.aspx?action=update_status` |
+| **Method** | POST |
+| **Auth** | Staff only |
+
+**Parameters (at least one required besides `ticket_id`):**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `ticket_id` | int | Required |
+| `status` | string | `OPEN`, `IN_PROGRESS`, `AWAITING_REPLY`, `RESOLVED`, `CLOSED` |
+| `priority` | string | `LOW`, `NORMAL`, `HIGH`, `URGENT` |
+| `assigned_to` | string | Staff username to assign |
+
+When `status` changes, a `SYSTEM` message `STATUS_CHANGE:{STATUS}` is automatically inserted into the thread for the audit trail.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Ticket updated",
+  "data": {
+    "ticket_id": 3,
+    "new_status": "RESOLVED"
+  }
+}
+```
+
+---
+
+### 8a.7 Close Ticket
+
+Close a ticket. Students can close their own; staff can close any.
+
+| Property | Value |
+|---|---|
+| **URL** | `support.aspx?action=close` |
+| **Method** | POST |
+| **Auth** | Required |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `ticket_id` | int | Yes | Ticket to close |
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Ticket closed",
+  "data": { "ticket_id": 3, "status": "CLOSED" }
+}
+```
+
+**Errors:**
+
+| Code | Meaning |
+|---|---|
+| `ALREADY_CLOSED` | Ticket is already in CLOSED state |
+| `FORBIDDEN` | Student trying to close another user's ticket |
+
+---
+
+### 8a.8 Stats
+
+Returns ticket counts by status.
+
+| Property | Value |
+|---|---|
+| **URL** | `support.aspx?action=stats&token=...` |
+| **Method** | GET |
+| **Auth** | Required |
+
+**Student response** (scoped to own tickets):
+```json
+{
+  "data": {
+    "total": 5, "open": 1, "in_progress": 1,
+    "awaiting_reply": 2, "resolved": 1, "closed": 0
+  }
+}
+```
+
+**Staff response** (all tickets):
+```json
+{
+  "data": {
+    "total": 120, "open": 18, "in_progress": 7,
+    "awaiting_reply": 12, "resolved": 80, "closed": 3,
+    "urgent_open": 4
+  }
+}
+```
+
+---
+
+### 8a.9 Download Attachment
+
+Streams a ticket attachment file. Must own the ticket (student) or be staff.
+
+| Property | Value |
+|---|---|
+| **URL** | `support.aspx?action=attachment&ticket_id=3&attachment_id=1&token=...` |
+| **Method** | GET |
+| **Auth** | Required |
+
+Returns the raw file with correct `Content-Type` and `Content-Disposition: attachment` header. Use the `download_url` from the `detail` response directly.
+
+---
+
+## 9. Applicant Endpoints (apply.aspx)
+
+**Endpoint file:** `apply.aspx`  
+**Base URL:** `https://eadmin.mru.ac.ug/API/v2/apply.aspx`
+
+This endpoint file handles the complete student application lifecycle for mobile apps. It mirrors the web portal at `https://eportal.mru.ac.ug/apply/` and stores data in the same database tables.
+
+### Authentication for Applicants
+
+Applicant tokens differ from student/staff tokens:
+- `user_type` = `"applicant"` in the `api_tokens` table
+- Token is obtained by calling `apply.aspx?action=login`
+- Pass the token as `?token=<value>` or as a POST parameter
+- Token is valid for 24 hours
+
+**Applicant token in request:**
+```
+GET apply.aspx?action=get_draft&token=abc123...
+POST apply.aspx?action=save_step1&token=abc123...
+```
+
+### Application Status Flow
+
+```
+DRAFT → SUBMITTED → UNDER_REVIEW → ADMITTED
+                                  → REJECTED
+                  → WITHDRAWN
+```
+
+### Admission Status Values (`adm_status` in `acad_applicant_choices`)
+
+| Value | Meaning |
+|---|---|
+| 0 | PENDING |
+| 1 | ADMITTED |
+| 2 | REJECTED |
+| 3 | WITHDRAWN |
+
+---
+
+### 9.1 Register Applicant Account
+
+Creates a new applicant account and sends an email OTP for verification.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=register` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `first_name` | string | Yes | Applicant's first name |
+| `last_name` | string | Yes | Applicant's last name |
+| `email` | string | Yes | Email address (must be valid, used as login) |
+| `password` | string | Yes | Minimum 6 characters |
+| `phone` | string | No | Mobile phone number |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Account created. Check your email for the verification code.",
+  "data": {
+    "user_id": 142,
+    "email": "john.doe@example.com",
+    "full_name": "John Doe",
+    "otp_sent": true,
+    "verified": false
+  }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `VALIDATION_ERROR` | Invalid email address / Password must be at least 6 characters |
+| `EMAIL_EXISTS` | An account with this email already exists |
+| `SERVER_ERROR` | Account creation failed |
+
+---
+
+### 9.2 Login
+
+Authenticates an applicant and returns an access token.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=login` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Registered email address |
+| `password` | string | Yes | Account password |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Login successful",
+  "data": {
+    "token": "a1b2c3d4e5f6...64_hex_characters...",
+    "user_id": 142,
+    "email": "john.doe@example.com",
+    "full_name": "John Doe",
+    "phone": "+256700123456",
+    "is_verified": true,
+    "expires_at": "2026-05-25T10:30:00.000Z"
+  }
+}
+```
+
+**Note:** `is_verified: false` means the account email has not been verified. The applicant should still be allowed to proceed, but send them to the verification screen.
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `INVALID_CREDENTIALS` | Invalid email or password |
+| `ACCOUNT_LOCKED` | Account temporarily locked — includes minutes remaining |
+
+**Account Lockout:** After 5 failed login attempts, the account is locked for 15 minutes.
+
+---
+
+### 9.3 Verify Email (OTP)
+
+Verifies the applicant's email address using the 6-digit OTP sent during registration (or resend_otp).
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=verify_email` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Registered email address |
+| `otp` | string | Yes | 6-digit OTP from email |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Email verified successfully.",
+  "data": { "verified": true }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `NOT_FOUND` | Account not found |
+| `INVALID_OTP` | Invalid or expired verification code (OTP expires after 30 minutes) |
+
+---
+
+### 9.4 Resend OTP
+
+Invalidates any existing OTP and sends a fresh one to the applicant's email.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=resend_otp` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Registered email address |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Verification code sent.",
+  "data": { "otp_sent": true }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `NOT_FOUND` | Account not found |
+
+---
+
+### 9.5 Forgot Password
+
+Sends a 6-digit password reset OTP to the applicant's email. Always returns success to prevent email enumeration.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=forgot_password` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Registered email address |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "If an account with that email exists, a reset code has been sent.",
+  "data": { "sent": true }
+}
+```
+
+> Always returns success regardless of whether the email exists (anti-enumeration).
+
+---
+
+### 9.6 Reset Password
+
+Verifies the reset OTP and sets a new password.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=reset_password` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `email` | string | Yes | Registered email address |
+| `otp` | string | Yes | 6-digit OTP from forgot_password email |
+| `new_password` | string | Yes | New password (minimum 6 characters) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Password reset successfully.",
+  "data": { "reset": true }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `VALIDATION_ERROR` | Password must be at least 6 characters |
+| `NOT_FOUND` | Account not found |
+| `INVALID_OTP` | Invalid or expired reset code |
+
+---
+
+### 9.7 My Profile
+
+Returns the logged-in applicant's profile and a summary of their current application.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=my_profile` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "email": "john.doe@example.com",
+    "verified_email": "john.doe@example.com",
+    "full_name": "John Doe",
+    "phone": "+256700123456",
+    "is_verified": true,
+    "application": {
+      "stud_entry_no": "APL2026000042",
+      "app_status": "SUBMITTED",
+      "prog_id": "BSCSE",
+      "adm_status": 0,
+      "submitted_at": "2026-05-20"
+    }
+  }
+}
+```
+
+`application` is `null` if no application has been started yet.
+
+---
+
+### 9.8 Change Password
+
+Changes the applicant's password (requires current password).
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=change_password` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `current_password` | string | Yes | Current password |
+| `new_password` | string | Yes | New password (minimum 6 characters) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Password changed successfully.",
+  "data": { "changed": true }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `VALIDATION_ERROR` | New password must be at least 6 characters |
+| `INVALID_CREDENTIALS` | Current password is incorrect |
+
+---
+
+### 9.9 Get Draft (Resume Application)
+
+Returns the applicant's current draft application with all saved fields, or `null` if no application has been started. Also includes the document list.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=get_draft` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Success Response (draft exists):**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "stud_entry_no": "APL2026000042",
+    "stud_name": "John Doe",
+    "surname": "Doe",
+    "other_names": "John",
+    "gender": "M",
+    "nationality": "Ugandan",
+    "religion": "Christian",
+    "dob": "2000-04-15",
+    "phone": "+256700123456",
+    "address": "P.O. Box 123, Masaka",
+    "marital": "Single",
+    "disability": "",
+    "national_id": "CM123456789ABCD",
+    "olevel_school": "St. Henry's College Kitovu",
+    "olevel_index": "U0001/123/2018",
+    "olevel_year": "2018",
+    "olevel_agg": "12",
+    "alevel_school": "Namilyango College",
+    "alevel_index": "U0002/456/2020",
+    "alevel_year": 2020,
+    "alevel_points": "18",
+    "other_inst": "",
+    "other_qual": "",
+    "other_year": "",
+    "other_grade": "",
+    "campus": "MAIN",
+    "intake": "AUG2026",
+    "sponsor": "PRIVATE",
+    "emergency_name": "Jane Doe",
+    "emergency_rel": "Mother",
+    "emergency_phone": "+256700987654",
+    "app_status": "DRAFT",
+    "submitted_at": null,
+    "programme": "BSCSE",
+    "session": "DAY",
+    "choice_status": 0,
+    "documents": [
+      {
+        "id": 7,
+        "doc_type": "PHOTO",
+        "original_filename": "passport_photo.jpg",
+        "file_size_bytes": 87234,
+        "uploaded_at": "2026-05-19 14:32"
+      }
+    ]
+  }
+}
+```
+
+**Success Response (no application yet):**
+
+```json
+{
+  "status": "success",
+  "message": "No application started yet.",
+  "data": null
+}
+```
+
+---
+
+### 9.10 Save Step 1 — Personal Details
+
+Saves personal details. Creates a new draft if this is the first step saved.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=save_step1` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `surname` | string | Yes | Family/last name |
+| `other_names` | string | Yes | First and other names |
+| `gender` | string | Yes | `M` or `F` |
+| `nationality` | string | Yes | e.g. `Ugandan` |
+| `phone` | string | Yes | Mobile phone number |
+| `dob` | string | Yes | Date of birth: `YYYY-MM-DD` |
+| `religion` | string | No | e.g. `Christian` |
+| `address` | string | No | Physical address |
+| `marital` | string | No | Marital status |
+| `disability` | string | No | Physical disability notes (empty = none) |
+| `national_id` | string | No | National ID or passport number |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Step 1 saved.",
+  "data": { "entry_no": "APL2026000042", "step": 1 }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `VALIDATION_ERROR` | gender must be M or F / dob must be a valid date |
+| `LOCKED` | Application has been submitted and cannot be edited |
+
+---
+
+### 9.11 Save Step 2 — Education History
+
+Saves O-Level, A-Level, and other qualification details.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=save_step2` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `olevel_school` | string | Yes | Name of O-Level school |
+| `olevel_index` | string | Yes | O-Level exam index number |
+| `olevel_year` | integer | Yes | Year O-Level results were obtained (1960–present) |
+| `olevel_agg` | string | No | O-Level aggregate score |
+| `alevel_school` | string | No | Name of A-Level school |
+| `alevel_index` | string | No | A-Level exam index number |
+| `alevel_year` | integer | No | Year A-Level results obtained |
+| `alevel_points` | string | No | A-Level points / subject combinations |
+| `other_inst` | string | No | Other institution name (diploma, degree etc.) |
+| `other_qual` | string | No | Other qualification name |
+| `other_year` | string | No | Year other qualification was obtained |
+| `other_grade` | string | No | Grade / classification of other qualification |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Step 2 saved.",
+  "data": { "entry_no": "APL2026000042", "step": 2 }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `VALIDATION_ERROR` | Enter a valid O-Level year |
+| `LOCKED` | Application has been submitted and cannot be edited |
+
+---
+
+### 9.12 Save Step 3 — Programme & Emergency Contact
+
+Saves the chosen programme, session, campus, intake, sponsor type, and emergency contact.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=save_step3` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `programme` | string | Yes | Programme code from `programmes` endpoint (e.g. `BSCSE`) |
+| `session` | string | Yes | Session type: `DAY`, `EVENING`, or `WEEKEND` |
+| `campus` | string | Yes | Campus code (e.g. `MAIN`) |
+| `intake` | string | Yes | Intake code (e.g. `AUG2026`) |
+| `emergency_name` | string | Yes | Name of emergency contact (next of kin) |
+| `sponsor` | string | No | Sponsor type: `PRIVATE`, `GOVERNMENT`, `SCHOLARSHIP` etc. |
+| `emergency_rel` | string | No | Relationship to emergency contact |
+| `emergency_phone` | string | No | Emergency contact phone number |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Step 3 saved.",
+  "data": { "entry_no": "APL2026000042", "step": 3 }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `LOCKED` | Application has been submitted and cannot be edited |
+
+---
+
+### 9.13 Submit Application
+
+Performs final validation and submits the application. After submission the form is locked for editing.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=submit` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `declaration_accepted` | string | Yes | Must be `"1"` or `"true"` |
+
+**Pre-submission validation (required fields):**
+
+- Full name (Step 1)
+- Gender (Step 1)
+- Nationality (Step 1)
+- Date of birth (Step 1)
+- Phone number (Step 1)
+- O-Level school (Step 2)
+- O-Level index number (Step 2)
+- Emergency contact name (Step 3)
+- Programme selection (Step 3)
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Application submitted successfully.",
+  "data": {
+    "entry_no": "APL2026000042",
+    "status": "SUBMITTED"
+  }
+}
+```
+
+A confirmation email is sent to the applicant and an in-app notification is created.
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `VALIDATION_ERROR` | You must accept the declaration before submitting |
+| `NOT_FOUND` | No draft application found |
+| `ALREADY_SUBMITTED` | Application already submitted |
+| `INCOMPLETE` | Lists all missing required fields |
+
+---
+
+### 9.14 My Application Status
+
+Returns full application status with programme name, admission decision, and unread notification count.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=my_application` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "stud_entry_no": "APL2026000042",
+    "stud_name": "John Doe",
+    "stud_email": "john.doe@example.com",
+    "app_status": "ADMITTED",
+    "submitted_at": "2026-05-20 09:15",
+    "last_updated": "2026-05-22 14:30",
+    "programme": "BSCSE",
+    "programme_name": "Bachelor of Science in Computer Science",
+    "choice_status": 1,
+    "choice_status_label": "ADMITTED",
+    "session": "DAY",
+    "regno": "MRU2026004512",
+    "unread_notifications": 2,
+    "document_count": 4
+  }
+}
+```
+
+`regno` is populated only once the applicant has been registered as a student by admissions staff.
+
+---
+
+### 9.15 List Documents
+
+Returns all documents uploaded for the applicant's current application.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=documents` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 7,
+      "doc_type": "PHOTO",
+      "original_filename": "passport_photo.jpg",
+      "file_size_bytes": 87234,
+      "uploaded_at": "2026-05-19 14:32"
+    },
+    {
+      "id": 8,
+      "doc_type": "OLEVEL",
+      "original_filename": "olevel_results.pdf",
+      "file_size_bytes": 423120,
+      "uploaded_at": "2026-05-19 14:35"
+    }
+  ]
+}
+```
+
+---
+
+### 9.16 Upload Document
+
+Uploads a document file for the application. Uses `multipart/form-data`.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=upload_document` |
+| **Method** | POST (multipart/form-data) |
+| **Auth Required** | Yes (applicant token) |
+
+**Form Fields:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `doc_type` | string | Yes | One of: `PHOTO`, `OLEVEL`, `ALEVEL`, `NATID`, `OTHER` |
+| `file` | file | Yes | The document file |
+| `token` | string | Yes | Applicant token |
+
+**Document Types:**
+
+| doc_type | Description |
+|---|---|
+| `PHOTO` | Passport-size photograph |
+| `OLEVEL` | O-Level certificate or result slip |
+| `ALEVEL` | A-Level certificate or result slip |
+| `NATID` | National ID or passport copy |
+| `OTHER` | Any other supporting document |
+
+**File Constraints:**
+- Maximum size: **5 MB**
+- Accepted formats: **JPG, JPEG, PNG, PDF**
+- Each `doc_type` except `OTHER` replaces any previous upload of the same type
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Document uploaded.",
+  "data": {
+    "id": 9,
+    "doc_type": "PHOTO",
+    "original_filename": "passport_photo.jpg",
+    "file_size_bytes": 87234
+  }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `VALIDATION_ERROR` | doc_type must be one of: PHOTO, OLEVEL, ALEVEL, NATID, OTHER |
+| `MISSING_FILE` | No file uploaded / Uploaded file is empty |
+| `FILE_TOO_LARGE` | File size must not exceed 5 MB |
+| `INVALID_FILE_TYPE` | Only JPG, PNG, and PDF files are accepted |
+| `NOT_FOUND` | No application found — complete Step 1 first |
+
+---
+
+### 9.17 Delete Document
+
+Deletes a specific uploaded document.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=delete_document` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `id` | integer | Yes | Document ID (from documents list) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Document deleted.",
+  "data": { "id": 7 }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `MISSING_PARAM` | id is required |
+| `NOT_FOUND` | Document not found |
+
+---
+
+### 9.18 Get / Download Document
+
+Returns the raw file content for a document (for inline preview or download).
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=get_document` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+| **Response Content-Type** | `image/jpeg`, `image/png`, or `application/pdf` (not JSON) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `id` | integer | Yes | Document ID |
+
+> This endpoint returns the raw file, not JSON. Use it as the `src` of an `<img>` tag or open it in a PDF viewer. On error it still returns JSON with the error details.
+
+---
+
+### 9.19 Get Notifications
+
+Returns paginated notifications for the logged-in applicant.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=notifications` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `page` | integer | No | Page number (default: 1) |
+| `size` | integer | No | Items per page (default: 20, max: 50) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 5,
+    "page": 1,
+    "size": 20,
+    "pages": 1,
+    "notifications": [
+      {
+        "id": 12,
+        "message": "Your application APL2026000042 has been admitted.",
+        "is_read": 0,
+        "link": "",
+        "created_at": "2026-05-22 14:30"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 9.20 Mark Notification Read
+
+Marks one or all notifications as read.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=mark_read` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (applicant token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `id` | integer | No | Notification ID to mark read. Omit to mark **all** as read. |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Marked as read.",
+  "data": { "marked": true }
+}
+```
+
+---
+
+### 9.21 List Programmes (Public)
+
+Returns all active programmes. Optionally filter by faculty or search by name/code.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=programmes` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `faculty` | string | No | Filter by faculty code |
+| `q` | string | No | Search by programme name or code |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 42,
+    "programmes": [
+      {
+        "progcode": "BSCSE",
+        "progname": "Bachelor of Science in Computer Science",
+        "faculty_code": "ICT",
+        "faculty_name": "Faculty of Science and Technology",
+        "duration": "3 Years",
+        "award_type": "Degree"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 9.22 List Faculties (Public)
+
+Returns all faculties.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=faculties` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": [
+    { "faculty_code": "ICT", "faculty_name": "Faculty of Science and Technology" },
+    { "faculty_code": "BUS", "faculty_name": "Faculty of Business and Management" }
+  ]
+}
+```
+
+---
+
+### 9.23 List Campuses (Public)
+
+Returns all campuses.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=campuses` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": [
+    { "campus_code": "MAIN", "campus_name": "Main Campus - Masaka" }
+  ]
+}
+```
+
+---
+
+### 9.24 Open Intakes (Public)
+
+Returns currently open application intakes.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=intakes` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "id": 3,
+      "intake_year": 2026,
+      "intake_label": "August 2026 Intake",
+      "session_type": "ALL",
+      "is_open": 1,
+      "open_from": "2026-03-01",
+      "open_to": "2026-07-31"
+    }
+  ]
+}
+```
+
+---
+
+### 9.25 Public Status Check
+
+Allows anyone to check an application's status using only the entry number and date of birth (no login required). Useful for check-status screens.
+
+| Property | Value |
+|---|---|
+| **URL** | `apply.aspx?action=check_status` |
+| **Method** | GET or POST |
+| **Auth Required** | No |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `entry_no` | string | Yes | Application reference number (e.g. `APL2026000042`) |
+| `dob` | string | Yes | Date of birth: `YYYY-MM-DD` |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "stud_entry_no": "APL2026000042",
+    "stud_name": "John Doe",
+    "app_status": "ADMITTED",
+    "submitted_at": "2026-05-20",
+    "programme": "BSCSE",
+    "programme_name": "Bachelor of Science in Computer Science",
+    "choice_status": 1,
+    "choice_status_label": "ADMITTED",
+    "regno": "MRU2026004512"
+  }
+}
+```
+
+`regno` is only returned when `choice_status` = 1 (ADMITTED). For other statuses it is omitted.
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `MISSING_PARAM` | entry_no and dob (YYYY-MM-DD) are required |
+| `NOT_FOUND` | Application not found. Check your reference number and date of birth |
+
+---
+
+## 10. Admissions Management (admissions.aspx)
+
+**Endpoint file:** `admissions.aspx`  
+**Base URL:** `https://eadmin.mru.ac.ug/API/v2/admissions.aspx`
+
+Staff/admin endpoints for reviewing and managing applicant submissions. All endpoints require a staff token (from `auth.aspx?action=login`).
+
+### 10.1 List Applications
+
+Returns a paginated list of all applications with optional filters.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=list` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `status` | string | No | Filter by `app_status`: `DRAFT`, `SUBMITTED`, `UNDER_REVIEW`, `ADMITTED`, `REJECTED` |
+| `programme` | string | No | Filter by programme code |
+| `intake` | string | No | Filter by intake code |
+| `q` | string | No | Search by name or entry number |
+| `page` | integer | No | Page number (default: 1) |
+| `size` | integer | No | Items per page (default: 20) |
+
+---
+
+### 10.2 Get Application Details
+
+Returns full details of a single application.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=details` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `entry_no` | string | Yes | Application entry number |
+
+---
+
+### 10.3 Move to Under Review
+
+Changes `app_status` from `SUBMITTED` to `UNDER_REVIEW`. Only works on applications that are in `SUBMITTED` status. Sends an in-app notification to the applicant. Logged in audit trail.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=review` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `entry_no` | string | Yes (or `choice_id`) | Application entry number |
+| `choice_id` | integer | Yes (or `entry_no`) | Programme choice ID (from list endpoint) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Application moved to UNDER_REVIEW",
+  "data": { "entry_no": "APL2026000042", "app_status": "UNDER_REVIEW" }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `MISSING_PARAM` | entry_no or choice_id is required |
+| `NOT_FOUND` | Application not found |
+| `BUSINESS_ERROR` | Only SUBMITTED applications can be moved to UNDER_REVIEW |
+
+---
+
+### 10.4 Admit Applicant
+
+Sets `adm_status = 1` (ADMITTED) on the programme choice and `app_status = ADMITTED` on the application. Sends congratulations notification to applicant. Logged in audit trail.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=admit` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `choice_id` | integer | Yes | Programme choice ID (from list endpoint) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Applicant admitted",
+  "data": { "choice_id": 55, "entry_no": "APL2026000042", "adm_status": 1, "status_label": "ADMITTED" }
+}
+```
+
+---
+
+### 10.5 Reject Applicant
+
+Sets `adm_status = 2` (REJECTED) and `app_status = REJECTED`. Optional reason is saved as a note and included in the notification to the applicant.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=reject` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `choice_id` | integer | Yes | Programme choice ID |
+| `reason` | string | No | Rejection reason — sent in notification and saved as note |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Applicant rejected",
+  "data": { "choice_id": 55, "entry_no": "APL2026000042", "adm_status": 2, "status_label": "REJECTED" }
+}
+```
+
+---
+
+### 10.6 Withdraw Application
+
+Sets `adm_status = 3` (WITHDRAWN) and `app_status = WITHDRAWN`. Can be triggered by staff on behalf of the applicant.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=withdraw` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `choice_id` | integer | Yes | Programme choice ID |
+| `reason` | string | No | Reason for withdrawal |
+
+---
+
+### 10.7 Register Admitted Applicant as Student
+
+Converts an ADMITTED applicant into a registered student by calling the `acad_RegisterApplicant` stored procedure. Returns the generated student registration number. Will error if the applicant is not ADMITTED or is already registered.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=register` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `choice_id` | integer | Yes | Programme choice ID (applicant must have `adm_status = 1`) |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Student registered successfully",
+  "data": {
+    "choice_id": 55,
+    "entry_no": "APL2026000042",
+    "regno": "MRU2026004512"
+  }
+}
+```
+
+**Error Responses:**
+
+| Code | Message |
+|---|---|
+| `BUSINESS_ERROR` | Applicant must be ADMITTED before registration |
+| `ALREADY_REGISTERED` | Applicant is already registered as student: MRU2026004512 |
+| `SERVER_ERROR` | Registration SP failed: [error details] |
+
+---
+
+### 10.8 Application Status Check (Public)
+
+Returns the status of any application. **No authentication required** — intended for applicant self-check screens. Requires both `entry_no` and `dob` to prevent fishing. `regno` only returned if applicant is ADMITTED.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=application_status` |
+| **Method** | GET or POST |
+| **Auth Required** | **No** |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `entry_no` | string | Yes | Application entry number (also accepts `app_number` as alias) |
+| `dob` | string | Yes | Applicant date of birth: `YYYY-MM-DD` |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "stud_entry_no": "APL2026000042",
+    "stud_name": "John Doe",
+    "app_status": "ADMITTED",
+    "submitted_at": "2026-05-20",
+    "prog_id": "BSCSE",
+    "programme_name": "Bachelor of Science in Computer Science",
+    "choice_status": 1,
+    "status_label": "ADMITTED",
+    "regno": "MRU2026004512"
+  }
+}
+```
+
+---
+
+### 10.9 Add Note
+
+Adds a private reviewer note to an application (visible only to staff).
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=add_note` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `entry_no` | string | Yes (or `choice_id`) | Application entry number |
+| `choice_id` | integer | Yes (or `entry_no`) | Programme choice ID |
+| `note` | string | Yes | Note text |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Note added",
+  "data": { "note_id": 7, "entry_no": "APL2026000042" }
+}
+```
+
+---
+
+### 10.10 List Notes
+
+Returns all reviewer notes for an application, newest first.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=notes` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `entry_no` | string | Yes (or `choice_id`) | Application entry number |
+| `choice_id` | integer | Yes (or `entry_no`) | Programme choice ID |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "entry_no": "APL2026000042",
+    "total": 2,
+    "notes": [
+      {
+        "note_id": 7,
+        "note_text": "Awaiting O-Level certificate original",
+        "added_by": "admissions_officer",
+        "added_at": "2026-05-21 09:45"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 10.11 Notify Applicant
+
+Sends a custom in-app notification to the applicant. Also logged in the audit trail.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=notify` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `entry_no` | string | Yes (or `choice_id`) | Application entry number |
+| `choice_id` | integer | Yes (or `entry_no`) | Programme choice ID |
+| `message` | string | Yes | Notification message text |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Notification sent to applicant",
+  "data": { "entry_no": "APL2026000042", "notified": true }
+}
+```
+
+---
+
+### 10.12 Admissions Stats
+
+Returns pipeline summary counts and breakdown by programme.
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=stats` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `session` | string | No | Filter by session code (e.g. `DAY`) |
+| `acad_year` | string | No | Filter by academic year string |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 312,
+    "pending": 45,
+    "admitted": 220,
+    "rejected": 30,
+    "withdrawn": 17,
+    "registered": 198,
+    "by_programme": [
+      { "prog_id": "BSCSE", "programme_name": "BSc Computer Science", "total": 48, "pending": 5, "admitted": 38 }
+    ]
+  }
+}
+```
+
+---
+
+### 10.13 Repair
+
+Diagnoses and auto-fixes a partially registered student (missing `acad_student` or `acad_registration` record).
+
+| Property | Value |
+|---|---|
+| **URL** | `admissions.aspx?action=repair` |
+| **Method** | GET or POST |
+| **Auth Required** | Yes (staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `regno` | string | Yes | Student registration number to diagnose |
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Repair completed",
+  "data": {
+    "regno": "MRU2026004512",
+    "actions_taken": ["acad_registration record created for 2026/2027 Semester 1."]
+  }
+}
+```
+
+---
+
+## 11. Error Codes Reference
+
+*(Renumbered from §9 — same content as before)*
+
+---
+
+## 12. Grading & Classification Scales
+
+*(Renumbered from §10 — same content as before)*
+
+---
+
+## 13. Database Schema Notes
+
+*(Renumbered from §11 — same content as before)*
+
+### Application Tables (added in v2.3)
+
+| Table | Database | Purpose |
+|---|---|---|
+| `acad_applications` | `campus_dynamics` | One row per application. PK: `stud_entry_no` |
+| `acad_applicant_choices` | `campus_dynamics` | Programme choices per application |
+| `apply_documents` | `campus_dynamics` | Uploaded document file records |
+| `apply_notifications` | `campus_dynamics` | In-app notifications for applicants |
+| `apply_intakes` | `campus_dynamics` | Open intake periods |
+| `apply_email_tokens` | `campus_dynamics_portal` | OTP tokens for email verify / password reset |
+| `my_aspnet_users` | `campus_dynamics_portal` | User accounts (students, staff, and applicants) |
+| `my_aspnet_membership` | `campus_dynamics_portal` | Password hashes for all user types |
+
+**Applicant users** are stored in `my_aspnet_users` with `user_type = 'APPLICANT'`.
+
+**Legacy column aliases in `acad_applications`** (columns reused from student schema for applicant data):
+
+| Semantic meaning | Actual DB column |
+|---|---|
+| O-Level year | `stud_pob` |
+| O-Level aggregate | `stud_district` |
+| A-Level points | `stud_ward` |
+| Other institution | `stud_prevcampus` |
+| Other qualification | `stud_lg` |
+| Other year | `stud_village` |
+| Other grade | `stud_county` |
+
+The API response fields use the semantic names (e.g. `olevel_year`, `alevel_points`) — callers never see the raw column names.
+
+---
+
+## 14. Known Limitations
+
+*(Renumbered from §12 — same content as before)*
+
+---
+
+*Last updated: May 2026*  
+*API Version: 2.3 (Application Lifecycle Release — 25 new applicant endpoints + 11 admissions management endpoints)*  
 *Server: ASP.NET Web Forms on IIS — https://eadmin.mru.ac.ug/API/v2/*

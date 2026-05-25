@@ -696,6 +696,10 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                 Print All Fee Structures
             </button>
+            <button type="button" class="fs-btn fs-btn--sm" onclick="window.location='FeesStructureExport.aspx';" title="Download complete fee structure as Excel spreadsheet" style="background:#1d6f42;color:#fff;border:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export to Excel
+            </button>
         </div>
     </div>
 
@@ -1034,6 +1038,48 @@
             </div>
         </div>
 
+        <!-- YEAR 4 -->
+        <div class="pf-year-section" id="pfYear4Section">
+            <div class="pf-year-header" onclick="toggleYear(4)">
+                <span class="pf-year-chk-label">
+                    <asp:CheckBox ID="chkYear4" runat="server" onclick="event.stopPropagation();" />
+                    <label style="cursor:pointer;" onclick="event.stopPropagation();">Year 4</label>
+                </span>
+                <span class="pf-year-meta">
+                    <span class="pf-year-subtotal-badge" id="pfYear4SubBadge">UGX 0</span>
+                    <span class="pf-toggle-arrow" id="pfYear4Arrow">&#9660;</span>
+                </span>
+            </div>
+            <div class="pf-year-body" id="pfYear4Body">
+                <table class="pf-fee-grid">
+                    <thead><tr><th>Semester</th><th style="width:38%">Tuition (UGX)</th><th style="width:38%">Functional (UGX)</th><th style="width:16%">Sem Total</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="pf-sem-tag">Sem 1</span></td>
+                            <td><asp:TextBox ID="txtY4S1T" runat="server" CssClass="pf-amount-input" Text="0" oninput="recalcPF()" /></td>
+                            <td><asp:TextBox ID="txtY4S1F" runat="server" CssClass="pf-amount-input" Text="0" oninput="recalcPF()" /></td>
+                            <td class="pf-sem-total" id="pfST_y4s1">0</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pf-sem-tag">Sem 2</span></td>
+                            <td><asp:TextBox ID="txtY4S2T" runat="server" CssClass="pf-amount-input" Text="0" oninput="recalcPF()" /></td>
+                            <td><asp:TextBox ID="txtY4S2F" runat="server" CssClass="pf-amount-input" Text="0" oninput="recalcPF()" /></td>
+                            <td class="pf-sem-total" id="pfST_y4s2">0</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pf-sem-tag">Sem 3</span></td>
+                            <td><asp:TextBox ID="txtY4S3T" runat="server" CssClass="pf-amount-input" Text="0" oninput="recalcPF()" /></td>
+                            <td><asp:TextBox ID="txtY4S3F" runat="server" CssClass="pf-amount-input" Text="0" oninput="recalcPF()" /></td>
+                            <td class="pf-sem-total" id="pfST_y4s3">0</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr><td colspan="3" class="pf-subtotal">Year 4 Total</td><td class="pf-subtotal" id="pfYear4Subtotal">0</td></tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
         <!-- Grand total bar -->
         <div class="pf-grand-total" id="pfGrandTotal">Grand Total: UGX 0</div>
 
@@ -1304,9 +1350,12 @@ function recalcPF() {
         ['<%= txtY2S3T.ClientID %>','<%= txtY2S3F.ClientID %>','pfST_y2s3'],
         ['<%= txtY3S1T.ClientID %>','<%= txtY3S1F.ClientID %>','pfST_y3s1'],
         ['<%= txtY3S2T.ClientID %>','<%= txtY3S2F.ClientID %>','pfST_y3s2'],
-        ['<%= txtY3S3T.ClientID %>','<%= txtY3S3F.ClientID %>','pfST_y3s3']
+        ['<%= txtY3S3T.ClientID %>','<%= txtY3S3F.ClientID %>','pfST_y3s3'],
+        ['<%= txtY4S1T.ClientID %>','<%= txtY4S1F.ClientID %>','pfST_y4s1'],
+        ['<%= txtY4S2T.ClientID %>','<%= txtY4S2F.ClientID %>','pfST_y4s2'],
+        ['<%= txtY4S3T.ClientID %>','<%= txtY4S3F.ClientID %>','pfST_y4s3']
     ];
-    var totals = [0,0,0,0,0,0,0,0,0];
+    var totals = [0,0,0,0,0,0,0,0,0,0,0,0];
     for (var i = 0; i < ids.length; i++) {
         var t = (parseFloat(document.getElementById(ids[i][0]) ? document.getElementById(ids[i][0]).value : 0) || 0)
               + (parseFloat(document.getElementById(ids[i][1]) ? document.getElementById(ids[i][1]).value : 0) || 0);
@@ -1316,10 +1365,12 @@ function recalcPF() {
     var y1 = totals[0]+totals[1]+totals[2];
     var y2 = totals[3]+totals[4]+totals[5];
     var y3 = totals[6]+totals[7]+totals[8];
+    var y4 = totals[9]+totals[10]+totals[11];
     set('pfYear1Subtotal', y1); setBadge('pfYear1SubBadge', y1);
     set('pfYear2Subtotal', y2); setBadge('pfYear2SubBadge', y2);
     set('pfYear3Subtotal', y3); setBadge('pfYear3SubBadge', y3);
-    var grand = y1+y2+y3;
+    set('pfYear4Subtotal', y4); setBadge('pfYear4SubBadge', y4);
+    var grand = y1+y2+y3+y4;
     var gEl = document.getElementById('pfGrandTotal');
     if (gEl) gEl.textContent = 'Grand Total: UGX ' + fmt(grand);
 }
@@ -1372,12 +1423,16 @@ function deleteRow(id, type, name) {
 }
 
 /* View detail modal */
-function viewPFDetail(id, code, name, hy1, hy2, hy3, active,
+function viewPFDetail(id, code, name, hy1, hy2, hy3, hy4, active,
     y1s1t, y1s1f, y1s2t, y1s2f, y1s3t, y1s3f,
     y2s1t, y2s1f, y2s2t, y2s2f, y2s3t, y2s3f,
-    y3s1t, y3s1f, y3s2t, y3s2f, y3s3t, y3s3f) {
+    y3s1t, y3s1f, y3s2t, y3s2f, y3s3t, y3s3f,
+    y4s1t, y4s1f, y4s2t, y4s2f, y4s3t, y4s3f) {
     var fmt = function(n) { return Number(n).toLocaleString(); };
-    var grand = y1s1t+y1s1f+y1s2t+y1s2f+y1s3t+y1s3f+y2s1t+y2s1f+y2s2t+y2s2f+y2s3t+y2s3f+y3s1t+y3s1f+y3s2t+y3s2f+y3s3t+y3s3f;
+    var grand = y1s1t+y1s1f+y1s2t+y1s2f+y1s3t+y1s3f
+              + y2s1t+y2s1f+y2s2t+y2s2f+y2s3t+y2s3f
+              + y3s1t+y3s1f+y3s2t+y3s2f+y3s3t+y3s3f
+              + y4s1t+y4s1f+y4s2t+y4s2f+y4s3t+y4s3f;
     var statusBadge = active === 'Yes'
         ? "<span class='fs-badge fs-badge--green'>Active</span>"
         : "<span class='fs-badge fs-badge--red'>Inactive</span>";
@@ -1386,9 +1441,10 @@ function viewPFDetail(id, code, name, hy1, hy2, hy3, active,
     var rows = [
         [1,1,y1s1t,y1s1f],[1,2,y1s2t,y1s2f],[1,3,y1s3t,y1s3f],
         [2,1,y2s1t,y2s1f],[2,2,y2s2t,y2s2f],[2,3,y2s3t,y2s3f],
-        [3,1,y3s1t,y3s1f],[3,2,y3s2t,y3s2f],[3,3,y3s3t,y3s3f]
+        [3,1,y3s1t,y3s1f],[3,2,y3s2t,y3s2f],[3,3,y3s3t,y3s3f],
+        [4,1,y4s1t,y4s1f],[4,2,y4s2t,y4s2f],[4,3,y4s3t,y4s3f]
     ];
-    var yFlags = {'1':hy1,'2':hy2,'3':hy3};
+    var yFlags = {'1':hy1,'2':hy2,'3':hy3,'4':hy4};
     for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
         if (yFlags[r[0]] !== 'Yes') continue;

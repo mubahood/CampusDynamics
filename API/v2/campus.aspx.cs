@@ -19,6 +19,12 @@ public partial class API_v2_campus : System.Web.UI.Page
                 case "notices":
                     HandleNotices();
                     break;
+                case "mark_read":
+                    HandleMarkRead();
+                    break;
+                case "notice_detail":
+                    HandleNoticeDetail();
+                    break;
                 case "directory":
                     HandleDirectory();
                     break;
@@ -44,7 +50,7 @@ public partial class API_v2_campus : System.Web.UI.Page
                     HandleAcademicCalendar();
                     break;
                 default:
-                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: notices, directory, academic_years, current_semester, programmes, campuses, faculties, departments, academic_calendar", "INVALID_ACTION");
+                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: notices, mark_read, notice_detail, directory, academic_years, current_semester, programmes, campuses, faculties, departments, academic_calendar", "INVALID_ACTION");
                     break;
             }
         }
@@ -65,32 +71,59 @@ public partial class API_v2_campus : System.Web.UI.Page
         if (page < 1) page = 1;
         int offset = (page - 1) * limit;
 
+        // Map token user_type to sys_communications audience format (uppercase)
+        string userType = string.Equals(auth.UserType, "student", StringComparison.OrdinalIgnoreCase)
+            ? "STUDENT" : "STAFF";
+
         try
         {
-            // Ensure acad_notices table exists
-            ApiHelper.Execute(@"CREATE TABLE IF NOT EXISTS acad_notices (
-                ID INT AUTO_INCREMENT PRIMARY KEY,
-                Notice_Title VARCHAR(500),
-                Notice_detail TEXT,
-                Author VARCHAR(200),
-                Notice_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                Target_category VARCHAR(100) DEFAULT 'All',
-                Archive_Status VARCHAR(20) DEFAULT 'Active'
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+            object totalObj = ApiHelper.Scalar(
+                @"SELECT COUNT(*) FROM sys_communications
+                  WHERE status = 'PUBLISHED'
+                    AND (target_audience = 'BOTH' OR target_audience = @userType)",
+                new MySqlParameter("@userType", userType)
+            );
+            int total = Convert.ToInt32(totalObj ?? 0);
 
-            // Get total count
-            object totalObj = ApiHelper.Scalar("SELECT COUNT(*) FROM acad_notices WHERE Archive_Status = 'Active'");
-            int total = Convert.ToInt32(totalObj);
+            object unreadObj = ApiHelper.Scalar(
+                @"SELECT COUNT(*) FROM sys_communications c
+                  WHERE c.status = 'PUBLISHED'
+                    AND (c.target_audience = 'BOTH' OR c.target_audience = @userType)
+                    AND NOT EXISTS (
+                        SELECT 1 FROM sys_communication_reads r
+                        WHERE r.communication_id = c.ID AND r.user_id = @userId
+                    )",
+                new MySqlParameter("@userType", userType),
+                new MySqlParameter("@userId", auth.UserId)
+            );
+            int unreadCount = Convert.ToInt32(unreadObj ?? 0);
 
             DataTable dt = ApiHelper.Query(
-                @"SELECT ID AS notice_id, Notice_Title AS title, Notice_detail AS content, 
-                         Author AS created_by, 
-                         DATE_FORMAT(Notice_date, '%Y-%m-%d %H:%i') AS date_created,
-                         Target_category AS target_audience
-                  FROM acad_notices 
-                  WHERE Archive_Status = 'Active'
-                  ORDER BY Notice_date DESC
+                @"SELECT c.ID AS notice_id,
+                         c.title,
+                         LEFT(c.content, 300) AS preview,
+                         c.target_audience,
+                         c.priority,
+                         c.is_force_read,
+                         c.created_by_name AS author,
+                         DATE_FORMAT(c.published_at, '%Y-%m-%d %H:%i') AS published_at,
+                         COALESCE(att.cnt, 0) AS attachment_count,
+                         CASE WHEN r.communication_id IS NOT NULL THEN 1 ELSE 0 END AS is_read,
+                         DATE_FORMAT(r.read_at, '%Y-%m-%d %H:%i') AS read_at
+                  FROM sys_communications c
+                  LEFT JOIN (
+                      SELECT communication_id, COUNT(*) AS cnt
+                      FROM sys_communication_attachments
+                      GROUP BY communication_id
+                  ) att ON att.communication_id = c.ID
+                  LEFT JOIN sys_communication_reads r
+                      ON r.communication_id = c.ID AND r.user_id = @userId
+                  WHERE c.status = 'PUBLISHED'
+                    AND (c.target_audience = 'BOTH' OR c.target_audience = @userType)
+                  ORDER BY c.priority DESC, c.published_at DESC
                   LIMIT @limit OFFSET @offset",
+                new MySqlParameter("@userId", auth.UserId),
+                new MySqlParameter("@userType", userType),
                 new MySqlParameter("@limit", limit),
                 new MySqlParameter("@offset", offset)
             );
@@ -98,6 +131,7 @@ public partial class API_v2_campus : System.Web.UI.Page
             var data = new Dictionary<string, object>
             {
                 { "notices", ApiHelper.TableToList(dt) },
+                { "unread_count", unreadCount },
                 { "pagination", new Dictionary<string, object>
                     {
                         { "page", page },
@@ -113,6 +147,150 @@ public partial class API_v2_campus : System.Web.UI.Page
         catch (Exception ex)
         {
             ApiHelper.Error(Response, "Error fetching notices: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+
+    private void HandleMarkRead()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string noticeIdStr = ApiHelper.Param(Request, "notice_id", "");
+        if (string.IsNullOrEmpty(noticeIdStr))
+        {
+            ApiHelper.Error(Response, "notice_id is required", "MISSING_PARAM");
+            return;
+        }
+
+        int noticeId;
+        if (!int.TryParse(noticeIdStr, out noticeId))
+        {
+            ApiHelper.Error(Response, "notice_id must be a number", "INVALID_PARAM");
+            return;
+        }
+
+        try
+        {
+            object checkObj = ApiHelper.Scalar(
+                "SELECT COUNT(*) FROM sys_communications WHERE ID = @id AND status = 'PUBLISHED'",
+                new MySqlParameter("@id", noticeId)
+            );
+            if (Convert.ToInt32(checkObj ?? 0) == 0)
+            {
+                ApiHelper.Error(Response, "Notice not found", "NOT_FOUND");
+                return;
+            }
+
+            ApiHelper.Execute(
+                @"INSERT IGNORE INTO sys_communication_reads
+                      (communication_id, user_id, user_type, user_name)
+                  VALUES (@id, @userId, @userType, @userName)",
+                new MySqlParameter("@id", noticeId),
+                new MySqlParameter("@userId", auth.UserId),
+                new MySqlParameter("@userType", string.Equals(auth.UserType, "student", StringComparison.OrdinalIgnoreCase) ? "STUDENT" : "STAFF"),
+                new MySqlParameter("@userName", auth.FullName ?? auth.UserId)
+            );
+
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            {
+                { "notice_id", noticeId },
+                { "marked_read", true }
+            });
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error marking notice as read: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+
+    private void HandleNoticeDetail()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string noticeIdStr = ApiHelper.Param(Request, "notice_id", "");
+        if (string.IsNullOrEmpty(noticeIdStr))
+        {
+            ApiHelper.Error(Response, "notice_id is required", "MISSING_PARAM");
+            return;
+        }
+
+        int noticeId;
+        if (!int.TryParse(noticeIdStr, out noticeId))
+        {
+            ApiHelper.Error(Response, "notice_id must be a number", "INVALID_PARAM");
+            return;
+        }
+
+        string userType = string.Equals(auth.UserType, "student", StringComparison.OrdinalIgnoreCase)
+            ? "STUDENT" : "STAFF";
+
+        try
+        {
+            DataTable dt = ApiHelper.Query(
+                @"SELECT c.ID AS notice_id,
+                         c.title,
+                         c.content,
+                         c.target_audience,
+                         c.priority,
+                         c.is_force_read,
+                         c.allow_comments,
+                         c.created_by_name AS author,
+                         DATE_FORMAT(c.published_at, '%Y-%m-%d %H:%i') AS published_at,
+                         DATE_FORMAT(c.created_at, '%Y-%m-%d %H:%i') AS created_at,
+                         COALESCE(att.cnt, 0) AS attachment_count,
+                         CASE WHEN r.communication_id IS NOT NULL THEN 1 ELSE 0 END AS is_read,
+                         DATE_FORMAT(r.read_at, '%Y-%m-%d %H:%i') AS read_at
+                  FROM sys_communications c
+                  LEFT JOIN (
+                      SELECT communication_id, COUNT(*) AS cnt
+                      FROM sys_communication_attachments
+                      GROUP BY communication_id
+                  ) att ON att.communication_id = c.ID
+                  LEFT JOIN sys_communication_reads r
+                      ON r.communication_id = c.ID AND r.user_id = @userId
+                  WHERE c.ID = @id
+                    AND c.status = 'PUBLISHED'
+                    AND (c.target_audience = 'BOTH' OR c.target_audience = @userType)
+                  LIMIT 1",
+                new MySqlParameter("@id", noticeId),
+                new MySqlParameter("@userId", auth.UserId),
+                new MySqlParameter("@userType", userType)
+            );
+
+            if (dt.Rows.Count == 0)
+            {
+                ApiHelper.Error(Response, "Notice not found", "NOT_FOUND");
+                return;
+            }
+
+            DataTable dtAtt = ApiHelper.Query(
+                @"SELECT ID AS attachment_id, file_name, file_path, file_type, file_size
+                  FROM sys_communication_attachments
+                  WHERE communication_id = @id
+                  ORDER BY ID",
+                new MySqlParameter("@id", noticeId)
+            );
+
+            // Auto-mark as read when detail is fetched
+            ApiHelper.Execute(
+                @"INSERT IGNORE INTO sys_communication_reads
+                      (communication_id, user_id, user_type, user_name)
+                  VALUES (@id, @userId, @userType, @userName)",
+                new MySqlParameter("@id", noticeId),
+                new MySqlParameter("@userId", auth.UserId),
+                new MySqlParameter("@userType", userType),
+                new MySqlParameter("@userName", auth.FullName ?? auth.UserId)
+            );
+
+            var notice = ApiHelper.FirstRowToDict(dt);
+            notice["attachments"] = ApiHelper.TableToList(dtAtt);
+
+            ApiHelper.Success(Response, notice);
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error fetching notice detail: " + ex.Message, "SERVER_ERROR");
         }
     }
 

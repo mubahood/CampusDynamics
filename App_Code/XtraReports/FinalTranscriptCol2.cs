@@ -123,13 +123,20 @@ public class FinalTranscriptCol2 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableRow1.Dpi    = 100F;
             this.xrTableRow1.Name   = "xrTableRow1";
             this.xrTableRow1.Weight = 1D;
-            // xrTableCell1 – courseid (hidden weight-spacer)
+            // xrTableCell1 – course code (first visible column)
             this.xrTableCell1.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col2.courseid") });
             this.xrTableCell1.Dpi     = 100F;
+            this.xrTableCell1.Font    = new System.Drawing.Font("Calibri", 8.5F);
             this.xrTableCell1.Name    = "xrTableCell1";
-            this.xrTableCell1.Visible = false;
-            this.xrTableCell1.Weight  = 0.01D;
+            this.xrTableCell1.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 1, 0, 0, 100F);
+            this.xrTableCell1.Borders = (DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Right | DevExpress.XtraPrinting.BorderSide.Bottom);
+            this.xrTableCell1.StylePriority.UseBorders       = false;
+            this.xrTableCell1.StylePriority.UseFont          = false;
+            this.xrTableCell1.StylePriority.UsePadding       = false;
+            this.xrTableCell1.StylePriority.UseTextAlignment = false;
+            this.xrTableCell1.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopLeft;
+            this.xrTableCell1.Weight  = 1.20D;
             // xrTableCell2 – coursename
             this.xrTableCell2.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col2.coursename") });
@@ -142,8 +149,8 @@ public class FinalTranscriptCol2 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell2.StylePriority.UseFont          = false;
             this.xrTableCell2.StylePriority.UsePadding       = false;
             this.xrTableCell2.StylePriority.UseTextAlignment = false;
-            this.xrTableCell2.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleLeft;
-            this.xrTableCell2.Weight        = 4.45D;
+            this.xrTableCell2.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopLeft;
+            this.xrTableCell2.Weight        = 3.26D;
             // xrTableCell4 – CreditUnits
             this.xrTableCell4.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col2.CreditUnits") });
@@ -156,7 +163,7 @@ public class FinalTranscriptCol2 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell4.StylePriority.UseFont          = false;
             this.xrTableCell4.StylePriority.UsePadding       = false;
             this.xrTableCell4.StylePriority.UseTextAlignment = false;
-            this.xrTableCell4.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleCenter;
+            this.xrTableCell4.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopCenter;
             this.xrTableCell4.Weight        = 0.65D;
             // xrTableCell5 – grade
             this.xrTableCell5.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
@@ -170,7 +177,7 @@ public class FinalTranscriptCol2 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell5.StylePriority.UseFont          = false;
             this.xrTableCell5.StylePriority.UsePadding       = false;
             this.xrTableCell5.StylePriority.UseTextAlignment = false;
-            this.xrTableCell5.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleCenter;
+            this.xrTableCell5.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopCenter;
             this.xrTableCell5.Weight        = 0.75D;
             // ── TopMargin / BottomMargin ──────────────────────────────────────────────
             this.TopMargin.Dpi            = 100F;
@@ -225,10 +232,10 @@ public class FinalTranscriptCol2 : DevExpress.XtraReports.UI.XtraReport
             // xrLabel1 – semester title bar (top of each semester block)
             this.xrLabel1.Dpi           = 100F;
             this.xrLabel1.Font          = new System.Drawing.Font("Calibri", 8.5F, System.Drawing.FontStyle.Bold);
-            this.xrLabel1.ForeColor     = System.Drawing.Color.White;
-            this.xrLabel1.BackColor     = System.Drawing.Color.FromArgb(5, 52, 135);
+            this.xrLabel1.ForeColor     = System.Drawing.Color.Black;
+            this.xrLabel1.BackColor     = System.Drawing.Color.White;
             this.xrLabel1.Borders       = DevExpress.XtraPrinting.BorderSide.All;
-            this.xrLabel1.BorderColor   = System.Drawing.Color.FromArgb(3, 40, 110);
+            this.xrLabel1.BorderColor   = System.Drawing.Color.Silver;
             this.xrLabel1.LocationFloat = new DevExpress.Utils.PointFloat(2.291673F, 1F);
             this.xrLabel1.Name          = "xrLabel1";
             this.xrLabel1.Padding       = new DevExpress.XtraPrinting.PaddingInfo(4, 2, 0, 0, 100F);
@@ -259,19 +266,31 @@ public class FinalTranscriptCol2 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableRowHeader.Dpi    = 100F;
             this.xrTableRowHeader.Name   = "xrTableRowHeader";
             this.xrTableRowHeader.Weight = 1D;
-            // xrHdrCell1 – hidden spacer
+            // xrHdrCell1 – CODE header (matches xrTableCell1)
             this.xrHdrCell1.Dpi     = 100F;
+            this.xrHdrCell1.Font    = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
             this.xrHdrCell1.Name    = "xrHdrCell1";
-            this.xrHdrCell1.Visible = false;
-            this.xrHdrCell1.Weight  = 0.01D;
+            this.xrHdrCell1.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 1, 0, 0, 100F);
+            this.xrHdrCell1.Borders = DevExpress.XtraPrinting.BorderSide.All;
+            this.xrHdrCell1.BorderColor = System.Drawing.Color.Silver;
+            this.xrHdrCell1.BackColor = System.Drawing.Color.White;
+            this.xrHdrCell1.StylePriority.UseBackColor = false;
+            this.xrHdrCell1.StylePriority.UseBorderColor = false;
+            this.xrHdrCell1.StylePriority.UseBorders = false;
+            this.xrHdrCell1.StylePriority.UseFont = false;
+            this.xrHdrCell1.StylePriority.UsePadding = false;
+            this.xrHdrCell1.StylePriority.UseTextAlignment = false;
+            this.xrHdrCell1.Text = "CODE";
+            this.xrHdrCell1.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleLeft;
+            this.xrHdrCell1.Weight  = 1.20D;
             // xrHdrCell2 – COURSE header (matches xrTableCell2)
             this.xrHdrCell2.Dpi         = 100F;
             this.xrHdrCell2.Font        = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
             this.xrHdrCell2.Name        = "xrHdrCell2";
             this.xrHdrCell2.Padding     = new DevExpress.XtraPrinting.PaddingInfo(2, 1, 0, 0, 100F);
             this.xrHdrCell2.Borders     = DevExpress.XtraPrinting.BorderSide.All;
-            this.xrHdrCell2.BorderColor = System.Drawing.Color.SteelBlue;
-            this.xrHdrCell2.BackColor   = System.Drawing.Color.LightSteelBlue;
+            this.xrHdrCell2.BorderColor = System.Drawing.Color.Silver;
+            this.xrHdrCell2.BackColor   = System.Drawing.Color.White;
             this.xrHdrCell2.StylePriority.UseBackColor    = false;
             this.xrHdrCell2.StylePriority.UseBorderColor  = false;
             this.xrHdrCell2.StylePriority.UseBorders      = false;
@@ -280,15 +299,15 @@ public class FinalTranscriptCol2 : DevExpress.XtraReports.UI.XtraReport
             this.xrHdrCell2.StylePriority.UseTextAlignment = false;
             this.xrHdrCell2.Text          = "COURSE";
             this.xrHdrCell2.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleLeft;
-            this.xrHdrCell2.Weight        = 4.45D;
+            this.xrHdrCell2.Weight        = 3.26D;
             // xrHdrCell4 – CU header (matches xrTableCell4)
             this.xrHdrCell4.Dpi         = 100F;
             this.xrHdrCell4.Font        = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
             this.xrHdrCell4.Name        = "xrHdrCell4";
             this.xrHdrCell4.Padding     = new DevExpress.XtraPrinting.PaddingInfo(1, 1, 0, 0, 100F);
             this.xrHdrCell4.Borders     = DevExpress.XtraPrinting.BorderSide.All;
-            this.xrHdrCell4.BorderColor = System.Drawing.Color.SteelBlue;
-            this.xrHdrCell4.BackColor   = System.Drawing.Color.LightSteelBlue;
+            this.xrHdrCell4.BorderColor = System.Drawing.Color.Silver;
+            this.xrHdrCell4.BackColor   = System.Drawing.Color.White;
             this.xrHdrCell4.StylePriority.UseBackColor    = false;
             this.xrHdrCell4.StylePriority.UseBorderColor  = false;
             this.xrHdrCell4.StylePriority.UseBorders      = false;
@@ -304,8 +323,8 @@ public class FinalTranscriptCol2 : DevExpress.XtraReports.UI.XtraReport
             this.xrHdrCell5.Name        = "xrHdrCell5";
             this.xrHdrCell5.Padding     = new DevExpress.XtraPrinting.PaddingInfo(1, 1, 0, 0, 100F);
             this.xrHdrCell5.Borders     = DevExpress.XtraPrinting.BorderSide.All;
-            this.xrHdrCell5.BorderColor = System.Drawing.Color.SteelBlue;
-            this.xrHdrCell5.BackColor   = System.Drawing.Color.LightSteelBlue;
+            this.xrHdrCell5.BorderColor = System.Drawing.Color.Silver;
+            this.xrHdrCell5.BackColor   = System.Drawing.Color.White;
             this.xrHdrCell5.StylePriority.UseBackColor    = false;
             this.xrHdrCell5.StylePriority.UseBorderColor  = false;
             this.xrHdrCell5.StylePriority.UseBorders      = false;

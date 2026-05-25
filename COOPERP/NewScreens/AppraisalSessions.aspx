@@ -1,6 +1,7 @@
 <%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="AppraisalSessions.aspx.cs" Inherits="COOPERP_NewScreens_AppraisalSessions" Title="Appraisal Sessions - Campus Dynamics" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
+<meta name="csrf-token" content="<%= MarksAntiForgeryService.GetToken() %>" />
 <style>
 /* ===== PERFORMANCE APPRAISAL SESSIONS ===== */
 *,*::before,*::after{box-sizing:border-box;}
@@ -135,6 +136,44 @@
 /* ── Responsive ── */
 @media(max-width:900px){.pa-stats{grid-template-columns:repeat(3,1fr);}.pa-form-row{grid-template-columns:1fr;}}
 @media(max-width:600px){.pa-stats{grid-template-columns:repeat(2,1fr);}.pa-page-header{flex-direction:column;align-items:flex-start;}.pa-page-header__actions{margin-left:0;}}
+
+/* ── Email notification status badges ── */
+.pa-email-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;white-space:nowrap;cursor:default;}
+.pa-email-badge--sent{background:#d4edda;color:#155724;}
+.pa-email-badge--failed{background:#f8d7da;color:#721c24;cursor:pointer;}
+.pa-email-badge--no-email{background:#fff3cd;color:#856404;}
+.pa-email-badge--pending{background:#e9ecef;color:#6c757d;}
+
+/* ── Email progress modal ── */
+.pa-prog-modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1100;align-items:center;justify-content:center;padding:20px;}
+.pa-prog-modal-overlay.active{display:flex;}
+.pa-prog-modal{background:#fff;border-radius:10px;width:100%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.35);animation:paSlide .25s ease-out;}
+.pa-prog-header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #eee;flex-shrink:0;}
+.pa-prog-header__title{font-size:16px;font-weight:700;color:#1a1a1a;display:flex;align-items:center;gap:10px;}
+.pa-prog-header__close{background:none;border:none;font-size:22px;color:#999;cursor:pointer;}.pa-prog-header__close:hover{color:#333;}
+.pa-prog-body{padding:20px 24px;overflow-y:auto;flex:1;}
+.pa-prog-bar-wrap{background:#eef0f3;border-radius:8px;height:10px;overflow:hidden;margin:10px 0 6px;}
+.pa-prog-bar-fill{height:100%;background:linear-gradient(90deg,#174DA4,#1a7a3a);border-radius:8px;transition:width .5s ease;}
+.pa-prog-pct{font-size:13px;font-weight:700;color:#05275C;text-align:right;margin-bottom:14px;}
+.pa-prog-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+.pa-prog-chip{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;}
+.pa-prog-chip--sent{background:#d4edda;color:#155724;}
+.pa-prog-chip--failed{background:#f8d7da;color:#721c24;}
+.pa-prog-chip--noemail{background:#fff3cd;color:#856404;}
+.pa-prog-chip--pending{background:#e9ecef;color:#555;}
+.pa-prog-chip__num{font-size:16px;font-weight:700;}
+.pa-prog-log{border:1px solid #eee;border-radius:6px;overflow-y:auto;max-height:240px;background:#fafbfc;}
+.pa-prog-log__item{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-bottom:1px solid #f4f4f4;font-size:12px;}
+.pa-prog-log__item:last-child{border-bottom:none;}
+.pa-prog-log__icon{flex-shrink:0;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-top:1px;}
+.pa-prog-log__icon--sent{background:#d4edda;color:#155724;}
+.pa-prog-log__icon--failed{background:#f8d7da;color:#721c24;}
+.pa-prog-log__icon--noemail{background:#fff3cd;color:#856404;}
+.pa-prog-log__icon--pending{background:#e9ecef;color:#999;}
+.pa-prog-log__name{font-weight:600;color:#1a1a1a;}
+.pa-prog-log__info{color:#888;font-size:11px;margin-top:1px;}
+.pa-prog-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 24px;border-top:1px solid #eee;flex-shrink:0;background:#fafbfc;border-radius:0 0 10px 10px;}
+.pa-prog-status-text{font-size:12px;color:#888;}
 </style>
 </asp:Content>
 
@@ -150,6 +189,10 @@
         <div class="pa-page-header__sub">Create, manage, and monitor appraisal periods</div>
     </div>
     <div class="pa-page-header__actions">
+        <button type="button" class="hr-btn hr-btn--outline" onclick="backfillActiveSession()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 11a9 9 0 1 1 3 7.7L3 16"/></svg>
+            Backfill Active Missing
+        </button>
         <button type="button" class="hr-btn hr-btn--primary" onclick="openCreateModal()">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Session
@@ -294,6 +337,7 @@
                 <div class="pa-form-group">
                     <label class="pa-form-label">Target Staff Categories</label>
                     <div class="pa-checkbox-group">
+                        <label><input type="checkbox" id="chkAllCreateTargets" checked="checked" onchange="toggleAllTargets('create', this.checked)" /> Select All</label>
                         <label><asp:CheckBox ID="chkAcademic" runat="server" Checked="true" /> Academic</label>
                         <label><asp:CheckBox ID="chkAdministrative" runat="server" Checked="true" /> Administrative</label>
                         <label><asp:CheckBox ID="chkSupport" runat="server" Checked="true" /> Support</label>
@@ -347,8 +391,20 @@
                     <asp:TextBox ID="txtEditDeadline" runat="server" CssClass="pa-form-input" TextMode="Date" />
                 </div>
                 <div class="pa-form-group">
+                    <label class="pa-form-label">Session Status <em>*</em></label>
+                    <asp:DropDownList ID="ddlEditStatus" runat="server" CssClass="pa-form-select" style="width:100%;padding:8px 12px;">
+                        <asp:ListItem Value="DRAFT"    Text="Draft" />
+                        <asp:ListItem Value="ACTIVE"   Text="Active" />
+                        <asp:ListItem Value="CLOSED"   Text="Closed" />
+                        <asp:ListItem Value="ARCHIVED" Text="Archived" />
+                    </asp:DropDownList>
+                </div>
+            </div>
+            <div class="pa-form-row pa-form-row--full">
+                <div class="pa-form-group">
                     <label class="pa-form-label">Target Staff Categories</label>
                     <div class="pa-checkbox-group">
+                        <label><input type="checkbox" id="chkAllEditTargets" checked="checked" onchange="toggleAllTargets('edit', this.checked)" /> Select All</label>
                         <label><asp:CheckBox ID="chkEditAcademic" runat="server" /> Academic</label>
                         <label><asp:CheckBox ID="chkEditAdministrative" runat="server" /> Administrative</label>
                         <label><asp:CheckBox ID="chkEditSupport" runat="server" /> Support</label>
@@ -380,8 +436,17 @@
             <button type="button" class="hr-btn hr-btn--ghost" onclick="closeDetailModal()">Close</button>
             <asp:Button ID="btnActivateSession" runat="server" CssClass="hr-btn hr-btn--success" Text="Activate" OnClick="btnActivateSession_Click" style="display:none" />
             <button type="button" id="btnGenerate" class="hr-btn hr-btn--warning" style="display:none" onclick="generateAppraisals()">Generate Appraisals</button>
+            <button type="button" id="btnSendNotifications" class="hr-btn hr-btn--success" style="display:none" onclick="sendNotifications(false)" title="Send email notifications to all employees in this session">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                Send Notifications
+            </button>
             <asp:Button ID="btnCloseSession" runat="server" CssClass="hr-btn hr-btn--outline" Text="Close Session" OnClick="btnCloseSession_Click" style="display:none" />
             <asp:Button ID="btnArchiveSession" runat="server" CssClass="hr-btn hr-btn--ghost" Text="Archive" OnClick="btnArchiveSession_Click" style="display:none" />
+            <button type="button" id="btnSessionReport" class="hr-btn hr-btn--primary hr-btn--sm" style="display:none"
+                    onclick="window.open('AppraisalSessionReport.aspx?sid='+_currentDetailId,'_blank')" title="Generate comprehensive session performance report">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><rect x="2" y="2" width="20" height="20" rx="2" ry="2" style="display:none"/></svg>
+                Generate Report
+            </button>
             <asp:Button ID="btnDeleteSession" runat="server" CssClass="hr-btn hr-btn--danger hr-btn--sm" Text="Delete" OnClick="btnDeleteSession_Click" style="display:none" />
         </div>
     </div>
@@ -423,6 +488,7 @@ function applyFilters() {
 // ═══════════════════════════════════════════════════════════════════
 function openCreateModal() {
     document.getElementById('createModal').classList.add('active');
+    syncAllTargetsCheckbox('create');
 }
 function closeCreateModal() {
     document.getElementById('createModal').classList.remove('active');
@@ -451,6 +517,9 @@ function openEditModal(sessionId) {
             document.getElementById('<%= chkEditAcademic.ClientID %>').checked = cats.indexOf('ACADEMIC') >= 0;
             document.getElementById('<%= chkEditAdministrative.ClientID %>').checked = cats.indexOf('ADMINISTRATIVE') >= 0;
             document.getElementById('<%= chkEditSupport.ClientID %>').checked = cats.indexOf('SUPPORT') >= 0;
+            syncAllTargetsCheckbox('edit');
+
+            document.getElementById('<%= ddlEditStatus.ClientID %>').value = (d.status || 'DRAFT').toUpperCase();
 
             document.getElementById('editModal').classList.add('active');
         } catch (ex) { alert('Error loading session data.'); }
@@ -474,8 +543,10 @@ function viewSession(sessionId) {
     // Hide all action buttons initially
     document.getElementById('<%= btnActivateSession.ClientID %>').style.display = 'none';
     document.getElementById('btnGenerate').style.display = 'none';
+    document.getElementById('btnSendNotifications').style.display = 'none';
     document.getElementById('<%= btnCloseSession.ClientID %>').style.display = 'none';
     document.getElementById('<%= btnArchiveSession.ClientID %>').style.display = 'none';
+    document.getElementById('btnSessionReport').style.display = 'none';
     document.getElementById('<%= btnDeleteSession.ClientID %>').style.display = 'none';
 
     document.getElementById('detailModal').classList.add('active');
@@ -530,7 +601,7 @@ function renderDetail(d) {
         html += '<div class="pa-detail-section__title">Individual Appraisals (' + d.records.length + ')</div>';
         html += '<div style="max-height:300px;overflow-y:auto;">';
         html += '<table class="pa-records-table"><thead><tr>';
-        html += '<th>#</th><th>Employee</th><th>Code</th><th>Category</th><th>Reviewer</th><th>Status</th><th>Score</th>';
+        html += '<th>#</th><th>Employee</th><th>Code</th><th>Category</th><th>Reviewer</th><th>Status</th><th>Score</th><th style="text-align:center">Email</th><th></th>';
         html += '</tr></thead><tbody>';
         for (var i = 0; i < d.records.length; i++) {
             var r = d.records[i];
@@ -543,6 +614,15 @@ function renderDetail(d) {
             html += '<td>' + esc(r.reviewer_name) + '</td>';
             html += '<td><span class="pa-rec-badge ' + badgeCls + '">' + formatRecStatus(r.status) + '</span></td>';
             html += '<td>' + (r.final_percentage ? r.final_percentage + '%' : '&mdash;') + '</td>';
+            html += '<td style="text-align:center">' + emailBadgeHtml(r.notify_status, r.notify_error, r.record_id) + '</td>';
+            html += '<td style="white-space:nowrap">'
+                 +  '<button type="button" class="hr-btn hr-btn--danger hr-btn--sm" '
+                 +  'onclick="deleteRecord(' + r.record_id + ',\'' + escJs(r.emp_name) + '\')" '
+                 +  'title="Delete this appraisal" style="padding:2px 6px;font-size:10px;">Del</button>'
+                 +  '&nbsp;<button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" '
+                 +  'onclick="resendSingle(' + r.record_id + ',\'' + escJs(r.emp_name) + '\')" '
+                 +  'title="Re-send notification email" style="padding:2px 6px;font-size:10px;">&#9993;</button>'
+                 +  '</td>';
             html += '</tr>';
         }
         html += '</tbody></table></div></div>';
@@ -554,15 +634,27 @@ function renderDetail(d) {
     var status = d.status.toUpperCase();
     if (status === 'DRAFT') {
         document.getElementById('<%= btnActivateSession.ClientID %>').style.display = '';
-        document.getElementById('<%= btnDeleteSession.ClientID %>').style.display = '';
     }
     if (status === 'ACTIVE') {
         document.getElementById('btnGenerate').style.display = '';
+        document.getElementById('btnSendNotifications').style.display = '';
         document.getElementById('<%= btnCloseSession.ClientID %>').style.display = '';
     }
     if (status === 'CLOSED') {
         document.getElementById('<%= btnArchiveSession.ClientID %>').style.display = '';
     }
+    // Report button — show when session has any records
+    if (d.total > 0) {
+        document.getElementById('btnSessionReport').style.display = '';
+    }
+    // Delete available for all statuses — intercept form submit with AJAX
+    var delBtn = document.getElementById('<%= btnDeleteSession.ClientID %>');
+    delBtn.style.display = '';
+    delBtn.onclick = function (ev) {
+        ev.preventDefault();
+        deleteSession(d.session_id, d.session_title, d.total);
+        return false;
+    };
 }
 
 function detailItem(label, value) {
@@ -607,7 +699,9 @@ function generateAppraisals() {
     btn.textContent = 'Generating...';
 
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'AppraisalSessions.aspx?ajax=generate_appraisals&id=' + _currentDetailId, true);
+    xhr.open('POST', 'AppraisalSessions.aspx?ajax=generate_appraisals&id=' + _currentDetailId, true);
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) xhr.setRequestHeader('X-CSRF-Token', csrfMeta.getAttribute('content'));
     xhr.onreadystatechange = function () {
         if (xhr.readyState !== 4) return;
         btn.disabled = false;
@@ -622,7 +716,28 @@ function generateAppraisals() {
             window._needsRefresh = true;
         } catch (ex) { alert('Error generating appraisals.'); }
     };
-    xhr.send();
+    xhr.send('');
+}
+
+function backfillActiveSession() {
+    if (!confirm('Backfill missing appraisals for the currently ACTIVE session?\n\nOnly missing records will be created.')) return;
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'AppraisalSessions.aspx?ajax=backfill_active', true);
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) xhr.setRequestHeader('X-CSRF-Token', csrfMeta.getAttribute('content'));
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        try {
+            var d = JSON.parse(xhr.responseText);
+            if (d.error) { alert(d.error); return; }
+            alert('Backfill complete for "' + d.session_title + '".\nCreated missing appraisals: ' + d.count + '.');
+            window.location.reload();
+        } catch (ex) {
+            alert('Backfill failed.');
+        }
+    };
+    xhr.send('');
 }
 
 // Refresh page if needed when closing detail modal
@@ -634,6 +749,289 @@ closeDetailModal = function () {
         window.location.reload();
     }
 };
+
+function getTargetBoxes(mode) {
+    var isEdit = mode === 'edit';
+    return {
+        all: document.getElementById(isEdit ? 'chkAllEditTargets' : 'chkAllCreateTargets'),
+        academic: document.getElementById(isEdit ? '<%= chkEditAcademic.ClientID %>' : '<%= chkAcademic.ClientID %>'),
+        administrative: document.getElementById(isEdit ? '<%= chkEditAdministrative.ClientID %>' : '<%= chkAdministrative.ClientID %>'),
+        support: document.getElementById(isEdit ? '<%= chkEditSupport.ClientID %>' : '<%= chkSupport.ClientID %>')
+    };
+}
+
+function toggleAllTargets(mode, checked) {
+    var boxes = getTargetBoxes(mode);
+    if (boxes.academic) boxes.academic.checked = checked;
+    if (boxes.administrative) boxes.administrative.checked = checked;
+    if (boxes.support) boxes.support.checked = checked;
+}
+
+function syncAllTargetsCheckbox(mode) {
+    var boxes = getTargetBoxes(mode);
+    if (!boxes.all) return;
+    boxes.all.checked = !!(boxes.academic && boxes.academic.checked && boxes.administrative && boxes.administrative.checked && boxes.support && boxes.support.checked);
+}
+
+(function initTargetCheckboxSync() {
+    ['create', 'edit'].forEach(function (mode) {
+        var boxes = getTargetBoxes(mode);
+        ['academic', 'administrative', 'support'].forEach(function (key) {
+            if (boxes[key]) {
+                boxes[key].addEventListener('change', function () { syncAllTargetsCheckbox(mode); });
+            }
+        });
+    });
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  DELETE SESSION (AJAX with cascade)
+// ═══════════════════════════════════════════════════════════════════
+function deleteSession(sessionId, sessionTitle, recordCount) {
+    var warningLines = 'WARNING: This will permanently delete the session';
+    if (recordCount > 0) {
+        warningLines += ' AND ' + recordCount + ' appraisal record(s) with all their entered data';
+    }
+    warningLines += '.\n\nThis CANNOT be undone.\n\nType DELETE to confirm:';
+    var input = prompt('Delete Session: "' + sessionTitle + '"\n\n' + warningLines, '');
+    if (input === null) return;
+    if (input.trim().toUpperCase() !== 'DELETE') {
+        alert('Cancelled. You must type DELETE exactly to confirm deletion.');
+        return;
+    }
+    var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).getAttribute ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'AppraisalSessions.aspx?ajax=delete_session&id=' + sessionId, true);
+    xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        try {
+            var d = JSON.parse(xhr.responseText);
+            if (d.error) { alert('Error: ' + d.error); return; }
+            var msg = 'Session deleted successfully' +
+                (d.deleted_records > 0 ? ' along with ' + d.deleted_records + ' appraisal record(s).' : '.');
+            window.location.href = 'AppraisalSessions.aspx?msg=' + encodeURIComponent(msg) + '&ok=1';
+        } catch (ex) { alert('Delete failed. Please try again.'); }
+    };
+    xhr.send('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DELETE INDIVIDUAL APPRAISAL RECORD (AJAX)
+// ═══════════════════════════════════════════════════════════════════
+function deleteRecord(recordId, empName) {
+    if (!confirm('Delete appraisal for ' + empName + '?\n\nThis will permanently remove their form and all entered data.\nThis cannot be undone.')) return;
+    var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).getAttribute ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'AppraisalSessions.aspx?ajax=delete_record&id=' + recordId, true);
+    xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        try {
+            var d = JSON.parse(xhr.responseText);
+            if (d.error) { alert('Error: ' + d.error); return; }
+            viewSession(_currentDetailId);
+        } catch (ex) { alert('Delete failed. Please try again.'); }
+    };
+    xhr.send('');
+}
+
+function escJs(s) {
+    if (!s) return '';
+    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EMAIL BADGE
+// ═══════════════════════════════════════════════════════════════════
+function emailBadgeHtml(status, error, recordId) {
+    switch ((status || 'PENDING').toUpperCase()) {
+        case 'SENT':
+            return '<span class="pa-email-badge pa-email-badge--sent" title="Email delivered">&#10003; Sent</span>';
+        case 'FAILED':
+            var tip = error ? 'Failed: ' + error : 'Send failed';
+            return '<span class="pa-email-badge pa-email-badge--failed" title="' + esc(tip) + '" onclick="resendSingle(' + recordId + ',\'\')">&#10007; Failed</span>';
+        case 'NO_EMAIL':
+            return '<span class="pa-email-badge pa-email-badge--no-email" title="No email address on record">&#8213; No Email</span>';
+        default:
+            return '<span class="pa-email-badge pa-email-badge--pending" title="Not yet sent">&#9679; Pending</span>';
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SEND NOTIFICATIONS (bulk)
+// ═══════════════════════════════════════════════════════════════════
+var _notifyPollTimer = null;
+
+function sendNotifications(resend) {
+    if (_notifyPollTimer) { clearInterval(_notifyPollTimer); _notifyPollTimer = null; }
+    document.getElementById('progModal').classList.add('active');
+    document.getElementById('progBarFill').style.width = '0%';
+    document.getElementById('progPct').textContent = '0%';
+    document.getElementById('chipSent').textContent = '0';
+    document.getElementById('chipFailed').textContent = '0';
+    document.getElementById('chipNoEmail').textContent = '0';
+    document.getElementById('chipPending').textContent = '?';
+    document.getElementById('progSummaryText').textContent = resend ? 'Resending failed/no-email notifications…' : 'Starting bulk notification send…';
+    document.getElementById('progStatusText').textContent = 'Starting…';
+    document.getElementById('progResendBtn').style.display = 'none';
+    document.getElementById('progLog').innerHTML = '<div style="text-align:center;padding:20px;color:#bbb;font-size:12px;">Contacting server…</div>';
+
+    var xhr = new XMLHttpRequest();
+    var url = 'AppraisalSessions.aspx?ajax=send_notifications&id=' + _currentDetailId + (resend ? '&resend=1' : '');
+    xhr.open('POST', url, true);
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (csrfMeta) xhr.setRequestHeader('X-CSRF-Token', csrfMeta.getAttribute('content'));
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        try {
+            var d = JSON.parse(xhr.responseText);
+            if (d.error) {
+                document.getElementById('progSummaryText').textContent = 'Error: ' + d.error;
+                document.getElementById('progStatusText').textContent = 'Error';
+                return;
+            }
+            if (!d.started) {
+                document.getElementById('progSummaryText').textContent = d.message || 'No pending notifications.';
+                document.getElementById('progStatusText').textContent = 'Nothing to send';
+                return;
+            }
+            document.getElementById('chipPending').textContent = d.total;
+            document.getElementById('progSummaryText').textContent = 'Sending emails to ' + d.total + ' employee(s)… please wait.';
+            document.getElementById('progStatusText').textContent = 'Processing…';
+            // Start polling
+            _notifyPollTimer = setInterval(function () { pollNotifyStatus(); }, 2000);
+            pollNotifyStatus();
+        } catch (ex) {
+            document.getElementById('progSummaryText').textContent = 'Unexpected error. Please try again.';
+        }
+    };
+    xhr.send('');
+}
+
+function pollNotifyStatus() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'AppraisalSessions.aspx?ajax=get_notify_status&id=' + _currentDetailId, true);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        try {
+            var d = JSON.parse(xhr.responseText);
+            if (d.error) return;
+
+            var processed = d.sent + d.failed + d.no_email;
+            var total     = d.total || 1;
+            var pct       = Math.round((processed / total) * 100);
+
+            document.getElementById('progBarFill').style.width  = pct + '%';
+            document.getElementById('progPct').textContent      = pct + '%';
+            document.getElementById('chipSent').textContent     = d.sent;
+            document.getElementById('chipFailed').textContent   = d.failed;
+            document.getElementById('chipNoEmail').textContent  = d.no_email;
+            document.getElementById('chipPending').textContent  = d.pending;
+
+            // Build log
+            var logHtml = '';
+            if (d.records && d.records.length > 0) {
+                d.records.forEach(function (r) {
+                    var ns = (r.notify_status || 'PENDING').toUpperCase();
+                    if (ns === 'PENDING') return; // only show processed
+                    var iconCls = ns === 'SENT' ? 'sent' : ns === 'FAILED' ? 'failed' : ns === 'NO_EMAIL' ? 'noemail' : 'pending';
+                    var iconChar = ns === 'SENT' ? '&#10003;' : ns === 'FAILED' ? '&#10007;' : ns === 'NO_EMAIL' ? '&#8213;' : '&#9679;';
+                    var infoText = ns === 'SENT' ? (r.emp_email || '') : ns === 'FAILED' ? (r.notify_error || 'Send failed') : ns === 'NO_EMAIL' ? 'No email address on record' : '';
+                    logHtml += '<div class="pa-prog-log__item">'
+                             + '<div class="pa-prog-log__icon pa-prog-log__icon--' + iconCls + '">' + iconChar + '</div>'
+                             + '<div><div class="pa-prog-log__name">' + esc(r.emp_name) + '</div>'
+                             + '<div class="pa-prog-log__info">' + esc(infoText) + '</div></div>'
+                             + '</div>';
+                });
+            }
+            if (logHtml) {
+                document.getElementById('progLog').innerHTML = logHtml;
+            } else if (d.pending > 0) {
+                document.getElementById('progLog').innerHTML = '<div style="text-align:center;padding:20px;color:#bbb;font-size:12px;">Processing…</div>';
+            }
+
+            if (d.done) {
+                clearInterval(_notifyPollTimer);
+                _notifyPollTimer = null;
+                var summary = 'Done — ' + d.sent + ' sent, ' + d.failed + ' failed, ' + d.no_email + ' with no email.';
+                document.getElementById('progSummaryText').textContent = summary;
+                document.getElementById('progStatusText').textContent  = 'Completed';
+                if (d.failed > 0 || d.no_email > 0)
+                    document.getElementById('progResendBtn').style.display = '';
+                window._needsRefresh = true;
+                // Refresh the detail view so email badges update
+                viewSession(_currentDetailId);
+            }
+        } catch (ex) { /* ignore parse error on transient response */ }
+    };
+    xhr.send();
+}
+
+function closeProgModal() {
+    if (_notifyPollTimer) { clearInterval(_notifyPollTimer); _notifyPollTimer = null; }
+    document.getElementById('progModal').classList.remove('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RE-SEND SINGLE
+// ═══════════════════════════════════════════════════════════════════
+function resendSingle(recordId, empName) {
+    var label = empName || ('record #' + recordId);
+    if (!confirm('Re-send notification email to ' + label + '?')) return;
+    var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).getAttribute ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '';
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'AppraisalSessions.aspx?ajax=send_single_notify&id=' + recordId, true);
+    xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) return;
+        try {
+            var d = JSON.parse(xhr.responseText);
+            var msg = d.ok ? '✓ ' + d.message : '✗ ' + d.message;
+            alert(msg);
+            viewSession(_currentDetailId);
+        } catch (ex) { alert('Request failed.'); }
+    };
+    xhr.send('');
+}
 </script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     EMAIL PROGRESS MODAL
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="progModal" class="pa-prog-modal-overlay">
+    <div class="pa-prog-modal">
+        <div class="pa-prog-header">
+            <div class="pa-prog-header__title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                Sending Appraisal Notifications
+            </div>
+            <button type="button" class="pa-prog-header__close" id="progModalClose" onclick="closeProgModal()">&times;</button>
+        </div>
+        <div class="pa-prog-body">
+            <div id="progSummaryText" style="font-size:13px;color:#555;margin-bottom:10px;">Initialising&hellip;</div>
+            <div class="pa-prog-bar-wrap"><div class="pa-prog-bar-fill" id="progBarFill" style="width:0%"></div></div>
+            <div class="pa-prog-pct" id="progPct">0%</div>
+            <div class="pa-prog-chips">
+                <div class="pa-prog-chip pa-prog-chip--sent"><span class="pa-prog-chip__num" id="chipSent">0</span> Sent</div>
+                <div class="pa-prog-chip pa-prog-chip--failed"><span class="pa-prog-chip__num" id="chipFailed">0</span> Failed</div>
+                <div class="pa-prog-chip pa-prog-chip--noemail"><span class="pa-prog-chip__num" id="chipNoEmail">0</span> No Email</div>
+                <div class="pa-prog-chip pa-prog-chip--pending"><span class="pa-prog-chip__num" id="chipPending">0</span> Remaining</div>
+            </div>
+            <div id="progLog" class="pa-prog-log">
+                <div style="text-align:center;padding:20px;color:#bbb;font-size:12px;">Waiting to start&hellip;</div>
+            </div>
+        </div>
+        <div class="pa-prog-footer">
+            <span class="pa-prog-status-text" id="progStatusText">Ready</span>
+            <div style="display:flex;gap:8px;">
+                <button type="button" id="progResendBtn" class="hr-btn hr-btn--outline hr-btn--sm" onclick="sendNotifications(true)" style="display:none">
+                    Re-send All (incl. already sent)
+                </button>
+                <button type="button" class="hr-btn hr-btn--ghost hr-btn--sm" onclick="closeProgModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 </asp:Content>

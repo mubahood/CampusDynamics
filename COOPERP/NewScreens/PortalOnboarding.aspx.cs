@@ -445,10 +445,10 @@ public partial class COOPERP_NewScreens_PortalOnboarding : Page
                 {
                     if (rdr.Read())
                     {
-                        litActiveCount.Text = SafeInt(rdr, "a_cnt").ToString();
-                        litAlumniCount.Text = SafeInt(rdr, "al_cnt").ToString();
-                        litEmailCount.Text = SafeInt(rdr, "e_cnt").ToString();
-                        litLecturerEmailCount.Text = SafeInt(rdr, "lve_cnt").ToString();
+                        litActiveCount.Text = SafeInt(rdr, "a_cnt").ToString("N0");
+                        litAlumniCount.Text = SafeInt(rdr, "al_cnt").ToString("N0");
+                        litEmailCount.Text = SafeInt(rdr, "e_cnt").ToString("N0");
+                        litLecturerEmailCount.Text = SafeInt(rdr, "lve_cnt").ToString("N0");
                     }
                 }
             }
@@ -466,7 +466,7 @@ public partial class COOPERP_NewScreens_PortalOnboarding : Page
                 {
                     cmd2.Parameters.AddWithValue("@ay", acadYear);
                     object r = cmd2.ExecuteScalar();
-                    litSemRegCount.Text = (r != null && r != DBNull.Value) ? Convert.ToInt32(r).ToString() : "0";
+                    litSemRegCount.Text = (r != null && r != DBNull.Value) ? Convert.ToInt32(r).ToString("N0") : "0";
                 }
             }
         }

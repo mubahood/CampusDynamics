@@ -27,8 +27,9 @@ using MySql.Data.MySqlClient;
 /// </summary>
 public static class TokenManager
 {
-    private const int TOKEN_EXPIRY_HOURS = 87600; // ~10 years (effectively unlimited)
-    private const string SPECIAL_TOKEN_ID = "xaxu";
+    private const int TOKEN_EXPIRY_HOURS   = 8760;  // 1 year
+    private const int MAX_TOKENS_PER_USER  = 50;    // safety cap; CreateToken reuses existing tokens so this is rarely hit
+    private const string SPECIAL_TOKEN_ID    = "xaxu";
     private const string SPECIAL_TOKEN_VALUE = "xaxu";
     private static readonly DateTime SPECIAL_TOKEN_EXPIRES_AT = new DateTime(2099, 12, 31, 23, 59, 59);
 
@@ -98,23 +99,72 @@ public static class TokenManager
     }
 
     /// <summary>
-    /// Creates a new token for a user. Deactivates any existing tokens for the same user.
+    /// Returns the user's existing valid token if one exists with more than 30 days remaining;
+    /// otherwise creates a new token. This prevents token proliferation and eviction issues
+    /// when the app logs in repeatedly (e.g. on each launch).
     /// </summary>
     public static TokenInfo CreateToken(string userId, string userType, string fullName, string ipAddress)
     {
         EnsureTable();
 
-        // Deactivate old tokens for this user
-        ApiHelper.Execute(
-            "UPDATE api_tokens SET is_active = 0 WHERE user_id = @uid",
-            new MySqlParameter("@uid", userId)
+        // Reuse an existing valid token if it has more than 30 days remaining
+        DataTable dtExisting = ApiHelper.Query(
+            @"SELECT token, user_id, user_type, full_name, expires_at
+              FROM api_tokens
+              WHERE user_id = @uid
+                AND is_active = 1
+                AND token <> @sp
+                AND expires_at > DATE_ADD(NOW(), INTERVAL 30 DAY)
+              ORDER BY expires_at DESC
+              LIMIT 1",
+            new MySqlParameter("@uid", userId),
+            new MySqlParameter("@sp", SPECIAL_TOKEN_VALUE)
         );
+
+        if (dtExisting.Rows.Count > 0)
+        {
+            DataRow existing = dtExisting.Rows[0];
+            ApiHelper.Execute(
+                "UPDATE api_tokens SET last_used = NOW(), ip_address = @ip WHERE token = @token",
+                new MySqlParameter("@ip", ipAddress ?? ""),
+                new MySqlParameter("@token", existing["token"].ToString())
+            );
+            return new TokenInfo
+            {
+                Token     = existing["token"].ToString(),
+                UserId    = existing["user_id"].ToString(),
+                UserType  = existing["user_type"].ToString(),
+                FullName  = existing["full_name"] != DBNull.Value ? existing["full_name"].ToString() : fullName,
+                ExpiresAt = Convert.ToDateTime(existing["expires_at"])
+            };
+        }
+
+        // No reusable token found — create a new one.
+        // Safety cap: evict oldest if over MAX_TOKENS_PER_USER.
+        DataTable dtCount = ApiHelper.Query(
+            "SELECT id FROM api_tokens WHERE user_id = @uid AND is_active = 1 AND token <> @sp ORDER BY created_at ASC",
+            new MySqlParameter("@uid", userId),
+            new MySqlParameter("@sp", SPECIAL_TOKEN_VALUE)
+        );
+
+        int countActive = dtCount.Rows.Count;
+        if (countActive >= MAX_TOKENS_PER_USER)
+        {
+            int toEvict = countActive - MAX_TOKENS_PER_USER + 1;
+            for (int i = 0; i < toEvict && i < dtCount.Rows.Count; i++)
+            {
+                ApiHelper.Execute(
+                    "UPDATE api_tokens SET is_active = 0 WHERE id = @id",
+                    new MySqlParameter("@id", Convert.ToInt32(dtCount.Rows[i]["id"]))
+                );
+            }
+        }
 
         string token = ApiHelper.GenerateToken();
         DateTime expiresAt = DateTime.Now.AddHours(TOKEN_EXPIRY_HOURS);
 
         ApiHelper.Execute(
-            @"INSERT INTO api_tokens (token, user_id, user_type, full_name, expires_at, ip_address, last_used) 
+            @"INSERT INTO api_tokens (token, user_id, user_type, full_name, expires_at, ip_address, last_used)
               VALUES (@token, @uid, @utype, @name, @expires, @ip, NOW())",
             new MySqlParameter("@token", token),
             new MySqlParameter("@uid", userId),
@@ -126,10 +176,10 @@ public static class TokenManager
 
         return new TokenInfo
         {
-            Token = token,
-            UserId = userId,
-            UserType = userType,
-            FullName = fullName,
+            Token     = token,
+            UserId    = userId,
+            UserType  = userType,
+            FullName  = fullName,
             ExpiresAt = expiresAt
         };
     }
@@ -208,6 +258,59 @@ public static class TokenManager
             return null;
         }
         return info;
+    }
+
+    /// <summary>
+    /// NEW-04: Exchanges a valid token for a new one with a fresh expiry.
+    /// The old token is invalidated. Returns null if the token is invalid/expired.
+    /// </summary>
+    public static TokenInfo RefreshToken(string oldToken, string ipAddress)
+    {
+        if (string.IsNullOrEmpty(oldToken)) return null;
+        if (oldToken.Equals(SPECIAL_TOKEN_VALUE, StringComparison.OrdinalIgnoreCase)) return null;
+
+        EnsureTable();
+
+        DataTable dt = ApiHelper.Query(
+            "SELECT user_id, user_type, full_name FROM api_tokens WHERE token = @token AND is_active = 1 AND expires_at > NOW() LIMIT 1",
+            new MySqlParameter("@token", oldToken)
+        );
+
+        if (dt.Rows.Count == 0) return null;
+
+        string userId   = dt.Rows[0]["user_id"].ToString();
+        string userType = dt.Rows[0]["user_type"].ToString();
+        string fullName = dt.Rows[0]["full_name"] != DBNull.Value ? dt.Rows[0]["full_name"].ToString() : "";
+
+        // Invalidate the old token
+        ApiHelper.Execute(
+            "UPDATE api_tokens SET is_active = 0 WHERE token = @token",
+            new MySqlParameter("@token", oldToken)
+        );
+
+        // Issue a new token
+        string newToken = ApiHelper.GenerateToken();
+        DateTime expiresAt = DateTime.Now.AddHours(TOKEN_EXPIRY_HOURS);
+
+        ApiHelper.Execute(
+            @"INSERT INTO api_tokens (token, user_id, user_type, full_name, expires_at, ip_address, last_used)
+              VALUES (@token, @uid, @utype, @name, @expires, @ip, NOW())",
+            new MySqlParameter("@token", newToken),
+            new MySqlParameter("@uid", userId),
+            new MySqlParameter("@utype", userType),
+            new MySqlParameter("@name", fullName),
+            new MySqlParameter("@expires", expiresAt),
+            new MySqlParameter("@ip", ipAddress ?? "")
+        );
+
+        return new TokenInfo
+        {
+            Token     = newToken,
+            UserId    = userId,
+            UserType  = userType,
+            FullName  = fullName,
+            ExpiresAt = expiresAt
+        };
     }
 
     /// <summary>Invalidates (logs out) a token.</summary>

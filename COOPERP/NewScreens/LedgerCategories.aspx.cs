@@ -1,25 +1,45 @@
 ﻿using System;
 using System.Data;
 using System.Web.UI;
-using DevExpress.Web;
+using System.Web.UI.WebControls;
 
-/// <summary>
-/// Ledger Categories — CRUD for ledger types.
-/// 
-/// REFACTORED (Phase 2):
-///  ✓ Hardcoded connection string → FinanceDB
-///  ✓ No error handling → try/catch + FinanceLogger.LogError
-///  ✓ No audit trail → FinanceLogger.LogAction on save/delete
-/// </summary>
 public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
 {
     private const string PAGE_NAME = "LedgerCategories";
+
+    protected string GetCategoryPillCss(object categoryValue)
+    {
+        string category = Convert.ToString(categoryValue ?? string.Empty).Trim().ToLowerInvariant();
+        switch (category)
+        {
+            case "asset":
+                return "pm-pill--asset";
+            case "liability":
+                return "pm-pill--liability";
+            case "income":
+                return "pm-pill--income";
+            case "expense":
+                return "pm-pill--expense";
+            case "equity":
+                return "pm-pill--equity";
+            default:
+                return "pm-pill--neutral";
+        }
+    }
 
     protected void Page_Load(object sender, EventArgs e)
     {
         if (!IsPostBack)
         {
+            hdnModalOpen.Value = string.Empty;
             LoadCategories();
+        }
+        else
+        {
+            if (hdnModalOpen.Value == "1")
+            {
+                OpenModal();
+            }
         }
     }
 
@@ -29,8 +49,31 @@ public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
         {
             DataTable dt = FinanceDB.ExecuteDataTable(
                 "SELECT LedgerTypeID, LedgerTypeName, LedgerTypeCategory FROM fin_ledgertypes ORDER BY LedgerTypeCategory, LedgerTypeName");
-            gridCategories.DataSource = dt;
-            gridCategories.DataBind();
+
+            rptCategories.DataSource = dt;
+            rptCategories.DataBind();
+            phEmpty.Visible = dt.Rows.Count == 0;
+
+            // Stats
+            int total = dt.Rows.Count;
+            int asset = 0, liability = 0, income = 0, expense = 0, equity = 0;
+            foreach (DataRow row in dt.Rows)
+            {
+                string cat = row["LedgerTypeCategory"].ToString();
+                if (cat == "Asset") asset++;
+                else if (cat == "Liability") liability++;
+                else if (cat == "Income") income++;
+                else if (cat == "Expense") expense++;
+                else if (cat == "Equity") equity++;
+            }
+            litTotal.Text = total.ToString();
+            litAsset.Text = asset.ToString();
+            litLiability.Text = liability.ToString();
+            litIncome.Text = income.ToString();
+            litExpense.Text = expense.ToString();
+            litEquity.Text = equity.ToString();
+
+            litBadge.Text = string.Format("<span class='pm-chip'>{0} categories</span>", total);
         }
         catch (Exception ex)
         {
@@ -42,11 +85,12 @@ public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
     {
         string name = txtCategoryName.Text.Trim();
         string category = ddlGeneralCategory.SelectedValue;
-        string editId = hdnEditId.Value;
+        string editId = hdnEditId.Value.Trim();
 
         if (string.IsNullOrEmpty(name))
         {
             ShowMessage("Please enter a category name.", false);
+            OpenModal();
             return;
         }
 
@@ -58,72 +102,84 @@ public partial class COOPERP_NewScreens_LedgerCategories : System.Web.UI.Page
                     FinanceDB.P("@ltName", name),
                     FinanceDB.P("@ltCategory", category),
                     FinanceDB.P("@ltID", int.Parse(editId)));
+                FinanceLogger.LogAction(PAGE_NAME, "UpdateCategory", "ID=" + editId + " Name=" + name);
+                ShowMessage("Category '" + name + "' updated successfully.", true);
             }
             else
             {
                 FinanceDB.ExecuteNonQuerySP("fin_LedgerCategoryEditor",
                     FinanceDB.P("@ltName", name),
                     FinanceDB.P("@ltCategory", category));
+                FinanceLogger.LogAction(PAGE_NAME, "AddCategory", "Name=" + name + " Category=" + category);
+                ShowMessage("Category '" + name + "' added successfully.", true);
             }
 
-            string action = string.IsNullOrEmpty(editId) ? "added" : "updated";
-            FinanceLogger.LogAction(PAGE_NAME, action == "added" ? "AddCategory" : "UpdateCategory",
-                "Name=" + name + " Category=" + category);
-
-            ShowMessage("Category '" + name + "' " + action + " successfully.", true);
-            txtCategoryName.Text = "";
-            hdnEditId.Value = "";
-            btnSave.Text = "+ Add Category";
+            ResetForm();
             LoadCategories();
         }
         catch (Exception ex)
         {
             FinanceLogger.LogError(PAGE_NAME, "btnSave_Click", ex);
-            ShowMessage("Error: " + ex.Message, false);
+            ShowMessage("Error saving category: " + ex.Message, false);
+            OpenModal();
         }
     }
 
-    protected void btnEdit_Click(object sender, EventArgs e)
+    protected void rptCategories_ItemCommand(object source, RepeaterCommandEventArgs e)
     {
-        ASPxButton btn = sender as ASPxButton;
-        if (btn == null) return;
-
-        string[] parts = btn.CommandArgument.Split('|');
-        if (parts.Length >= 3)
+        if (e.CommandName == "Edit")
         {
-            hdnEditId.Value = parts[0];
-            txtCategoryName.Text = parts[1];
-            try { ddlGeneralCategory.SelectedValue = parts[2]; } catch { }
-            btnSave.Text = "Update Category";
+            string[] parts = e.CommandArgument.ToString().Split('|');
+            if (parts.Length >= 3)
+            {
+                hdnEditId.Value = parts[0];
+                hdnModalOpen.Value = "1";
+                txtCategoryName.Text = parts[1];
+                try { ddlGeneralCategory.SelectedValue = parts[2]; } catch { }
+                btnSave.Text = "Update Category";
+                LoadCategories();
+                OpenModal();
+            }
+        }
+        else if (e.CommandName == "Delete")
+        {
+            string id = e.CommandArgument.ToString();
+            try
+            {
+                FinanceDB.ExecuteNonQuerySP("fin_DeleteLedgerCategory",
+                    FinanceDB.P("@ltID", int.Parse(id)));
+                FinanceLogger.LogAction(PAGE_NAME, "DeleteCategory", "ID=" + id);
+                ShowMessage("Category deleted successfully.", true);
+                LoadCategories();
+            }
+            catch (Exception ex)
+            {
+                FinanceLogger.LogError(PAGE_NAME, "DeleteCategory", ex);
+                ShowMessage("Error deleting category: " + ex.Message, false);
+            }
         }
     }
 
-    protected void btnDelete_Click(object sender, EventArgs e)
+    private void ResetForm()
     {
-        ASPxButton btn = sender as ASPxButton;
-        if (btn == null) return;
-        string id = btn.CommandArgument;
+        txtCategoryName.Text = "";
+        ddlGeneralCategory.SelectedIndex = 0;
+        hdnEditId.Value = "";
+        hdnModalOpen.Value = "";
+        btnSave.Text = "Save Category";
+    }
 
-        try
-        {
-            FinanceDB.ExecuteNonQuerySP("fin_DeleteLedgerCategory",
-                FinanceDB.P("@ltID", int.Parse(id)));
-
-            FinanceLogger.LogAction(PAGE_NAME, "DeleteCategory", "ID=" + id);
-            ShowMessage("Category deleted successfully.", true);
-            LoadCategories();
-        }
-        catch (Exception ex)
-        {
-            FinanceLogger.LogError(PAGE_NAME, "btnDelete_Click", ex);
-            ShowMessage("Error: " + ex.Message, false);
-        }
+    private void OpenModal()
+    {
+        hdnModalOpen.Value = "1";
+        ScriptManager.RegisterStartupScript(this, GetType(), "openModal",
+            "if(window.openLcModal){window.openLcModal('edit');}", true);
     }
 
     private void ShowMessage(string msg, bool isSuccess)
     {
         pnlMsg.Visible = true;
-        pnlMsg.CssClass = isSuccess ? "lc-msg lc-msg-ok" : "lc-msg lc-msg-err";
+        divMsg.Attributes["class"] = isSuccess ? "pm-alert pm-alert--ok" : "pm-alert pm-alert--err";
         litMsg.Text = msg;
     }
 }

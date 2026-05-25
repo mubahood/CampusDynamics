@@ -195,6 +195,8 @@ public sealed class AcademicDocumentPdfService
 
 		foreach (string regno in regnos)
 		{
+			EnsureClassicGraduandLinkIfMissing(regno);
+
 			ResultsData single = new ResultsData();
 			single.EnforceConstraints = false;
 
@@ -227,6 +229,89 @@ public sealed class AcademicDocumentPdfService
 		}
 
 		return master;
+	}
+
+	private static void EnsureClassicGraduandLinkIfMissing(string regno)
+	{
+		string safeRegno = (regno ?? string.Empty).Trim();
+		if (string.IsNullOrEmpty(safeRegno))
+			return;
+
+		try
+		{
+			string connStr = ConfigurationManager.ConnectionStrings["vacConnectionString"] != null
+				? ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString
+				: string.Empty;
+
+			if (string.IsNullOrEmpty(connStr))
+				return;
+
+			using (MySqlConnection conn = new MySqlConnection(connStr))
+			{
+				conn.Open();
+
+				// 1. Auto-insert into acad_graduands if the student is missing
+				using (MySqlCommand cmd = new MySqlCommand(@"
+					INSERT INTO acad_graduands
+					(
+						regno, acadyear, cgpa, degclass, nationality, stud_name, progcode,
+						trans_status, cert_status, trans_printer, cert_printer,
+						gender, grad_date, comp_date, convocation
+					)
+					SELECT
+						TRIM(s.regno) AS regno,
+						IFNULL((SELECT ar.acad_year FROM acad_registration ar WHERE TRIM(ar.regno)=TRIM(s.regno) ORDER BY ar.ID DESC LIMIT 1), '') AS acadyear,
+						IFNULL(acad_CGPAFinder(s.regno), 0) AS cgpa,
+						IFNULL(acad_GetDegClass(
+							acad_CGPAFinder(s.regno),
+							IFNULL(s.gradSystemID, 1),
+							CASE
+								WHEN p.levelCode = '3' THEN 'Bachelors'
+								WHEN p.levelCode = '2' THEN 'Diploma'
+								WHEN p.levelCode = '1' THEN 'Certificate'
+								WHEN p.levelCode = '4' THEN 'Postgraduate'
+								ELSE 'Masters'
+							END
+						), 'Pass') AS degclass,
+						IFNULL(NULLIF(TRIM(s.nationality), ''), 'UGANDAN') AS nationality,
+						IFNULL(NULLIF(TRIM(CONCAT(IFNULL(s.firstname,''), ' ', IFNULL(s.othername,''))), ''), TRIM(s.regno)) AS stud_name,
+						IFNULL(s.progid, '') AS progcode,
+						'Ready' AS trans_status,
+						'Ready' AS cert_status,
+						'-' AS trans_printer,
+						'-' AS cert_printer,
+						IFNULL(s.gender, '') AS gender,
+						NULL AS grad_date,
+						NULL AS comp_date,
+						'-' AS convocation
+					FROM acad_student s
+					LEFT JOIN acad_programme p ON p.progcode = s.progid
+					WHERE TRIM(s.regno) = @reg
+					  AND NOT EXISTS (SELECT 1 FROM acad_graduands g WHERE TRIM(g.regno)=TRIM(s.regno))
+					  AND EXISTS (SELECT 1 FROM acad_results r WHERE TRIM(r.regno)=TRIM(s.regno))
+					LIMIT 1;", conn))
+				{
+					cmd.Parameters.AddWithValue("@reg", safeRegno);
+					cmd.ExecuteNonQuery();
+				}
+
+				// 2. Always refresh acad_transcript_results from acad_results before generating the PDF.
+				// The SP reads from acad_transcript_results (a materialized copy), not acad_results directly.
+				// Always rebuilding ensures newly-entered grades are reflected immediately — without requiring
+				// the registrar to manually run acad_CreateTranscript between result entry and PDF generation.
+				using (MySqlCommand createCmd = new MySqlCommand(
+					"CALL acad_CreateTranscript(@reg, 'Normal', 0)", conn))
+				{
+					createCmd.CommandTimeout = 120;
+					createCmd.Parameters.AddWithValue("@reg", safeRegno);
+					createCmd.ExecuteNonQuery();
+				}
+			}
+		}
+		catch
+		{
+			// Never fail document generation because of repair attempt.
+		}
 	}
 
 	private static string BuildUnavailableReason(string regno, int rowsBeforeFallback, int rowsAfterFallback)

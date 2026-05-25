@@ -15,6 +15,16 @@ public partial class API_v2_auth : System.Web.UI.Page
 
         string action = ApiHelper.Param(Request, "action", "").ToLower();
 
+        // Apply stricter rate limit for login attempts (ROB-01)
+        if (action == "login")
+        {
+            if (ApiHelper.IsRateLimited(Request, Response, "login")) return;
+        }
+        else
+        {
+            if (ApiHelper.IsRateLimited(Request, Response)) return;
+        }
+
         try
         {
             switch (action)
@@ -28,11 +38,14 @@ public partial class API_v2_auth : System.Web.UI.Page
                 case "validate":
                     HandleValidate();
                     break;
+                case "refresh":
+                    HandleRefresh();
+                    break;
                 case "ping":
                     HandlePing();
                     break;
                 default:
-                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: login, logout, validate, ping", "INVALID_ACTION");
+                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: login, logout, validate, refresh, ping", "INVALID_ACTION");
                     break;
             }
         }
@@ -343,18 +356,61 @@ public partial class API_v2_auth : System.Web.UI.Page
     }
 
     /// <summary>
-    /// Health check endpoint. No auth required.
-    /// Used by ODEL and other consumers to verify the API is reachable.
+    /// NEW-04: Exchanges a valid token for a new one with a fresh expiry.
+    /// The old token is invalidated; the new one is returned.
+    /// </summary>
+    private void HandleRefresh()
+    {
+        string token = ApiHelper.RequireParam(Request, Response, "token");
+        if (token == null) return;
+
+        TokenInfo newInfo = TokenManager.RefreshToken(token, Request.UserHostAddress);
+        if (newInfo == null)
+        {
+            ApiHelper.Error(Response, "Token is invalid, expired, or cannot be refreshed.", "AUTH_INVALID_TOKEN");
+            return;
+        }
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "token",     newInfo.Token },
+            { "user_type", newInfo.UserType },
+            { "user_id",   newInfo.UserId },
+            { "full_name", newInfo.FullName },
+            { "expires",   newInfo.ExpiresAt.ToString("o") }
+        }, "Token refreshed successfully");
+    }
+
+    /// <summary>
+    /// ROB-09: Health check endpoint. No auth required.
+    /// Performs a live DB connectivity check and reports the result.
     /// </summary>
     private void HandlePing()
     {
+        string dbStatus = "ok";
+        string dbError  = null;
+
+        try
+        {
+            object result = ApiHelper.Scalar("SELECT 1");
+            if (result == null || result.ToString() != "1") throw new Exception("Unexpected result");
+        }
+        catch (Exception ex)
+        {
+            dbStatus = "error";
+            dbError  = ex.Message;
+        }
+
         var data = new Dictionary<string, object>
         {
-            { "status", "ok" },
+            { "status",    "ok" },
+            { "db_status", dbStatus },
             { "timestamp", DateTime.UtcNow.ToString("o") },
-            { "version", "2.1" },
-            { "server", "CampusDynamics API v2" }
+            { "version",   "2.1" },
+            { "server",    "CampusDynamics API v2" }
         };
+        if (dbError != null) data["db_error"] = dbError;
+
         ApiHelper.Success(Response, data);
     }
 }

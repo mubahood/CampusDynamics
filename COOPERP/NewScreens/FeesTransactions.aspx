@@ -338,6 +338,50 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
 @media (max-width: 1200px) { .ft-stats { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 800px) { .ft-stats { grid-template-columns: 1fr 1fr; } .ft-stat__val { font-size: 13px; } }
 @media (max-width: 500px) { .ft-stats { grid-template-columns: 1fr; } .fs-modal { width: 98vw; } }
+
+/* ===== BATCH SELECTION ================================================== */
+.ft-col-chk { width: 36px; text-align: center; padding: 0 6px !important; }
+.ft-chk { width: 15px; height: 15px; cursor: pointer; accent-color: #05275C; }
+.ft-table tbody tr.ft-row--selected { background: #e8f0fc !important; }
+.ft-table tbody tr.ft-row--selected:nth-child(even) { background: #dce8fb !important; }
+
+/* Batch Toolbar (slides up from bottom) */
+.ft-batch-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 9990;
+    background: #05275C; color: #fff; padding: 10px 22px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    box-shadow: 0 -4px 18px rgba(0,0,0,.22);
+    transform: translateY(100%); transition: transform .22s ease; }
+.ft-batch-bar--visible { transform: translateY(0); }
+.ft-batch-bar__count { font-size: 13px; font-weight: 700; white-space: nowrap; flex: 1; }
+.ft-batch-bar__count span { background: #174DA4; padding: 2px 10px; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.ft-batch-btn { padding: 7px 16px; font-size: 12px; font-weight: 600; border: none; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: all .15s; font-family: inherit; }
+.ft-batch-btn--danger  { background: #dc3545; color: #fff; }
+.ft-batch-btn--danger:hover  { background: #b91c1c; }
+.ft-batch-btn--warning { background: #e65100; color: #fff; }
+.ft-batch-btn--warning:hover { background: #bf360c; }
+.ft-batch-btn--success { background: #16a34a; color: #fff; }
+.ft-batch-btn--success:hover { background: #15803d; }
+.ft-batch-btn--ghost   { background: transparent; border: 1px solid rgba(255,255,255,.35); color: #fff; }
+.ft-batch-btn--ghost:hover   { background: rgba(255,255,255,.12); }
+.ft-batch-sep { width: 1px; height: 24px; background: rgba(255,255,255,.2); flex-shrink: 0; }
+
+/* Batch Confirm Modal */
+.ft-batch-modal { background:#fff; width:560px; max-width:96vw; max-height:90vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,.22); }
+.ft-batch-modal__header { background:#991b1b; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; }
+.ft-batch-modal__title { font-size:14px; font-weight:700; color:#fff; display:flex; align-items:center; gap:8px; }
+.ft-batch-modal__close { width:26px; height:26px; border:none; background:rgba(255,255,255,.15); cursor:pointer; color:#fff; font-size:16px; display:flex; align-items:center; justify-content:center; }
+.ft-batch-modal__close:hover { background:rgba(255,255,255,.3); }
+.ft-batch-modal__body { padding:18px; }
+.ft-batch-modal__footer { padding:12px 18px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:8px; background:#f8f9fb; }
+.ft-batch-summary { background:#fff5f5; border:1px solid #fecaca; padding:12px 14px; margin-bottom:14px; font-size:13px; color:#991b1b; font-weight:600; display:flex; align-items:center; gap:10px; }
+.ft-batch-progress { margin:14px 0; }
+.ft-batch-progress__bar-wrap { height:8px; background:#e0e5ed; width:100%; overflow:hidden; }
+.ft-batch-progress__bar { height:100%; width:0%; background:linear-gradient(90deg,#dc3545,#e65100); transition:width .3s ease; }
+.ft-batch-progress__text { font-size:11px; color:#555; margin-top:5px; text-align:center; }
+.ft-batch-result { padding:12px 14px; font-size:12px; font-weight:600; margin-top:10px; }
+.ft-batch-result--ok  { background:#e6f4ea; border:1px solid #c3e6cb; color:#155724; }
+.ft-batch-result--err { background:#fde8e8; border:1px solid #f5c6cb; color:#c62828; }
 </style>
 </asp:Content>
 
@@ -487,13 +531,14 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
     <div class="ft-table-wrap">
         <table class="ft-table">
             <colgroup>
-                <col class="ft-col-id"><col class="ft-col-regno"><col class="ft-col-name">
+                <col class="ft-col-chk"><col class="ft-col-id"><col class="ft-col-regno"><col class="ft-col-name">
                 <col class="ft-col-type"><col class="ft-col-item"><col class="ft-col-amt">
                 <col class="ft-col-detail"><col class="ft-col-status"><col class="ft-col-date">
                 <col class="ft-col-year"><col class="ft-col-sem"><col style="width:78px;"><col class="ft-col-action">
             </colgroup>
             <thead>
                 <tr>
+                    <th class="ft-col-chk"><input type="checkbox" class="ft-chk" id="chkSelectAll" title="Select all on this page" onclick="batchSelectAll(this)" /></th>
                     <th class="ft-col-id">ID</th>
                     <th class="ft-col-regno">Reg No</th>
                     <th class="ft-col-name">Student</th>
@@ -512,7 +557,8 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
             <tbody>
                 <asp:Repeater ID="rptTransactions" runat="server">
                     <ItemTemplate>
-                        <tr>
+                        <tr data-tid='<%# Eval("TID") %>'>
+                            <td class="ft-col-chk"><input type="checkbox" class="ft-chk ft-row-chk" value='<%# Eval("TID") %>' data-source='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("row_source"))) %>' onclick="batchRowCheck(this)" /></td>
                             <td class="ft-col-id"><%# Eval("TID") %></td>
                             <td class="ft-col-regno"><%# HttpUtility.HtmlEncode(SafeStr(Eval("regno"))) %></td>
                             <td class="ft-col-name"><%# HttpUtility.HtmlEncode(SafeStr(Eval("student_name"))) %></td>
@@ -545,7 +591,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                     </ItemTemplate>
                 </asp:Repeater>
                 <asp:PlaceHolder ID="phNoData" runat="server" Visible="false">
-                    <tr><td colspan="12" style="padding:44px 20px;text-align:center;color:#999;font-size:13px;">
+                    <tr><td colspan="14" style="padding:44px 20px;text-align:center;color:#999;font-size:13px;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="display:block;margin:0 auto 8px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                         No transactions match your current filters.
                     </td></tr>
@@ -2248,5 +2294,266 @@ function _bdFinalize() {
 </div>
 </div>
 <!-- ============= /DELETE CONFIRMATION ============= -->
+
+<!-- ============= BATCH ACTION BAR ============= -->
+<div class="ft-batch-bar" id="batchBar">
+    <div class="ft-batch-bar__count"><span id="batchCount">0</span> transaction(s) selected</div>
+    <div class="ft-batch-sep"></div>
+    <button type="button" class="ft-batch-btn ft-batch-btn--success" onclick="batchPostStatus('Posted')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Mark Posted
+    </button>
+    <button type="button" class="ft-batch-btn ft-batch-btn--warning" onclick="batchPostStatus('Pending')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Mark Pending
+    </button>
+    <div class="ft-batch-sep"></div>
+    <button type="button" class="ft-batch-btn ft-batch-btn--danger" onclick="openBatchDeleteModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Delete Selected
+    </button>
+    <div class="ft-batch-sep"></div>
+    <button type="button" class="ft-batch-btn ft-batch-btn--ghost" onclick="batchClearAll()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Clear
+    </button>
+</div>
+<!-- ============= /BATCH ACTION BAR ============= -->
+
+<!-- ============= BATCH DELETE MODAL ============= -->
+<div class="ft-confirm-overlay" id="batchDeleteOverlay">
+<div class="ft-batch-modal">
+    <div class="ft-batch-modal__header">
+        <div class="ft-batch-modal__title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Batch Delete Transactions
+        </div>
+        <button type="button" class="ft-batch-modal__close" onclick="closeBatchDeleteModal()">&#x2715;</button>
+    </div>
+    <div class="ft-batch-modal__body">
+        <div class="ft-batch-summary" id="batchDelSummary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="batchDelSummaryText">0 transactions will be permanently deleted.</span>
+        </div>
+        <p style="font-size:12px;color:#555;margin:0 0 12px;">This action is <strong>irreversible</strong>. All selected transactions and their GL entries will be deleted. Each deletion is archived and audit-logged.</p>
+
+        <div class="ft-confirm__reason-group">
+            <span class="ft-reason-label">Reason for deletion <span style="color:#dc3545;">*</span></span>
+            <div class="ft-reason-options" id="batchReasonOptions">
+                <label class="ft-reason-option"><input type="radio" name="batchDelCat" value="Duplicate Entry" /><span>Duplicate Entry</span></label>
+                <label class="ft-reason-option"><input type="radio" name="batchDelCat" value="Reversal / Adjustment" /><span>Reversal / Adjustment</span></label>
+                <label class="ft-reason-option"><input type="radio" name="batchDelCat" value="Student Request" /><span>Student Request</span></label>
+                <label class="ft-reason-option"><input type="radio" name="batchDelCat" value="Transfer / Campus Change" /><span>Transfer / Campus Change</span></label>
+                <label class="ft-reason-option"><input type="radio" name="batchDelCat" value="System Error / AUTO Billing Mistake" /><span>System Error / AUTO Billing</span></label>
+                <label class="ft-reason-option"><input type="radio" name="batchDelCat" value="Other" /><span>Other</span></label>
+            </div>
+            <div class="ft-confirm__reason-error" id="batchReasonError">Please select a reason before proceeding.</div>
+            <textarea id="batchDelExplanation" rows="2" style="width:100%;padding:7px 10px;border:1px solid #d0d5dd;font-size:12px;color:#374151;resize:vertical;font-family:inherit;outline:none;box-sizing:border-box;margin-top:8px;" placeholder="Additional explanation (optional)..."></textarea>
+        </div>
+
+        <div class="ft-batch-progress" id="batchDelProgress" style="display:none;">
+            <div class="ft-batch-progress__bar-wrap"><div class="ft-batch-progress__bar" id="batchDelProgressBar"></div></div>
+            <div class="ft-batch-progress__text" id="batchDelProgressText">Processing...</div>
+        </div>
+        <div id="batchDelResult" style="display:none;" class="ft-batch-result"></div>
+    </div>
+    <div class="ft-batch-modal__footer" id="batchDelFooter">
+        <button type="button" class="ft-confirm__btn ft-confirm__btn--cancel" onclick="closeBatchDeleteModal()">Cancel</button>
+        <button type="button" class="ft-confirm__btn ft-confirm__btn--delete" id="btnBatchDelConfirm" onclick="doBatchDelete()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Delete All Selected
+        </button>
+    </div>
+</div>
+</div>
+<!-- ============= /BATCH DELETE MODAL ============= -->
+
+<script type="text/javascript">
+/* ================================================================
+   BATCH SELECTION ENGINE
+   ================================================================ */
+var _batch = { selected: {}, count: 0 };
+
+function batchSelectAll(chk) {
+    var rows = document.querySelectorAll('.ft-row-chk');
+    for (var i = 0; i < rows.length; i++) {
+        var cb = rows[i];
+        if (chk.checked) {
+            if (!_batch.selected[cb.value]) { _batch.selected[cb.value] = true; _batch.count++; }
+            cb.checked = true;
+            cb.closest('tr').classList.add('ft-row--selected');
+        } else {
+            if (_batch.selected[cb.value]) { delete _batch.selected[cb.value]; _batch.count--; }
+            cb.checked = false;
+            cb.closest('tr').classList.remove('ft-row--selected');
+        }
+    }
+    batchUpdateBar();
+}
+
+function batchRowCheck(cb) {
+    var row = cb.closest('tr');
+    if (cb.checked) {
+        _batch.selected[cb.value] = true; _batch.count++;
+        row.classList.add('ft-row--selected');
+    } else {
+        delete _batch.selected[cb.value]; _batch.count--;
+        row.classList.remove('ft-row--selected');
+        var all = document.getElementById('chkSelectAll');
+        if (all) all.checked = false;
+    }
+    batchUpdateBar();
+}
+
+function batchClearAll() {
+    _batch.selected = {}; _batch.count = 0;
+    var rows = document.querySelectorAll('.ft-row-chk');
+    for (var i = 0; i < rows.length; i++) { rows[i].checked = false; rows[i].closest('tr').classList.remove('ft-row--selected'); }
+    var all = document.getElementById('chkSelectAll');
+    if (all) all.checked = false;
+    batchUpdateBar();
+}
+
+function batchUpdateBar() {
+    var bar = document.getElementById('batchBar');
+    var cnt = document.getElementById('batchCount');
+    cnt.textContent = _batch.count;
+    if (_batch.count > 0) bar.classList.add('ft-batch-bar--visible');
+    else bar.classList.remove('ft-batch-bar--visible');
+}
+
+function batchGetIds() {
+    var ids = [];
+    for (var k in _batch.selected) { if (_batch.selected.hasOwnProperty(k)) ids.push(k); }
+    return ids;
+}
+
+/* ================================================================
+   BATCH MARK AS POSTED / PENDING
+   ================================================================ */
+function batchPostStatus(status) {
+    var ids = batchGetIds();
+    if (ids.length === 0) return;
+    if (!confirm('Mark ' + ids.length + ' transaction(s) as ' + status + '?')) return;
+
+    var fd = new FormData();
+    fd.append('ids', ids.join(','));
+    fd.append('status', status);
+
+    fetch(window.location.pathname + '?ajax=batch_post_status', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.ok) {
+                alert('Done! ' + d.updated + ' transaction(s) marked as ' + status + '.');
+                batchClearAll();
+                document.getElementById('<%= btnSearch.ClientID %>').click();
+            } else {
+                alert('Error: ' + (d.error || 'Unknown error'));
+            }
+        })
+        .catch(function(err) { alert('Network error: ' + err); });
+}
+
+/* ================================================================
+   BATCH DELETE
+   ================================================================ */
+function openBatchDeleteModal() {
+    var ids = batchGetIds();
+    if (ids.length === 0) return;
+    if (ids.length > 200) { alert('Maximum 200 transactions can be deleted at once. Please narrow your selection.'); return; }
+
+    document.getElementById('batchDelSummaryText').textContent =
+        ids.length + ' transaction(s) will be permanently deleted. This cannot be undone.';
+    document.getElementById('batchDelProgress').style.display = 'none';
+    document.getElementById('batchDelResult').style.display = 'none';
+    document.getElementById('batchDelFooter').style.display = 'flex';
+    document.getElementById('batchDelProgressBar').style.width = '0%';
+    document.getElementById('batchDelProgressText').textContent = 'Processing...';
+    document.querySelectorAll('input[name="batchDelCat"]').forEach(function(r) { r.checked = false; r.closest('label').classList.remove('ft-reason-option--selected'); });
+    document.getElementById('batchDelExplanation').value = '';
+    document.getElementById('batchReasonError').style.display = 'none';
+
+    document.getElementById('batchDeleteOverlay').classList.add('ft-confirm-overlay--visible');
+
+    // Style radio buttons on change
+    document.querySelectorAll('input[name="batchDelCat"]').forEach(function(r) {
+        r.onchange = function() {
+            document.querySelectorAll('input[name="batchDelCat"]').forEach(function(x) {
+                x.closest('label').classList.toggle('ft-reason-option--selected', x.checked);
+            });
+            document.getElementById('batchReasonError').style.display = 'none';
+        };
+    });
+}
+
+function closeBatchDeleteModal() {
+    document.getElementById('batchDeleteOverlay').classList.remove('ft-confirm-overlay--visible');
+}
+
+function doBatchDelete() {
+    var ids = batchGetIds();
+    if (ids.length === 0) { closeBatchDeleteModal(); return; }
+
+    var selCat = document.querySelector('input[name="batchDelCat"]:checked');
+    if (!selCat) {
+        document.getElementById('batchReasonError').style.display = 'block';
+        document.getElementById('batchReasonOptions').classList.add('ft-reason-options--invalid');
+        return;
+    }
+    document.getElementById('batchReasonOptions').classList.remove('ft-reason-options--invalid');
+    document.getElementById('batchReasonError').style.display = 'none';
+
+    var category    = selCat.value;
+    var explanation = document.getElementById('batchDelExplanation').value.trim();
+
+    // Lock UI
+    document.getElementById('btnBatchDelConfirm').disabled = true;
+    document.getElementById('batchDelProgress').style.display = 'block';
+    document.getElementById('batchDelResult').style.display = 'none';
+    document.getElementById('batchDelFooter').style.display = 'flex';
+
+    var bar  = document.getElementById('batchDelProgressBar');
+    var text = document.getElementById('batchDelProgressText');
+    bar.style.width = '5%';
+    text.textContent = 'Sending request for ' + ids.length + ' transaction(s)...';
+
+    var fd = new FormData();
+    fd.append('ids',         ids.join(','));
+    fd.append('category',    category);
+    fd.append('explanation', explanation);
+
+    fetch(window.location.pathname + '?ajax=batch_delete', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            bar.style.width = '100%';
+            var resDiv = document.getElementById('batchDelResult');
+            resDiv.style.display = 'block';
+
+            if (d.ok) {
+                resDiv.className = 'ft-batch-result ft-batch-result--ok';
+                resDiv.innerHTML = '&#10003; Deleted ' + d.deleted + ' of ' + d.total + ' transaction(s).' +
+                    (d.errors > 0 ? ' <strong>' + d.errors + ' failed.</strong>' : '');
+                text.textContent = 'Complete.';
+                batchClearAll();
+                document.getElementById('batchDelFooter').innerHTML =
+                    '<button type="button" class="ft-confirm__btn ft-confirm__btn--cancel" onclick="closeBatchDeleteModal();document.getElementById(\'<%= btnSearch.ClientID %>\').click()">Close &amp; Refresh</button>';
+            } else {
+                resDiv.className = 'ft-batch-result ft-batch-result--err';
+                resDiv.textContent = 'Error: ' + (d.error || 'Unknown error');
+                text.textContent = 'Failed.';
+                document.getElementById('btnBatchDelConfirm').disabled = false;
+            }
+        })
+        .catch(function(err) {
+            document.getElementById('batchDelResult').style.display = 'block';
+            document.getElementById('batchDelResult').className = 'ft-batch-result ft-batch-result--err';
+            document.getElementById('batchDelResult').textContent = 'Network error: ' + err;
+            document.getElementById('btnBatchDelConfirm').disabled = false;
+        });
+}
+
+// Deselect all when page navigates (postback)
+window.addEventListener('beforeunload', function() { batchClearAll(); });
+</script>
 
 </asp:Content>

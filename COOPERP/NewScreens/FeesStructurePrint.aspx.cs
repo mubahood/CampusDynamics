@@ -158,12 +158,13 @@ public partial class COOPERP_NewScreens_FeesStructurePrint : System.Web.UI.Page
                 sb.Append("<th colspan=\"8\" class=\"th-group\">Year 1</th>");
                 sb.Append("<th colspan=\"8\" class=\"th-group\">Year 2</th>");
                 sb.Append("<th colspan=\"8\" class=\"th-group\">Year 3</th>");
+                sb.Append("<th colspan=\"8\" class=\"th-group\">Year 4</th>");
                 sb.Append("<th rowspan=\"3\" style=\"min-width:72px;\">Grand<br/>Total</th>");
                 sb.Append("</tr>");
 
                 // Row 2: Semester groups
                 sb.Append("<tr>");
-                for (int y = 0; y < 3; y++)
+                for (int y = 0; y < 4; y++)
                 {
                     sb.Append("<th colspan=\"2\">Sem 1</th>");
                     sb.Append("<th colspan=\"2\">Sem 2</th>");
@@ -175,7 +176,7 @@ public partial class COOPERP_NewScreens_FeesStructurePrint : System.Web.UI.Page
 
                 // Row 3: Tuition / Functional
                 sb.Append("<tr>");
-                for (int y = 0; y < 3; y++)
+                for (int y = 0; y < 4; y++)
                 {
                     for (int s = 0; s < 3; s++)
                     {
@@ -221,11 +222,11 @@ public partial class COOPERP_NewScreens_FeesStructurePrint : System.Web.UI.Page
             active ? "Active" : "Inactive");
 
         double grandTotal = 0;
-        string[] years = { "y1", "y2", "y3" };
+        string[] years = { "y1", "y2", "y3", "y4" };
         string[] semesters = { "s1", "s2", "s3" };
-        string[] hasYears = { "has_year_1", "has_year_2", "has_year_3" };
+        string[] hasYears = { "has_year_1", "has_year_2", "has_year_3", "has_year_4" };
 
-        for (int yi = 0; yi < 3; yi++)
+        for (int yi = 0; yi < 4; yi++)
         {
             string hasYr = Nvl(r[hasYears[yi]]);
             bool yrActive = hasYr.Equals("Yes", StringComparison.OrdinalIgnoreCase);
@@ -278,7 +279,7 @@ public partial class COOPERP_NewScreens_FeesStructurePrint : System.Web.UI.Page
         string sql = @"SELECT pf.ID, pf.progcode,
                 COALESCE(p.progname,'(Unknown Programme)') AS progname,
                 COALESCE(f.faculty_name,'') AS faculty_name,
-                pf.has_year_1, pf.has_year_2, pf.has_year_3,
+                pf.has_year_1, pf.has_year_2, pf.has_year_3, pf.has_year_4,
                 pf.y1_s1_tuition, pf.y1_s1_functional,
                 pf.y1_s2_tuition, pf.y1_s2_functional,
                 pf.y1_s3_tuition, pf.y1_s3_functional,
@@ -288,6 +289,9 @@ public partial class COOPERP_NewScreens_FeesStructurePrint : System.Web.UI.Page
                 pf.y3_s1_tuition, pf.y3_s1_functional,
                 pf.y3_s2_tuition, pf.y3_s2_functional,
                 pf.y3_s3_tuition, pf.y3_s3_functional,
+                pf.y4_s1_tuition, pf.y4_s1_functional,
+                pf.y4_s2_tuition, pf.y4_s2_functional,
+                pf.y4_s3_tuition, pf.y4_s3_functional,
                 pf.is_active
             FROM fin_programme_fees pf
             LEFT JOIN campus_dynamics.acad_programme p ON p.progcode = pf.progcode

@@ -47,9 +47,12 @@ public partial class API_StudentLedgerExport : System.Web.UI.Page
             return;
         }
 
-        // Date range: default last 3 years → today (same as old report)
+        // Date range: default to legacy statement window
+        // (from 01-01 of previous calendar year to today).
+        // This matches the old interface and prevents historical rows from
+        // inflating the visible balance when users compare statements.
         LedgerEnd = DateTime.Today;
-        LedgerStart = DateTime.Today.AddYears(-3);
+        LedgerStart = new DateTime(DateTime.Today.Year - 1, 1, 1);
 
         string sDateStr = (Request.QueryString["sDate"] ?? "").Trim();
         string eDateStr = (Request.QueryString["eDate"] ?? "").Trim();
@@ -266,10 +269,16 @@ public partial class API_StudentLedgerExport : System.Web.UI.Page
         }
         OpeningBalance = preBilled - prePaid; // positive = DR
 
-        // Calculate running balance and totals
+        // Calculate running balance and totals.
+        // Legacy statement behavior: opening balance contributes to DR/CR totals,
+        // so summary/closing totals reconcile exactly with closing balance.
         decimal runBal = OpeningBalance;
         TotalBilled = 0;
         TotalPaid = 0;
+        if (OpeningBalance > 0)
+            TotalBilled += OpeningBalance;
+        else if (OpeningBalance < 0)
+            TotalPaid += Math.Abs(OpeningBalance);
         StringBuilder sb = new StringBuilder();
 
         for (int i = 0; i < inRange.Count; i++)

@@ -35,7 +35,10 @@ public partial class COOPERP_NewScreens_ResultsAuditLog : System.Web.UI.Page
     private static readonly string ResultsFilter = @"page_function IN (
         'Marks Entry Portal','Marks Update','Marks Approval',
         'Results Marks Entry','Results Marks Update','Results Marks Approval',
-        'Results Hold Management','Results Release','Results Update')";
+        'Results Hold Management','Results Release','Results Update',
+        'Mark Request Approve','Mark Request Reject','Mark Request Force Close',
+        'Mark Request Reopen','Mark Request Marks Update','Mark Request Batch',
+        'Marks Published to Results')";
 
     private void LoadUsers()
     {
@@ -124,10 +127,12 @@ public partial class COOPERP_NewScreens_ResultsAuditLog : System.Web.UI.Page
                     litWeekActions.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString("N0");
                 }
                 
-                // Critical actions (updates, approvals)
-                string sqlCritical = @"SELECT COUNT(*) FROM acad_activity_log 
+                // Critical actions — mark changes, rejections, force-closes, publications
+                string sqlCritical = @"SELECT COUNT(*) FROM acad_activity_log
                                       WHERE " + ResultsFilter + @"
-                                      AND (page_function LIKE '%Update%' OR page_function LIKE '%Approval%')";
+                                      AND (page_function LIKE '%Update%' OR page_function LIKE '%Approval%'
+                                           OR page_function IN ('Mark Request Reject','Mark Request Force Close',
+                                              'Mark Request Marks Update','Marks Published to Results'))";
                 using (MySqlCommand cmd = new MySqlCommand(sqlCritical, conn))
                 {
                     litCriticalActions.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString("N0");
@@ -241,46 +246,44 @@ public partial class COOPERP_NewScreens_ResultsAuditLog : System.Web.UI.Page
     
     protected string GetActionBadge(object actionType)
     {
-        string action = (actionType != null) ? actionType.ToString().ToUpper() : "";
+        string action = (actionType != null) ? actionType.ToString() : "";
+        string upper  = action.ToUpper();
         string cssClass = "ral-action-badge--edit";
-        string displayText = action;
-        
-        if (action.Contains("APPROVE"))
-        {
-            cssClass = "ral-action-badge--approve";
-            displayText = "APPROVE";
-        }
-        else if (action.Contains("RELEASE"))
-        {
-            cssClass = "ral-action-badge--release";
-            displayText = "RELEASE";
-        }
-        else if (action.Contains("HOLD") && !action.Contains("UNHOLD"))
-        {
-            cssClass = "ral-action-badge--hold";
-            displayText = "HOLD";
-        }
-        else if (action.Contains("UNHOLD"))
-        {
-            cssClass = "ral-action-badge--unhold";
-            displayText = "UNHOLD";
-        }
-        else if (action.Contains("EDIT") || action.Contains("CHANG") || action.Contains("UPDATE"))
-        {
-            cssClass = "ral-action-badge--edit";
-            displayText = "EDIT";
-        }
-        else if (action.Contains("CREATE") || action.Contains("INSERT") || action.Contains("ADD"))
-        {
-            cssClass = "ral-action-badge--create";
-            displayText = "CREATE";
-        }
-        else if (action.Contains("DELETE") || action.Contains("REMOVE"))
-        {
-            cssClass = "ral-action-badge--delete";
-            displayText = "DELETE";
-        }
-        
+        string displayText;
+
+        // New mark-request actions (exact match first for precision)
+        if (action == "Marks Published to Results")
+        { cssClass = "ral-action-badge--release"; displayText = "PUBLISHED"; }
+        else if (action == "Mark Request Approve")
+        { cssClass = "ral-action-badge--approve"; displayText = "APPROVED"; }
+        else if (action == "Mark Request Reject")
+        { cssClass = "ral-action-badge--delete"; displayText = "REJECTED"; }
+        else if (action == "Mark Request Force Close")
+        { cssClass = "ral-action-badge--delete"; displayText = "FORCED"; }
+        else if (action == "Mark Request Reopen")
+        { cssClass = "ral-action-badge--unhold"; displayText = "REOPENED"; }
+        else if (action == "Mark Request Marks Update")
+        { cssClass = "ral-action-badge--edit"; displayText = "MK UPDATE"; }
+        else if (action == "Mark Request Batch")
+        { cssClass = "ral-action-badge--edit"; displayText = "BATCH"; }
+        // Legacy / existing action types
+        else if (upper.Contains("APPROVE"))
+        { cssClass = "ral-action-badge--approve"; displayText = "APPROVE"; }
+        else if (upper.Contains("RELEASE"))
+        { cssClass = "ral-action-badge--release"; displayText = "RELEASE"; }
+        else if (upper.Contains("UNHOLD"))
+        { cssClass = "ral-action-badge--unhold"; displayText = "UNHOLD"; }
+        else if (upper.Contains("HOLD"))
+        { cssClass = "ral-action-badge--hold"; displayText = "HOLD"; }
+        else if (upper.Contains("REJECT") || upper.Contains("FORCE") || upper.Contains("DELETE") || upper.Contains("REMOVE"))
+        { cssClass = "ral-action-badge--delete"; displayText = "REMOVED"; }
+        else if (upper.Contains("EDIT") || upper.Contains("CHANG") || upper.Contains("UPDATE"))
+        { cssClass = "ral-action-badge--edit"; displayText = "EDIT"; }
+        else if (upper.Contains("CREATE") || upper.Contains("INSERT") || upper.Contains("ADD"))
+        { cssClass = "ral-action-badge--create"; displayText = "CREATE"; }
+        else
+        { displayText = action.Length > 12 ? action.Substring(0, 12) : action; }
+
         return string.Format("<span class=\"ral-action-badge {0}\">{1}</span>", cssClass, displayText);
     }
     

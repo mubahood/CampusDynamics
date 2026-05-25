@@ -1,4 +1,4 @@
--- Update acad_RegisterApplicant to enforce current academic year
+-- acad_RegisterApplicant stored procedure (no academic-year restriction)
 -- Run with: mysql -u root -p campus_dynamics < update_register_applicant_sp.sql
 
 DROP PROCEDURE IF EXISTS acad_RegisterApplicant;
@@ -8,23 +8,6 @@ DELIMITER $$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `acad_RegisterApplicant`(eyr INT, eno CHAR(25), usr CHAR(35))
 BEGIN
     DECLARE new_no, prog, sess, spec, campus, religion CHAR(35);
-    DECLARE current_year CHAR(25);
-    DECLARE requested_year CHAR(25);
-
-    -- Build the requested academic year from the entry year
-    SET requested_year = CONCAT(eyr, '/', eyr + 1);
-
-    -- Get the current academic year from settings
-    SELECT acadyear INTO current_year
-    FROM acad_acadyears
-    WHERE is_current_year = 'Yes'
-    LIMIT 1;
-
-    -- Enforce: only allow registration for the current academic year
-    IF current_year IS NOT NULL AND requested_year != current_year THEN
-        SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Registration is only allowed for the current academic year.';
-    END IF;
 
     SELECT prog_id, adm_session, sub_comb INTO prog, sess, spec
     FROM acad_applicant_choices
@@ -58,7 +41,7 @@ BEGIN
         examClearance, clearedBy, registeredBy
     )
     VALUES(
-        eno, requested_year, 1, 'UNREGISTERED', 1,
+        eno, CONCAT(eyr, '/', eyr + 1), 1, 'UNREGISTERED', 1,
         '-', '-', '-', 'UNCLEARED', '-', usr
     );
 

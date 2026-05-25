@@ -514,8 +514,12 @@
             </button>
             <a id="lnkViewStudent" href="#" class="nsr-btn nsr-btn--ghost">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                View Student Record
+                View Full Profile
             </a>
+            <button type="button" id="btnDeleteStudent" onclick="deleteStudent()" class="nsr-btn" style="background:#c62828;color:#fff;border:none;display:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>
+                Delete Student
+            </button>
         </div>
     </div>
 </div>
@@ -803,9 +807,44 @@ function showSuccess(entryNo, regNo, registered) {
 
     var viewLink = document.getElementById('lnkViewStudent');
     if (viewLink && regNo && regNo !== '-') {
-        viewLink.href = 'StudentProfile.aspx?regno=' + encodeURIComponent(regNo);
+        viewLink.href = '/COOPERP/NewScreens/StudentProfile.aspx?regno=' + encodeURIComponent(regNo);
         viewLink.style.display = '';
     }
+
+    // Store regno for delete action and show delete button
+    var delBtn = document.getElementById('btnDeleteStudent');
+    if (delBtn && regNo && regNo !== '-') {
+        delBtn.setAttribute('data-regno', regNo);
+        delBtn.style.display = '';
+    }
+}
+
+// -- Delete student --------------------------------------------------
+function deleteStudent() {
+    var btn = document.getElementById('btnDeleteStudent');
+    if (!btn) return;
+    var regno = btn.getAttribute('data-regno');
+    if (!regno) return;
+    if (!confirm('DELETE student ' + regno + '?\n\nThis will permanently remove the student record and cannot be undone.\nOnly proceed if the record was created in error.')) return;
+    btn.disabled = true;
+    btn.textContent = 'Deleting...';
+    fetch('NewStudentRegistration.aspx?ajax=delete&regno=' + encodeURIComponent(regno), { method: 'GET' })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.ok) {
+                alert('Student ' + regno + ' has been deleted.');
+                window.location.href = 'NewStudentRegistration.aspx';
+            } else {
+                alert('Delete failed: ' + (d.error || 'Unknown error'));
+                btn.disabled = false;
+                btn.textContent = 'Delete Student';
+            }
+        })
+        .catch(function() {
+            alert('Network error. Please try again.');
+            btn.disabled = false;
+            btn.textContent = 'Delete Student';
+        });
 }
 
 // -- Re-enable submit button after error ----------------------------

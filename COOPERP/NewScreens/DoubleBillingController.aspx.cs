@@ -1227,7 +1227,7 @@ public partial class COOPERP_NewScreens_DoubleBillingController : System.Web.UI.
     private static string DB_FormatBalance(decimal balance)
     {
         if (balance > 0) return "UGX " + balance.ToString("N0");
-        if (balance < 0) return "UGX " + Math.Abs(balance).ToString("N0") + " CR";
+        if (balance < 0) return "UGX -" + Math.Abs(balance).ToString("N0");
         return "UGX 0";
     }
 

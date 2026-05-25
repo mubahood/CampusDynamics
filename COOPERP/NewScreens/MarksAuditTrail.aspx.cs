@@ -31,7 +31,15 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
         "Faculty Exam Results Editor",
         "Results Approval Cancel",
         "Results Management",
-        "Results Auto Pass"
+        "Results Auto Pass",
+        // Mark request admin actions (added for full accountability)
+        "Mark Request Approve",
+        "Mark Request Reject",
+        "Mark Request Force Close",
+        "Mark Request Reopen",
+        "Mark Request Marks Update",
+        "Mark Request Batch",
+        "Marks Published to Results"
     };
 
     private string ConnStr
@@ -45,7 +53,10 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
         get
         {
             return "('Capture Results','Results Capture','Faculty Exam Results Editor'," +
-                   "'Results Approval Cancel','Results Management','Results Auto Pass')";
+                   "'Results Approval Cancel','Results Management','Results Auto Pass'," +
+                   "'Mark Request Approve','Mark Request Reject','Mark Request Force Close'," +
+                   "'Mark Request Reopen','Mark Request Marks Update','Mark Request Batch'," +
+                   "'Marks Published to Results')";
         }
     }
 
@@ -144,13 +155,17 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
                     " AND access_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')");
                 litMonth.Text = thisMonth.ToString("N0");
 
-                // ── Row 5: Critical Actions (edits + cancels) ──
+                // ── Row 5: Critical Actions (edits, cancels, force-closes, rejections) ──
                 int critical = ScalarInt(conn,
                     "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " +
-                    "('Faculty Exam Results Editor','Results Approval Cancel')");
+                    "('Faculty Exam Results Editor','Results Approval Cancel'," +
+                    "'Mark Request Reject','Mark Request Force Close','Mark Request Marks Update'," +
+                    "'Marks Published to Results')");
                 int criticalToday = ScalarInt(conn,
                     "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " +
-                    "('Faculty Exam Results Editor','Results Approval Cancel')" +
+                    "('Faculty Exam Results Editor','Results Approval Cancel'," +
+                    "'Mark Request Reject','Mark Request Force Close','Mark Request Marks Update'," +
+                    "'Marks Published to Results')" +
                     " AND DATE(access_date) = CURDATE()");
                 litCritical.Text = critical.ToString("N0");
                 litCriticalToday.Text = criticalToday > 0
@@ -274,7 +289,14 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
             { "Faculty Exam Results Editor",  new[] { "Marks Edit",          "#e65100" } },
             { "Results Approval Cancel",      new[] { "Approval Cancel",     "#b71c1c" } },
             { "Results Management",           new[] { "Results Mgmt",        "#6a1b9a" } },
-            { "Results Auto Pass",            new[] { "Auto Pass",           "#2e7d32" } }
+            { "Results Auto Pass",            new[] { "Auto Pass",           "#2e7d32" } },
+            { "Mark Request Approve",         new[] { "Req Approve",         "#1b5e20" } },
+            { "Mark Request Reject",          new[] { "Req Reject",          "#b71c1c" } },
+            { "Mark Request Force Close",     new[] { "Force Close",         "#7f0000" } },
+            { "Mark Request Reopen",          new[] { "Req Reopen",          "#e65100" } },
+            { "Mark Request Marks Update",    new[] { "Marks Update",        "#e65100" } },
+            { "Mark Request Batch",           new[] { "Batch Action",        "#4a148c" } },
+            { "Marks Published to Results",   new[] { "Marks Published",     "#004d40" } }
         };
 
         try
@@ -325,12 +347,19 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
         // Map page_function → short badge
         var badgeMap = new Dictionary<string, string[]>
         {
-            { "Capture Results",              new[] { "Capture",  "#e3f2fd", "#0d47a1" } },
-            { "Results Capture",              new[] { "Capture",  "#e3f2fd", "#0d47a1" } },
-            { "Faculty Exam Results Editor",  new[] { "Edit",     "#fff8e1", "#e65100" } },
-            { "Results Approval Cancel",      new[] { "Cancel",   "#fef5f5", "#991b1b" } },
-            { "Results Management",           new[] { "Mgmt",     "#f3e5f5", "#4a148c" } },
-            { "Results Auto Pass",            new[] { "Auto",     "#e6f4ea", "#155724" } }
+            { "Capture Results",              new[] { "Capture",   "#e3f2fd", "#0d47a1" } },
+            { "Results Capture",              new[] { "Capture",   "#e3f2fd", "#0d47a1" } },
+            { "Faculty Exam Results Editor",  new[] { "Edit",      "#fff8e1", "#e65100" } },
+            { "Results Approval Cancel",      new[] { "Cancel",    "#fef5f5", "#991b1b" } },
+            { "Results Management",           new[] { "Mgmt",      "#f3e5f5", "#4a148c" } },
+            { "Results Auto Pass",            new[] { "Auto",      "#e6f4ea", "#155724" } },
+            { "Mark Request Approve",         new[] { "Approved",  "#e8f5e9", "#1b5e20" } },
+            { "Mark Request Reject",          new[] { "Rejected",  "#fef5f5", "#991b1b" } },
+            { "Mark Request Force Close",     new[] { "Forced",    "#fef5f5", "#7f0000" } },
+            { "Mark Request Reopen",          new[] { "Reopen",    "#fff3e0", "#bf360c" } },
+            { "Mark Request Marks Update",    new[] { "Mk Update", "#fff3e0", "#bf360c" } },
+            { "Mark Request Batch",           new[] { "Batch",     "#f3e5f5", "#4a148c" } },
+            { "Marks Published to Results",   new[] { "Published", "#e0f2f1", "#004d40" } }
         };
 
         try
@@ -527,6 +556,21 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
             return "<span class='mat-badge mat-badge--autopass'>AUTO PASS</span>";
         if (pf == "Results Management")
             return "<span class='mat-badge mat-badge--mgmt'>MANAGEMENT</span>";
+        // Mark request admin actions
+        if (pf == "Marks Published to Results")
+            return "<span class='mat-badge mat-badge--published'>PUBLISHED</span>";
+        if (pf == "Mark Request Approve")
+            return "<span class='mat-badge mat-badge--approve'>APPROVED</span>";
+        if (pf == "Mark Request Reject")
+            return "<span class='mat-badge mat-badge--cancel'>REJECTED</span>";
+        if (pf == "Mark Request Force Close")
+            return "<span class='mat-badge mat-badge--cancel'>FORCED CLOSE</span>";
+        if (pf == "Mark Request Reopen")
+            return "<span class='mat-badge mat-badge--edit'>REOPENED</span>";
+        if (pf == "Mark Request Marks Update")
+            return "<span class='mat-badge mat-badge--edit'>MK UPDATE</span>";
+        if (pf == "Mark Request Batch")
+            return "<span class='mat-badge mat-badge--mgmt'>BATCH</span>";
 
         return "<span class='mat-badge mat-badge--mgmt'>" + HttpUtility.HtmlEncode(pf) + "</span>";
     }
@@ -536,10 +580,16 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
     {
         string pf = (pageFunction ?? "").ToString().Trim();
 
-        if (pf == "Faculty Exam Results Editor" || pf == "Results Approval Cancel")
+        if (pf == "Faculty Exam Results Editor" || pf == "Results Approval Cancel" ||
+            pf == "Mark Request Force Close" || pf == "Mark Request Reject")
             return "<span class='mat-sev mat-sev--critical'><span class='mat-sev__dot'></span>Critical</span>";
-        if (pf == "Results Auto Pass")
+
+        if (pf == "Results Auto Pass" || pf == "Marks Published to Results" ||
+            pf == "Mark Request Approve" || pf == "Mark Request Marks Update")
             return "<span class='mat-sev mat-sev--high'><span class='mat-sev__dot'></span>High</span>";
+
+        if (pf == "Mark Request Batch" || pf == "Mark Request Reopen")
+            return "<span class='mat-sev mat-sev--high'><span class='mat-sev__dot'></span>Medium</span>";
 
         return "<span class='mat-sev mat-sev--normal'><span class='mat-sev__dot'></span>Normal</span>";
     }
@@ -623,27 +673,35 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
             {
                 string course = ExtractBetween(par, "Course: ", " ") ?? "";
                 string acad = ExtractBetween(par, "Academic Year: ", " ") ?? "";
-                string sem = ExtractBetween(par, "Semester: ", " ") ?? ExtractAfter(par, "Semester: ");
+                string sem = ExtractBetween(par, "Semester: ", " ") ?? ExtractBetween(par, "Semester: ", "\n") ?? "";
 
-                // Build mark changes — only show non-trivial (where old != new)
                 var changes = new List<string>();
+                // CW
                 string oldCW = ExtractBetween(par, "Old CourseWork Mark: ", " ");
-                string newCW = ExtractBetween(par, "New CourseWork: ", " ") ?? ExtractAfter(par, "New CourseWork: ");
-                if (oldCW != null && newCW != null && oldCW != newCW) changes.Add("CW:" + oldCW + "->" + newCW);
-
-                string oldTest = ExtractBetween(par, "Old Test Mark: ", " ");
-                string newTest = ExtractBetween(par, "New Test Mark: ", " ") ?? ExtractAfter(par, "New Test Mark: ");
-                if (oldTest != null && newTest != null && oldTest != newTest) changes.Add("Test:" + oldTest + "->" + newTest);
-
+                string newCW = ExtractBetween(par, "New CourseWork: ", " ") ?? ExtractBetween(par, "New CourseWork: ", "\n");
+                if (oldCW != null && newCW != null && oldCW != newCW) changes.Add("CW:" + oldCW.Trim() + "->" + newCW.Trim());
+                // Exam
                 string oldExam = ExtractBetween(par, "Old Exam Mark: ", " ");
-                string newExam = ExtractAfter(par, "New Exam Mark: ");
+                string newExam = ExtractBetween(par, "New Exam Mark: ", " ") ?? ExtractBetween(par, "New Exam Mark: ", "\n");
                 if (newExam != null && newExam.Contains(" ")) newExam = newExam.Substring(0, newExam.IndexOf(' '));
-                if (oldExam != null && newExam != null && oldExam != newExam) changes.Add("Exam:" + oldExam + "->" + newExam);
+                if (oldExam != null && newExam != null && oldExam != newExam) changes.Add("Exam:" + oldExam.Trim() + "->" + newExam.Trim());
+                // Score / Grade (new mark-request entries)
+                string oldSc = ExtractBetween(par, "Old Score: ", " ");
+                string newSc = ExtractBetween(par, "New Score: ", " ");
+                if (oldSc != null && newSc != null && oldSc != newSc && oldSc != "-" && newSc != "-")
+                    changes.Add("Score:" + oldSc.Trim() + "->" + newSc.Trim());
+                string oldGr = ExtractBetween(par, "Old Grade: ", " ");
+                string newGr = ExtractBetween(par, "New Grade: ", " ");
+                if (oldGr != null && newGr != null && oldGr != newGr && oldGr != "-" && newGr != "-")
+                    changes.Add("Grade:" + oldGr.Trim() + "->" + newGr.Trim());
+                // Action
+                string act = ExtractBetween(par, "Action: ", " ");
 
                 var parts = new List<string>();
-                if (!string.IsNullOrEmpty(course)) parts.Add(course.Trim());
+                if (!string.IsNullOrEmpty(course) && course != "-") parts.Add(course.Trim());
                 if (changes.Count > 0) parts.Add(string.Join(", ", changes.ToArray()));
-                else parts.Add("no change");
+                else if (!string.IsNullOrEmpty(act) && act != "-") parts.Add(act.Trim());
+                else parts.Add("no mark change");
                 if (!string.IsNullOrEmpty(acad) && !string.IsNullOrEmpty(sem))
                     parts.Add(acad.Trim() + " S" + sem.Trim());
                 return HttpUtility.HtmlEncode(string.Join(" | ", parts.ToArray()));

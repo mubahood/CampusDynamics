@@ -90,6 +90,18 @@ public static class MarksSessionSecurity
 
         if (string.IsNullOrEmpty(screenName) && string.IsNullOrEmpty(username))
         {
+            // Session variables are gone (e.g. app-pool recycle) but the user may still hold
+            // a valid persistent Forms-Authentication ticket.  If so, restore the session from
+            // the identity rather than forcing a redundant re-login.
+            if (ctx.User != null && ctx.User.Identity != null
+                && ctx.User.Identity.IsAuthenticated
+                && !string.IsNullOrEmpty(ctx.User.Identity.Name))
+            {
+                ctx.Session["username"] = ctx.User.Identity.Name;
+                username = ctx.User.Identity.Name;
+                StampSession();   // fresh fingerprint for this restored session
+                return null;
+            }
             return "Session expired. Please log in again.";
         }
 

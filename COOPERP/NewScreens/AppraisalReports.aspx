@@ -88,7 +88,8 @@
 .pa-rec-badge--emp-done{background:#cce5ff;color:#004085;}
 .pa-rec-badge--sup-prog{background:#fff3cd;color:#856404;}
 .pa-rec-badge--returned{background:#fef3cd;color:#856404;border:1px solid #f59e0b;}
-.pa-rec-badge--completed{background:#d4edda;color:#155724;}
+.pa-rec-badge--completed{background:#fff0e8;color:#92400e;}
+.pa-rec-badge--hr-reviewed{background:#d4edda;color:#155724;}
 .pa-rec-badge--cancelled{background:#f8d7da;color:#721c24;}
 
 /* ── Category badge ── */
@@ -189,7 +190,7 @@
         </div>
         <div class="pa-kpi__body">
             <div class="pa-kpi__val"><asp:Literal ID="litKpiCompleted" runat="server" Text="0" /></div>
-            <div class="pa-kpi__label">Completed</div>
+            <div class="pa-kpi__label">Finalized</div>
         </div>
     </div>
     <div class="pa-kpi pa-kpi--amber">

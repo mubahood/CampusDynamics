@@ -311,7 +311,9 @@ public partial class API_doc_verification : System.Web.UI.Page
             criteriaHtml.Append("<div style='font-size:13px;color:#0f172a;margin-bottom:8px;'><strong>Financials</strong>: "
                 + "Bill " + HttpUtility.HtmlEncode((policy.Currency ?? "UGX") + " " + policy.TotalBill.ToString("N0"))
                 + " | Paid " + HttpUtility.HtmlEncode((policy.Currency ?? "UGX") + " " + policy.TotalPaid.ToString("N0"))
-                + " | Balance " + HttpUtility.HtmlEncode((policy.Currency ?? "UGX") + " " + policy.Balance.ToString("N0"))
+                + " | " + (policy.Balance < 0
+                    ? HttpUtility.HtmlEncode("Credit " + (policy.Currency ?? "UGX") + " " + Math.Abs(policy.Balance).ToString("N0"))
+                    : HttpUtility.HtmlEncode("Balance " + (policy.Currency ?? "UGX") + " " + policy.Balance.ToString("N0")))
                 + " | Paid % " + HttpUtility.HtmlEncode(policy.PercentagePaid.ToString("0.0") + "%") + "</div>");
 
             if (policy.Criteria != null && policy.Criteria.Count > 0)
@@ -367,79 +369,65 @@ public partial class API_doc_verification : System.Web.UI.Page
 
         try
         {
-            string api = Request.Url.GetLeftPart(UriPartial.Authority)
-                + ResolveUrl("~/API/v2/finance.aspx")
-                + "?action=access_status&regno=" + HttpUtility.UrlEncode(regno)
-                + "&token=xaxu";
-
-            string json = DownloadJsonWithTimeout(api, 3500);
-
-            var js = new JavaScriptSerializer();
-            var root = js.Deserialize<Dictionary<string, object>>(json);
-            if (root == null || !root.ContainsKey("success") || !ToBool(root["success"]))
-                return new AccessSnapshot { Success = false, VerdictReason = "Failed to validate fee access policy." };
-
-            var data = AsMap(root.ContainsKey("data") ? root["data"] : null);
-            if (data == null)
-                return new AccessSnapshot { Success = false, VerdictReason = "Invalid policy response." };
+            var data = FinanceEngine.EvaluateAccessPolicy(regno);
 
             var snapshot = new AccessSnapshot();
-            snapshot.Success = true;
-            snapshot.Allowed = ToBool(data.ContainsKey("access_allowed") ? data["access_allowed"] : null);
-            snapshot.HasPolicy = ToBool(data.ContainsKey("has_policy") ? data["has_policy"] : null);
-            snapshot.VerdictReason = ToStr(data.ContainsKey("verdict_reason") ? data["verdict_reason"] : null);
-            snapshot.Guidance = ToStr(data.ContainsKey("guidance") ? data["guidance"] : null);
+            snapshot.Success       = true;
+            snapshot.Allowed       = ToBool(data.ContainsKey("access_allowed") ? data["access_allowed"] : null);
+            snapshot.HasPolicy     = ToBool(data.ContainsKey("has_policy")     ? data["has_policy"]     : null);
+            snapshot.VerdictReason = ToStr(data.ContainsKey("verdict_reason")  ? data["verdict_reason"] : null);
+            snapshot.Guidance      = ToStr(data.ContainsKey("guidance")        ? data["guidance"]       : null);
 
             var pol = AsMap(data.ContainsKey("policy") ? data["policy"] : null);
             if (pol != null)
             {
-                snapshot.PolicyTitle = ToStr(pol.ContainsKey("title") ? pol["title"] : null);
-                snapshot.PolicyLogic = ToStr(pol.ContainsKey("combination_logic") ? pol["combination_logic"] : null);
-                snapshot.PolicyAcademicYear = ToStr(pol.ContainsKey("academic_year") ? pol["academic_year"] : null);
-                snapshot.PolicySemester = ToStr(pol.ContainsKey("semester") ? pol["semester"] : null);
+                snapshot.PolicyTitle       = ToStr(pol.ContainsKey("title")              ? pol["title"]              : null);
+                snapshot.PolicyLogic       = ToStr(pol.ContainsKey("combination_logic")  ? pol["combination_logic"]  : null);
+                snapshot.PolicyAcademicYear = ToStr(pol.ContainsKey("academic_year")     ? pol["academic_year"]      : null);
+                snapshot.PolicySemester    = ToStr(pol.ContainsKey("semester")           ? pol["semester"]           : null);
             }
 
             var fin = AsMap(data.ContainsKey("finance") ? data["finance"] : null);
             if (fin != null)
             {
-                snapshot.TotalBill = ToDec(fin.ContainsKey("total_bill") ? fin["total_bill"] : null);
-                snapshot.TotalPaid = ToDec(fin.ContainsKey("total_paid") ? fin["total_paid"] : null);
-                snapshot.Balance = ToDec(fin.ContainsKey("balance") ? fin["balance"] : null);
-                snapshot.AmountOwing = ToDec(fin.ContainsKey("amount_owing") ? fin["amount_owing"] : null);
-                snapshot.CreditBalance = ToDec(fin.ContainsKey("credit_balance") ? fin["credit_balance"] : null);
+                snapshot.TotalBill      = ToDec(fin.ContainsKey("total_bill")      ? fin["total_bill"]      : null);
+                snapshot.TotalPaid      = ToDec(fin.ContainsKey("total_paid")      ? fin["total_paid"]      : null);
+                snapshot.Balance        = ToDec(fin.ContainsKey("balance")         ? fin["balance"]         : null);
+                snapshot.AmountOwing    = ToDec(fin.ContainsKey("amount_owing")    ? fin["amount_owing"]    : null);
+                snapshot.CreditBalance  = ToDec(fin.ContainsKey("credit_balance")  ? fin["credit_balance"]  : null);
                 snapshot.PercentagePaid = ToDec(fin.ContainsKey("percentage_paid") ? fin["percentage_paid"] : null);
-                snapshot.Currency = ToStr(fin.ContainsKey("currency") ? fin["currency"] : null);
+                snapshot.Currency       = ToStr(fin.ContainsKey("currency")        ? fin["currency"]        : null);
 
                 if (snapshot.AmountOwing <= 0m && snapshot.Balance < 0m)
                     snapshot.AmountOwing = Math.Abs(snapshot.Balance);
-
                 if (snapshot.AmountOwing > 0m)
                     snapshot.Balance = snapshot.AmountOwing;
             }
 
-            var criteria = AsList(data.ContainsKey("criteria") ? data["criteria"] : null);
-            if (criteria != null)
+            var criteriaList = data.ContainsKey("criteria")
+                ? data["criteria"] as List<Dictionary<string, object>>
+                : null;
+            if (criteriaList != null)
             {
-                foreach (object item in criteria)
+                foreach (var c in criteriaList)
                 {
-                    var c = AsMap(item);
                     if (c == null) continue;
                     snapshot.Criteria.Add(new AccessCriterion
                     {
-                        Rule = ToStr(c.ContainsKey("rule") ? c["rule"] : null),
-                        Passed = ToBool(c.ContainsKey("passed") ? c["passed"] : null),
-                        Detail = ToStr(c.ContainsKey("detail") ? c["detail"] : null),
-                        Threshold = ToStr(c.ContainsKey("threshold") ? c["threshold"] : null),
-                        Actual = ToStr(c.ContainsKey("actual_value") ? c["actual_value"] : null)
+                        Rule      = ToStr(c.ContainsKey("rule")         ? c["rule"]         : null),
+                        Passed    = ToBool(c.ContainsKey("passed")      ? c["passed"]       : null),
+                        Detail    = ToStr(c.ContainsKey("detail")       ? c["detail"]       : null),
+                        Threshold = ToStr(c.ContainsKey("threshold")    ? c["threshold"]    : null),
+                        Actual    = ToStr(c.ContainsKey("actual_value") ? c["actual_value"] : null)
                     });
                 }
             }
 
             return snapshot;
         }
-        catch
+        catch (Exception ex)
         {
-            return new AccessSnapshot { Success = false, VerdictReason = "Unable to validate fee access policy at the moment." };
+            return new AccessSnapshot { Success = false, VerdictReason = "Unable to validate fee access policy: " + ex.Message };
         }
     }
 

@@ -117,7 +117,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         ddlBalanceState.Items.Add(new ListItem("All Balances", ""));
         ddlBalanceState.Items.Add(new ListItem("Has Outstanding Balance", "debit"));
         ddlBalanceState.Items.Add(new ListItem("Cleared (Zero)", "zero"));
-        ddlBalanceState.Items.Add(new ListItem("Credit / Overpaid", "credit"));
+        ddlBalanceState.Items.Add(new ListItem("Negative Balance", "credit"));
 
         ddlBalanceOp.Items.Clear();
         ddlBalanceOp.Items.Add(new ListItem("No amount filter", ""));
@@ -786,7 +786,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         {
             LedgerLine line = lines[i];
             decimal lineBal = balances[i];
-            string balStr = lineBal >= 0 ? lineBal.ToString("N0") : Math.Abs(lineBal).ToString("N0") + " CR";
+            string balStr = lineBal.ToString("N0");
             int displayNum = lines.Count - i;
 
             rows.Add(string.Format(
@@ -1149,6 +1149,37 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
     {
         int rows = 0;
 
+        // Guard: check fin_ledger for an existing student DR before inserting anything.
+        // GetUnbilledSemesters already confirmed no tracking row exists, but a DR may still
+        // live in fin_ledger as an orphan (e.g. tracking deleted manually after a prior billing run).
+        // Inserting here without this check would create a duplicate DR → double billing.
+        // Pattern covers both the fix-tool format ("for Semester:") and the SP format ("for Term:")
+        string partLike = itemName + " for %:" + us.Semester + ", " + us.AcadYear + "%";
+        string chkDrSql =
+            "SELECT COUNT(*) FROM fin_ledger l " +
+            "WHERE l.accountcode = @reg " +
+            "  AND l.account_type = 'Student' " +
+            "  AND l.transactionType = 'DR' " +
+            "  AND (" +
+            "    l.particulars LIKE @pl " +
+            "    OR (l.tracking_ref IS NOT NULL AND l.tracking_ref IN (" +
+            "      SELECT TID FROM fin_studentfeestracking " +
+            "      WHERE regno = @reg AND item_code = @itemCode AND acadyear = @acad AND semester = @sem" +
+            "    ))" +
+            "  )";
+        long existingDr;
+        using (MySqlCommand chk = new MySqlCommand(chkDrSql, conn, tx))
+        {
+            chk.Parameters.AddWithValue("@reg", regno);
+            chk.Parameters.AddWithValue("@pl", partLike);
+            chk.Parameters.AddWithValue("@itemCode", itemCode);
+            chk.Parameters.AddWithValue("@acad", us.AcadYear);
+            chk.Parameters.AddWithValue("@sem", us.Semester);
+            existingDr = Convert.ToInt64(chk.ExecuteScalar());
+        }
+        if (existingDr > 0)
+            return 0; // ledger DR already exists — skip to prevent double billing
+
         // 1. Insert tracking entry
         string detail = itemName + " Sem :" + us.Semester + ", " + us.AcadYear + ": " + regno + " [FIX]";
         string insTrk =
@@ -1278,8 +1309,10 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         foreach (MissingCrEntry e in entries)
         {
             string crPart = e.ItemName + " Receivable from " + regno + " " + e.Folio;
+            // INSERT IGNORE: uq_billing_entry UNIQUE(tracking_ref, accountcode, transactionType)
+            // silently skips if this CR already exists, preventing duplicates on concurrent runs.
             string insSql =
-                "INSERT INTO fin_ledger " +
+                "INSERT IGNORE INTO fin_ledger " +
                 "(accountcode, account_type, transactionType, transaction_amount, particulars, " +
                 " voucherNo, transactionDate, teller, timeLog, folio, tracking_ref, source_system, " +
                 " journal_no, trans_currency, actual_amount, curr_balance, forex_rate, ugx_amount) " +
@@ -1329,8 +1362,11 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
 
     private string GetFixBillingInsertSql()
     {
+        // INSERT IGNORE: the uq_billing_entry UNIQUE index on (tracking_ref, accountcode, transactionType)
+        // silently skips the row if a DR for this tracking_ref+accountcode already exists.
+        // This prevents a concurrent fix run or race condition from creating duplicate DRs.
         return
-            "INSERT INTO fin_ledger " +
+            "INSERT IGNORE INTO fin_ledger " +
             "(accountcode, account_type, transactionType, transaction_amount, particulars, voucherNo, transactionDate, teller, timeLog, folio, tracking_ref, source_system, journal_no, trans_currency, actual_amount, curr_balance, forex_rate, ugx_amount) " +
             "SELECT src.regno, 'Student', src.transactionType, src.amount, src.particulars, src.voucherNo, src.transactionDate, src.regno, NOW(), CONCAT('BillNo:', src.voucherNo), src.voucherNo, 'Billing', '-', 'UGX', src.amount, 0, 1, src.amount " +
             "FROM (" + GetFixBillingSourceSql() + ") src";

@@ -184,7 +184,8 @@
             <td>
                 <dx:ASPxGridView ID="gvLedger" runat="server" AutoGenerateColumns="False" 
                     DataSourceID="dsJournalTransactions" KeyFieldName="voucherno" 
-                    Width="100%" OnHtmlRowCreated="gvLedger_HtmlRowCreated">
+                    Width="100%" OnHtmlRowCreated="gvLedger_HtmlRowCreated"
+                    EnableViewState="False">
                     <Columns>
                         <dx:GridViewDataTextColumn Caption="Summary" FieldName="title" 
                             ShowInCustomizationForm="True" VisibleIndex="1">
@@ -221,7 +222,7 @@
                         </dx:GridViewDataTextColumn>
                     </Columns>
                     <SettingsBehavior AllowFocusedRow="True" />
-                    <SettingsPager Mode="ShowAllRecords">
+                    <SettingsPager PageSize="50" AlwaysShowPager="True" Position="Bottom">
                     </SettingsPager>
                 </dx:ASPxGridView>
             </td>

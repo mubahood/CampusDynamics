@@ -11,6 +11,7 @@ public partial class API_v2_student : System.Web.UI.Page
     protected void Page_Load(object sender, EventArgs e)
     {
         if (ApiHelper.HandleCors(Request, Response)) return;
+        if (ApiHelper.IsRateLimited(Request, Response)) return;
 
         string action = ApiHelper.Param(Request, "action", "").ToLower();
 
@@ -42,8 +43,41 @@ public partial class API_v2_student : System.Web.UI.Page
                 case "by_programme":
                     HandleByProgramme();
                     break;
+                case "bulk_enrollment":
+                    HandleBulkEnrollment();
+                    break;
+                case "onboarding_list":
+                    HandleOnboardingList();
+                    break;
+                case "onboarding_stats":
+                    HandleOnboardingStats();
+                    break;
+                case "resolve_onboarding_email":
+                    HandleResolveOnboardingEmail();
+                    break;
+                case "application_detail":
+                    HandleApplicationDetail();
+                    break;
+                case "update_contact":
+                    HandleUpdateContact();
+                    break;
+                case "guardian":
+                    HandleGuardian();
+                    break;
+                case "update_guardian":
+                    HandleUpdateGuardian();
+                    break;
+                case "enrollment_history":
+                    HandleEnrollmentHistory();
+                    break;
+                case "clearance":
+                    HandleClearance();
+                    break;
+                case "id_card":
+                    HandleIdCard();
+                    break;
                 default:
-                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: profile, photo, lock_status, summary, lookup, verify, search, by_programme", "INVALID_ACTION");
+                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: profile, photo, lock_status, summary, lookup, verify, search, by_programme, bulk_enrollment, onboarding_list, onboarding_stats, resolve_onboarding_email, application_detail, update_contact, guardian, update_guardian, enrollment_history, clearance, id_card", "INVALID_ACTION");
                     break;
             }
         }
@@ -93,6 +127,53 @@ public partial class API_v2_student : System.Web.UI.Page
 
         var profile = ApiHelper.FirstRowToDict(dt);
         profile["photo_url"] = "/API/student_photo.aspx?id=" + Server.UrlEncode(regno);
+
+        // Optional extended includes: ?include=next_of_kin,sponsor,onboarding
+        string include = ApiHelper.Param(Request, "include", "").ToLower();
+        if (!string.IsNullOrEmpty(include))
+        {
+            if (include.Contains("next_of_kin") || include.Contains("sponsor"))
+            {
+                DataTable extDt = ApiHelper.Query(
+                    "SELECT next_kin AS next_of_kin_name, kin_contacts AS next_of_kin_contact, stud_sponsor AS sponsor_name, sponsor_contact FROM acad_student WHERE regno = @reg",
+                    new MySqlParameter("@reg", regno));
+                if (extDt.Rows.Count > 0)
+                {
+                    var ext = ApiHelper.FirstRowToDict(extDt);
+                    if (include.Contains("next_of_kin"))
+                    {
+                        profile["next_of_kin_name"]    = ext["next_of_kin_name"];
+                        profile["next_of_kin_contact"] = ext["next_of_kin_contact"];
+                    }
+                    if (include.Contains("sponsor"))
+                    {
+                        profile["sponsor_name"]    = ext["sponsor_name"];
+                        profile["sponsor_contact"] = ext["sponsor_contact"];
+                    }
+                }
+            }
+            if (include.Contains("onboarding"))
+            {
+                object vs = ApiHelper.Scalar(
+                    "SELECT CONCAT_WS('|', u.user_verification_status, IFNULL(u.verified_email,''), IFNULL(u.user_type,'STUDENT'), IFNULL(DATE_FORMAT(u.lastactivitydate,'%Y-%m-%d %H:%i:%s'),'')) FROM campus_dynamics_portal.my_aspnet_users u WHERE u.name = @r LIMIT 1",
+                    new MySqlParameter("@r", regno));
+                if (vs != null && vs != DBNull.Value)
+                {
+                    string[] parts2 = vs.ToString().Split('|');
+                    profile["onboarding_status"]       = parts2.Length > 0 ? parts2[0] : null;
+                    profile["portal_email"]            = parts2.Length > 1 ? parts2[1] : null;
+                    profile["portal_user_type"]        = parts2.Length > 2 ? parts2[2] : null;
+                    profile["portal_last_activity"]    = parts2.Length > 3 ? parts2[3] : null;
+                }
+                else
+                {
+                    profile["onboarding_status"]    = null;
+                    profile["portal_email"]         = null;
+                    profile["portal_user_type"]     = null;
+                    profile["portal_last_activity"] = null;
+                }
+            }
+        }
 
         ApiHelper.Success(Response, profile);
     }
@@ -481,5 +562,747 @@ public partial class API_v2_student : System.Web.UI.Page
             { "students", students }
         };
         ApiHelper.Success(Response, data);
+    }
+
+    /// <summary>
+    /// NEW-07: Batch enrollment status check for Moodle sync.
+    /// Staff only. POST a JSON array of student reg numbers (or pass comma-separated
+    /// ?regnos=MRU001,MRU002) and receive each student's current enrollment status,
+    /// programme, email, and most-recent registration semester — all in one call.
+    /// Capped at 500 students per request.
+    /// </summary>
+    private void HandleBulkEnrollment()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        if (auth.UserType != "staff")
+        {
+            ApiHelper.Error(Response, "Only staff can use bulk_enrollment.", "ACCESS_DENIED");
+            return;
+        }
+
+        // Accept regnos as comma-separated query param or from the request body
+        string rawList = ApiHelper.Param(Request, "regnos", "");
+        if (string.IsNullOrEmpty(rawList))
+        {
+            try
+            {
+                using (var sr = new StreamReader(Request.InputStream))
+                    rawList = sr.ReadToEnd().Trim();
+            }
+            catch { }
+        }
+
+        if (string.IsNullOrEmpty(rawList))
+        {
+            ApiHelper.Error(Response, "Pass ?regnos= as a comma-separated list of registration numbers.", "MISSING_PARAM");
+            return;
+        }
+
+        // Parse and sanitise the list
+        string[] parts = rawList.Split(new char[] { ',', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        var regnos = new List<string>();
+        foreach (string p in parts)
+        {
+            string s = ApiHelper.SanitiseParam(p);
+            if (!string.IsNullOrEmpty(s) && regnos.Count < 500)
+                regnos.Add(s);
+        }
+
+        if (regnos.Count == 0)
+        {
+            ApiHelper.Error(Response, "No valid registration numbers provided.", "MISSING_PARAM");
+            return;
+        }
+
+        // Build IN(...) clause with numbered parameters
+        var inParms = new List<MySqlParameter>();
+        var inPlaceholders = new List<string>();
+        for (int i = 0; i < regnos.Count; i++)
+        {
+            string pname = "@r" + i;
+            inPlaceholders.Add(pname);
+            inParms.Add(new MySqlParameter(pname, regnos[i]));
+        }
+
+        string inClause = string.Join(",", inPlaceholders.ToArray());
+
+        // Profile + most-recent registration per student
+        string sql = String.Format(
+            @"SELECT s.regno, s.entryno,
+                     CONCAT(IFNULL(s.firstname,''), ' ', IFNULL(s.othername,'')) AS full_name,
+                     s.email, s.studPhone AS phone,
+                     s.progid AS programme_code, p.progname AS programme_name,
+                     s.stud_status AS account_status,
+                     r.acad_year AS last_acad_year, r.semester AS last_semester,
+                     r.status AS last_reg_status,
+                     r.studyyear AS last_study_year
+              FROM acad_student s
+              LEFT JOIN acad_programme p ON s.progid = p.progcode
+              LEFT JOIN acad_registration r ON r.regno = s.regno
+                    AND r.id = (SELECT id FROM acad_registration
+                                WHERE regno = s.regno ORDER BY acad_year DESC, semester DESC LIMIT 1)
+              WHERE s.regno IN ({0})
+              ORDER BY s.firstname, s.othername", inClause);
+
+        DataTable dt = ApiHelper.Query(sql, inParms.ToArray());
+        var found = ApiHelper.TableToList(dt);
+
+        // Annotate with is_enrolled using the shared helper (can't call static method from academic.aspx.cs)
+        var foundRegnos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in found)
+        {
+            string regStatus = row.ContainsKey("last_reg_status") && row["last_reg_status"] != null
+                ? row["last_reg_status"].ToString() : "";
+            bool active = IsActiveEnrollmentStatus(regStatus);
+            row["is_enrolled"] = active;
+            row["enrollment_status_label"] = MapEnrollmentStatus(regStatus);
+
+            if (row.ContainsKey("regno") && row["regno"] != null)
+                foundRegnos.Add(row["regno"].ToString());
+        }
+
+        // Report any regnos not found in the DB
+        var notFound = new List<string>();
+        foreach (string r in regnos)
+            if (!foundRegnos.Contains(r)) notFound.Add(r);
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "requested",  regnos.Count },
+            { "found",      found.Count },
+            { "not_found_count", notFound.Count },
+            { "not_found",  notFound },
+            { "students",   found }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ONBOARDING_LIST  — portal onboarding status for students/staff
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleOnboardingList()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string statusFilter   = ApiHelper.Param(Request, "status", "");
+        string prog           = ApiHelper.Param(Request, "prog", "");
+        string userType       = ApiHelper.Param(Request, "user_type", "");
+        string q              = ApiHelper.Param(Request, "q", "");
+        int page              = Math.Max(1, ApiHelper.ParamInt(Request, "page", 1));
+        int size              = Math.Min(100, Math.Max(1, ApiHelper.ParamInt(Request, "size", 50)));
+        int offset            = (page - 1) * size;
+
+        string baseSql =
+            "FROM campus_dynamics_portal.my_aspnet_users u " +
+            "LEFT JOIN acad_student s ON s.regno = u.name " +
+            "LEFT JOIN hrm_employee e ON (e.usernames = u.name OR e.EMP_CODE = u.name) " +
+            "LEFT JOIN acad_programme p ON p.progcode = s.progid ";
+
+        var where = new StringBuilder("WHERE (u.user_verification_status IS NOT NULL AND u.user_verification_status <> '') ");
+        var parms = new List<MySqlParameter>();
+
+        if (!string.IsNullOrEmpty(statusFilter))
+        {
+            where.Append("AND u.user_verification_status = @vs ");
+            parms.Add(new MySqlParameter("@vs", statusFilter));
+        }
+        if (!string.IsNullOrEmpty(userType))
+        {
+            where.Append("AND UPPER(IFNULL(u.user_type,'STUDENT')) = @ut ");
+            parms.Add(new MySqlParameter("@ut", userType.ToUpper()));
+        }
+        if (!string.IsNullOrEmpty(prog))
+        {
+            where.Append("AND s.progid = @prog ");
+            parms.Add(new MySqlParameter("@prog", prog));
+        }
+        if (!string.IsNullOrEmpty(q))
+        {
+            where.Append("AND (u.name LIKE @q OR CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,'')) LIKE @q OR u.verified_email LIKE @q) ");
+            parms.Add(new MySqlParameter("@q", "%" + q + "%"));
+        }
+
+        var countParms = new List<MySqlParameter>(parms);
+        int total = Convert.ToInt32(ApiHelper.Scalar("SELECT COUNT(DISTINCT u.name) " + baseSql + where, countParms.ToArray()));
+
+        parms.Add(new MySqlParameter("@lim", size));
+        parms.Add(new MySqlParameter("@off", offset));
+
+        DataTable dt = ApiHelper.Query(
+            "SELECT u.name AS regno, " +
+            "TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) AS student_name, " +
+            "UPPER(IFNULL(u.user_type,'STUDENT')) AS user_type, " +
+            "IFNULL(p.progname,'') AS programme, " +
+            "u.user_verification_status AS onboarding_status, " +
+            "IFNULL(u.verified_email,'') AS portal_email, " +
+            "IFNULL(DATE_FORMAT(u.lastactivitydate,'%Y-%m-%d %H:%i:%s'),'') AS last_activity " +
+            baseSql + where +
+            "GROUP BY u.name ORDER BY u.lastactivitydate DESC LIMIT @lim OFFSET @off",
+            parms.ToArray());
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "total", total }, { "page", page }, { "size", size },
+            { "pages", (int)Math.Ceiling(total / (double)size) },
+            { "students", ApiHelper.TableToList(dt) }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ONBOARDING_STATS  — counts by onboarding status
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleOnboardingStats()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        DataTable dt = ApiHelper.Query(
+            @"SELECT IFNULL(user_verification_status,'(none)') AS status, COUNT(*) AS count
+              FROM campus_dynamics_portal.my_aspnet_users
+              WHERE user_verification_status IS NOT NULL AND user_verification_status <> ''
+              GROUP BY user_verification_status ORDER BY count DESC");
+
+        int total = 0;
+        var breakdown = ApiHelper.TableToList(dt);
+        foreach (var row in breakdown)
+            total += Convert.ToInt32(row["count"]);
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "total_onboarded", total },
+            { "breakdown", breakdown }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  RESOLVE_ONBOARDING_EMAIL  — look up best email for a student/staff
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleResolveOnboardingEmail()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string regno = ApiHelper.RequireParam(Request, Response, "regno"); if (regno == null) return;
+
+        // 1) portal verified_email
+        object portalEmail = ApiHelper.Scalar(
+            "SELECT verified_email FROM campus_dynamics_portal.my_aspnet_users WHERE LOWER(TRIM(name)) = LOWER(@r) LIMIT 1",
+            new MySqlParameter("@r", regno));
+        if (portalEmail != null && portalEmail != DBNull.Value && !string.IsNullOrEmpty(portalEmail.ToString().Trim()))
+        {
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            {
+                { "regno", regno }, { "email", portalEmail.ToString().Trim() },
+                { "source", "portal.my_aspnet_users.verified_email" }
+            }, "Email resolved");
+            return;
+        }
+
+        // 2) staff emp_email
+        object staffEmail = ApiHelper.Scalar(
+            "SELECT emp_email FROM hrm_employee WHERE usernames = @r OR EMP_CODE = @r LIMIT 1",
+            new MySqlParameter("@r", regno));
+        if (staffEmail != null && staffEmail != DBNull.Value && !string.IsNullOrEmpty(staffEmail.ToString().Trim()))
+        {
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            {
+                { "regno", regno }, { "email", staffEmail.ToString().Trim() },
+                { "source", "hrm_employee.emp_email" }
+            }, "Email resolved");
+            return;
+        }
+
+        // 3) student email
+        object studEmail = ApiHelper.Scalar(
+            "SELECT IFNULL(NULLIF(TRIM(email),''), NULLIF(TRIM(studemail),'')) FROM acad_student WHERE regno = @r LIMIT 1",
+            new MySqlParameter("@r", regno));
+        if (studEmail != null && studEmail != DBNull.Value && !string.IsNullOrEmpty(studEmail.ToString().Trim()))
+        {
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            {
+                { "regno", regno }, { "email", studEmail.ToString().Trim() },
+                { "source", "acad_student.email" }
+            }, "Email resolved");
+            return;
+        }
+
+        ApiHelper.Error(Response, "No email found for " + regno + ". Please enter one manually.", "NOT_FOUND");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  APPLICATION_DETAIL  — student views their own admission record
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleApplicationDetail()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string regno = auth.UserType == "staff"
+            ? ApiHelper.Param(Request, "regno", auth.UserId)
+            : auth.UserId;
+
+        if (auth.UserType == "student" && regno != auth.UserId)
+        {
+            ApiHelper.Error(Response, "Students can only view their own application.", "ACCESS_DENIED");
+            return;
+        }
+
+        // Look up via acad_applicant_choices.stud_reg_no = regno
+        DataTable dt = ApiHelper.Query(
+            @"SELECT a.app_no AS application_number, a.fname AS first_name, a.lname AS last_name,
+                     a.gender, a.dob AS date_of_birth, a.phone_no AS phone,
+                     a.email, a.nationality,
+                     a.adm_status, a.district,
+                     a.prog_code AS programme_code,
+                     p.progname AS programme_name,
+                     a.stud_reg_no AS regno,
+                     a.remarks AS admission_remarks,
+                     a.app_date AS application_date
+              FROM acad_applicants a
+              LEFT JOIN acad_applicant_choices ac ON ac.app_no = a.app_no
+              LEFT JOIN acad_programme p ON p.progcode = COALESCE(ac.prog_code, a.prog_code)
+              WHERE ac.stud_reg_no = @reg OR a.stud_reg_no = @reg
+              LIMIT 1",
+            new MySqlParameter("@reg", regno));
+
+        if (dt.Rows.Count == 0)
+        {
+            ApiHelper.Error(Response, "No application record linked to this registration number.", "NOT_FOUND");
+            return;
+        }
+
+        var row = ApiHelper.FirstRowToDict(dt);
+
+        // Map adm_status to label
+        int admStatus = 0;
+        int.TryParse(row.ContainsKey("adm_status") && row["adm_status"] != null ? row["adm_status"].ToString() : "0", out admStatus);
+        string[] labels = { "PENDING", "ADMITTED", "REJECTED", "WITHDRAWN" };
+        row["admission_status"] = admStatus >= 0 && admStatus < labels.Length ? labels[admStatus] : "UNKNOWN";
+
+        ApiHelper.Success(Response, row);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  UPDATE CONTACT  — student updates own phone / email / address
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleUpdateContact()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        // Staff can update any student; students update themselves only
+        string regno = auth.UserType == "staff"
+            ? ApiHelper.Param(Request, "regno", auth.UserId)
+            : auth.UserId;
+
+        if (string.IsNullOrEmpty(regno)) { ApiHelper.Error(Response, "regno is required.", "MISSING_PARAM"); return; }
+
+        var sets  = new List<string>();
+        var parms = new List<MySqlParameter> { new MySqlParameter("@reg", regno) };
+
+        string phone   = ApiHelper.Param(Request, "phone", "");
+        string email   = ApiHelper.Param(Request, "email", "");
+        string address = ApiHelper.Param(Request, "address", "");
+
+        if (!string.IsNullOrEmpty(phone))   { sets.Add("phone_no = @phone");   parms.Add(new MySqlParameter("@phone",   phone));   }
+        if (!string.IsNullOrEmpty(email))   { sets.Add("email = @email");       parms.Add(new MySqlParameter("@email",   email));   }
+        if (!string.IsNullOrEmpty(address)) { sets.Add("address = @address");   parms.Add(new MySqlParameter("@address", address)); }
+
+        if (sets.Count == 0) { ApiHelper.Error(Response, "No fields to update. Supply phone, email, or address.", "VALIDATION_ERROR"); return; }
+
+        try
+        {
+            int affected = ApiHelper.Execute(
+                "UPDATE acad_student SET " + string.Join(", ", sets.ToArray()) + " WHERE regno = @reg",
+                parms.ToArray()
+            );
+
+            if (affected == 0) { ApiHelper.Error(Response, "Student not found or no changes applied.", "NOT_FOUND"); return; }
+
+            ApiHelper.Success(Response, new Dictionary<string, object> { { "regno", regno }, { "updated_fields", sets.Count } }, "Contact updated");
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error updating contact: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  GUARDIAN  — student next-of-kin / parent info
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleGuardian()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string regno = auth.UserType == "staff"
+            ? ApiHelper.Param(Request, "regno", auth.UserId)
+            : auth.UserId;
+
+        if (string.IsNullOrEmpty(regno)) { ApiHelper.Error(Response, "regno is required.", "MISSING_PARAM"); return; }
+
+        try
+        {
+            DataTable dt = ApiHelper.Query(
+                @"SELECT guardian_name, guardian_relationship, guardian_phone,
+                         guardian_email, guardian_address, guardian_occupation
+                  FROM acad_student WHERE regno = @reg LIMIT 1",
+                new MySqlParameter("@reg", regno)
+            );
+
+            if (dt.Rows.Count == 0) { ApiHelper.Error(Response, "Student not found.", "NOT_FOUND"); return; }
+
+            ApiHelper.Success(Response, ApiHelper.FirstRowToDict(dt));
+        }
+        catch (Exception ex)
+        {
+            // Column may not exist in older schemas — return empty gracefully
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            {
+                { "guardian_name", "" }, { "guardian_relationship", "" },
+                { "guardian_phone", "" }, { "guardian_email", "" },
+                { "guardian_address", "" }, { "guardian_occupation", "" },
+                { "note", "Guardian fields not configured: " + ex.Message }
+            });
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  UPDATE GUARDIAN
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleUpdateGuardian()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string regno = auth.UserType == "staff"
+            ? ApiHelper.Param(Request, "regno", auth.UserId)
+            : auth.UserId;
+
+        if (string.IsNullOrEmpty(regno)) { ApiHelper.Error(Response, "regno is required.", "MISSING_PARAM"); return; }
+
+        var sets  = new List<string>();
+        var parms = new List<MySqlParameter> { new MySqlParameter("@reg", regno) };
+
+        string name   = ApiHelper.Param(Request, "guardian_name", "");
+        string rel    = ApiHelper.Param(Request, "guardian_relationship", "");
+        string phone  = ApiHelper.Param(Request, "guardian_phone", "");
+        string email  = ApiHelper.Param(Request, "guardian_email", "");
+        string addr   = ApiHelper.Param(Request, "guardian_address", "");
+        string occ    = ApiHelper.Param(Request, "guardian_occupation", "");
+
+        if (!string.IsNullOrEmpty(name))  { sets.Add("guardian_name = @gn");           parms.Add(new MySqlParameter("@gn",  name));  }
+        if (!string.IsNullOrEmpty(rel))   { sets.Add("guardian_relationship = @gr");    parms.Add(new MySqlParameter("@gr",  rel));   }
+        if (!string.IsNullOrEmpty(phone)) { sets.Add("guardian_phone = @gp");           parms.Add(new MySqlParameter("@gp",  phone)); }
+        if (!string.IsNullOrEmpty(email)) { sets.Add("guardian_email = @ge");           parms.Add(new MySqlParameter("@ge",  email)); }
+        if (!string.IsNullOrEmpty(addr))  { sets.Add("guardian_address = @ga");         parms.Add(new MySqlParameter("@ga",  addr));  }
+        if (!string.IsNullOrEmpty(occ))   { sets.Add("guardian_occupation = @go");      parms.Add(new MySqlParameter("@go",  occ));   }
+
+        if (sets.Count == 0) { ApiHelper.Error(Response, "No guardian fields to update.", "VALIDATION_ERROR"); return; }
+
+        try
+        {
+            int affected = ApiHelper.Execute(
+                "UPDATE acad_student SET " + string.Join(", ", sets.ToArray()) + " WHERE regno = @reg",
+                parms.ToArray()
+            );
+
+            if (affected == 0) { ApiHelper.Error(Response, "Student not found.", "NOT_FOUND"); return; }
+
+            ApiHelper.Success(Response, new Dictionary<string, object> { { "regno", regno } }, "Guardian info updated");
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error updating guardian: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ENROLLMENT HISTORY  — all registration records across all years
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleEnrollmentHistory()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string regno = auth.UserType == "staff"
+            ? ApiHelper.Param(Request, "regno", auth.UserId)
+            : auth.UserId;
+
+        if (string.IsNullOrEmpty(regno)) { ApiHelper.Error(Response, "regno is required.", "MISSING_PARAM"); return; }
+
+        try
+        {
+            DataTable dt = ApiHelper.Query(
+                @"SELECT r.ID AS registration_id,
+                         r.acad_year, r.semester, r.studyyear,
+                         r.regstatus AS status, r.residence_status,
+                         r.late_reg, r.reg_date,
+                         DATE_FORMAT(r.reg_date, '%Y-%m-%d') AS reg_date_fmt,
+                         COALESCE(p.progname, s.progid) AS programme
+                  FROM acad_registration r
+                  JOIN acad_student s ON s.regno = r.regno
+                  LEFT JOIN acad_programme p ON p.progID = s.progid
+                  WHERE r.regno = @reg
+                  ORDER BY r.acad_year DESC, r.semester ASC",
+                new MySqlParameter("@reg", regno)
+            );
+
+            var history = new List<Dictionary<string, object>>();
+            foreach (DataRow row in dt.Rows)
+            {
+                history.Add(new Dictionary<string, object>
+                {
+                    { "registration_id",   Convert.ToInt32(row["registration_id"]) },
+                    { "acad_year",         row["acad_year"].ToString()             },
+                    { "semester",          row["semester"].ToString()              },
+                    { "study_year",        row["studyyear"] != DBNull.Value ? Convert.ToInt32(row["studyyear"]) : 0 },
+                    { "status",            MapEnrollmentStatus(row["status"].ToString())                            },
+                    { "status_raw",        row["status"].ToString()                },
+                    { "is_active",         IsActiveEnrollmentStatus(row["status"].ToString())                       },
+                    { "residence_status",  row["residence_status"] != DBNull.Value ? row["residence_status"].ToString() : "" },
+                    { "is_late",           row["late_reg"] != DBNull.Value && row["late_reg"].ToString() == "1"    },
+                    { "reg_date",          row["reg_date_fmt"].ToString()          },
+                    { "programme",         row["programme"].ToString()             }
+                });
+            }
+
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            {
+                { "regno",   regno          },
+                { "total",   history.Count  },
+                { "history", history        }
+            });
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error fetching enrollment history: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  CLEARANCE  — aggregated clearance check across all facets
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleClearance()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string regno = auth.UserType == "staff"
+            ? ApiHelper.Param(Request, "regno", auth.UserId)
+            : auth.UserId;
+
+        if (string.IsNullOrEmpty(regno)) { ApiHelper.Error(Response, "regno is required.", "MISSING_PARAM"); return; }
+
+        string acadYear = ApiHelper.Param(Request, "acad_year", "");
+        string semester = ApiHelper.Param(Request, "semester", "");
+
+        var checks = new List<Dictionary<string, object>>();
+        bool allClear = true;
+
+        // 1. Financial clearance
+        try
+        {
+            FinancialSummary fin = FinanceEngine.ComputePeriodBalance(regno, acadYear, semester);
+            bool finClear = fin.Balance <= 0;
+            if (!finClear) allClear = false;
+            checks.Add(new Dictionary<string, object>
+            {
+                { "check",     "Financial"                     },
+                { "cleared",   finClear                        },
+                { "detail",    finClear
+                    ? "No outstanding balance."
+                    : string.Format("Outstanding balance: UGX {0:N0}", fin.AmountOwing) },
+                { "balance",   fin.Balance                     },
+                { "currency",  FinanceEngine.CURRENCY          }
+            });
+        }
+        catch
+        {
+            checks.Add(new Dictionary<string, object>
+                { { "check", "Financial" }, { "cleared", false }, { "detail", "Unable to verify financial status." } });
+            allClear = false;
+        }
+
+        // 2. Registration clearance
+        try
+        {
+            var regParms = new List<MySqlParameter> { new MySqlParameter("@reg", regno) };
+            string regWhere = "WHERE r.regno = @reg";
+            if (!string.IsNullOrEmpty(acadYear)) { regWhere += " AND r.acad_year = @ay"; regParms.Add(new MySqlParameter("@ay", acadYear)); }
+            if (!string.IsNullOrEmpty(semester)) { regWhere += " AND r.semester = @sem";  regParms.Add(new MySqlParameter("@sem", semester)); }
+
+            DataTable regDt = ApiHelper.Query(
+                "SELECT r.regstatus FROM acad_registration r " + regWhere + " ORDER BY r.ID DESC LIMIT 1",
+                regParms.ToArray()
+            );
+
+            bool regClear = regDt.Rows.Count > 0 && IsActiveEnrollmentStatus(regDt.Rows[0]["regstatus"].ToString());
+            if (!regClear) allClear = false;
+            string regStatus = regDt.Rows.Count > 0 ? regDt.Rows[0]["regstatus"].ToString() : "No registration found";
+            checks.Add(new Dictionary<string, object>
+            {
+                { "check",   "Registration" },
+                { "cleared", regClear       },
+                { "detail",  regClear ? "Registered for the period." : "Registration status: " + regStatus },
+                { "status",  regStatus      }
+            });
+        }
+        catch
+        {
+            checks.Add(new Dictionary<string, object>
+                { { "check", "Registration" }, { "cleared", false }, { "detail", "Unable to verify registration." } });
+            allClear = false;
+        }
+
+        // 3. Financial lock
+        try
+        {
+            bool locked = FinanceEngine.HasFinancialLock(regno);
+            if (locked) allClear = false;
+            checks.Add(new Dictionary<string, object>
+            {
+                { "check",   "Financial Lock" },
+                { "cleared", !locked          },
+                { "detail",  locked ? "A financial hold is active on this account." : "No financial hold." }
+            });
+        }
+        catch { /* FinancialLock check is non-critical */ }
+
+        int passCount = 0;
+        foreach (var c in checks) if ((bool)c["cleared"]) passCount++;
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "regno",       regno              },
+            { "overall",     allClear ? "CLEARED" : "NOT_CLEARED" },
+            { "is_cleared",  allClear           },
+            { "pass_count",  passCount          },
+            { "total_checks",checks.Count       },
+            { "acad_year",   acadYear           },
+            { "semester",    semester           },
+            { "checks",      checks             }
+        });
+    }
+
+    private static bool IsActiveEnrollmentStatus(string raw)
+    {
+        switch ((raw ?? "").ToUpper().Trim())
+        {
+            case "REGISTERED": case "LATE REGISTERED": case "CLEARED": case "ACTIVE":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static string MapEnrollmentStatus(string raw)
+    {
+        switch ((raw ?? "").ToUpper().Trim())
+        {
+            case "REGISTERED":      return "Registered";
+            case "LATE REGISTERED": return "Late Registered";
+            case "CLEARED":         return "Cleared";
+            case "UNREGISTERED":    return "Unregistered";
+            case "DISCONTINUED":    return "Discontinued";
+            case "HALTED":          return "Halted";
+            case "DEAD YEAR":       return "Dead Year";
+            case "ACTIVE":          return "Registered";
+            default:
+                return string.IsNullOrEmpty(raw) ? "Unknown" : raw;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ID CARD PRINTING STATUS
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleIdCard()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        // Students see their own card; staff can query any student with ?regno=
+        string regno;
+        if (auth.UserType == "staff")
+        {
+            regno = ApiHelper.Param(Request, "regno", "").Trim();
+            if (string.IsNullOrEmpty(regno))
+            {
+                ApiHelper.Error(Response, "Staff must supply ?regno=", "MISSING_PARAM");
+                return;
+            }
+        }
+        else
+        {
+            regno = auth.UserId;
+        }
+
+        bool forceRefresh = ApiHelper.Param(Request, "refresh", "0") == "1"
+                         || ApiHelper.Param(Request, "refresh", "0").ToLower() == "true";
+
+        // ── 1. OmniPass status (cached unless ?refresh=1) ─────────────
+        OmniPassHelper.CardStatus card;
+        using (MySqlConnection conn = ApiHelper.GetConnection())
+        {
+            card = OmniPassHelper.GetStatus(regno, conn, forceRefresh);
+        }
+
+        // ── 2. Detailed card record from acad_student_cards (if exists) ─
+        Dictionary<string, object> cardRecord = null;
+        try
+        {
+            DataTable cardDt = ApiHelper.Query(
+                @"SELECT sc.ID AS card_id, sc.card_type, sc.card_status AS print_status,
+                         DATE_FORMAT(sc.expiry_date,'%Y-%m-%d') AS expiry_date,
+                         sc.acadyear, sc.semester,
+                         DATE_FORMAT(sc.date_created,'%Y-%m-%d %H:%i') AS date_created
+                  FROM acad_student_cards sc
+                  WHERE sc.reg_no = @r
+                  ORDER BY sc.date_created DESC LIMIT 1",
+                new MySqlParameter("@r", regno));
+
+            if (cardDt.Rows.Count > 0)
+                cardRecord = ApiHelper.FirstRowToDict(cardDt);
+        }
+        catch { /* acad_student_cards may not exist on all installations */ }
+
+        // ── 3. Collection instructions ────────────────────────────────
+        string collectionNote = null;
+        if (card.Status == "PRINTED")
+            collectionNote = "Your ID card is ready. Please visit the Student Services office with your admission letter or registration slip to collect it.";
+        else if (card.Status == "NOT_PRINTED")
+            collectionNote = "Your ID card has not been printed yet. Cards are processed in batches — check again in a few days.";
+        else if (card.Status == "NOT_FOUND")
+            collectionNote = "Your details were not found in the card printing system. Please visit the Student Services office.";
+
+        var result = new Dictionary<string, object>
+        {
+            { "regno",           regno },
+            { "status",          card.Status },
+            { "status_label",    card.DisplayLabel },
+            { "card_printed",    card.CardPrinted },
+            { "message",         card.Message },
+            { "collection_note", collectionNote },
+            { "checked_at",      card.CheckedAt.HasValue ? card.CheckedAt.Value.ToString("yyyy-MM-dd HH:mm") : null },
+            { "from_cache",      card.FromCache },
+            { "card_record",     cardRecord }
+        };
+
+        ApiHelper.Success(Response, result);
     }
 }

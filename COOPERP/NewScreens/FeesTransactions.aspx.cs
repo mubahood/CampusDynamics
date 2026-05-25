@@ -38,6 +38,16 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             HandleBatchDupFix(ajaxAction);
             return;
         }
+        if (ajaxAction == "batch_delete")
+        {
+            HandleBatchDelete();
+            return;
+        }
+        if (ajaxAction == "batch_post_status")
+        {
+            HandleBatchPostStatus();
+            return;
+        }
 
         string tidParamForAutofix = Request.QueryString["tid"];
         int tidAutofix;
@@ -341,13 +351,13 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                     litTotalBarPay.Text  = FormatCurrency(payAmt);
                     decimal net = billAmt - payAmt;
                     string netClass = net >= 0 ? "ft-totals__pill--net" : "ft-totals__pill--neg";
-                    string netLabel = net >= 0 ? "Outstanding" : "Overpaid";
+                    string netLabel = "Net Balance";
                     string netIcon  = net >= 0
                         ? "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><circle cx='12' cy='12' r='10'/><line x1='12' y1='8' x2='12' y2='16'/><line x1='8' y1='12' x2='16' y2='12'/></svg>"
                         : "<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><circle cx='12' cy='12' r='10'/><line x1='8' y1='12' x2='16' y2='12'/></svg>";
                     litTotalBarNet.Text = string.Format(
                         "<span class='ft-totals__pill {0}'>{1} {2}: {3}</span>",
-                        netClass, netIcon, netLabel, FormatCurrency(Math.Abs(net)));
+                        netClass, netIcon, netLabel, "UGX " + net.ToString("N0"));
                 }
             }
 
@@ -2385,7 +2395,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     private static string BD_FormatBalance(decimal balance)
     {
         if (balance > 0) return "UGX " + balance.ToString("N0");
-        if (balance < 0) return "UGX " + Math.Abs(balance).ToString("N0") + " CR";
+        if (balance < 0) return "UGX -" + Math.Abs(balance).ToString("N0");
         return "UGX 0";
     }
 
@@ -2504,5 +2514,233 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         var parts = new List<string>();
         foreach (long t in tids) parts.Add(t.ToString());
         return string.Join(",", parts.ToArray());
+    }
+
+    // ====================================================================
+    // BATCH DELETE  (AJAX POST ?ajax=batch_delete)
+    // ====================================================================
+    private void HandleBatchDelete()
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+
+        // Session guard
+        if (Session["username"] == null && Session["ScreenName"] == null)
+        {
+            Response.Write("{\"ok\":false,\"error\":\"Session expired. Please log in again.\"}");
+            Response.End(); return;
+        }
+
+        string idsRaw    = (Request.Form["ids"]         ?? "").Trim();
+        string category  = (Request.Form["category"]    ?? "").Trim();
+        string explanation = (Request.Form["explanation"] ?? "").Trim();
+
+        if (string.IsNullOrEmpty(idsRaw))
+        {
+            Response.Write("{\"ok\":false,\"error\":\"No transaction IDs supplied.\"}");
+            Response.End(); return;
+        }
+        if (string.IsNullOrEmpty(category))
+        {
+            Response.Write("{\"ok\":false,\"error\":\"Deletion reason/category is required.\"}");
+            Response.End(); return;
+        }
+
+        // Parse and validate IDs — only positive integers, max 200
+        var tidList = new List<int>();
+        foreach (string part in idsRaw.Split(','))
+        {
+            int tid;
+            if (int.TryParse(part.Trim(), out tid) && tid > 0)
+                tidList.Add(tid);
+        }
+        if (tidList.Count == 0)
+        {
+            Response.Write("{\"ok\":false,\"error\":\"No valid transaction IDs found.\"}");
+            Response.End(); return;
+        }
+        if (tidList.Count > 200)
+        {
+            Response.Write("{\"ok\":false,\"error\":\"Maximum 200 transactions per batch.\"}");
+            Response.End(); return;
+        }
+
+        int deleted = 0, errors = 0;
+        var errorMsgs = new List<string>();
+
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                EnsureDeletedTransactionsTable(conn);
+
+                foreach (int tid in tidList)
+                {
+                    try
+                    {
+                        // Capture row before delete (for GL cleanup + archive)
+                        string delRegno = "", delDetail = "", delTransType = "";
+                        decimal delAmount = 0; DateTime delDate = DateTime.MinValue;
+                        using (MySqlCommand sel = new MySqlCommand(
+                            "SELECT regno,amount,trans_type,detail,trans_date FROM fin_studentfeestracking WHERE TID=@tid LIMIT 1", conn))
+                        {
+                            sel.Parameters.AddWithValue("@tid", tid);
+                            using (MySqlDataReader r = sel.ExecuteReader())
+                            {
+                                if (!r.Read()) { errors++; continue; } // already gone
+                                delRegno     = r["regno"]     != DBNull.Value ? r["regno"].ToString()          : "";
+                                delAmount    = r["amount"]    != DBNull.Value ? Convert.ToDecimal(r["amount"]) : 0;
+                                delTransType = r["trans_type"]!= DBNull.Value ? r["trans_type"].ToString()     : "";
+                                delDetail    = r["detail"]    != DBNull.Value ? r["detail"].ToString()         : "";
+                                delDate      = r["trans_date"]!= DBNull.Value ? Convert.ToDateTime(r["trans_date"]) : DateTime.MinValue;
+                            }
+                        }
+
+                        // Audit record (outside transaction — immutable even on rollback)
+                        try { InsertAuditRecord(conn, tid, "DELETE", reason: category + (string.IsNullOrEmpty(explanation) ? "" : " — " + explanation)); }
+                        catch { /* audit failure must not block the delete */ }
+
+                        MySqlTransaction tx = conn.BeginTransaction();
+                        try
+                        {
+                            // Archive
+                            try { ArchiveDeletedTransaction(conn, tx, tid, category, explanation); }
+                            catch { /* archive failure tolerated */ }
+
+                            // Delete from tracking
+                            using (MySqlCommand del = new MySqlCommand(
+                                "DELETE FROM fin_studentfeestracking WHERE TID=@tid", conn, tx))
+                            {
+                                del.Parameters.AddWithValue("@tid", tid);
+                                del.ExecuteNonQuery();
+                            }
+
+                            // Remove matching GL entries
+                            if (!string.IsNullOrEmpty(delRegno))
+                            {
+                                string glDir = (delTransType == "Payment") ? "CR" : "DR";
+                                using (MySqlCommand glDel = new MySqlCommand(@"
+                                    DELETE FROM fin_ledger
+                                    WHERE accountcode = @ac
+                                      AND (
+                                            voucherNo = @vno
+                                            OR (
+                                                transaction_amount = @amt
+                                                AND DATE(transactionDate) = @dt
+                                                AND transactionType = @dir
+                                                AND (particulars = @det OR @det = '')
+                                            )
+                                      )", conn, tx))
+                                {
+                                    glDel.Parameters.AddWithValue("@ac",  delRegno);
+                                    glDel.Parameters.AddWithValue("@vno", tid);
+                                    glDel.Parameters.AddWithValue("@amt", delAmount);
+                                    glDel.Parameters.AddWithValue("@dt",  delDate == DateTime.MinValue ? (object)DBNull.Value : delDate.ToString("yyyy-MM-dd"));
+                                    glDel.Parameters.AddWithValue("@dir", glDir);
+                                    glDel.Parameters.AddWithValue("@det", delDetail);
+                                    glDel.ExecuteNonQuery();
+                                }
+                            }
+
+                            tx.Commit();
+                            deleted++;
+                        }
+                        catch (Exception txEx)
+                        {
+                            try { tx.Rollback(); } catch { }
+                            errors++;
+                            if (errorMsgs.Count < 5) errorMsgs.Add("TID " + tid + ": " + txEx.Message);
+                        }
+                    }
+                    catch (Exception rowEx)
+                    {
+                        errors++;
+                        if (errorMsgs.Count < 5) errorMsgs.Add("TID " + tid + ": " + rowEx.Message);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"ok\":false,\"error\":" + JsonStr(ex.Message) + "}");
+            Response.End(); return;
+        }
+
+        string errDetail = errorMsgs.Count > 0 ? string.Join("; ", errorMsgs.ToArray()) : null;
+        Response.Write(string.Format(
+            "{{\"ok\":true,\"deleted\":{0},\"errors\":{1},\"total\":{2}{3}}}",
+            deleted, errors, tidList.Count,
+            errDetail != null ? ",\"error_detail\":" + JsonStr(errDetail) : ""
+        ));
+        Response.End();
+    }
+
+    // ====================================================================
+    // BATCH MARK POST STATUS  (AJAX POST ?ajax=batch_post_status)
+    // ====================================================================
+    private void HandleBatchPostStatus()
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+
+        if (Session["username"] == null && Session["ScreenName"] == null)
+        {
+            Response.Write("{\"ok\":false,\"error\":\"Session expired.\"}");
+            Response.End(); return;
+        }
+
+        string idsRaw = (Request.Form["ids"]    ?? "").Trim();
+        string status = (Request.Form["status"] ?? "").Trim();
+
+        if (status != "Posted" && status != "Pending")
+        {
+            Response.Write("{\"ok\":false,\"error\":\"Invalid status value.\"}");
+            Response.End(); return;
+        }
+
+        var tidList = new List<int>();
+        foreach (string part in idsRaw.Split(','))
+        {
+            int tid;
+            if (int.TryParse(part.Trim(), out tid) && tid > 0)
+                tidList.Add(tid);
+        }
+        if (tidList.Count == 0 || tidList.Count > 200)
+        {
+            Response.Write("{\"ok\":false,\"error\":\"Invalid ID list (0 or >200).\"}");
+            Response.End(); return;
+        }
+
+        // Build safe IN list (integers only — no SQL injection possible)
+        string inList = string.Join(",", tidList.ConvertAll(t => t.ToString()).ToArray());
+        int updated = 0;
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "UPDATE fin_studentfeestracking SET post_status=@st WHERE TID IN (" + inList + ")", conn))
+                {
+                    cmd.Parameters.AddWithValue("@st", status);
+                    updated = cmd.ExecuteNonQuery();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"ok\":false,\"error\":" + JsonStr(ex.Message) + "}");
+            Response.End(); return;
+        }
+
+        Response.Write("{\"ok\":true,\"updated\":" + updated + "}");
+        Response.End();
+    }
+
+    private static string JsonStr(string s)
+    {
+        if (s == null) return "null";
+        return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n") + "\"";
     }
 }

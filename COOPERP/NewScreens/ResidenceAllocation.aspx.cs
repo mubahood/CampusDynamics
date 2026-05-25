@@ -538,7 +538,7 @@ public partial class COOPERP_NewScreens_ResidenceAllocation : System.Web.UI.Page
     {
         LinkButton btn = (LinkButton)sender;
         string regno = btn.CommandArgument;
-        Response.Redirect("~/COOPERP/StudentProfile.aspx?regno=" + Server.UrlEncode(regno));
+        Response.Redirect("~/COOPERP/StudentInfo/StudentProfile.aspx?regno=" + Server.UrlEncode(regno));
     }
 
     #endregion

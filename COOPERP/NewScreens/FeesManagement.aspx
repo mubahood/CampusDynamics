@@ -284,6 +284,42 @@
 }
 .fd-print-btn:hover { background: rgba(255,255,255,.18); }
 
+/* ---- Cash / Credit Breakdown Row ---- */
+.fd-credits-row {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 18px;
+}
+.fd-credit-card {
+    background: #fff; border: 1px solid #e0e5ed; padding: 14px 16px;
+    border-top: 3px solid #e0e5ed;
+}
+.fd-credit-card--cash    { border-top-color: #16a34a; }
+.fd-credit-card--bursary { border-top-color: #2563eb; }
+.fd-credit-card--waiver  { border-top-color: #d97706; }
+.fd-credit-card--net     { border-top-color: #05275C; }
+.fd-credit-card__icon {
+    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    background: #f5f7fa; border: 1px solid #e0e5ed; margin-bottom: 8px;
+}
+.fd-credit-card--cash    .fd-credit-card__icon { background: rgba(22,163,74,.08);  border-color: rgba(22,163,74,.2); }
+.fd-credit-card--bursary .fd-credit-card__icon { background: rgba(37,99,235,.08);  border-color: rgba(37,99,235,.2); }
+.fd-credit-card--waiver  .fd-credit-card__icon { background: rgba(217,119,6,.08);  border-color: rgba(217,119,6,.2); }
+.fd-credit-card--net     .fd-credit-card__icon { background: rgba(5,39,92,.08);    border-color: rgba(5,39,92,.2);   }
+.fd-credit-card__label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .4px; color: #666; margin-bottom: 4px;
+}
+.fd-credit-card__value {
+    font-size: 15px; font-weight: 800; color: #1a1a2e; line-height: 1.2;
+    font-variant-numeric: tabular-nums; margin-bottom: 4px;
+}
+.fd-credit-card--cash    .fd-credit-card__value { color: #15803d; }
+.fd-credit-card--bursary .fd-credit-card__value { color: #1d4ed8; }
+.fd-credit-card--waiver  .fd-credit-card__value { color: #b45309; }
+.fd-credit-card--net     .fd-credit-card__value { color: #05275C; }
+.fd-credit-card__sub { font-size: 10px; color: #aaa; line-height: 1.4; }
+@media (max-width:1000px) { .fd-credits-row { grid-template-columns: repeat(2,1fr); } }
+@media (max-width:600px)  { .fd-credits-row { grid-template-columns: 1fr; } }
+
 /* ---- Print media ---- */
 @media print {
     .fd-print-btn, .cd-srch-wrap, .fd-filter-note { display: none !important; }
@@ -365,15 +401,15 @@
     <!-- Total Paid -->
     <div class="fd-kpi fd-kpi--paid">
         <div class="fd-kpi__top">
-            <div class="fd-kpi__label">Total Paid (Income)</div>
+            <div class="fd-kpi__label">Cash Received</div>
             <div class="fd-kpi__icon fd-kpi__icon--paid">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
         </div>
         <div class="fd-kpi__value fd-kpi__value--green"><asp:Literal ID="litStatPaid" runat="server" Text="UGX 0" /></div>
         <div class="fd-kpi__sub">
-            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <asp:Literal ID="litStatPayCount" runat="server" Text="0 payments" />
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <asp:Literal ID="litStatPayCount" runat="server" Text="0 cash payments" />
         </div>
         <asp:Literal ID="litTrendPaid" runat="server" />
     </div>
@@ -394,6 +430,14 @@
     </div>
 </div>
 
+<!-- ======= CASH vs NON-CASH CREDIT BREAKDOWN ==================== -->
+<div class="fd-section-hdr">
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+    Income Breakdown &mdash; Cash vs Non-Cash Credits
+    <span class="fd-section-hdr__line"></span>
+</div>
+<asp:Literal ID="litCashBreakdown" runat="server" />
+
 <!-- ======= COLLECTION & REVENUE ANALYTICS ======================== -->
 <div class="fd-section-hdr">
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -404,12 +448,13 @@
 <div class="fd-donut-layout">
     <!-- LEFT: Collection Donut -->
     <div class="fd-donut-wrap">
-        <div class="fd-donut-title">Collection Rate</div>
+        <div class="fd-donut-title">Cash Collection Rate</div>
         <canvas id="cvDonut" class="fd-donut-canvas" width="180" height="180"></canvas>
         <div class="fd-donut-legend">
-            <div class="fd-donut-legend__item"><span class="fd-donut-legend__dot fd-donut-legend__dot--paid"></span>Paid</div>
+            <div class="fd-donut-legend__item"><span class="fd-donut-legend__dot fd-donut-legend__dot--paid"></span>Cash Received</div>
             <div class="fd-donut-legend__item"><span class="fd-donut-legend__dot fd-donut-legend__dot--bal"></span>Outstanding</div>
         </div>
+        <div style="margin-top:10px;font-size:10px;color:#aaa;text-align:center;line-height:1.4;">Bursaries &amp; waivers excluded<br>from cash rate calculation</div>
     </div>
     <!-- RIGHT: Revenue by Fee Type -->
     <div class="fd-chart-panel">
@@ -435,9 +480,9 @@
         <div class="fd-chart-panel__header">
             <div class="fd-chart-panel__title">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                Monthly Payments &amp; Billing
+                Monthly Cash vs Non-Cash vs Billing
             </div>
-            <div class="fd-chart-panel__meta">past 12 months</div>
+            <div class="fd-chart-panel__meta">past 12 months &mdash; stacked: cash (green) + non-cash credits (amber)</div>
         </div>
         <div class="fd-chart-panel__body">
             <div style="position:relative;width:100%;"><canvas id="cvMonthly"></canvas></div>
@@ -448,12 +493,40 @@
         <div class="fd-chart-panel__header">
             <div class="fd-chart-panel__title">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                Daily Payments (Past 30 Days)
+                Daily Cash Received (Past 30 Days)
             </div>
-            <div class="fd-chart-panel__meta">daily payment volume</div>
+            <div class="fd-chart-panel__meta">cash only &mdash; mobile money &amp; bank deposits</div>
         </div>
         <div class="fd-chart-panel__body">
             <div style="position:relative;width:100%;"><canvas id="cvDaily"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- ======= PAYMENT CHANNELS ====================================== -->
+<div class="fd-chart-row" style="grid-template-columns:1fr 1fr;">
+    <div class="fd-chart-panel">
+        <div class="fd-chart-panel__header">
+            <div class="fd-chart-panel__title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                Payment Channels
+            </div>
+            <div class="fd-chart-panel__meta">cash receipts only &mdash; excludes bursaries &amp; waivers</div>
+        </div>
+        <div class="fd-chart-panel__body">
+            <div style="position:relative;width:100%;"><canvas id="cvChannel"></canvas></div>
+        </div>
+    </div>
+    <div class="fd-chart-panel">
+        <div class="fd-chart-panel__header">
+            <div class="fd-chart-panel__title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Non-Cash Credits Composition
+            </div>
+            <div class="fd-chart-panel__meta">bursaries, waivers &amp; adjustments</div>
+        </div>
+        <div class="fd-chart-panel__body">
+            <div style="position:relative;width:100%;"><canvas id="cvNonCash"></canvas></div>
         </div>
     </div>
 </div>
@@ -613,6 +686,10 @@
 <asp:HiddenField ID="hfMonthBillValues" runat="server" Value="" />
 <asp:HiddenField ID="hfDailyLabels" runat="server" Value="" />
 <asp:HiddenField ID="hfDailyValues" runat="server" Value="" />
+<asp:HiddenField ID="hfMonthNonCash" runat="server" Value="" />
+<asp:HiddenField ID="hfChannelLabels" runat="server" Value="" />
+<asp:HiddenField ID="hfChannelValues" runat="server" Value="" />
+<asp:HiddenField ID="hfDonutBursary" runat="server" Value="0" />
 
 <!-- Chart.js v4 via CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -629,8 +706,11 @@
     var hfMonthLabId   = '<%= hfMonthLabels.ClientID %>';
     var hfMonthValId   = '<%= hfMonthValues.ClientID %>';
     var hfMonthBillId  = '<%= hfMonthBillValues.ClientID %>';
+    var hfMonthNCId    = '<%= hfMonthNonCash.ClientID %>';
     var hfDailyLabId   = '<%= hfDailyLabels.ClientID %>';
     var hfDailyValId   = '<%= hfDailyValues.ClientID %>';
+    var hfChLabId      = '<%= hfChannelLabels.ClientID %>';
+    var hfChValId      = '<%= hfChannelValues.ClientID %>';
 
     // ---- Helpers ----
     function getVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
@@ -732,14 +812,15 @@
     }
 
     // ============================================================
-    // BAR + LINE CHART — Monthly Payments & Billing (past 12 months)
+    // STACKED BAR + LINE — Monthly Cash / Non-Cash / Billing (past 12 months)
     // ============================================================
     function initMonthly() {
         var canvas = document.getElementById('cvMonthly');
         if (!canvas || typeof Chart === 'undefined') return;
-        var labels   = parseLabels(getVal(hfMonthLabId));
-        var payVals  = parseNums(getVal(hfMonthValId));
-        var billVals = parseNums(getVal(hfMonthBillId));
+        var labels    = parseLabels(getVal(hfMonthLabId));
+        var cashVals  = parseNums(getVal(hfMonthValId));
+        var ncVals    = parseNums(getVal(hfMonthNCId));
+        var billVals  = parseNums(getVal(hfMonthBillId));
 
         new Chart(canvas, {
             type: 'bar',
@@ -747,22 +828,33 @@
                 labels: labels.length > 0 ? labels : ['No data'],
                 datasets: [
                     {
-                        label: 'Payments',
+                        label: 'Cash Received',
                         type: 'bar',
-                        data: payVals.length > 0 ? payVals : [0],
-                        backgroundColor: 'rgba(22,163,74,0.75)',
+                        data: cashVals.length > 0 ? cashVals : [0],
+                        backgroundColor: 'rgba(22,163,74,0.80)',
                         hoverBackgroundColor: '#15803d',
                         borderWidth: 0,
-                        borderRadius: 0,
-                        maxBarThickness: 36,
+                        stack: 'credits',
+                        maxBarThickness: 40,
+                        order: 3
+                    },
+                    {
+                        label: 'Non-Cash Credits',
+                        type: 'bar',
+                        data: ncVals.length > 0 ? ncVals : [0],
+                        backgroundColor: 'rgba(217,119,6,0.70)',
+                        hoverBackgroundColor: '#b45309',
+                        borderWidth: 0,
+                        stack: 'credits',
+                        maxBarThickness: 40,
                         order: 2
                     },
                     {
-                        label: 'Bills',
+                        label: 'Billed',
                         type: 'line',
                         data: billVals.length > 0 ? billVals : [0],
                         borderColor: '#05275C',
-                        backgroundColor: 'rgba(5,39,92,0.08)',
+                        backgroundColor: 'rgba(5,39,92,0.06)',
                         borderWidth: 2,
                         pointBackgroundColor: '#05275C',
                         pointBorderColor: '#fff',
@@ -770,7 +862,7 @@
                         pointRadius: 3,
                         pointHoverRadius: 5,
                         tension: 0.3,
-                        fill: true,
+                        fill: false,
                         order: 1
                     }
                 ]
@@ -781,16 +873,17 @@
                 layout: { padding: { top: 5 } },
                 scales: {
                     x: {
+                        stacked: true,
                         grid: { display: false },
                         ticks: { color: '#888', font: { size: 9, weight: '500' }, maxRotation: 45, minRotation: 45 },
                         border: { color: '#e0e5ed' }
                     },
                     y: {
+                        stacked: false,
                         beginAtZero: true,
                         grid: { color: '#f0f2f5', drawBorder: false },
                         ticks: {
-                            color: '#aaa',
-                            font: { size: 9 },
+                            color: '#aaa', font: { size: 9 },
                             callback: function (v) { return fmtAxis(v); },
                             maxTicksLimit: 6
                         },
@@ -799,43 +892,24 @@
                 },
                 plugins: {
                     legend: {
-                        display: true,
-                        position: 'top',
-                        align: 'start',
-                        labels: {
-                            boxWidth: 10,
-                            boxHeight: 10,
-                            padding: 14,
-                            font: { size: 10, weight: '600' },
-                            color: '#555',
-                            usePointStyle: false
-                        }
+                        display: true, position: 'top', align: 'start',
+                        labels: { boxWidth: 10, boxHeight: 10, padding: 14, font: { size: 10, weight: '600' }, color: '#555' }
                     },
                     tooltip: {
                         backgroundColor: '#1a1a2e',
                         titleFont: { weight: '600', size: 11 },
                         bodyFont: { size: 11 },
-                        padding: 10,
-                        cornerRadius: 2,
+                        padding: 10, cornerRadius: 2,
                         callbacks: {
-                            label: function (ctx) {
-                                return ctx.dataset.label + ': ' + fmtUGX(ctx.parsed.y);
-                            }
+                            label: function (ctx) { return ctx.dataset.label + ': ' + fmtUGX(ctx.parsed.y); }
                         }
                     }
                 },
-                animation: {
-                    duration: 900,
-                    easing: 'easeOutQuart'
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                }
+                animation: { duration: 900, easing: 'easeOutQuart' },
+                interaction: { intersect: false, mode: 'index' }
             }
         });
 
-        // Set fixed height on container
         canvas.parentElement.style.height = '280px';
     }
 
@@ -1040,12 +1114,122 @@
     }
 
     // ============================================================
+    // PAYMENT CHANNEL BAR CHART (horizontal)
+    // ============================================================
+    function initChannel() {
+        var canvas = document.getElementById('cvChannel');
+        if (!canvas || typeof Chart === 'undefined') return;
+        var labels = parseLabels(getVal(hfChLabId));
+        var values = parseNums(getVal(hfChValId));
+        if (!labels.length) { canvas.parentElement.innerHTML = '<div style="padding:30px;text-align:center;color:#aaa;font-size:11px;">No data</div>'; return; }
+
+        var colors = ['#16a34a', '#174DA4', '#d97706', '#6b7280'];
+        new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Amount Received',
+                    data: values,
+                    backgroundColor: colors.slice(0, values.length),
+                    hoverBackgroundColor: colors.slice(0, values.length),
+                    borderWidth: 0, borderRadius: 0, maxBarThickness: 42
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true, maintainAspectRatio: false,
+                layout: { padding: { right: 10 } },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: '#f0f2f5', drawBorder: false },
+                        ticks: { color: '#aaa', font: { size: 9 }, callback: function(v){ return fmtAxis(v); } },
+                        border: { display: false }
+                    },
+                    y: { grid: { display: false }, ticks: { color: '#555', font: { size: 11, weight: '600' } }, border: { display: false } }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1a1a2e', titleFont: { weight: '600', size: 11 },
+                        bodyFont: { size: 11 }, padding: 10, cornerRadius: 2,
+                        callbacks: { label: function(ctx){ return 'Received: ' + fmtUGX(ctx.parsed.x); } }
+                    }
+                },
+                animation: { duration: 900, easing: 'easeOutQuart' }
+            }
+        });
+        canvas.parentElement.style.height = '200px';
+    }
+
+    // ============================================================
+    // NON-CASH CREDITS DONUT (Bursaries vs Waivers)
+    // ============================================================
+    function initNonCash() {
+        var canvas = document.getElementById('cvNonCash');
+        if (!canvas || typeof Chart === 'undefined') return;
+        var ncVals   = parseNums(getVal(hfMonthNCId));
+        var cashVals = parseNums(getVal(hfMonthValId));
+        var ncTotal  = 0; var cashTotal = 0;
+        for (var i = 0; i < ncVals.length; i++)   ncTotal   += ncVals[i];
+        for (var i = 0; i < cashVals.length; i++)  cashTotal += cashVals[i];
+        var grandTotal = cashTotal + ncTotal;
+        var cashPct = grandTotal > 0 ? Math.round(cashTotal / grandTotal * 100) : 0;
+
+        var centerPlugin = {
+            id: 'ncCenter',
+            afterDraw: function(chart) {
+                var ctx = chart.ctx, w = chart.width, h = chart.height;
+                ctx.save();
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.font = 'bold 22px ' + FONT;
+                ctx.fillStyle = '#16a34a';
+                ctx.fillText(cashPct + '%', w/2, h/2 - 8);
+                ctx.font = '600 9px ' + FONT;
+                ctx.fillStyle = '#888';
+                ctx.fillText('CASH', w/2, h/2 + 10);
+                ctx.restore();
+            }
+        };
+
+        new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: ['Cash Received', 'Non-Cash Credits'],
+                datasets: [{
+                    data: grandTotal > 0 ? [cashTotal, ncTotal] : [1, 0],
+                    backgroundColor: grandTotal > 0 ? ['#16a34a', '#d97706'] : ['#e8e8e8', '#e8e8e8'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                cutout: '72%', responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true, position: 'bottom',
+                        labels: { boxWidth: 10, boxHeight: 10, padding: 12, font: { size: 10, weight: '600' }, color: '#555' }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1a2e', titleFont: { weight: '600', size: 11 }, bodyFont: { size: 11 }, padding: 10, cornerRadius: 2,
+                        callbacks: { label: function(ctx){ return ctx.label + ': ' + fmtUGX(ctx.parsed); } }
+                    }
+                }
+            },
+            plugins: [centerPlugin]
+        });
+        canvas.parentElement.style.height = '220px';
+    }
+
+    // ============================================================
     // INIT ALL
     // ============================================================
     function initAll() {
         initDonut();
         initMonthly();
         initDaily();
+        initChannel();
+        initNonCash();
         var sels = document.querySelectorAll('select.fs-filter-select');
         for (var i = 0; i < sels.length; i++) initSearchable(sels[i]);
     }

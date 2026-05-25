@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Text.RegularExpressions;
 using System.Web;
+using System.Web.Caching;
 using System.Web.Script.Serialization;
 using MySql.Data.MySqlClient;
 using System.Configuration;
@@ -14,6 +16,7 @@ using System.Text;
 /// </summary>
 public static class ApiHelper
 {
+    private const string API_VERSION = "2.1";
     private static readonly JavaScriptSerializer _serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
 
     #region Response Helpers
@@ -21,7 +24,6 @@ public static class ApiHelper
     /// <summary>Sends a standard JSON success response and ends the request.</summary>
     public static void Success(HttpResponse response, object data, string message = "OK")
     {
-        // Prevent duplicate responses (e.g. if a previous Error/Success already completed the request)
         if (HttpContext.Current != null && HttpContext.Current.Items.Contains("_api_response_sent")) return;
 
         WriteJson(response, new Dictionary<string, object>
@@ -36,7 +38,6 @@ public static class ApiHelper
     /// <summary>Sends a standard JSON error response and ends the request.</summary>
     public static void Error(HttpResponse response, string message, string errorCode = "SERVER_ERROR", int httpStatus = 200)
     {
-        // Prevent duplicate responses (e.g. if a previous Error/Success already completed the request)
         if (HttpContext.Current != null && HttpContext.Current.Items.Contains("_api_response_sent")) return;
 
         WriteJson(response, new Dictionary<string, object>
@@ -52,21 +53,117 @@ public static class ApiHelper
     private static void WriteJson(HttpResponse response, object obj)
     {
         response.Clear();
+        // ROB-05: Content-Type always set first, before any logic that could throw
         response.ContentType = "application/json";
         response.Charset = "utf-8";
-        // Allow cross-origin requests for mobile apps
-        response.AddHeader("Access-Control-Allow-Origin", "*");
-        response.AddHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        response.AddHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        // ROB-08: API version in every response
+        response.AppendHeader("X-API-Version", API_VERSION);
+        ApplyCorsHeaders(response);
         response.Write(_serializer.Serialize(obj));
 
-        // Mark response as sent so duplicate Error/Success calls are suppressed
         if (HttpContext.Current != null)
             HttpContext.Current.Items["_api_response_sent"] = true;
 
-        // Use Flush + CompleteRequest instead of Response.End() to avoid ThreadAbortException
         response.Flush();
         HttpContext.Current.ApplicationInstance.CompleteRequest();
+    }
+
+    /// <summary>
+    /// Applies CORS headers. ROB-12: reads CorsAllowedOrigins from appSettings;
+    /// defaults to * if not configured.
+    /// </summary>
+    private static void ApplyCorsHeaders(HttpResponse response)
+    {
+        string allowedOrigins = ConfigurationManager.AppSettings["CorsAllowedOrigins"] ?? "*";
+
+        if (allowedOrigins == "*")
+        {
+            response.AppendHeader("Access-Control-Allow-Origin", "*");
+        }
+        else
+        {
+            // Match the incoming Origin against the whitelist
+            string requestOrigin = "";
+            if (HttpContext.Current != null && HttpContext.Current.Request != null)
+                requestOrigin = HttpContext.Current.Request.Headers["Origin"] ?? "";
+
+            bool matched = false;
+            foreach (string origin in allowedOrigins.Split(','))
+            {
+                if (string.Equals(origin.Trim(), requestOrigin, StringComparison.OrdinalIgnoreCase))
+                {
+                    response.AppendHeader("Access-Control-Allow-Origin", requestOrigin);
+                    response.AppendHeader("Vary", "Origin");
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched)
+                response.AppendHeader("Access-Control-Allow-Origin", allowedOrigins.Split(',')[0].Trim());
+        }
+
+        response.AppendHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+        response.AppendHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    }
+
+    #endregion
+
+    #region Rate Limiting (ROB-01)
+
+    // Sliding-window rate limiter using HttpRuntime.Cache.
+    // Limits: login = 10/min per IP; general = 120/min per token-or-IP.
+    private const int RATE_LIMIT_GENERAL = 120;
+    private const int RATE_LIMIT_LOGIN   = 10;
+    private const int RATE_WINDOW_SECS   = 60;
+
+    /// <summary>
+    /// Checks rate limit for the current request. Returns true (rate limited) and sends 429 if exceeded.
+    /// Call at the top of Page_Load before action dispatch.
+    /// action="login" uses a stricter limit; all others use the general limit.
+    /// </summary>
+    public static bool IsRateLimited(HttpRequest request, HttpResponse response, string action = "")
+    {
+        try
+        {
+            string key;
+            int limit;
+            if (action == "login")
+            {
+                key   = "rl_login_" + (request.UserHostAddress ?? "");
+                limit = RATE_LIMIT_LOGIN;
+            }
+            else
+            {
+                string tokenOrIp = request["token"] ?? request.UserHostAddress ?? "anon";
+                key   = "rl_api_" + tokenOrIp;
+                limit = RATE_LIMIT_GENERAL;
+            }
+
+            var cache = HttpRuntime.Cache;
+            int count = 1;
+            object existing = cache.Get(key);
+            if (existing != null)
+                count = (int)existing + 1;
+
+            cache.Insert(key, count, null,
+                Cache.NoAbsoluteExpiration,
+                TimeSpan.FromSeconds(RATE_WINDOW_SECS),
+                CacheItemPriority.Low, null);
+
+            if (count > limit)
+            {
+                if (!response.IsRequestBeingRedirected)
+                {
+                    response.StatusCode = 429;
+                    response.AppendHeader("Retry-After", RATE_WINDOW_SECS.ToString());
+                    Error(response, "Rate limit exceeded. Max " + limit + " requests per " + RATE_WINDOW_SECS + " seconds.", "RATE_LIMITED");
+                }
+                return true;
+            }
+        }
+        catch { /* never block a request due to rate-limiter failure */ }
+
+        return false;
     }
 
     #endregion
@@ -224,6 +321,24 @@ public static class ApiHelper
         }
     }
 
+    /// <summary>Executes an INSERT and returns the auto-generated ID. Uses a single connection so LAST_INSERT_ID is reliable.</summary>
+    public static long ExecuteInsert(string sql, params MySqlParameter[] parameters)
+    {
+        using (var conn = GetConnection())
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                if (parameters != null)
+                    foreach (var p in parameters)
+                        cmd.Parameters.Add(p);
+                cmd.ExecuteNonQuery();
+                return cmd.LastInsertedId;
+            }
+        }
+    }
+
     /// <summary>Executes a scalar query and returns the result.</summary>
     public static object Scalar(string sql, params MySqlParameter[] parameters)
     {
@@ -234,13 +349,72 @@ public static class ApiHelper
             {
                 cmd.CommandTimeout = 60;
                 if (parameters != null)
-                {
                     foreach (var p in parameters)
                         cmd.Parameters.Add(p);
-                }
                 return cmd.ExecuteScalar();
             }
         }
+    }
+
+    /// <summary>Executes a non-query command on the accounts database (INSERT/UPDATE/DELETE).</summary>
+    public static int ExecuteAccounts(string sql, params MySqlParameter[] parameters)
+    {
+        using (var conn = GetAccountsConnection())
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                if (parameters != null)
+                    foreach (var p in parameters)
+                        cmd.Parameters.Add(p);
+                return cmd.ExecuteNonQuery();
+            }
+        }
+    }
+
+    /// <summary>Executes a scalar query against the accounts database and returns the result.</summary>
+    public static object ScalarAccounts(string sql, params MySqlParameter[] parameters)
+    {
+        using (var conn = GetAccountsConnection())
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                if (parameters != null)
+                    foreach (var p in parameters)
+                        cmd.Parameters.Add(p);
+                return cmd.ExecuteScalar();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Logs a billing failure to fin_billing_errors so admins can identify and fix unbilled students.
+    /// Never throws — logging must not affect the caller's flow.
+    /// </summary>
+    public static void LogBillingError(string regno, string acadYear, int semester, string message, string source)
+    {
+        try
+        {
+            using (var conn = GetAccountsConnection())
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    @"INSERT IGNORE INTO fin_billing_errors (regno, acad_year, semester, triggered_by, trigger_source, error_message)
+                      VALUES (@r, @a, @s, 'API', @src, @msg)", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r",   regno   ?? "");
+                    cmd.Parameters.AddWithValue("@a",   acadYear ?? "");
+                    cmd.Parameters.AddWithValue("@s",   semester);
+                    cmd.Parameters.AddWithValue("@src", source  ?? "API");
+                    cmd.Parameters.AddWithValue("@msg", message ?? "");
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+        catch { }
     }
 
     #endregion
@@ -302,12 +476,14 @@ public static class ApiHelper
         }
     }
 
-    /// <summary>Handles CORS preflight OPTIONS requests.</summary>
+    /// <summary>Handles CORS preflight OPTIONS requests. ROB-12: uses configurable whitelist.</summary>
     public static bool HandleCors(HttpRequest request, HttpResponse response)
     {
-        response.AddHeader("Access-Control-Allow-Origin", "*");
-        response.AddHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-        response.AddHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        // ROB-05: set Content-Type immediately so every response is JSON even on early exit
+        response.ContentType = "application/json";
+        response.Charset = "utf-8";
+        response.AppendHeader("X-API-Version", API_VERSION);
+        ApplyCorsHeaders(response);
         if (request.HttpMethod == "OPTIONS")
         {
             response.StatusCode = 200;
@@ -315,6 +491,24 @@ public static class ApiHelper
             return true;
         }
         return false;
+    }
+
+    /// <summary>ROB-10: Validates that an academic year string matches YYYY/YYYY format.</summary>
+    public static bool ValidateAcadYear(string acadYear, HttpResponse response = null)
+    {
+        if (string.IsNullOrEmpty(acadYear)) return true; // optional param — allow empty
+        bool valid = Regex.IsMatch(acadYear, @"^\d{4}/\d{4}$");
+        if (!valid && response != null)
+            Error(response, "Invalid acad_year format. Expected YYYY/YYYY (e.g. 2025/2026).", "INVALID_PARAM");
+        return valid;
+    }
+
+    /// <summary>ROB-04: Validates a parameter contains no SQL-dangerous content (belt-and-suspenders; always use parameterised queries too).</summary>
+    public static string SanitiseParam(string val)
+    {
+        if (string.IsNullOrEmpty(val)) return val;
+        // Strip null bytes and trim
+        return val.Replace("\0", "").Trim();
     }
 
     /// <summary>

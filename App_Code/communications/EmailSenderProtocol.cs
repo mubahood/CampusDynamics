@@ -178,7 +178,12 @@ public class EmailSenderProtocol
              System.Net.ServicePointManager.ServerCertificateValidationCallback = new System.Net.Security.RemoteCertificateValidationCallback(RemoteServerCertificateValidationCallback);
 
              if (receipients.StartsWith("-")) receipients = receipients.TrimStart('-');
-             //Fetching Email Body Text from EmailTemplate File.  
+             // Strip invisible/non-printable chars that break MailAddress (non-breaking spaces, \r, \n, etc.)
+             var _sb = new System.Text.StringBuilder(receipients.Length);
+             foreach (char c in receipients) if (c > 0x20 && c != 0xA0 && c != 0xFEFF) _sb.Append(c);
+             receipients = _sb.ToString();
+             if (string.IsNullOrEmpty(receipients) || !receipients.Contains("@"))
+                 return "Email Error! [Invalid or empty recipient email address]";
 
              string MailText = message;
 

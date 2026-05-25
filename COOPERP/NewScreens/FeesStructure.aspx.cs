@@ -67,10 +67,11 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
         string statusFilter = ddlPFStatus.SelectedValue;
         string searchFilter = txtPFSearch.Text.Trim();
 
+        EnsureYear4Columns();
         var sql = new StringBuilder(@"
             SELECT pf.ID, pf.progcode, COALESCE(p.progname,'(Unknown)') AS progname,
                    COALESCE(f.faculty_name,'') AS faculty_name,
-                   pf.has_year_1, pf.has_year_2, pf.has_year_3,
+                   pf.has_year_1, pf.has_year_2, pf.has_year_3, pf.has_year_4,
                    pf.y1_s1_tuition, pf.y1_s1_functional,
                    pf.y1_s2_tuition, pf.y1_s2_functional,
                    pf.y1_s3_tuition, pf.y1_s3_functional,
@@ -80,6 +81,9 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                    pf.y3_s1_tuition, pf.y3_s1_functional,
                    pf.y3_s2_tuition, pf.y3_s2_functional,
                    pf.y3_s3_tuition, pf.y3_s3_functional,
+                   pf.y4_s1_tuition, pf.y4_s1_functional,
+                   pf.y4_s2_tuition, pf.y4_s2_functional,
+                   pf.y4_s3_tuition, pf.y4_s3_functional,
                    pf.is_active
             FROM fin_programme_fees pf
             LEFT JOIN campus_dynamics.acad_programme p ON p.progcode = pf.progcode
@@ -119,6 +123,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                         string hy1 = rdr["has_year_1"].ToString();
                         string hy2 = rdr["has_year_2"].ToString();
                         string hy3 = rdr["has_year_3"].ToString();
+                        string hy4 = rdr["has_year_4"].ToString();
                         string active = rdr["is_active"].ToString();
 
                         double y1s1t = ToDouble(rdr["y1_s1_tuition"]);
@@ -139,6 +144,12 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                         double y3s2f = ToDouble(rdr["y3_s2_functional"]);
                         double y3s3t = ToDouble(rdr["y3_s3_tuition"]);
                         double y3s3f = ToDouble(rdr["y3_s3_functional"]);
+                        double y4s1t = ToDouble(rdr["y4_s1_tuition"]);
+                        double y4s1f = ToDouble(rdr["y4_s1_functional"]);
+                        double y4s2t = ToDouble(rdr["y4_s2_tuition"]);
+                        double y4s2f = ToDouble(rdr["y4_s2_functional"]);
+                        double y4s3t = ToDouble(rdr["y4_s3_tuition"]);
+                        double y4s3f = ToDouble(rdr["y4_s3_functional"]);
 
                         double y1s1total = y1s1t + y1s1f;
 
@@ -147,27 +158,30 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                         if (hy1 == "Yes") grandTotal += y1s1t + y1s1f + y1s2t + y1s2f + y1s3t + y1s3f;
                         if (hy2 == "Yes") grandTotal += y2s1t + y2s1f + y2s2t + y2s2f + y2s3t + y2s3f;
                         if (hy3 == "Yes") grandTotal += y3s1t + y3s1f + y3s2t + y3s2f + y3s3t + y3s3f;
+                        if (hy4 == "Yes") grandTotal += y4s1t + y4s1f + y4s2t + y4s2f + y4s3t + y4s3f;
 
                         string statusBadge = active == "Yes"
                             ? "<span class='fs-badge fs-badge--green'>Active</span>"
                             : "<span class='fs-badge fs-badge--red'>Inactive</span>";
 
-                        // Year dots: compact circles showing 1/2/3
+                        // Year dots: compact circles showing 1/2/3/4
                         string yrDotsHtml = "<div class='fs-yr-dots'>";
                         yrDotsHtml += string.Format("<span class='fs-yr-dot {0}'>1</span>", hy1 == "Yes" ? "fs-yr-dot--on" : "fs-yr-dot--off");
                         yrDotsHtml += string.Format("<span class='fs-yr-dot {0}'>2</span>", hy2 == "Yes" ? "fs-yr-dot--on" : "fs-yr-dot--off");
                         yrDotsHtml += string.Format("<span class='fs-yr-dot {0}'>3</span>", hy3 == "Yes" ? "fs-yr-dot--on" : "fs-yr-dot--off");
+                        yrDotsHtml += string.Format("<span class='fs-yr-dot {0}'>4</span>", hy4 == "Yes" ? "fs-yr-dot--on" : "fs-yr-dot--off");
                         yrDotsHtml += "</div>";
 
                         if (active == "Yes") activeCount++; else inactiveCount++;
 
-                        // Build the viewPFDetail JS call with all 24 values
+                        // Build the viewPFDetail JS call with all 31 values (incl. year 4)
                         string viewJs = string.Format(
-                            "viewPFDetail({0},'{1}','{2}','{3}','{4}','{5}','{6}',{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18},{19},{20},{21},{22},{23},{24})",
-                            id, JsEsc(prog), JsEsc(pname), hy1, hy2, hy3, active,
+                            "viewPFDetail({0},'{1}','{2}','{3}','{4}','{5}','{6}','{7}',{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18},{19},{20},{21},{22},{23},{24},{25},{26},{27},{28},{29},{30},{31})",
+                            id, JsEsc(prog), JsEsc(pname), hy1, hy2, hy3, hy4, active,
                             y1s1t, y1s1f, y1s2t, y1s2f, y1s3t, y1s3f,
                             y2s1t, y2s1f, y2s2t, y2s2f, y2s3t, y2s3f,
-                            y3s1t, y3s1f, y3s2t, y3s2f, y3s3t, y3s3f);
+                            y3s1t, y3s1f, y3s2t, y3s2f, y3s3t, y3s3f,
+                            y4s1t, y4s1f, y4s2t, y4s2f, y4s3t, y4s3f);
 
                         // Toggle label + icon
                         string toggleLabel = active == "Yes" ? "Deactivate" : "Activate";
@@ -522,6 +536,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
         string hy1 = chkYear1.Checked ? "Yes" : "No";
         string hy2 = chkYear2.Checked ? "Yes" : "No";
         string hy3 = chkYear3.Checked ? "Yes" : "No";
+        string hy4 = chkYear4.Checked ? "Yes" : "No";
 
         if (string.IsNullOrEmpty(prog))
         {
@@ -529,7 +544,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
             return;
         }
 
-        // Parse all 18 amount fields
+        // Parse all 24 amount fields (years 1-4)
         double y1s1t = ParseAmt(txtY1S1T.Text);
         double y1s1f = ParseAmt(txtY1S1F.Text);
         double y1s2t = ParseAmt(txtY1S2T.Text);
@@ -548,6 +563,12 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
         double y3s2f = ParseAmt(txtY3S2F.Text);
         double y3s3t = ParseAmt(txtY3S3T.Text);
         double y3s3f = ParseAmt(txtY3S3F.Text);
+        double y4s1t = ParseAmt(txtY4S1T.Text);
+        double y4s1f = ParseAmt(txtY4S1F.Text);
+        double y4s2t = ParseAmt(txtY4S2T.Text);
+        double y4s2f = ParseAmt(txtY4S2F.Text);
+        double y4s3t = ParseAmt(txtY4S3T.Text);
+        double y4s3f = ParseAmt(txtY4S3F.Text);
 
         try
         {
@@ -580,24 +601,27 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                 {
                     // INSERT
                     string sql = @"INSERT INTO fin_programme_fees
-                        (progcode, has_year_1, has_year_2, has_year_3,
+                        (progcode, has_year_1, has_year_2, has_year_3, has_year_4,
                          y1_s1_tuition, y1_s1_functional, y1_s2_tuition, y1_s2_functional, y1_s3_tuition, y1_s3_functional,
                          y2_s1_tuition, y2_s1_functional, y2_s2_tuition, y2_s2_functional, y2_s3_tuition, y2_s3_functional,
                          y3_s1_tuition, y3_s1_functional, y3_s2_tuition, y3_s2_functional, y3_s3_tuition, y3_s3_functional,
+                         y4_s1_tuition, y4_s1_functional, y4_s2_tuition, y4_s2_functional, y4_s3_tuition, y4_s3_functional,
                          is_active, created_by)
                         VALUES
-                        (@prog, @hy1, @hy2, @hy3,
+                        (@prog, @hy1, @hy2, @hy3, @hy4,
                          @y1s1t, @y1s1f, @y1s2t, @y1s2f, @y1s3t, @y1s3f,
                          @y2s1t, @y2s1f, @y2s2t, @y2s2f, @y2s3t, @y2s3f,
                          @y3s1t, @y3s1f, @y3s2t, @y3s2f, @y3s3t, @y3s3f,
+                         @y4s1t, @y4s1f, @y4s2t, @y4s2f, @y4s3t, @y4s3f,
                          @active, @user)";
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
-                        AddPFParams(cmd, prog, hy1, hy2, hy3, activeVal,
+                        AddPFParams(cmd, prog, hy1, hy2, hy3, hy4, activeVal,
                             y1s1t, y1s1f, y1s2t, y1s2f, y1s3t, y1s3f,
                             y2s1t, y2s1f, y2s2t, y2s2f, y2s3t, y2s3f,
-                            y3s1t, y3s1f, y3s2t, y3s2f, y3s3t, y3s3f);
+                            y3s1t, y3s1f, y3s2t, y3s2f, y3s3t, y3s3f,
+                            y4s1t, y4s1f, y4s2t, y4s2f, y4s3t, y4s3f);
                         cmd.Parameters.AddWithValue("@user", GetCurrentUser());
                         cmd.ExecuteNonQuery();
                     }
@@ -607,22 +631,25 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                 {
                     // UPDATE
                     string sql = @"UPDATE fin_programme_fees SET
-                        progcode=@prog, has_year_1=@hy1, has_year_2=@hy2, has_year_3=@hy3,
+                        progcode=@prog, has_year_1=@hy1, has_year_2=@hy2, has_year_3=@hy3, has_year_4=@hy4,
                         y1_s1_tuition=@y1s1t, y1_s1_functional=@y1s1f, y1_s2_tuition=@y1s2t, y1_s2_functional=@y1s2f,
                         y1_s3_tuition=@y1s3t, y1_s3_functional=@y1s3f,
                         y2_s1_tuition=@y2s1t, y2_s1_functional=@y2s1f, y2_s2_tuition=@y2s2t, y2_s2_functional=@y2s2f,
                         y2_s3_tuition=@y2s3t, y2_s3_functional=@y2s3f,
                         y3_s1_tuition=@y3s1t, y3_s1_functional=@y3s1f, y3_s2_tuition=@y3s2t, y3_s2_functional=@y3s2f,
                         y3_s3_tuition=@y3s3t, y3_s3_functional=@y3s3f,
+                        y4_s1_tuition=@y4s1t, y4_s1_functional=@y4s1f, y4_s2_tuition=@y4s2t, y4_s2_functional=@y4s2f,
+                        y4_s3_tuition=@y4s3t, y4_s3_functional=@y4s3f,
                         is_active=@active
                         WHERE ID=@id";
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
-                        AddPFParams(cmd, prog, hy1, hy2, hy3, activeVal,
+                        AddPFParams(cmd, prog, hy1, hy2, hy3, hy4, activeVal,
                             y1s1t, y1s1f, y1s2t, y1s2f, y1s3t, y1s3f,
                             y2s1t, y2s1f, y2s2t, y2s2f, y2s3t, y2s3f,
-                            y3s1t, y3s1f, y3s2t, y3s2f, y3s3t, y3s3f);
+                            y3s1t, y3s1f, y3s2t, y3s2f, y3s3t, y3s3f,
+                            y4s1t, y4s1f, y4s2t, y4s2f, y4s3t, y4s3f);
                         cmd.Parameters.AddWithValue("@id", Convert.ToInt32(editId));
                         cmd.ExecuteNonQuery();
                     }
@@ -645,15 +672,17 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
     }
 
     private static void AddPFParams(MySqlCommand cmd, string prog,
-        string hy1, string hy2, string hy3, string active,
+        string hy1, string hy2, string hy3, string hy4, string active,
         double y1s1t, double y1s1f, double y1s2t, double y1s2f, double y1s3t, double y1s3f,
         double y2s1t, double y2s1f, double y2s2t, double y2s2f, double y2s3t, double y2s3f,
-        double y3s1t, double y3s1f, double y3s2t, double y3s2f, double y3s3t, double y3s3f)
+        double y3s1t, double y3s1f, double y3s2t, double y3s2f, double y3s3t, double y3s3f,
+        double y4s1t, double y4s1f, double y4s2t, double y4s2f, double y4s3t, double y4s3f)
     {
         cmd.Parameters.AddWithValue("@prog", prog);
         cmd.Parameters.AddWithValue("@hy1", hy1);
         cmd.Parameters.AddWithValue("@hy2", hy2);
         cmd.Parameters.AddWithValue("@hy3", hy3);
+        cmd.Parameters.AddWithValue("@hy4", hy4);
         cmd.Parameters.AddWithValue("@active", active);
         cmd.Parameters.AddWithValue("@y1s1t", y1s1t);
         cmd.Parameters.AddWithValue("@y1s1f", y1s1f);
@@ -673,6 +702,49 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
         cmd.Parameters.AddWithValue("@y3s2f", y3s2f);
         cmd.Parameters.AddWithValue("@y3s3t", y3s3t);
         cmd.Parameters.AddWithValue("@y3s3f", y3s3f);
+        cmd.Parameters.AddWithValue("@y4s1t", y4s1t);
+        cmd.Parameters.AddWithValue("@y4s1f", y4s1f);
+        cmd.Parameters.AddWithValue("@y4s2t", y4s2t);
+        cmd.Parameters.AddWithValue("@y4s2f", y4s2f);
+        cmd.Parameters.AddWithValue("@y4s3t", y4s3t);
+        cmd.Parameters.AddWithValue("@y4s3f", y4s3f);
+    }
+
+    // ================================================================
+    // DB MIGRATION — ensure year-4 columns exist
+    // ================================================================
+
+    private void EnsureYear4Columns()
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                // Check if already migrated
+                long exists = 0;
+                using (var chk = new MySqlCommand(
+                    "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='fin_programme_fees' AND COLUMN_NAME='has_year_4'", conn))
+                    exists = (long)chk.ExecuteScalar();
+                if (exists > 0) return;
+
+                // Add all year-4 columns in one ALTER
+                string alter = @"ALTER TABLE fin_programme_fees
+                    ADD COLUMN has_year_4     VARCHAR(3)     NOT NULL DEFAULT 'No'  AFTER has_year_3,
+                    ADD COLUMN y4_s1_tuition  DECIMAL(12,2)  NOT NULL DEFAULT 0     AFTER y3_s3_functional,
+                    ADD COLUMN y4_s1_functional DECIMAL(12,2) NOT NULL DEFAULT 0    AFTER y4_s1_tuition,
+                    ADD COLUMN y4_s2_tuition  DECIMAL(12,2)  NOT NULL DEFAULT 0     AFTER y4_s1_functional,
+                    ADD COLUMN y4_s2_functional DECIMAL(12,2) NOT NULL DEFAULT 0    AFTER y4_s2_tuition,
+                    ADD COLUMN y4_s3_tuition  DECIMAL(12,2)  NOT NULL DEFAULT 0     AFTER y4_s2_functional,
+                    ADD COLUMN y4_s3_functional DECIMAL(12,2) NOT NULL DEFAULT 0    AFTER y4_s3_tuition";
+                using (var cmd = new MySqlCommand(alter, conn))
+                    cmd.ExecuteNonQuery();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("EnsureYear4Columns: " + ex.Message);
+        }
     }
 
     // ================================================================
@@ -780,6 +852,7 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     chkYear1.Checked = rdr["has_year_1"].ToString() == "Yes";
                     chkYear2.Checked = rdr["has_year_2"].ToString() == "Yes";
                     chkYear3.Checked = rdr["has_year_3"].ToString() == "Yes";
+                    chkYear4.Checked = rdr["has_year_4"].ToString() == "Yes";
 
                     txtY1S1T.Text = ToDouble(rdr["y1_s1_tuition"]).ToString("0");
                     txtY1S1F.Text = ToDouble(rdr["y1_s1_functional"]).ToString("0");
@@ -801,6 +874,13 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
                     txtY3S2F.Text = ToDouble(rdr["y3_s2_functional"]).ToString("0");
                     txtY3S3T.Text = ToDouble(rdr["y3_s3_tuition"]).ToString("0");
                     txtY3S3F.Text = ToDouble(rdr["y3_s3_functional"]).ToString("0");
+
+                    txtY4S1T.Text = ToDouble(rdr["y4_s1_tuition"]).ToString("0");
+                    txtY4S1F.Text = ToDouble(rdr["y4_s1_functional"]).ToString("0");
+                    txtY4S2T.Text = ToDouble(rdr["y4_s2_tuition"]).ToString("0");
+                    txtY4S2F.Text = ToDouble(rdr["y4_s2_functional"]).ToString("0");
+                    txtY4S3T.Text = ToDouble(rdr["y4_s3_tuition"]).ToString("0");
+                    txtY4S3F.Text = ToDouble(rdr["y4_s3_functional"]).ToString("0");
                 }
             }
         }
@@ -826,10 +906,14 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
         txtY3S1T.Text = "0"; txtY3S1F.Text = "0";
         txtY3S2T.Text = "0"; txtY3S2F.Text = "0";
         txtY3S3T.Text = "0"; txtY3S3F.Text = "0";
+        txtY4S1T.Text = "0"; txtY4S1F.Text = "0";
+        txtY4S2T.Text = "0"; txtY4S2F.Text = "0";
+        txtY4S3T.Text = "0"; txtY4S3F.Text = "0";
 
         chkYear1.Checked = true;
         chkYear2.Checked = false;
         chkYear3.Checked = false;
+        chkYear4.Checked = false;
         ddlPFActive.SelectedValue = "No";
 
         ScriptManager.RegisterStartupScript(this, GetType(), "openAddPF",
