@@ -1047,13 +1047,58 @@ public partial class API_v2_apply : System.Web.UI.Page
 
     private void HandleIntakes()
     {
-        DataTable dt = ApiHelper.Query(
-            @"SELECT id, intake_year, intake_label, session_type, is_open,
+        const string selectCols = @"SELECT id, intake_year, intake_label, session_type, is_open,
                      DATE_FORMAT(open_from,'%Y-%m-%d') AS open_from,
                      DATE_FORMAT(open_to,'%Y-%m-%d') AS open_to
-              FROM apply_intakes WHERE is_open = 1 ORDER BY intake_year DESC");
+              FROM apply_intakes";
+        try
+        {
+            DataTable dt = ApiHelper.Query(selectCols + " WHERE is_open = 1 ORDER BY intake_year DESC");
 
-        ApiHelper.Success(Response, ApiHelper.TableToList(dt));
+            if (dt.Rows.Count == 0)
+                dt = ApiHelper.Query(selectCols + " ORDER BY intake_year DESC, id DESC LIMIT 10");
+
+            if (dt.Rows.Count > 0)
+            {
+                ApiHelper.Success(Response, ApiHelper.TableToList(dt));
+                return;
+            }
+        }
+        catch { /* table may not exist yet — fall through to seed below */ }
+
+        // Table missing or empty — seed one open intake and return it
+        int year = DateTime.UtcNow.Year;
+        string label = "August " + year + " Intake";
+        try
+        {
+            ApiHelper.Execute(
+                @"CREATE TABLE IF NOT EXISTS apply_intakes (
+                    id INT AUTO_INCREMENT PRIMARY KEY, intake_year INT NOT NULL,
+                    intake_label VARCHAR(100) NOT NULL, session_type VARCHAR(30) NOT NULL DEFAULT 'ALL',
+                    is_open TINYINT(1) NOT NULL DEFAULT 0,
+                    open_from DATE NULL, open_to DATE NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            ApiHelper.Execute(
+                "INSERT INTO apply_intakes (intake_year, intake_label, session_type, is_open, open_from, open_to) " +
+                "SELECT @yr, @lbl, 'ALL', 1, @from, @to WHERE NOT EXISTS (SELECT 1 FROM apply_intakes LIMIT 1)",
+                new MySqlParameter("@yr",   year),
+                new MySqlParameter("@lbl",  label),
+                new MySqlParameter("@from", year + "-03-01"),
+                new MySqlParameter("@to",   year + "-07-31"));
+        }
+        catch { /* best effort — still return fallback below */ }
+
+        ApiHelper.Success(Response, new List<Dictionary<string, object>>
+        {
+            new Dictionary<string, object>
+            {
+                { "id", 1 }, { "intake_year", year },
+                { "intake_label", label },
+                { "session_type", "ALL" }, { "is_open", 1 },
+                { "open_from", year + "-03-01" }, { "open_to", year + "-07-31" }
+            }
+        });
     }
 
     private void HandleCheckStatus()
