@@ -813,7 +813,16 @@ public partial class API_v2_apply : System.Web.UI.Page
             "SELECT id, doc_type, original_filename, file_size_bytes, DATE_FORMAT(uploaded_at,'%Y-%m-%d %H:%i') AS uploaded_at FROM apply_documents WHERE stud_entry_no=@eno ORDER BY uploaded_at",
             new MySqlParameter("@eno", entryNo));
 
-        ApiHelper.Success(Response, ApiHelper.TableToList(dt));
+        string baseUrl  = Request.Url.GetLeftPart(UriPartial.Path);
+        string rawToken = Request["token"] ?? "";
+        var docs = ApiHelper.TableToList(dt);
+        foreach (var doc in docs)
+        {
+            object idObj;
+            if (doc.TryGetValue("id", out idObj))
+                doc["url"] = baseUrl + "?action=get_document&id=" + idObj + "&token=" + Uri.EscapeDataString(rawToken);
+        }
+        ApiHelper.Success(Response, docs);
     }
 
     private void HandleUploadDocument()
@@ -902,12 +911,19 @@ public partial class API_v2_apply : System.Web.UI.Page
             new MySqlParameter("@sz",  file.ContentLength),
             new MySqlParameter("@now", DateTime.UtcNow));
 
+        string baseUrl  = Request.Url.GetLeftPart(UriPartial.Path);
+        string rawToken = Request["token"] ?? "";
+        string docUrl   = baseUrl + "?action=get_document&id=" + newId + "&token=" + Uri.EscapeDataString(rawToken);
+
         ApiHelper.Success(Response, new Dictionary<string, object>
         {
             { "id",                newId },
             { "doc_type",          docType },
             { "original_filename", Path.GetFileName(file.FileName) },
-            { "file_size_bytes",   file.ContentLength }
+            { "file_size_bytes",   file.ContentLength },
+            { "file_size_kb",      Math.Round(file.ContentLength / 1024.0, 1) },
+            { "url",               docUrl },
+            { "uploaded_at",       DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") }
         }, "Document uploaded.");
     }
 
