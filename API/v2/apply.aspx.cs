@@ -383,7 +383,7 @@ public partial class API_v2_apply : System.Web.UI.Page
         if (dt.Rows.Count == 0) { ApiHelper.Error(Response, "Profile not found.", "NOT_FOUND"); return; }
 
         var profile = ApiHelper.FirstRowToDict(dt);
-        bool isVerified = !string.IsNullOrEmpty(profile["verified_email"]?.ToString());
+        bool isVerified = !string.IsNullOrEmpty(profile["verified_email"] == null ? null : profile["verified_email"].ToString());
         profile["is_verified"] = isVerified;
 
         // Application summary
@@ -489,7 +489,7 @@ public partial class API_v2_apply : System.Web.UI.Page
         var draft = ApiHelper.FirstRowToDict(dt);
 
         // Attach documents list
-        string entryNo = draft["stud_entry_no"]?.ToString();
+        string entryNo = draft["stud_entry_no"] == null ? null : draft["stud_entry_no"].ToString();
         if (!string.IsNullOrEmpty(entryNo))
         {
             DataTable docs = ApiHelper.Query(
@@ -769,7 +769,7 @@ public partial class API_v2_apply : System.Web.UI.Page
         app["unread_notifications"] = unread;
 
         // Document count
-        string entryNo = app["stud_entry_no"]?.ToString();
+        string entryNo = app["stud_entry_no"] == null ? null : app["stud_entry_no"].ToString();
         if (!string.IsNullOrEmpty(entryNo))
         {
             int docCount = Convert.ToInt32(ApiHelper.Scalar(
@@ -1338,8 +1338,8 @@ public partial class API_v2_apply : System.Web.UI.Page
         byte[] saltBytes     = Convert.FromBase64String(base64Salt);
         byte[] passwordBytes = Encoding.Unicode.GetBytes(password);
         byte[] combined      = new byte[saltBytes.Length + passwordBytes.Length];
-        Buffer.BlockCopy(saltBytes,     0, combined, 0,               saltBytes.Length);
-        Buffer.BlockCopy(passwordBytes, 0, combined, saltBytes.Length, passwordBytes.Length);
+        System.Buffer.BlockCopy(saltBytes,     0, combined, 0,               saltBytes.Length);
+        System.Buffer.BlockCopy(passwordBytes, 0, combined, saltBytes.Length, passwordBytes.Length);
         using (var hmac = new HMACSHA256(saltBytes))
             return Convert.ToBase64String(hmac.ComputeHash(combined));
     }
