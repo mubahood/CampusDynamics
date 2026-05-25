@@ -139,7 +139,9 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                               AND COALESCE(provisional_marks_status,'pending') = 'pending'            THEN 1 ELSE 0 END) AS cnt_pending,
                 SUM(CASE WHEN provisional_marks_status = 'approved'  THEN 1 ELSE 0 END)               AS cnt_approved,
                 SUM(CASE WHEN provisional_marks_status = 'rejected'  THEN 1 ELSE 0 END)               AS cnt_rejected,
-                SUM(CASE WHEN provisional_marks_status = 'published' THEN 1 ELSE 0 END)               AS cnt_published
+                SUM(CASE WHEN provisional_marks_status = 'published' THEN 1 ELSE 0 END)               AS cnt_published,
+                SUM(CASE WHEN provisional_course_work_marks IS NOT NULL AND provisional_exam_marks IS NOT NULL
+                              AND COALESCE(provisional_marks_status,'pending') NOT IN ('published','rejected') THEN 1 ELSE 0 END) AS cnt_ready
             FROM campus_dynamics_portal.acad_course_registration";
 
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
@@ -153,6 +155,7 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                 litApproved.Text   = (rdr.IsDBNull(3) ? 0 : Convert.ToInt32(rdr[3])).ToString();
                 litRejected.Text   = (rdr.IsDBNull(4) ? 0 : Convert.ToInt32(rdr[4])).ToString();
                 litPublished.Text  = (rdr.IsDBNull(5) ? 0 : Convert.ToInt32(rdr[5])).ToString();
+                litReady.Text      = (rdr.IsDBNull(6) ? 0 : Convert.ToInt32(rdr[6])).ToString();
             }
         }
     }
@@ -176,9 +179,12 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
         string prog = ddlProg.SelectedValue;
         string lect = ddlLecturer.SelectedValue;
         string search = txtSearch.Text.Trim();
+        bool onlyReady = (Request.QueryString["ready"] ?? "") == "1";
         string courseCol = GetCourseColumnExpression(conn, "cr");
 
         var where = new StringBuilder("WHERE (cr.provisional_course_work_marks IS NOT NULL OR cr.provisional_exam_marks IS NOT NULL) AND COALESCE(cr.provisional_marks_status,'pending') = 'pending'");
+        if (onlyReady)
+            where.Append(" AND cr.provisional_course_work_marks IS NOT NULL AND cr.provisional_exam_marks IS NOT NULL");
 
         if (!string.IsNullOrEmpty(year)) where.Append(" AND cr.acad_year = @year");
         if (!string.IsNullOrEmpty(sem)) where.Append(" AND cr.semester = @sem");
@@ -279,7 +285,15 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                         case StatusNotEntered: pillCss = "pm-pill--not_entered"; rowCss = ""; break;
                     }
 
-                    Func<string, string> markCell = v => v != null ? "<span class='pm-mark'>" + HtmlEnc(v) + "</span>" : "<span class='pm-mark pm-mark--na'>&mdash;</span>";
+                    bool isIncomplete = (cwMarks == null || exMarks == null);
+                    if (isIncomplete && provStatus == StatusPending)
+                        rowCss = "row--incomplete";
+
+                    Func<string, string> markCell;
+                    if (isIncomplete && provStatus == StatusPending)
+                        markCell = v => v != null ? "<span class='pm-mark'>" + HtmlEnc(v) + "</span>" : "<span class='pm-mark pm-mark--missing' title='Both CW and Exam required to publish'>&#9888;</span>";
+                    else
+                        markCell = v => v != null ? "<span class='pm-mark'>" + HtmlEnc(v) + "</span>" : "<span class='pm-mark pm-mark--na'>&mdash;</span>";
 
                     sb.AppendFormat("<tr class='{0}'>", rowCss);
                     sb.AppendFormat("<td class='col-sel pm-center'><input type='checkbox' class='pm-row-chk pm-row-sel' value='{0}' title='Select for batch action' /></td>", id);
@@ -295,6 +309,9 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                     sb.AppendFormat("<td class='col-pub pm-center'><span class='pm-mark'>{0}</span></td>", HtmlEnc(pubMark));
                     sb.AppendFormat("<td class='col-grade pm-center'><span class='pm-mark'>{0}</span></td>", HtmlEnc(pubGrade));
                     sb.AppendFormat("<td class='col-status pm-center'><span class='pm-pill {0}'>{1}</span></td>", pillCss, HtmlEnc(provStatus.Replace("_", " ")));
+                                        string publishBtn = isIncomplete
+                                            ? "<button type='button' class='pm-row-menu__item act--publish pm-row-menu__item--disabled' disabled title='Both CW and Exam marks required to publish'>&#8679; Publish</button>"
+                                            : string.Format("<button type='button' class='pm-row-menu__item act--publish' onclick='closeMenuThen(this,function(){{openPublish({0});}})'>&#8679; Publish</button>", id);
                                         sb.AppendFormat(@"<td class='col-act pm-center'>
   <div class='pm-row-wrap'>
     <button type='button' class='pm-row-trigger' onclick='toggleRowMenu(this)' title='Actions' aria-label='Open row actions'>&#8942;</button>
@@ -303,11 +320,11 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
       <button type='button' class='pm-row-menu__item act--approve' onclick='closeMenuThen(this,function(){{openDetails({0});}})'>&#9432; View Details</button>
       <button type='button' class='pm-row-menu__item act--approve' onclick='closeMenuThen(this,function(){{openReview({0});}})'>&#10003; Review</button>
       <div class='pm-row-menu__sep'></div>
-      <button type='button' class='pm-row-menu__item act--publish' onclick='closeMenuThen(this,function(){{openPublish({0});}})'>&#8679; Publish</button>
+      {1}
       <button type='button' class='pm-row-menu__item act--reset' onclick='closeMenuThen(this,function(){{resetToPending({0});}})'>&#8635; Reset</button>
     </div>
   </div>
-</td></tr>", id);
+</td></tr>", id, publishBtn);
                 }
             }
         }
@@ -324,7 +341,7 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
         litTotal2.Text = total.ToString();
         litPage.Text = page.ToString();
         litPageCount.Text = pageCount.ToString();
-        string pagerHtml = BuildPager(page, pageCount, year, sem, prog, StatusPending, lect, search, pageSize.ToString());
+        string pagerHtml = BuildPager(page, pageCount, year, sem, prog, StatusPending, lect, search, pageSize.ToString(), onlyReady);
         litPager.Text = pagerHtml;
         litPager2.Text = pagerHtml;
     }
@@ -340,14 +357,14 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
         if (!string.IsNullOrEmpty(search)) cmd.Parameters.AddWithValue("@q",      "%" + search + "%");
     }
 
-    private static string BuildPager(int page, int pageCount, string year, string sem, string prog, string status, string lect, string q, string ps)
+    private static string BuildPager(int page, int pageCount, string year, string sem, string prog, string status, string lect, string q, string ps, bool onlyReady = false)
     {
         var sb = new StringBuilder();
         int startP = Math.Max(1, page - 3);
         int endP   = Math.Min(pageCount, page + 3);
 
         Func<int,string> url = p =>
-            string.Format("?pg={0}&year={1}&sem={2}&prog={3}&status={4}&lect={5}&ps={6}&q={7}",
+            string.Format("?pg={0}&year={1}&sem={2}&prog={3}&status={4}&lect={5}&ps={6}&q={7}{8}",
                 p,
                 Uri.EscapeDataString(year),
                 Uri.EscapeDataString(sem),
@@ -355,7 +372,8 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                 Uri.EscapeDataString(status),
                 Uri.EscapeDataString(lect),
                 Uri.EscapeDataString(ps),
-                Uri.EscapeDataString(q));
+                Uri.EscapeDataString(q),
+                onlyReady ? "&ready=1" : "");
 
         if (page > 1) sb.AppendFormat("<a href='{0}'>&laquo;</a>", url(page - 1));
         for (int i = startP; i <= endP; i++)
