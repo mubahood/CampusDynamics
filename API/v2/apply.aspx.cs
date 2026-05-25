@@ -823,10 +823,34 @@ public partial class API_v2_apply : System.Web.UI.Page
         string docType = ApiHelper.RequireParam(Request, Response, "doc_type"); if (docType == null) return;
         docType = docType.Trim().ToUpper();
 
-        string[] validTypes = { "PHOTO", "OLEVEL", "ALEVEL", "NATID", "OTHER" };
+        // Normalise common aliases from mobile clients
+        var docTypeAliases = new System.Collections.Generic.Dictionary<string, string>
+        {
+            { "PASSPORT_PHOTO",   "PHOTO" },
+            { "PROFILE_PHOTO",    "PHOTO" },
+            { "PROFILE_PIC",      "PHOTO" },
+            { "PICTURE",          "PHOTO" },
+            { "O_LEVEL",          "OLEVEL" },
+            { "O-LEVEL",          "OLEVEL" },
+            { "OLEVELS",          "OLEVEL" },
+            { "A_LEVEL",          "ALEVEL" },
+            { "A-LEVEL",          "ALEVEL" },
+            { "ALEVELS",          "ALEVEL" },
+            { "NATIONAL_ID",      "NATID" },
+            { "NATIONAL_IDCARD",  "NATID" },
+            { "NIN",              "NATID" },
+            { "ID_CARD",          "NATID" },
+        };
+        if (docTypeAliases.ContainsKey(docType)) docType = docTypeAliases[docType];
+
+        string[] validTypes = {
+            "PHOTO", "OLEVEL", "ALEVEL", "NATID",
+            "PASSPORT", "TRANSCRIPT", "BIRTH_CERTIFICATE",
+            "RECOMMENDATION", "MEDICAL", "OTHER"
+        };
         bool validDocType = false;
         foreach (string vt in validTypes) if (vt == docType) { validDocType = true; break; }
-        if (!validDocType) { ApiHelper.Error(Response, "doc_type must be one of: PHOTO, OLEVEL, ALEVEL, NATID, OTHER.", "VALIDATION_ERROR"); return; }
+        if (!validDocType) { ApiHelper.Error(Response, "doc_type must be one of: PHOTO, OLEVEL, ALEVEL, NATID, PASSPORT, TRANSCRIPT, BIRTH_CERTIFICATE, RECOMMENDATION, MEDICAL, OTHER.", "VALIDATION_ERROR"); return; }
 
         if (Request.Files.Count == 0) { ApiHelper.Error(Response, "No file uploaded. Send as multipart/form-data with field 'file'.", "MISSING_FILE"); return; }
 
