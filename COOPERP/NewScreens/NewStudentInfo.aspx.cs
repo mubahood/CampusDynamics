@@ -1655,13 +1655,42 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// </summary>
     private DataTable GetSummaryReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers)
     {
+        // The report stays sourced from published results (acad_results), but is ENRICHED with
+        // the new marks-submission system fields (Course Work / Exam / Total + submission status)
+        // from campus_dynamics_portal.acad_course_registration. If that cross-database join is
+        // unavailable, we transparently fall back to the plain published-results query so the
+        // report never fails.
+        Exception lastEx = null;
+        foreach (bool includeProvisional in new[] { true, false })
+        {
+            try { return BuildSummaryReportTable(programme, entryYear, studyYear, semester, entryNumbers, includeProvisional); }
+            catch (Exception ex) { lastEx = ex; }
+        }
+        throw lastEx;
+    }
+
+    private DataTable BuildSummaryReportTable(string programme, string entryYear, string studyYear, string semester, string entryNumbers, bool includeProvisional)
+    {
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
-            
-            // Query to get student details and their results with specialization
-            string sql = @"SELECT 
-                            s.regno, 
+
+            // New marks-submission system fields (from the portal provisional ledger).
+            string provSelect = includeProvisional
+                ? @", cr2.provisional_course_work_marks AS cw_marks,
+                      cr2.provisional_exam_marks        AS exam_marks,
+                      cr2.provisional_total_marks       AS prov_total,
+                      cr2.provisional_marks_status      AS sub_status "
+                : "";
+            string provJoin = includeProvisional
+                ? @" LEFT JOIN campus_dynamics_portal.acad_course_registration cr2
+                       ON cr2.regno = r.regno AND cr2.courseID = r.courseid
+                      AND cr2.acad_year = r.acad AND cr2.semester = r.semester "
+                : "";
+
+            // Query to get student details and their published results with specialization
+            string sql = @"SELECT
+                            s.regno,
                             s.entryno,
                             CONCAT(COALESCE(s.firstname, ''), ' ', COALESCE(s.othername, '')) AS student_name,
                             s.firstname,
@@ -1680,17 +1709,17 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             r.grade,
                             r.gradept,
                             r.CreditUnits,
-                            r.gpa
+                            r.gpa" + provSelect + @"
                            FROM acad_student s
                            INNER JOIN acad_results r ON s.regno = r.regno
                            LEFT JOIN acad_programme p ON s.progid = p.progcode
                            LEFT JOIN acad_course c ON r.courseid = c.courseID
-                           LEFT JOIN acad_specialisation sp ON s.specialisation = sp.spec_id
+                           LEFT JOIN acad_specialisation sp ON s.specialisation = sp.spec_id" + provJoin + @"
                            WHERE 1=1";
-            
+
             List<string> entryParams = new List<string>();
             string[] entries = null;
-            
+
             // If entry numbers specified, use them
             if (!string.IsNullOrEmpty(entryNumbers))
             {
@@ -1702,7 +1731,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     sql += " AND s.entryno IN (" + string.Join(",", entryParams) + ")";
                 }
             }
-            
+
             // Always filter by programme, entry year, study year, and semester
             if (!string.IsNullOrEmpty(programme))
                 sql += " AND s.progid = @programme";
@@ -1712,9 +1741,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 sql += " AND r.studyyear = @studyYear";
             if (!string.IsNullOrEmpty(semester))
                 sql += " AND r.semester = @semester";
-            
+
             sql += " ORDER BY s.entryno, r.semester, r.courseid";
-            
+
             DataTable dt = new DataTable();
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
@@ -1723,7 +1752,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     for (int i = 0; i < entries.Length; i++)
                         cmd.Parameters.AddWithValue("@entry" + i, entries[i].Trim());
                 }
-                
+
                 if (!string.IsNullOrEmpty(programme))
                     cmd.Parameters.AddWithValue("@programme", programme);
                 if (!string.IsNullOrEmpty(entryYear))
@@ -1732,14 +1761,30 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     cmd.Parameters.AddWithValue("@studyYear", studyYear);
                 if (!string.IsNullOrEmpty(semester))
                     cmd.Parameters.AddWithValue("@semester", semester);
-                
+
                 using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
                 {
                     da.Fill(dt);
                 }
             }
-            
+
             return dt;
+        }
+    }
+
+    /// <summary>
+    /// Maps a new-system submission status to a soft cell-tint colour for the results grid.
+    /// Returns the supplied fallback when there is no provisional record.
+    /// </summary>
+    private System.Drawing.Color GetSubmissionTint(string status, System.Drawing.Color fallback)
+    {
+        switch ((status ?? "").Trim().ToLowerInvariant())
+        {
+            case "published": return System.Drawing.Color.FromArgb(223, 246, 230); // soft green
+            case "approved":  return System.Drawing.Color.FromArgb(224, 239, 255); // soft blue
+            case "pending":   return System.Drawing.Color.FromArgb(255, 247, 214); // soft amber
+            case "rejected":  return System.Drawing.Color.FromArgb(252, 226, 226); // soft red
+            default:          return fallback;
         }
     }
     
@@ -1989,7 +2034,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 return raw;
             })
             .ToList();
-        
+
+        // Whether the new marks-submission fields (CW/Exam/status) were successfully joined in.
+        bool hasProvisional = data.Columns.Contains("sub_status");
+
         using (DevExpress.XtraPrinting.PrintingSystem ps = new DevExpress.XtraPrinting.PrintingSystem())
         {
             DevExpress.XtraPrinting.Link link = new DevExpress.XtraPrinting.Link(ps);
@@ -2060,7 +2108,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 
                 // Report Title - centered
                 DevExpress.XtraPrinting.TextBrick reportTitleBrick = new DevExpress.XtraPrinting.TextBrick();
-                reportTitleBrick.Text = "STUDENT RESULTS SUMMARY REPORT";
+                reportTitleBrick.Text = "STUDENT RESULTS & MARKS SUBMISSION SUMMARY";
                 reportTitleBrick.Font = reportTitleFont;
                 reportTitleBrick.ForeColor = darkGray;
                 reportTitleBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
@@ -2383,8 +2431,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     
                     y += headerHeight;
                     
-                    // Student Data Rows - increased height for grade+score
-                    float rowHeight = 22;
+                    // Student Data Rows - taller to fit Grade(Score) on line 1 and CW·Exam on line 2
+                    float rowHeight = hasProvisional ? 30 : 22;
                     int sn = 0;
                     foreach (var student in students)
                     {
@@ -2438,33 +2486,47 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             
                             string displayText = "-";
                             System.Drawing.Color gradeColor = System.Drawing.Color.LightGray;
-                            
+                            System.Drawing.Color cellBg = rowBg;
+
                             if (result != null && result["grade"] != DBNull.Value)
                             {
                                 string grade = result["grade"].ToString();
                                 string score = result["score"] != DBNull.Value ? result["score"].ToString() : "";
-                                
-                                // Display as "C (60)" format
+
+                                // Line 1: published "Grade (Score)" e.g. "C (60)"
                                 if (!string.IsNullOrEmpty(score))
                                     displayText = grade + " (" + score + ")";
                                 else
                                     displayText = grade;
-                                
+
+                                // Line 2: new-system Course Work · Exam breakdown (when available)
+                                if (hasProvisional)
+                                {
+                                    string cw = result.Table.Columns.Contains("cw_marks") && result["cw_marks"] != DBNull.Value ? result["cw_marks"].ToString() : "";
+                                    string ex = result.Table.Columns.Contains("exam_marks") && result["exam_marks"] != DBNull.Value ? result["exam_marks"].ToString() : "";
+                                    if (!string.IsNullOrEmpty(cw) || !string.IsNullOrEmpty(ex))
+                                        displayText += "\r\n" + (string.IsNullOrEmpty(cw) ? "–" : cw) + "·" + (string.IsNullOrEmpty(ex) ? "–" : ex);
+
+                                    // Tint cell background by marks-submission status
+                                    string subStatus = result["sub_status"] != DBNull.Value ? result["sub_status"].ToString() : "";
+                                    cellBg = GetSubmissionTint(subStatus, rowBg);
+                                }
+
                                 gradeColor = (grade == "F") ? System.Drawing.Color.FromArgb(192, 57, 43) : System.Drawing.Color.Black;
-                                
+
                                 // Count results for status
                                 studentResultCount++;
                                 if (grade != "F") studentPassedCount++;
                             }
-                            
+
                             DevExpress.XtraPrinting.TextBrick gradeCell = new DevExpress.XtraPrinting.TextBrick();
                             gradeCell.Text = displayText;
                             gradeCell.Font = cellFont;
                             gradeCell.ForeColor = gradeColor;
-                            gradeCell.BackColor = rowBg;
+                            gradeCell.BackColor = cellBg;
                             gradeCell.BorderColor = borderColor;
                             gradeCell.Sides = DevExpress.XtraPrinting.BorderSide.All;
-                            gradeCell.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 6, 6);
+                            gradeCell.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 4, 4);
                             gradeCell.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
                             gr.DrawBrick(gradeCell, new System.Drawing.RectangleF(x, y, courseColWidth, rowHeight));
                             x += courseColWidth;
@@ -2529,7 +2591,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 int totalSpecializations = specializationGroups.Count;
                 
                 // Summary box background
-                float summaryBoxHeight = 85;
+                float summaryBoxHeight = hasProvisional ? 108 : 85;
                 DevExpress.XtraPrinting.TextBrick summaryBgBrick = new DevExpress.XtraPrinting.TextBrick();
                 summaryBgBrick.Text = "";
                 summaryBgBrick.BackColor = System.Drawing.Color.FromArgb(248, 249, 250);
@@ -2757,7 +2819,52 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 noCurricDesc.Sides = DevExpress.XtraPrinting.BorderSide.None;
                 noCurricDesc.BackColor = System.Drawing.Color.Transparent;
                 gr.DrawBrick(noCurricDesc, new System.Drawing.RectangleF(sumCol3X + 85, summaryY, 80, 12));
-                
+
+                // ===== Marks-submission legend (only when enriched from the new system) =====
+                if (hasProvisional)
+                {
+                    summaryY += 18;
+
+                    DevExpress.XtraPrinting.TextBrick subLegendTitle = new DevExpress.XtraPrinting.TextBrick();
+                    subLegendTitle.Text = "Marks Submission:";
+                    subLegendTitle.Font = filterLabelFont;
+                    subLegendTitle.ForeColor = darkGray;
+                    subLegendTitle.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                    subLegendTitle.BackColor = System.Drawing.Color.Transparent;
+                    gr.DrawBrick(subLegendTitle, new System.Drawing.RectangleF(sumCol1X, summaryY, 90, 12));
+
+                    DevExpress.XtraPrinting.TextBrick lineNote = new DevExpress.XtraPrinting.TextBrick();
+                    lineNote.Text = "Cell line 2 = CourseWork·Exam";
+                    lineNote.Font = smallFont;
+                    lineNote.ForeColor = lightGray;
+                    lineNote.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                    lineNote.BackColor = System.Drawing.Color.Transparent;
+                    gr.DrawBrick(lineNote, new System.Drawing.RectangleF(sumCol1X + 85, summaryY, 150, 12));
+
+                    string[] subLabels = { "Published", "Approved", "Pending", "Rejected" };
+                    float sx = sumCol2X + 30;
+                    foreach (string lbl in subLabels)
+                    {
+                        DevExpress.XtraPrinting.TextBrick swatch = new DevExpress.XtraPrinting.TextBrick();
+                        swatch.Text = "";
+                        swatch.BackColor = GetSubmissionTint(lbl, System.Drawing.Color.White);
+                        swatch.BorderColor = borderColor;
+                        swatch.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                        swatch.BorderWidth = 1;
+                        gr.DrawBrick(swatch, new System.Drawing.RectangleF(sx, summaryY, 12, 11));
+
+                        DevExpress.XtraPrinting.TextBrick swatchLbl = new DevExpress.XtraPrinting.TextBrick();
+                        swatchLbl.Text = lbl;
+                        swatchLbl.Font = smallFont;
+                        swatchLbl.ForeColor = lightGray;
+                        swatchLbl.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                        swatchLbl.BackColor = System.Drawing.Color.Transparent;
+                        gr.DrawBrick(swatchLbl, new System.Drawing.RectangleF(sx + 15, summaryY, 55, 12));
+
+                        sx += 78;
+                    }
+                }
+
                 y += summaryBoxHeight + 8;
                 
                 // ========== COURSE PERFORMANCE ANALYSIS TABLE ==========
@@ -5512,6 +5619,18 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             if (regnos.Count == 0)
             {
                 WriteHtmlErrorAndComplete("Select at least one student before generating academic documents. You can pass regno=... for a single student or regnos=REG1,REG2 for batch generation.");
+                return;
+            }
+
+            // Print-optimized HTML transcript (adaptive layout engine) instead of the fixed PDF.
+            if (documentType.Equals("TranscriptHTML", StringComparison.OrdinalIgnoreCase)
+                || documentType.Equals("HTML", StringComparison.OrdinalIgnoreCase)
+                || documentType.Equals("PrintTranscript", StringComparison.OrdinalIgnoreCase))
+            {
+                string url = ResolveUrl("~/COOPERP/NewScreens/TranscriptPrint.aspx?reg="
+                    + Server.UrlEncode(regnos[0]) + "&autoprint=1");
+                Response.Redirect(url, false);
+                Context.ApplicationInstance.CompleteRequest();
                 return;
             }
 

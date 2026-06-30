@@ -2572,7 +2572,8 @@
                 <div class="cd-form-group">
                     <label class="cd-form-label">Document Type</label>
                     <select id="ddlAcademicDocumentType" class="cd-form-input">
-                        <option value="Transcript">Transcript</option>
+                        <option value="Transcript">Transcript (PDF)</option>
+                        <option value="TranscriptHTML">Transcript (Print / Save as PDF)</option>
                         <option value="Certificate">Certificate</option>
                     </select>
                 </div>
