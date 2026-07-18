@@ -232,4 +232,52 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         try { TimetableService.Exec("DELETE FROM acad_timetable_item WHERE item_id=@id", P("@id", itemId)); return new { ok = true }; }
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
+
+    // ── Legacy import (acad_timetable -> acad_timetable_item), dry-run + run ──
+    // Dedupe to a single anchor per legacy row (acad_programmecourses has duplicate
+    // (progcode, course_code, study_year, semester) rows from the course-dup history)
+    // so a legacy timetable row is imported exactly once.
+    private const string ImportJoins =
+        "FROM acad_timetable t " +
+        "JOIN acad_programmecourses pc ON pc.ID=(SELECT MIN(pc2.ID) FROM acad_programmecourses pc2 WHERE TRIM(pc2.progcode)=TRIM(t.programme_code) AND TRIM(pc2.course_code)=TRIM(t.course_code) AND pc2.study_year=t.study_year AND pc2.semester=t.semester) " +
+        "JOIN acad_timetable_weekdays w ON UPPER(TRIM(w.DayName))=UPPER(TRIM(t.day_of_week)) " +
+        "LEFT JOIN acad_lecturerooms rr ON t.room REGEXP '^[0-9]+$' AND rr.RoomID=CAST(t.room AS UNSIGNED) ";
+
+    [WebMethod]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static object ImportPreview(string acadYear)
+    {
+        TimetableService.EnsureSchema();
+        try
+        {
+            object matched = TimetableService.Scalar("SELECT COUNT(*) " + ImportJoins + "WHERE t.acad_year=@ay", P("@ay", acadYear));
+            object already = TimetableService.Scalar("SELECT COUNT(*) " + ImportJoins +
+                "WHERE t.acad_year=@ay AND EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.acad_year=t.acad_year AND it.day_no=w.DayNo AND it.start_time=CAST(t.start_time AS TIME))", P("@ay", acadYear));
+            object unmatched = TimetableService.Scalar(
+                "SELECT COUNT(*) FROM acad_timetable t WHERE t.acad_year=@ay AND NOT EXISTS (SELECT 1 FROM acad_programmecourses pc WHERE TRIM(pc.progcode)=TRIM(t.programme_code) AND TRIM(pc.course_code)=TRIM(t.course_code) AND pc.study_year=t.study_year AND pc.semester=t.semester)", P("@ay", acadYear));
+            return new { ok = true, matched = Convert.ToInt32(matched), already = Convert.ToInt32(already), unmatched = Convert.ToInt32(unmatched) };
+        }
+        catch (Exception ex) { return new { ok = false, message = ex.Message }; }
+    }
+
+    [WebMethod]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static object ImportRun(string acadYear)
+    {
+        TimetableService.EnsureSchema();
+        try
+        {
+            int n = TimetableService.Exec(
+                "INSERT INTO acad_timetable_item (programmecourse_id, acad_year, progcode, course_code, study_year, semester, day_no, start_time, duration_min, end_time, teacher_id, campus_id, room_id, room_label, session_type, delivery_mode, status, created_by, created_at) " +
+                "SELECT pc.ID, t.acad_year, pc.progcode, TRIM(pc.course_code), pc.study_year, pc.semester, w.DayNo, CAST(t.start_time AS TIME), " +
+                "GREATEST(30, TIME_TO_SEC(TIMEDIFF(CAST(t.end_time AS TIME), CAST(t.start_time AS TIME)))/60), CAST(t.end_time AS TIME), " +
+                "NULLIF(t.lecturer_id,0), IFNULL(t.campusId,0), rr.RoomID, IFNULL(t.building,''), 'LECTURE', 'PHYSICAL', 'ACTIVE', 'legacy_import', NOW() " +
+                ImportJoins +
+                "WHERE t.acad_year=@ay AND CAST(t.end_time AS TIME) > CAST(t.start_time AS TIME) " +
+                "AND NOT EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.acad_year=t.acad_year AND it.day_no=w.DayNo AND it.start_time=CAST(t.start_time AS TIME))",
+                P("@ay", acadYear));
+            return new { ok = true, imported = n };
+        }
+        catch (Exception ex) { return new { ok = false, message = ex.Message }; }
+    }
 }

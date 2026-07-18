@@ -67,6 +67,8 @@
       <label class="tt-chk"><input type="checkbox" id="fUn" onchange="TM.load(1)" /> Only unscheduled</label>
       <a class="tt-btn tt-btn--sm" href="RoomsBuildings.aspx">Rooms &amp; buildings</a>
       <a class="tt-btn tt-btn--sm" href="TimetableCalendar.aspx">Calendar</a>
+      <a class="tt-btn tt-btn--sm" href="TimetableExport.aspx">Export</a>
+      <button type="button" class="tt-btn tt-btn--sm" onclick="TM.importLegacy()">Import legacy</button>
     </div>
     <div class="tt-tblwrap"><table class="tt-tbl"><thead><tr><th>Course</th><th>Programme</th><th>Yr/Sem</th><th>Lecturer</th><th>Sessions</th><th style="text-align:right;">Actions</th></tr></thead><tbody id="pcBody"><tr><td colspan="6" class="tt-empty">Loading&hellip;</td></tr></tbody></table></div>
     <div class="tt-pager" id="pcPager"></div>
@@ -247,11 +249,23 @@ var TM = (function(){
   function itemDel(id){ if(!confirm('Delete this session?')) return; api('DeleteItem',{itemId:id}).then(function(d){ if(d&&d.ok){ toast('Deleted.'); manage(CUR_PC.id); load(1); } else toast((d&&d.message)||'Failed',true); }); }
 
   function close(id){ qs(id).classList.remove('on'); }
+  function importLegacy(){
+    var ay=qs('fYear').value;
+    api('ImportPreview',{acadYear:ay}).then(function(d){
+      if(!d||!d.ok){ toast((d&&d.message)||'Preview failed',true); return; }
+      var toImport=d.matched-d.already;
+      var msg='Import the legacy timetable into the new system for '+ay+'?\n\n'
+        +'Matched to a programme-course: '+d.matched+'\nAlready imported (skipped): '+d.already
+        +'\nWill import now: '+toImport+'\nUnmatched (no anchor, skipped): '+d.unmatched+'\n\nProceed?';
+      if(!confirm(msg)) return;
+      api('ImportRun',{acadYear:ay}).then(function(r){ if(r&&r.ok){ toast('Imported '+r.imported+' session'+(r.imported==1?'':'s')+'.'); load(1); } else toast((r&&r.message)||'Import failed',true); });
+    });
+  }
   // wire preview on field changes
   ['itDay','itStart','itDur','itTeacher'].forEach(function(id){ var el=document.getElementById(id); if(el) el.addEventListener('change',preview); });
 
   init();
-  return { load:load, manage:manage, itemEdit:itemEdit, itemDel:itemDel, campusChange:campusChange, modeChange:modeChange, preview:preview, save:save, close:close };
+  return { load:load, manage:manage, itemEdit:itemEdit, itemDel:itemDel, campusChange:campusChange, modeChange:modeChange, preview:preview, save:save, close:close, importLegacy:importLegacy };
 })();
 </script>
 </asp:Content>
