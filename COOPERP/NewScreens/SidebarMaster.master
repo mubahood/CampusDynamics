@@ -353,14 +353,26 @@
                         </li>
 
 
-                        <!-- ── Allocation Management ── -->
+                        <!-- ── Timetable & Allocations ── -->
                         <li class="cd-sidebar__item cd-sidebar__item--has-submenu" data-roles="dean registrar faculty_staff admin">
                             <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                                <span>Allocation Management</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                <span>Timetable &amp; Allocations</span>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cd-sidebar__arrow"><polyline points="9 18 15 12 9 6"></polyline></svg>
                             </a>
                             <ul class="cd-sidebar__submenu">
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkTimetableCalendar" runat="server" NavigateUrl="~/COOPERP/NewScreens/TimetableCalendar.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                        <span>Timetable Calendar</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem">
+                                    <asp:HyperLink ID="lnkTimetableManager" runat="server" NavigateUrl="~/COOPERP/NewScreens/TimetableManager.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="9" y1="16" x2="15" y2="16"></line></svg>
+                                        <span>Timetable Manager</span>
+                                    </asp:HyperLink>
+                                </li>
                                 <li class="cd-sidebar__subitem">
                                     <asp:HyperLink ID="lnkLADashboard" runat="server" NavigateUrl="~/COOPERP/NewScreens/LoadAllocationDashboard.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
@@ -379,45 +391,10 @@
                                         <span>Workload Analysis</span>
                                     </asp:HyperLink>
                                 </li>
-                            </ul>
-                        </li>
-
-                        <!-- ── Timetable ── -->
-                        <li class="cd-sidebar__item cd-sidebar__item--has-submenu" data-roles="dean registrar faculty_staff admin">
-                            <a href="javascript:void(0)" class="cd-sidebar__link cd-sidebar__link--toggle">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                <span>Timetable</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cd-sidebar__arrow"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                            </a>
-                            <ul class="cd-sidebar__submenu">
-                                <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkLATimetable" runat="server" NavigateUrl="~/COOPERP/NewScreens/TimetableView.aspx" CssClass="cd-sidebar__sublink">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                        <span>Timetable View</span>
-                                    </asp:HyperLink>
-                                </li>
-                                <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkTimetableManager" runat="server" NavigateUrl="~/COOPERP/NewScreens/TimetableManager.aspx" CssClass="cd-sidebar__sublink">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="9" y1="16" x2="15" y2="16"></line></svg>
-                                        <span>Timetable Manager</span>
-                                    </asp:HyperLink>
-                                </li>
-                                <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkTimetableCalendar" runat="server" NavigateUrl="~/COOPERP/NewScreens/TimetableCalendar.aspx" CssClass="cd-sidebar__sublink">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                        <span>Timetable Calendar</span>
-                                    </asp:HyperLink>
-                                </li>
                                 <li class="cd-sidebar__subitem">
                                     <asp:HyperLink ID="lnkRoomsBuildings" runat="server" NavigateUrl="~/COOPERP/NewScreens/RoomsBuildings.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-6h6v6"></path></svg>
                                         <span>Rooms &amp; Buildings</span>
-                                    </asp:HyperLink>
-                                </li>
-                                <li class="cd-sidebar__subitem">
-                                    <asp:HyperLink ID="lnkTimetableExport" runat="server" NavigateUrl="~/COOPERP/NewScreens/TimetableExport.aspx" CssClass="cd-sidebar__sublink">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                        <span>Timetable Export</span>
                                     </asp:HyperLink>
                                 </li>
                             </ul>
