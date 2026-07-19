@@ -19,6 +19,27 @@
 .tt-btn:hover{border-color:#174DA4;color:#174DA4;}
 .tt-btn--p{background:#05275C;border-color:#05275C;color:#fff;}.tt-btn--p:hover{background:#174DA4;border-color:#174DA4;color:#fff;}
 .tt-fl__sp{flex:1;}
+.tt-seg{display:flex;border:1px solid #cfd8e3;height:31px;}
+.tt-seg button{font-size:11px;font-weight:700;padding:0 12px;border:0;border-right:1px solid #cfd8e3;background:#fff;color:#556;cursor:pointer;font-family:inherit;}
+.tt-seg button:last-child{border-right:0;}
+.tt-seg button.on{background:#05275C;color:#fff;}
+/* list view */
+.ttl{padding:6px 12px 12px;}
+.ttl-day{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#05275C;margin:14px 0 6px;}
+.ttl-day span{font-size:9.5px;font-weight:700;color:#fff;background:#94a3b8;padding:1px 7px;}
+.ttl-row{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e0e5ed;border-left:3px solid #05275C;padding:9px 12px;margin-bottom:5px;cursor:pointer;transition:border-color .12s,box-shadow .12s;}
+.ttl-row:hover{border-color:#cdd8e6;border-left-color:#174DA4;box-shadow:0 2px 8px rgba(5,39,92,.10);}
+.ttl-row--TUTORIAL{border-left-color:#174DA4;}.ttl-row--PRACTICAL{border-left-color:#16a34a;}.ttl-row--SEMINAR{border-left-color:#b45309;}.ttl-row--CAT{border-left-color:#7c3aed;}
+.ttl-row--clash{outline:2px solid #dc2626;outline-offset:-2px;}
+.ttl-time{font-size:13px;font-weight:800;color:#05275C;min-width:50px;text-align:center;}
+.ttl-time span{display:block;font-size:10px;color:#9ca3af;font-weight:600;}
+.ttl-main{flex:1;min-width:0;}
+.ttl-main b{font-size:12.5px;color:#1a1a2e;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ttl-main span{display:block;font-size:10.5px;color:#6b7280;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ttl-tag{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:3px 7px;color:#166534;background:#dcfce7;}
+.ttl-tag--clash{color:#fff;background:#dc2626;}
+.ttl-chev{font-size:20px;color:#c3ccda;font-weight:700;line-height:1;}
+.ttl-row:hover .ttl-chev{color:#174DA4;}
 /* searchable combo */
 .tt-combo{position:relative;} .tt-combo>input{width:100%;box-sizing:border-box;}
 .tt-combo__list{position:absolute;top:100%;left:0;right:0;z-index:60;background:#fff;border:1px solid #cfd8e3;max-height:250px;overflow:auto;display:none;box-shadow:0 6px 18px rgba(0,0,0,.13);}
@@ -92,7 +113,8 @@
     <div class="tt-top__act">
       <a class="tt-btn" href="TimetableManager.aspx">Manage</a>
       <a class="tt-btn" href="RoomsBuildings.aspx">Rooms</a>
-      <a class="tt-btn tt-btn--p" href="TimetableExport.aspx">Export</a>
+      <button type="button" class="tt-btn" onclick="CAL.csv()">&#8681; CSV</button>
+      <button type="button" class="tt-btn tt-btn--p" onclick="CAL.print()">&#128424; Print / PDF</button>
     </div>
   </div>
 
@@ -108,6 +130,7 @@
       <div class="tt-fl"><span>Type</span><select id="fType" class="tt-sel" onchange="CAL.refine()"><option value="">All</option><option value="LECTURE">Lecture</option><option value="TUTORIAL">Tutorial</option><option value="PRACTICAL">Practical</option><option value="SEMINAR">Seminar</option><option value="CAT">CAT</option></select></div>
       <div class="tt-fl"><span>&nbsp;</span><label class="tt-chk"><input type="checkbox" id="fClash" onchange="CAL.refine()"> Clashes only</label></div>
       <div class="tt-fl__sp"></div>
+      <div class="tt-fl"><span>View</span><div class="tt-seg"><button type="button" id="vGrid" class="on" onclick="CAL.view('grid')">Grid</button><button type="button" id="vList" onclick="CAL.view('list')">List</button></div></div>
       <div class="tt-fl"><span>&nbsp;</span><button type="button" class="tt-btn" onclick="CAL.reset()">Clear</button></div>
     </div>
     <div class="tt-meta" id="calMeta" style="display:none;">
@@ -133,7 +156,7 @@
 <script>
 var CAL = (function(){
   var LK={}, DAY_START=7*60, DAY_END=21*60, SCALE=0.85;
-  var LAST=[], VIS=[], CURDET=null;
+  var LAST=[], VIS=[], CURDET=null, MODE='grid';
   var progCombo=null, courseCombo=null, roomCombo=null, teacherCombo=null;
   var DAYS=['','Mon','Tue','Wed','Thu','Fri','Sat','Sun'], DAYFULL=['','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
   var TYPES={LECTURE:'Lecture',TUTORIAL:'Tutorial',PRACTICAL:'Practical',SEMINAR:'Seminar',CAT:'CAT'};
@@ -170,12 +193,43 @@ var CAL = (function(){
       roomCombo=makeCombo(qs('cRoom'), [{value:'',label:'All rooms'}].concat((LK.rooms||[]).map(function(r){return {value:String(r.id),label:r.name};})), 'All rooms', function(){ load(); });
       teacherCombo=makeCombo(qs('cTeacher'), [{value:'',label:'All lecturers'}].concat((LK.teachers||[]).map(function(t){return {value:String(t.id),label:t.name};})), 'All lecturers', function(){ load(); });
       progCombo.set(''); courseCombo.set(''); roomCombo.set(''); teacherCombo.set('');
+      restoreFromQuery();
       load();
     });
   }
 
+  // ── GET-state: filters live in the URL query string (bookmark / refresh safe) ──
+  function readQuery(){ var q={}, s=(location.search||'').replace(/^\?/,''); s.split('&').forEach(function(kv){ if(!kv) return; var p=kv.split('='); q[decodeURIComponent(p[0])]=decodeURIComponent((p[1]||'').replace(/\+/g,' ')); }); return q; }
+  function restoreFromQuery(){
+    var q=readQuery();
+    if(q.campus) qs('fCampus').value=q.campus;
+    if(q.sy) qs('fSy').value=q.sy;
+    if(q.sem) qs('fSem').value=q.sem;
+    if(q.type) qs('fType').value=q.type;
+    if(q.clash==='1') qs('fClash').checked=true;
+    if(q.prog&&progCombo) progCombo.set(q.prog);
+    if(q.course&&courseCombo) courseCombo.set(q.course);
+    if(q.room&&roomCombo) roomCombo.set(q.room);
+    if(q.teacher&&teacherCombo) teacherCombo.set(q.teacher);
+    if(q.view==='list'){ MODE='list'; qs('vGrid').className=''; qs('vList').className='on'; }
+  }
+  function syncUrl(){
+    var parts=[];
+    function add(k,v){ if(v&&v!=='0'&&v!=='') parts.push(k+'='+encodeURIComponent(v)); }
+    add('campus',qs('fCampus').value);
+    add('prog',progCombo?progCombo.value():'');
+    add('course',courseCombo?courseCombo.value():'');
+    add('sy',qs('fSy').value); add('sem',qs('fSem').value);
+    add('room',roomCombo?roomCombo.value():''); add('teacher',teacherCombo?teacherCombo.value():'');
+    add('type',qs('fType').value);
+    if(qs('fClash').checked) parts.push('clash=1');
+    if(MODE==='list') parts.push('view=list');
+    try{ history.replaceState(null,'',location.pathname+(parts.length?('?'+parts.join('&')):'')); }catch(e){}
+  }
+
   function load(){
     qs('calHost').innerHTML='<div class="tt-empty">Loading&hellip;</div>';
+    syncUrl();
     api('CalendarData',{
       campusId:parseInt(qs('fCampus').value,10)||0, progcode:progCombo?progCombo.value():'',
       studyYear:parseInt(qs('fSy').value,10)||0, semester:parseInt(qs('fSem').value,10)||0,
@@ -206,8 +260,10 @@ var CAL = (function(){
   function refine(){
     var ftype=qs('fType').value, clashOnly=qs('fClash').checked;
     VIS=LAST.filter(function(s){ if(ftype&&s.sessionType!==ftype) return false; if(clashOnly&&!s.clash) return false; return true; });
-    renderStats(); renderGrid();
+    syncUrl(); renderStats(); draw();
   }
+  function draw(){ if(MODE==='list') renderList(); else renderGrid(); }
+  function view(m){ MODE=m; qs('vGrid').className=(m==='grid'?'on':''); qs('vList').className=(m==='list'?'on':''); syncUrl(); draw(); }
 
   function renderStats(){
     if(!LAST.length){ qs('calMeta').style.display='none'; return; }
@@ -258,8 +314,110 @@ var CAL = (function(){
     }
     h+='</div></div>';
     qs('calHost').innerHTML=h;
+    bindClicks();
+  }
+  function bindClicks(){
     var host=qs('calHost');
     host.onclick=function(e){ var t=e.target; while(t&&t!==host&&!t.getAttribute('data-idx')) t=t.parentNode; if(t&&t!==host){ var i=parseInt(t.getAttribute('data-idx'),10); if(!isNaN(i)) showDetail(VIS[i]); } };
+  }
+  function renderList(){
+    var list=VIS;
+    if(!list.length){ qs('calHost').innerHTML='<div class="tt-empty">No sessions match these filters.</div>'; return; }
+    list.forEach(function(s,i){ s._i=i; });
+    var byDay={}; list.forEach(function(s){ (byDay[s.dayNo]=byDay[s.dayNo]||[]).push(s); });
+    var h='<div class="ttl">';
+    for(var d=1;d<=7;d++){
+      if(!byDay[d]||!byDay[d].length) continue;
+      var arr=byDay[d].sort(function(a,b){return a.sm-b.sm;});
+      h+='<div class="ttl-day">'+DAYFULL[d]+'<span>'+arr.length+'</span></div>';
+      arr.forEach(function(s){
+        var online=(s.deliveryMode&&s.deliveryMode!=='PHYSICAL');
+        var loc=s.room?esc(s.room)+(s.building?(', '+esc(s.building)):''):(s.roomLabel?esc(s.roomLabel):(online?'Online':'TBD'));
+        var meta=[typeName(s.sessionType),loc].concat(s.campus?[esc(s.campus)]:[]).concat(s.progcode?['Y'+s.studyYear+'/S'+s.semester+' '+esc(s.progcode)]:[]).concat(s.teacher?[esc(s.teacher)]:[]);
+        h+='<div class="ttl-row ttl-row--'+esc(s.sessionType)+(s.clash?' ttl-row--clash':'')+'" data-idx="'+s._i+'">'
+          +'<div class="ttl-time">'+esc(s.start)+'<span>'+esc(s.end)+'</span></div>'
+          +'<div class="ttl-main"><b>'+esc(s.code)+' &middot; '+esc(s.course)+'</b><span>'+meta.join(' &middot; ')+'</span></div>'
+          +(s.clash?'<span class="ttl-tag ttl-tag--clash">Clash</span>':(online?'<span class="ttl-tag">Online</span>':''))
+          +'<span class="ttl-chev">&rsaquo;</span></div>';
+      });
+    }
+    h+='</div>';
+    qs('calHost').innerHTML=h;
+    bindClicks();
+  }
+
+  /* ── CSV + branded print (respect current filters) ── */
+  function activeFilterMeta(){
+    var m=[];
+    var cs=qs('fCampus'); if(cs.value!=='0'&&cs.selectedOptions[0]) m.push(cs.selectedOptions[0].text);
+    if(progCombo&&progCombo.value()){ var p=(LK.programmes||[]).filter(function(x){return x.code===progCombo.value();})[0]; m.push(p?(p.name||p.code):progCombo.value()); }
+    if(courseCombo&&courseCombo.value()) m.push(courseCombo.value());
+    if(qs('fSy').value!=='0') m.push('Year '+qs('fSy').value);
+    if(qs('fSem').value!=='0') m.push('Semester '+qs('fSem').value);
+    if(roomCombo&&roomCombo.value()){ var r=(LK.rooms||[]).filter(function(x){return String(x.id)===roomCombo.value();})[0]; if(r) m.push(r.name); }
+    if(teacherCombo&&teacherCombo.value()){ var t=(LK.teachers||[]).filter(function(x){return String(x.id)===teacherCombo.value();})[0]; if(t) m.push(t.name); }
+    if(qs('fType').value) m.push(typeName(qs('fType').value));
+    if(qs('fClash').checked) m.push('Clashes only');
+    return m;
+  }
+  function csvCell(v){ v=(v==null?'':''+v); if(/[",\n]/.test(v)) v='"'+v.replace(/"/g,'""')+'"'; return v; }
+  function csv(){
+    if(!VIS.length){ alert('No sessions to export.'); return; }
+    var head=['Day','Start','End','CourseCode','Course','ProgrammeCode','Programme','Year','Semester','Lecturer','Room','Building','Campus','Type','Delivery'];
+    var lines=[head.join(',')];
+    VIS.slice().sort(function(a,b){return (a.dayNo-b.dayNo)||(a.sm-b.sm);}).forEach(function(s){
+      lines.push([DAYFULL[s.dayNo],s.start,s.end,s.code,s.course,s.progcode,s.progname,s.studyYear,s.semester,s.teacher,s.room,s.building,s.campusFull||s.campus,s.sessionType,s.deliveryMode].map(csvCell).join(','));
+    });
+    var blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='timetable.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  function print(){
+    if(!VIS.length){ alert('No sessions to print.'); return; }
+    var list=VIS.slice().sort(function(a,b){return (a.dayNo-b.dayNo)||(a.sm-b.sm);});
+    var mins=0,codes={},clash=0; list.forEach(function(s){ mins+=Math.max(0,(s.em||0)-(s.sm||0)); if(s.code)codes[s.code]=1; if(s.clash)clash++; });
+    var meta=activeFilterMeta();
+    meta.push(list.length+' session'+(list.length===1?'':'s'));
+    meta.push((Math.round(mins/60*10)/10)+' hrs');
+    meta.push(Object.keys(codes).length+' course'+(Object.keys(codes).length===1?'':'s'));
+    if(clash) meta.push(clash+' clash'+(clash===1?'':'es'));
+    var now=new Date(), MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var stamp=now.getDate()+' '+MON[now.getMonth()]+' '+now.getFullYear();
+    var byDay={}; list.forEach(function(s){ (byDay[s.dayNo]=byDay[s.dayNo]||[]).push(s); });
+    var body='';
+    for(var d=1;d<=7;d++){
+      if(!byDay[d]||!byDay[d].length) continue;
+      var rows='';
+      byDay[d].forEach(function(s){
+        var online=(s.deliveryMode&&s.deliveryMode!=='PHYSICAL');
+        var loc=s.room?(esc(s.room)+(s.building?('<i>, '+esc(s.building)+'</i>'):'')):(s.roomLabel?esc(s.roomLabel):(online?'Online':'TBD'));
+        rows+='<tr'+(s.clash?' class="cl"':'')+'><td class="tm">'+esc(s.start)+'&ndash;'+esc(s.end)+'</td>'
+          +'<td><b>'+esc(s.code)+'</b> '+esc(s.course)+'</td>'
+          +'<td>'+esc(s.progname||s.progcode)+' <i>(Y'+(s.studyYear||'-')+'/S'+(s.semester||'-')+')</i></td>'
+          +'<td>'+esc(typeName(s.sessionType))+(online?' <i>('+esc(s.deliveryMode.toLowerCase())+')</i>':'')+'</td>'
+          +'<td>'+loc+'</td><td>'+esc(s.campus||'-')+'</td><td>'+esc(s.teacher||'-')+'</td></tr>';
+      });
+      body+='<table class="pt"><thead><tr class="pd"><th colspan="7">'+DAYFULL[d]+'</th></tr>'
+        +'<tr class="ph2"><th>Time</th><th>Course</th><th>Programme (Yr/Sem)</th><th>Type</th><th>Room / Location</th><th>Campus</th><th>Lecturer</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+    var logo=(location.origin||'')+'/COOPERP/images/welcomelogo.png';
+    var css='@page{size:A4 landscape;margin:11mm 11mm 13mm;}*{box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1a1a2e;margin:0;font-size:10.5px;}'
+      +'.hd{display:flex;align-items:center;gap:13px;border-bottom:3px solid #05275C;padding-bottom:8px;margin-bottom:11px;}.hd img{height:44px;}'
+      +'.hd .u{font-size:15px;font-weight:800;color:#05275C;letter-spacing:.3px;line-height:1.1;}.hd .t{font-size:12px;font-weight:700;color:#174DA4;margin-top:2px;}'
+      +'.hd .m{font-size:9.5px;color:#555;margin-top:3px;}.hd .m span{color:#c3ccda;margin:0 5px;}'
+      +'table.pt{width:100%;border-collapse:collapse;margin-bottom:9px;}tr{page-break-inside:avoid;}'
+      +'.pd th{background:#05275C;color:#fff;text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:5px 8px;}'
+      +'.ph2 th{background:#eef2f8;color:#5b6b85;text-align:left;font-size:8px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:4px 8px;border-bottom:1px solid #d6deea;}'
+      +'td{padding:4px 8px;border-bottom:1px solid #edf1f6;vertical-align:top;font-size:10px;}td.tm{white-space:nowrap;font-weight:700;color:#05275C;}'
+      +'td b{color:#05275C;}i{color:#7a8699;font-style:normal;font-size:9px;}tbody tr:nth-child(even) td{background:#fafbfd;}tr.cl td{background:#fdecec;}tr.cl td.tm{color:#dc2626;}'
+      +'.ft{margin-top:6px;border-top:1px solid #e0e5ed;padding-top:6px;font-size:9px;color:#94a3b8;display:flex;justify-content:space-between;}';
+    var html='<!doctype html><html><head><meta charset="utf-8"><title>Timetable</title><style>'+css+'</style></head><body>'
+      +'<div class="hd"><img src="'+logo+'" onerror="this.style.display=\'none\'" alt=""/><div>'
+      +'<div class="u">Muteesa I Royal University</div><div class="t">Timetable</div>'
+      +'<div class="m">'+meta.map(esc).join('<span>&bull;</span>')+'</div></div></div>'+body
+      +'<div class="ft"><span>Generated '+stamp+'</span><span>eadmin.mru.ac.ug</span></div></body></html>';
+    var w=window.open('','_blank'); if(!w){ alert('Please allow pop-ups to open the printable timetable.'); return; }
+    w.document.open(); w.document.write(html); w.document.close(); w.focus();
+    setTimeout(function(){ try{ w.print(); }catch(e){} },350);
   }
 
   /* ── detail drawer ── */
@@ -298,7 +456,7 @@ var CAL = (function(){
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeDetail(); });
 
   init();
-  return { load:load, reset:reset, refine:refine, closeDetail:closeDetail, copy:copy };
+  return { load:load, reset:reset, refine:refine, view:view, print:print, csv:csv, closeDetail:closeDetail, copy:copy };
 })();
 </script>
 </asp:Content>
