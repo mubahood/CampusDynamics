@@ -117,6 +117,7 @@
 
 <div class="ttd-ov" id="ttdOv"><div class="ttd-drawer"><button type="button" class="ttd-x" onclick="WA.closeDetail()">&times;</button><div class="ttd-body"></div></div></div>
 
+<script type="text/javascript">window.__WA_INIT = <%= InitJson %>;</script>
 <script type="text/javascript">
 var WA = (function(){
   var _rows=[], _details={}, _faculties=[], _programmes=[], _campuses=[], VIS=[], CURDET=null;
@@ -156,41 +157,33 @@ var WA = (function(){
     try{ history.replaceState(null,'',location.pathname+(parts.length?('?'+parts.join('&')):'')); }catch(e){}
   }
 
-  function scopeQS(){ return '&sem='+encodeURIComponent(qs('fSem').value||'0')+'&campus='+encodeURIComponent(qs('fCampus').value||'0'); }
-  function reload(){ qs('waHost').innerHTML='<div class="wa-loading">Loading workload&hellip;</div>'; load(); }
+  // Semester/Campus change = a real page navigation (server scope), carrying the
+  // client-side filters along so they survive the reload. No AJAX.
+  function reload(){
+    var parts=['sem='+encodeURIComponent(qs('fSem').value||'0'),'campus='+encodeURIComponent(qs('fCampus').value||'0')];
+    function add(k,v){ if(v&&v!=='') parts.push(k+'='+encodeURIComponent(v)); }
+    add('fac',facCombo?facCombo.value():''); add('prog',progCombo?progCombo.value():'');
+    add('contract',qs('fContract').value); add('q',qs('fQ').value.trim());
+    if(qs('fSort').value!=='hours') add('sort',qs('fSort').value);
+    location.href='WorkloadAnalysis.aspx?'+parts.join('&');
+  }
 
   function init(){
     var q=readQuery();
-    if(q.sem) qs('fSem').value=q.sem;
     if(q.sort) qs('fSort').value=q.sort;
     if(q.contract) qs('fContract').value=q.contract;
     if(q.q) qs('fQ').value=q.q;
-    load(q);   // pass query so combos + campus can be restored after data arrives
+    var d=window.__WA_INIT||{};
+    if(!d.ok){ showEmpty(d.error||'Unable to load workload.'); return; }
+    _rows=d.rows||[]; _details=d.details||{}; _faculties=d.faculties||[]; _programmes=d.programmes||[]; _campuses=d.campuses||[];
+    qs('fSem').value=String(d.semester||'0');
+    buildFilters(q, String(d.campusId||'0'));
+    refine();
   }
 
-  function load(restore){
-    var xhr=new XMLHttpRequest();
-    xhr.open('GET','WorkloadAnalysis.aspx?ajax=data'+scopeQS(),true);
-    xhr.onreadystatechange=function(){
-      if(xhr.readyState!==4) return;
-      if(xhr.status!==200){ showEmpty('Failed to load data.'); return; }
-      try{
-        var d=JSON.parse(xhr.responseText);
-        if(!d.ok){ showEmpty(d.error||'Unknown error'); return; }
-        _rows=d.rows||[]; _details=d.details||{}; _faculties=d.faculties||[]; _programmes=d.programmes||[]; _campuses=d.campuses||[];
-        buildFilters(restore);
-        refine();
-      }catch(ex){ showEmpty('Error parsing data.'); }
-    };
-    xhr.send();
-  }
-
-  function buildFilters(restore){
-    // campus select (preserve current value)
-    var cur=qs('fCampus').value;
+  function buildFilters(restore, campusVal){
     var ch='<option value="0">All</option>'; _campuses.forEach(function(c){ ch+='<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>'; }); qs('fCampus').innerHTML=ch;
-    if(restore&&restore.campus) qs('fCampus').value=restore.campus; else qs('fCampus').value=cur;
-    // faculty + programme searchable combos (rebuilt from in-scope data)
+    qs('fCampus').value=campusVal||'0';
     facCombo=makeCombo(qs('cFac'), [{value:'',label:'All faculties'}].concat(_faculties.map(function(f){return {value:f.code,label:f.name};})), 'All faculties', function(){ syncUrl(); render(); });
     progCombo=makeCombo(qs('cProg'), [{value:'',label:'All programmes'}].concat(_programmes.map(function(p){return {value:p.code,label:p.display};})), 'All programmes', function(){ syncUrl(); render(); });
     facCombo.set(restore&&restore.fac?restore.fac:''); progCombo.set(restore&&restore.prog?restore.prog:'');

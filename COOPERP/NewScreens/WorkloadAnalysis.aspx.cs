@@ -141,25 +141,30 @@ public partial class COOPERP_NewScreens_WorkloadAnalysis : System.Web.UI.Page
 
     // ─────────────────────── Lifecycle ───────────────────────────────────
 
+    // Server-rendered payload embedded into the page (no AJAX round-trip on load).
+    public string InitJson = "{\"ok\":false,\"error\":\"not loaded\"}";
+
     protected void Page_Load(object sender, EventArgs e)
     {
         string ajax = (Request.QueryString["ajax"] ?? "").Trim().ToLower();
-        if (string.IsNullOrEmpty(ajax)) return;
+        string semParam = Request.QueryString["sem"];
+        string campusParam = Request.QueryString["campus"];
+        string sem = semParam != null ? semParam.Trim() : "0";       // default: all semesters
+        string campus = campusParam != null ? campusParam.Trim() : "0"; // default: all campuses
 
+        JavaScriptSerializer ser = new JavaScriptSerializer();
+        ser.MaxJsonLength = int.MaxValue;
         try
         {
-            switch (ajax)
-            {
-                case "data": HandleData(); break;
-                default:
-                    RespondJson(new { ok = false, error = "Unknown action: " + ajax });
-                    break;
-            }
+            object data = BuildData(sem, campus);
+            if (ajax == "data") { RespondJson(data); return; }   // legacy endpoint kept for compatibility
+            InitJson = ser.Serialize(data);
         }
         catch (System.Threading.ThreadAbortException) { throw; }
         catch (Exception ex)
         {
-            RespondJson(new { ok = false, error = "Server error: " + ex.Message });
+            if (ajax == "data") { RespondJson(new { ok = false, error = "Server error: " + ex.Message }); return; }
+            InitJson = ser.Serialize(new { ok = false, error = "Server error: " + ex.Message });
         }
     }
 
@@ -201,14 +206,9 @@ public partial class COOPERP_NewScreens_WorkloadAnalysis : System.Web.UI.Page
     /// as weekly contact hours (SUM duration_min) and session count; courses/programmes/credits
     /// are secondary. Scope = semester + campus (perpetual timetable, no academic year).
     /// </summary>
-    private void HandleData()
+    private object BuildData(string sem, string campus)
     {
         TimetableService.EnsureSchema();
-
-        string semParam    = Request.QueryString["sem"];
-        string campusParam = Request.QueryString["campus"];
-        string sem    = semParam != null ? semParam.Trim() : CurrentSemester;
-        string campus = campusParam != null ? campusParam.Trim() : CurrentCampusId;
 
         string flt  = FilterClause(sem, campus);
         // base filtered set of active timetable rows with the effective lecturer resolved
@@ -218,13 +218,13 @@ public partial class COOPERP_NewScreens_WorkloadAnalysis : System.Web.UI.Page
         string summSql =
             "SELECT t.eff AS staffCode, " +
             "  IFNULL(e.emp_name, CONCAT('Staff #', t.eff)) AS lecturerName, IFNULL(e.EMP_CODE,'') AS empCode, IFNULL(e.EmpType,'') AS empType, " +
-            "  IFNULL(ct.contract_type,'') AS contractType, IFNULL(d.departmentName,'') AS department, " +
+            "  IFNULL(ct.contract_type,'') AS contractType, IFNULL(d.dept_name,'') AS department, " +
             "  COUNT(*) AS sessionCount, COUNT(DISTINCT t.course_code) AS courseCount, COUNT(DISTINCT t.progcode) AS programmeCount, " +
             "  COALESCE(SUM(t.duration_min),0)/60.0 AS weeklyHours, " +
             "  GROUP_CONCAT(DISTINCT t.progcode) AS programmes_csv, GROUP_CONCAT(DISTINCT p.faculty_code) AS faculties_csv " +
             "FROM (SELECT IFNULL(it.teacher_id, pc.lecturer_id) eff, TRIM(it.course_code) course_code, it.progcode, it.duration_min" + baseFrom + ") t " +
             "LEFT JOIN hrm_employee e ON e.empID=t.eff " +
-            "LEFT JOIN hrm_emp_contracts ct ON ct.empID=e.empID AND ct.contractStatus='Active' " +
+            "LEFT JOIN hrm_emp_contracts ct ON ct.empID=e.empID AND ct.contractStatus='VALID' " +
             "LEFT JOIN hrm_departments d ON d.ID=ct.departmentID " +
             "LEFT JOIN acad_programme p ON p.progcode=t.progcode " +
             "WHERE t.eff>0 GROUP BY t.eff ORDER BY weeklyHours DESC, lecturerName";
@@ -324,7 +324,7 @@ public partial class COOPERP_NewScreens_WorkloadAnalysis : System.Web.UI.Page
         foreach (DataRow cp in ExecuteQuery("SELECT ID, campus_name FROM acad_campuses ORDER BY ID").Rows)
             campuses.Add(new { id = SafeStr(cp["ID"]), name = SafeStr(cp["campus_name"]) });
 
-        RespondJson(new {
+        return new {
             ok          = true,
             semester    = sem,
             campusId    = campus,
@@ -333,6 +333,6 @@ public partial class COOPERP_NewScreens_WorkloadAnalysis : System.Web.UI.Page
             campuses    = campuses,
             rows        = rows,
             details     = detailMap
-        });
+        };
     }
 }
