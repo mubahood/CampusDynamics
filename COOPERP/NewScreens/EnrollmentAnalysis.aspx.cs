@@ -109,14 +109,14 @@ public partial class COOPERP_NewScreens_EnrollmentAnalysis : System.Web.UI.Page
             string whereClause = BuildWhereClause();
 
             // Total students
-            string sqlTotal = "SELECT COUNT(*) FROM acad_student s WHERE (s.stud_status = 'Active' OR s.new_status = 'Active')" + whereClause;
+            string sqlTotal = "SELECT COUNT(*) FROM acad_student s WHERE (s.stud_status = 'ACTIVE' AND s.new_status <> 'ALUMNI')" + whereClause;
             MySqlCommand cmdTotal = new MySqlCommand(sqlTotal, conn);
             AddFilterParameters(cmdTotal);
             int total = Convert.ToInt32(cmdTotal.ExecuteScalar());
             litTotalStudents.Text = total.ToString("N0");
 
             // Male count
-            string sqlMale = "SELECT COUNT(*) FROM acad_student s WHERE (s.stud_status = 'Active' OR s.new_status = 'Active') AND s.gender = 'Male'" + whereClause;
+            string sqlMale = "SELECT COUNT(*) FROM acad_student s WHERE (s.stud_status = 'ACTIVE' AND s.new_status <> 'ALUMNI') AND s.gender = 'Male'" + whereClause;
             MySqlCommand cmdMale = new MySqlCommand(sqlMale, conn);
             AddFilterParameters(cmdMale);
             int male = Convert.ToInt32(cmdMale.ExecuteScalar());
@@ -124,25 +124,29 @@ public partial class COOPERP_NewScreens_EnrollmentAnalysis : System.Web.UI.Page
             hfMaleCount.Value = male.ToString();
 
             // Female count
-            string sqlFemale = "SELECT COUNT(*) FROM acad_student s WHERE (s.stud_status = 'Active' OR s.new_status = 'Active') AND s.gender = 'Female'" + whereClause;
+            string sqlFemale = "SELECT COUNT(*) FROM acad_student s WHERE (s.stud_status = 'ACTIVE' AND s.new_status <> 'ALUMNI') AND s.gender = 'Female'" + whereClause;
             MySqlCommand cmdFemale = new MySqlCommand(sqlFemale, conn);
             AddFilterParameters(cmdFemale);
             int female = Convert.ToInt32(cmdFemale.ExecuteScalar());
             litFemale.Text = female.ToString("N0");
             hfFemaleCount.Value = female.ToString();
 
-            // New students this year
+            // New students this year — honours faculty/programme but NOT the year
+            // filter (it is intrinsically "the current calendar year's intake").
             int currentYear = DateTime.Now.Year;
-            string sqlNew = "SELECT COUNT(*) FROM acad_student s WHERE (s.stud_status = 'Active' OR s.new_status = 'Active') AND s.entryyear = @currentYear" + whereClause;
+            string whereNoYear = BuildWhereClause(false);
+            string sqlNew = "SELECT COUNT(*) FROM acad_student s WHERE (s.stud_status = 'ACTIVE' AND s.new_status <> 'ALUMNI') AND s.entryyear = @currentYear" + whereNoYear;
             MySqlCommand cmdNew = new MySqlCommand(sqlNew, conn);
             cmdNew.Parameters.AddWithValue("@currentYear", currentYear);
-            AddFilterParameters(cmdNew);
+            AddFilterParameters(cmdNew, false);
             int newStudents = Convert.ToInt32(cmdNew.ExecuteScalar());
             litNewStudents.Text = newStudents.ToString("N0");
 
-            // Active programmes
-            string sqlProgs = "SELECT COUNT(DISTINCT progcode) FROM acad_programme";
+            // Active programmes — distinct programmes actually enrolled in the
+            // current filtered scope (so it reflects the filters).
+            string sqlProgs = "SELECT COUNT(DISTINCT s.progid) FROM acad_student s WHERE (s.stud_status = 'ACTIVE' AND s.new_status <> 'ALUMNI')" + whereClause;
             MySqlCommand cmdProgs = new MySqlCommand(sqlProgs, conn);
+            AddFilterParameters(cmdProgs);
             int progs = Convert.ToInt32(cmdProgs.ExecuteScalar());
             litProgrammes.Text = progs.ToString("N0");
         }
@@ -161,7 +165,7 @@ public partial class COOPERP_NewScreens_EnrollmentAnalysis : System.Web.UI.Page
                            SUM(CASE WHEN s.gender = 'Female' THEN 1 ELSE 0 END) AS female_count,
                            COUNT(*) AS total
                            FROM acad_student s
-                           WHERE (s.stud_status = 'Active' OR s.new_status = 'Active')" + whereClause + @"
+                           WHERE (s.stud_status = 'ACTIVE' AND s.new_status <> 'ALUMNI')" + whereClause + @"
                            GROUP BY s.entryyear
                            ORDER BY s.entryyear DESC
                            LIMIT 10";
@@ -207,7 +211,7 @@ public partial class COOPERP_NewScreens_EnrollmentAnalysis : System.Web.UI.Page
                            COUNT(*) AS total
                            FROM acad_student s
                            LEFT JOIN acad_programme p ON s.progid = p.progcode
-                           WHERE (s.stud_status = 'Active' OR s.new_status = 'Active')" + whereClause + @"
+                           WHERE (s.stud_status = 'ACTIVE' AND s.new_status <> 'ALUMNI')" + whereClause + @"
                            GROUP BY s.progid, p.progname
                            ORDER BY total DESC
                            LIMIT 15";
@@ -249,7 +253,7 @@ public partial class COOPERP_NewScreens_EnrollmentAnalysis : System.Web.UI.Page
 
             string sql = @"SELECT s.entryyear, COUNT(*) AS total
                            FROM acad_student s
-                           WHERE (s.stud_status = 'Active' OR s.new_status = 'Active')" + whereClause + @"
+                           WHERE (s.stud_status = 'ACTIVE' AND s.new_status <> 'ALUMNI')" + whereClause + @"
                            GROUP BY s.entryyear
                            ORDER BY s.entryyear ASC
                            LIMIT 10";
@@ -284,9 +288,16 @@ public partial class COOPERP_NewScreens_EnrollmentAnalysis : System.Web.UI.Page
 
     private string BuildWhereClause()
     {
+        return BuildWhereClause(true);
+    }
+
+    // includeYear=false lets the "New this year" card ignore the year filter
+    // while still honouring faculty + programme.
+    private string BuildWhereClause(bool includeYear)
+    {
         StringBuilder sb = new StringBuilder();
 
-        if (!string.IsNullOrEmpty(ddlEntryYear.SelectedValue))
+        if (includeYear && !string.IsNullOrEmpty(ddlEntryYear.SelectedValue))
         {
             sb.Append(" AND s.entryyear = @entryyear");
         }
@@ -296,12 +307,24 @@ public partial class COOPERP_NewScreens_EnrollmentAnalysis : System.Web.UI.Page
             sb.Append(" AND s.progid = @progid");
         }
 
+        // Faculty is stored on acad_programme, not acad_student — filter by the
+        // programmes belonging to the faculty. Applies to EVERY stat/table/chart.
+        if (!string.IsNullOrEmpty(ddlFaculty.SelectedValue))
+        {
+            sb.Append(" AND s.progid IN (SELECT progcode FROM acad_programme WHERE faculty_code = @faculty)");
+        }
+
         return sb.ToString();
     }
 
     private void AddFilterParameters(MySqlCommand cmd)
     {
-        if (!string.IsNullOrEmpty(ddlEntryYear.SelectedValue))
+        AddFilterParameters(cmd, true);
+    }
+
+    private void AddFilterParameters(MySqlCommand cmd, bool includeYear)
+    {
+        if (includeYear && !string.IsNullOrEmpty(ddlEntryYear.SelectedValue))
         {
             cmd.Parameters.AddWithValue("@entryyear", int.Parse(ddlEntryYear.SelectedValue));
         }
@@ -309,6 +332,11 @@ public partial class COOPERP_NewScreens_EnrollmentAnalysis : System.Web.UI.Page
         if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))
         {
             cmd.Parameters.AddWithValue("@progid", ddlProgramme.SelectedValue);
+        }
+
+        if (!string.IsNullOrEmpty(ddlFaculty.SelectedValue))
+        {
+            cmd.Parameters.AddWithValue("@faculty", ddlFaculty.SelectedValue);
         }
     }
 
