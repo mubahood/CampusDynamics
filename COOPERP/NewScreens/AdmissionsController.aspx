@@ -28,6 +28,18 @@
 .admc-stat--admitted{--sc:#16a34a;}
 .admc-stat--registered{--sc:#05275C;}
 .admc-stat--rejected{--sc:#c62828;}
+.admc-stat--draft{--sc:#94a3b8;}
+a.admc-stat{text-decoration:none;cursor:pointer;transition:box-shadow .12s,transform .12s,border-color .12s;}
+a.admc-stat:hover{box-shadow:0 3px 10px rgba(5,39,92,.14);transform:translateY(-1px);border-color:var(--sc,#ccc);}
+a.admc-stat.admc-stat--active{border-color:var(--sc,#333);box-shadow:inset 0 0 0 1px var(--sc,#333);}
+.admc-stat__sub{font-size:9.5px;color:#94a3b8;font-weight:600;margin-top:3px;}
+/* searchable dropdown (enhances long native selects) */
+.admc-combo{position:relative;display:inline-block;min-width:130px;}
+.admc-combo__inp{width:100%;box-sizing:border-box;}
+.admc-combo__list{position:absolute;top:100%;left:0;z-index:9000;background:#fff;border:1px solid #cfd8e3;max-height:260px;overflow:auto;display:none;box-shadow:0 6px 18px rgba(0,0,0,.13);min-width:240px;}
+.admc-combo__list.on{display:block;}
+.admc-combo__i{padding:7px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid #f0f2f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.admc-combo__i:hover{background:#eef4ff;} .admc-combo__i--none{color:#9ca3af;cursor:default;}
 
 /* Filter bar */
 .admc-filters{padding:10px 14px;border-bottom:1px solid #e0e5ed;background:#f8f9fa;}
@@ -54,11 +66,24 @@
 .admc-table-wrap{overflow-x:auto;}
 .admc-table{width:100%;border-collapse:collapse;font-size:11px;}
 .admc-table th{background:#f5f7fa;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#666;padding:9px 12px;text-align:left;border-bottom:2px solid #e0e5ed;white-space:nowrap;}
-.admc-table td{padding:8px 12px;border-bottom:1px solid #f0f2f5;color:#222;vertical-align:middle;}
+.admc-table td{padding:8px 12px;border-bottom:1px solid #f0f2f5;color:#222;vertical-align:middle;overflow:visible;}
 .admc-table tr:hover td{background:#f5f9ff;}
-.admc-name{font-weight:600;color:#05275C;}
+.admc-name{font-weight:600;color:#05275C;text-decoration:none;}
+a.admc-name:hover{color:#174DA4;text-decoration:underline;}
 .admc-eno{font-family:monospace;font-size:11px;color:#555;font-weight:600;}
-.admc-actions-cell{display:flex;gap:4px;flex-wrap:nowrap;}
+.admc-actions-cell{display:flex;gap:4px;flex-wrap:nowrap;position:relative;}
+/* ── Row ⋮ menu ──────────────────────────────────────────── */
+.admc-row-menu-wrap{position:relative;display:inline-flex;}
+.admc-row-trigger{display:inline-flex;align-items:center;justify-content:center;width:28px;height:26px;border:1px solid #d2dae6;background:#fff;color:#555;cursor:pointer;font-size:15px;line-height:1;padding:0;border-radius:5px;flex-shrink:0;}
+.admc-row-trigger:hover{background:#f0f4fc;border-color:#174DA4;color:#174DA4;}
+.admc-row-menu{display:none;position:absolute;right:0;top:calc(100% + 3px);min-width:186px;background:#fff;border:1px solid #dbe4ef;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.15);padding:5px;z-index:9100;}
+.admc-row-menu.open{display:block;}
+.admc-row-menu__item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:0;background:transparent;color:#1e293b;font-size:11px;font-weight:600;text-align:left;border-radius:5px;cursor:pointer;white-space:nowrap;font-family:inherit;text-decoration:none;}
+.admc-row-menu__item:hover{background:#f0f4fc;color:#05275C;text-decoration:none;}
+.admc-row-menu__item--success:hover{background:#f0fdf4;color:#166534;}
+.admc-row-menu__item--danger:hover{background:#fef2f2;color:#b91c1c;}
+.admc-row-menu__item--edit{color:#174DA4;}.admc-row-menu__item--edit:hover{background:#eef5ff;color:#0c3580;}
+.admc-row-menu__sep{height:1px;background:#edf2f7;margin:4px 2px;}
 
 /* Badges */
 .admc-badge{display:inline-block;padding:2px 8px;font-size:10px;font-weight:700;border:1px solid transparent;white-space:nowrap;}
@@ -85,7 +110,7 @@
 /* ── Detail / Action modal ─── */
 .admc-modal-bg{display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.5);align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;}
 .admc-modal-bg.open{display:flex;}
-.admc-modal{background:#fff;width:760px;max-width:96vw;border-radius:0;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:85vh;display:flex;flex-direction:column;}
+.admc-modal{background:#fff;width:920px;max-width:96vw;border-radius:0;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:90vh;display:flex;flex-direction:column;}
 .admc-modal__hdr{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;background:#05275C;color:#fff;flex-shrink:0;}
 .admc-modal__hdr h3{margin:0;font-size:14px;font-weight:700;}
 .admc-modal__close{background:none;border:none;color:rgba(255,255,255,.8);font-size:22px;cursor:pointer;line-height:1;padding:0 4px;}
@@ -105,7 +130,54 @@
 .admc-field__val{font-size:12px;font-weight:600;color:#05275C;}
 .admc-field__val--light{font-weight:400;color:#444;}
 .admc-modal__foot{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:1px solid #e0e5ed;background:#fafbfc;flex-shrink:0;flex-wrap:wrap;gap:8px;}
-.admc-modal__foot-right{display:flex;gap:8px;flex-wrap:wrap;}
+.admc-modal__foot-right{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+/* ── Detail view sections ───────────────────────────────────── */
+.adm-detail-wrap{padding:0;}
+.adm-section{padding:14px 20px 12px;border-bottom:1px solid #eef0f4;}
+.adm-section:last-child{border-bottom:none;margin-bottom:0;}
+.adm-section-hdr{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#174DA4;border-left:3px solid #174DA4;padding-left:8px;margin-bottom:12px;line-height:1.3;}
+.adm-section-hdr svg{flex-shrink:0;opacity:.8;}
+/* Grids */
+.adm-g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 14px;}
+.adm-g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 14px;}
+.adm-g2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
+.adm-s2{grid-column:span 2;}.adm-s3{grid-column:span 3;}.adm-s4{grid-column:span 4;}
+/* Fields */
+.adm-f label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#999;font-weight:700;margin-bottom:3px;}
+.adm-fv{font-size:12px;color:#1a1a2e;font-weight:600;word-break:break-word;line-height:1.45;}
+.adm-fv.lt{font-weight:400;color:#333;}
+.adm-fv.mo{font-family:monospace;font-size:11px;letter-spacing:.3px;}
+.adm-fv.na{color:#bbb;font-weight:400;font-style:italic;}
+/* Education sub-blocks */
+.adm-edu-blk{background:#fafbfd;border:1px solid #eaecf2;padding:10px 12px;margin-bottom:8px;}
+.adm-edu-blk:last-child{margin-bottom:0;}
+.adm-edu-blk-ttl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#174DA4;margin-bottom:8px;}
+/* Document cards */
+.adm-docs-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+.adm-doc-card{border:1px solid #dde3ef;padding:8px 10px;display:flex;align-items:flex-start;gap:8px;background:#fff;min-width:190px;flex:1;max-width:calc(50% - 4px);}
+.adm-doc-badge{font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 6px;background:#05275C;color:#fff;flex-shrink:0;white-space:nowrap;margin-top:2px;}
+.adm-doc-badge.tp-photo{background:#6d28d9;}.adm-doc-badge.tp-olevel{background:#065f46;}.adm-doc-badge.tp-alevel{background:#0c4a6e;}
+.adm-doc-badge.tp-natid{background:#92400e;}.adm-doc-badge.tp-passport{background:#1e3a5f;}.adm-doc-badge.tp-other{background:#4b5563;}
+.adm-doc-info{flex:1;min-width:0;}
+.adm-doc-info .fn{font-size:11px;font-weight:600;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.adm-doc-info .fm{font-size:10px;color:#888;margin-top:1px;}
+.adm-doc-view{font-size:10px;font-weight:700;color:#174DA4;text-decoration:none;flex-shrink:0;margin-top:2px;}
+.adm-doc-view:hover{text-decoration:underline;}
+.adm-nodocs{font-size:11px;color:#aaa;font-style:italic;padding:6px 0;}
+.adm-chip{display:inline-block;background:#e8ecf4;color:#555;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;vertical-align:middle;}
+/* Status banner */
+.adm-banner{padding:10px 20px;background:#f0f4fc;border-bottom:1px solid #dde3ef;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;}
+.adm-banner strong{color:#05275C;}
+/* ── Footer overflow / actions menu ──────────────────────── */
+.admc-act-wrap{position:relative;display:inline-flex;}
+.admc-act-trigger{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid #d2dae6;background:#fff;color:#374151;border-radius:6px;cursor:pointer;font-size:18px;line-height:1;padding:0;}
+.admc-act-trigger:hover{background:#f4f8ff;border-color:#174DA4;color:#174DA4;}
+.admc-act-menu{display:none;position:absolute;bottom:calc(100% + 6px);right:0;min-width:200px;background:#fff;border:1px solid #dbe4ef;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.15);padding:5px;z-index:9200;}
+.admc-act-menu.open{display:block;}
+.admc-act-menu__item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 12px;border:0;background:transparent;color:#1e293b;font-size:12px;font-weight:600;text-align:left;border-radius:5px;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.admc-act-menu__item:hover{background:#f0f4fc;color:#05275C;}
+.admc-act-menu__item--danger:hover{background:#fef2f2;color:#b91c1c;}
+.admc-act-menu__sep{height:1px;background:#edf2f7;margin:4px 2px;}
 .admc-info-row{display:flex;align-items:center;gap:6px;padding:8px 12px;font-size:11px;border:1px solid #e0e0e0;margin-bottom:10px;background:#f8f9fa;}
 .admc-info-row svg{color:#174DA4;flex-shrink:0;}
 .admc-warn-row{background:#fff8e1;border-color:#ffe082;color:#e65100;}
@@ -146,6 +218,10 @@
     .admc-modal-bg{padding-top:10px;}
     .admc-modal{width:100%;max-width:100vw;max-height:92vh;}
     .admc-grid-2,.admc-grid-3{grid-template-columns:1fr;}
+    .adm-g4{grid-template-columns:1fr 1fr;}
+    .adm-g3{grid-template-columns:1fr 1fr;}
+    .adm-s3,.adm-s4{grid-column:span 2;}
+    .adm-doc-card{max-width:100%;}
 }
 @media (max-width: 420px){
     .admc-stats{grid-template-columns:1fr;}
@@ -283,99 +359,166 @@
 <div class="admc-modal-bg" id="admc-modal-bg">
     <div class="admc-modal">
         <div class="admc-modal__hdr">
-            <h3 id="admc-modal-title">Applicant Details</h3>
+            <h3 id="admc-modal-title">Application Details</h3>
             <button type="button" class="admc-modal__close" onclick="closeModal()">&times;</button>
         </div>
         <div class="admc-modal__body">
-            <div id="admc-status-row" style="padding:12px 18px 0;"></div>
-            <div style="padding:4px 18px 20px;">
 
-                <!-- Personal Details -->
-                <div class="admc-section">
-                    <div class="admc-section__title">Personal Details</div>
-                    <div class="admc-grid-3">
-                        <div class="admc-field"><label>Entry No</label><div class="admc-field__val" id="d-eno">—</div></div>
-                        <div class="admc-field"><label>Reg No</label><div class="admc-field__val" id="d-regno">—</div></div>
-                        <div class="admc-field"><label>Full Name</label><div class="admc-field__val" id="d-name">—</div></div>
-                        <div class="admc-field"><label>Sex</label><div class="admc-field__val admc-field__val--light" id="d-sex">—</div></div>
-                        <div class="admc-field"><label>Date of Birth</label><div class="admc-field__val admc-field__val--light" id="d-dob">—</div></div>
-                        <div class="admc-field"><label>Nationality</label><div class="admc-field__val admc-field__val--light" id="d-nationality">—</div></div>
-                        <div class="admc-field"><label>Religion</label><div class="admc-field__val admc-field__val--light" id="d-religion">—</div></div>
-                        <div class="admc-field"><label>Marital Status</label><div class="admc-field__val admc-field__val--light" id="d-marital">—</div></div>
-                        <div class="admc-field"><label>National ID</label><div class="admc-field__val admc-field__val--light" id="d-natid">—</div></div>
-                        <div class="admc-field"><label>Disability</label><div class="admc-field__val admc-field__val--light" id="d-disability">—</div></div>
-                        <div class="admc-field"><label>Title / Salutation</label><div class="admc-field__val admc-field__val--light" id="d-title">—</div></div>
-                        <div class="admc-field"><label>Campus</label><div class="admc-field__val admc-field__val--light" id="d-campus">—</div></div>
-                    </div>
+            <!-- Status banner -->
+            <div class="adm-banner" id="admc-status-row"></div>
+
+            <div class="adm-detail-wrap">
+
+            <!-- ── 1. IDENTITY & PERSONAL INFORMATION ─────────────────── -->
+            <div class="adm-section">
+                <div class="adm-section-hdr">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Identity &amp; Personal Information
                 </div>
+                <div class="adm-g4">
+                    <div class="adm-f"><label>Entry No</label><div class="adm-fv mo" id="d-eno">—</div></div>
+                    <div class="adm-f"><label>Reg No</label><div class="adm-fv mo" id="d-regno">—</div></div>
+                    <div class="adm-f"><label>Title / Salutation</label><div class="adm-fv lt" id="d-title">—</div></div>
+                    <div class="adm-f"><label>Sex</label><div class="adm-fv lt" id="d-sex">—</div></div>
 
-                <!-- Admission Details -->
-                <div class="admc-section">
-                    <div class="admc-section__title">Admission Details</div>
-                    <div class="admc-grid-3">
-                        <div class="admc-field" style="grid-column:span 2;"><label>Programme</label><div class="admc-field__val" id="d-prog">—</div></div>
-                        <div class="admc-field"><label>Admission Status</label><div class="admc-field__val" id="d-admstatus">—</div></div>
-                        <div class="admc-field"><label>Session</label><div class="admc-field__val admc-field__val--light" id="d-session">—</div></div>
-                        <div class="admc-field"><label>Entry Year</label><div class="admc-field__val admc-field__val--light" id="d-year">—</div></div>
-                        <div class="admc-field"><label>Entry Method</label><div class="admc-field__val admc-field__val--light" id="d-method">—</div></div>
-                        <div class="admc-field"><label>Intake</label><div class="admc-field__val admc-field__val--light" id="d-intake">—</div></div>
-                        <div class="admc-field"><label>Specialisation</label><div class="admc-field__val admc-field__val--light" id="d-spec">—</div></div>
-                        <div class="admc-field"><label>Sponsor</label><div class="admc-field__val admc-field__val--light" id="d-sponsor">—</div></div>
-                        <div class="admc-field"><label>Sponsor Contact</label><div class="admc-field__val admc-field__val--light" id="d-sponsorc">—</div></div>
-                        <div class="admc-field"><label>Billing System</label><div class="admc-field__val admc-field__val--light" id="d-billing">—</div></div>
-                    </div>
+                    <div class="adm-f adm-s2"><label>Full Name</label><div class="adm-fv" id="d-name">—</div></div>
+                    <div class="adm-f"><label>Date of Birth</label><div class="adm-fv lt" id="d-dob">—</div></div>
+                    <div class="adm-f"><label>Nationality</label><div class="adm-fv lt" id="d-nationality">—</div></div>
+
+                    <div class="adm-f"><label>Religion</label><div class="adm-fv lt" id="d-religion">—</div></div>
+                    <div class="adm-f"><label>Marital Status</label><div class="adm-fv lt" id="d-marital">—</div></div>
+                    <div class="adm-f"><label>National ID / NIN</label><div class="adm-fv mo lt" id="d-natid">—</div></div>
+                    <div class="adm-f"><label>Physical Disability</label><div class="adm-fv lt" id="d-disability">—</div></div>
                 </div>
-
-                <!-- Education Background -->
-                <div class="admc-section">
-                    <div class="admc-section__title">Education Background</div>
-                    <div class="admc-grid-3">
-                        <div class="admc-field"><label>O-Level School</label><div class="admc-field__val admc-field__val--light" id="d-oschool">—</div></div>
-                        <div class="admc-field"><label>O-Level Index No.</label><div class="admc-field__val admc-field__val--light" id="d-oidx">—</div></div>
-                        <div class="admc-field"><label>O-Level Year</label><div class="admc-field__val admc-field__val--light" id="d-olyr">—</div></div>
-                        <div class="admc-field"><label>O-Level Aggregate</label><div class="admc-field__val admc-field__val--light" id="d-olagg">—</div></div>
-                        <div class="admc-field"><label>A-Level School</label><div class="admc-field__val admc-field__val--light" id="d-aschool">—</div></div>
-                        <div class="admc-field"><label>A-Level Index No.</label><div class="admc-field__val admc-field__val--light" id="d-aidx">—</div></div>
-                        <div class="admc-field"><label>A-Level Year</label><div class="admc-field__val admc-field__val--light" id="d-alyr">—</div></div>
-                        <div class="admc-field"><label>A-Level Points</label><div class="admc-field__val admc-field__val--light" id="d-alpts">—</div></div>
-                        <div class="admc-field"><label>Other Institution</label><div class="admc-field__val admc-field__val--light" id="d-othinst">—</div></div>
-                        <div class="admc-field"><label>Other Qualification</label><div class="admc-field__val admc-field__val--light" id="d-othqual">—</div></div>
-                        <div class="admc-field"><label>Other Year</label><div class="admc-field__val admc-field__val--light" id="d-othyr">—</div></div>
-                        <div class="admc-field"><label>Other Grade</label><div class="admc-field__val admc-field__val--light" id="d-othgr">—</div></div>
-                    </div>
-                </div>
-
-                <!-- Contact Details -->
-                <div class="admc-section">
-                    <div class="admc-section__title">Contact Details</div>
-                    <div class="admc-grid-3">
-                        <div class="admc-field"><label>Phone</label><div class="admc-field__val admc-field__val--light" id="d-phone">—</div></div>
-                        <div class="admc-field"><label>Email</label><div class="admc-field__val admc-field__val--light" id="d-email">—</div></div>
-                        <div class="admc-field"><label>Physical Address</label><div class="admc-field__val admc-field__val--light" id="d-address">—</div></div>
-                        <div class="admc-field"><label>Home District</label><div class="admc-field__val admc-field__val--light" id="d-district">—</div></div>
-                        <div class="admc-field"><label>P.O. Box</label><div class="admc-field__val admc-field__val--light" id="d-pobox">—</div></div>
-                        <div class="admc-field"><label>Country</label><div class="admc-field__val admc-field__val--light" id="d-country">—</div></div>
-                    </div>
-                </div>
-
-                <!-- Next of Kin -->
-                <div class="admc-section">
-                    <div class="admc-section__title">Next of Kin</div>
-                    <div class="admc-grid-3">
-                        <div class="admc-field"><label>Name</label><div class="admc-field__val admc-field__val--light" id="d-kin">—</div></div>
-                        <div class="admc-field"><label>Relationship</label><div class="admc-field__val admc-field__val--light" id="d-kinrel">—</div></div>
-                        <div class="admc-field"><label>Contacts</label><div class="admc-field__val admc-field__val--light" id="d-kinc">—</div></div>
-                    </div>
-                </div>
-
-                <!-- Reviewer Notes -->
-                <div class="admc-section" style="margin-bottom:0;">
-                    <div class="admc-section__title">Reviewer Notes</div>
-                    <textarea id="d-notes" placeholder="Internal notes for this application…" style="width:100%;min-height:90px;border:1px solid #d8e0eb;padding:10px;font:inherit;font-size:12px;resize:vertical;box-sizing:border-box;"></textarea>
-                </div>
-
             </div>
-        </div>
+
+            <!-- ── 2. ACADEMIC ADMISSION ──────────────────────────────── -->
+            <div class="adm-section">
+                <div class="adm-section-hdr">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                    Academic Admission
+                </div>
+                <div class="adm-g4">
+                    <div class="adm-f adm-s3"><label>Programme</label><div class="adm-fv" id="d-prog">—</div></div>
+                    <div class="adm-f"><label>Admission Status</label><div class="adm-fv" id="d-admstatus">—</div></div>
+
+                    <div class="adm-f adm-s2"><label>Specialisation / Major</label><div class="adm-fv lt" id="d-spec">—</div></div>
+                    <div class="adm-f"><label>Campus</label><div class="adm-fv lt" id="d-campus">—</div></div>
+                    <div class="adm-f"><label>Billing System</label><div class="adm-fv lt" id="d-billing">—</div></div>
+
+                    <div class="adm-f"><label>Study Session</label><div class="adm-fv lt" id="d-session">—</div></div>
+                    <div class="adm-f"><label>Entry Year</label><div class="adm-fv lt" id="d-year">—</div></div>
+                    <div class="adm-f"><label>Intake</label><div class="adm-fv lt" id="d-intake">—</div></div>
+                    <div class="adm-f"><label>Entry Method</label><div class="adm-fv lt" id="d-method">—</div></div>
+                </div>
+            </div>
+
+            <!-- ── 3. EDUCATION BACKGROUND ────────────────────────────── -->
+            <div class="adm-section">
+                <div class="adm-section-hdr">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    Education Background
+                </div>
+
+                <!-- O-Level / UCE -->
+                <div class="adm-edu-blk">
+                    <div class="adm-edu-blk-ttl">O&#8209;Level &nbsp;/&nbsp; UCE</div>
+                    <div class="adm-g4">
+                        <div class="adm-f adm-s2"><label>School / Institution</label><div class="adm-fv lt" id="d-oschool">—</div></div>
+                        <div class="adm-f"><label>Index / Exam No.</label><div class="adm-fv mo lt" id="d-oidx">—</div></div>
+                        <div class="adm-f"><label>Year of Completion</label><div class="adm-fv lt" id="d-olyr">—</div></div>
+                        <div class="adm-f"><label>Aggregate Points</label><div class="adm-fv lt" id="d-olagg">—</div></div>
+                    </div>
+                </div>
+
+                <!-- A-Level / UACE -->
+                <div class="adm-edu-blk">
+                    <div class="adm-edu-blk-ttl">A&#8209;Level &nbsp;/&nbsp; UACE</div>
+                    <div class="adm-g4">
+                        <div class="adm-f adm-s2"><label>School / Institution</label><div class="adm-fv lt" id="d-aschool">—</div></div>
+                        <div class="adm-f"><label>Index / Exam No.</label><div class="adm-fv mo lt" id="d-aidx">—</div></div>
+                        <div class="adm-f"><label>Year of Completion</label><div class="adm-fv lt" id="d-alyr">—</div></div>
+                        <div class="adm-f"><label>Points / Passes</label><div class="adm-fv lt" id="d-alpts">—</div></div>
+                    </div>
+                </div>
+
+                <!-- Other Qualification -->
+                <div class="adm-edu-blk" id="d-edu-other-blk">
+                    <div class="adm-edu-blk-ttl">Other Qualification &nbsp;<span style="font-weight:400;text-transform:none;color:#aaa;font-size:9px;">(Diploma / Degree / Certificate)</span></div>
+                    <div class="adm-g4">
+                        <div class="adm-f adm-s2"><label>Institution</label><div class="adm-fv lt" id="d-othinst">—</div></div>
+                        <div class="adm-f"><label>Qualification / Award</label><div class="adm-fv lt" id="d-othqual">—</div></div>
+                        <div class="adm-f"><label>Year of Completion</label><div class="adm-fv lt" id="d-othyr">—</div></div>
+                        <div class="adm-f"><label>Grade / Class</label><div class="adm-fv lt" id="d-othgr">—</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 4. CONTACT INFORMATION ─────────────────────────────── -->
+            <div class="adm-section">
+                <div class="adm-section-hdr">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    Contact Information
+                </div>
+                <div class="adm-g4">
+                    <div class="adm-f"><label>Phone Number</label><div class="adm-fv" id="d-phone">—</div></div>
+                    <div class="adm-f"><label>Email Address</label><div class="adm-fv lt" id="d-email">—</div></div>
+                    <div class="adm-f"><label>Home District</label><div class="adm-fv lt" id="d-district">—</div></div>
+                    <div class="adm-f"><label>Residence Country</label><div class="adm-fv lt" id="d-country">—</div></div>
+
+                    <div class="adm-f adm-s3"><label>Physical / Postal Address</label><div class="adm-fv lt" id="d-address">—</div></div>
+                    <div class="adm-f"><label>P.O. Box</label><div class="adm-fv lt" id="d-pobox">—</div></div>
+                </div>
+            </div>
+
+            <!-- ── 5. SPONSOR, NEXT OF KIN & REFEREE ─────────────────── -->
+            <div class="adm-section">
+                <div class="adm-section-hdr">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Sponsor, Next of Kin &amp; Referee
+                </div>
+                <div class="adm-g4">
+                    <!-- Sponsor -->
+                    <div class="adm-f adm-s2"><label>Sponsor Name</label><div class="adm-fv lt" id="d-sponsor">—</div></div>
+                    <div class="adm-f adm-s2"><label>Sponsor Contact</label><div class="adm-fv lt" id="d-sponsorc">—</div></div>
+                    <!-- Next of Kin -->
+                    <div class="adm-f adm-s2"><label>Next of Kin Name</label><div class="adm-fv lt" id="d-kin">—</div></div>
+                    <div class="adm-f"><label>Relationship</label><div class="adm-fv lt" id="d-kinrel">—</div></div>
+                    <div class="adm-f"><label>Kin Contact</label><div class="adm-fv lt" id="d-kinc">—</div></div>
+                    <!-- Referee -->
+                    <div class="adm-f adm-s2"><label>Referee Name</label><div class="adm-fv lt" id="d-refname">—</div></div>
+                    <div class="adm-f adm-s2"><label>Referee Contact</label><div class="adm-fv lt" id="d-refcon">—</div></div>
+                </div>
+            </div>
+
+            <!-- ── 6. SUPPORTING DOCUMENTS ────────────────────────────── -->
+            <div class="adm-section">
+                <div class="adm-section-hdr">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    Supporting Documents
+                    <span class="adm-chip" id="d-doc-count"></span>
+                </div>
+                <div id="d-docs-list"><div class="adm-nodocs">Loading…</div></div>
+            </div>
+
+            <!-- ── 7. APPLICATION RECORD & NOTES ──────────────────────── -->
+            <div class="adm-section">
+                <div class="adm-section-hdr">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Application Record
+                </div>
+                <div class="adm-g4" style="margin-bottom:12px;">
+                    <div class="adm-f"><label>Application Source</label><div class="adm-fv" id="d-source">—</div></div>
+                    <div class="adm-f"><label>Submitted At</label><div class="adm-fv lt" id="d-submitted">—</div></div>
+                    <div class="adm-f"><label>Last Updated</label><div class="adm-fv lt" id="d-lastupdated">—</div></div>
+                    <div class="adm-f"><label>Reviewer / Processor</label><div class="adm-fv lt" id="d-processor" style="display:none;">—</div></div>
+                </div>
+                <label style="display:block;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#999;font-weight:700;margin-bottom:5px;">Internal Reviewer Notes</label>
+                <textarea id="d-notes" placeholder="Add internal notes about this application…" style="width:100%;min-height:80px;border:1px solid #d0d7e6;padding:9px 10px;font:inherit;font-size:12px;resize:vertical;box-sizing:border-box;background:#fafbfc;"></textarea>
+            </div>
+
+            </div><!-- /adm-detail-wrap -->
+        </div><!-- /admc-modal__body -->
 
         <!-- Footer actions -->
         <div class="admc-modal__foot">
@@ -396,6 +539,11 @@ var _pageUrl       = '<%= ResolveUrl("~/COOPERP/NewScreens/AdmissionsController.
 var _currentEno    = null;
 var _currentDetail = null;
 var _selected      = {}; // batch selection: { eno: {name,status} }
+// Navigate to centralised edit form for this entry number
+window.goToEditForm = function(eno) {
+    if (!eno) return;
+    window.location.href = 'NewStudentRegistration.aspx?eno=' + encodeURIComponent(eno) + '&returnUrl=' + encodeURIComponent('AdmissionsController.aspx');
+};
 
 // ════════════════════════════════════════════════════════════════════
 // FILTER NAVIGATION  — navigate to new URL on apply/clear
@@ -582,120 +730,249 @@ document.addEventListener('keydown', function (e) {
 });
 
 function clearDetailFields() {
-    var ids = ['d-eno','d-regno','d-name','d-sex','d-dob','d-nationality','d-religion',
-               'd-marital','d-natid','d-disability','d-title','d-campus',
-               'd-prog','d-session','d-year','d-method','d-intake','d-spec',
-               'd-sponsor','d-sponsorc','d-billing',
-               'd-oschool','d-oidx','d-olyr','d-olagg',
-               'd-aschool','d-aidx','d-alyr','d-alpts',
-               'd-othinst','d-othqual','d-othyr','d-othgr',
-               'd-phone','d-email','d-address','d-district','d-pobox','d-country',
-               'd-kin','d-kinrel','d-kinc'];
+    var ids = [
+        'd-eno','d-regno','d-title','d-sex','d-name','d-dob','d-nationality',
+        'd-religion','d-marital','d-natid','d-disability',
+        'd-prog','d-spec','d-campus','d-billing',
+        'd-session','d-year','d-intake','d-method',
+        'd-oschool','d-oidx','d-olyr','d-olagg',
+        'd-aschool','d-aidx','d-alyr','d-alpts',
+        'd-othinst','d-othqual','d-othyr','d-othgr',
+        'd-phone','d-email','d-district','d-country','d-address','d-pobox',
+        'd-sponsor','d-sponsorc','d-kin','d-kinrel','d-kinc',
+        'd-refname','d-refcon',
+        'd-source','d-submitted','d-lastupdated'
+    ];
     for (var i = 0; i < ids.length; i++) {
         var el = document.getElementById(ids[i]);
         if (el) el.textContent = '—';
     }
+    var admEl = document.getElementById('d-admstatus');
+    if (admEl) admEl.innerHTML = '—';
     var notes = document.getElementById('d-notes');
     if (notes) notes.value = '';
-    var dAdm = document.getElementById('d-admstatus');
-    if (dAdm) dAdm.innerHTML = '—';
+    var docList = document.getElementById('d-docs-list');
+    if (docList) docList.innerHTML = '<div class="adm-nodocs">Loading…</div>';
+    var docCount = document.getElementById('d-doc-count');
+    if (docCount) docCount.textContent = '';
+    document.getElementById('admc-status-row').innerHTML = '';
+}
+
+// Returns '—' for blank/missing values; optionally uses a custom fallback string
+function dVal(v, fallback) {
+    if (v === null || v === undefined) return fallback || '—';
+    var s = String(v).trim();
+    return s.length > 0 ? s : (fallback || '—');
 }
 
 function populateDetail(d) {
-    setText('d-eno',         d.eno);
+    // ── Identity ─────────────────────────────────────────────
+    setText('d-eno',         dVal(d.eno));
     setText('d-regno',       d.regno && d.regno !== '-' ? d.regno : 'Not yet assigned');
-    setText('d-name',        d.name);
-    setText('d-sex',         d.sex);
-    setText('d-dob',         d.dob);
-    setText('d-nationality', d.nationality);
-    setText('d-religion',    d.religion);
-    setText('d-marital',     d.marital);
-    setText('d-natid',       d.national_id);
-    setText('d-disability',  d.disability);
-    setText('d-title',       d.title);
-    setText('d-campus',      d.campus);
-    setText('d-prog',        d.programme);
-    setText('d-session',     d.session);
-    setText('d-year',        d.entry_year);
-    setText('d-method',      d.entry_method);
-    setText('d-intake',      d.intake);
-    setText('d-spec',        d.specialisation || 'None');
-    setText('d-sponsor',     d.sponsor);
-    setText('d-sponsorc',    d.sponsor_contact);
-    setText('d-billing',     d.billing);
-    setText('d-oschool',     d.olevel_school);
-    setText('d-oidx',        d.olevel_index);
-    setText('d-olyr',        d.olevel_year);
-    setText('d-olagg',       d.olevel_agg);
-    setText('d-aschool',     d.alevel_school);
-    setText('d-aidx',        d.alevel_index);
-    setText('d-alyr',        d.alevel_year);
-    setText('d-alpts',       d.alevel_points);
-    setText('d-othinst',     d.other_inst);
-    setText('d-othqual',     d.other_qual);
-    setText('d-othyr',       d.other_year);
-    setText('d-othgr',       d.other_grade);
-    setText('d-phone',       d.phone);
-    setText('d-email',       d.email);
-    setText('d-address',     d.address);
-    setText('d-district',    d.district);
-    setText('d-pobox',       d.pobox);
-    setText('d-country',     d.country);
-    setText('d-kin',         d.kin_name);
-    setText('d-kinrel',      d.kin_relationship);
-    setText('d-kinc',        d.kin_contacts);
+    setText('d-title',       dVal(d.title));
+    setText('d-sex',         dVal(d.sex));
+    setText('d-name',        dVal(d.name));
+    setText('d-dob',         dVal(d.dob));
+    setText('d-nationality', dVal(d.nationality));
+    setText('d-religion',    dVal(d.religion));
+    setText('d-marital',     dVal(d.marital));
+    setText('d-natid',       dVal(d.national_id));
+    setText('d-disability',  dVal(d.disability, 'None declared'));
+
+    // ── Admission ─────────────────────────────────────────────
+    setText('d-prog',    dVal(d.programme));
+    setText('d-spec',    dVal(d.specialisation, 'Not applicable'));
+    setText('d-campus',  dVal(d.campus));
+    setText('d-billing', dVal(d.billing));
+    setText('d-session', dVal(d.session));
+    setText('d-year',    dVal(d.entry_year));
+    setText('d-intake',  dVal(d.intake));
+    setText('d-method',  dVal(d.entry_method));
+    var admEl = document.getElementById('d-admstatus');
+    if (admEl) admEl.innerHTML = statusBadge(d.status);
+
+    // ── Education ─────────────────────────────────────────────
+    setText('d-oschool', dVal(d.olevel_school));
+    setText('d-oidx',    dVal(d.olevel_index));
+    setText('d-olyr',    dVal(d.olevel_year));
+    setText('d-olagg',   dVal(d.olevel_agg));
+    setText('d-aschool', dVal(d.alevel_school));
+    setText('d-aidx',    dVal(d.alevel_index));
+    setText('d-alyr',    dVal(d.alevel_year));
+    setText('d-alpts',   dVal(d.alevel_points));
+    setText('d-othinst', dVal(d.other_inst));
+    setText('d-othqual', dVal(d.other_qual));
+    setText('d-othyr',   dVal(d.other_year));
+    setText('d-othgr',   dVal(d.other_grade));
+
+    // ── Contact ───────────────────────────────────────────────
+    setText('d-phone',    dVal(d.phone));
+    setText('d-email',    dVal(d.email));
+    setText('d-district', dVal(d.district));
+    setText('d-country',  dVal(d.country));
+    setText('d-address',  dVal(d.address));
+    setText('d-pobox',    dVal(d.pobox));
+
+    // ── Sponsor / Kin / Referee ───────────────────────────────
+    setText('d-sponsor',  dVal(d.sponsor));
+    setText('d-sponsorc', dVal(d.sponsor_contact));
+    setText('d-kin',      dVal(d.kin_name));
+    setText('d-kinrel',   dVal(d.kin_relationship));
+    setText('d-kinc',     dVal(d.kin_contacts));
+    setText('d-refname',  dVal(d.referee_name));
+    setText('d-refcon',   dVal(d.referee_contacts));
+
+    // ── Documents ─────────────────────────────────────────────
+    renderDocuments(d.docs || [], d.eno);
+
+    // ── Application record ────────────────────────────────────
+    var isOnline = d.submitted_at && d.submitted_at.trim().length > 0;
+    var sourceEl = document.getElementById('d-source');
+    if (sourceEl) sourceEl.innerHTML = isOnline
+        ? '<span style="background:#d1fae5;color:#065f46;font-size:10px;font-weight:700;padding:2px 8px;">ONLINE PORTAL</span>'
+        : '<span style="background:#f0f4fc;color:#05275C;font-size:10px;font-weight:700;padding:2px 8px;">WALK-IN / DIRECT</span>';
+    setText('d-submitted',   dVal(d.submitted_at));
+    setText('d-lastupdated', dVal(d.last_updated));
+
     var notes = document.getElementById('d-notes');
     if (notes) notes.value = d.reviewer_notes || '';
 
-    var sclass = (d.status === 'PENDING') ? 'admc-warn-row' : '';
+    // ── Status banner ─────────────────────────────────────────
     document.getElementById('admc-status-row').innerHTML =
-        '<div class="admc-info-row ' + sclass + '" style="margin:0 0 0;">'
-      + '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
-      + '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
-      + '&nbsp;Status:&nbsp;<strong>' + h(d.status) + '</strong>'
-      + (d.regno && d.regno !== '-'
-            ? '&nbsp;&nbsp;|&nbsp;&nbsp;Reg No:&nbsp;<strong style="font-family:monospace;">' + h(d.regno) + '</strong>'
-            : '')
-      + '&nbsp;&nbsp;|&nbsp;&nbsp;Entry: <strong>' + h(d.eno) + '</strong>'
-      + '</div>';
+        statusBadge(d.status) +
+        '&nbsp;&nbsp;<strong>' + h(d.name) + '</strong>' +
+        '&nbsp;&nbsp;|&nbsp;&nbsp;Entry:&nbsp;<strong style="font-family:monospace;">' + h(d.eno) + '</strong>' +
+        (d.regno && d.regno !== '-'
+            ? '&nbsp;&nbsp;|&nbsp;&nbsp;Reg:&nbsp;<strong style="font-family:monospace;">' + h(d.regno) + '</strong>'
+            : '') +
+        (d.programme ? '&nbsp;&nbsp;|&nbsp;&nbsp;' + h(d.programme) : '');
 
-    var dAdm = document.getElementById('d-admstatus');
-    if (dAdm) dAdm.innerHTML = statusBadge(d.status);
     setText('admc-modal-title', d.name + '  —  ' + d.eno);
     buildModalActions(d);
+}
+
+// ── Document card renderer ────────────────────────────────────
+var _docBadgeCls = {
+    PHOTO:'tp-photo', OLEVEL:'tp-olevel', ALEVEL:'tp-alevel',
+    NATID:'tp-natid', PASSPORT:'tp-passport', OTHER:'tp-other'
+};
+var _docLabels = {
+    PHOTO:'Passport Photo', OLEVEL:'O-Level (UCE)', ALEVEL:'A-Level (UACE)',
+    NATID:'National ID', PASSPORT:'Passport', TRANSCRIPT:'Transcript',
+    BIRTH_CERTIFICATE:'Birth Cert.', RECOMMENDATION:'Recommendation',
+    MEDICAL:'Medical', OTHER:'Other'
+};
+function fmtBytes(b) {
+    if (!b || b < 1024) return (b || 0) + ' B';
+    if (b < 1048576) return Math.round(b / 1024) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+}
+function renderDocuments(docs, eno) {
+    var el = document.getElementById('d-docs-list');
+    var ct = document.getElementById('d-doc-count');
+    if (!el) return;
+    if (ct) ct.textContent = docs.length + ' file' + (docs.length !== 1 ? 's' : '');
+    if (!docs.length) {
+        el.innerHTML = '<div class="adm-nodocs">No documents uploaded yet.</div>';
+        return;
+    }
+    var viewBase = 'NewStudentRegistration.aspx?ajax=view_doc&eno=' + encodeURIComponent(eno) + '&id=';
+    var html = '<div class="adm-docs-grid">';
+    for (var i = 0; i < docs.length; i++) {
+        var doc = docs[i];
+        var lbl = _docLabels[doc.type] || doc.type;
+        var cls = _docBadgeCls[doc.type] || '';
+        html += '<div class="adm-doc-card">'
+              + '<span class="adm-doc-badge ' + cls + '">' + h(lbl) + '</span>'
+              + '<div class="adm-doc-info">'
+              + '<div class="fn" title="' + h(doc.filename) + '">' + h(doc.filename) + '</div>'
+              + '<div class="fm">' + h(fmtBytes(doc.size)) + ' &nbsp;&middot;&nbsp; ' + h(doc.date) + '</div>'
+              + '</div>'
+              + '<a href="' + viewBase + doc.id + '" target="_blank" class="adm-doc-view">View</a>'
+              + '</div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
 }
 
 function buildModalActions(d) {
     var acts = document.getElementById('admc-modal-actions');
     acts.innerHTML = '';
+
+    // Edit Application — always a main visible button; navigates to centralized form
+    acts.innerHTML +=
+        '<a href="NewStudentRegistration.aspx?eno=' + encodeURIComponent(d.eno) + '&returnUrl=' + encodeURIComponent('AdmissionsController.aspx') + '" class="admc-btn admc-btn--ghost">'
+      + '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:3px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit Application</a>';
+
+    // Primary status-driven action buttons
     if (d.status === 'PENDING') {
         acts.innerHTML +=
             '<button type="button" class="admc-btn admc-btn--danger" onclick="rejectOne(\'' + escJ(d.eno) + '\',\'' + escJ(d.name) + '\')">'
-          + '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
-          + ' Reject</button>'
+          + '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-1px;margin-right:3px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Reject</button>'
           + '<button type="button" class="admc-btn admc-btn--success" onclick="admitOne(\'' + escJ(d.eno) + '\',\'' + escJ(d.name) + '\')">'
-          + '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
-          + ' Admit</button>';
+          + '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-1px;margin-right:3px;"><polyline points="20 6 9 17 4 12"/></svg>Admit</button>';
     }
     if (d.status === 'ADMITTED') {
         acts.innerHTML +=
             '<button type="button" class="admc-btn admc-btn--amber" onclick="rejectOne(\'' + escJ(d.eno) + '\',\'' + escJ(d.name) + '\')">Withdraw</button>'
           + '<button type="button" class="admc-btn admc-btn--primary" id="btn-reg-modal" onclick="registerOne(\'' + escJ(d.eno) + '\',\'' + escJ(d.name) + '\')">'
-          + '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>'
-          + ' Register as Student</button>';
+          + '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-1px;margin-right:3px;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>Register</button>';
     }
     if (d.status === 'REGISTERED' && d.regno && d.regno !== '-') {
         acts.innerHTML +=
             '<button type="button" class="admc-btn admc-btn--amber" id="btn-rereg-modal" onclick="reregisterOne(\'' + escJ(d.eno) + '\',\'' + escJ(d.name) + '\')">Re-register / Fix</button>'
-          + '<a href="StudentProfile.aspx?regno=' + encodeURIComponent(d.regno) + '" class="admc-btn admc-btn--primary" target="_blank">'
-          + '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
-          + ' View Student Profile</a>';
+          + '<a href="StudentProfile.aspx?regno=' + encodeURIComponent(d.regno) + '" class="admc-btn admc-btn--primary" target="_blank">View Profile</a>';
     }
+
+    // Admission Letter button — for ADMITTED and REGISTERED
+    if (d.status === 'ADMITTED' || d.status === 'REGISTERED') {
+        var letterType = d.status === 'REGISTERED' ? 'official' : 'provisional';
+        var letterLabel = d.status === 'REGISTERED' ? 'Official Letter' : 'Provisional Letter';
+        acts.innerHTML +=
+            '<a href="AdmissionLetter.aspx?eno=' + encodeURIComponent(d.eno) + '&type=' + letterType + '" target="_blank" class="admc-btn admc-btn--ghost" title="Open admission letter in new tab" style="border-color:#05275C;color:#05275C;">'
+          + '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:3px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+          + h(letterLabel) + '</a>';
+    }
+
+    // ⋮ overflow: Save Notes + Delete
+    var isReg = d.status === 'REGISTERED' && d.regno && d.regno !== '-';
     acts.innerHTML +=
-        '<button type="button" class="admc-btn admc-btn--ghost" onclick="saveNotes()">'
-      + '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>'
-      + ' Save Notes</button>';
+        '<div class="admc-act-wrap" id="admc-act-wrap">'
+      + '<button type="button" class="admc-act-trigger" onclick="toggleActMenu(event)" title="More actions" aria-haspopup="true">&#8942;</button>'
+      + '<div class="admc-act-menu" id="admc-act-menu">'
+      + '<button type="button" class="admc-act-menu__item" onclick="closeActMenu();saveNotes();">'
+      + '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Save Notes</button>'
+      + '<div class="admc-act-menu__sep"></div>'
+      + '<button type="button" class="admc-act-menu__item admc-act-menu__item--danger" onclick="closeActMenu();deleteOne(\'' + escJ(d.eno) + '\',\'' + escJ(d.name) + '\',' + isReg + ');">'
+      + '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>Delete Application</button>'
+      + '</div></div>';
 }
+function toggleActMenu(e) {
+    e.stopPropagation();
+    var m = document.getElementById('admc-act-menu');
+    if (m) m.classList.toggle('open');
+}
+function closeActMenu() {
+    var m = document.getElementById('admc-act-menu');
+    if (m) m.classList.remove('open');
+}
+// ── Row ⋮ menu (list table) ──────────────────────────────────
+window.toggleRowMenu = function(btn) {
+    var menu = btn.parentNode.querySelector('.admc-row-menu');
+    var wasOpen = menu && menu.classList.contains('open');
+    closeRowMenus();
+    if (!wasOpen && menu) menu.classList.add('open');
+};
+window.closeRowMenus = function() {
+    document.querySelectorAll('.admc-row-menu.open').forEach(function(m) {
+        m.classList.remove('open');
+    });
+};
+document.addEventListener('click', function(e) {
+    closeActMenu();
+    if (!e.target.closest('.admc-row-menu-wrap')) closeRowMenus();
+});
+
 
 function saveNotes() {
     if (!_currentEno) return;
@@ -752,6 +1029,31 @@ function reregisterOne(eno, name) {
     });
 }
 
+function deleteOne(eno, name, isRegistered) {
+    if (isRegistered) {
+        var typed = prompt(
+            'WARNING — PERMANENT DELETE\n\n' +
+            'This will delete the fully-registered student:\n' +
+            '  ' + name + '  (' + eno + ')\n\n' +
+            'ALL records will be removed: student file, registration,\n' +
+            'application data and portal account.\n\n' +
+            'Type  DELETE  to confirm (case-insensitive):'
+        );
+        if (typed === null) return;
+        if (typed.trim().toUpperCase() !== 'DELETE') {
+            if (typed.trim().length > 0) alert('Deletion cancelled — confirmation text did not match.');
+            return;
+        }
+    } else {
+        if (!confirm('Delete application for ' + name + ' (' + eno + ')?\n\nThis permanently removes the application and cannot be undone.')) return;
+    }
+    postAction('delete', eno, {}, function(d) {
+        showToast('✓ Application for ' + name + ' deleted.', true);
+        closeModal();
+        setTimeout(function() { window.location.reload(); }, 800);
+    });
+}
+
 // ── Generic POST ─────────────────────────────────────────────────
 function postAction(action, eno, extra, onOk, onErr) {
     var payload = { eno: eno };
@@ -797,6 +1099,33 @@ function h(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function escJ(s) { return String(s || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+// ════════════════════════════════════════════════════════════════════
+// SEARCHABLE DROPDOWN — enhances long native <select>s in place
+// ════════════════════════════════════════════════════════════════════
+function enhanceSelect(sel){
+    if(!sel || sel._enh) return; sel._enh = true;
+    var opts=[]; for(var i=0;i<sel.options.length;i++) opts.push({v:sel.options[i].value,t:sel.options[i].text});
+    var wrap=document.createElement('div'); wrap.className='admc-combo';
+    if(sel.style.maxWidth) wrap.style.maxWidth=sel.style.maxWidth;
+    sel.parentNode.insertBefore(wrap, sel); wrap.appendChild(sel); sel.style.display='none';
+    var inp=document.createElement('input'); inp.type='text'; inp.className='admc-combo__inp admc-select'; inp.autocomplete='off';
+    inp.placeholder=opts[0]?opts[0].t:'Search…';
+    var list=document.createElement('div'); list.className='admc-combo__list';
+    wrap.appendChild(inp); wrap.appendChild(list);
+    var cur=opts.filter(function(o){return String(o.v)===String(sel.value);})[0]; if(cur&&cur.v) inp.value=cur.t;
+    function draw(f){ f=(f||'').toLowerCase();
+        var m=opts.filter(function(o){ return !f || o.t.toLowerCase().indexOf(f)>=0; });
+        if(!m.length){ list.innerHTML='<div class="admc-combo__i admc-combo__i--none">No match</div>'; return; }
+        list.innerHTML=m.slice(0,150).map(function(o){ return '<div class="admc-combo__i" data-v="'+h(o.v)+'">'+h(o.t)+'</div>'; }).join('');
+        [].forEach.call(list.querySelectorAll('.admc-combo__i[data-v]'),function(el){ el.onmousedown=function(e){ e.preventDefault(); sel.value=el.getAttribute('data-v'); inp.value=el.textContent; list.classList.remove('on'); }; });
+    }
+    inp.addEventListener('focus',function(){ draw(''); list.classList.add('on'); });
+    inp.addEventListener('input',function(){ sel.value=''; draw(inp.value); list.classList.add('on'); });
+    inp.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); var f=list.querySelector('.admc-combo__i[data-v]'); if(f){ sel.value=f.getAttribute('data-v'); inp.value=f.textContent; } list.classList.remove('on'); applyFilters(); } });
+    inp.addEventListener('blur',function(){ setTimeout(function(){ list.classList.remove('on'); },160); });
+}
+(function(){ enhanceSelect(document.getElementById('admc-prog')); enhanceSelect(document.getElementById('admc-year')); })();
 </script>
 
 </asp:Content>

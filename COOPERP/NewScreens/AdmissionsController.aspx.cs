@@ -69,11 +69,13 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
                 switch (ajax)
                 {
                     case "detail":     HandleDetail();     break;
+                    case "edit":       HandleEdit();       break;
                     case "admit":      HandleAdmit();      break;
                     case "reject":     HandleReject();     break;
                     case "register":   HandleRegister();   break;
                     case "reregister": HandleReRegister(); break;
                     case "note":       HandleNote();       break;
+                    case "delete":     HandleDelete();     break;
                     default:
                         Response.Write("{\"ok\":false,\"error\":\"Unknown action.\"}");
                         break;
@@ -168,17 +170,52 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
         }
         catch { /* zeros on error */ }
 
+        long decided = admitted + registered + rejected;
+        double admitRate = (decided > 0) ? ((admitted + registered) * 100.0 / decided) : 0;   // of decided applications
+        double regRate = ((admitted + registered) > 0) ? (registered * 100.0 / (admitted + registered)) : 0; // admitted → registered
+
         var sb = new StringBuilder();
         sb.Append("<div class=\"admc-stats\">");
-        sb.AppendFormat("<div class=\"admc-stat admc-stat--total\"><div class=\"admc-stat__label\">Total Applicants</div><div class=\"admc-stat__value\">{0:N0}</div></div>", total);
-        sb.AppendFormat("<div class=\"admc-stat admc-stat--draft\"><div class=\"admc-stat__label\">In Draft</div><div class=\"admc-stat__value\">{0:N0}</div></div>", draft);
-        sb.AppendFormat("<div class=\"admc-stat admc-stat--submitted\"><div class=\"admc-stat__label\">Submitted</div><div class=\"admc-stat__value\">{0:N0}</div></div>", submitted);
-        sb.AppendFormat("<div class=\"admc-stat admc-stat--pending\"><div class=\"admc-stat__label\">Pending Admission</div><div class=\"admc-stat__value\">{0:N0}</div></div>", pending);
-        sb.AppendFormat("<div class=\"admc-stat admc-stat--admitted\"><div class=\"admc-stat__label\">Admitted</div><div class=\"admc-stat__value\">{0:N0}</div></div>", admitted);
-        sb.AppendFormat("<div class=\"admc-stat admc-stat--registered\"><div class=\"admc-stat__label\">Registered</div><div class=\"admc-stat__value\">{0:N0}</div></div>", registered);
-        sb.AppendFormat("<div class=\"admc-stat admc-stat--rejected\"><div class=\"admc-stat__label\">Rejected/Withdrawn</div><div class=\"admc-stat__value\">{0:N0}</div></div>", rejected);
+        sb.Append(StatCard("total", "Total Applicants", total, admitRate > 0 ? "Admit rate " + admitRate.ToString("0.#") + "%" : "", ""));
+        sb.Append(StatCard("draft", "In Draft", draft, Pct(draft, total), "DRAFT"));
+        sb.Append(StatCard("submitted", "Submitted", submitted, Pct(submitted, total), "SUBMITTED"));
+        sb.Append(StatCard("pending", "Pending Admission", pending, Pct(pending, total), "PENDING"));
+        sb.Append(StatCard("admitted", "Admitted", admitted, Pct(admitted, total), "ADMITTED"));
+        sb.Append(StatCard("registered", "Registered", registered, regRate > 0 ? "Reg rate " + regRate.ToString("0.#") + "%" : Pct(registered, total), "REGISTERED"));
+        sb.Append(StatCard("rejected", "Rejected/Withdrawn", rejected, Pct(rejected, total), "REJECTED"));
         sb.Append("</div>");
         litStats.Text = sb.ToString();
+    }
+
+    private static string Pct(long part, long whole)
+    {
+        if (whole <= 0 || part <= 0) return "";
+        return (part * 100.0 / whole).ToString("0.#") + "% of total";
+    }
+
+    // A stat card that also acts as a one-click status filter (preserving other filters).
+    private string StatCard(string mod, string label, long value, string sub, string status)
+    {
+        string href = StatLink(status);
+        string subHtml = string.IsNullOrEmpty(sub) ? "" : "<div class=\"admc-stat__sub\">" + HE(sub) + "</div>";
+        bool active = string.Equals(FilterStatus, status, StringComparison.OrdinalIgnoreCase);
+        return string.Format(
+            "<a class=\"admc-stat admc-stat--{0}{5}\" href=\"{1}\" title=\"Filter by this status\"><div class=\"admc-stat__label\">{2}</div><div class=\"admc-stat__value\">{3:N0}</div>{4}</a>",
+            mod, HE(href), HE(label), value, subHtml, active ? " admc-stat--active" : "");
+    }
+
+    // Current filters as a query string, with status overridden (blank status = All).
+    private string StatLink(string status)
+    {
+        var sp = new List<string>();
+        if (!string.IsNullOrEmpty(status)) sp.Add("status=" + Uri.EscapeDataString(status));
+        if (!string.IsNullOrEmpty(FilterQ)) sp.Add("q=" + Uri.EscapeDataString(FilterQ));
+        if (!string.IsNullOrEmpty(FilterProg)) sp.Add("prog=" + Uri.EscapeDataString(FilterProg));
+        if (!string.IsNullOrEmpty(FilterYear)) sp.Add("year=" + Uri.EscapeDataString(FilterYear));
+        if (!string.IsNullOrEmpty(FilterSession)) sp.Add("session=" + Uri.EscapeDataString(FilterSession));
+        if (!string.IsNullOrEmpty(FilterSource)) sp.Add("source=" + Uri.EscapeDataString(FilterSource));
+        if (FilterSize != 100) sp.Add("size=" + FilterSize);
+        return "AdmissionsController.aspx" + (sp.Count > 0 ? "?" + string.Join("&", sp.ToArray()) : "");
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -384,7 +421,11 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
                                 sbRows.Append("<br/><span class=\"admc-online-chip\">&#127760; ONLINE</span>");
                             sbRows.Append("</td>");
 
-                            sbRows.AppendFormat("<td><span class=\"admc-name\">{0}</span></td>", HE(name));
+                            sbRows.AppendFormat(
+                                "<td><a href=\"NewStudentRegistration.aspx?eno={0}&returnUrl={1}\" class=\"admc-name\" title=\"Edit application\">{2}</a></td>",
+                                Uri.EscapeDataString(eno),
+                                Uri.EscapeDataString("AdmissionsController.aspx"),
+                                HE(name));
                             sbRows.AppendFormat("<td style=\"max-width:180px;white-space:normal;font-size:11px;\">{0}</td>", HE(prog));
                             sbRows.AppendFormat("<td>{0}</td>", HE(sess));
                             sbRows.AppendFormat("<td>{0}</td>", HE(yr));
@@ -393,33 +434,85 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
                                     ? HE(regno) : "<span style=\"color:#ccc;\">&#8212;</span>");
                             sbRows.AppendFormat("<td>{0}</td>", StatusBadgeHtml(status));
 
+                            // ── Row ⋮ menu ─────────────────────────────────────────────────
                             sbRows.Append("<td><div class=\"admc-actions-cell\">");
+                            sbRows.Append("<div class=\"admc-row-menu-wrap\">");
+                            sbRows.Append("<button type=\"button\" class=\"admc-row-trigger\" onclick=\"toggleRowMenu(this)\" title=\"Actions\">&#8942;</button>");
+                            sbRows.Append("<div class=\"admc-row-menu\">");
+
+                            // View Details — always present
                             sbRows.AppendFormat(
-                                "<button type=\"button\" class=\"admc-btn admc-btn--ghost admc-btn--sm\" onclick=\"openDetail('{0}')\">View</button>",
+                                "<button type=\"button\" class=\"admc-row-menu__item\" onclick=\"closeRowMenus();openDetail('{0}')\">" +
+                                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>View Details</button>",
                                 JsStr(eno));
+
+                            // Edit Application — navigates to centralised form
+                            sbRows.AppendFormat(
+                                "<a href=\"NewStudentRegistration.aspx?eno={0}&returnUrl={1}\" class=\"admc-row-menu__item admc-row-menu__item--edit\">" +
+                                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\"/><path d=\"M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z\"/></svg>Edit Application</a>",
+                                Uri.EscapeDataString(eno),
+                                Uri.EscapeDataString("AdmissionsController.aspx"));
+
+                            if (status == "PENDING" || status == "ADMITTED")
+                                sbRows.Append("<div class=\"admc-row-menu__sep\"></div>");
+
                             if (status == "PENDING")
                             {
                                 sbRows.AppendFormat(
-                                    "<button type=\"button\" class=\"admc-btn admc-btn--success admc-btn--sm\" onclick=\"admitOne('{0}','{1}')\">Admit</button>",
+                                    "<button type=\"button\" class=\"admc-row-menu__item admc-row-menu__item--success\" onclick=\"closeRowMenus();admitOne('{0}','{1}')\">" +
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><polyline points=\"20 6 9 17 4 12\"/></svg>Admit</button>",
                                     JsStr(eno), JsStr(name));
                                 sbRows.AppendFormat(
-                                    "<button type=\"button\" class=\"admc-btn admc-btn--danger admc-btn--sm\" onclick=\"rejectOne('{0}','{1}')\">Reject</button>",
+                                    "<button type=\"button\" class=\"admc-row-menu__item admc-row-menu__item--danger\" onclick=\"closeRowMenus();rejectOne('{0}','{1}')\">" +
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>Reject</button>",
                                     JsStr(eno), JsStr(name));
                             }
                             if (status == "ADMITTED")
-                                sbRows.AppendFormat(
-                                    "<button type=\"button\" class=\"admc-btn admc-btn--primary admc-btn--sm\" onclick=\"openDetailTab('{0}','tab-academic')\">Register</button>",
-                                    JsStr(eno));
-                            if (status == "REGISTERED" && !string.IsNullOrEmpty(regno) && regno != "-")
                             {
                                 sbRows.AppendFormat(
-                                    "<button type=\"button\" class=\"admc-btn admc-btn--amber admc-btn--sm\" onclick=\"reregisterOne('{0}','{1}')\">Re-register / Fix</button>",
+                                    "<button type=\"button\" class=\"admc-row-menu__item admc-row-menu__item--success\" onclick=\"closeRowMenus();registerOne('{0}','{1}')\">" +
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2\"/><circle cx=\"8.5\" cy=\"7\" r=\"4\"/><polyline points=\"17 11 19 13 23 9\"/></svg>Register as Student</button>",
                                     JsStr(eno), JsStr(name));
                                 sbRows.AppendFormat(
-                                    "<a href=\"StudentProfile.aspx?regno={0}\" class=\"admc-btn admc-btn--ghost admc-btn--sm\" target=\"_blank\">Profile</a>",
+                                    "<button type=\"button\" class=\"admc-row-menu__item admc-row-menu__item--danger\" onclick=\"closeRowMenus();rejectOne('{0}','{1}')\">" +
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>Withdraw</button>",
+                                    JsStr(eno), JsStr(name));
+                            }
+                            if (status == "REGISTERED" && !string.IsNullOrEmpty(regno) && regno != "-")
+                            {
+                                sbRows.Append("<div class=\"admc-row-menu__sep\"></div>");
+                                sbRows.AppendFormat(
+                                    "<button type=\"button\" class=\"admc-row-menu__item\" onclick=\"closeRowMenus();reregisterOne('{0}','{1}')\">" +
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"1 4 1 10 7 10\"/><path d=\"M3.51 15a9 9 0 1 0 .49-3.18\"/></svg>Re-register / Fix</button>",
+                                    JsStr(eno), JsStr(name));
+                                sbRows.AppendFormat(
+                                    "<a href=\"StudentProfile.aspx?regno={0}\" class=\"admc-row-menu__item\" target=\"_blank\">" +
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\"/><polyline points=\"15 3 21 3 21 9\"/><line x1=\"10\" y1=\"14\" x2=\"21\" y2=\"3\"/></svg>View Profile</a>",
                                     Uri.EscapeDataString(regno));
                             }
-                            sbRows.Append("</div></td></tr>");
+
+                            // Admission Letter — available for ADMITTED and REGISTERED rows
+                            if (status == "ADMITTED" || status == "REGISTERED")
+                            {
+                                sbRows.Append("<div class=\"admc-row-menu__sep\"></div>");
+                                string letterType = status == "REGISTERED" ? "official" : "provisional";
+                                sbRows.AppendFormat(
+                                    "<a href=\"AdmissionLetter.aspx?eno={0}&type={1}\" target=\"_blank\" class=\"admc-row-menu__item\">" +
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><polyline points=\"14 2 14 8 20 8\"/><line x1=\"16\" y1=\"13\" x2=\"8\" y2=\"13\"/><line x1=\"16\" y1=\"17\" x2=\"8\" y2=\"17\"/></svg>{2} Letter</a>",
+                                    Uri.EscapeDataString(eno), letterType,
+                                    status == "REGISTERED" ? "Official Admission" : "Provisional Admission");
+                            }
+
+                            // Delete — always present for every row
+                            sbRows.Append("<div class=\"admc-row-menu__sep\"></div>");
+                            string isReg = (status == "REGISTERED" && !string.IsNullOrEmpty(regno) && regno != "-")
+                                           ? "true" : "false";
+                            sbRows.AppendFormat(
+                                "<button type=\"button\" class=\"admc-row-menu__item admc-row-menu__item--danger\" onclick=\"closeRowMenus();deleteOne('{0}','{1}',{2})\">" +
+                                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"3 6 5 6 21 6\"/><path d=\"M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6\"/><path d=\"M10 11v6\"/><path d=\"M14 11v6\"/><path d=\"M9 6V4h6v2\"/></svg>Delete</button>",
+                                JsStr(eno), JsStr(name), isReg);
+
+                            sbRows.Append("</div></div></div></td></tr>");
                             rowNum++;
                         }
                     }
@@ -567,6 +660,22 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
             string otYrX   = hasOtYr    ? "a.other_year"          : (hasOtYrFb   ? "a.stud_village"     : "NULL");
             string otGrX   = hasOtGr    ? "a.other_grade"         : (hasOtGrFb   ? "a.stud_county"      : "NULL");
 
+            bool hasRefName = ColumnExists(conn, "acad_applications", "referee_name");
+            bool hasRefCon  = ColumnExists(conn, "acad_applications", "referee_contacts");
+            bool hasSubAt   = ColumnExists(conn, "acad_applications", "app_submitted_at");
+            bool hasUpdAt   = ColumnExists(conn, "acad_applications", "app_last_updated_at");
+            bool hasKinRel2 = ColumnExists(conn, "acad_applications", "kin_relationship");
+            bool hasKinCon2 = ColumnExists(conn, "acad_applications", "kin_contacts");
+            bool hasMarital = ColumnExists(conn, "acad_applications", "stud_mar_stat");
+
+            string refNameX = hasRefName ? "COALESCE(a.referee_name,'')"    : "''";
+            string refConX  = hasRefCon  ? "COALESCE(a.referee_contacts,'')" : "''";
+            string subAtX   = hasSubAt   ? "COALESCE(DATE_FORMAT(a.app_submitted_at,'%d/%m/%Y %H:%i'),'')"  : "''";
+            string updAtX   = hasUpdAt   ? "COALESCE(DATE_FORMAT(a.app_last_updated_at,'%d/%m/%Y %H:%i'),'')" : "''";
+            string kinRelX  = hasKinRel2 ? "COALESCE(a.kin_relationship,'')" : "''";
+            string kinConX  = hasKinCon2 ? "COALESCE(a.kin_contacts,'')"    : "''";
+            string maritalX = hasMarital ? "COALESCE(a.stud_mar_stat,'')"   : "''";
+
             string sql = @"
                 SELECT
                     a.stud_entry_no                                         AS eno,
@@ -576,13 +685,14 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
                     COALESCE(DATE_FORMAT(a.stud_birthdate,'%d/%m/%Y'),'')   AS dob,
                     COALESCE(a.stud_nationality,'')                         AS nationality,
                     COALESCE(a.stud_religion,'')                            AS religion,
-                    COALESCE(a.stud_mar_stat,'')                            AS marital,
+                    " + maritalX + @"                                       AS marital,
                     COALESCE(" + natIdX  + @",'')                           AS national_id,
                     COALESCE(a.physicalDisability,'')                       AS disability,
                     COALESCE(" + titleX  + @",'')                           AS title,
                     COALESCE(a.stud_campus,'')                              AS campus,
                     COALESCE(a.app_reviewer_notes,'')                       AS reviewer_notes,
                     COALESCE(p.progname, c.prog_id,'')                      AS programme,
+                    COALESCE(c.prog_id,'')                                  AS prog_id,
                     COALESCE(c.adm_session,'')                              AS session,
                     COALESCE(a.stud_entry_year,'')                          AS entry_year,
                     COALESCE(" + methX   + @",'')                           AS entry_method,
@@ -609,8 +719,12 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
                     COALESCE(" + pbX     + @",'')                           AS pobox,
                     COALESCE(" + cntX    + @",'')                           AS country,
                     COALESCE(a.next_kin,'')                                 AS kin_name,
-                    COALESCE(a.kin_relationship,'')                         AS kin_relationship,
-                    COALESCE(a.kin_contacts,'')                             AS kin_contacts,
+                    " + kinRelX  + @"                                       AS kin_relationship,
+                    " + kinConX  + @"                                       AS kin_contacts,
+                    " + refNameX + @"                                       AS referee_name,
+                    " + refConX  + @"                                       AS referee_contacts,
+                    " + subAtX   + @"                                       AS submitted_at,
+                    " + updAtX   + @"                                       AS last_updated,
                     CASE
                         WHEN c.adm_status=0 THEN 'PENDING'
                         WHEN c.adm_status=2 THEN 'REJECTED'
@@ -641,6 +755,36 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
                 }
             }
             catch { /* billing is best-effort */ }
+
+            // Documents — best-effort, returns empty array on any failure
+            var docsJson = new System.Text.StringBuilder("[");
+            try
+            {
+                using (var dcmd = new MySqlCommand(
+                    "SELECT id, doc_type, original_filename, file_size_bytes, " +
+                    "DATE_FORMAT(uploaded_at,'%d/%m/%Y %H:%i') AS uploaded_at " +
+                    "FROM apply_documents WHERE stud_entry_no=@eno ORDER BY uploaded_at", conn))
+                {
+                    dcmd.Parameters.AddWithValue("@eno", eno);
+                    int dn = 0;
+                    using (var dr = dcmd.ExecuteReader())
+                    {
+                        while (dr.Read())
+                        {
+                            if (dn++ > 0) docsJson.Append(",");
+                            docsJson.AppendFormat(
+                                "{{\"id\":{0},\"type\":{1},\"filename\":{2},\"size\":{3},\"date\":{4}}}",
+                                dr["id"],
+                                JsonStr(dr["doc_type"].ToString()),
+                                JsonStr(dr["original_filename"].ToString()),
+                                dr["file_size_bytes"],
+                                JsonStr(dr["uploaded_at"].ToString()));
+                        }
+                    }
+                }
+            }
+            catch { /* documents are best-effort */ }
+            docsJson.Append("]");
 
             using (var cmd = new MySqlCommand(sql, conn))
             {
@@ -688,11 +832,17 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
                         "\"district\":"        + JsonStr(r["district"].ToString())       + "," +
                         "\"pobox\":"           + JsonStr(r["pobox"].ToString())          + "," +
                         "\"country\":"         + JsonStr(r["country"].ToString())        + "," +
-                        "\"kin_name\":"        + JsonStr(r["kin_name"].ToString())       + "," +
+                        "\"kin_name\":"        + JsonStr(r["kin_name"].ToString())         + "," +
                         "\"kin_relationship\":" + JsonStr(r["kin_relationship"].ToString())+ "," +
-                        "\"kin_contacts\":"    + JsonStr(r["kin_contacts"].ToString())   + "," +
-                        "\"reviewer_notes\":"  + JsonStr(r["reviewer_notes"].ToString()) + "," +
-                        "\"status\":"          + JsonStr(r["status"].ToString())         +
+                        "\"kin_contacts\":"    + JsonStr(r["kin_contacts"].ToString())     + "," +
+                        "\"referee_name\":"    + JsonStr(r["referee_name"].ToString())     + "," +
+                        "\"referee_contacts\":" + JsonStr(r["referee_contacts"].ToString())+ "," +
+                        "\"submitted_at\":"    + JsonStr(r["submitted_at"].ToString())     + "," +
+                        "\"last_updated\":"    + JsonStr(r["last_updated"].ToString())     + "," +
+                        "\"reviewer_notes\":"  + JsonStr(r["reviewer_notes"].ToString())   + "," +
+                        "\"prog_id\":"         + JsonStr(r["prog_id"].ToString())           + "," +
+                        "\"docs\":"            + docsJson.ToString()                        + "," +
+                        "\"status\":"          + JsonStr(r["status"].ToString())           +
                         "}");
                 }
             }
@@ -788,6 +938,303 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
                 SendDecisionEmail(rejEmail, rejName, eno, false, reason);
         }
         Response.Write("{\"ok\":true,\"message\":\"Applicant rejected/withdrawn.\"}");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // EDIT APPLICATION DATA (never touches adm_status / stud_reg_no)
+    // ════════════════════════════════════════════════════════════════════════
+    private void HandleEdit()
+    {
+        var data = ReadPostJson();
+        string eno = GetStr(data, "eno");
+        if (string.IsNullOrEmpty(eno)) throw new Exception("Entry number required.");
+
+        using (var conn = Open())
+        {
+            // ── acad_applications ────────────────────────────────────────────
+            var sets  = new List<string>();
+            var parms = new Dictionary<string, object>();
+
+            // Always-present columns
+            sets.Add("stud_name=@nm");         parms["@nm"]   = GetStr(data, "name");
+            sets.Add("stud_sex=@sx");          parms["@sx"]   = GetStr(data, "sex");
+            sets.Add("stud_nationality=@nat"); parms["@nat"]  = GetStr(data, "nationality");
+            sets.Add("stud_religion=@rel");    parms["@rel"]  = GetStr(data, "religion");
+            sets.Add("stud_mar_stat=@mar");    parms["@mar"]  = GetStr(data, "marital");
+            sets.Add("stud_phone=@phn");       parms["@phn"]  = GetStr(data, "phone");
+            sets.Add("stud_email=@eml");       parms["@eml"]  = GetStr(data, "email");
+            sets.Add("stud_phy_address=@adr"); parms["@adr"]  = GetStr(data, "address");
+            sets.Add("stud_sponsor=@spn");     parms["@spn"]  = GetStr(data, "sponsor");
+            sets.Add("next_kin=@kin");         parms["@kin"]  = GetStr(data, "kin_name");
+            sets.Add("kin_relationship=@kr");  parms["@kr"]   = GetStr(data, "kin_relationship");
+            sets.Add("kin_contacts=@kc");      parms["@kc"]   = GetStr(data, "kin_contacts");
+            sets.Add("physicalDisability=@di");parms["@di"]   = GetStr(data, "disability");
+            sets.Add("stud_campus=@cp");       parms["@cp"]   = GetStr(data, "campus");
+            sets.Add("stud_intake=@itk");      parms["@itk"]  = GetStr(data, "intake");
+
+            string entryYr = GetStr(data, "entry_year");
+            if (!string.IsNullOrEmpty(entryYr)) { sets.Add("stud_entry_year=@yr"); parms["@yr"] = entryYr; }
+
+            // DOB — accept dd/MM/yyyy or yyyy-MM-dd
+            string dobRaw = GetStr(data, "dob");
+            if (!string.IsNullOrEmpty(dobRaw))
+            {
+                DateTime dob;
+                string[] fmts = { "dd/MM/yyyy", "yyyy-MM-dd", "d/M/yyyy", "dd-MM-yyyy", "d/M/yy" };
+                if (DateTime.TryParseExact(dobRaw, fmts, CultureInfo.InvariantCulture,
+                                           DateTimeStyles.None, out dob))
+                { sets.Add("stud_birthdate=@dob"); parms["@dob"] = dob.ToString("yyyy-MM-dd"); }
+            }
+
+            // Optional / alias columns
+            if (ColumnExists(conn, "acad_applications", "stud_id_number"))
+            { sets.Add("stud_id_number=@nid"); parms["@nid"] = GetStr(data, "national_id"); }
+            else if (ColumnExists(conn, "acad_applications", "national_id"))
+            { sets.Add("national_id=@nid");    parms["@nid"] = GetStr(data, "national_id"); }
+
+            if (ColumnExists(conn, "acad_applications", "title"))
+            { sets.Add("title=@ttl"); parms["@ttl"] = GetStr(data, "title"); }
+
+            if (ColumnExists(conn, "acad_applications", "stud_entry_method"))
+            { sets.Add("stud_entry_method=@mth"); parms["@mth"] = GetStr(data, "entry_method"); }
+
+            if (ColumnExists(conn, "acad_applications", "sponsor_contact"))
+            { sets.Add("sponsor_contact=@sc"); parms["@sc"] = GetStr(data, "sponsor_contact"); }
+
+            if (ColumnExists(conn, "acad_applications", "home_district"))
+            { sets.Add("home_district=@dst"); parms["@dst"] = GetStr(data, "district"); }
+
+            if (ColumnExists(conn, "acad_applications", "post_box"))
+            { sets.Add("post_box=@pb"); parms["@pb"] = GetStr(data, "pobox"); }
+
+            if (ColumnExists(conn, "acad_applications", "residence_country"))
+            { sets.Add("residence_country=@cn"); parms["@cn"] = GetStr(data, "country"); }
+
+            // Education — canonical columns first, legacy fallbacks second
+            // NOTE: INT columns (year, agg) use IntOrNull; varchar columns use StrOrNull.
+            // Both prevent MySQL "Incorrect integer value: ''" on empty-string input.
+            if (ColumnExists(conn, "acad_applications", "olevel_school"))  { sets.Add("olevel_school=@ols");  parms["@ols"] = StrOrNull(GetStr(data, "olevel_school")); }
+            if (ColumnExists(conn, "acad_applications", "olevel_index"))   { sets.Add("olevel_index=@oli");   parms["@oli"] = StrOrNull(GetStr(data, "olevel_index")); }
+            if (ColumnExists(conn, "acad_applications", "olevel_year"))    { sets.Add("olevel_year=@oly");    parms["@oly"] = IntOrNull(GetStr(data, "olevel_year")); }
+            else if (ColumnExists(conn, "acad_applications", "stud_pob"))  { sets.Add("stud_pob=@oly");       parms["@oly"] = StrOrNull(GetStr(data, "olevel_year")); }
+            if (ColumnExists(conn, "acad_applications", "olevel_agg"))     { sets.Add("olevel_agg=@ola");     parms["@ola"] = StrOrNull(GetStr(data, "olevel_agg")); }
+            else if (ColumnExists(conn, "acad_applications", "stud_district")) { sets.Add("stud_district=@ola"); parms["@ola"] = StrOrNull(GetStr(data, "olevel_agg")); }
+            if (ColumnExists(conn, "acad_applications", "alevel_school"))  { sets.Add("alevel_school=@als");  parms["@als"] = StrOrNull(GetStr(data, "alevel_school")); }
+            if (ColumnExists(conn, "acad_applications", "alevel_index"))   { sets.Add("alevel_index=@ali");   parms["@ali"] = StrOrNull(GetStr(data, "alevel_index")); }
+            if (ColumnExists(conn, "acad_applications", "alevel_year"))    { sets.Add("alevel_year=@aly");    parms["@aly"] = IntOrNull(GetStr(data, "alevel_year")); }
+            if (ColumnExists(conn, "acad_applications", "alevel_points"))  { sets.Add("alevel_points=@alp");  parms["@alp"] = StrOrNull(GetStr(data, "alevel_points")); }
+            else if (ColumnExists(conn, "acad_applications", "stud_ward")) { sets.Add("stud_ward=@alp");      parms["@alp"] = StrOrNull(GetStr(data, "alevel_points")); }
+            if (ColumnExists(conn, "acad_applications", "other_institution"))     { sets.Add("other_institution=@oi");    parms["@oi"] = StrOrNull(GetStr(data, "other_inst")); }
+            else if (ColumnExists(conn, "acad_applications", "stud_prevcampus")) { sets.Add("stud_prevcampus=@oi");      parms["@oi"] = StrOrNull(GetStr(data, "other_inst")); }
+            if (ColumnExists(conn, "acad_applications", "other_qualification"))   { sets.Add("other_qualification=@oq"); parms["@oq"] = StrOrNull(GetStr(data, "other_qual")); }
+            else if (ColumnExists(conn, "acad_applications", "stud_lg"))         { sets.Add("stud_lg=@oq");             parms["@oq"] = StrOrNull(GetStr(data, "other_qual")); }
+            if (ColumnExists(conn, "acad_applications", "other_year"))            { sets.Add("other_year=@oyr");         parms["@oyr"] = IntOrNull(GetStr(data, "other_year")); }
+            else if (ColumnExists(conn, "acad_applications", "stud_village"))    { sets.Add("stud_village=@oyr");       parms["@oyr"] = StrOrNull(GetStr(data, "other_year")); }
+            if (ColumnExists(conn, "acad_applications", "other_grade"))           { sets.Add("other_grade=@ogr");        parms["@ogr"] = StrOrNull(GetStr(data, "other_grade")); }
+            else if (ColumnExists(conn, "acad_applications", "stud_county"))     { sets.Add("stud_county=@ogr");        parms["@ogr"] = StrOrNull(GetStr(data, "other_grade")); }
+
+            bool hasUpdatedAt = ColumnExists(conn, "acad_applications", "app_last_updated_at");
+            if (hasUpdatedAt) { sets.Add("app_last_updated_at=@upd"); parms["@upd"] = DateTime.UtcNow; }
+
+            parms["@eno"] = eno;
+            string sql = "UPDATE acad_applications SET " + string.Join(",", sets.ToArray()) +
+                         " WHERE stud_entry_no=@eno";
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                foreach (var kv in parms) cmd.Parameters.AddWithValue(kv.Key, kv.Value);
+                cmd.ExecuteNonQuery();
+            }
+
+            // ── acad_applicant_choices (programme, session, specialisation) ──
+            var cSets  = new List<string>();
+            var cParms = new Dictionary<string, object>();
+            string progId  = GetStr(data, "prog_id");
+            string session = GetStr(data, "session");
+            string spec    = GetStr(data, "specialisation");
+            if (!string.IsNullOrEmpty(progId))  { cSets.Add("prog_id=@pg");     cParms["@pg"]   = progId; }
+            if (!string.IsNullOrEmpty(session)) { cSets.Add("adm_session=@ss"); cParms["@ss"]   = session; }
+            int specInt; cSets.Add("sub_comb=@sp"); cParms["@sp"] = int.TryParse(spec, out specInt) && specInt > 0 ? specInt : 0;
+            cParms["@eno"] = eno;
+            using (var cmd = new MySqlCommand(
+                "UPDATE acad_applicant_choices SET " + string.Join(",", cSets.ToArray()) +
+                " WHERE stud_entry_no=@eno AND Choice=1", conn))
+            {
+                foreach (var kv in cParms) cmd.Parameters.AddWithValue(kv.Key, kv.Value);
+                cmd.ExecuteNonQuery();
+            }
+
+            WriteAuditLog(conn, eno, "EDITED", "Application data edited by " + GetCurrentUser());
+        }
+        Response.Write("{\"ok\":true,\"message\":\"Application updated successfully.\"}");
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // DELETE APPLICATION / STUDENT
+    // Deletes in FK-safe order. Registered students get a financial
+    // transaction safety check before anything is removed.
+    // ════════════════════════════════════════════════════════════════════════
+    private void HandleDelete()
+    {
+        var data = ReadPostJson();
+        string eno = GetStr(data, "eno");
+        if (string.IsNullOrEmpty(eno)) throw new Exception("Entry number required.");
+
+        using (var conn = Open())
+        {
+            string regno        = GetApplicationRegno(conn, eno);
+            bool   isRegistered = !string.IsNullOrEmpty(regno) && regno != "-";
+
+            // Block deletion of registered students with fee transactions
+            if (isRegistered)
+            {
+                try
+                {
+                    using (var cmd = new MySqlCommand(
+                        "SELECT COUNT(*) FROM campus_dynamics_accounts.fin_studentfeestracking WHERE regno=@r", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        long txCount = Convert.ToInt64(cmd.ExecuteScalar());
+                        if (txCount > 0)
+                            throw new Exception(string.Format(
+                                "Cannot delete {0}: {1} fee transaction(s) exist. Reverse all transactions first.",
+                                regno, txCount));
+                    }
+                }
+                catch (MySqlException) { /* accounts DB unreachable — skip check and proceed */ }
+                // Application exceptions (our "Cannot delete" one) propagate naturally
+            }
+
+            // Resolve portal user ID now — before any rows are deleted
+            int applicantUserId = ResolveApplicantUserId(conn, eno);
+
+            MySqlTransaction tx = conn.BeginTransaction();
+            try
+            {
+                // 1. Supporting documents
+                try
+                {
+                    using (var cmd = new MySqlCommand(
+                        "DELETE FROM apply_documents WHERE stud_entry_no=@eno", conn, tx))
+                    { cmd.Parameters.AddWithValue("@eno", eno); cmd.ExecuteNonQuery(); }
+                }
+                catch (MySqlException) { /* table may not exist in this deployment */ }
+
+                // 2. Applicant portal notifications
+                if (applicantUserId > 0)
+                {
+                    try
+                    {
+                        using (var cmd = new MySqlCommand(
+                            "DELETE FROM apply_notifications WHERE user_id=@uid", conn, tx))
+                        { cmd.Parameters.AddWithValue("@uid", applicantUserId); cmd.ExecuteNonQuery(); }
+                    }
+                    catch (MySqlException) { }
+                }
+
+                // 3. Audit log rows for this application
+                try
+                {
+                    using (var cmd = new MySqlCommand(
+                        "DELETE FROM apply_audit_log WHERE stud_entry_no=@eno", conn, tx))
+                    { cmd.Parameters.AddWithValue("@eno", eno); cmd.ExecuteNonQuery(); }
+                }
+                catch (MySqlException) { }
+
+                // 4. Applicant choices (FK child of acad_applications)
+                using (var cmd = new MySqlCommand(
+                    "DELETE FROM acad_applicant_choices WHERE stud_entry_no=@eno", conn, tx))
+                { cmd.Parameters.AddWithValue("@eno", eno); cmd.ExecuteNonQuery(); }
+
+                // 5. Student records — only when fully registered
+                if (isRegistered)
+                {
+                    try
+                    {
+                        using (var cmd = new MySqlCommand(
+                            "DELETE FROM acad_student_semester WHERE regno=@r", conn, tx))
+                        { cmd.Parameters.AddWithValue("@r", regno); cmd.ExecuteNonQuery(); }
+                    }
+                    catch (MySqlException) { }
+
+                    try
+                    {
+                        using (var cmd = new MySqlCommand(
+                            "DELETE FROM acad_student_programme WHERE regno=@r", conn, tx))
+                        { cmd.Parameters.AddWithValue("@r", regno); cmd.ExecuteNonQuery(); }
+                    }
+                    catch (MySqlException) { }
+
+                    // acad_registration may use entry no or reg no as the key
+                    using (var cmd = new MySqlCommand(
+                        "DELETE FROM acad_registration WHERE regno=@r OR regno=@eno", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@r",   regno);
+                        cmd.Parameters.AddWithValue("@eno", eno);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    using (var cmd = new MySqlCommand(
+                        "DELETE FROM acad_student WHERE regno=@r OR entryno=@eno", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@r",   regno);
+                        cmd.Parameters.AddWithValue("@eno", eno);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                // 6. Application record (parent — deleted last)
+                using (var cmd = new MySqlCommand(
+                    "DELETE FROM acad_applications WHERE stud_entry_no=@eno", conn, tx))
+                { cmd.Parameters.AddWithValue("@eno", eno); cmd.ExecuteNonQuery(); }
+
+                tx.Commit();
+            }
+            catch
+            {
+                try { tx.Rollback(); } catch { }
+                throw;
+            }
+
+            // 7. Portal accounts — best-effort, outside transaction
+            DeletePortalAccount(conn, eno);
+            if (isRegistered && !string.IsNullOrEmpty(regno) && regno != eno)
+                DeletePortalAccount(conn, regno);
+
+            // Audit log after deletion (entry no longer exists but log is useful for ops)
+            WriteAuditLog(conn, eno, "DELETED",
+                string.Format("Application {0}{1} permanently deleted by {2}",
+                    eno,
+                    isRegistered ? " (reg: " + regno + ")" : "",
+                    GetCurrentUser()));
+        }
+
+        Response.Write("{\"ok\":true,\"message\":\"Application deleted successfully.\"}");
+    }
+
+    // Removes the portal user account (my_aspnet_users + my_aspnet_membership) for
+    // the given username. Silent failure — portal account is a best-effort clean-up.
+    private void DeletePortalAccount(MySqlConnection conn, string username)
+    {
+        if (string.IsNullOrEmpty(username)) return;
+        try
+        {
+            int userId = 0;
+            using (var cmd = new MySqlCommand(
+                "SELECT id FROM my_aspnet_users WHERE name=@name LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@name", username);
+                object v = cmd.ExecuteScalar();
+                if (v == null || v == DBNull.Value) return;
+                userId = Convert.ToInt32(v);
+            }
+            using (var cmd = new MySqlCommand(
+                "DELETE FROM my_aspnet_membership WHERE userId=@uid", conn))
+            { cmd.Parameters.AddWithValue("@uid", userId); cmd.ExecuteNonQuery(); }
+            using (var cmd = new MySqlCommand(
+                "DELETE FROM my_aspnet_users WHERE id=@uid", conn))
+            { cmd.Parameters.AddWithValue("@uid", userId); cmd.ExecuteNonQuery(); }
+        }
+        catch { }
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1178,6 +1625,23 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
             _colCache[key] = result;
             return result;
         }
+    }
+
+    // Converts a year/integer string to int or DBNull.Value.
+    // Prevents MySQL "Incorrect integer value: ''" on INT columns.
+    private static object IntOrNull(string val)
+    {
+        int n;
+        return int.TryParse((val ?? "").Trim(), out n) && n > 0
+            ? (object)n
+            : (object)DBNull.Value;
+    }
+
+    // Returns the string value or DBNull.Value for empty strings on nullable VARCHAR columns.
+    private static object StrOrNull(string val)
+    {
+        var s = (val ?? "").Trim();
+        return s.Length > 0 ? (object)s : (object)DBNull.Value;
     }
 
     private void UpdateApplicationStatus(MySqlConnection conn, string eno, string status)
