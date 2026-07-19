@@ -67,6 +67,9 @@
 .tt-saving.on{display:flex;}
 .tt-spin{width:34px;height:34px;border:3px solid #dbe3ee;border-top-color:#174DA4;border-radius:50%;animation:ttspin .7s linear infinite;}
 @keyframes ttspin{to{transform:rotate(360deg);}}
+.tt-setlec{display:none;align-items:flex-start;gap:8px;margin-top:8px;padding:9px 11px;background:#eef4ff;border:1px solid #cddbf3;border-left:3px solid #174DA4;font-size:11.5px;color:#1f2d4d;cursor:pointer;line-height:1.35;}
+.tt-setlec input{margin:1px 0 0;width:15px;height:15px;accent-color:#174DA4;cursor:pointer;flex-shrink:0;}
+.tt-setlec b{color:#05275C;}
 .tt-sbadge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;margin-left:6px;}
 .tt-sbadge--active{background:#e6f4ea;color:#166534;}.tt-sbadge--draft{background:#fff8e1;color:#8a5a00;}.tt-sbadge--arch{background:#eef0f4;color:#6b7280;}
 .tt-itemrow--draft{background:#fffdf5;}.tt-itemrow--arch{opacity:.66;}
@@ -115,7 +118,9 @@
       <div class="tt-fld"><label>Start time</label><input type="time" id="itStart" class="tt-in" value="08:00" /></div>
       <div class="tt-fld"><label>Duration (min)</label><input type="number" id="itDur" class="tt-in" value="120" min="15" step="15" /></div>
     </div>
-    <div class="tt-fld"><label>Teacher</label><div id="itTeacherCombo"></div><div class="tt-hint" id="itTeacherHint"></div></div>
+    <div class="tt-fld"><label>Teacher</label><div id="itTeacherCombo"></div><div class="tt-hint" id="itTeacherHint"></div>
+      <label class="tt-setlec" id="itSetLecWrap" style="display:none;"><input type="checkbox" id="itSetLec" /><span id="itSetLecTxt"></span></label>
+    </div>
     <div class="tt-fld"><label>Campus</label><div class="tt-radios" id="grpCampus"></div></div>
     <div class="tt-fld"><label>Room</label><div id="itRoomCombo"></div><div class="tt-avail" id="itAvail"></div></div>
     <div class="tt-fld"><label>Session type</label><div class="tt-radios" id="grpType"></div></div>
@@ -177,7 +182,7 @@ var TM = (function(){
       var progItems=[{value:'',label:'All programmes'}].concat((LK.programmes||[]).map(function(p){ return {value:p.code,label:(p.name||p.code)}; }));
       progCombo=makeCombo(qs('fProgCombo'), progItems, 'All programmes');
       var teachItems=[{value:'0',label:'Default (course lecturer)'}].concat((LK.teachers||[]).map(function(t){ return {value:String(t.id),label:t.name}; }));
-      teacherCombo=makeCombo(qs('itTeacherCombo'), teachItems, 'Search lecturer…');
+      teacherCombo=makeCombo(qs('itTeacherCombo'), teachItems, 'Search lecturer…', function(){ refreshSetLec(); preview(); });
       var campusItems=(LK.campuses||[]).filter(function(c){return true;}).map(function(c){ return {value:String(c.id),label:(c.id===0?'Both':c.name.replace(/ CAMPUS/i,''))}; });
       // put Kakeeka/Kirumba first then Both
       campusItems.sort(function(a,b){ return (a.value==='0'?1:0)-(b.value==='0'?1:0); });
@@ -269,6 +274,7 @@ var TM = (function(){
   function itemEdit(itemId){
     qs('itErr').style.display='none'; qs('itWarn').innerHTML=''; qs('itForceBtn').style.display='none'; qs('itOverrideNote').style.display='none';
     qs('itAvail').textContent=''; qs('itAvail').className='tt-avail';
+    qs('itSetLec').checked=false; qs('itSetLecWrap').style.display='none';
     qs('itHead').textContent=itemId>0?'Edit session':'Add session';
     qs('itId').value=itemId;
     qs('itOv').classList.add('on');           // open the modal immediately
@@ -282,7 +288,7 @@ var TM = (function(){
         qs('itDay').value=it.dayNo; qs('itStart').value=it.start; qs('itDur').value=it.durationMin; campusGrp.set(it.campusId); typeGrp.set(it.sessionType); modeGrp.set(it.deliveryMode); qs('itMeet').value=it.meetLink||''; qs('itDesc').value=it.description||''; statusGrp.set(it.status||'ACTIVE');
         qs('itMeetWrap').style.display=(modeGrp.value()!=='PHYSICAL')?'':'none';
         buildRoomCombo(); roomCombo.set(String(it.roomId||0));
-        setBusy(false); preview();
+        setBusy(false); refreshSetLec(); preview();
       });
     } else {
       // new session — fill defaults instantly, no backend round-trip
@@ -290,8 +296,22 @@ var TM = (function(){
       qs('itDay').value=1; qs('itStart').value='08:00'; qs('itDur').value=120; campusGrp.set((LK.campuses[1]?LK.campuses[1].id:1)); typeGrp.set('LECTURE'); modeGrp.set('PHYSICAL'); qs('itMeet').value=''; qs('itDesc').value=''; statusGrp.set('ACTIVE');
       qs('itMeetWrap').style.display='none';
       buildRoomCombo(); roomCombo.set('0');
-      preview();
+      refreshSetLec(); preview();
     }
+  }
+  function teacherLabel(id){ var t=(LK.teachers||[]).filter(function(x){return x.id===id;})[0]; return t?t.name:('#'+id); }
+  // Offer to promote the chosen lecturer to be the course's default lecturer,
+  // but only when a specific teacher is selected that differs from / fills the
+  // course's current lecturer.
+  function refreshSetLec(){
+    var wrap=qs('itSetLecWrap'), chk=qs('itSetLec'), txt=qs('itSetLecTxt');
+    var tid=parseInt(teacherCombo.value(),10)||0, curLec=CUR_PC?(CUR_PC.lecturerId||0):0;
+    if(tid>0 && tid!==curLec){
+      var nm=esc(teacherLabel(tid));
+      if(!curLec){ txt.innerHTML='This course has <b>no lecturer set</b>. Also make <b>'+nm+'</b> the course lecturer?'; }
+      else { txt.innerHTML='Also set <b>'+nm+'</b> as the lecturer for this course (currently <b>'+esc(CUR_PC.lecturerName||'—')+'</b>).'; }
+      wrap.style.display='flex';
+    } else { wrap.style.display='none'; chk.checked=false; }
   }
   // build the searchable room list from the client-side LK.rooms cache (filtered by campus)
   function buildRoomCombo(){
@@ -329,11 +349,16 @@ var TM = (function(){
     var rid=parseInt(roomCombo.value(),10)||0;
     var body={ itemId:parseInt(qs('itId').value,10)||0, pcId:CUR_PC.id, dayNo:parseInt(qs('itDay').value,10), start:qs('itStart').value, durationMin:parseInt(qs('itDur').value,10)||60,
       teacherId:parseInt(teacherCombo.value(),10)||0, campusId:parseInt(campusGrp.value(),10)||0, buildingId:roomBuilding(rid), roomId:rid,
-      roomLabel:'', sessionType:typeGrp.value(), deliveryMode:modeGrp.value(), meetLink:qs('itMeet').value.trim(), description:qs('itDesc').value.trim(), status:statusGrp.value(), allowConflicts:force?1:0 };
+      roomLabel:'', sessionType:typeGrp.value(), deliveryMode:modeGrp.value(), meetLink:qs('itMeet').value.trim(), description:qs('itDesc').value.trim(), status:statusGrp.value(), allowConflicts:force?1:0,
+      setCourseLecturer:(qs('itSetLecWrap').style.display!=='none' && qs('itSetLec').checked)?1:0 };
     qs('itErr').style.display='none'; setBusy(true,'Saving…');
     api('SaveItem',body).then(function(d){
       setBusy(false);
-      if(d&&d.ok){ toast('Session saved.'); close('itOv'); manage(CUR_PC.id); load(PAGE); return; }
+      if(d&&d.ok){
+        if(d.courseLecturerSet){ CUR_PC.lecturerId=body.teacherId; CUR_PC.lecturerName=d.lecturerName||''; toast('Session saved · '+(d.lecturerName||'lecturer')+' set as course lecturer.'); }
+        else toast('Session saved.');
+        close('itOv'); manage(CUR_PC.id); load(PAGE); return;
+      }
       if(d&&d.needsOverride){ renderWarn(d.conflicts); qs('itForceBtn').style.display=''; qs('itOverrideNote').style.display=''; return; }
       var e=qs('itErr'); e.textContent=(d&&d.message)||'Save failed.'; e.style.display='block';
     });

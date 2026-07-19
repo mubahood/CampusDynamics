@@ -170,7 +170,7 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object SaveItem(int itemId, int pcId, int dayNo, string start, int durationMin,
-        int teacherId, int campusId, int buildingId, int roomId, string roomLabel, string sessionType, string deliveryMode, string meetLink, string description, string status, int allowConflicts)
+        int teacherId, int campusId, int buildingId, int roomId, string roomLabel, string sessionType, string deliveryMode, string meetLink, string description, string status, int allowConflicts, int setCourseLecturer)
     {
         TimetableService.EnsureSchema();
         try
@@ -228,7 +228,26 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
                 object nid = TimetableService.Scalar("SELECT LAST_INSERT_ID()");
                 itemId = nid == null || nid == DBNull.Value ? 0 : Convert.ToInt32(nid);
             }
-            return new { ok = true, id = itemId };
+
+            // Optionally promote the chosen lecturer to be the course's default lecturer.
+            // Only acts on an explicit request, with a real teacher, and only when it
+            // actually differs from (or fills) the current course lecturer.
+            bool courseLecturerSet = false;
+            string setLecturerName = "";
+            int curCourseLecturer = Convert.ToInt32(pc["lecturerId"]);
+            if (setCourseLecturer == 1 && teacherId > 0 && teacherId != curCourseLecturer)
+            {
+                int changed = TimetableService.Exec(
+                    "UPDATE acad_programmecourses SET lecturer_id=@t WHERE ID=@pc",
+                    P("@t", teacherId), P("@pc", pcId));
+                if (changed > 0)
+                {
+                    courseLecturerSet = true;
+                    object nm = TimetableService.Scalar("SELECT IFNULL(emp_name,'') FROM hrm_employee WHERE empID=@t", P("@t", teacherId));
+                    setLecturerName = nm == null || nm == DBNull.Value ? "" : Convert.ToString(nm);
+                }
+            }
+            return new { ok = true, id = itemId, courseLecturerSet = courseLecturerSet, lecturerName = setLecturerName };
         }
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
