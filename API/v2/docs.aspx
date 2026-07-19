@@ -14,12 +14,37 @@
         .api-header__sub { font-size:14px; opacity:0.8; margin-top:4px; }
         .api-header__version { display:inline-block; background:rgba(255,255,255,0.15); padding:3px 10px; font-size:11px; font-weight:700; margin-top:8px; letter-spacing:0.5px; }
         .api-layout { max-width:1100px; margin:0 auto; padding:24px; display:flex; gap:24px; }
-        .api-sidebar { width:240px; flex-shrink:0; position:sticky; top:24px; align-self:flex-start; }
-        .api-sidebar__nav { background:#fff; border:1px solid #e0e5ed; padding:16px 0; }
+        .api-sidebar { width:250px; flex-shrink:0; position:sticky; top:24px; align-self:flex-start; }
+        /* nav is an independent, internally-scrollable panel so long menus never overflow the viewport */
+        .api-sidebar__nav { background:#fff; border:1px solid #e0e5ed; padding:10px 0; max-height:calc(100vh - 48px); overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; scrollbar-color:#cdd6e4 transparent; }
+        .api-sidebar__nav::-webkit-scrollbar { width:8px; }
+        .api-sidebar__nav::-webkit-scrollbar-track { background:transparent; }
+        .api-sidebar__nav::-webkit-scrollbar-thumb { background:#cdd6e4; border-radius:4px; border:2px solid #fff; }
+        .api-sidebar__nav::-webkit-scrollbar-thumb:hover { background:#a7b3c9; }
+
+        /* nav search */
+        .api-navsearch { position:sticky; top:0; z-index:2; background:#fff; padding:8px 12px 10px; border-bottom:1px solid #eef1f6; }
+        .api-navsearch input { width:100%; box-sizing:border-box; border:1px solid #d7deea; border-radius:6px; padding:7px 10px 7px 30px; font-size:12.5px; font-family:inherit; color:#1a1a2e; background:#f7f9fc url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238892a4' stroke-width='2'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>") 9px center no-repeat; transition:border-color 0.15s, box-shadow 0.15s; }
+        .api-navsearch input:focus { outline:none; border-color:#05275C; box-shadow:0 0 0 3px rgba(5,39,92,0.10); background-color:#fff; }
+
+        /* collapsible groups */
+        .api-nav-group { border-bottom:1px solid #f4f6f9; }
+        .api-nav-group:last-child { border-bottom:none; }
         .api-sidebar__heading { padding:6px 16px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#8892a4; }
-        .api-sidebar__link { display:block; padding:6px 16px; font-size:13px; color:#333; text-decoration:none; transition:background 0.15s,color 0.15s; }
+        .api-nav-group__toggle { display:flex; align-items:center; gap:7px; cursor:pointer; user-select:none; padding-top:9px; padding-bottom:9px; transition:color 0.12s; }
+        .api-nav-group__toggle:hover { color:#05275C; background:#f7f9fc; }
+        .api-nav-group.open > .api-nav-group__toggle { color:#05275C; }
+        .api-nav-group__chev { font-size:9px; line-height:1; color:#b3bccd; transition:transform 0.2s ease; flex-shrink:0; }
+        .api-nav-group.open > .api-nav-group__toggle .api-nav-group__chev { transform:rotate(90deg); color:#05275C; }
+        .api-nav-group__count { margin-left:auto; font-size:9px; font-weight:700; color:#aeb8c9; background:#f0f3f8; border-radius:9px; padding:1px 7px; }
+        .api-nav-group__items { max-height:0; overflow:hidden; transition:max-height 0.28s cubic-bezier(.4,0,.2,1); }
+        .api-nav-group.open > .api-nav-group__items { max-height:1600px; }
+
+        .api-sidebar__link { display:block; padding:6px 16px 6px 30px; font-size:13px; color:#3a4250; text-decoration:none; border-left:3px solid transparent; transition:background 0.15s,color 0.15s,border-color 0.15s; }
         .api-sidebar__link:hover { background:#f0f4ff; color:#05275C; }
-        .api-sidebar__link--active { background:#e8eeff; color:#05275C; font-weight:600; border-left:3px solid #05275C; }
+        .api-sidebar__link--sub { padding-left:42px; font-size:12px; color:#77839a; }
+        .api-sidebar__link--active { background:#e8eeff; color:#05275C; font-weight:600; border-left-color:#05275C; }
+        .api-navsearch__none { display:none; padding:14px 16px; font-size:12px; color:#8892a4; font-style:italic; }
         .api-main { flex:1; min-width:0; }
         .api-section { background:#fff; border:1px solid #e0e5ed; margin-bottom:20px; }
         .api-section__header { padding:16px 20px; border-bottom:1px solid #e0e5ed; }
@@ -66,6 +91,8 @@
         @media(max-width:768px) {
             .api-layout { flex-direction:column; }
             .api-sidebar { width:100%; position:static; }
+            .api-sidebar__nav { max-height:none; overflow:visible; }
+            .api-navsearch { position:static; }
         }
     </style>
 </head>
@@ -129,6 +156,19 @@
                 <a href="#apply-documents" class="api-sidebar__link">Documents</a>
                 <a href="#apply-notifications" class="api-sidebar__link">Notifications</a>
                 <a href="#apply-public" class="api-sidebar__link">Public Data</a>
+                <div class="api-sidebar__heading">v2.4 — ID Card Management</div>
+                <a href="#idcard-mgmt" class="api-sidebar__link">Overview &amp; Auth</a>
+                <a href="#idcard-mgmt" class="api-sidebar__link api-sidebar__link--sub">↳ queue / detail / stats / meta / export</a>
+                <a href="#idcard-mgmt" class="api-sidebar__link api-sidebar__link--sub">↳ approve / halt / printed / ready / collected</a>
+                <a href="#idcard-mgmt" class="api-sidebar__link api-sidebar__link--sub">↳ batch / windows / self-service</a>
+                <div class="api-sidebar__heading">v2.5 — ODEL E-Learning</div>
+                <a href="#odel-student" class="api-sidebar__link">Student Learning</a>
+                <a href="#odel-student" class="api-sidebar__link api-sidebar__link--sub">↳ my_learning / space / assignment</a>
+                <a href="#odel-student" class="api-sidebar__link api-sidebar__link--sub">↳ dashboard / lectures / updates / attendance</a>
+                <a href="#odel-student" class="api-sidebar__link api-sidebar__link--sub">↳ submit / check-in / mark_read</a>
+                <a href="#odel-lecturer" class="api-sidebar__link">Lecturer Teaching</a>
+                <a href="#odel-lecturer" class="api-sidebar__link api-sidebar__link--sub">↳ spaces / dashboard / roster / assignments</a>
+                <a href="#odel-lecturer" class="api-sidebar__link api-sidebar__link--sub">↳ grading / lectures / attendance / announcements</a>
                 <div class="api-sidebar__heading">Project</div>
                 <a href="#changelog-v23" class="api-sidebar__link">Changelog v2.3</a>
                 <a href="#changelog" class="api-sidebar__link">Changelog v2.2</a>
@@ -151,7 +191,7 @@
                     <div class="api-stat__label">Pending</div>
                 </div>
                 <div class="api-stat">
-                    <div class="api-stat__num">v2.3</div>
+                    <div class="api-stat__num">v2.4</div>
                     <div class="api-stat__label">API Version</div>
                 </div>
             </div>
@@ -3244,7 +3284,333 @@ Dr. Alice Nakato,ACADEMIC,School of Computing,ACADEMIC,COMPLETED,142,138,25,81.5
                 </div>
             </div>
 
+            <!-- ID Card Management -->
+            <div class="api-section" id="idcard-mgmt">
+                <div class="api-section__header">
+                    <div class="api-section__title">ID Card Management</div>
+                    <div class="api-section__desc">Full ID-card lifecycle: request → finance → submit → approve/halt → printed → ready → collected · <code>idcard.aspx</code></div>
+                </div>
+                <div class="api-section__body">
+                    <p style="font-size:13px;margin-bottom:12px;">Complete control of the ID-card lifecycle. Every write flows through the one audited state machine shared by the eportal wizard, the eadmin console and this API, so all changes are validated and recorded. Responses use the standard envelope with the payload under <code>data</code>.</p>
+
+                    <div class="api-note api-note--warn"><strong>Authorisation.</strong> <strong>Read</strong> (queue/detail/stats/windows/meta/export) → <code>staff</code>, <code>idcard_operator</code>, <code>admin</code> (students: own <code>detail</code> + self-service only). <strong>Write</strong> (approve/halt/printed/ready/collected/cancel, batch, windows) → <code>idcard_operator</code>, <code>admin</code>. <strong>Self-service</strong> (my/identity/finance/create/submit/cancel_own) → the token owner on their own record. Operator/admin token types are minted at login for accounts listed in web.config <code>IDCard.OperatorUsers</code> / <code>IDCard.AdminUsers</code>. Unauthorised calls return <code>FORBIDDEN</code>.</div>
+
+                    <table class="api-endpoint__params" style="margin:14px 0;">
+                        <tr><th>Statuses</th><td colspan="3"><code>REQUESTED → FINANCE_CHECK → (SUBMITTED | BLOCKED) → SUBMITTED → (APPROVED | HALTED) → PRINTED → READY → COLLECTED</code> · plus <code>CANCELLED</code>. Terminal: <code>COLLECTED</code>, <code>CANCELLED</code>. Call <code>action=meta</code> for the machine-readable transition map.</td></tr>
+                    </table>
+
+                    <!-- queue -->
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/idcard.aspx?action=queue&amp;token=...</div>
+                        <div class="api-endpoint__info">Paginated, filterable, sortable list of requests. All filters optional and composable.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>status</td><td>string</td><td class="api-param--optional">No</td><td>Single or CSV → <code>IN</code> (e.g. <code>SUBMITTED,APPROVED</code>)</td></tr>
+                            <tr><td>type</td><td>string</td><td class="api-param--optional">No</td><td><code>STUDENT</code> | <code>STAFF</code></td></tr>
+                            <tr><td>card_type</td><td>string</td><td class="api-param--optional">No</td><td><code>NEW</code> | <code>REPLACEMENT</code></td></tr>
+                            <tr><td>q</td><td>string</td><td class="api-param--optional">No</td><td>Request no / student no / name search</td></tr>
+                            <tr><td>date_from, date_to</td><td>date</td><td class="api-param--optional">No</td><td>On <code>created_at</code> (<code>YYYY-MM-DD</code>)</td></tr>
+                            <tr><td>window_id</td><td>int</td><td class="api-param--optional">No</td><td>Requests tied to a request window</td></tr>
+                            <tr><td>finance</td><td>string</td><td class="api-param--optional">No</td><td><code>ok</code> | <code>below</code> | <code>flagged</code></td></tr>
+                            <tr><td>has_replacement_fee</td><td>int</td><td class="api-param--optional">No</td><td><code>1</code> | <code>0</code></td></tr>
+                            <tr><td>page, page_size</td><td>int</td><td class="api-param--optional">No</td><td>1-based; <code>page_size</code> max 200 (default 50)</td></tr>
+                            <tr><td>sort</td><td>string</td><td class="api-param--optional">No</td><td><code>created_at</code> | <code>submitted_at</code> | <code>updated_at</code> | <code>status</code> | <code>request_no</code></td></tr>
+                            <tr><td>order</td><td>string</td><td class="api-param--optional">No</td><td><code>asc</code> | <code>desc</code></td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Request</span>
+GET /API/v2/idcard.aspx?action=queue&amp;status=SUBMITTED,APPROVED&amp;type=STUDENT&amp;page=1&amp;page_size=50&amp;sort=created_at&amp;order=desc&amp;token=...
+
+<span class="c-comm">// Response</span>
+{
+  <span class="c-key">"success"</span>: <span class="c-num">true</span>,
+  <span class="c-key">"message"</span>: <span class="c-str">"OK"</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"rows"</span>: [
+      {
+        <span class="c-key">"requestNo"</span>: <span class="c-str">"IDR-2026-000003"</span>,
+        <span class="c-key">"type"</span>: <span class="c-str">"STUDENT"</span>,
+        <span class="c-key">"cardType"</span>: <span class="c-str">"NEW"</span>,
+        <span class="c-key">"status"</span>: <span class="c-str">"SUBMITTED"</span>,
+        <span class="c-key">"number"</span>: <span class="c-str">"27/U/BAED/0001/K/DAY"</span>,
+        <span class="c-key">"name"</span>: <span class="c-str">"SABIA BIIRA MUTHEKE"</span>,
+        <span class="c-key">"createdAt"</span>: <span class="c-str">"2026-07-16 17:41:27"</span>,
+        <span class="c-key">"submittedAt"</span>: <span class="c-str">"2026-07-16 17:41:27"</span>,
+        <span class="c-key">"updatedAt"</span>: <span class="c-str">"2026-07-16 17:41:27"</span>
+      }
+    ],
+    <span class="c-key">"total"</span>: <span class="c-num">1</span>, <span class="c-key">"page"</span>: <span class="c-num">1</span>, <span class="c-key">"pages"</span>: <span class="c-num">1</span>, <span class="c-key">"page_size"</span>: <span class="c-num">50</span>,
+    <span class="c-key">"has_prev"</span>: <span class="c-num">false</span>, <span class="c-key">"has_next"</span>: <span class="c-num">false</span>, <span class="c-key">"from"</span>: <span class="c-num">1</span>, <span class="c-key">"to"</span>: <span class="c-num">1</span>
+  }
+}</div>
+                    </div>
+
+                    <!-- detail -->
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/idcard.aspx?action=detail&amp;request_no=IDR-2026-000003&amp;token=...</div>
+                        <div class="api-endpoint__info">Full request record + identity + finance snapshot + status timeline. Students may only view their own request.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>request_no</td><td>string</td><td class="api-param--required">Yes</td><td>e.g. <code>IDR-2026-000003</code></td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response (abridged)</span>
+{
+  <span class="c-key">"success"</span>: <span class="c-num">true</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"request"</span>: { <span class="c-key">"request_no"</span>: <span class="c-str">"IDR-2026-000003"</span>, <span class="c-key">"status"</span>: <span class="c-str">"SUBMITTED"</span>, <span class="c-key">"card_type"</span>: <span class="c-str">"NEW"</span> },
+    <span class="c-key">"identity"</span>: { <span class="c-key">"name"</span>: <span class="c-str">"SABIA BIIRA MUTHEKE"</span>, <span class="c-key">"number"</span>: <span class="c-str">"27/U/BAED/0001/K/DAY"</span> },
+    <span class="c-key">"finance"</span>: { <span class="c-key">"eligible"</span>: <span class="c-num">true</span>, <span class="c-key">"required"</span>: <span class="c-num">200000</span> },
+    <span class="c-key">"timeline"</span>: [ { <span class="c-key">"to"</span>: <span class="c-str">"SUBMITTED"</span>, <span class="c-key">"actor"</span>: <span class="c-str">"MRU2027000002"</span>, <span class="c-key">"at"</span>: <span class="c-str">"2026-07-16 17:41:27"</span> } ]
+  }
+}</div>
+                    </div>
+
+                    <!-- stats -->
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/idcard.aspx?action=stats&amp;token=...</div>
+                        <div class="api-endpoint__info">Funnel counts (optionally within a <code>created_at</code> range) plus <code>byType</code> and <code>byCard</code> breakdowns.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>date_from, date_to</td><td>date</td><td class="api-param--optional">No</td><td>Optional range (<code>YYYY-MM-DD</code>)</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{
+  <span class="c-key">"success"</span>: <span class="c-num">true</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"total"</span>: <span class="c-num">3</span>, <span class="c-key">"requested"</span>: <span class="c-num">0</span>, <span class="c-key">"submitted"</span>: <span class="c-num">1</span>, <span class="c-key">"approved"</span>: <span class="c-num">0</span>,
+    <span class="c-key">"printed"</span>: <span class="c-num">0</span>, <span class="c-key">"ready"</span>: <span class="c-num">0</span>, <span class="c-key">"collected"</span>: <span class="c-num">1</span>, <span class="c-key">"cancelled"</span>: <span class="c-num">1</span>,
+    <span class="c-key">"byType"</span>: { <span class="c-key">"student"</span>: <span class="c-num">3</span>, <span class="c-key">"staff"</span>: <span class="c-num">0</span> },
+    <span class="c-key">"byCard"</span>: { <span class="c-key">"newCard"</span>: <span class="c-num">2</span>, <span class="c-key">"replacement"</span>: <span class="c-num">1</span> }
+  }
+}</div>
+                    </div>
+
+                    <!-- windows + meta -->
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/idcard.aspx?action=windows&amp;token=...</div>
+                        <div class="api-endpoint__info">List request windows. While no window exists, requests are open; once one exists, requests are only accepted inside an active window.</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/idcard.aspx?action=meta&amp;token=...</div>
+                        <div class="api-endpoint__info">Machine-readable metadata for building generic UIs/clients: statuses, legal transition map, action→status map, and filter enums.</div>
+                        <div class="api-code"><span class="c-comm">// Response (abridged)</span>
+{
+  <span class="c-key">"success"</span>: <span class="c-num">true</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"statuses"</span>: [ <span class="c-str">"REQUESTED"</span>, <span class="c-str">"SUBMITTED"</span>, <span class="c-str">"APPROVED"</span>, <span class="c-str">"PRINTED"</span>, <span class="c-str">"READY"</span>, <span class="c-str">"COLLECTED"</span> ],
+    <span class="c-key">"terminal"</span>: [ <span class="c-str">"COLLECTED"</span>, <span class="c-str">"CANCELLED"</span> ],
+    <span class="c-key">"transitions"</span>: { <span class="c-key">"SUBMITTED"</span>: [ <span class="c-str">"APPROVED"</span>, <span class="c-str">"HALTED"</span>, <span class="c-str">"CANCELLED"</span> ] },
+    <span class="c-key">"actions"</span>: { <span class="c-key">"approve"</span>: <span class="c-str">"APPROVED"</span>, <span class="c-key">"printed"</span>: <span class="c-str">"PRINTED"</span> }
+  }
+}</div>
+                    </div>
+
+                    <!-- export -->
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/idcard.aspx?action=export&amp;token=...</div>
+                        <div class="api-endpoint__info">CSV download of the current filter set (same filters as <code>queue</code>, up to 10,000 rows). Returns <code>text/csv</code>.</div>
+                        <div class="api-code"><span class="c-comm">// Request</span>
+GET /API/v2/idcard.aspx?action=export&amp;status=READY&amp;token=...
+
+<span class="c-comm">// Response headers</span>
+Content-Type: text/csv; charset=utf-8
+Content-Disposition: attachment; filename=idcard_export.csv
+
+request_no,requester_type,card_type,status,number,name,created_at,submitted_at,updated_at
+IDR-2026-000003,STUDENT,NEW,SUBMITTED,27/U/BAED/0001/K/DAY,SABIA BIIRA MUTHEKE,...</div>
+                    </div>
+
+                    <!-- single ops -->
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> /API/v2/idcard.aspx?action={approve|halt|printed|ready|collected|cancel}&amp;request_no=...</div>
+                        <div class="api-endpoint__info">Move one request forward through the lifecycle. Illegal transitions are rejected by the funnel (<code>INVALID_TRANSITION</code>). Operator/admin only.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>request_no</td><td>string</td><td class="api-param--required">Yes</td><td>Target request</td></tr>
+                            <tr><td>reason</td><td>string</td><td class="api-param--optional">halt</td><td>Required for <code>halt</code></td></tr>
+                            <tr><td>collection_point</td><td>string</td><td class="api-param--optional">ready</td><td>Location + times, stamped on <code>ready</code></td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Request</span>
+POST /API/v2/idcard.aspx?action=approve&amp;request_no=IDR-2026-000003&amp;token=...
+
+<span class="c-comm">// Response</span>
+{ <span class="c-key">"success"</span>: <span class="c-num">true</span>, <span class="c-key">"message"</span>: <span class="c-str">"OK"</span>, <span class="c-key">"data"</span>: { <span class="c-key">"status"</span>: <span class="c-str">"APPROVED"</span> } }</div>
+                    </div>
+
+                    <!-- batch -->
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> /API/v2/idcard.aspx?action=batch</div>
+                        <div class="api-endpoint__info">Apply one action to many requests. Each runs independently through the funnel; incompatible states fail per-item (partial success allowed). Operator/admin only.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>request_nos</td><td>string</td><td class="api-param--required">Yes</td><td>CSV or JSON array. Max 500 (<code>BATCH_TOO_LARGE</code>)</td></tr>
+                            <tr><td>batch_action</td><td>string</td><td class="api-param--required">Yes</td><td><code>approve|halt|printed|ready|collected|cancel</code></td></tr>
+                            <tr><td>reason, collection_point</td><td>string</td><td class="api-param--optional">No</td><td>Shared across all selected</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Request</span>
+POST /API/v2/idcard.aspx?action=batch&amp;batch_action=printed&amp;request_nos=IDR-2026-000003,IDR-2026-000004&amp;token=...
+
+<span class="c-comm">// Response</span>
+{
+  <span class="c-key">"success"</span>: <span class="c-num">true</span>,
+  <span class="c-key">"data"</span>: {
+    <span class="c-key">"ok"</span>: <span class="c-num">1</span>, <span class="c-key">"fail"</span>: <span class="c-num">1</span>, <span class="c-key">"total"</span>: <span class="c-num">2</span>,
+    <span class="c-key">"results"</span>: [
+      { <span class="c-key">"request_no"</span>: <span class="c-str">"IDR-2026-000003"</span>, <span class="c-key">"ok"</span>: <span class="c-num">true</span>, <span class="c-key">"status"</span>: <span class="c-str">"PRINTED"</span>, <span class="c-key">"message"</span>: <span class="c-str">""</span> },
+      { <span class="c-key">"request_no"</span>: <span class="c-str">"IDR-2026-000004"</span>, <span class="c-key">"ok"</span>: <span class="c-num">false</span>, <span class="c-key">"status"</span>: <span class="c-str">""</span>, <span class="c-key">"message"</span>: <span class="c-str">"Illegal transition ..."</span> }
+    ]
+  }
+}</div>
+                    </div>
+
+                    <!-- windows management -->
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> /API/v2/idcard.aspx?action={window_create|window_activate|window_close}</div>
+                        <div class="api-endpoint__info">Manage request windows. Operator/admin only.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>title</td><td>string</td><td class="api-param--optional">create</td><td>Window label</td></tr>
+                            <tr><td>scope</td><td>string</td><td class="api-param--optional">create</td><td><code>BOTH</code> | <code>STUDENT</code> | <code>STAFF</code></td></tr>
+                            <tr><td>opens_at, closes_at</td><td>datetime</td><td class="api-param--optional">create</td><td><code>YYYY-MM-DD HH:MM</code></td></tr>
+                            <tr><td>id</td><td>int</td><td class="api-param--optional">activate/close</td><td>Window id for activate/close</td></tr>
+                        </table>
+                        <div class="api-code"><span class="c-comm">// Create a window</span>
+POST /API/v2/idcard.aspx?action=window_create&amp;title=2026/2027%20ID%20drive&amp;scope=BOTH&amp;opens_at=2026-08-01%2000:00&amp;closes_at=2026-09-30%2023:59&amp;token=...</div>
+                    </div>
+
+                    <!-- self-service -->
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/idcard.aspx?action={my|identity|finance}&amp;token=...</div>
+                        <div class="api-endpoint__info">Card owner self-service (student/staff). <code>my</code> = your current request + timeline; <code>identity</code> = your details for the card; <code>finance</code> = your 10% eligibility (students). Acts only on your own record.</div>
+                    </div>
+
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> /API/v2/idcard.aspx?action={create|submit|cancel_own}&amp;token=...</div>
+                        <div class="api-endpoint__info">Card owner request flow. <code>create</code> starts a request; <code>submit</code> runs the finance gate and submits; <code>cancel_own</code> withdraws it. Acting on another's request returns <code>FORBIDDEN</code>.</div>
+                        <table class="api-endpoint__params">
+                            <tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr>
+                            <tr><td>card_type</td><td>string</td><td class="api-param--optional">create</td><td><code>NEW</code> | <code>REPLACEMENT</code></td></tr>
+                            <tr><td>photo_confirmed, guidelines_ack</td><td>bool</td><td class="api-param--optional">create</td><td><code>1</code> / <code>true</code></td></tr>
+                            <tr><td>request_no</td><td>string</td><td class="api-param--optional">submit/cancel</td><td>Your own request</td></tr>
+                            <tr><td>repl_ref, repl_date, repl_method, repl_notes</td><td>string</td><td class="api-param--optional">submit</td><td>Replacement-fee proof (replacements only)</td></tr>
+                        </table>
+                    </div>
+
+                    <div class="api-note api-note--warn"><strong>Error codes:</strong> <code>MISSING_PARAM</code>, <code>INVALID_ACTION</code>, <code>FORBIDDEN</code>, <code>NOT_FOUND</code>, <code>INVALID_TRANSITION</code>, <code>WINDOW_CLOSED</code>, <code>FINANCE_BLOCKED</code>, <code>BATCH_TOO_LARGE</code>, <code>REQUEST_FAILED</code>, <code>RATE_LIMITED</code>, <code>SERVER_ERROR</code>.</div>
+                </div>
+            </div>
+
             <!-- Changelog v2.3 -->
+            <!-- v2.5 NEW MODULE: ODEL — Student Learning -->
+            <div class="api-section" id="odel-student">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Student Learning <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">Online course spaces, materials, assignments, lectures, attendance &amp; announcements for the signed-in student. Base: <code>odel.aspx</code>. Auth via <code>token</code>. All space-scoped actions verify the student is enrolled (APPROVED) in the course. Full contract: <code>ODEL_API_MASTER_PLAN.md</code>.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>my_learning</strong></div>
+                        <div class="api-endpoint__info">The student's online course spaces. Returns <code>active_courses[]</code> and <code>pending_courses[]</code> (each with course, lecturer, assignment/material counts, <code>odel_points</code>) + counts. Deduped by space. Staff may pass <code>regno</code>.</div>
+                        <div class="api-code">{ <span class="c-key">"active_courses"</span>: [{ <span class="c-key">"space_id"</span>: <span class="c-num">1</span>, <span class="c-key">"course_code"</span>: <span class="c-str">"ICT1108B"</span>, <span class="c-key">"course_name"</span>: <span class="c-str">"Computer Applications"</span>, <span class="c-key">"status"</span>: <span class="c-str">"ACTIVE"</span>, <span class="c-key">"assignments"</span>: <span class="c-num">2</span> }], <span class="c-key">"active_count"</span>: <span class="c-num">1</span> }</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>space</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">Full course view: <code>space</code>, <code>chapters[]</code>, <code>topics[]</code>, <code>materials[]</code>, and <code>assignments[]</code> each carrying this student's <code>my_status</code> / <code>my_marks</code> / <code>my_attempts</code>. Params: <code>space_id</code> (required).</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment</strong>&amp;assignment_id=1</div>
+                        <div class="api-endpoint__info">One assignment + the student's current attempt (<code>my_submission</code>) and its files (<code>my_files[]</code>). Params: <code>assignment_id</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>dashboard</strong></div>
+                        <div class="api-endpoint__info">Cross-course home widget: <code>active_spaces</code>, <code>live_lectures</code>, <code>unread_updates</code>, <code>next_lecture</code>. Student only.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lectures</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">Published lectures for a space with the student's own <code>my_attendance</code> per lecture.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>updates</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">Announcements for a space with per-item <code>is_read</code> and an <code>unread_count</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>attendance</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">The student's attendance record for ended lectures + <code>attendance_rate</code> (%).</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>submit_autosave</strong></div>
+                        <div class="api-endpoint__info">Save a DRAFT answer. Body: <code>assignment_id</code>, <code>text</code>. Upserts the current draft attempt → <code>{ submission_id, status:"DRAFT" }</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>submit_finalize</strong></div>
+                        <div class="api-endpoint__info">Submit the attempt. Body: <code>assignment_id</code>, <code>text</code>. Enforces the submission window &amp; attempt limit, flags late, issues a receipt → <code>{ submission_id, status:"SUBMITTED", is_late, receipt_code }</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>mark_update_read</strong></div>
+                        <div class="api-endpoint__info">Mark one (or all) announcements read. Body: <code>space_id</code>, <code>update_id</code> (0 = all). → <code>{ marked_read }</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>self_checkin</strong></div>
+                        <div class="api-endpoint__info">Self roll-call while the window is open. Body: <code>lecture_id</code>, <code>code?</code>. → <code>{ status:"PRESENT" }</code>. Errors <code>VALIDATION_ERROR</code> if window closed or code wrong.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- v2.5 NEW MODULE: ODEL — Lecturer Teaching -->
+            <div class="api-section" id="odel-lecturer">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Lecturer Teaching <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">Course spaces, roster, assignments, grading, lectures, attendance &amp; announcements for staff. Every action verifies the caller teaches the space (space-staff member or assigned lecturer). Requires a <code>staff</code> token.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>teaching_spaces</strong></div>
+                        <div class="api-endpoint__info">The lecturer's course spaces with <code>roster</code>, <code>assignments</code> and <code>ungraded</code> counts.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>course_dashboard</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">One space overview: <code>space</code> + <code>stats{ roster, assignments, published_assignments, ungraded_submissions, materials, lectures }</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>roster</strong>&amp;space_id=1&amp;page=1&amp;limit=50&amp;q=</div>
+                        <div class="api-endpoint__info">Paginated enrolled students (name, email, <code>odel_points</code>). Supports <code>q</code> (name/regno) and <code>page</code>/<code>limit</code>; <code>pagination</code> nested in <code>data</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignments</strong>&amp;space_id=1&amp;filter=all</div>
+                        <div class="api-endpoint__info">Assignments with submitted/graded stats. <code>filter</code>: all | published | draft | archived.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_students</strong>&amp;space_id=1&amp;assignment_id=1</div>
+                        <div class="api-endpoint__info">Per-student submission status (latest attempt) for one assignment across the whole roster.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>grading_queue</strong>&amp;space_id=1&amp;assignment_id=1&amp;only_ungraded=1</div>
+                        <div class="api-endpoint__info">Paginated grading queue (latest submitted attempt per student, with any current grade). Params: <code>page</code>, <code>limit</code>, <code>only_ungraded</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>save_grade</strong></div>
+                        <div class="api-endpoint__info">Grade a submission. Body: <code>space_id</code>, <code>submission_id</code>, <code>raw_marks</code>, <code>feedback?</code>. Applies the late penalty, versions the grade (old <code>is_current=0</code>), and recomputes the gradebook → <code>{ final_marks, penalty_pct, version }</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lecture_list</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">Lectures for a space with <code>present_count</code>. Companion: <code>roll_roster</code>&amp;lecture_id=… (roster with marks) and <code>attendance_summary</code> (per-lecture present/absent).</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>mark_attendance</strong></div>
+                        <div class="api-endpoint__info">Mark one student. Body: <code>space_id</code>, <code>lecture_id</code>, <code>regno</code>, <code>status</code> (PRESENT/ABSENT/LATE/EXCUSED/CLEAR).</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lecture_set_status</strong></div>
+                        <div class="api-endpoint__info">Transition a lecture. Body: <code>space_id</code>, <code>lecture_id</code>, <code>status</code> (PENDING/LIVE/ENDED/CANCELLED). Stamps actual start/end.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>update_list</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">Announcements with <code>read_count</code>. Companion writes: <code>update_save</code> (create/update — <code>title</code>, <code>body</code>, <code>pinned</code>, <code>is_published</code>) and <code>update_delete</code>.</div>
+                    </div>
+                    <div class="api-note">Phase-2 roadmap (content authoring, assignment CRUD, lecture CRUD, push-to-marks, file upload/download, admin &amp; policy) is specified in <code>ODEL_API_MASTER_PLAN.md</code> and follows these same conventions.</div>
+                </div>
+            </div>
+
             <div class="api-section" id="changelog-v23">
                 <div class="api-section__header">
                     <div class="api-section__title">Changelog — v2.3</div>
@@ -3337,6 +3703,104 @@ Dr. Alice Nakato,ACADEMIC,School of Computing,ACADEMIC,COMPLETED,142,138,25,81.5
     </div>
 
     <script>
+    // Sidebar: collapsible groups + filter + active-reveal (runs before the counter/scrollspy)
+    (function(){
+        var nav = document.querySelector('.api-sidebar__nav');
+        if(!nav) return;
+
+        // Sticky filter box at the top of the nav
+        var search = document.createElement('div');
+        search.className = 'api-navsearch';
+        search.innerHTML = '<input type="text" id="apiNavSearch" placeholder="Filter menu…" autocomplete="off" spellcheck="false" />';
+        nav.insertBefore(search, nav.firstChild);
+        var noneMsg = document.createElement('div');
+        noneMsg.className = 'api-navsearch__none';
+        noneMsg.textContent = 'No matching items';
+        nav.appendChild(noneMsg);
+
+        // Wrap each heading + its following links into a collapsible group
+        var kids = Array.prototype.slice.call(nav.children);
+        var groups = [], curItems = null;
+        kids.forEach(function(el){
+            if(el === search || el === noneMsg) return;
+            if(el.classList.contains('api-sidebar__heading')){
+                var g = document.createElement('div'); g.className = 'api-nav-group';
+                var items = document.createElement('div'); items.className = 'api-nav-group__items';
+                nav.insertBefore(g, el);
+                el.classList.add('api-nav-group__toggle');
+                var chev = document.createElement('span'); chev.className = 'api-nav-group__chev'; chev.textContent = '▶';
+                el.insertBefore(chev, el.firstChild);
+                g.appendChild(el); g.appendChild(items);
+                groups.push(g); curItems = items;
+                el.addEventListener('click', function(){ g.classList.toggle('open'); });
+            } else if(curItems){
+                curItems.appendChild(el);
+            }
+        });
+
+        // Count badge (top-level links per group)
+        groups.forEach(function(g){
+            var n = g.querySelectorAll('.api-nav-group__items > .api-sidebar__link:not(.api-sidebar__link--sub)').length;
+            if(n){ var b = document.createElement('span'); b.className = 'api-nav-group__count'; b.textContent = n;
+                g.querySelector('.api-nav-group__toggle').appendChild(b); }
+        });
+
+        function groupOf(a){ return a ? a.closest('.api-nav-group') : null; }
+        function openGroup(g){ if(g) g.classList.add('open'); }
+
+        function applyDefaultOpen(){
+            groups.forEach(function(g){ g.classList.remove('open'); });
+            var hero = location.hash ? nav.querySelector('.api-sidebar__link[href="'+location.hash+'"]') : null;
+            if(hero) openGroup(groupOf(hero));
+            else if(groups.length) groups[0].classList.add('open');
+        }
+        applyDefaultOpen();
+
+        // Clicking a link opens (and keeps) its group
+        nav.querySelectorAll('.api-sidebar__link').forEach(function(a){
+            a.addEventListener('click', function(){ openGroup(groupOf(a)); });
+        });
+
+        // Reveal the scroll-active link's group + keep it visible inside the scrollable nav
+        window._apiRevealActive = function(link){
+            var a = link || nav.querySelector('.api-sidebar__link--active');
+            if(!a) return;
+            openGroup(groupOf(a));
+            var aR = a.getBoundingClientRect(), nR = nav.getBoundingClientRect();
+            if(aR.top < nR.top + 40) nav.scrollTop -= (nR.top + 40 - aR.top);
+            else if(aR.bottom > nR.bottom - 8) nav.scrollTop += (aR.bottom - (nR.bottom - 8));
+        };
+
+        // Live filter — expands matching groups; restores default state when cleared
+        var input = document.getElementById('apiNavSearch');
+        input.addEventListener('input', function(){
+            var q = input.value.trim().toLowerCase();
+            var any = false;
+            groups.forEach(function(g){
+                var gHit = false;
+                g.querySelectorAll('.api-sidebar__link').forEach(function(a){
+                    var hit = !q || a.textContent.toLowerCase().indexOf(q) >= 0;
+                    a.style.display = hit ? '' : 'none';
+                    if(hit) gHit = true;
+                });
+                g.style.display = gHit ? '' : 'none';
+                if(gHit) any = true;
+                if(q) g.classList.toggle('open', gHit);
+            });
+            noneMsg.style.display = any ? 'none' : 'block';
+            if(!q){
+                groups.forEach(function(g){
+                    g.style.display = '';
+                    g.querySelectorAll('.api-sidebar__link').forEach(function(a){ a.style.display = ''; });
+                });
+                applyDefaultOpen();
+            }
+        });
+        input.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ input.value=''; input.dispatchEvent(new Event('input')); input.blur(); } });
+    })();
+    </script>
+
+    <script>
     (function(){
         // Count endpoint statuses
         var endpoints = document.querySelectorAll('.api-endpoint');
@@ -3350,20 +3814,29 @@ Dr. Alice Nakato,ACADEMIC,School of Computing,ACADEMIC,COMPLETED,142,138,25,81.5
         document.getElementById('statLive').textContent = live;
         document.getElementById('statPending').textContent = pending;
 
-        // Sidebar active on scroll
+        // Sidebar active on scroll (fires only when the active section changes)
         var links = document.querySelectorAll('.api-sidebar__link');
-        window.addEventListener('scroll', function(){
-            var scrollPos = window.scrollY + 80;
+        var _lastActive = null;
+        function syncActive(){
+            var scrollPos = window.scrollY + 90;
+            var found = null;
             links.forEach(function(link){
                 var href = link.getAttribute('href');
                 if(!href || href.charAt(0) !== '#') return;
                 var target = document.getElementById(href.substring(1));
                 if(target && target.offsetTop <= scrollPos && (target.offsetTop + target.offsetHeight) > scrollPos){
-                    links.forEach(function(l){ l.classList.remove('api-sidebar__link--active'); });
-                    link.classList.add('api-sidebar__link--active');
+                    found = link;
                 }
             });
-        });
+            if(found && found !== _lastActive){
+                links.forEach(function(l){ l.classList.remove('api-sidebar__link--active'); });
+                found.classList.add('api-sidebar__link--active');
+                _lastActive = found;
+                if(window._apiRevealActive) window._apiRevealActive(found);
+            }
+        }
+        window.addEventListener('scroll', syncActive, { passive:true });
+        window.addEventListener('load', syncActive);
 
         // Roadmap tasks
         var tasks = [
