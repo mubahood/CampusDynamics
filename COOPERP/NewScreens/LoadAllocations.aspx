@@ -5,8 +5,8 @@
 /* ===== TEACHING ALLOCATIONS PAGE (prefix: la-) ========================== */
 
 /* Stats Row */
-.la-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-.la-stat { background: #fff; border: 1px solid #e0e5ed; padding: 12px 14px; display: flex; align-items: center; gap: 10px; position: relative; overflow: hidden; }
+.la-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.la-stat { background: #fff; border: 1px solid #e0e5ed; padding: 8px 11px; display: flex; align-items: center; gap: 9px; position: relative; overflow: hidden; }
 .la-stat::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--stat-c, #ccc); }
 .la-stat__icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .la-stat__val { font-size: 15px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
@@ -17,31 +17,31 @@
 .la-stat--lecturers{ --stat-c:#6a1b9a; } .la-stat--lecturers .la-stat__icon{ background:#f3e5f5; } .la-stat--lecturers .la-stat__val{ color:#6a1b9a; }
 
 /* Header */
-.la-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.la-header__left { display: flex; align-items: center; gap: 10px; }
-.la-header__icon { width: 36px; height: 36px; background: #05275C; display: flex; align-items: center; justify-content: center; }
+.la-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.la-header__left { display: flex; align-items: center; gap: 9px; }
+.la-header__icon { width: 30px; height: 30px; background: #05275C; display: flex; align-items: center; justify-content: center; }
 .la-header__icon svg { color: #fff; }
 .la-header__title { font-size: 15px; font-weight: 700; color: #05275C; }
 .la-header__sub   { font-size: 10px; color: #888; margin-top: 1px; }
 
 /* Filter bar */
-.la-filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: flex-end; }
+.la-filters { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: flex-end; }
 .la-filters__group { display: flex; flex-direction: column; gap: 2px; }
 .la-filters__label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; color: #666; }
 .la-filters select, .la-filters input[type=text] { padding: 6px 10px; font-size: 11px; border: 1px solid #cdd3de; background: #fff; min-width: 130px; }
 .la-filters select:focus { border-color: #174DA4; outline: none; }
-.la-info-band { background: #e8f0fc; border: 1px solid #c7d8f7; padding: 6px 12px; font-size: 10px; color: #174DA4; margin-bottom: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
+.la-info-band { background: #e8f0fc; border: 1px solid #c7d8f7; padding: 5px 11px; font-size: 10px; color: #174DA4; margin-bottom: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
 .la-info-band span { font-weight: 600; }
 
 /* Card */
-.la-card { background: #fff; border: 1px solid #e0e5ed; margin-bottom: 14px; }
-.la-card__header { padding: 10px 14px; border-bottom: 1px solid #e0e5ed; background: #f8f9fb; display: flex; align-items: center; justify-content: space-between; }
+.la-card { background: #fff; border: 1px solid #e0e5ed; margin-bottom: 10px; }
+.la-card__header { padding: 8px 14px; border-bottom: 1px solid #e0e5ed; background: #f8f9fb; display: flex; align-items: center; justify-content: space-between; }
 .la-card__title  { font-size: 12px; font-weight: 700; color: #05275C; display: flex; align-items: center; gap: 6px; }
 
 /* Table */
 .la-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.la-table th { background:#f5f7fa; padding:9px 12px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.3px; color:#555; font-weight:600; border-bottom:2px solid #e0e5ed; white-space:nowrap; }
-.la-table td { padding:8px 12px; border-bottom:1px solid #f0f2f5; color:#1a1a2e; vertical-align:middle; }
+.la-table th { background:#f5f7fa; padding:7px 12px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.3px; color:#555; font-weight:600; border-bottom:2px solid #e0e5ed; white-space:nowrap; }
+.la-table td { padding:6px 12px; border-bottom:1px solid #f0f2f5; color:#1a1a2e; vertical-align:middle; }
 .la-table tbody tr:hover { background:#f0f4ff; }
 
 /* Day badge */

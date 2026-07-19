@@ -5,19 +5,19 @@
 /* ===== LOAD ALLOCATION DASHBOARD (prefix: ld-) ========================== */
 
 /* Header */
-.ld-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.ld-header__left { display: flex; align-items: center; gap: 10px; }
-.ld-header__icon { width: 36px; height: 36px; background: #05275C; display: flex; align-items: center; justify-content: center; }
+.ld-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.ld-header__left { display: flex; align-items: center; gap: 9px; }
+.ld-header__icon { width: 30px; height: 30px; background: #05275C; display: flex; align-items: center; justify-content: center; }
 .ld-header__icon svg { color: #fff; }
 .ld-header__title { font-size: 15px; font-weight: 700; color: #05275C; }
 .ld-header__sub   { font-size: 10px; color: #888; margin-top: 1px; }
 
 /* Stats Row (4 cards) */
-.ld-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-.ld-stat { background: #fff; border: 1px solid #e0e5ed; padding: 14px; display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden; }
+.ld-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.ld-stat { background: #fff; border: 1px solid #e0e5ed; padding: 9px 12px; display: flex; align-items: center; gap: 10px; position: relative; overflow: hidden; }
 .ld-stat::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--stat-c, #ccc); }
-.ld-stat__icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 4px; }
-.ld-stat__val { font-size: 18px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ld-stat__icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 4px; }
+.ld-stat__val { font-size: 16px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .ld-stat__label { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: #888; margin-top: 2px; }
 .ld-stat__trend { font-size: 9px; font-weight: 600; margin-top: 2px; }
 .ld-stat__trend--up   { color: #2e7d32; } .ld-stat__trend--up::before   { content: '\25B2 '; }
@@ -29,18 +29,18 @@
 .ld-stat--lecturers { --stat-c:#6a1b9a; } .ld-stat--lecturers .ld-stat__icon { background:#f3e5f5; }
 
 /* Quick Actions */
-.ld-actions { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-.ld-action { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #fff; border: 1px solid #e0e5ed; font-size: 11px; font-weight: 600; color: #05275C; cursor: pointer; transition: all .15s; text-decoration: none; }
+.ld-actions { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.ld-action { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: #fff; border: 1px solid #e0e5ed; font-size: 11px; font-weight: 600; color: #05275C; cursor: pointer; transition: all .15s; text-decoration: none; }
 .ld-action:hover { border-color: #174DA4; background: #f0f4ff; }
 .ld-action svg { flex-shrink: 0; }
 
 /* Two-column layout */
-.ld-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.ld-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 @media (max-width: 900px) { .ld-row { grid-template-columns: 1fr; } }
 
 /* Card */
 .ld-card { background: #fff; border: 1px solid #e0e5ed; }
-.ld-card__header { padding: 10px 14px; border-bottom: 1px solid #e0e5ed; background: #f8f9fb; display: flex; align-items: center; justify-content: space-between; }
+.ld-card__header { padding: 8px 14px; border-bottom: 1px solid #e0e5ed; background: #f8f9fb; display: flex; align-items: center; justify-content: space-between; }
 .ld-card__title  { font-size: 12px; font-weight: 700; color: #05275C; display: flex; align-items: center; gap: 6px; }
 .ld-card__body   { padding: 0; }
 

@@ -5,8 +5,8 @@
 /* ===== WORKLOAD ANALYSIS PAGE (prefix: wa-) ============================= */
 
 /* Stats Row */
-.wa-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-.wa-stat { background: #fff; border: 1px solid #e0e5ed; padding: 12px 14px; display: flex; align-items: center; gap: 10px; position: relative; overflow: hidden; }
+.wa-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.wa-stat { background: #fff; border: 1px solid #e0e5ed; padding: 8px 11px; display: flex; align-items: center; gap: 9px; position: relative; overflow: hidden; }
 .wa-stat::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--stat-c, #ccc); }
 .wa-stat__icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .wa-stat__val { font-size: 15px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
@@ -17,29 +17,29 @@
 .wa-stat--unassigned { --stat-c:#e65100; } .wa-stat--unassigned .wa-stat__icon { background:#fce8de; } .wa-stat--unassigned .wa-stat__val { color:#e65100; }
 
 /* Header */
-.wa-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.wa-header__left { display: flex; align-items: center; gap: 10px; }
-.wa-header__icon { width: 36px; height: 36px; background: #05275C; display: flex; align-items: center; justify-content: center; }
+.wa-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.wa-header__left { display: flex; align-items: center; gap: 9px; }
+.wa-header__icon { width: 30px; height: 30px; background: #05275C; display: flex; align-items: center; justify-content: center; }
 .wa-header__icon svg { color: #fff; }
 .wa-header__title { font-size: 15px; font-weight: 700; color: #05275C; }
 .wa-header__sub   { font-size: 10px; color: #888; margin-top: 1px; }
 
 /* Filter bar */
-.wa-filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: flex-end; }
+.wa-filters { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: flex-end; }
 .wa-filters__group { display: flex; flex-direction: column; gap: 2px; }
 .wa-filters__label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; color: #666; }
 .wa-filters select, .wa-filters input[type=text] { padding: 6px 10px; font-size: 11px; border: 1px solid #cdd3de; background: #fff; min-width: 130px; }
 .wa-filters select:focus, .wa-filters input:focus { border-color: #174DA4; outline: none; }
 
 /* Card */
-.wa-card { background: #fff; border: 1px solid #e0e5ed; margin-bottom: 14px; }
-.wa-card__header { padding: 10px 14px; border-bottom: 1px solid #e0e5ed; background: #f8f9fb; display: flex; align-items: center; justify-content: space-between; }
+.wa-card { background: #fff; border: 1px solid #e0e5ed; margin-bottom: 10px; }
+.wa-card__header { padding: 8px 14px; border-bottom: 1px solid #e0e5ed; background: #f8f9fb; display: flex; align-items: center; justify-content: space-between; }
 .wa-card__title  { font-size: 12px; font-weight: 700; color: #05275C; display: flex; align-items: center; gap: 6px; }
 
 /* Table */
 .wa-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.wa-table th { background: #f5f7fa; padding: 9px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; color: #555; font-weight: 600; border-bottom: 2px solid #e0e5ed; white-space: nowrap; }
-.wa-table td { padding: 8px 12px; border-bottom: 1px solid #f0f2f5; color: #1a1a2e; vertical-align: middle; }
+.wa-table th { background: #f5f7fa; padding: 7px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; color: #555; font-weight: 600; border-bottom: 2px solid #e0e5ed; white-space: nowrap; }
+.wa-table td { padding: 6px 12px; border-bottom: 1px solid #f0f2f5; color: #1a1a2e; vertical-align: middle; }
 .wa-table tbody tr:hover { background: #f0f4ff; cursor: pointer; }
 .wa-table tbody tr.wa-row--expanded { background: #f0f4ff; }
 
