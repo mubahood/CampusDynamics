@@ -40,7 +40,6 @@
   <div class="tt-h__s">Weekly view of scheduled sessions &mdash; filter by campus, programme, room or lecturer. Overlapping clashes are outlined red.</div>
   <div class="tt-card">
     <div class="tt-filters">
-      <select id="fYear" class="tt-sel" onchange="CAL.load()"></select>
       <select id="fCampus" class="tt-sel" onchange="CAL.load()"><option value="0">All campuses</option></select>
       <select id="fProg" class="tt-sel" onchange="CAL.load()"><option value="">All programmes</option></select>
       <select id="fSy" class="tt-sel" onchange="CAL.load()"><option value="0">Any year</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
@@ -70,7 +69,6 @@ var CAL = (function(){
   function init(){
     api('Lookups').then(function(d){
       LK=d||{};
-      var yh=''; (LK.years||[]).forEach(function(y){ yh+='<option>'+esc(y)+'</option>'; }); if(!yh) yh='<option>2026/2027</option>'; qs('fYear').innerHTML=yh;
       var ch='<option value="0">All campuses</option>'; (LK.campuses||[]).forEach(function(c){ if(c.id!==0) ch+='<option value="'+c.id+'">'+esc(c.name)+'</option>'; }); qs('fCampus').innerHTML=ch;
       var ph='<option value="">All programmes</option>'; (LK.programmes||[]).forEach(function(p){ ph+='<option value="'+esc(p.code)+'">'+esc(p.name||p.code)+'</option>'; }); qs('fProg').innerHTML=ph;
       var rh='<option value="0">Any room</option>'; (LK.rooms||[]).forEach(function(r){ rh+='<option value="'+r.id+'">'+esc(r.name)+'</option>'; }); qs('fRoom').innerHTML=rh;
@@ -80,7 +78,7 @@ var CAL = (function(){
   }
 
   function load(){
-    api('CalendarData',{acadYear:qs('fYear').value,campusId:parseInt(qs('fCampus').value,10)||0,progcode:qs('fProg').value,studyYear:parseInt(qs('fSy').value,10)||0,semester:parseInt(qs('fSem').value,10)||0,roomId:parseInt(qs('fRoom').value,10)||0,teacherId:parseInt(qs('fTeacher').value,10)||0})
+    api('CalendarData',{campusId:parseInt(qs('fCampus').value,10)||0,progcode:qs('fProg').value,studyYear:parseInt(qs('fSy').value,10)||0,semester:parseInt(qs('fSem').value,10)||0,roomId:parseInt(qs('fRoom').value,10)||0,teacherId:parseInt(qs('fTeacher').value,10)||0})
     .then(function(d){ render((d&&d.sessions)||[]); });
   }
 

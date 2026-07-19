@@ -144,7 +144,9 @@ public static class TimetableService
     }
 
     // Detect clashes for a candidate item (itemId=0 for a new one). Times are "HH:mm".
-    public static List<Conflict> CheckConflicts(int itemId, string acadYear, int dayNo, string startHHmm, int durationMin,
+    // Timetables are perpetual (not per academic year): a weekly day+time slot clashes
+    // regardless of year, so there is no acad_year in the overlap.
+    public static List<Conflict> CheckConflicts(int itemId, int dayNo, string startHHmm, int durationMin,
         int roomId, int effectiveTeacherId, string progcode, int studyYear, int semester, int campusId)
     {
         List<Conflict> list = new List<Conflict>();
@@ -152,7 +154,7 @@ public static class TimetableService
         {
             string start = NormTime(startHHmm);
             string end = EndTime(startHHmm, durationMin);
-            string overlap = " AND it.status='ACTIVE' AND it.acad_year=@ay AND it.day_no=@day AND it.item_id<>@id AND it.start_time < @end AND @start < it.end_time ";
+            string overlap = " AND it.status='ACTIVE' AND it.day_no=@day AND it.item_id<>@id AND it.start_time < @end AND @start < it.end_time ";
 
             // Room clash
             if (roomId > 0)
@@ -161,7 +163,7 @@ public static class TimetableService
                     "SELECT TRIM(IFNULL(c.courseName, it.course_code)) cn, TIME_FORMAT(it.start_time,'%H:%i') st, TIME_FORMAT(it.end_time,'%H:%i') et, IFNULL(r.RoomName,'') rn " +
                     "FROM acad_timetable_item it LEFT JOIN acad_course c ON TRIM(c.courseID)=TRIM(it.course_code) LEFT JOIN acad_lecturerooms r ON r.RoomID=it.room_id " +
                     "WHERE it.room_id=@room " + overlap,
-                    P("@room", roomId), P("@ay", acadYear), P("@day", dayNo), P("@id", itemId), P("@start", start), P("@end", end));
+                    P("@room", roomId), P("@day", dayNo), P("@id", itemId), P("@start", start), P("@end", end));
                 foreach (DataRow r in dt.Rows)
                     list.Add(new Conflict { Kind = "ROOM", Message = "Room busy: " + Val(r, "rn") + " already has " + Val(r, "cn") + " at " + Val(r, "st") + "-" + Val(r, "et") + "." });
             }
@@ -173,7 +175,7 @@ public static class TimetableService
                     "SELECT TRIM(IFNULL(c.courseName, it.course_code)) cn, TIME_FORMAT(it.start_time,'%H:%i') st, TIME_FORMAT(it.end_time,'%H:%i') et " +
                     "FROM acad_timetable_item it JOIN acad_programmecourses pc ON pc.ID=it.programmecourse_id LEFT JOIN acad_course c ON TRIM(c.courseID)=TRIM(it.course_code) " +
                     "WHERE IFNULL(it.teacher_id, pc.lecturer_id)=@t " + overlap,
-                    P("@t", effectiveTeacherId), P("@ay", acadYear), P("@day", dayNo), P("@id", itemId), P("@start", start), P("@end", end));
+                    P("@t", effectiveTeacherId), P("@day", dayNo), P("@id", itemId), P("@start", start), P("@end", end));
                 foreach (DataRow r in dt.Rows)
                     list.Add(new Conflict { Kind = "LECTURER", Message = "Lecturer already teaching " + Val(r, "cn") + " at " + Val(r, "st") + "-" + Val(r, "et") + "." });
             }
@@ -185,7 +187,7 @@ public static class TimetableService
                     "SELECT TRIM(IFNULL(c.courseName, it.course_code)) cn, TIME_FORMAT(it.start_time,'%H:%i') st, TIME_FORMAT(it.end_time,'%H:%i') et " +
                     "FROM acad_timetable_item it LEFT JOIN acad_course c ON TRIM(c.courseID)=TRIM(it.course_code) " +
                     "WHERE TRIM(it.progcode)=TRIM(@prog) AND it.study_year=@sy AND it.semester=@sem " + overlap,
-                    P("@prog", progcode), P("@sy", studyYear), P("@sem", semester), P("@ay", acadYear), P("@day", dayNo), P("@id", itemId), P("@start", start), P("@end", end));
+                    P("@prog", progcode), P("@sy", studyYear), P("@sem", semester), P("@day", dayNo), P("@id", itemId), P("@start", start), P("@end", end));
                 foreach (DataRow r in dt.Rows)
                     list.Add(new Conflict { Kind = "COHORT", Message = "Cohort clash: this class already has " + Val(r, "cn") + " at " + Val(r, "st") + "-" + Val(r, "et") + "." });
             }

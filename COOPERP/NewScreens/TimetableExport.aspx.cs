@@ -23,8 +23,6 @@ public partial class COOPERP_NewScreens_TimetableExport : Page
         List<object> campuses = new List<object>();
         foreach (DataRow r in TimetableService.Query("SELECT ID, campus_name FROM acad_campuses ORDER BY ID").Rows)
             campuses.Add(new Dictionary<string, object> { { "id", I(r, "ID") }, { "name", S(r, "campus_name") } });
-        List<object> years = new List<object>();
-        foreach (DataRow r in TimetableService.Query("SELECT DISTINCT acad_year FROM acad_registration WHERE acad_year<>'' ORDER BY acad_year DESC LIMIT 6").Rows) years.Add(S(r, "acad_year"));
         List<object> progs = new List<object>();
         foreach (DataRow r in TimetableService.Query("SELECT progcode, progname FROM acad_programme ORDER BY progname").Rows)
             progs.Add(new Dictionary<string, object> { { "code", S(r, "progcode") }, { "name", S(r, "progname") } });
@@ -34,17 +32,16 @@ public partial class COOPERP_NewScreens_TimetableExport : Page
         List<object> teachers = new List<object>();
         foreach (DataRow r in TimetableService.Query("SELECT empID, emp_name FROM hrm_employee WHERE emp_name<>'' ORDER BY emp_name").Rows)
             teachers.Add(new Dictionary<string, object> { { "id", I(r, "empID") }, { "name", S(r, "emp_name") } });
-        return new { ok = true, campuses = campuses, years = years, programmes = progs, rooms = rooms, teachers = teachers };
+        return new { ok = true, campuses = campuses, programmes = progs, rooms = rooms, teachers = teachers };
     }
 
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object ExportData(string acadYear, int campusId, string progcode, int studyYear, int semester, int roomId, int teacherId, int dayNo)
+    public static object ExportData(int campusId, string progcode, int studyYear, int semester, int roomId, int teacherId, int dayNo)
     {
         TimetableService.EnsureSchema();
         StringBuilder wh = new StringBuilder();
         List<MySqlParameter> ps = new List<MySqlParameter>();
-        ps.Add(P("@ay", acadYear));
         if (campusId > 0) { wh.Append(" AND (it.campus_id=@cp OR it.campus_id=0)"); ps.Add(P("@cp", campusId)); }
         if (!string.IsNullOrEmpty(progcode)) { wh.Append(" AND TRIM(it.progcode)=TRIM(@prog)"); ps.Add(P("@prog", progcode)); }
         if (studyYear > 0) { wh.Append(" AND it.study_year=@sy"); ps.Add(P("@sy", studyYear)); }
@@ -62,7 +59,7 @@ public partial class COOPERP_NewScreens_TimetableExport : Page
             "LEFT JOIN acad_timetable_weekdays w ON w.DayNo=it.day_no LEFT JOIN acad_course c ON TRIM(c.courseID)=TRIM(it.course_code) LEFT JOIN acad_programme p ON p.progcode=it.progcode " +
             "LEFT JOIN hrm_employee te ON te.empID=it.teacher_id LEFT JOIN hrm_employee le ON le.empID=pc.lecturer_id " +
             "LEFT JOIN acad_lecturerooms r ON r.RoomID=it.room_id LEFT JOIN acad_building b ON b.building_id=it.building_id LEFT JOIN acad_campuses cp ON cp.ID=it.campus_id " +
-            "WHERE it.status='ACTIVE' AND it.acad_year=@ay" + wh.ToString() + " ORDER BY it.day_no, it.start_time, p.progname", ps.ToArray());
+            "WHERE it.status='ACTIVE'" + wh.ToString() + " ORDER BY it.day_no, it.start_time, p.progname", ps.ToArray());
 
         List<object> rows = new List<object>();
         foreach (DataRow r in dt.Rows)

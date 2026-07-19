@@ -10,10 +10,7 @@ using MySql.Data.MySqlClient;
 
 public partial class COOPERP_NewScreens_TimetableManager : Page
 {
-    protected void Page_Load(object sender, EventArgs e)
-    {
-        TimetableService.EnsureSchema();
-    }
+    protected void Page_Load(object sender, EventArgs e) { TimetableService.EnsureSchema(); }
 
     private static int I(DataRow r, string c) { return r.Table.Columns.Contains(c) && r[c] != DBNull.Value ? Convert.ToInt32(r[c]) : 0; }
     private static string S(DataRow r, string c) { return r.Table.Columns.Contains(c) && r[c] != DBNull.Value ? r[c].ToString() : ""; }
@@ -24,7 +21,7 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         return "admin";
     }
 
-    // ── lookups ──
+    // ── lookups (no academic year — timetable is perpetual) ──
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object Lookups()
@@ -36,46 +33,55 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         List<object> teachers = new List<object>();
         foreach (DataRow r in TimetableService.Query("SELECT empID, emp_name FROM hrm_employee WHERE emp_name IS NOT NULL AND TRIM(emp_name)<>'' ORDER BY emp_name").Rows)
             teachers.Add(new Dictionary<string, object> { { "id", I(r, "empID") }, { "name", S(r, "emp_name") } });
-        List<object> years = new List<object>();
-        foreach (DataRow r in TimetableService.Query("SELECT DISTINCT acad_year FROM acad_registration WHERE acad_year IS NOT NULL AND acad_year<>'' ORDER BY acad_year DESC LIMIT 6").Rows)
-            years.Add(S(r, "acad_year"));
         List<object> progs = new List<object>();
         foreach (DataRow r in TimetableService.Query("SELECT progcode, progname FROM acad_programme ORDER BY progname").Rows)
             progs.Add(new Dictionary<string, object> { { "code", S(r, "progcode") }, { "name", S(r, "progname") } });
-        return new { ok = true, campuses = campuses, teachers = teachers, years = years, programmes = progs };
+        return new { ok = true, campuses = campuses, teachers = teachers, programmes = progs };
     }
 
+    // ── rooms for a campus, annotated with availability for a day/time slot ──
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object RoomsForCampus(int campusId)
+    public static object RoomsForSlot(int campusId, int dayNo, string start, int durationMin, int excludeItemId)
     {
         TimetableService.EnsureSchema();
+        string st = TimetableService.NormTime(start);
+        string et = TimetableService.EndTime(start, durationMin);
+        bool checkSlot = dayNo >= 1 && dayNo <= 7 && durationMin > 0;
+        List<MySqlParameter> ps = new List<MySqlParameter>();
+        string busySub = checkSlot
+            ? "(SELECT TRIM(IFNULL(c.courseName, it.course_code)) FROM acad_timetable_item it LEFT JOIN acad_course c ON TRIM(c.courseID)=TRIM(it.course_code) WHERE it.room_id=r.RoomID AND it.status='ACTIVE' AND it.day_no=@day AND it.item_id<>@ex AND it.start_time < @et AND @st < it.end_time LIMIT 1)"
+            : "NULL";
+        if (checkSlot) { ps.Add(P("@day", dayNo)); ps.Add(P("@ex", excludeItemId)); ps.Add(P("@st", st)); ps.Add(P("@et", et)); }
+        string where = "WHERE IFNULL(r.is_active,1)=1";
+        if (campusId > 0) { where += " AND (r.campusId=@cp OR r.campusId=0)"; ps.Add(P("@cp", campusId)); }
+        DataTable dt = TimetableService.Query(
+            "SELECT r.RoomID, r.RoomName, IFNULL(r.Capacity,0) cap, IFNULL(r.building_id,0) bid, IFNULL(b.building_name,'') bn, " + busySub + " busywith " +
+            "FROM acad_lecturerooms r LEFT JOIN acad_building b ON b.building_id=r.building_id " + where + " ORDER BY r.RoomName", ps.ToArray());
         List<object> rooms = new List<object>();
-        string where = campusId > 0 ? "WHERE IFNULL(r.is_active,1)=1 AND (r.campusId=@cp OR r.campusId=0)" : "WHERE IFNULL(r.is_active,1)=1";
-        DataTable dt = campusId > 0
-            ? TimetableService.Query("SELECT r.RoomID, r.RoomName, IFNULL(r.Capacity,0) cap, IFNULL(r.building_id,0) bid, IFNULL(b.building_name,'') bn FROM acad_lecturerooms r LEFT JOIN acad_building b ON b.building_id=r.building_id " + where + " ORDER BY r.RoomName", P("@cp", campusId))
-            : TimetableService.Query("SELECT r.RoomID, r.RoomName, IFNULL(r.Capacity,0) cap, IFNULL(r.building_id,0) bid, IFNULL(b.building_name,'') bn FROM acad_lecturerooms r LEFT JOIN acad_building b ON b.building_id=r.building_id " + where + " ORDER BY r.RoomName");
         foreach (DataRow r in dt.Rows)
-            rooms.Add(new Dictionary<string, object> { { "id", I(r, "RoomID") }, { "name", S(r, "RoomName") }, { "capacity", I(r, "cap") }, { "buildingId", I(r, "bid") }, { "building", S(r, "bn") } });
+        {
+            string bw = S(r, "busywith");
+            rooms.Add(new Dictionary<string, object> { { "id", I(r, "RoomID") }, { "name", S(r, "RoomName") }, { "capacity", I(r, "cap") }, { "buildingId", I(r, "bid") }, { "building", S(r, "bn") }, { "busy", bw != "" ? 1 : 0 }, { "busyWith", bw } });
+        }
         return new { ok = true, rooms = rooms };
     }
 
-    // ── list programme-courses (+ session count for the chosen acad-year) ──
+    // ── list programme-courses (+ session count) ──
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object ListPCs(string acadYear, string q, string progcode, int studyYear, int semester, int onlyUnscheduled, int page)
+    public static object ListPCs(string q, string progcode, int studyYear, int semester, int onlyUnscheduled, int page)
     {
         TimetableService.EnsureSchema();
         const int PS = 20;
         if (page < 1) page = 1;
         StringBuilder wh = new StringBuilder();
         List<MySqlParameter> ps = new List<MySqlParameter>();
-        ps.Add(P("@ay", acadYear));
         if (!string.IsNullOrEmpty(progcode)) { wh.Append(" AND pc.progcode=@prog"); ps.Add(P("@prog", progcode)); }
         if (studyYear > 0) { wh.Append(" AND pc.study_year=@sy"); ps.Add(P("@sy", studyYear)); }
         if (semester > 0) { wh.Append(" AND pc.semester=@sem"); ps.Add(P("@sem", semester)); }
         if (!string.IsNullOrEmpty(q)) { wh.Append(" AND (pc.course_code LIKE @q OR IFNULL(c.courseName,'') LIKE @q OR IFNULL(p.progname,'') LIKE @q OR IFNULL(e.emp_name,'') LIKE @q OR pc.progcode LIKE @q)"); ps.Add(P("@q", "%" + q + "%")); }
-        string cnt = " AND (SELECT COUNT(*) FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.acad_year=@ay AND it.status='ACTIVE')";
+        string cnt = " AND (SELECT COUNT(*) FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.status='ACTIVE')";
         if (onlyUnscheduled == 1) wh.Append(cnt + "=0");
 
         string joins = "FROM acad_programmecourses pc LEFT JOIN acad_programme p ON pc.progcode=p.progcode LEFT JOIN acad_course c ON pc.course_code=c.courseID LEFT JOIN hrm_employee e ON e.empID=pc.lecturer_id WHERE 1=1" + wh.ToString();
@@ -89,7 +95,7 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             "SELECT pc.ID, pc.progcode, IFNULL(p.progname,'') progname, TRIM(pc.course_code) course_code, IFNULL(c.courseName,'') courseName, " +
             "IFNULL(pc.study_year,1) study_year, IFNULL(pc.semester,1) semester, IFNULL(pc.course_type,'CORE') course_type, " +
             "IFNULL(pc.lecturer_id,0) lecturer_id, IFNULL(e.emp_name,'') lecturer_name, " +
-            "(SELECT COUNT(*) FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.acad_year=@ay AND it.status='ACTIVE') sessions " +
+            "(SELECT COUNT(*) FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.status='ACTIVE') sessions " +
             joins + " ORDER BY p.progname, pc.study_year, pc.semester, c.courseName LIMIT " + PS + " OFFSET " + off, ps.ToArray());
         List<object> rows = new List<object>();
         foreach (DataRow r in dt.Rows)
@@ -101,10 +107,10 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         return new { ok = true, rows = rows, total = total, page = page, pages = pages };
     }
 
-    // ── items for one programme-course + acad-year ──
+    // ── items for one programme-course ──
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object GetItems(int pcId, string acadYear)
+    public static object GetItems(int pcId)
     {
         TimetableService.EnsureSchema();
         Dictionary<string, object> pc = LoadPc(pcId);
@@ -117,8 +123,8 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             "IFNULL(it.room_label,'') room_label, it.session_type, it.delivery_mode, IFNULL(it.meet_link,'') meet_link, IFNULL(it.description,'') description " +
             "FROM acad_timetable_item it LEFT JOIN acad_timetable_weekdays w ON w.DayNo=it.day_no LEFT JOIN hrm_employee e ON e.empID=it.teacher_id " +
             "LEFT JOIN acad_campuses cp ON cp.ID=it.campus_id LEFT JOIN acad_building b ON b.building_id=it.building_id LEFT JOIN acad_lecturerooms r ON r.RoomID=it.room_id " +
-            "WHERE it.programmecourse_id=@pc AND it.acad_year=@ay AND it.status='ACTIVE' ORDER BY it.day_no, it.start_time",
-            P("@pc", pcId), P("@ay", acadYear));
+            "WHERE it.programmecourse_id=@pc AND it.status='ACTIVE' ORDER BY it.day_no, it.start_time",
+            P("@pc", pcId));
         foreach (DataRow r in dt.Rows)
             items.Add(new Dictionary<string, object> {
                 { "id", I(r, "item_id") }, { "dayNo", I(r, "day_no") }, { "dayName", S(r, "DayName") }, { "start", S(r, "st") }, { "durationMin", I(r, "duration_min") }, { "end", S(r, "et") },
@@ -145,12 +151,12 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     // ── live conflict preview ──
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object PreviewConflicts(int itemId, int pcId, string acadYear, int dayNo, string start, int durationMin, int roomId, int teacherId, int campusId)
+    public static object PreviewConflicts(int itemId, int pcId, int dayNo, string start, int durationMin, int roomId, int teacherId, int campusId)
     {
         Dictionary<string, object> pc = LoadPc(pcId);
         if (pc == null) return new { ok = false, message = "Programme-course not found." };
         int effTeacher = teacherId > 0 ? teacherId : Convert.ToInt32(pc["lecturerId"]);
-        List<TimetableService.Conflict> cs = TimetableService.CheckConflicts(itemId, acadYear, dayNo, start, durationMin, roomId, effTeacher,
+        List<TimetableService.Conflict> cs = TimetableService.CheckConflicts(itemId, dayNo, start, durationMin, roomId, effTeacher,
             Convert.ToString(pc["progcode"]), Convert.ToInt32(pc["studyYear"]), Convert.ToInt32(pc["semester"]), campusId);
         List<object> outc = new List<object>();
         foreach (TimetableService.Conflict c in cs) outc.Add(new Dictionary<string, object> { { "kind", c.Kind }, { "message", c.Message } });
@@ -160,7 +166,7 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     // ── save an item ──
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object SaveItem(int itemId, int pcId, string acadYear, int dayNo, string start, int durationMin,
+    public static object SaveItem(int itemId, int pcId, int dayNo, string start, int durationMin,
         int teacherId, int campusId, int buildingId, int roomId, string roomLabel, string sessionType, string deliveryMode, string meetLink, string description, int allowConflicts)
     {
         TimetableService.EnsureSchema();
@@ -168,7 +174,6 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         {
             Dictionary<string, object> pc = LoadPc(pcId);
             if (pc == null) return new { ok = false, message = "Programme-course not found." };
-            if (string.IsNullOrEmpty(acadYear)) return new { ok = false, message = "Academic year is required." };
             if (dayNo < 1 || dayNo > 7) return new { ok = false, message = "Pick a valid weekday." };
             if (durationMin <= 0) durationMin = 60;
             string st = TimetableService.NormTime(start);
@@ -178,7 +183,7 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             int effTeacher = teacherId > 0 ? teacherId : Convert.ToInt32(pc["lecturerId"]);
             if (allowConflicts != 1)
             {
-                List<TimetableService.Conflict> cs = TimetableService.CheckConflicts(itemId, acadYear, dayNo, start, durationMin, roomId, effTeacher,
+                List<TimetableService.Conflict> cs = TimetableService.CheckConflicts(itemId, dayNo, start, durationMin, roomId, effTeacher,
                     Convert.ToString(pc["progcode"]), Convert.ToInt32(pc["studyYear"]), Convert.ToInt32(pc["semester"]), campusId);
                 if (cs.Count > 0)
                 {
@@ -200,10 +205,10 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             if (itemId > 0)
             {
                 TimetableService.Exec(
-                    "UPDATE acad_timetable_item SET acad_year=@ay, progcode=@prog, course_code=@cc, study_year=@sy, semester=@sem, day_no=@day, start_time=@st, duration_min=@dur, end_time=@et, " +
+                    "UPDATE acad_timetable_item SET progcode=@prog, course_code=@cc, study_year=@sy, semester=@sem, day_no=@day, start_time=@st, duration_min=@dur, end_time=@et, " +
                     "teacher_id=@t, campus_id=@cp, building_id=@b, room_id=@r, room_label=@rl, session_type=@stype, delivery_mode=@dmode, meet_link=@ml, description=@desc, updated_by=@who, updated_at=NOW() " +
                     "WHERE item_id=@id AND programmecourse_id=@pc",
-                    P("@ay", acadYear), P("@prog", prog), P("@cc", ccode), P("@sy", sy), P("@sem", sem), P("@day", dayNo), P("@st", st), P("@dur", durationMin), P("@et", et),
+                    P("@prog", prog), P("@cc", ccode), P("@sy", sy), P("@sem", sem), P("@day", dayNo), P("@st", st), P("@dur", durationMin), P("@et", et),
                     P("@t", tId), P("@cp", campusId), P("@b", bId), P("@r", rId), P("@rl", roomLabel), P("@stype", (sessionType ?? "LECTURE").ToUpperInvariant()), P("@dmode", (deliveryMode ?? "PHYSICAL").ToUpperInvariant()),
                     P("@ml", meetLink), P("@desc", description), P("@who", who), P("@id", itemId), P("@pc", pcId));
             }
@@ -212,8 +217,8 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
                 TimetableService.Exec(
                     "INSERT INTO acad_timetable_item (programmecourse_id, acad_year, progcode, course_code, study_year, semester, day_no, start_time, duration_min, end_time, " +
                     "teacher_id, campus_id, building_id, room_id, room_label, session_type, delivery_mode, meet_link, description, status, created_by, created_at) " +
-                    "VALUES (@pc,@ay,@prog,@cc,@sy,@sem,@day,@st,@dur,@et,@t,@cp,@b,@r,@rl,@stype,@dmode,@ml,@desc,'ACTIVE',@who,NOW())",
-                    P("@pc", pcId), P("@ay", acadYear), P("@prog", prog), P("@cc", ccode), P("@sy", sy), P("@sem", sem), P("@day", dayNo), P("@st", st), P("@dur", durationMin), P("@et", et),
+                    "VALUES (@pc,'',@prog,@cc,@sy,@sem,@day,@st,@dur,@et,@t,@cp,@b,@r,@rl,@stype,@dmode,@ml,@desc,'ACTIVE',@who,NOW())",
+                    P("@pc", pcId), P("@prog", prog), P("@cc", ccode), P("@sy", sy), P("@sem", sem), P("@day", dayNo), P("@st", st), P("@dur", durationMin), P("@et", et),
                     P("@t", tId), P("@cp", campusId), P("@b", bId), P("@r", rId), P("@rl", roomLabel), P("@stype", (sessionType ?? "LECTURE").ToUpperInvariant()), P("@dmode", (deliveryMode ?? "PHYSICAL").ToUpperInvariant()),
                     P("@ml", meetLink), P("@desc", description), P("@who", who));
                 object nid = TimetableService.Scalar("SELECT LAST_INSERT_ID()");
@@ -233,10 +238,8 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
 
-    // ── Legacy import (acad_timetable -> acad_timetable_item), dry-run + run ──
-    // Dedupe to a single anchor per legacy row (acad_programmecourses has duplicate
-    // (progcode, course_code, study_year, semester) rows from the course-dup history)
-    // so a legacy timetable row is imported exactly once.
+    // ── Legacy import (acad_timetable -> acad_timetable_item), deduped across years ──
+    // Perpetual timetable: collapse legacy rows to one per (programme-course, day, start).
     private const string ImportJoins =
         "FROM acad_timetable t " +
         "JOIN acad_programmecourses pc ON pc.ID=(SELECT MIN(pc2.ID) FROM acad_programmecourses pc2 WHERE TRIM(pc2.progcode)=TRIM(t.programme_code) AND TRIM(pc2.course_code)=TRIM(t.course_code) AND pc2.study_year=t.study_year AND pc2.semester=t.semester) " +
@@ -245,37 +248,35 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
 
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object ImportPreview(string acadYear)
+    public static object ImportPreview()
     {
         TimetableService.EnsureSchema();
         try
         {
-            object matched = TimetableService.Scalar("SELECT COUNT(*) " + ImportJoins + "WHERE t.acad_year=@ay", P("@ay", acadYear));
-            object already = TimetableService.Scalar("SELECT COUNT(*) " + ImportJoins +
-                "WHERE t.acad_year=@ay AND EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.acad_year=t.acad_year AND it.day_no=w.DayNo AND it.start_time=CAST(t.start_time AS TIME))", P("@ay", acadYear));
-            object unmatched = TimetableService.Scalar(
-                "SELECT COUNT(*) FROM acad_timetable t WHERE t.acad_year=@ay AND NOT EXISTS (SELECT 1 FROM acad_programmecourses pc WHERE TRIM(pc.progcode)=TRIM(t.programme_code) AND TRIM(pc.course_code)=TRIM(t.course_code) AND pc.study_year=t.study_year AND pc.semester=t.semester)", P("@ay", acadYear));
-            return new { ok = true, matched = Convert.ToInt32(matched), already = Convert.ToInt32(already), unmatched = Convert.ToInt32(unmatched) };
+            object distinct = TimetableService.Scalar("SELECT COUNT(*) FROM (SELECT pc.ID pid, w.DayNo dno, CAST(t.start_time AS TIME) st " + ImportJoins + "WHERE CAST(t.end_time AS TIME) > CAST(t.start_time AS TIME) GROUP BY pc.ID, w.DayNo, CAST(t.start_time AS TIME)) x");
+            object already = TimetableService.Scalar("SELECT COUNT(*) FROM (SELECT pc.ID pid, w.DayNo dno, CAST(t.start_time AS TIME) st " + ImportJoins + "WHERE CAST(t.end_time AS TIME) > CAST(t.start_time AS TIME) AND EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.day_no=w.DayNo AND it.start_time=CAST(t.start_time AS TIME)) GROUP BY pc.ID, w.DayNo, CAST(t.start_time AS TIME)) x");
+            object unmatched = TimetableService.Scalar("SELECT COUNT(*) FROM acad_timetable t WHERE NOT EXISTS (SELECT 1 FROM acad_programmecourses pc WHERE TRIM(pc.progcode)=TRIM(t.programme_code) AND TRIM(pc.course_code)=TRIM(t.course_code) AND pc.study_year=t.study_year AND pc.semester=t.semester)");
+            return new { ok = true, distinct = Convert.ToInt32(distinct), already = Convert.ToInt32(already), unmatched = Convert.ToInt32(unmatched) };
         }
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
 
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object ImportRun(string acadYear)
+    public static object ImportRun()
     {
         TimetableService.EnsureSchema();
         try
         {
             int n = TimetableService.Exec(
                 "INSERT INTO acad_timetable_item (programmecourse_id, acad_year, progcode, course_code, study_year, semester, day_no, start_time, duration_min, end_time, teacher_id, campus_id, room_id, room_label, session_type, delivery_mode, status, created_by, created_at) " +
-                "SELECT pc.ID, t.acad_year, pc.progcode, TRIM(pc.course_code), pc.study_year, pc.semester, w.DayNo, CAST(t.start_time AS TIME), " +
-                "GREATEST(30, TIME_TO_SEC(TIMEDIFF(CAST(t.end_time AS TIME), CAST(t.start_time AS TIME)))/60), CAST(t.end_time AS TIME), " +
-                "NULLIF(t.lecturer_id,0), IFNULL(t.campusId,0), rr.RoomID, IFNULL(t.building,''), 'LECTURE', 'PHYSICAL', 'ACTIVE', 'legacy_import', NOW() " +
+                "SELECT pc.ID, '', pc.progcode, TRIM(pc.course_code), pc.study_year, pc.semester, w.DayNo, CAST(t.start_time AS TIME), " +
+                "GREATEST(30, TIME_TO_SEC(TIMEDIFF(MAX(CAST(t.end_time AS TIME)), CAST(t.start_time AS TIME)))/60), MAX(CAST(t.end_time AS TIME)), " +
+                "NULLIF(MAX(t.lecturer_id),0), IFNULL(MAX(t.campusId),0), MAX(rr.RoomID), IFNULL(MAX(t.building),''), 'LECTURE', 'PHYSICAL', 'ACTIVE', 'legacy_import', NOW() " +
                 ImportJoins +
-                "WHERE t.acad_year=@ay AND CAST(t.end_time AS TIME) > CAST(t.start_time AS TIME) " +
-                "AND NOT EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.acad_year=t.acad_year AND it.day_no=w.DayNo AND it.start_time=CAST(t.start_time AS TIME))",
-                P("@ay", acadYear));
+                "WHERE CAST(t.end_time AS TIME) > CAST(t.start_time AS TIME) " +
+                "AND NOT EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.day_no=w.DayNo AND it.start_time=CAST(t.start_time AS TIME)) " +
+                "GROUP BY pc.ID, w.DayNo, CAST(t.start_time AS TIME)");
             return new { ok = true, imported = n };
         }
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
