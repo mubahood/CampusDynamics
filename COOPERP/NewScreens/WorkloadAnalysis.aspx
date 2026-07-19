@@ -38,6 +38,7 @@
 .wa-table td.num{text-align:center;font-variant-numeric:tabular-nums;}
 .wa-table tbody tr{cursor:pointer;}
 .wa-table tbody tr:hover{background:#f0f4ff;}
+.wa-table tfoot .wa-total td{position:sticky;bottom:0;background:#eef2f8;border-top:2px solid #05275C;font-weight:800;color:#05275C;padding:8px 12px;font-size:11.5px;}
 .wa-rank{color:#b0b8c6;font-size:10px;font-weight:700;width:22px;text-align:center;}
 .wa-badge{display:inline-block;padding:2px 8px;font-size:10px;font-weight:700;}
 .wa-badge--normal{background:#e6f4ea;color:#2e7d32;} .wa-badge--heavy{background:#fff3e0;color:#e65100;} .wa-badge--overloaded{background:#fce4ec;color:#c62828;}
@@ -110,6 +111,7 @@
       <div class="wa-stat"><div class="wa-stat__n" id="stHeavy">0</div><div class="wa-stat__l">Heavy &gt;12h</div></div>
       <div class="wa-stat"><div class="wa-stat__n" id="stSess">0</div><div class="wa-stat__l">Weekly sessions</div></div>
       <div class="wa-stat"><div class="wa-stat__n" id="stHrs">0</div><div class="wa-stat__l">Total hrs / wk</div></div>
+      <div class="wa-stat"><div class="wa-stat__n" id="stHrsMo">0</div><div class="wa-stat__l">Total hrs / mo</div></div>
     </div>
     <div id="waHost"><div class="wa-loading">Loading workload&hellip;</div></div>
   </div>
@@ -122,7 +124,8 @@
 var WA = (function(){
   var _rows=[], _details={}, _faculties=[], _programmes=[], _campuses=[], VIS=[], CURDET=null;
   var facCombo=null, progCombo=null;
-  var HEAVY=12, OVER=18;
+  var HEAVY=12, OVER=18, WPM=4.33;   // weeks per month (52/12) for monthly-hour projection
+  function monthly(w){ return (w||0)*WPM; }
   var DAYFULL=['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   var DAYORD={Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6,Sun:7};
   function qs(id){return document.getElementById(id);}
@@ -221,6 +224,7 @@ var WA = (function(){
     var eh=qs('stHeavy'); eh.textContent=heavy; eh.className='wa-stat__n'+(heavy?' heavy':'');
     qs('stSess').textContent=sess;
     qs('stHrs').textContent=Math.round(hrs);
+    qs('stHrsMo').textContent=Math.round(monthly(hrs));
     var semSel=qs('fSem'), camSel=qs('fCampus');
     var scope=(semSel.value==='0'?'All semesters':'Semester '+semSel.value)+' · '+(camSel.selectedOptions[0]?camSel.selectedOptions[0].text:'All')+' campus';
     qs('waSub').textContent=scope+' · from active timetable · '+VIS.length+' lecturer'+(VIS.length===1?'':'s')+' · '+Math.round(hrs)+' contact hrs/week';
@@ -229,10 +233,12 @@ var WA = (function(){
   function renderGrid(){
     if(!VIS.length){ qs('waHost').innerHTML='<div class="wa-empty">No timetable sessions found for the selected scope / filters.</div>'; return; }
     VIS.forEach(function(r,i){ r._i=i; });
+    var tSess=0,tWk=0,tCourse=0,tProg=0;
     var h='<table class="wa-table"><thead><tr><th class="wa-rank">#</th><th>Lecturer</th><th>EMP</th><th>Department</th><th>Contract</th>'
-      +'<th class="num">Sessions</th><th class="num">Hrs/wk</th><th class="num">Courses</th><th class="num">Progs</th><th>Load</th><th>Status</th></tr></thead><tbody>';
+      +'<th class="num">Sessions</th><th class="num">Hrs/wk</th><th class="num" title="Weekly hours &times; 4.33">Hrs/mo</th><th class="num">Courses</th><th class="num">Progs</th><th>Load</th><th>Status</th></tr></thead><tbody>';
     VIS.forEach(function(r,i){
       var b=band(r.weeklyHours), pct=Math.min(r.weeklyHours/24*100,100);
+      tSess+=r.sessionCount; tWk+=r.weeklyHours; tCourse+=r.courseCount; tProg+=r.programmeCount;
       h+='<tr data-idx="'+i+'" title="Click for the weekly breakdown">'
         +'<td class="wa-rank">'+(i+1)+'</td>'
         +'<td><strong>'+esc(r.lecturerName)+'</strong></td>'
@@ -241,12 +247,15 @@ var WA = (function(){
         +'<td>'+esc(r.contractType||'—')+'</td>'
         +'<td class="num" style="font-weight:700;">'+r.sessionCount+'</td>'
         +'<td class="num" style="font-weight:700;">'+r.weeklyHours.toFixed(1)+'</td>'
+        +'<td class="num">'+monthly(r.weeklyHours).toFixed(1)+'</td>'
         +'<td class="num">'+r.courseCount+'</td>'
         +'<td class="num">'+r.programmeCount+'</td>'
         +'<td><span class="wa-bar-wrap"><span class="wa-bar '+b.bar+'" style="width:'+pct+'%;"></span></span></td>'
         +'<td><span class="wa-badge '+b.badge+'">'+b.label+'</span></td></tr>';
     });
-    h+='</tbody></table>';
+    h+='</tbody><tfoot><tr class="wa-total"><td></td><td>TOTAL &mdash; '+VIS.length+' lecturer'+(VIS.length===1?'':'s')+'</td><td></td><td></td><td></td>'
+      +'<td class="num">'+tSess+'</td><td class="num">'+tWk.toFixed(1)+'</td><td class="num">'+monthly(tWk).toFixed(1)+'</td>'
+      +'<td class="num">'+tCourse+'</td><td class="num">'+tProg+'</td><td></td><td></td></tr></tfoot></table>';
     qs('waHost').innerHTML=h;
     var host=qs('waHost');
     host.onclick=function(e){ var t=e.target; while(t&&t!==host&&!t.getAttribute('data-idx')) t=t.parentNode; if(t&&t!==host){ var i=parseInt(t.getAttribute('data-idx'),10); if(!isNaN(i)) showDetail(VIS[i]); } };
@@ -264,6 +273,7 @@ var WA = (function(){
       +'<div class="ttd-sub">'+esc(r.department||'—')+(r.contractType?(' · '+esc(r.contractType)):'')+(r.empCode?(' · '+esc(r.empCode)):'')+'</div></div>';
     h+='<div class="ttd-kpis">'
       +'<div class="ttd-kpi"><div class="ttd-kpi__n">'+r.weeklyHours.toFixed(1)+'</div><div class="ttd-kpi__l">Hrs / week</div></div>'
+      +'<div class="ttd-kpi"><div class="ttd-kpi__n">'+monthly(r.weeklyHours).toFixed(1)+'</div><div class="ttd-kpi__l">Hrs / month</div></div>'
       +'<div class="ttd-kpi"><div class="ttd-kpi__n">'+r.sessionCount+'</div><div class="ttd-kpi__l">Sessions</div></div>'
       +'<div class="ttd-kpi"><div class="ttd-kpi__n">'+r.courseCount+'</div><div class="ttd-kpi__l">Courses</div></div>'
       +'<div class="ttd-kpi"><div class="ttd-kpi__n">'+totCU+'</div><div class="ttd-kpi__l">Credits</div></div></div>';
@@ -318,9 +328,14 @@ var WA = (function(){
   function csvCell(v){ v=(v==null?'':''+v); if(/[",\n]/.test(v)) v='"'+v.replace(/"/g,'""')+'"'; return v; }
   function csv(){
     if(!VIS.length){ alert('No rows to export.'); return; }
-    var head=['Rank','Lecturer','EMP','Department','Contract','Sessions','WeeklyHours','Courses','Programmes','Credits','Status'];
+    var head=['Rank','Lecturer','EMP','Department','Contract','Sessions','WeeklyHours','MonthlyHours','Courses','Programmes','Credits','Status'];
     var lines=[head.join(',')];
-    VIS.forEach(function(r,i){ lines.push([i+1,r.lecturerName,r.empCode,r.department,r.contractType,r.sessionCount,r.weeklyHours.toFixed(1),r.courseCount,r.programmeCount,r.totalCredits,band(r.weeklyHours).label].map(csvCell).join(',')); });
+    var tSess=0,tWk=0,tCourse=0,tProg=0,tCU=0;
+    VIS.forEach(function(r,i){
+      tSess+=r.sessionCount; tWk+=r.weeklyHours; tCourse+=r.courseCount; tProg+=r.programmeCount; tCU+=r.totalCredits;
+      lines.push([i+1,r.lecturerName,r.empCode,r.department,r.contractType,r.sessionCount,r.weeklyHours.toFixed(1),monthly(r.weeklyHours).toFixed(1),r.courseCount,r.programmeCount,r.totalCredits,band(r.weeklyHours).label].map(csvCell).join(','));
+    });
+    lines.push(['','TOTAL ('+VIS.length+' lecturers)','','','',tSess,tWk.toFixed(1),monthly(tWk).toFixed(1),tCourse,tProg,tCU,''].map(csvCell).join(','));
     var blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
     var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='workload_analysis.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }
@@ -331,12 +346,15 @@ var WA = (function(){
     meta.push(VIS.length+' lecturer'+(VIS.length===1?'':'s')); meta.push(Math.round(hrs)+' hrs/week'); meta.push(sess+' sessions'); if(over) meta.push(over+' overloaded');
     var now=new Date(), MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     var stamp=now.getDate()+' '+MON[now.getMonth()]+' '+now.getFullYear();
-    var rows='';
+    var rows='', tSess=0,tWk=0,tCourse=0,tProg=0,tCU=0;
     VIS.forEach(function(r,i){
       var st=band(r.weeklyHours).label, cl=r.weeklyHours>OVER?' class="cl"':(r.weeklyHours>HEAVY?' class="hv"':'');
+      tSess+=r.sessionCount; tWk+=r.weeklyHours; tCourse+=r.courseCount; tProg+=r.programmeCount; tCU+=r.totalCredits;
       rows+='<tr'+cl+'><td class="n">'+(i+1)+'</td><td><b>'+esc(r.lecturerName)+'</b></td><td>'+esc(r.empCode)+'</td><td>'+esc(r.department)+'</td><td>'+esc(r.contractType||'-')+'</td>'
-        +'<td class="c">'+r.sessionCount+'</td><td class="c"><b>'+r.weeklyHours.toFixed(1)+'</b></td><td class="c">'+r.courseCount+'</td><td class="c">'+r.programmeCount+'</td><td class="c">'+r.totalCredits+'</td><td class="c">'+esc(st)+'</td></tr>';
+        +'<td class="c">'+r.sessionCount+'</td><td class="c"><b>'+r.weeklyHours.toFixed(1)+'</b></td><td class="c">'+monthly(r.weeklyHours).toFixed(1)+'</td><td class="c">'+r.courseCount+'</td><td class="c">'+r.programmeCount+'</td><td class="c">'+r.totalCredits+'</td><td class="c">'+esc(st)+'</td></tr>';
     });
+    rows+='<tr class="tot"><td></td><td><b>TOTAL — '+VIS.length+' lecturer'+(VIS.length===1?'':'s')+'</b></td><td></td><td></td><td></td>'
+      +'<td class="c">'+tSess+'</td><td class="c">'+tWk.toFixed(1)+'</td><td class="c">'+monthly(tWk).toFixed(1)+'</td><td class="c">'+tCourse+'</td><td class="c">'+tProg+'</td><td class="c">'+tCU+'</td><td></td></tr>';
     var logo=(location.origin||'')+'/COOPERP/images/welcomelogo.png';
     var css='@page{size:A4 landscape;margin:11mm 11mm 13mm;}*{box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1a1a2e;margin:0;font-size:10.5px;}'
       +'.hd{display:flex;align-items:center;gap:13px;border-bottom:3px solid #05275C;padding-bottom:8px;margin-bottom:11px;}.hd img{height:44px;}'
@@ -347,12 +365,13 @@ var WA = (function(){
       +'th.c,td.c{text-align:center;}td.n{color:#94a3b8;}'
       +'td{padding:4px 7px;border-bottom:1px solid #edf1f6;font-size:10px;}td b{color:#05275C;}tbody tr:nth-child(even) td{background:#fafbfd;}'
       +'tr.cl td{background:#fdecec;}tr.hv td{background:#fff6ec;}'
+      +'tr.tot td{background:#eef2f8;border-top:2px solid #05275C;font-weight:800;color:#05275C;}'
       +'.ft{margin-top:6px;border-top:1px solid #e0e5ed;padding-top:6px;font-size:9px;color:#94a3b8;display:flex;justify-content:space-between;}';
     var html='<!doctype html><html><head><meta charset="utf-8"><title>Workload Analysis</title><style>'+css+'</style></head><body>'
       +'<div class="hd"><img src="'+logo+'" onerror="this.style.display=\'none\'" alt=""/><div>'
       +'<div class="u">Muteesa I Royal University</div><div class="t">Lecturer Workload Analysis</div>'
       +'<div class="m">'+meta.map(esc).join('<span>&bull;</span>')+'</div></div></div>'
-      +'<table><thead><tr><th>#</th><th>Lecturer</th><th>EMP</th><th>Department</th><th>Contract</th><th class="c">Sessions</th><th class="c">Hrs/wk</th><th class="c">Courses</th><th class="c">Progs</th><th class="c">CU</th><th class="c">Status</th></tr></thead><tbody>'+rows+'</tbody></table>'
+      +'<table><thead><tr><th>#</th><th>Lecturer</th><th>EMP</th><th>Department</th><th>Contract</th><th class="c">Sessions</th><th class="c">Hrs/wk</th><th class="c">Hrs/mo</th><th class="c">Courses</th><th class="c">Progs</th><th class="c">CU</th><th class="c">Status</th></tr></thead><tbody>'+rows+'</tbody></table>'
       +'<div class="ft"><span>Generated '+stamp+'</span><span>eadmin.mru.ac.ug</span></div></body></html>';
     var w=window.open('','_blank'); if(!w){ alert('Please allow pop-ups to open the printable report.'); return; }
     w.document.open(); w.document.write(html); w.document.close(); w.focus();
