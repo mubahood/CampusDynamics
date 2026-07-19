@@ -90,7 +90,7 @@
       <label style="font-size:11px;color:#4b5563;display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" id="fUn" /> Unscheduled</label>
       <button type="button" class="tt-btn tt-btn--p" onclick="TM.apply()">Apply</button>
       <span class="sp"></span>
-      <a class="tt-btn tt-btn--sm" href="TimetableExport.aspx">Export</a>
+      <a class="tt-btn tt-btn--sm" href="TimetableCalendar.aspx">Calendar &amp; Export</a>
       <button type="button" class="tt-btn tt-btn--sm" onclick="TM.importLegacy()">Import legacy</button>
     </div>
     <div class="tt-tblwrap"><table class="tt-tbl"><thead><tr><th style="min-width:200px;">Course</th><th>Programme</th><th>Yr/Sem</th><th>Lecturer</th><th>Sessions</th><th style="text-align:right;">Actions</th></tr></thead><tbody id="pcBody"><tr><td colspan="6" class="tt-empty">Loading&hellip;</td></tr></tbody></table></div>

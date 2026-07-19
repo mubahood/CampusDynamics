@@ -178,182 +178,159 @@ public partial class COOPERP_NewScreens_WorkloadAnalysis : System.Web.UI.Page
     ///   details: { "staffCode": [{ courseCode, courseName, progAbbrev, cyear, day, startTime, endTime, creditUnit }] }
     /// }
     /// </summary>
+    // Build the timetable filter clause + fresh parameters for one query.
+    // Timetable is PERPETUAL (no acad_year): scope is semester + campus only.
+    private string FilterClause(string sem, string campus)
+    {
+        string flt = "";
+        if (!string.IsNullOrEmpty(sem) && sem != "0") flt += " AND it.semester=@sem";
+        if (!string.IsNullOrEmpty(campus) && campus != "0") flt += " AND (it.campus_id=@campus OR it.campus_id=0)";
+        return flt;
+    }
+    private MySqlParameter[] FilterParams(string sem, string campus)
+    {
+        List<MySqlParameter> list = new List<MySqlParameter>();
+        if (!string.IsNullOrEmpty(sem) && sem != "0") list.Add(new MySqlParameter("@sem", sem));
+        if (!string.IsNullOrEmpty(campus) && campus != "0") list.Add(new MySqlParameter("@campus", campus));
+        return list.ToArray();
+    }
+
+    /// <summary>
+    /// Workload is derived from ACTIVE timetable items (acad_timetable_item), grouped by
+    /// the effective lecturer IFNULL(teacher_id, programme-course lecturer). Load is measured
+    /// as weekly contact hours (SUM duration_min) and session count; courses/programmes/credits
+    /// are secondary. Scope = semester + campus (perpetual timetable, no academic year).
+    /// </summary>
     private void HandleData()
     {
-        string year    = CurrentAcadYear;
-        string sem     = CurrentSemester;
-        string campus  = CurrentCampusId;
+        TimetableService.EnsureSchema();
 
-        // ── 1. Workload summary per lecturer ─────────────────────────────
-        string summSql = @"
-            SELECT ta.staffCode,
-                   IFNULL(e.emp_name, CASE WHEN ta.staffCode = '0' THEN '— Unassigned —' ELSE CONCAT('Staff #', ta.staffCode) END) AS lecturerName,
-                   IFNULL(e.EMP_CODE, '') AS empCode,
-                   IFNULL(e.EmpType, '') AS empType,
-                   IFNULL(ct.contract_type, '') AS contractType,
-                   IFNULL(d.departmentName, '') AS department,
-                   IFNULL(f.faculty_code, '') AS faculty,
-                   COUNT(DISTINCT ta.courseID) AS courseCount,
-                   COUNT(DISTINCT ta.progcode) AS programmeCount,
-                   COALESCE(SUM(
-                       CASE WHEN ta.lectureday != '-' AND ta.StartTime IS NOT NULL AND ta.EndTime IS NOT NULL
-                            THEN TIMESTAMPDIFF(MINUTE, STR_TO_DATE(ta.StartTime,'%H:%i'), STR_TO_DATE(ta.EndTime,'%H:%i')) / 60.0
-                            ELSE 0
-                       END
-                   ), 0) AS scheduledHours,
-                   GROUP_CONCAT(DISTINCT ta.progcode) AS programmes_csv
-            FROM acad_teaching_allocation ta
-            LEFT JOIN hrm_employee e ON e.empID = CAST(ta.staffCode AS UNSIGNED)
-            LEFT JOIN hrm_emp_contracts ct ON ct.empID = e.empID AND ct.contractStatus = 'Active'
-            LEFT JOIN hrm_departments d ON d.ID = ct.departmentID
-            LEFT JOIN acad_programme p ON p.progcode = (
-                SELECT ta2.progcode FROM acad_teaching_allocation ta2
-                WHERE ta2.staffCode = ta.staffCode AND ta2.acad_year = @year AND ta2.semester = @sem
-                LIMIT 1
-            )
-            LEFT JOIN acad_faculty f ON f.faculty_code = p.faculty_code
-            WHERE ta.acad_year = @year AND ta.semester = @sem AND ta.campusId = @campus
-            GROUP BY ta.staffCode
-            ORDER BY courseCount DESC, lecturerName";
+        string semParam    = Request.QueryString["sem"];
+        string campusParam = Request.QueryString["campus"];
+        string sem    = semParam != null ? semParam.Trim() : CurrentSemester;
+        string campus = campusParam != null ? campusParam.Trim() : CurrentCampusId;
 
-        DataTable dtSumm = ExecuteQuery(summSql,
-            new MySqlParameter("@year",   year),
-            new MySqlParameter("@sem",    sem),
-            new MySqlParameter("@campus", campus));
+        string flt  = FilterClause(sem, campus);
+        // base filtered set of active timetable rows with the effective lecturer resolved
+        string baseFrom = " FROM acad_timetable_item it JOIN acad_programmecourses pc ON pc.ID=it.programmecourse_id WHERE it.status='ACTIVE'" + flt;
 
-        // ── 2. Detail rows per lecturer (all allocations) ────────────────
-        string detSql = @"
-            SELECT ta.staffCode, ta.courseID AS courseCode,
-                   IFNULL(c.courseName, ta.courseID) AS courseName,
-                   IFNULL(c.CreditUnit, 0) AS creditUnit,
-                   IFNULL(p.abbrev, ta.progcode) AS progAbbrev,
-                   ta.cyear,
-                   ta.lectureday AS day, ta.StartTime AS startTime, ta.EndTime AS endTime
-            FROM acad_teaching_allocation ta
-            LEFT JOIN acad_course c ON c.courseID = ta.courseID
-            LEFT JOIN acad_programme p ON p.progcode = ta.progcode
-            WHERE ta.acad_year = @year AND ta.semester = @sem AND ta.campusId = @campus
-            ORDER BY ta.staffCode, ta.progcode, ta.cyear, ta.courseID";
+        // ── 1. Workload summary per effective lecturer ───────────────────
+        string summSql =
+            "SELECT t.eff AS staffCode, " +
+            "  IFNULL(e.emp_name, CONCAT('Staff #', t.eff)) AS lecturerName, IFNULL(e.EMP_CODE,'') AS empCode, IFNULL(e.EmpType,'') AS empType, " +
+            "  IFNULL(ct.contract_type,'') AS contractType, IFNULL(d.departmentName,'') AS department, " +
+            "  COUNT(*) AS sessionCount, COUNT(DISTINCT t.course_code) AS courseCount, COUNT(DISTINCT t.progcode) AS programmeCount, " +
+            "  COALESCE(SUM(t.duration_min),0)/60.0 AS weeklyHours, " +
+            "  GROUP_CONCAT(DISTINCT t.progcode) AS programmes_csv, GROUP_CONCAT(DISTINCT p.faculty_code) AS faculties_csv " +
+            "FROM (SELECT IFNULL(it.teacher_id, pc.lecturer_id) eff, TRIM(it.course_code) course_code, it.progcode, it.duration_min" + baseFrom + ") t " +
+            "LEFT JOIN hrm_employee e ON e.empID=t.eff " +
+            "LEFT JOIN hrm_emp_contracts ct ON ct.empID=e.empID AND ct.contractStatus='Active' " +
+            "LEFT JOIN hrm_departments d ON d.ID=ct.departmentID " +
+            "LEFT JOIN acad_programme p ON p.progcode=t.progcode " +
+            "WHERE t.eff>0 GROUP BY t.eff ORDER BY weeklyHours DESC, lecturerName";
+        DataTable dtSumm = ExecuteQuery(summSql, FilterParams(sem, campus));
 
-        DataTable dtDet = ExecuteQuery(detSql,
-            new MySqlParameter("@year",   year),
-            new MySqlParameter("@sem",    sem),
-            new MySqlParameter("@campus", campus));
+        // ── 2. Detail sessions per lecturer ──────────────────────────────
+        string detSql =
+            "SELECT t.eff AS staffCode, t.course_code AS courseCode, IFNULL(c.courseName, t.course_code) AS courseName, " +
+            "  IFNULL(c.CreditUnit,0) AS creditUnit, IFNULL(p.abbrev, t.progcode) AS progAbbrev, t.study_year AS cyear, " +
+            "  t.day_no AS dayNo, t.st AS startTime, t.et AS endTime, t.duration_min AS durationMin, " +
+            "  IFNULL(r.RoomName, IFNULL(t.room_label,'')) AS room, t.session_type AS sessionType " +
+            "FROM (SELECT IFNULL(it.teacher_id, pc.lecturer_id) eff, TRIM(it.course_code) course_code, it.progcode, it.study_year, it.day_no, " +
+            "  TIME_FORMAT(it.start_time,'%H:%i') st, TIME_FORMAT(it.end_time,'%H:%i') et, it.duration_min, it.room_id, it.room_label, it.session_type" + baseFrom + ") t " +
+            "LEFT JOIN acad_course c ON TRIM(c.courseID)=t.course_code LEFT JOIN acad_programme p ON p.progcode=t.progcode " +
+            "LEFT JOIN acad_lecturerooms r ON r.RoomID=t.room_id WHERE t.eff>0 ORDER BY t.eff, t.day_no, t.st";
+        DataTable dtDet = ExecuteQuery(detSql, FilterParams(sem, campus));
 
-        // ── 3. Credit totals per lecturer (distinct courses only) ────────
-        string creditSql = @"
-            SELECT ta.staffCode, COALESCE(SUM(dc.cu), 0) AS totalCredits
-            FROM (
-                SELECT DISTINCT staffCode, courseID
-                FROM acad_teaching_allocation
-                WHERE acad_year = @year AND semester = @sem AND campusId = @campus
-            ) ta
-            LEFT JOIN acad_course dc ON dc.courseID = ta.courseID
-            GROUP BY ta.staffCode";
+        // ── 3. Credit totals per lecturer (distinct courses) ─────────────
+        string creditSql =
+            "SELECT t.eff AS staffCode, COALESCE(SUM(IFNULL(dc.CreditUnit,0)),0) AS totalCredits " +
+            "FROM (SELECT DISTINCT IFNULL(it.teacher_id, pc.lecturer_id) eff, TRIM(it.course_code) course_code" + baseFrom + ") t " +
+            "LEFT JOIN acad_course dc ON TRIM(dc.courseID)=t.course_code WHERE t.eff>0 GROUP BY t.eff";
+        DataTable dtCredits = ExecuteQuery(creditSql, FilterParams(sem, campus));
 
-        DataTable dtCredits = ExecuteQuery(creditSql,
-            new MySqlParameter("@year",   year),
-            new MySqlParameter("@sem",    sem),
-            new MySqlParameter("@campus", campus));
-
-        // Build credit lookup
         Dictionary<string, int> creditMap = new Dictionary<string, int>();
         foreach (DataRow cr in dtCredits.Rows)
         {
             string sc = SafeStr(cr["staffCode"]);
-            if (!string.IsNullOrEmpty(sc))
-                creditMap[sc] = SafeInt(cr["totalCredits"]);
+            if (!string.IsNullOrEmpty(sc)) creditMap[sc] = SafeInt(cr["totalCredits"]);
         }
 
-        // ── 4. Build detail dictionary ───────────────────────────────────
+        // ── 4. Detail dictionary ─────────────────────────────────────────
+        string[] DNAMES = { "", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
         Dictionary<string, List<object>> detailMap = new Dictionary<string, List<object>>();
         foreach (DataRow dr in dtDet.Rows)
         {
             string sc = SafeStr(dr["staffCode"]);
-            if (!detailMap.ContainsKey(sc))
-                detailMap[sc] = new List<object>();
-
+            if (!detailMap.ContainsKey(sc)) detailMap[sc] = new List<object>();
+            int dno = SafeInt(dr["dayNo"]);
             detailMap[sc].Add(new {
-                courseCode = SafeStr(dr["courseCode"]),
-                courseName = SafeStr(dr["courseName"]),
-                creditUnit = SafeInt(dr["creditUnit"]),
-                progAbbrev = SafeStr(dr["progAbbrev"]),
-                cyear      = SafeStr(dr["cyear"]),
-                day        = SafeStr(dr["day"]),
-                startTime  = SafeStr(dr["startTime"]),
-                endTime    = SafeStr(dr["endTime"])
+                courseCode  = SafeStr(dr["courseCode"]),
+                courseName  = SafeStr(dr["courseName"]),
+                creditUnit  = SafeInt(dr["creditUnit"]),
+                progAbbrev  = SafeStr(dr["progAbbrev"]),
+                cyear       = SafeStr(dr["cyear"]),
+                day         = (dno >= 1 && dno <= 7) ? DNAMES[dno] : "",
+                startTime   = SafeStr(dr["startTime"]),
+                endTime     = SafeStr(dr["endTime"]),
+                durationMin = SafeInt(dr["durationMin"]),
+                room        = SafeStr(dr["room"]),
+                sessionType = SafeStr(dr["sessionType"])
             });
         }
 
-        // ── 5. Build summary rows ───────────────────────────────────────
+        // ── 5. Summary rows ──────────────────────────────────────────────
         var rows = new List<object>();
         foreach (DataRow row in dtSumm.Rows)
         {
             string sc = SafeStr(row["staffCode"]);
-            int credits = 0;
-            if (creditMap.ContainsKey(sc)) credits = creditMap[sc];
-
+            int credits = creditMap.ContainsKey(sc) ? creditMap[sc] : 0;
             string progCsv = SafeStr(row["programmes_csv"]);
-            string[] progList = !string.IsNullOrEmpty(progCsv)
-                ? progCsv.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                : new string[0];
+            string[] progList = !string.IsNullOrEmpty(progCsv) ? progCsv.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries) : new string[0];
+            string facCsv = SafeStr(row["faculties_csv"]);
+            string[] facList = !string.IsNullOrEmpty(facCsv) ? facCsv.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries) : new string[0];
 
             rows.Add(new {
-                staffCode      = sc,
-                lecturerName   = SafeStr(row["lecturerName"]),
-                empCode        = SafeStr(row["empCode"]),
-                empType        = SafeStr(row["empType"]),
-                contractType   = SafeStr(row["contractType"]),
-                department     = SafeStr(row["department"]),
-                faculty        = SafeStr(row["faculty"]),
+                staffCode       = sc,
+                lecturerName    = SafeStr(row["lecturerName"]),
+                empCode         = SafeStr(row["empCode"]),
+                empType         = SafeStr(row["empType"]),
+                contractType    = SafeStr(row["contractType"]),
+                department      = SafeStr(row["department"]),
+                faculty         = facList.Length > 0 ? facList[0] : "",
+                faculties_list  = facList,
+                sessionCount    = SafeInt(row["sessionCount"]),
                 courseCount     = SafeInt(row["courseCount"]),
-                programmeCount = SafeInt(row["programmeCount"]),
-                scheduledHours = SafeDouble(row["scheduledHours"]),
-                totalCredits   = credits,
+                programmeCount  = SafeInt(row["programmeCount"]),
+                weeklyHours     = SafeDouble(row["weeklyHours"]),
+                totalCredits    = credits,
                 programmes_list = progList
             });
         }
 
-        // ── 6. Faculties & Programmes for dropdowns ─────────────────────
-        DataTable dtFac = ExecuteQuery(
-            "SELECT faculty_code, faculty_name FROM acad_faculty ORDER BY faculty_name");
-
+        // ── 6. Dropdowns: faculties, in-scope programmes, campuses ───────
         var faculties = new List<object>();
-        foreach (DataRow f in dtFac.Rows)
-        {
-            faculties.Add(new {
-                code = SafeStr(f["faculty_code"]),
-                name = SafeStr(f["faculty_name"])
-            });
-        }
-
-        DataTable dtProg = ExecuteQuery(@"
-            SELECT DISTINCT p.progcode, CONCAT(p.abbrev, ' - ', p.progname) AS display
-            FROM acad_programme p
-            INNER JOIN acad_teaching_allocation ta ON ta.progcode = p.progcode
-            WHERE ta.acad_year = @year AND ta.semester = @sem AND ta.campusId = @campus
-            ORDER BY p.abbrev",
-            new MySqlParameter("@year",   year),
-            new MySqlParameter("@sem",    sem),
-            new MySqlParameter("@campus", campus));
+        foreach (DataRow f in ExecuteQuery("SELECT faculty_code, faculty_name FROM acad_faculty ORDER BY faculty_name").Rows)
+            faculties.Add(new { code = SafeStr(f["faculty_code"]), name = SafeStr(f["faculty_name"]) });
 
         var programmes = new List<object>();
-        foreach (DataRow pr in dtProg.Rows)
-        {
-            programmes.Add(new {
-                code    = SafeStr(pr["progcode"]),
-                display = SafeStr(pr["display"])
-            });
-        }
+        foreach (DataRow pr in ExecuteQuery(
+            "SELECT DISTINCT p.progcode, CONCAT(p.abbrev,' - ',p.progname) AS display " +
+            "FROM acad_programme p JOIN acad_timetable_item it ON TRIM(it.progcode)=TRIM(p.progcode) WHERE it.status='ACTIVE'" + flt + " ORDER BY p.abbrev",
+            FilterParams(sem, campus)).Rows)
+            programmes.Add(new { code = SafeStr(pr["progcode"]), display = SafeStr(pr["display"]) });
 
-        // ── 7. Respond ──────────────────────────────────────────────────
+        var campuses = new List<object>();
+        foreach (DataRow cp in ExecuteQuery("SELECT ID, campus_name FROM acad_campuses ORDER BY ID").Rows)
+            campuses.Add(new { id = SafeStr(cp["ID"]), name = SafeStr(cp["campus_name"]) });
+
         RespondJson(new {
             ok          = true,
-            acadYear    = year,
             semester    = sem,
             campusId    = campus,
             faculties   = faculties,
             programmes  = programmes,
+            campuses    = campuses,
             rows        = rows,
             details     = detailMap
         });
