@@ -66,6 +66,7 @@
     </div>
     <div class="aa-top__act">
       <a class="aa-btn" href="AdmissionsController.aspx">Applicants</a>
+      <button type="button" class="aa-btn" onclick="AA.reconcile()" title="Ensure every active student has an admission record">&#9878; Reconcile</button>
       <button type="button" class="aa-btn" onclick="AA.csv()">&#8681; CSV</button>
       <button type="button" class="aa-btn aa-btn--p" onclick="AA.print()">&#128424; Print / PDF</button>
     </div>
@@ -98,6 +99,55 @@
     <div id="aaHost"><div class="aa-empty">Loading&hellip;</div></div>
   </div>
 </div>
+
+<!-- Reconcile modal -->
+<div class="rc-ov" id="rcOv">
+  <div class="rc-modal">
+    <div class="rc-hd"><b>Reconcile missing admission records</b><button type="button" class="rc-x" onclick="AA.rcClose()">&times;</button></div>
+    <div class="rc-body" id="rcBody">
+      <p class="rc-note">Every <b>active</b> student should have an admission record (linked by <code>regno → stud_entry_no</code>). This creates the missing <code>acad_applications</code> + primary choice for active students in the range below. It is additive and safe to re-run.</p>
+      <div class="rc-range">
+        <div class="aa-fl"><span>From year</span><input type="number" id="rcMin" class="aa-sel" value="2024" style="width:90px;"></div>
+        <div class="aa-fl"><span>To year</span><input type="number" id="rcMax" class="aa-sel" value="2027" style="width:90px;"></div>
+        <div class="aa-fl"><span>&nbsp;</span><button type="button" class="aa-btn aa-btn--p" onclick="AA.rcPreview()">Preview</button></div>
+      </div>
+      <div id="rcResult"></div>
+    </div>
+    <div class="rc-foot">
+      <button type="button" class="aa-btn" onclick="AA.rcClose()">Close</button>
+      <button type="button" class="aa-btn aa-btn--p" id="rcRunBtn" style="display:none;" onclick="AA.rcRun()">Create records</button>
+    </div>
+    <div class="rc-busy" id="rcBusy"><div class="rc-spin"></div><span id="rcBusyTxt">Working…</span></div>
+  </div>
+</div>
+<style>
+.rc-ov{position:fixed;inset:0;background:rgba(9,20,40,.5);z-index:1000;display:none;align-items:flex-start;justify-content:center;padding-top:60px;}
+.rc-ov.on{display:flex;}
+.rc-modal{background:#fff;width:640px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative;}
+.rc-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#05275C;color:#fff;font-size:14px;}
+.rc-x{background:none;border:0;color:rgba(255,255,255,.85);font-size:22px;line-height:1;cursor:pointer;}
+.rc-body{padding:16px;overflow-y:auto;}
+.rc-note{font-size:11.5px;color:#4b5563;line-height:1.5;margin:0 0 12px;}
+.rc-note code{background:#eef2f8;padding:1px 5px;font-size:11px;color:#05275C;}
+.rc-range{display:flex;gap:10px;align-items:flex-end;margin-bottom:12px;}
+.rc-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e0e5ed;background:#fafbfc;}
+.rc-kpis{display:flex;gap:8px;margin-bottom:12px;}
+.rc-kpi{flex:1;border:1px solid #e0e5ed;padding:10px 12px;text-align:center;}
+.rc-kpi__n{font-size:22px;font-weight:800;color:#05275C;line-height:1;}
+.rc-kpi__n.warn{color:#e65100;} .rc-kpi__n.ok{color:#16a34a;}
+.rc-kpi__l{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-top:4px;}
+.rc-sub{font-size:11px;color:#6b7280;margin:8px 0 4px;font-weight:700;}
+.rc-tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.rc-tbl th{background:#f5f7fa;text-align:left;padding:5px 8px;font-size:9px;text-transform:uppercase;letter-spacing:.3px;color:#666;border-bottom:1px solid #e0e5ed;}
+.rc-tbl td{padding:4px 8px;border-bottom:1px solid #f0f2f5;}
+.rc-flag{background:#fff8e1;border:1px solid #ffe082;padding:8px 10px;font-size:11px;color:#8a5a00;margin-top:8px;}
+.rc-ok{background:#e8f5e9;border:1px solid #c8e6c9;padding:10px 12px;font-size:12px;color:#166534;font-weight:600;}
+.rc-err{background:#fde8e8;border:1px solid #f5c6cb;padding:10px 12px;font-size:12px;color:#c62828;}
+.rc-busy{display:none;position:absolute;inset:0;background:rgba(255,255,255,.85);flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:12px;font-weight:700;color:#05275C;}
+.rc-busy.on{display:flex;}
+.rc-spin{width:32px;height:32px;border:3px solid #dbe3ee;border-top-color:#174DA4;border-radius:50%;animation:rcspin .7s linear infinite;}
+@keyframes rcspin{to{transform:rotate(360deg);}}
+</style>
 
 <script>window.__AA_INIT = <%= InitJson %>;</script>
 <script>
@@ -273,8 +323,44 @@ var AA = (function(){
     setTimeout(function(){ try{ w.print(); }catch(e){} },350);
   }
 
+  /* ── reconciliation ── */
+  function api(m,b){ return fetch('AdmissionAnalysis.aspx/'+m,{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(b||{})}).then(function(r){return r.json();}).then(function(j){return j.d;}); }
+  function rcBusy(on,txt){ if(txt) qs('rcBusyTxt').textContent=txt; qs('rcBusy').classList.toggle('on',!!on); }
+  function reconcile(){ qs('rcResult').innerHTML=''; qs('rcRunBtn').style.display='none'; qs('rcOv').classList.add('on'); }
+  function rcClose(){ qs('rcOv').classList.remove('on'); }
+  function rcYears(){ return { minYear:parseInt(qs('rcMin').value,10)||2024, maxYear:parseInt(qs('rcMax').value,10)||2027 }; }
+  function rcPreview(){
+    rcBusy(true,'Scanning…'); qs('rcRunBtn').style.display='none';
+    api('ReconcilePreview',rcYears()).then(function(d){
+      rcBusy(false);
+      if(!d||!d.ok){ qs('rcResult').innerHTML='<div class="rc-err">'+esc((d&&d.error)||'Failed.')+'</div>'; return; }
+      var h='<div class="rc-kpis"><div class="rc-kpi"><div class="rc-kpi__n">'+d.orphans+'</div><div class="rc-kpi__l">Active w/o record</div></div>'
+        +'<div class="rc-kpi"><div class="rc-kpi__n ok">'+d.backfillable+'</div><div class="rc-kpi__l">Will be created</div></div>'
+        +'<div class="rc-kpi"><div class="rc-kpi__n'+(d.flagged?' warn':'')+'">'+d.flagged+'</div><div class="rc-kpi__l">Flagged (manual)</div></div></div>';
+      if(d.byYear&&d.byYear.length){ h+='<div class="rc-sub">By year</div><table class="rc-tbl"><thead><tr><th>Year</th><th>To create</th></tr></thead><tbody>'
+        +d.byYear.sort(function(a,b){return b.year-a.year;}).map(function(y){return '<tr><td>'+y.year+'</td><td>'+y.count+'</td></tr>';}).join('')+'</tbody></table>'; }
+      if(d.flagged>0){ h+='<div class="rc-flag"><b>'+d.flagged+' cannot be auto-created</b> — their reg-no is longer than 15 chars so it will not fit the admission key. Handle these manually.<table class="rc-tbl" style="margin-top:6px;"><thead><tr><th>Reg No</th><th>Name</th><th>Prog</th><th>Yr</th></tr></thead><tbody>'
+        +d.flaggedList.map(function(f){return '<tr><td>'+esc(f.regno)+'</td><td>'+esc(f.name)+'</td><td>'+esc(f.progid)+'</td><td>'+esc(f.year)+'</td></tr>';}).join('')+'</tbody></table></div>'; }
+      if(d.backfillable===0){ h+='<div class="rc-ok" style="margin-top:8px;">Nothing to create — every active student in this range already has an admission record. ✓</div>'; }
+      else { qs('rcRunBtn').style.display=''; qs('rcRunBtn').textContent='Create '+d.backfillable+' record'+(d.backfillable===1?'':'s'); }
+      qs('rcResult').innerHTML=h;
+    }).catch(function(){ rcBusy(false); qs('rcResult').innerHTML='<div class="rc-err">Network error.</div>'; });
+  }
+  function rcRun(){
+    if(!confirm('Create admission records for the previewed active students? This is additive and safe to re-run.')) return;
+    rcBusy(true,'Creating records…'); qs('rcRunBtn').style.display='none';
+    api('ReconcileRun',rcYears()).then(function(d){
+      rcBusy(false);
+      if(!d||!d.ok){ qs('rcResult').innerHTML='<div class="rc-err">'+esc((d&&d.error)||'Failed.')+'</div>'; return; }
+      var h='<div class="rc-ok">Created '+d.inserted+' admission record'+(d.inserted===1?'':'s')+'.'+(d.flaggedSkipped?(' '+d.flaggedSkipped+' flagged case(s) skipped (long reg-no).'):'')+' The analysis will refresh.</div>';
+      qs('rcResult').innerHTML=h;
+      setTimeout(function(){ location.reload(); },1400);
+    }).catch(function(){ rcBusy(false); qs('rcResult').innerHTML='<div class="rc-err">Network error.</div>'; });
+  }
+  qs('rcOv').addEventListener('click',function(e){ if(e.target===qs('rcOv')) rcClose(); });
+
   init();
-  return { apply:apply, clear:clr, dim:dim, sort:sort, csv:csv, print:print };
+  return { apply:apply, clear:clr, dim:dim, sort:sort, csv:csv, print:print, reconcile:reconcile, rcClose:rcClose, rcPreview:rcPreview, rcRun:rcRun };
 })();
 </script>
 </asp:Content>

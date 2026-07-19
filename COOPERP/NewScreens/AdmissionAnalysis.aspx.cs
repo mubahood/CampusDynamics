@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Web.Script.Serialization;
+using System.Web.Services;
+using System.Web.Script.Services;
 using MySql.Data.MySqlClient;
 
 /// <summary>
@@ -156,5 +158,142 @@ public partial class COOPERP_NewScreens_AdmissionAnalysis : System.Web.UI.Page
                 lists = new { faculties, programmes, years, sessions }
             };
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  RECONCILIATION — every ACTIVE student should have an admission record.
+    //  Canonical link: acad_applications.stud_entry_no == acad_student.regno.
+    //  Back-fills acad_applications + primary acad_applicant_choices for active
+    //  students in [minYear,maxYear] that have none. Idempotent. Long reg-nos
+    //  (> char(15)) can't fit the PK and are reported as flagged, not touched.
+    // ════════════════════════════════════════════════════════════════════════
+    private static string ConnStrS { get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; } }
+    private static MySqlConnection OpenS() { var c = new MySqlConnection(ConnStrS); c.Open(); return c; }
+
+    private class Orphan { public string regno, entryno, name, progid, session, intake, status; public int year, campus; }
+
+    private static List<Orphan> OrphanRows(MySqlConnection conn, int minYear, int maxYear)
+    {
+        var list = new List<Orphan>();
+        string sql =
+            "SELECT s.regno, IFNULL(s.entryno,'') entryno, TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) name, " +
+            "IFNULL(s.progid,'') progid, IFNULL(s.entryyear,0) yr, IFNULL(s.studsesion,'') sess, IFNULL(s.intake,'') intake, " +
+            "IFNULL(s.studCampus,1) campus, IFNULL(s.new_status,'') nstatus " +
+            "FROM acad_student s " +
+            "WHERE s.stud_status='ACTIVE' AND s.entryyear BETWEEN @min AND @max " +
+            "AND NOT EXISTS(SELECT 1 FROM acad_applications a WHERE a.stud_entry_no=s.regno OR a.stud_reg_no=s.entryno OR a.stud_entry_no=s.entryno) " +
+            "ORDER BY s.entryyear DESC, s.regno";
+        using (var cmd = new MySqlCommand(sql, conn))
+        {
+            cmd.CommandTimeout = 120;
+            cmd.Parameters.AddWithValue("@min", minYear);
+            cmd.Parameters.AddWithValue("@max", maxYear);
+            using (var r = cmd.ExecuteReader())
+                while (r.Read())
+                    list.Add(new Orphan {
+                        regno = S(r["regno"]).Trim(), entryno = S(r["entryno"]).Trim(), name = S(r["name"]).Trim(),
+                        progid = S(r["progid"]).Trim(), year = (int)L(r["yr"]), session = S(r["sess"]).Trim(),
+                        intake = S(r["intake"]).Trim(), campus = (int)L(r["campus"]), status = S(r["nstatus"]).Trim()
+                    });
+        }
+        return list;
+    }
+
+    private static string MapSession(string s)
+    {
+        s = (s ?? "").Trim().ToUpperInvariant();
+        if (s == "DAY" || s == "WEEKEND" || s == "INSERVICE" || s == "EVENING") return s;
+        if (s.Contains("WK") || s.Contains("WEEK")) return "WEEKEND";
+        if (s.Contains("INSRV") || s.Contains("SERVICE")) return "INSERVICE";
+        if (s.Contains("EVEN")) return "EVENING";
+        return "DAY";
+    }
+
+    [WebMethod]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static object ReconcilePreview(int minYear, int maxYear)
+    {
+        try
+        {
+            using (var conn = OpenS())
+            {
+                var orphans = OrphanRows(conn, minYear, maxYear);
+                int backfill = 0; var byYear = new Dictionary<int, int>();
+                var flagged = new List<object>();
+                foreach (var o in orphans)
+                {
+                    if (o.regno.Length <= 15) { backfill++; if (!byYear.ContainsKey(o.year)) byYear[o.year] = 0; byYear[o.year]++; }
+                    else flagged.Add(new { o.regno, o.entryno, o.name, o.progid, o.year, o.status });
+                }
+                var yrs = new List<object>();
+                foreach (var kv in byYear) yrs.Add(new { year = kv.Key, count = kv.Value });
+                return new { ok = true, minYear, maxYear, orphans = orphans.Count, backfillable = backfill, flagged = flagged.Count, byYear = yrs, flaggedList = flagged };
+            }
+        }
+        catch (Exception ex) { return new { ok = false, error = ex.Message }; }
+    }
+
+    [WebMethod]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static object ReconcileRun(int minYear, int maxYear)
+    {
+        try
+        {
+            using (var conn = OpenS())
+            {
+                bool hasIntake = ColumnExists(conn, "acad_applications", "stud_intake");
+                bool hasCampus = ColumnExists(conn, "acad_applications", "stud_campus");
+                bool hasSubmitted = ColumnExists(conn, "acad_applications", "app_submitted_at");
+                bool hasUpdated = ColumnExists(conn, "acad_applications", "app_last_updated_at");
+
+                var orphans = OrphanRows(conn, minYear, maxYear);
+                int inserted = 0; var flagged = new List<object>();
+
+                using (var tx = conn.BeginTransaction())
+                {
+                    foreach (var o in orphans)
+                    {
+                        if (o.regno.Length > 15) { flagged.Add(new { o.regno, o.entryno, o.name, o.year }); continue; }
+
+                        var cols = new List<string> { "stud_entry_no", "stud_reg_no", "stud_name", "stud_entry_year", "app_status" };
+                        var vals = new List<string> { "@e", "@r", "@n", "@y", "'ADMITTED'" };
+                        if (hasIntake) { cols.Add("stud_intake"); vals.Add("@intake"); }
+                        if (hasCampus) { cols.Add("stud_campus"); vals.Add("@campus"); }
+                        if (hasSubmitted) { cols.Add("app_submitted_at"); vals.Add("NOW()"); }
+                        if (hasUpdated) { cols.Add("app_last_updated_at"); vals.Add("NOW()"); }
+
+                        string appSql = "INSERT INTO acad_applications (" + string.Join(",", cols.ToArray()) + ") VALUES (" + string.Join(",", vals.ToArray()) + ")";
+                        using (var cmd = new MySqlCommand(appSql, conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@e", o.regno);
+                            cmd.Parameters.AddWithValue("@r", string.IsNullOrEmpty(o.entryno) ? "-" : o.entryno);
+                            cmd.Parameters.AddWithValue("@n", o.name);
+                            cmd.Parameters.AddWithValue("@y", o.year.ToString());
+                            if (hasIntake) cmd.Parameters.AddWithValue("@intake", string.IsNullOrEmpty(o.intake) ? "AUGUST" : o.intake);
+                            if (hasCampus) cmd.Parameters.AddWithValue("@campus", o.campus);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        // primary choice (guarded against a stray existing choice)
+                        string chSql =
+                            "INSERT INTO acad_applicant_choices (stud_entry_no, choice, prog_id, adm_status, adm_session, sub_comb, choice_reg_no, adm_comments) " +
+                            "SELECT @e,1,@p,1,@sess,13,@cr,'Back-filled by admission reconciliation' FROM DUAL " +
+                            "WHERE NOT EXISTS(SELECT 1 FROM acad_applicant_choices WHERE stud_entry_no=@e AND choice=1)";
+                        using (var cmd = new MySqlCommand(chSql, conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@e", o.regno);
+                            cmd.Parameters.AddWithValue("@p", o.progid);
+                            cmd.Parameters.AddWithValue("@sess", MapSession(o.session));
+                            cmd.Parameters.AddWithValue("@cr", string.IsNullOrEmpty(o.entryno) ? o.regno : o.entryno);
+                            cmd.ExecuteNonQuery();
+                        }
+                        inserted++;
+                    }
+                    tx.Commit();
+                }
+                return new { ok = true, inserted, flaggedSkipped = flagged.Count, flaggedList = flagged };
+            }
+        }
+        catch (Exception ex) { return new { ok = false, error = ex.Message }; }
     }
 }
