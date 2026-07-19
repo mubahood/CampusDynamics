@@ -120,17 +120,17 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             "SELECT it.item_id, it.day_no, w.DayName, TIME_FORMAT(it.start_time,'%H:%i') st, it.duration_min, TIME_FORMAT(it.end_time,'%H:%i') et, " +
             "IFNULL(it.teacher_id,0) teacher_id, IFNULL(e.emp_name,'') teacher_name, it.campus_id, IFNULL(cp.campus_name,'') campus_name, " +
             "IFNULL(it.building_id,0) building_id, IFNULL(b.building_name,'') building_name, IFNULL(it.room_id,0) room_id, IFNULL(r.RoomName,'') room_name, " +
-            "IFNULL(it.room_label,'') room_label, it.session_type, it.delivery_mode, IFNULL(it.meet_link,'') meet_link, IFNULL(it.description,'') description " +
+            "IFNULL(it.room_label,'') room_label, it.session_type, it.delivery_mode, IFNULL(it.meet_link,'') meet_link, IFNULL(it.description,'') description, IFNULL(it.status,'ACTIVE') status " +
             "FROM acad_timetable_item it LEFT JOIN acad_timetable_weekdays w ON w.DayNo=it.day_no LEFT JOIN hrm_employee e ON e.empID=it.teacher_id " +
             "LEFT JOIN acad_campuses cp ON cp.ID=it.campus_id LEFT JOIN acad_building b ON b.building_id=it.building_id LEFT JOIN acad_lecturerooms r ON r.RoomID=it.room_id " +
-            "WHERE it.programmecourse_id=@pc AND it.status='ACTIVE' ORDER BY it.day_no, it.start_time",
+            "WHERE it.programmecourse_id=@pc ORDER BY FIELD(it.status,'ACTIVE','DRAFT','ARCHIVED'), it.day_no, it.start_time",
             P("@pc", pcId));
         foreach (DataRow r in dt.Rows)
             items.Add(new Dictionary<string, object> {
                 { "id", I(r, "item_id") }, { "dayNo", I(r, "day_no") }, { "dayName", S(r, "DayName") }, { "start", S(r, "st") }, { "durationMin", I(r, "duration_min") }, { "end", S(r, "et") },
                 { "teacherId", I(r, "teacher_id") }, { "teacherName", S(r, "teacher_name") }, { "campusId", I(r, "campus_id") }, { "campusName", S(r, "campus_name") },
                 { "buildingId", I(r, "building_id") }, { "buildingName", S(r, "building_name") }, { "roomId", I(r, "room_id") }, { "roomName", S(r, "room_name") },
-                { "roomLabel", S(r, "room_label") }, { "sessionType", S(r, "session_type") }, { "deliveryMode", S(r, "delivery_mode") }, { "meetLink", S(r, "meet_link") }, { "description", S(r, "description") } });
+                { "roomLabel", S(r, "room_label") }, { "sessionType", S(r, "session_type") }, { "deliveryMode", S(r, "delivery_mode") }, { "meetLink", S(r, "meet_link") }, { "description", S(r, "description") }, { "status", S(r, "status") } });
         return new { ok = true, items = items, pc = pc };
     }
 
@@ -167,7 +167,7 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     [WebMethod]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object SaveItem(int itemId, int pcId, int dayNo, string start, int durationMin,
-        int teacherId, int campusId, int buildingId, int roomId, string roomLabel, string sessionType, string deliveryMode, string meetLink, string description, int allowConflicts)
+        int teacherId, int campusId, int buildingId, int roomId, string roomLabel, string sessionType, string deliveryMode, string meetLink, string description, string status, int allowConflicts)
     {
         TimetableService.EnsureSchema();
         try
@@ -180,8 +180,9 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             string et = TimetableService.EndTime(start, durationMin);
             if (string.Compare(et, st) <= 0) return new { ok = false, message = "End time must be after start time." };
 
+            string stat = (status ?? "ACTIVE").Trim().ToUpperInvariant(); if (stat != "DRAFT" && stat != "ARCHIVED") stat = "ACTIVE";
             int effTeacher = teacherId > 0 ? teacherId : Convert.ToInt32(pc["lecturerId"]);
-            if (allowConflicts != 1)
+            if (stat == "ACTIVE" && allowConflicts != 1)
             {
                 List<TimetableService.Conflict> cs = TimetableService.CheckConflicts(itemId, dayNo, start, durationMin, roomId, effTeacher,
                     Convert.ToString(pc["progcode"]), Convert.ToInt32(pc["studyYear"]), Convert.ToInt32(pc["semester"]), campusId);
@@ -206,21 +207,21 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             {
                 TimetableService.Exec(
                     "UPDATE acad_timetable_item SET progcode=@prog, course_code=@cc, study_year=@sy, semester=@sem, day_no=@day, start_time=@st, duration_min=@dur, end_time=@et, " +
-                    "teacher_id=@t, campus_id=@cp, building_id=@b, room_id=@r, room_label=@rl, session_type=@stype, delivery_mode=@dmode, meet_link=@ml, description=@desc, updated_by=@who, updated_at=NOW() " +
+                    "teacher_id=@t, campus_id=@cp, building_id=@b, room_id=@r, room_label=@rl, session_type=@stype, delivery_mode=@dmode, meet_link=@ml, description=@desc, status=@status, updated_by=@who, updated_at=NOW() " +
                     "WHERE item_id=@id AND programmecourse_id=@pc",
                     P("@prog", prog), P("@cc", ccode), P("@sy", sy), P("@sem", sem), P("@day", dayNo), P("@st", st), P("@dur", durationMin), P("@et", et),
                     P("@t", tId), P("@cp", campusId), P("@b", bId), P("@r", rId), P("@rl", roomLabel), P("@stype", (sessionType ?? "LECTURE").ToUpperInvariant()), P("@dmode", (deliveryMode ?? "PHYSICAL").ToUpperInvariant()),
-                    P("@ml", meetLink), P("@desc", description), P("@who", who), P("@id", itemId), P("@pc", pcId));
+                    P("@ml", meetLink), P("@desc", description), P("@status", stat), P("@who", who), P("@id", itemId), P("@pc", pcId));
             }
             else
             {
                 TimetableService.Exec(
                     "INSERT INTO acad_timetable_item (programmecourse_id, acad_year, progcode, course_code, study_year, semester, day_no, start_time, duration_min, end_time, " +
                     "teacher_id, campus_id, building_id, room_id, room_label, session_type, delivery_mode, meet_link, description, status, created_by, created_at) " +
-                    "VALUES (@pc,'',@prog,@cc,@sy,@sem,@day,@st,@dur,@et,@t,@cp,@b,@r,@rl,@stype,@dmode,@ml,@desc,'ACTIVE',@who,NOW())",
+                    "VALUES (@pc,'',@prog,@cc,@sy,@sem,@day,@st,@dur,@et,@t,@cp,@b,@r,@rl,@stype,@dmode,@ml,@desc,@status,@who,NOW())",
                     P("@pc", pcId), P("@prog", prog), P("@cc", ccode), P("@sy", sy), P("@sem", sem), P("@day", dayNo), P("@st", st), P("@dur", durationMin), P("@et", et),
                     P("@t", tId), P("@cp", campusId), P("@b", bId), P("@r", rId), P("@rl", roomLabel), P("@stype", (sessionType ?? "LECTURE").ToUpperInvariant()), P("@dmode", (deliveryMode ?? "PHYSICAL").ToUpperInvariant()),
-                    P("@ml", meetLink), P("@desc", description), P("@who", who));
+                    P("@ml", meetLink), P("@desc", description), P("@status", stat), P("@who", who));
                 object nid = TimetableService.Scalar("SELECT LAST_INSERT_ID()");
                 itemId = nid == null || nid == DBNull.Value ? 0 : Convert.ToInt32(nid);
             }
@@ -235,6 +236,24 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     {
         TimetableService.EnsureSchema();
         try { TimetableService.Exec("DELETE FROM acad_timetable_item WHERE item_id=@id", P("@id", itemId)); return new { ok = true }; }
+        catch (Exception ex) { return new { ok = false, message = ex.Message }; }
+    }
+
+    // Duplicate a session as a DRAFT so it can be tweaked before going live.
+    [WebMethod]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static object DuplicateItem(int itemId)
+    {
+        TimetableService.EnsureSchema();
+        try
+        {
+            int n = TimetableService.Exec(
+                "INSERT INTO acad_timetable_item (programmecourse_id, acad_year, progcode, course_code, study_year, semester, day_no, start_time, duration_min, end_time, teacher_id, campus_id, building_id, room_id, room_label, session_type, delivery_mode, meet_link, description, status, created_by, created_at) " +
+                "SELECT programmecourse_id, acad_year, progcode, course_code, study_year, semester, day_no, start_time, duration_min, end_time, teacher_id, campus_id, building_id, room_id, room_label, session_type, delivery_mode, meet_link, description, 'DRAFT', @who, NOW() " +
+                "FROM acad_timetable_item WHERE item_id=@id",
+                P("@who", Actor()), P("@id", itemId));
+            return new { ok = n > 0 };
+        }
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
 

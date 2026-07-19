@@ -63,6 +63,13 @@
 .tt-empty{text-align:center;color:#94a3b8;padding:22px;font-size:13px;}
 .tt-toast{position:fixed;bottom:20px;right:20px;z-index:99999;padding:10px 16px;font-size:13px;font-weight:600;color:#fff;background:#05275C;box-shadow:0 3px 10px rgba(0,0,0,.2);opacity:0;transition:opacity .3s;}
 .tt-toast.on{opacity:1;}.tt-toast--err{background:#b42318;}
+.tt-saving{display:none;position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:20;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:700;color:#05275C;}
+.tt-saving.on{display:flex;}
+.tt-spin{width:34px;height:34px;border:3px solid #dbe3ee;border-top-color:#174DA4;border-radius:50%;animation:ttspin .7s linear infinite;}
+@keyframes ttspin{to{transform:rotate(360deg);}}
+.tt-sbadge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;margin-left:6px;}
+.tt-sbadge--active{background:#e6f4ea;color:#166534;}.tt-sbadge--draft{background:#fff8e1;color:#8a5a00;}.tt-sbadge--arch{background:#eef0f4;color:#6b7280;}
+.tt-itemrow--draft{background:#fffdf5;}.tt-itemrow--arch{opacity:.66;}
 </style>
 </asp:Content>
 
@@ -99,7 +106,7 @@
 </div></div>
 
 <!-- Item editor -->
-<div class="tt-ov" id="itOv"><div class="tt-md">
+<div class="tt-ov" id="itOv"><div class="tt-md" style="position:relative;">
   <div class="tt-md__h"><b id="itHead">Add session</b><button type="button" class="tt-md__x" onclick="TM.close('itOv')">&times;</button></div>
   <div class="tt-md__b">
     <input type="hidden" id="itId" value="0" />
@@ -110,11 +117,11 @@
     </div>
     <div class="tt-fld"><label>Teacher</label><div id="itTeacherCombo"></div><div class="tt-hint" id="itTeacherHint"></div></div>
     <div class="tt-fld"><label>Campus</label><div class="tt-radios" id="grpCampus"></div></div>
-    <div class="tt-fld"><label>Room</label><select id="itRoom" class="tt-sel"></select><div class="tt-avail" id="itAvail"></div></div>
-    <div class="tt-fld"><label>Or a location note (online / TBD / external)</label><input type="text" id="itRoomLabel" class="tt-in" placeholder="Leave blank if a room is chosen" /></div>
+    <div class="tt-fld"><label>Room</label><div id="itRoomCombo"></div><div class="tt-avail" id="itAvail"></div></div>
     <div class="tt-fld"><label>Session type</label><div class="tt-radios" id="grpType"></div></div>
     <div class="tt-fld"><label>Delivery</label><div class="tt-radios" id="grpMode"></div></div>
     <div class="tt-fld" id="itMeetWrap" style="display:none;"><label>Meeting link</label><input type="text" id="itMeet" class="tt-in" placeholder="https://&hellip;" /></div>
+    <div class="tt-fld"><label>Status</label><div class="tt-radios" id="grpStatus"></div><div class="tt-hint">Only <b>Active</b> sessions show on the calendar, exports and to lecturers/students.</div></div>
     <div class="tt-fld"><label>Description (optional)</label><input type="text" id="itDesc" class="tt-in" /></div>
     <div id="itWarn"></div>
     <div id="itErr" style="display:none;color:#b42318;font-size:12px;margin-top:6px;"></div>
@@ -125,6 +132,7 @@
     <button type="button" class="tt-btn tt-btn--p" id="itSaveBtn" onclick="TM.save(0)">Save session</button>
     <button type="button" class="tt-btn tt-btn--d" id="itForceBtn" style="display:none;" onclick="TM.save(1)">Save anyway</button>
   </div>
+  <div class="tt-saving" id="itSaving"><div class="tt-spin"></div>Saving&hellip;</div>
 </div></div>
 
 <div class="tt-toast" id="ttToast"></div>
@@ -132,7 +140,7 @@
 <script>
 var TM = (function(){
   var LK={campuses:[],teachers:[],programmes:[]}, ROOMS=[], CUR_PC=null, PREV_T=null, PAGE=1;
-  var progCombo=null, teacherCombo=null;
+  var progCombo=null, teacherCombo=null, roomCombo=null;
   function qs(id){return document.getElementById(id);}
   function esc(s){s=(s==null?'':''+s);return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function toast(m,err){var t=qs('ttToast');t.textContent=m;t.className='tt-toast on'+(err?' tt-toast--err':'');setTimeout(function(){t.className='tt-toast';},2600);}
@@ -153,7 +161,7 @@ var TM = (function(){
     inp.addEventListener('focus',function(){ render(inp.value); list.classList.add('on'); });
     inp.addEventListener('input',function(){ val=''; render(inp.value); list.classList.add('on'); });
     inp.addEventListener('blur',function(){ setTimeout(function(){ list.classList.remove('on'); },150); });
-    return { value:function(){return val;}, set:function(v){ var it=items.filter(function(x){return String(x.value)===String(v);})[0]; if(it){val=it.value;inp.value=it.label;} else {val='';inp.value='';} }, clear:function(){val='';inp.value='';} };
+    return { value:function(){return val;}, set:function(v){ var it=items.filter(function(x){return String(x.value)===String(v);})[0]; if(it){val=it.value;inp.value=it.label;} else {val='';inp.value='';} }, clear:function(){val='';inp.value='';}, setItems:function(n){ items=n||[]; } };
   }
   // radio-group of buttons. items:[{value,label}]
   function radioGroup(host, items, onChange){
@@ -161,7 +169,7 @@ var TM = (function(){
     Array.prototype.forEach.call(host.querySelectorAll('.tt-radio'),function(b){ b.onclick=function(){ Array.prototype.forEach.call(host.querySelectorAll('.tt-radio'),function(x){x.classList.remove('on');}); b.classList.add('on'); if(onChange) onChange(b.getAttribute('data-v')); }; });
     return { value:function(){ var on=host.querySelector('.tt-radio.on'); return on?on.getAttribute('data-v'):(items[0]?items[0].value:''); }, set:function(v){ Array.prototype.forEach.call(host.querySelectorAll('.tt-radio'),function(x){ x.classList.toggle('on', x.getAttribute('data-v')===String(v)); }); } };
   }
-  var campusGrp=null, typeGrp=null, modeGrp=null;
+  var campusGrp=null, typeGrp=null, modeGrp=null, statusGrp=null;
 
   function init(){
     api('Lookups').then(function(d){
@@ -176,11 +184,12 @@ var TM = (function(){
       campusGrp=radioGroup(qs('grpCampus'), campusItems.length?campusItems:[{value:'1',label:'Kakeeka'},{value:'2',label:'Kirumba'},{value:'0',label:'Both'}], function(){ loadRooms(0); });
       typeGrp=radioGroup(qs('grpType'), [{value:'LECTURE',label:'Lecture'},{value:'TUTORIAL',label:'Tutorial'},{value:'PRACTICAL',label:'Practical'},{value:'SEMINAR',label:'Seminar'},{value:'CAT',label:'CAT'}]);
       modeGrp=radioGroup(qs('grpMode'), [{value:'PHYSICAL',label:'Physical'},{value:'ONLINE',label:'Online'},{value:'HYBRID',label:'Hybrid'}], function(v){ qs('itMeetWrap').style.display=(v!=='PHYSICAL')?'':'none'; });
+      statusGrp=radioGroup(qs('grpStatus'), [{value:'ACTIVE',label:'Active'},{value:'DRAFT',label:'Draft'},{value:'ARCHIVED',label:'Archived'}]);
+      roomCombo=makeCombo(qs('itRoomCombo'), [], 'Search room…', function(){ roomAvailNote(); preview(); });
       load(initFromQuery());  // restore filters from the URL (GET) then load
     });
     qs('fQ').addEventListener('keydown',function(e){ if(e.key==='Enter') apply(); });
-    ['itDay','itStart','itDur'].forEach(function(id){ qs(id).addEventListener('change',function(){ loadRooms(parseInt(qs('itRoom').value,10)||0); }); });
-    qs('itRoom').addEventListener('change',function(){ roomAvailNote(); preview(); });
+    ['itDay','itStart','itDur'].forEach(function(id){ qs(id).addEventListener('change',function(){ loadRooms(parseInt(roomCombo.value(),10)||0); }); });
   }
 
   // ── GET-state: filters live in the URL query string (bookmark/refresh safe) ──
@@ -247,9 +256,12 @@ var TM = (function(){
       var loc = it.roomName ? (esc(it.roomName)+(it.buildingName?(', '+esc(it.buildingName)):'')) : (it.roomLabel?esc(it.roomLabel):'<span class="tt-muted">no room</span>');
       var camp = it.campusId===0?'Both campuses':esc(it.campusName);
       var teach = it.teacherName?esc(it.teacherName):(esc(CUR_PC.lecturerName)||'course lecturer');
-      return '<div class="tt-itemrow"><div class="tt-itemrow__m"><b>'+esc(it.dayName||'')+' '+esc(it.start)+'&ndash;'+esc(it.end)+'</b>'
+      var stb = it.status==='DRAFT'?'<span class="tt-sbadge tt-sbadge--draft">Draft</span>':it.status==='ARCHIVED'?'<span class="tt-sbadge tt-sbadge--arch">Archived</span>':'<span class="tt-sbadge tt-sbadge--active">Active</span>';
+      var rc = it.status==='DRAFT'?' tt-itemrow--draft':it.status==='ARCHIVED'?' tt-itemrow--arch':'';
+      return '<div class="tt-itemrow'+rc+'"><div class="tt-itemrow__m"><b>'+esc(it.dayName||'')+' '+esc(it.start)+'&ndash;'+esc(it.end)+stb+'</b>'
         +'<span>'+esc(it.sessionType)+' &middot; '+loc+' &middot; '+camp+' &middot; '+teach+(it.deliveryMode!=='PHYSICAL'?(' &middot; '+esc(it.deliveryMode)):'')+'</span></div>'
         +'<button type="button" class="tt-btn tt-btn--sm" onclick="TM.itemEdit('+it.id+')">Edit</button> '
+        +'<button type="button" class="tt-btn tt-btn--sm" onclick="TM.dupe('+it.id+')">Duplicate</button> '
         +'<button type="button" class="tt-btn tt-btn--sm tt-btn--d" onclick="TM.itemDel('+it.id+')">Delete</button></div>';
     }).join('');
   }
@@ -261,8 +273,8 @@ var TM = (function(){
       qs('itHead').textContent=itemId>0?'Edit session':'Add session';
       qs('itId').value=itemId;
       teacherCombo.set(it?(it.teacherId||0):0); qs('itTeacherHint').textContent='Blank/Default uses the course lecturer'+(CUR_PC.lecturerName?(': '+CUR_PC.lecturerName):'.');
-      if(it){ qs('itDay').value=it.dayNo; qs('itStart').value=it.start; qs('itDur').value=it.durationMin; campusGrp.set(it.campusId); qs('itRoomLabel').value=it.roomLabel||''; typeGrp.set(it.sessionType); modeGrp.set(it.deliveryMode); qs('itMeet').value=it.meetLink||''; qs('itDesc').value=it.description||''; }
-      else { qs('itDay').value=1; qs('itStart').value='08:00'; qs('itDur').value=120; campusGrp.set((LK.campuses[1]?LK.campuses[1].id:1)); qs('itRoomLabel').value=''; typeGrp.set('LECTURE'); modeGrp.set('PHYSICAL'); qs('itMeet').value=''; qs('itDesc').value=''; }
+      if(it){ qs('itDay').value=it.dayNo; qs('itStart').value=it.start; qs('itDur').value=it.durationMin; campusGrp.set(it.campusId); typeGrp.set(it.sessionType); modeGrp.set(it.deliveryMode); qs('itMeet').value=it.meetLink||''; qs('itDesc').value=it.description||''; statusGrp.set(it.status||'ACTIVE'); }
+      else { qs('itDay').value=1; qs('itStart').value='08:00'; qs('itDur').value=120; campusGrp.set((LK.campuses[1]?LK.campuses[1].id:1)); typeGrp.set('LECTURE'); modeGrp.set('PHYSICAL'); qs('itMeet').value=''; qs('itDesc').value=''; statusGrp.set('ACTIVE'); }
       qs('itMeetWrap').style.display=(modeGrp.value()!=='PHYSICAL')?'':'none';
       loadRooms(it?it.roomId:0);
       qs('itOv').classList.add('on');
@@ -271,14 +283,13 @@ var TM = (function(){
   function loadRooms(selectId){
     api('RoomsForSlot',{campusId:parseInt(campusGrp.value(),10)||0,dayNo:parseInt(qs('itDay').value,10),start:qs('itStart').value,durationMin:parseInt(qs('itDur').value,10)||60,excludeItemId:parseInt(qs('itId').value,10)||0}).then(function(d){
       ROOMS=(d&&d.rooms)||[];
-      var h='<option value="0">&mdash; no room / use location note &mdash;</option>';
-      for(var i=0;i<ROOMS.length;i++){ var r=ROOMS[i]; h+='<option value="'+r.id+'">'+esc(r.name)+' ('+(r.building?esc(r.building)+', ':'')+'cap '+r.capacity+')'+(r.busy?'  — BUSY':'  — free')+'</option>'; }
-      qs('itRoom').innerHTML=h; if(selectId) qs('itRoom').value=selectId;
+      var items=[{value:'0',label:'— No room (online / not needed) —'}].concat(ROOMS.map(function(r){ return {value:String(r.id), label:r.name+' ('+(r.building?r.building+', ':'')+'cap '+r.capacity+') — '+(r.busy?'BUSY':'free')}; }));
+      roomCombo.setItems(items); roomCombo.set(String(selectId||0));
       roomAvailNote(); preview();
     });
   }
   function roomAvailNote(){
-    var id=parseInt(qs('itRoom').value,10)||0, el=qs('itAvail');
+    var id=parseInt(roomCombo.value(),10)||0, el=qs('itAvail');
     if(!id){ el.textContent=''; return; }
     var r=ROOMS.filter(function(x){return x.id===id;})[0];
     if(r&&r.busy){ el.className='tt-avail tt-avail--busy'; el.textContent='Occupied at this time by: '+r.busyWith; }
@@ -289,7 +300,7 @@ var TM = (function(){
     if(!CUR_PC) return;
     clearTimeout(PREV_T);
     PREV_T=setTimeout(function(){
-      api('PreviewConflicts',{itemId:parseInt(qs('itId').value,10)||0,pcId:CUR_PC.id,dayNo:parseInt(qs('itDay').value,10),start:qs('itStart').value,durationMin:parseInt(qs('itDur').value,10)||60,roomId:parseInt(qs('itRoom').value,10)||0,teacherId:parseInt(teacherCombo.value(),10)||0,campusId:parseInt(campusGrp.value(),10)||0})
+      api('PreviewConflicts',{itemId:parseInt(qs('itId').value,10)||0,pcId:CUR_PC.id,dayNo:parseInt(qs('itDay').value,10),start:qs('itStart').value,durationMin:parseInt(qs('itDur').value,10)||60,roomId:parseInt(roomCombo.value(),10)||0,teacherId:parseInt(teacherCombo.value(),10)||0,campusId:parseInt(campusGrp.value(),10)||0})
       .then(function(d){ renderWarn(d&&d.conflicts); });
     },250);
   }
@@ -298,12 +309,15 @@ var TM = (function(){
     qs('itWarn').innerHTML='<div class="tt-warn"><b>Possible conflicts:</b><ul>'+conflicts.map(function(c){return '<li>'+esc(c.message)+'</li>';}).join('')+'</ul></div>';
   }
 
+  function setSaving(on){ qs('itSaving').classList.toggle('on', !!on); qs('itSaveBtn').disabled=!!on; qs('itForceBtn').disabled=!!on; }
   function save(force){
-    var rid=parseInt(qs('itRoom').value,10)||0;
+    var rid=parseInt(roomCombo.value(),10)||0;
     var body={ itemId:parseInt(qs('itId').value,10)||0, pcId:CUR_PC.id, dayNo:parseInt(qs('itDay').value,10), start:qs('itStart').value, durationMin:parseInt(qs('itDur').value,10)||60,
       teacherId:parseInt(teacherCombo.value(),10)||0, campusId:parseInt(campusGrp.value(),10)||0, buildingId:roomBuilding(rid), roomId:rid,
-      roomLabel:qs('itRoomLabel').value.trim(), sessionType:typeGrp.value(), deliveryMode:modeGrp.value(), meetLink:qs('itMeet').value.trim(), description:qs('itDesc').value.trim(), allowConflicts:force?1:0 };
+      roomLabel:'', sessionType:typeGrp.value(), deliveryMode:modeGrp.value(), meetLink:qs('itMeet').value.trim(), description:qs('itDesc').value.trim(), status:statusGrp.value(), allowConflicts:force?1:0 };
+    qs('itErr').style.display='none'; setSaving(true);
     api('SaveItem',body).then(function(d){
+      setSaving(false);
       if(d&&d.ok){ toast('Session saved.'); close('itOv'); manage(CUR_PC.id); load(PAGE); return; }
       if(d&&d.needsOverride){ renderWarn(d.conflicts); qs('itForceBtn').style.display=''; qs('itOverrideNote').style.display=''; return; }
       var e=qs('itErr'); e.textContent=(d&&d.message)||'Save failed.'; e.style.display='block';
@@ -311,6 +325,7 @@ var TM = (function(){
   }
   function roomBuilding(roomId){ for(var i=0;i<ROOMS.length;i++) if(ROOMS[i].id===roomId) return ROOMS[i].buildingId||0; return 0; }
   function itemDel(id){ if(!confirm('Delete this session?')) return; api('DeleteItem',{itemId:id}).then(function(d){ if(d&&d.ok){ toast('Deleted.'); manage(CUR_PC.id); load(PAGE); } else toast((d&&d.message)||'Failed',true); }); }
+  function dupe(id){ api('DuplicateItem',{itemId:id}).then(function(d){ if(d&&d.ok){ toast('Duplicated as draft.'); manage(CUR_PC.id); load(PAGE); } else toast((d&&d.message)||'Failed',true); }); }
 
   function importLegacy(){
     api('ImportPreview').then(function(d){
@@ -323,7 +338,7 @@ var TM = (function(){
 
   function close(id){ qs(id).classList.remove('on'); }
   init();
-  return { apply:apply, load:load, manage:manage, itemEdit:itemEdit, itemDel:itemDel, preview:preview, save:save, close:close, importLegacy:importLegacy };
+  return { apply:apply, load:load, manage:manage, itemEdit:itemEdit, itemDel:itemDel, dupe:dupe, preview:preview, save:save, close:close, importLegacy:importLegacy };
 })();
 </script>
 </asp:Content>
