@@ -253,6 +253,77 @@ public static class ApiHelper
         }
     }
 
+    /// <summary>Executes a query against the PORTAL database (campus_dynamics_portal) and returns a DataTable.
+    /// Use for ODEL (odel_*) and other portal-owned tables. Cross-DB joins to campus_dynamics.* work on the same server.</summary>
+    public static DataTable QueryPortal(string sql, params MySqlParameter[] parameters)
+    {
+        using (var conn = GetPortalConnection())
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                if (parameters != null)
+                    foreach (var p in parameters) cmd.Parameters.Add(p);
+                using (var adapter = new MySqlDataAdapter(cmd))
+                {
+                    var dt = new DataTable();
+                    adapter.Fill(dt);
+                    return dt;
+                }
+            }
+        }
+    }
+
+    /// <summary>Executes a non-query (INSERT/UPDATE/DELETE) against the PORTAL database.</summary>
+    public static int ExecutePortal(string sql, params MySqlParameter[] parameters)
+    {
+        using (var conn = GetPortalConnection())
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                if (parameters != null)
+                    foreach (var p in parameters) cmd.Parameters.Add(p);
+                return cmd.ExecuteNonQuery();
+            }
+        }
+    }
+
+    /// <summary>Executes an INSERT against the PORTAL database and returns the auto-generated ID.</summary>
+    public static long ExecuteInsertPortal(string sql, params MySqlParameter[] parameters)
+    {
+        using (var conn = GetPortalConnection())
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                if (parameters != null)
+                    foreach (var p in parameters) cmd.Parameters.Add(p);
+                cmd.ExecuteNonQuery();
+                return cmd.LastInsertedId;
+            }
+        }
+    }
+
+    /// <summary>Executes a scalar query against the PORTAL database and returns the result.</summary>
+    public static object ScalarPortal(string sql, params MySqlParameter[] parameters)
+    {
+        using (var conn = GetPortalConnection())
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                if (parameters != null)
+                    foreach (var p in parameters) cmd.Parameters.Add(p);
+                return cmd.ExecuteScalar();
+            }
+        }
+    }
+
     /// <summary>Executes a query against the accounts database and returns a DataTable.</summary>
     public static DataTable QueryAccounts(string sql, params MySqlParameter[] parameters)
     {
