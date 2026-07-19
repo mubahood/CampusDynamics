@@ -74,7 +74,7 @@
   <div class="tt-card">
     <div class="tt-bar">
       <select id="fSy" class="tt-sel"><option value="0">Any year</option><option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option><option value="4">Year 4</option><option value="5">Year 5</option></select>
-      <select id="fSem" class="tt-sel"><option value="0">Any sem</option><option value="1">Semester 1</option><option value="2">Semester 2</option></select>
+      <select id="fSem" class="tt-sel"><option value="0">Any sem</option><option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option></select>
       <div id="fProgCombo" style="min-width:210px;"></div>
       <input type="text" id="fQ" class="tt-in tt-search" placeholder="Search course / lecturer&hellip;" />
       <label style="font-size:11px;color:#4b5563;display:inline-flex;align-items:center;gap:5px;"><input type="checkbox" id="fUn" /> Unscheduled</label>
@@ -176,16 +176,43 @@ var TM = (function(){
       campusGrp=radioGroup(qs('grpCampus'), campusItems.length?campusItems:[{value:'1',label:'Kakeeka'},{value:'2',label:'Kirumba'},{value:'0',label:'Both'}], function(){ loadRooms(0); });
       typeGrp=radioGroup(qs('grpType'), [{value:'LECTURE',label:'Lecture'},{value:'TUTORIAL',label:'Tutorial'},{value:'PRACTICAL',label:'Practical'},{value:'SEMINAR',label:'Seminar'},{value:'CAT',label:'CAT'}]);
       modeGrp=radioGroup(qs('grpMode'), [{value:'PHYSICAL',label:'Physical'},{value:'ONLINE',label:'Online'},{value:'HYBRID',label:'Hybrid'}], function(v){ qs('itMeetWrap').style.display=(v!=='PHYSICAL')?'':'none'; });
-      load(1);
+      load(initFromQuery());  // restore filters from the URL (GET) then load
     });
     qs('fQ').addEventListener('keydown',function(e){ if(e.key==='Enter') apply(); });
     ['itDay','itStart','itDur'].forEach(function(id){ qs(id).addEventListener('change',function(){ loadRooms(parseInt(qs('itRoom').value,10)||0); }); });
     qs('itRoom').addEventListener('change',function(){ roomAvailNote(); preview(); });
   }
 
+  // ── GET-state: filters live in the URL query string (bookmark/refresh safe) ──
+  function readQuery(){
+    var q={}, s=(location.search||'').replace(/^\?/,'');
+    s.split('&').forEach(function(kv){ if(!kv) return; var p=kv.split('='); q[decodeURIComponent(p[0])]=decodeURIComponent((p[1]||'').replace(/\+/g,' ')); });
+    return q;
+  }
+  function initFromQuery(){
+    var q=readQuery();
+    if(q.sy) qs('fSy').value=q.sy;
+    if(q.sem) qs('fSem').value=q.sem;
+    if(q.un==='1') qs('fUn').checked=true;
+    if(q.q) qs('fQ').value=q.q;
+    if(q.prog&&progCombo) progCombo.set(q.prog);
+    return parseInt(q.page,10)||1;
+  }
+  function syncUrl(){
+    var parts=[], sy=qs('fSy').value, sem=qs('fSem').value, prog=progCombo?progCombo.value():'', q=qs('fQ').value.trim(), un=qs('fUn').checked?1:0;
+    if(sy&&sy!=='0') parts.push('sy='+encodeURIComponent(sy));
+    if(sem&&sem!=='0') parts.push('sem='+encodeURIComponent(sem));
+    if(prog) parts.push('prog='+encodeURIComponent(prog));
+    if(q) parts.push('q='+encodeURIComponent(q));
+    if(un) parts.push('un=1');
+    if(PAGE>1) parts.push('page='+PAGE);
+    try{ history.replaceState(null,'',location.pathname+(parts.length?('?'+parts.join('&')):'')); }catch(e){}
+  }
+
   function apply(){ PAGE=1; load(1); }
   function load(page){
     PAGE=page||1;
+    syncUrl();
     api('ListPCs',{q:qs('fQ').value.trim(),progcode:progCombo?progCombo.value():'',studyYear:parseInt(qs('fSy').value,10)||0,semester:parseInt(qs('fSem').value,10)||0,onlyUnscheduled:qs('fUn').checked?1:0,page:PAGE})
     .then(function(d){
       var b=qs('pcBody');

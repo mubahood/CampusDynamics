@@ -43,7 +43,7 @@
       <select id="fCampus" class="tt-sel" onchange="CAL.load()"><option value="0">All campuses</option></select>
       <select id="fProg" class="tt-sel" onchange="CAL.load()"><option value="">All programmes</option></select>
       <select id="fSy" class="tt-sel" onchange="CAL.load()"><option value="0">Any year</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
-      <select id="fSem" class="tt-sel" onchange="CAL.load()"><option value="0">Any sem</option><option value="1">Sem 1</option><option value="2">Sem 2</option></select>
+      <select id="fSem" class="tt-sel" onchange="CAL.load()"><option value="0">Any sem</option><option value="1">Sem 1</option><option value="2">Sem 2</option><option value="3">Sem 3</option></select>
       <select id="fRoom" class="tt-sel" onchange="CAL.load()"><option value="0">Any room</option></select>
       <select id="fTeacher" class="tt-sel" onchange="CAL.load()"><option value="0">Any lecturer</option></select>
       <a class="tt-btn" href="TimetableManager.aspx">Manage</a>
