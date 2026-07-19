@@ -36,7 +36,10 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         List<object> progs = new List<object>();
         foreach (DataRow r in TimetableService.Query("SELECT progcode, progname FROM acad_programme ORDER BY progname").Rows)
             progs.Add(new Dictionary<string, object> { { "code", S(r, "progcode") }, { "name", S(r, "progname") } });
-        return new { ok = true, campuses = campuses, teachers = teachers, programmes = progs };
+        List<object> rooms = new List<object>();
+        foreach (DataRow r in TimetableService.Query("SELECT r.RoomID, r.RoomName, IFNULL(r.Capacity,0) cap, IFNULL(r.campusId,0) campusId, IFNULL(r.building_id,0) bid, IFNULL(b.building_name,'') bn FROM acad_lecturerooms r LEFT JOIN acad_building b ON b.building_id=r.building_id WHERE IFNULL(r.is_active,1)=1 ORDER BY r.RoomName").Rows)
+            rooms.Add(new Dictionary<string, object> { { "id", I(r, "RoomID") }, { "name", S(r, "RoomName") }, { "capacity", I(r, "cap") }, { "campusId", I(r, "campusId") }, { "buildingId", I(r, "bid") }, { "building", S(r, "bn") } });
+        return new { ok = true, campuses = campuses, teachers = teachers, programmes = progs, rooms = rooms };
     }
 
     // ── rooms for a campus, annotated with availability for a day/time slot ──

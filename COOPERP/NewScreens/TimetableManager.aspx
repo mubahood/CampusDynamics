@@ -132,7 +132,7 @@
     <button type="button" class="tt-btn tt-btn--p" id="itSaveBtn" onclick="TM.save(0)">Save session</button>
     <button type="button" class="tt-btn tt-btn--d" id="itForceBtn" style="display:none;" onclick="TM.save(1)">Save anyway</button>
   </div>
-  <div class="tt-saving" id="itSaving"><div class="tt-spin"></div>Saving&hellip;</div>
+  <div class="tt-saving" id="itSaving"><div class="tt-spin"></div><span id="itSavingTxt">Saving&hellip;</span></div>
 </div></div>
 
 <div class="tt-toast" id="ttToast"></div>
@@ -181,15 +181,15 @@ var TM = (function(){
       var campusItems=(LK.campuses||[]).filter(function(c){return true;}).map(function(c){ return {value:String(c.id),label:(c.id===0?'Both':c.name.replace(/ CAMPUS/i,''))}; });
       // put Kakeeka/Kirumba first then Both
       campusItems.sort(function(a,b){ return (a.value==='0'?1:0)-(b.value==='0'?1:0); });
-      campusGrp=radioGroup(qs('grpCampus'), campusItems.length?campusItems:[{value:'1',label:'Kakeeka'},{value:'2',label:'Kirumba'},{value:'0',label:'Both'}], function(){ loadRooms(0); });
+      campusGrp=radioGroup(qs('grpCampus'), campusItems.length?campusItems:[{value:'1',label:'Kakeeka'},{value:'2',label:'Kirumba'},{value:'0',label:'Both'}], function(){ buildRoomCombo(); roomCombo.set('0'); preview(); });
       typeGrp=radioGroup(qs('grpType'), [{value:'LECTURE',label:'Lecture'},{value:'TUTORIAL',label:'Tutorial'},{value:'PRACTICAL',label:'Practical'},{value:'SEMINAR',label:'Seminar'},{value:'CAT',label:'CAT'}]);
       modeGrp=radioGroup(qs('grpMode'), [{value:'PHYSICAL',label:'Physical'},{value:'ONLINE',label:'Online'},{value:'HYBRID',label:'Hybrid'}], function(v){ qs('itMeetWrap').style.display=(v!=='PHYSICAL')?'':'none'; });
       statusGrp=radioGroup(qs('grpStatus'), [{value:'ACTIVE',label:'Active'},{value:'DRAFT',label:'Draft'},{value:'ARCHIVED',label:'Archived'}]);
-      roomCombo=makeCombo(qs('itRoomCombo'), [], 'Search room…', function(){ roomAvailNote(); preview(); });
+      roomCombo=makeCombo(qs('itRoomCombo'), [], 'Search room…', function(){ preview(); });
       load(initFromQuery());  // restore filters from the URL (GET) then load
     });
     qs('fQ').addEventListener('keydown',function(e){ if(e.key==='Enter') apply(); });
-    ['itDay','itStart','itDur'].forEach(function(id){ qs(id).addEventListener('change',function(){ loadRooms(parseInt(roomCombo.value(),10)||0); }); });
+    ['itDay','itStart','itDur'].forEach(function(id){ qs(id).addEventListener('change', preview); });
   }
 
   // ── GET-state: filters live in the URL query string (bookmark/refresh safe) ──
@@ -268,31 +268,46 @@ var TM = (function(){
 
   function itemEdit(itemId){
     qs('itErr').style.display='none'; qs('itWarn').innerHTML=''; qs('itForceBtn').style.display='none'; qs('itOverrideNote').style.display='none';
-    api('GetItems',{pcId:CUR_PC.id}).then(function(d){
-      var it=((d&&d.items)||[]).filter(function(x){return x.id===itemId;})[0];
-      qs('itHead').textContent=itemId>0?'Edit session':'Add session';
-      qs('itId').value=itemId;
-      teacherCombo.set(it?(it.teacherId||0):0); qs('itTeacherHint').textContent='Blank/Default uses the course lecturer'+(CUR_PC.lecturerName?(': '+CUR_PC.lecturerName):'.');
-      if(it){ qs('itDay').value=it.dayNo; qs('itStart').value=it.start; qs('itDur').value=it.durationMin; campusGrp.set(it.campusId); typeGrp.set(it.sessionType); modeGrp.set(it.deliveryMode); qs('itMeet').value=it.meetLink||''; qs('itDesc').value=it.description||''; statusGrp.set(it.status||'ACTIVE'); }
-      else { qs('itDay').value=1; qs('itStart').value='08:00'; qs('itDur').value=120; campusGrp.set((LK.campuses[1]?LK.campuses[1].id:1)); typeGrp.set('LECTURE'); modeGrp.set('PHYSICAL'); qs('itMeet').value=''; qs('itDesc').value=''; statusGrp.set('ACTIVE'); }
-      qs('itMeetWrap').style.display=(modeGrp.value()!=='PHYSICAL')?'':'none';
-      loadRooms(it?it.roomId:0);
-      qs('itOv').classList.add('on');
-    });
+    qs('itAvail').textContent=''; qs('itAvail').className='tt-avail';
+    qs('itHead').textContent=itemId>0?'Edit session':'Add session';
+    qs('itId').value=itemId;
+    qs('itOv').classList.add('on');           // open the modal immediately
+    if(itemId>0){
+      // existing session — open with a loader while we fetch it
+      setBusy(true,'Loading…');
+      api('GetItems',{pcId:CUR_PC.id}).then(function(d){
+        var it=((d&&d.items)||[]).filter(function(x){return x.id===itemId;})[0];
+        if(!it){ setBusy(false); toast('Session not found.',true); close('itOv'); return; }
+        teacherCombo.set(it.teacherId||0); qs('itTeacherHint').textContent='Blank/Default uses the course lecturer'+(CUR_PC.lecturerName?(': '+CUR_PC.lecturerName):'.');
+        qs('itDay').value=it.dayNo; qs('itStart').value=it.start; qs('itDur').value=it.durationMin; campusGrp.set(it.campusId); typeGrp.set(it.sessionType); modeGrp.set(it.deliveryMode); qs('itMeet').value=it.meetLink||''; qs('itDesc').value=it.description||''; statusGrp.set(it.status||'ACTIVE');
+        qs('itMeetWrap').style.display=(modeGrp.value()!=='PHYSICAL')?'':'none';
+        buildRoomCombo(); roomCombo.set(String(it.roomId||0));
+        setBusy(false); preview();
+      });
+    } else {
+      // new session — fill defaults instantly, no backend round-trip
+      teacherCombo.set(0); qs('itTeacherHint').textContent='Blank/Default uses the course lecturer'+(CUR_PC.lecturerName?(': '+CUR_PC.lecturerName):'.');
+      qs('itDay').value=1; qs('itStart').value='08:00'; qs('itDur').value=120; campusGrp.set((LK.campuses[1]?LK.campuses[1].id:1)); typeGrp.set('LECTURE'); modeGrp.set('PHYSICAL'); qs('itMeet').value=''; qs('itDesc').value=''; statusGrp.set('ACTIVE');
+      qs('itMeetWrap').style.display='none';
+      buildRoomCombo(); roomCombo.set('0');
+      preview();
+    }
   }
-  function loadRooms(selectId){
-    api('RoomsForSlot',{campusId:parseInt(campusGrp.value(),10)||0,dayNo:parseInt(qs('itDay').value,10),start:qs('itStart').value,durationMin:parseInt(qs('itDur').value,10)||60,excludeItemId:parseInt(qs('itId').value,10)||0}).then(function(d){
-      ROOMS=(d&&d.rooms)||[];
-      var items=[{value:'0',label:'— No room (online / not needed) —'}].concat(ROOMS.map(function(r){ return {value:String(r.id), label:r.name+' ('+(r.building?r.building+', ':'')+'cap '+r.capacity+') — '+(r.busy?'BUSY':'free')}; }));
-      roomCombo.setItems(items); roomCombo.set(String(selectId||0));
-      roomAvailNote(); preview();
-    });
+  // build the searchable room list from the client-side LK.rooms cache (filtered by campus)
+  function buildRoomCombo(){
+    var camp=parseInt(campusGrp.value(),10)||0;
+    ROOMS=(LK.rooms||[]).filter(function(r){ return camp===0 || !r.campusId || r.campusId===camp; });
+    var items=[{value:'0',label:'— No room (online / not needed) —'}].concat(ROOMS.map(function(r){
+      return {value:String(r.id), label:r.name+' ('+(r.building?r.building+', ':'')+'cap '+r.capacity+')'};
+    }));
+    roomCombo.setItems(items);
   }
-  function roomAvailNote(){
+  // reflect the chosen room's availability, derived from the live PreviewConflicts result
+  function updateAvail(conflicts){
     var id=parseInt(roomCombo.value(),10)||0, el=qs('itAvail');
-    if(!id){ el.textContent=''; return; }
-    var r=ROOMS.filter(function(x){return x.id===id;})[0];
-    if(r&&r.busy){ el.className='tt-avail tt-avail--busy'; el.textContent='Occupied at this time by: '+r.busyWith; }
+    if(!id){ el.textContent=''; el.className='tt-avail'; return; }
+    var clash=(conflicts||[]).filter(function(c){ return c.kind==='ROOM'; })[0];
+    if(clash){ el.className='tt-avail tt-avail--busy'; el.textContent=clash.message; }
     else { el.className='tt-avail tt-avail--ok'; el.textContent='Room is free at this time.'; }
   }
 
@@ -301,7 +316,7 @@ var TM = (function(){
     clearTimeout(PREV_T);
     PREV_T=setTimeout(function(){
       api('PreviewConflicts',{itemId:parseInt(qs('itId').value,10)||0,pcId:CUR_PC.id,dayNo:parseInt(qs('itDay').value,10),start:qs('itStart').value,durationMin:parseInt(qs('itDur').value,10)||60,roomId:parseInt(roomCombo.value(),10)||0,teacherId:parseInt(teacherCombo.value(),10)||0,campusId:parseInt(campusGrp.value(),10)||0})
-      .then(function(d){ renderWarn(d&&d.conflicts); });
+      .then(function(d){ var cf=(d&&d.conflicts)||[]; renderWarn(cf); updateAvail(cf); });
     },250);
   }
   function renderWarn(conflicts){
@@ -309,15 +324,15 @@ var TM = (function(){
     qs('itWarn').innerHTML='<div class="tt-warn"><b>Possible conflicts:</b><ul>'+conflicts.map(function(c){return '<li>'+esc(c.message)+'</li>';}).join('')+'</ul></div>';
   }
 
-  function setSaving(on){ qs('itSaving').classList.toggle('on', !!on); qs('itSaveBtn').disabled=!!on; qs('itForceBtn').disabled=!!on; }
+  function setBusy(on,text){ if(text) qs('itSavingTxt').textContent=text; qs('itSaving').classList.toggle('on', !!on); qs('itSaveBtn').disabled=!!on; qs('itForceBtn').disabled=!!on; }
   function save(force){
     var rid=parseInt(roomCombo.value(),10)||0;
     var body={ itemId:parseInt(qs('itId').value,10)||0, pcId:CUR_PC.id, dayNo:parseInt(qs('itDay').value,10), start:qs('itStart').value, durationMin:parseInt(qs('itDur').value,10)||60,
       teacherId:parseInt(teacherCombo.value(),10)||0, campusId:parseInt(campusGrp.value(),10)||0, buildingId:roomBuilding(rid), roomId:rid,
       roomLabel:'', sessionType:typeGrp.value(), deliveryMode:modeGrp.value(), meetLink:qs('itMeet').value.trim(), description:qs('itDesc').value.trim(), status:statusGrp.value(), allowConflicts:force?1:0 };
-    qs('itErr').style.display='none'; setSaving(true);
+    qs('itErr').style.display='none'; setBusy(true,'Saving…');
     api('SaveItem',body).then(function(d){
-      setSaving(false);
+      setBusy(false);
       if(d&&d.ok){ toast('Session saved.'); close('itOv'); manage(CUR_PC.id); load(PAGE); return; }
       if(d&&d.needsOverride){ renderWarn(d.conflicts); qs('itForceBtn').style.display=''; qs('itOverrideNote').style.display=''; return; }
       var e=qs('itErr'); e.textContent=(d&&d.message)||'Save failed.'; e.style.display='block';
