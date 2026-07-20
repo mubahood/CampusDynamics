@@ -225,6 +225,7 @@ var AA = (function(){
     return list.sort(function(a,b){
       var av,bv;
       if(SORT==='name'){ av=(a.name||'').toLowerCase(); bv=(b.name||'').toLowerCase(); return av<bv?-DIR:(av>bv?DIR:0); }
+      if(SORT==='sessions'){ av=a.sessions||0; bv=b.sessions||0; return (av-bv)*DIR; }
       av=a.stat[SORT]||0; bv=b.stat[SORT]||0; return (av-bv)*DIR;
     });
   }
@@ -235,9 +236,11 @@ var AA = (function(){
     qs('aaDimTitle').textContent=DIMLABEL[DIM]+' · '+list.length+' row'+(list.length===1?'':'s');
     if(!list.length){ qs('aaHost').innerHTML='<div class="aa-empty">No applicants match these filters.</div>'; return; }
     var maxTotal=0; list.forEach(function(r){ if(r.stat.total>maxTotal) maxTotal=r.stat.total; });
+    var showSessions=(DIM==='byProg');
     var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0};
     var h='<div class="aa-tbl-wrap"><table class="aa-table"><thead><tr><th class="aa-rank">#</th>'
       +th('name',esc(DIMCOL[DIM]))
+      +(showSessions?th('sessions','Sessions','num'):'')
       +th('total','Applicants','num')+th('pending','Pending','num')+th('admitted','Admitted','num')
       +th('registered','Registered','num')+th('rejected','Rejected','num')+th('withdrawn','Withdrawn','num')
       +'<th class="num">Offer %</th><th class="num">Reg %</th></tr></thead><tbody>';
@@ -247,6 +250,7 @@ var AA = (function(){
       var sub=(DIM==='byProg'&&r.facCode)?('<div class="sub">'+esc(r.facName||r.facCode)+'</div>'):'';
       h+='<tr><td class="aa-rank">'+(i+1)+'</td>'
         +'<td class="name">'+esc(r.name)+(DIM==='byProg'&&r.code&&r.code!==r.name?'':'')+sub+'</td>'
+        +(showSessions?('<td class="num">'+(r.sessions||0)+'</td>'):'')
         +'<td class="num"><span class="aa-bar" style="width:'+bw+'px"></span>'+nf(s.total)+'</td>'
         +'<td class="num">'+(s.pending?nf(s.pending):'<span class="aa-mut">0</span>')+'</td>'
         +'<td class="num">'+(s.admitted?nf(s.admitted):'<span class="aa-mut">0</span>')+'</td>'
@@ -258,6 +262,7 @@ var AA = (function(){
     });
     var toffer=T.admitted+T.registered;
     h+='</tbody><tfoot><tr><td></td><td>TOTAL — '+list.length+'</td>'
+      +(showSessions?'<td></td>':'')
       +'<td class="num">'+nf(T.total)+'</td><td class="num">'+nf(T.pending)+'</td><td class="num">'+nf(T.admitted)+'</td>'
       +'<td class="num">'+nf(T.registered)+'</td><td class="num">'+nf(T.rejected)+'</td><td class="num">'+nf(T.withdrawn)+'</td>'
       +'<td class="num">'+pct(toffer,T.total)+'</td><td class="num">'+pct(T.registered,T.total)+'</td></tr></tfoot></table></div>';
@@ -271,12 +276,13 @@ var AA = (function(){
   function csvCell(v){ v=(v==null?'':''+v); if(/[",\n]/.test(v)) v='"'+v.replace(/"/g,'""')+'"'; return v; }
   function csv(){
     var list=sortRows(rows()); if(!list.length){ alert('Nothing to export.'); return; }
-    var head=[DIMCOL[DIM],'Applicants','Pending','Admitted','Registered','Rejected','Withdrawn','Offer%','Reg%'];
+    var ss=(DIM==='byProg');
+    var head=[DIMCOL[DIM]].concat(ss?['Sessions']:[]).concat(['Applicants','Pending','Admitted','Registered','Rejected','Withdrawn','Offer%','Reg%']);
     var lines=[head.join(',')];
     var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0};
     list.forEach(function(r){ var s=r.stat; T.total+=s.total;T.pending+=s.pending;T.admitted+=s.admitted;T.registered+=s.registered;T.rejected+=s.rejected;T.withdrawn+=s.withdrawn;
-      lines.push([r.name,s.total,s.pending,s.admitted,s.registered,s.rejected,s.withdrawn,pctv(s.admitted+s.registered,s.total).toFixed(1),pctv(s.registered,s.total).toFixed(1)].map(csvCell).join(',')); });
-    lines.push(['TOTAL',T.total,T.pending,T.admitted,T.registered,T.rejected,T.withdrawn,pctv(T.admitted+T.registered,T.total).toFixed(1),pctv(T.registered,T.total).toFixed(1)].map(csvCell).join(','));
+      lines.push([r.name].concat(ss?[r.sessions||0]:[]).concat([s.total,s.pending,s.admitted,s.registered,s.rejected,s.withdrawn,pctv(s.admitted+s.registered,s.total).toFixed(1),pctv(s.registered,s.total).toFixed(1)]).map(csvCell).join(',')); });
+    lines.push(['TOTAL'].concat(ss?['']:[]).concat([T.total,T.pending,T.admitted,T.registered,T.rejected,T.withdrawn,pctv(T.admitted+T.registered,T.total).toFixed(1),pctv(T.registered,T.total).toFixed(1)]).map(csvCell).join(','));
     var blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
     var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='admission_analysis_'+DIM+'.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }

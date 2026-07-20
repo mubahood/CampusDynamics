@@ -108,8 +108,9 @@ public partial class COOPERP_NewScreens_AdmissionAnalysis : System.Web.UI.Page
 
             // ── By programme (the core: programme totals) ──
             var byProg = new List<object>();
-            foreach (var d in Query(conn, "SELECT c.prog_id code, COALESCE(p.progname,c.prog_id) name, COALESCE(p.faculty_code,'') facCode, COALESCE(f.faculty_name,'') facName, " + StatCols + BaseJoin + wc + " GROUP BY c.prog_id ORDER BY total DESC", ps))
-                byProg.Add(new { code = S(d["code"]), name = S(d["name"]), facCode = S(d["facCode"]), facName = S(d["facName"]), stat = Stat(d) });
+            foreach (var d in Query(conn, "SELECT c.prog_id code, COALESCE(p.progname,c.prog_id) name, COALESCE(p.faculty_code,'') facCode, COALESCE(f.faculty_name,'') facName, " +
+                "COUNT(DISTINCT NULLIF(TRIM(c.adm_session),'')) sessions, " + StatCols + BaseJoin + wc + " GROUP BY c.prog_id ORDER BY total DESC", ps))
+                byProg.Add(new { code = S(d["code"]), name = S(d["name"]), facCode = S(d["facCode"]), facName = S(d["facName"]), sessions = L(d["sessions"]), stat = Stat(d) });
 
             // ── By faculty ──
             var byFaculty = new List<object>();
