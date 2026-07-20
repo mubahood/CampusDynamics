@@ -2616,30 +2616,50 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                                 del.ExecuteNonQuery();
                             }
 
-                            // Remove matching GL entries
+                            // Remove the matching GL entries — BOTH sides of the double entry.
+                            // The reliable link is fin_ledger.tracking_ref = <tracking TID> (and the
+                            // legacy folio 'BillNo:<TID>'); voucherNo is a separate voucher number that
+                            // is neither unique nor equal to the tracking TID, so it must NOT be used.
                             if (!string.IsNullOrEmpty(delRegno))
                             {
-                                string glDir = (delTransType == "Payment") ? "CR" : "DR";
-                                using (MySqlCommand glDel = new MySqlCommand(@"
-                                    DELETE FROM fin_ledger
-                                    WHERE accountcode = @ac
-                                      AND (
-                                            voucherNo = @vno
-                                            OR (
-                                                transaction_amount = @amt
-                                                AND DATE(transactionDate) = @dt
-                                                AND transactionType = @dir
-                                                AND (particulars = @det OR @det = '')
-                                            )
-                                      )", conn, tx))
+                                string folio = "BillNo:" + tid;
+                                int glRemoved = 0;
+
+                                // 1. PRECISE: delete the exact posting (DR student + CR counter-account)
+                                //    that this tracking row created, via its tracking link.
+                                using (MySqlCommand glDel = new MySqlCommand(
+                                    "DELETE FROM fin_ledger WHERE (tracking_ref = @tid OR folio = @folio)", conn, tx))
                                 {
-                                    glDel.Parameters.AddWithValue("@ac",  delRegno);
-                                    glDel.Parameters.AddWithValue("@vno", tid);
-                                    glDel.Parameters.AddWithValue("@amt", delAmount);
-                                    glDel.Parameters.AddWithValue("@dt",  delDate == DateTime.MinValue ? (object)DBNull.Value : delDate.ToString("yyyy-MM-dd"));
-                                    glDel.Parameters.AddWithValue("@dir", glDir);
-                                    glDel.Parameters.AddWithValue("@det", delDetail);
-                                    glDel.ExecuteNonQuery();
+                                    glDel.Parameters.AddWithValue("@tid",   tid.ToString());
+                                    glDel.Parameters.AddWithValue("@folio", folio);
+                                    glRemoved = glDel.ExecuteNonQuery();
+                                }
+
+                                // 2. LEGACY FALLBACK: only when the precise link matched nothing
+                                //    (older/migrated rows have no tracking_ref). Tightly scoped to the
+                                //    student's own side with an EXACT non-empty particulars match, limited
+                                //    to a single row so identical duplicates can never be over-deleted.
+                                //    No match-all: if detail is blank we do not touch the GL.
+                                if (glRemoved == 0 && delAmount > 0 && delDate != DateTime.MinValue && !string.IsNullOrEmpty(delDetail))
+                                {
+                                    string glDir = (delTransType == "Payment") ? "CR" : "DR";
+                                    using (MySqlCommand glDel2 = new MySqlCommand(@"
+                                        DELETE FROM fin_ledger
+                                        WHERE accountcode = @ac
+                                          AND transactionType = @dir
+                                          AND transaction_amount = @amt
+                                          AND DATE(transactionDate) = @dt
+                                          AND particulars = @det
+                                          AND (tracking_ref IS NULL OR tracking_ref = '')
+                                        LIMIT 1", conn, tx))
+                                    {
+                                        glDel2.Parameters.AddWithValue("@ac",  delRegno);
+                                        glDel2.Parameters.AddWithValue("@dir", glDir);
+                                        glDel2.Parameters.AddWithValue("@amt", delAmount);
+                                        glDel2.Parameters.AddWithValue("@dt",  delDate.ToString("yyyy-MM-dd"));
+                                        glDel2.Parameters.AddWithValue("@det", delDetail);
+                                        glDel2.ExecuteNonQuery();
+                                    }
                                 }
                             }
 
