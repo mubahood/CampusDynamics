@@ -236,7 +236,7 @@ var AA = (function(){
     qs('aaDimTitle').textContent=DIMLABEL[DIM]+' · '+list.length+' row'+(list.length===1?'':'s');
     if(!list.length){ qs('aaHost').innerHTML='<div class="aa-empty">No applicants match these filters.</div>'; return; }
     var maxTotal=0; list.forEach(function(r){ if(r.stat.total>maxTotal) maxTotal=r.stat.total; });
-    var showSessions=(DIM==='byProg');
+    var showSessions=(DIM==='byProg'||DIM==='byFaculty'||DIM==='byYear');
     var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0};
     var h='<div class="aa-tbl-wrap"><table class="aa-table"><thead><tr><th class="aa-rank">#</th>'
       +th('name',esc(DIMCOL[DIM]))
@@ -276,7 +276,7 @@ var AA = (function(){
   function csvCell(v){ v=(v==null?'':''+v); if(/[",\n]/.test(v)) v='"'+v.replace(/"/g,'""')+'"'; return v; }
   function csv(){
     var list=sortRows(rows()); if(!list.length){ alert('Nothing to export.'); return; }
-    var ss=(DIM==='byProg');
+    var ss=(DIM==='byProg'||DIM==='byFaculty'||DIM==='byYear');
     var head=[DIMCOL[DIM]].concat(ss?['Sessions']:[]).concat(['Applicants','Pending','Admitted','Registered','Rejected','Withdrawn','Offer%','Reg%']);
     var lines=[head.join(',')];
     var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0};

@@ -114,13 +114,15 @@ public partial class COOPERP_NewScreens_AdmissionAnalysis : System.Web.UI.Page
 
             // ── By faculty ──
             var byFaculty = new List<object>();
-            foreach (var d in Query(conn, "SELECT COALESCE(p.faculty_code,'') code, COALESCE(f.faculty_name,'(Unassigned)') name, " + StatCols + BaseJoin + wc + " GROUP BY p.faculty_code ORDER BY total DESC", ps))
-                byFaculty.Add(new { code = S(d["code"]), name = S(d["name"]), stat = Stat(d) });
+            foreach (var d in Query(conn, "SELECT COALESCE(p.faculty_code,'') code, COALESCE(f.faculty_name,'(Unassigned)') name, " +
+                "COUNT(DISTINCT NULLIF(TRIM(c.adm_session),'')) sessions, " + StatCols + BaseJoin + wc + " GROUP BY p.faculty_code ORDER BY total DESC", ps))
+                byFaculty.Add(new { code = S(d["code"]), name = S(d["name"]), sessions = L(d["sessions"]), stat = Stat(d) });
 
             // ── By entry year ──
             var byYear = new List<object>();
-            foreach (var d in Query(conn, "SELECT COALESCE(a.stud_entry_year,0) yr, " + StatCols + BaseJoin + wc + " GROUP BY a.stud_entry_year ORDER BY yr DESC", ps))
-                byYear.Add(new { name = S(d["yr"]), stat = Stat(d) });
+            foreach (var d in Query(conn, "SELECT COALESCE(a.stud_entry_year,0) yr, " +
+                "COUNT(DISTINCT NULLIF(TRIM(c.adm_session),'')) sessions, " + StatCols + BaseJoin + wc + " GROUP BY a.stud_entry_year ORDER BY yr DESC", ps))
+                byYear.Add(new { name = S(d["yr"]), sessions = L(d["sessions"]), stat = Stat(d) });
 
             // ── By session ──
             var bySession = new List<object>();
