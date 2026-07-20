@@ -1456,7 +1456,9 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
         string deleteCategory = null, string deleteExplanation = null)
     {
         // Guarantee the archive table (and delete_category column) exist before inserting.
-        EnsureDeletedTransactionsTable(conn);
+        // Best-effort — if the DB user can't run DDL the table is normally already present,
+        // so the INSERT below still succeeds; the delete must not fail on a DDL-privilege error.
+        try { EnsureDeletedTransactionsTable(conn); } catch { }
 
         // INSERT...SELECT pulls all source columns in one round-trip.
         // The row still exists in fin_studentfeestracking at this point (it is deleted afterwards).
@@ -2573,7 +2575,10 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
             {
                 conn.Open();
-                EnsureDeletedTransactionsTable(conn);
+                // Best-effort: ensure the archive table exists. On production the app DB
+                // user may lack CREATE/ALTER rights — that must NOT abort the whole delete
+                // (the table usually already exists, so archiving still works below).
+                try { EnsureDeletedTransactionsTable(conn); } catch { }
 
                 foreach (int tid in tidList)
                 {
