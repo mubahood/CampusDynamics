@@ -42,6 +42,13 @@ public sealed class AcademicDocumentPdfService
 				};
 			}
 
+			// Template 2 (list format) is fed by the combined all-semesters stored
+			// procedure. Best-effort self-heal so it works even where the SQL file was
+			// not deployed manually. CREATE-only (never DROP) so an existing, working
+			// procedure can never be destroyed by a partial-privilege database user.
+			if (normalizedDocumentType == "TranscriptList")
+				EnsureListTranscriptProc();
+
 			string diagnosticMessage = string.Empty;
 			ResultsData dataSource = BuildSelectedStudentsData(normalizedRegnos, out diagnosticMessage);
 			if (dataSource == null || dataSource.acad_GetBatchStudentTranscriptData == null || dataSource.acad_GetBatchStudentTranscriptData.Count == 0)
@@ -136,6 +143,8 @@ public sealed class AcademicDocumentPdfService
 		string value = (documentType ?? string.Empty).Trim().ToUpperInvariant();
 		if (value == "TRANSCRIPT")
 			return "Transcript";
+		if (value == "TRANSCRIPTLIST" || value == "TRANSCRIPT_LIST" || value == "TRANSCRIPTLISTPDF")
+			return "TranscriptList";
 		if (value == "CERTIFICATE")
 			return "Certificate";
 		return string.Empty;
@@ -169,6 +178,14 @@ public sealed class AcademicDocumentPdfService
 			return report;
 		}
 
+		if (documentType == "TranscriptList")
+		{
+			FinalTranscriptList report = new FinalTranscriptList();
+			report.DataSource = dataSource;
+			report.RequestParameters = false;
+			return report;
+		}
+
 		if (documentType == "Certificate")
 		{
 			Certificate report = new Certificate();
@@ -178,6 +195,55 @@ public sealed class AcademicDocumentPdfService
 		}
 
 		return null;
+	}
+
+	/// <summary>
+	/// Best-effort creation of the combined all-semesters transcript procedure used by
+	/// Template 2 (list format). Uses CREATE (not DROP+CREATE): if the routine already
+	/// exists the CREATE simply fails and is ignored, so a working procedure is never
+	/// removed. If the database user lacks CREATE ROUTINE the exception is swallowed and
+	/// the manually deployed procedure (sql/transcript/acad_GetSingleStudentTranscript_All.sql)
+	/// is relied upon instead.
+	/// </summary>
+	private static void EnsureListTranscriptProc()
+	{
+		try
+		{
+			string connStr = ConfigurationManager.ConnectionStrings["vacConnectionString"] != null
+				? ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString
+				: string.Empty;
+
+			if (string.IsNullOrEmpty(connStr))
+				return;
+
+			string createSql =
+				"CREATE PROCEDURE acad_GetSingleStudentTranscript_All(reg CHAR(30))\n" +
+				"BEGIN\n" +
+				"  DECLARE prog,sys CHAR(45);\n" +
+				"  SET prog=acad_GetProgCodeByRegNo(reg);\n" +
+				"  SELECT acad_proper_case(study_system) INTO sys FROM acad_programme WHERE progcode=prog LIMIT 1;\n" +
+				"  SELECT CONCAT(UPPER(acad_GetCourseNameByCode(courseid)),IF(COALESCE(r.is_retake,0)=1,' (RT)','')) AS coursename, sys,\n" +
+				"  r.ID, r.regno, courseid, r.semester, acad_GetResultsAcademicYear(reg,studyyear, r.semester) acad, studyyear, score, grade, gradept,\n" +
+				"  gpa, result_comment, CreditUnits, r.progid, r.study_system,\n" +
+				"  CONCAT_WS('  ',CONCAT('GPA: ',gpa),CONCAT('      CGPA: ',acad_CGPAFinder_ByPeriod(r.regno,r.studyyear, r.semester))) AS SemesterScores\n" +
+				"  FROM acad_transcript_results r JOIN acad_graduands g ON g.regno=r.regno\n" +
+				"  WHERE g.regno=reg AND trans_status='Ready'\n" +
+				"  ORDER BY r.studyyear, r.semester, r.ID;\n" +
+				"END";
+
+			using (MySqlConnection conn = new MySqlConnection(connStr))
+			{
+				conn.Open();
+				using (MySqlCommand create = new MySqlCommand(createSql, conn))
+					create.ExecuteNonQuery();
+			}
+		}
+		catch
+		{
+			// Non-fatal: routine already exists, or the user cannot create it and the
+			// manually deployed copy is used. Any real "missing procedure" failure will
+			// surface as a clear report-generation error to the caller.
+		}
 	}
 
 	private static ResultsData BuildSelectedStudentsData(IEnumerable<string> regnos, out string diagnosticMessage)
@@ -305,6 +371,38 @@ public sealed class AcademicDocumentPdfService
 					createCmd.CommandTimeout = 120;
 					createCmd.Parameters.AddWithValue("@reg", safeRegno);
 					createCmd.ExecuteNonQuery();
+				}
+
+				// 3. Completion date. Priority:
+				//    (a) An admin-entered acad_student.completion_date OVERRIDES everything (set on the
+				//        NewStudentInfo quick-edit "Academic Information" panel), OR
+				//    (b) the default = JUNE (end of June) of the FINAL semester's academic year — i.e. the
+				//        academic year of the highest study-year/semester block. (Previously this defaulted
+				//        to December; changed to June per the registrar.)
+				//    Computed on every build so the completion date stays consistent with the transcript's
+				//    own final academic year, unless an explicit override is stored.
+				using (MySqlCommand compCmd = new MySqlCommand(@"
+					UPDATE acad_graduands g
+					JOIN acad_student s ON TRIM(s.regno) = TRIM(g.regno)
+					LEFT JOIN (
+						SELECT acad
+						FROM acad_transcript_results
+						WHERE regno = @reg AND IFNULL(acad,'') NOT IN ('', '-')
+						ORDER BY studyyear DESC, semester DESC
+						LIMIT 1
+					) x ON 1=1
+					SET g.comp_date = CASE
+						WHEN s.completion_date IS NOT NULL AND s.completion_date <> '0000-00-00'
+							THEN s.completion_date
+						WHEN RIGHT(IFNULL(x.acad,''),4) REGEXP '^[0-9]{4}$'
+							THEN STR_TO_DATE(CONCAT(RIGHT(x.acad,4), '-06-30'), '%Y-%m-%d')
+						ELSE g.comp_date
+					END
+					WHERE TRIM(g.regno) = TRIM(@reg)", conn))
+				{
+					compCmd.CommandTimeout = 60;
+					compCmd.Parameters.AddWithValue("@reg", safeRegno);
+					compCmd.ExecuteNonQuery();
 				}
 			}
 		}

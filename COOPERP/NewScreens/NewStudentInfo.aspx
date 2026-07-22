@@ -1256,8 +1256,42 @@
             color: #94a3b8;
         }
         
-        /* Responsive */
+        /* ===== Responsive layer ===== */
+        /* Tablet / small laptop: keep the filter bar usable without wrapping into a tall block */
+        @media (max-width: 1024px) {
+            .cd-filters__row {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 2px;
+            }
+            .cd-filters__row::-webkit-scrollbar { height: 4px; }
+            .cd-filters__row::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+            .cd-filter-grp { flex: 0 0 auto; }
+        }
+
+        /* Tablet portrait / large phone */
         @media (max-width: 768px) {
+            .cd-page-head {
+                align-items: stretch;
+                gap: 6px;
+            }
+            .cd-page-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            .cd-page-actions .cd-btn { flex: 1 1 auto; justify-content: center; }
+            .cd-batch-menu {
+                left: 0;
+                right: 0;
+                width: auto;
+            }
+            .cd-filters__top { flex-wrap: wrap; }
+            .cd-search-wrap { max-width: none; flex: 1 1 100%; }
+            .cd-filters__count { margin-left: 0; }
+            .cd-getpager { justify-content: center; text-align: center; }
+            .cd-getpager__info { width: 100%; text-align: center; }
+
             .sp-profile-header {
                 flex-direction: column;
                 align-items: center;
@@ -1269,6 +1303,18 @@
             .sp-profile-quick-stats {
                 justify-content: center;
             }
+        }
+
+        /* Phone: collapse to single-column, trim padding to reclaim space */
+        @media (max-width: 560px) {
+            .cd-page-head { padding: 8px; }
+            .cd-page-title { font-size: 11px; }
+            .cd-filters { padding: 6px; }
+            .cd-filter-sep { display: none; }
+            .cd-page-actions { flex-wrap: wrap; }
+            .cd-page-actions .cd-btn { flex: 1 1 100%; }
+            .sp-bio-grid { grid-template-columns: 1fr; }
+            .sp-profile-quick-stats { flex-wrap: wrap; gap: 6px; }
         }
     </style>
 </asp:Content>
@@ -1447,6 +1493,7 @@
                                 <dx:GridViewColumnLayoutItem ColumnName="studsesion"></dx:GridViewColumnLayoutItem>
                                 <dx:GridViewColumnLayoutItem ColumnName="studCampus"></dx:GridViewColumnLayoutItem>
                                 <dx:GridViewColumnLayoutItem ColumnName="gradSystemID"></dx:GridViewColumnLayoutItem>
+                                <dx:GridViewColumnLayoutItem ColumnName="completion_date" ColSpan="2"></dx:GridViewColumnLayoutItem>
                             </Items>
                         </dx:GridViewLayoutGroup>
                         <dx:EditModeCommandLayoutItem ColSpan="2" HorizontalAlign="Right"></dx:EditModeCommandLayoutItem>
@@ -1681,6 +1728,11 @@
                     <dx:GridViewDataTextColumn Caption="Grading System" FieldName="gradSystemID" VisibleIndex="26" Visible="False">
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataTextColumn>
+
+                    <dx:GridViewDataDateColumn Caption="Completion Date" FieldName="completion_date" VisibleIndex="27" Visible="False">
+                        <PropertiesDateEdit NullText="Auto — June of final academic year" DisplayFormatString="dd MMM, yyyy" EditFormatString="dd MMM, yyyy" />
+                        <EditFormSettings Visible="True" />
+                    </dx:GridViewDataDateColumn>
                     
                     <dx:GridViewDataTextColumn FieldName="photofile" Visible="False" VisibleIndex="27">
                         <EditFormSettings Visible="False" />
@@ -2077,7 +2129,7 @@
                                     <dx:ContentControl runat="server">
                                         <div style="padding: 12px;">
                                             <!-- Action Bar with Print Button -->
-                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:10px 12px;background:linear-gradient(135deg, #174DA4 0%, #2980b9 100%);border-radius:6px;">
+                                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:10px 12px;background:#174DA4;border-radius:6px;">
                                                 <div style="display:flex;align-items:center;gap:16px;">
                                                     <span style="color:#fff;font-weight:600;font-size:13px;">
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
@@ -2573,6 +2625,7 @@
                     <label class="cd-form-label">Document Type</label>
                     <select id="ddlAcademicDocumentType" class="cd-form-input">
                         <option value="Transcript">Transcript (PDF)</option>
+                        <option value="TranscriptList">Transcript (List format — Template 2)</option>
                         <option value="TranscriptHTML">Transcript (Print / Save as PDF)</option>
                         <option value="Certificate">Certificate</option>
                     </select>
@@ -2681,6 +2734,29 @@
             }
             closeAllActionPopovers();
         }
+
+        // Floating success/error toast for inline-edit saves (called from the code-behind after a postback).
+        window.cdToast = function (ok, msg) {
+            var wrap = document.getElementById('cdToastWrap');
+            if (!wrap) {
+                wrap = document.createElement('div');
+                wrap.id = 'cdToastWrap';
+                wrap.style.cssText = 'position:fixed;top:16px;right:16px;z-index:2147483647;display:flex;flex-direction:column;gap:8px;max-width:360px;';
+                document.body.appendChild(wrap);
+            }
+            var t = document.createElement('div');
+            t.setAttribute('role', 'alert');
+            t.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:6px;font:600 12px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;transform:translateY(-6px);transition:opacity .18s ease,transform .18s ease;'
+                + (ok ? 'background:#0f7b3f;' : 'background:#c0392b;');
+            t.innerHTML = '<span style="font-size:14px;line-height:1.1;font-weight:800;">' + (ok ? '✓' : '!') + '</span>'
+                + '<span style="line-height:1.35;">' + String(msg).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+            wrap.appendChild(t);
+            requestAnimationFrame(function () { t.style.opacity = '1'; t.style.transform = 'translateY(0)'; });
+            setTimeout(function () {
+                t.style.opacity = '0'; t.style.transform = 'translateY(-6px)';
+                setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 240);
+            }, ok ? 4000 : 7000);
+        };
         
         // Close on scroll or resize
         window.addEventListener('scroll', closeAllActionPopovers, true);
