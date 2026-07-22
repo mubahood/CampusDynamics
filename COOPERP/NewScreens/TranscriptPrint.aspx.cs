@@ -48,7 +48,8 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
     {
         // ---- Bio ----
         string studnm = "", regno = reg, entryno = "", gender = "", nationality = "", dob = "",
-               progname = "", faculty = "", studySystem = "Semester", levelCode = "3", photofile = "";
+               progname = "", faculty = "", studySystem = "Semester", levelCode = "3", photofile = "",
+               compDateRaw = "";
         double minLoad = 0;
         using (var conn = new MySqlConnection(Conn))
         {
@@ -58,6 +59,7 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
                        s.regno, IFNULL(s.entryno,'') entryno, IFNULL(s.gender,'') gender,
                        IFNULL(s.nationality,'') nationality,
                        CASE WHEN s.dob IS NULL OR s.dob='0000-00-00' THEN '' ELSE DATE_FORMAT(s.dob,'%d %M, %Y') END dob,
+                       CASE WHEN s.completion_date IS NULL OR s.completion_date='0000-00-00' THEN '' ELSE DATE_FORMAT(s.completion_date,'%d %M, %Y') END compdate,
                        IFNULL(p.progname,'') progname, IFNULL(p.mincredit,0) minLoad,
                        IFNULL(p.study_system,'Semester') study_system, IFNULL(f.faculty_name,'') faculty,
                        IFNULL(p.levelCode,'3') levelCode, IFNULL(s.photofile,'') photofile
@@ -72,6 +74,7 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
                     if (!r.Read()) return Err("Student " + Server.HtmlEncode(reg) + " was not found.");
                     studnm = S(r["studnm"]); regno = S(r["regno"]); entryno = S(r["entryno"]);
                     gender = S(r["gender"]); nationality = S(r["nationality"]); dob = S(r["dob"]);
+                    compDateRaw = S(r["compdate"]);
                     progname = S(r["progname"]); faculty = S(r["faculty"]);
                     studySystem = S(r["study_system"]); minLoad = D(r["minLoad"]);
                     levelCode = S(r["levelCode"]); if (levelCode == "") levelCode = "3";
@@ -83,7 +86,14 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
             var sems = new List<Sem>();
             Sem cur = null;
             using (var cmd = new MySqlCommand(@"
-                SELECT COALESCE(r.studyyear,1) studyyear, r.semester, IFNULL(r.acad,'') acad,
+                SELECT COALESCE(r.studyyear,1) studyyear, r.semester,
+                       -- Block academic year = the year the student was REGISTERED for that
+                       -- study-year+semester (authoritative), falling back to the result's own
+                       -- year. Keeps the per-semester header consistent with the PDF transcript.
+                       COALESCE((SELECT MIN(rg.acad_year) FROM acad_registration rg
+                                 WHERE rg.regno=r.regno AND rg.studyyear=COALESCE(r.studyyear,1)
+                                   AND rg.semester=r.semester AND IFNULL(rg.acad_year,'') NOT IN ('','-')),
+                                IFNULL(r.acad,'')) acad,
                        TRIM(r.courseid) code,
                        CONCAT(UPPER(COALESCE(NULLIF(TRIM(c.courseName),''), acad_GetCourseNameByCode(TRIM(r.courseid)), TRIM(r.courseid))),
                               IF(COALESCE(r.is_retake,0)=1,' (RT)','')) coursename,
@@ -131,6 +141,23 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
             double cgpa = cumCu > 0 ? cumGp / cumCu : 0;
             string award = Classify(cgpa, levelCode);
 
+            // ---- Completion date ----
+            // Priority: an admin-entered acad_student.completion_date OVERRIDES; otherwise default to
+            // the END OF JUNE of the FINAL semester's academic year (e.g. "2024/2025" -> 30 June, 2025).
+            string completion = compDateRaw;
+            if (string.IsNullOrEmpty(completion) && sems.Count > 0)
+            {
+                string acad = sems[sems.Count - 1].Acad ?? "";
+                string digits = "";
+                foreach (char ch in acad) if (char.IsDigit(ch)) digits += ch;
+                if (digits.Length >= 4)
+                {
+                    int yr;
+                    if (int.TryParse(digits.Substring(digits.Length - 4), out yr) && yr > 1900 && yr < 3000)
+                        completion = new DateTime(yr, 6, 30).ToString("dd MMMM, yyyy", CultureInfo.InvariantCulture);
+                }
+            }
+
             // ---- Grades key ----
             var keys = new List<string[]>();
             try
@@ -154,7 +181,7 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
                 : ResolveUrl("~/COOPERP/StudentInfo/photos/default.png");
 
             return Render(studnm, regno, entryno, gender, nationality, dob, progname, faculty,
-                          award, cgpa, totalCu, minLoad, sems, keys, levelCode, photoUrl);
+                          award, cgpa, totalCu, minLoad, sems, keys, levelCode, photoUrl, completion);
         }
     }
 
@@ -163,7 +190,7 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
     // ===================================================================
     private string Render(string studnm, string regno, string entryno, string gender, string nationality,
         string dob, string progname, string faculty, string award, double cgpa, double totalCu, double minLoad,
-        List<Sem> sems, List<string[]> keys, string levelCode, string photoUrl)
+        List<Sem> sems, List<string[]> keys, string levelCode, string photoUrl, string completion)
     {
         var sb = new StringBuilder();
         sb.Append("<div class='tx' id='tx'>");
@@ -172,6 +199,18 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
         sb.Append("<div class='tx-photo'><img src='" + HttpUtility.HtmlAttributeEncode(photoUrl) +
                   "' alt='Student photo' onerror=\"this.onerror=null;this.src='" +
                   HttpUtility.HtmlAttributeEncode(ResolveUrl("~/COOPERP/StudentInfo/photos/default.png")) + "';\" /></div>");
+
+        // The whole document flows inside this table so its <thead> (the slim identity strip)
+        // repeats at the top of EVERY printed page — guaranteeing the student's name/reg-no
+        // appear even when results run onto page 2, 3, ...
+        sb.Append("<table class='tx-page'><thead><tr><td>");
+        sb.Append("<div class='tx-runhead'>");
+        sb.Append("<div class='tx-runhead__l'>Muteesa I Royal University &middot; Academic Transcript</div>");
+        sb.Append("<div class='tx-runhead__r'><b>" + H(studnm == "" ? regno : studnm) + "</b>" +
+                  "<span class='sep'>&middot;</span>" + H(regno) +
+                  (progname != "" ? "<span class='sep'>&middot;</span>" + H(progname) : "") + "</div>");
+        sb.Append("</div>");
+        sb.Append("</td></tr></thead><tbody><tr><td>");
 
         // Letterhead
         sb.Append("<div class='tx-head'>");
@@ -191,6 +230,7 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
         sb.Append(BioCell("NATIONALITY", nationality));
         sb.Append(BioCell("DATE OF BIRTH", dob));
         sb.Append(BioCell("CLASS OF AWARD", award));
+        sb.Append(BioCell("DATE OF COMPLETION", completion));
         sb.Append("</div>");
 
         // Award strip
@@ -249,6 +289,7 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
         sb.Append("<div class='tx-sign'><div class='tx-sign__line'></div><div class='tx-sign__name'>Dr. Musisi Fred Kamoga</div><div class='tx-sign__title'>ACADEMIC REGISTRAR</div></div>");
         sb.Append("</div>");
 
+        sb.Append("</td></tr></tbody></table>"); // close .tx-page (repeating-header wrapper)
         sb.Append("</div>"); // .tx
         return sb.ToString();
     }

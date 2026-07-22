@@ -29,8 +29,27 @@ body { font-family: Georgia, "Times New Roman", "Liberation Serif", serif; color
 
 /* Student photo — full image, never cropped (object-fit: contain), in a small fixed box */
 .tx-photo { position: absolute; top: 14mm; right: 14mm; width: 27mm; height: 34mm;
-  border: 1px solid #c9ced8; background: #f3f4f6; padding: 1px; overflow: hidden; }
+  border: 1px solid #c9ced8; background: #f3f4f6; padding: 1px; overflow: hidden; z-index: 3; }
 .tx-photo img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
+
+/* ===== Running identity header — REPEATS at the top of EVERY printed page ===== */
+/* The whole document flows inside one table so the <thead> repeats on each page
+   (display:table-header-group). This guarantees the student's identity appears at
+   the top of pages 2, 3, ... — not only page 1. */
+table.tx-page { width: 100%; border-collapse: collapse; }
+table.tx-page > thead { display: table-header-group; }
+table.tx-page > thead > tr > td,
+table.tx-page > tbody > tr > td { padding: 0; border: 0; }
+.tx-runhead { border-bottom: 1.5px solid #05275C; padding: 1px 40mm 5px 0; margin-bottom: 9px; }
+.tx-runhead__l { font-size: 8pt; font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
+  color: #05275C; line-height: 1.25; }
+.tx-runhead__r { font-size: 9.5pt; color: #14161a; line-height: 1.3; margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-runhead__r b { color: #05275C; font-weight: 700; }
+.tx-runhead .sep { color: #9aa3b2; margin: 0 6px; }
+/* Fail-safe: the strip is shown by default (so multi-page is always covered); the layout
+   engine hides it only once it has confirmed the transcript fits a single page. */
+html.tx-singlepage .tx-runhead { display: none; }
 
 /* ===== Letterhead ===== */
 .tx-head { text-align: center; border-bottom: 2px solid #05275C; padding: 0 30mm 8px; margin-bottom: 10px; }
@@ -235,6 +254,9 @@ table.kt td { font-size: 9pt; padding: 1.5px 6px; border-bottom: 1px solid #f0f2
       bestClass = densities[k];
       if (pagesNow <= 1) break;                       // fits a single page — stop tightening
     }
+    // Repeating identity strip: hide it ONLY when the transcript confirmably fits one page.
+    // (Default-visible, so a multi-page transcript — or any timing/JS hiccup — always keeps it.)
+    document.documentElement.classList.toggle("tx-singlepage", Math.ceil(tx.scrollHeight / page) <= 1);
     // Re-fit course cells once more (column width unchanged, but safe after density change)
     for (var j = 0; j < cells.length; j++) fitCourse(cells[j]);
   }
