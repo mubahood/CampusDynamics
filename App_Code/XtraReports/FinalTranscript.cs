@@ -70,6 +70,11 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     private XRLine xrLineThesisTop;
     private XRLine xrLineThesisBottom;
     private XRLine xrLine8;
+    // Running per-page identity header — repeats the student's name/regno/programme
+    // at the top of every continuation page when a transcript spans more than one page.
+    private DevExpress.XtraReports.UI.PageHeaderBand PageHeaderIdentity;
+    private XRLabel lblRunIdentity;
+    private XRLine lineRunIdentity;
 	/// <summary>
 	/// Required designer variable.
 	/// </summary>
@@ -161,6 +166,9 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrLineThesisTop = new DevExpress.XtraReports.UI.XRLine();
             this.xrLineThesisBottom = new DevExpress.XtraReports.UI.XRLine();
             this.xrLine8 = new DevExpress.XtraReports.UI.XRLine();
+            this.PageHeaderIdentity = new DevExpress.XtraReports.UI.PageHeaderBand();
+            this.lblRunIdentity = new DevExpress.XtraReports.UI.XRLabel();
+            this.lineRunIdentity = new DevExpress.XtraReports.UI.XRLine();
             ((System.ComponentModel.ISupportInitialize)(this.resultsData1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this)).BeginInit();
             // 
@@ -566,7 +574,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             // lblThesisValue — actual title text, bold italic, multiline
             //
             this.lblThesisValue.Dpi = 100F;
-            this.lblThesisValue.Font = new System.Drawing.Font("Calibri", 10F, System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic);
+            this.lblThesisValue.Font = new System.Drawing.Font("Calibri", 9F, System.Drawing.FontStyle.Bold | System.Drawing.FontStyle.Italic);
             this.lblThesisValue.LocationFloat = new DevExpress.Utils.PointFloat(5F, 23F);
             this.lblThesisValue.Multiline = true;
             this.lblThesisValue.Name = "lblThesisValue";
@@ -876,13 +884,49 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrSubreport3.ParameterBindings.Add(new DevExpress.XtraReports.UI.ParameterBinding("regn", null, "acad_GetBatchStudentTranscriptData.regno"));
             this.xrSubreport3.ReportSource = new FinalTranscript_KeytoGrades();
             this.xrSubreport3.SizeF = new System.Drawing.SizeF(754.9999F, 23F);
-            // 
+            //
+            // PageHeaderIdentity — slim running header, suppressed on each student's
+            // first page (and single-page transcripts); shown only on continuation pages.
+            //
+            this.PageHeaderIdentity.Controls.AddRange(new DevExpress.XtraReports.UI.XRControl[] {
+            this.lblRunIdentity,
+            this.lineRunIdentity});
+            this.PageHeaderIdentity.Dpi = 100F;
+            this.PageHeaderIdentity.HeightF = 28F;
+            this.PageHeaderIdentity.Name = "PageHeaderIdentity";
+            this.PageHeaderIdentity.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.PageHeaderIdentity_BeforePrint);
+            //
+            // lblRunIdentity
+            //
+            this.lblRunIdentity.Dpi = 100F;
+            this.lblRunIdentity.Font = new System.Drawing.Font("Calibri", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblRunIdentity.ForeColor = System.Drawing.Color.DarkBlue;
+            this.lblRunIdentity.LocationFloat = new DevExpress.Utils.PointFloat(5F, 6F);
+            this.lblRunIdentity.Name = "lblRunIdentity";
+            this.lblRunIdentity.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
+            this.lblRunIdentity.SizeF = new System.Drawing.SizeF(762.5F, 13F);
+            this.lblRunIdentity.StylePriority.UseFont = false;
+            this.lblRunIdentity.StylePriority.UseForeColor = false;
+            this.lblRunIdentity.StylePriority.UseTextAlignment = false;
+            this.lblRunIdentity.Text = "";
+            this.lblRunIdentity.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleLeft;
+            //
+            // lineRunIdentity
+            //
+            this.lineRunIdentity.Dpi = 100F;
+            this.lineRunIdentity.ForeColor = System.Drawing.Color.DarkBlue;
+            this.lineRunIdentity.LocationFloat = new DevExpress.Utils.PointFloat(5F, 22F);
+            this.lineRunIdentity.Name = "lineRunIdentity";
+            this.lineRunIdentity.SizeF = new System.Drawing.SizeF(762.5F, 2.083328F);
+            this.lineRunIdentity.StylePriority.UseForeColor = false;
+            //
             // FinalTranscript
-            // 
+            //
             this.Bands.AddRange(new DevExpress.XtraReports.UI.Band[] {
             this.Detail,
             this.TopMargin,
             this.BottomMargin,
+            this.PageHeaderIdentity,
             this.GroupHeader1,
             this.GroupFooter1,
             this.PageFooter,
@@ -1063,5 +1107,44 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
         // GroupHeader1 has a compact static height; subreports expand the band
         // as needed to show all semester results.  The thesis section is in GroupFooter1.
         GroupHeader1.HeightF = 224F;
+    }
+
+    // ── Running per-page identity header ─────────────────────────────────────
+    // The full letterhead (name, regno, programme, photo, QR) lives in GroupHeader1
+    // and — because the semester results render inside subreports *within* that
+    // band — it only prints once, at the top of a student's first page. When a
+    // transcript overflows onto further pages, those pages would otherwise carry
+    // no identity. This PageHeader band reprints a slim "name · regno · programme"
+    // strip on every continuation page, so each page bears the student's basic info.
+    //
+    // It is suppressed on each student's FIRST page (and therefore on single-page
+    // transcripts), detected by a change in regno from the previous physical page.
+    // Because each student starts on a fresh page (GroupHeader1.PageBreak.BeforeBand),
+    // a page whose regno equals the previous page's regno must be a continuation page.
+    private string _phPrevRegno = null;
+
+    private void PageHeaderIdentity_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        string reg = GetThesisColumnSafe("regno");
+        bool continuation = reg.Length > 0
+            && _phPrevRegno != null
+            && string.Equals(_phPrevRegno, reg, StringComparison.OrdinalIgnoreCase);
+        _phPrevRegno = reg;
+
+        if (!continuation)
+        {
+            // First page of this student (or single-page transcript): no running header.
+            e.Cancel = true;
+            return;
+        }
+
+        string name = GetThesisColumnSafe("studnm");
+        string prog = GetThesisColumnSafe("prog");
+        string who = name.Length > 0 ? name : reg;
+
+        string txt = "MUTEESA I ROYAL UNIVERSITY  •  ACADEMIC TRANSCRIPT      "
+                   + who + "  •  " + reg;
+        if (prog.Length > 0) txt += "  •  " + prog;
+        lblRunIdentity.Text = txt;
     }
 }
