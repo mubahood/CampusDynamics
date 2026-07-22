@@ -75,6 +75,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     private DevExpress.XtraReports.UI.PageHeaderBand PageHeaderIdentity;
     private XRLabel lblRunIdentity;
     private XRLine lineRunIdentity;
+    private XRPageInfo pgInfoRun;   // "Page X of Y" on continuation pages (running header)
+    private XRPageInfo pgInfoHead;  // "Page X of Y" on each student's first page (letterhead)
 	/// <summary>
 	/// Required designer variable.
 	/// </summary>
@@ -169,6 +171,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.PageHeaderIdentity = new DevExpress.XtraReports.UI.PageHeaderBand();
             this.lblRunIdentity = new DevExpress.XtraReports.UI.XRLabel();
             this.lineRunIdentity = new DevExpress.XtraReports.UI.XRLine();
+            this.pgInfoRun = new DevExpress.XtraReports.UI.XRPageInfo();
+            this.pgInfoHead = new DevExpress.XtraReports.UI.XRPageInfo();
             ((System.ComponentModel.ISupportInitialize)(this.resultsData1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this)).BeginInit();
             // 
@@ -227,7 +231,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.xrLabel5,
             this.xrLabel4,
             this.xrLabel3,
-            this.xrPictureBox1});
+            this.xrPictureBox1,
+            this.pgInfoHead});
             this.GroupHeader1.Dpi = 100F;
             this.GroupHeader1.GroupFields.AddRange(new DevExpress.XtraReports.UI.GroupField[] {
             new DevExpress.XtraReports.UI.GroupField("regno", DevExpress.XtraReports.UI.XRColumnSortOrder.Ascending)});
@@ -890,6 +895,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             //
             this.PageHeaderIdentity.Controls.AddRange(new DevExpress.XtraReports.UI.XRControl[] {
             this.lblRunIdentity,
+            this.pgInfoRun,
             this.lineRunIdentity});
             this.PageHeaderIdentity.Dpi = 100F;
             this.PageHeaderIdentity.HeightF = 28F;
@@ -904,7 +910,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.lblRunIdentity.LocationFloat = new DevExpress.Utils.PointFloat(5F, 6F);
             this.lblRunIdentity.Name = "lblRunIdentity";
             this.lblRunIdentity.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.lblRunIdentity.SizeF = new System.Drawing.SizeF(762.5F, 13F);
+            this.lblRunIdentity.SizeF = new System.Drawing.SizeF(660F, 13F);
             this.lblRunIdentity.StylePriority.UseFont = false;
             this.lblRunIdentity.StylePriority.UseForeColor = false;
             this.lblRunIdentity.StylePriority.UseTextAlignment = false;
@@ -919,6 +925,40 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.lineRunIdentity.Name = "lineRunIdentity";
             this.lineRunIdentity.SizeF = new System.Drawing.SizeF(762.5F, 2.083328F);
             this.lineRunIdentity.StylePriority.UseForeColor = false;
+            //
+            // pgInfoRun — "Page X of Y" on continuation pages (right of the running identity)
+            //
+            this.pgInfoRun.Dpi = 100F;
+            this.pgInfoRun.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
+            this.pgInfoRun.ForeColor = System.Drawing.Color.DarkBlue;
+            this.pgInfoRun.Format = "Page {0} of {1}";
+            this.pgInfoRun.LocationFloat = new DevExpress.Utils.PointFloat(672.5F, 6F);
+            this.pgInfoRun.Name = "pgInfoRun";
+            this.pgInfoRun.PageInfo = DevExpress.XtraPrinting.PageInfo.NumberOfTotal;
+            this.pgInfoRun.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
+            this.pgInfoRun.SizeF = new System.Drawing.SizeF(95F, 13F);
+            this.pgInfoRun.StylePriority.UseFont = false;
+            this.pgInfoRun.StylePriority.UseForeColor = false;
+            this.pgInfoRun.StylePriority.UseTextAlignment = false;
+            this.pgInfoRun.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleRight;
+            this.pgInfoRun.PrintOnPage += new DevExpress.XtraReports.UI.PrintOnPageEventHandler(this.PageOfTotal_PrintOnPage);
+            //
+            // pgInfoHead — "Page X of Y" on each student's first page (letterhead top-right)
+            //
+            this.pgInfoHead.Dpi = 100F;
+            this.pgInfoHead.Font = new System.Drawing.Font("Calibri", 7.5F, System.Drawing.FontStyle.Bold);
+            this.pgInfoHead.ForeColor = System.Drawing.Color.DarkBlue;
+            this.pgInfoHead.Format = "Page {0} of {1}";
+            this.pgInfoHead.LocationFloat = new DevExpress.Utils.PointFloat(628F, 6F);
+            this.pgInfoHead.Name = "pgInfoHead";
+            this.pgInfoHead.PageInfo = DevExpress.XtraPrinting.PageInfo.NumberOfTotal;
+            this.pgInfoHead.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
+            this.pgInfoHead.SizeF = new System.Drawing.SizeF(137F, 10F);
+            this.pgInfoHead.StylePriority.UseFont = false;
+            this.pgInfoHead.StylePriority.UseForeColor = false;
+            this.pgInfoHead.StylePriority.UseTextAlignment = false;
+            this.pgInfoHead.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleRight;
+            this.pgInfoHead.PrintOnPage += new DevExpress.XtraReports.UI.PrintOnPageEventHandler(this.PageOfTotal_PrintOnPage);
             //
             // FinalTranscript
             //
@@ -1146,5 +1186,15 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
                    + who + "  •  " + reg;
         if (prog.Length > 0) txt += "  •  " + prog;
         lblRunIdentity.Text = txt;
+    }
+
+    // "Page X of Y" is only meaningful when the document spans more than one page.
+    // PrintOnPage fires during final composition when the total page count is known,
+    // so we hide the counter whenever the document is a single page. (For a single
+    // student's transcript — the usual case — this is exactly the per-student count.)
+    private void PageOfTotal_PrintOnPage(object sender, DevExpress.XtraReports.UI.PrintOnPageEventArgs e)
+    {
+        XRControl ctl = sender as XRControl;
+        if (ctl != null) ctl.Visible = e.PageCount > 1;
     }
 }
