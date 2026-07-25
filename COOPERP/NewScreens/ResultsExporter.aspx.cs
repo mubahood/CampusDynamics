@@ -487,15 +487,21 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
             List<object> years = new List<object>(); List<object> faculties = new List<object>();
             List<object> departments = new List<object>();
             List<object> programmes = new List<object>(); string currentYear = "";
+            HashSet<string> yearSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             string pf = scope.ProgFilter("p", "progcode");
 
             using (MySqlConnection conn = new MySqlConnection(Conn()))
             {
                 conn.Open();
+                // Years present in EITHER published results or the staged pipeline, so the
+                // current academic year is selectable even before it has published results.
                 using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT DISTINCT acad FROM acad_results WHERE acad REGEXP '^[0-9]{4}/[0-9]{4}$' ORDER BY acad DESC", conn))
+                    "SELECT acad FROM ( " +
+                    "  SELECT DISTINCT acad FROM acad_results WHERE acad REGEXP '^[0-9]{4}/[0-9]{4}$' " +
+                    "  UNION SELECT DISTINCT acad_year FROM campus_dynamics_portal.acad_course_registration WHERE acad_year REGEXP '^[0-9]{4}/[0-9]{4}$' " +
+                    ") t ORDER BY acad DESC", conn))
                 using (MySqlDataReader r = cmd.ExecuteReader())
-                    while (r.Read()) { string v = RS(r, 0); if (v != "") years.Add(new { value = v, text = v }); }
+                    while (r.Read()) { string v = RS(r, 0); if (v != "" && yearSet.Add(v)) years.Add(new { value = v, text = v }); }
 
                 using (MySqlCommand cmd = new MySqlCommand(
                     "SELECT TRIM(f.faculty_code) fc, f.faculty_name FROM acad_faculty f " +
@@ -518,10 +524,19 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
                 using (MySqlDataReader r = cmd.ExecuteReader())
                     while (r.Read()) { string v = RS(r, 0); if (v != "") programmes.Add(new { value = v, text = RS(r, 1), faculty = RS(r, 2), department = RS(r, 3) }); }
 
-                using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT acad FROM acad_results WHERE acad REGEXP '^[0-9]{4}/[0-9]{4}$' GROUP BY acad ORDER BY COUNT(*) DESC LIMIT 1", conn))
-                { object o = cmd.ExecuteScalar(); if (o != null && o != DBNull.Value) currentYear = Convert.ToString(o); }
+                // Default = the institution's authoritative current academic year
+                // (acad_acadyears.is_current_year='Yes'); fall back to the most-populated year.
+                try { currentYear = AcademicYearHelper.GetCurrentAcademicYear(); } catch { currentYear = ""; }
+                if (string.IsNullOrEmpty(currentYear))
+                    using (MySqlCommand cmd = new MySqlCommand(
+                        "SELECT acad FROM acad_results WHERE acad REGEXP '^[0-9]{4}/[0-9]{4}$' GROUP BY acad ORDER BY COUNT(*) DESC LIMIT 1", conn))
+                    { object o = cmd.ExecuteScalar(); if (o != null && o != DBNull.Value) currentYear = Convert.ToString(o); }
             }
+
+            // Make sure the current year is an available option even if it has no data yet.
+            currentYear = (currentYear ?? "").Trim();
+            if (currentYear != "" && AcademicYearHelper.IsValidFormat(currentYear) && yearSet.Add(currentYear))
+                years.Insert(0, new { value = currentYear, text = currentYear });
             return Json.Serialize(new
             {
                 success = true, hasAccess = true, scopeLabel = scope.Label, roleNote = scope.RoleNote,
