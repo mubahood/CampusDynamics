@@ -493,17 +493,30 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                 MySqlTransaction tx = conn.BeginTransaction();
                 try
                 {
-                    // Delete semester enrolment
-                    using (MySqlCommand d1 = new MySqlCommand(
-                        "DELETE FROM acad_student_semester WHERE regno = @r", conn, tx))
-                    { d1.Parameters.AddWithValue("@r", regno); d1.ExecuteNonQuery(); }
+                    // Clean up related rows in the current database, but ONLY for tables that
+                    // actually exist — acad_student_semester / acad_student_programme are not
+                    // present in this schema and previously crashed the whole delete
+                    // ("Table 'campus_dynamics.acad_student_semester' doesn't exist").
+                    // acad_registration is included so a deleted student leaves no orphaned
+                    // semester-registration row (the fee guard above already blocks deleting
+                    // any student who has been billed).
+                    foreach (string tbl in new string[] {
+                        "acad_registration", "acad_student_semester", "acad_student_programme", "acad_student_cards" })
+                    {
+                        bool tableExists;
+                        using (MySqlCommand ck = new MySqlCommand(
+                            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@t", conn, tx))
+                        {
+                            ck.Parameters.AddWithValue("@t", tbl);
+                            tableExists = Convert.ToInt64(ck.ExecuteScalar()) > 0;
+                        }
+                        if (!tableExists) continue;
 
-                    // Delete programme enrolment
-                    using (MySqlCommand d2 = new MySqlCommand(
-                        "DELETE FROM acad_student_programme WHERE regno = @r", conn, tx))
-                    { d2.Parameters.AddWithValue("@r", regno); d2.ExecuteNonQuery(); }
+                        using (MySqlCommand dd = new MySqlCommand("DELETE FROM " + tbl + " WHERE regno = @r", conn, tx))
+                        { dd.Parameters.AddWithValue("@r", regno); dd.ExecuteNonQuery(); }
+                    }
 
-                    // Delete core student record
+                    // Delete core student record (mandatory)
                     using (MySqlCommand d3 = new MySqlCommand(
                         "DELETE FROM acad_student WHERE regno = @r", conn, tx))
                     { d3.Parameters.AddWithValue("@r", regno); d3.ExecuteNonQuery(); }
