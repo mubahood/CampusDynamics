@@ -475,9 +475,13 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
             {
                 conn.Open();
 
-                // Safety check: block delete if the student has any financial transactions
+                // Safety check: block delete if the student has any financial transactions.
+                // fin_studentfeestracking lives in campus_dynamics_accounts, so it MUST be
+                // schema-qualified — on the campus_dynamics connection an unqualified name
+                // resolves to campus_dynamics.fin_studentfeestracking, which does not exist
+                // ("Table 'campus_dynamics.fin_studentfeestracking' doesn't exist").
                 using (MySqlCommand chk = new MySqlCommand(
-                    "SELECT COUNT(*) FROM fin_studentfeestracking WHERE regno = @r", conn))
+                    "SELECT COUNT(*) FROM campus_dynamics_accounts.fin_studentfeestracking WHERE TRIM(regno) = TRIM(@r)", conn))
                 {
                     chk.Parameters.AddWithValue("@r", regno);
                     long txCount = Convert.ToInt64(chk.ExecuteScalar());
