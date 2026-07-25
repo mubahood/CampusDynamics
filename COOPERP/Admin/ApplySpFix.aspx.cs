@@ -63,15 +63,9 @@ BEGIN
     FROM acad_applications
     WHERE stud_entry_no = eno;
 
-    INSERT IGNORE INTO acad_registration(
-        regno, acad_year, semester, regstatus, studyyear,
-        id_cardStatus, residence_status, reg_CardStatus,
-        examClearance, clearedBy, registeredBy
-    )
-    VALUES(
-        eno, CONCAT(eyr, '/', eyr + 1), 1, 'UNREGISTERED', 1,
-        '-', '-', '-', 'UNCLEARED', '-', usr
-    );
+    /* Semester registration is NO LONGER auto-created here. Students self-register
+       per semester via the eportal wizard (sets regstatus='REGISTERED' and bills).
+       The old 'UNREGISTERED' placeholder previously blocked self-registration. */
 
     INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date)
     VALUES(usr, 'Applicant Registration', CONCAT('prog: ', prog, ' Reg No: ', new_no), 'Registered Applicant', NOW());
