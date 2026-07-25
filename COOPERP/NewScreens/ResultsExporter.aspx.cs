@@ -415,7 +415,10 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
     //   • nothing narrowed             → performance per FACULTY
     //  Always computed on the fly against the selected source.
     // ================================================================
-    private static object BuildBreakdown(MySqlConnection conn, Cfg c, MarksScope scope)
+    // Serialised to JSON for the preview AND reused verbatim in every export path.
+    public class Breakdown { public string level; public string title; public string[] columns; public List<string[]> rows; }
+
+    private static Breakdown BuildBreakdown(MySqlConnection conn, Cfg c, MarksScope scope)
     {
         Dictionary<string, object> p = new Dictionary<string, object>();
         string where = BuildWhere(c, scope, p);
@@ -464,7 +467,9 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
             }
         }
         catch { }
-        return new { level = level, title = title, columns = cols, rows = rows };
+        Breakdown bd = new Breakdown();
+        bd.level = level; bd.title = title; bd.columns = cols; bd.rows = rows;
+        return bd;
     }
 
     // ================================================================
@@ -564,11 +569,12 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
             MarksScope scope = MarksScopeResolver.Resolve();
             if (!scope.HasAccess) return Json.Serialize(new { success = false, message = "No access." });
             Cfg c = Parse(configJson);
-            Stats stats; Grid g;
+            Stats stats; Grid g; Breakdown bd;
             using (MySqlConnection conn = new MySqlConnection(Conn()))
             {
                 conn.Open();
                 stats = BuildStats(conn, c, scope);
+                bd = BuildBreakdown(conn, c, scope);
                 g = BuildGrid(conn, c, scope, 3000);   // print cap
                 ApplyHidden(g, c.hidden);
             }
@@ -580,7 +586,9 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
             h.Append(".hd{text-align:center;border-bottom:2px solid #05275C;padding-bottom:6px;margin-bottom:8px}");
             h.Append(".hd .u{font-size:16px;font-weight:700;color:#05275C}.hd .t{font-size:12px;font-weight:700;color:#174DA4}.hd .s{font-size:9px;color:#555}");
             h.Append(".kpis{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}.kpi{border:1px solid #e0e5ed;padding:6px 10px;min-width:90px}.kpi b{display:block;font-size:15px;color:#05275C}.kpi span{font-size:8px;text-transform:uppercase;color:#888}");
-            h.Append("table{width:100%;border-collapse:collapse;font-size:9px}th{background:#05275C;color:#fff;padding:4px 6px;text-align:left}td{padding:3px 6px;border-bottom:1px solid #eef0f4}tr:nth-child(even) td{background:#f7f9fc}");
+            h.Append("table{width:100%;border-collapse:collapse;font-size:9px;margin-bottom:6px}th{background:#05275C;color:#fff;padding:4px 6px;text-align:left}td{padding:3px 6px;border-bottom:1px solid #eef0f4}tr:nth-child(even) td{background:#f7f9fc}");
+            h.Append(".bkt{font-size:11px;font-weight:700;color:#05275C;margin:14px 0 5px;border-bottom:1.5px solid #05275C;padding-bottom:3px}");
+            h.Append("table.bk{page-break-inside:auto}");
             h.Append("@media print{.pb{display:none}}");
             h.Append("</style></head><body>");
             h.Append("<div class='pb'><span>Results Export Centre — ").Append(HtmlEsc(ModeLabel(c.mode))).Append("</span><button onclick='window.print()'>Print / Save PDF</button></div>");
@@ -594,6 +602,22 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
             h.Append("<div class='kpi'><b>").Append(Num(stats.meanScore, 1)).Append("</b><span>Mean Score</span></div>");
             h.Append("<div class='kpi'><b>").Append(Num(stats.passRate, 1)).Append("%</b><span>Pass Rate</span></div>");
             h.Append("<div class='kpi'><b>").Append(Num(stats.meanGp, 2)).Append("</b><span>Mean GP</span></div></div>");
+            // Contextual performance breakdown (per faculty / programme / course unit)
+            if (bd != null && bd.columns != null && bd.rows != null && bd.rows.Count > 0)
+            {
+                h.Append("<div class='bkt'>").Append(HtmlEsc(bd.title)).Append("</div>");
+                h.Append("<table class='bk'><thead><tr>");
+                foreach (string col in bd.columns) h.Append("<th>").Append(HtmlEsc(col)).Append("</th>");
+                h.Append("</tr></thead><tbody>");
+                foreach (string[] row in bd.rows)
+                {
+                    h.Append("<tr>");
+                    foreach (string v in row) h.Append("<td>").Append(HtmlEsc(v)).Append("</td>");
+                    h.Append("</tr>");
+                }
+                h.Append("</tbody></table>");
+            }
+            h.Append("<div class='bkt'>").Append(HtmlEsc(ModeLabel(c.mode))).Append("</div>");
             h.Append("<table><thead><tr>");
             foreach (string col in g.Cols) h.Append("<th>").Append(HtmlEsc(col)).Append("</th>");
             h.Append("</tr></thead><tbody>");
@@ -621,18 +645,19 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
         MarksScope scope = MarksScopeResolver.Resolve();
         if (!scope.HasAccess) { ShowError("You do not have access to results data."); return; }
         Cfg c = Parse(configJson);
-        Grid g; Stats stats;
+        Grid g; Stats stats; Breakdown bd;
         using (MySqlConnection conn = new MySqlConnection(Conn()))
         {
             conn.Open();
             stats = BuildStats(conn, c, scope);
+            bd = BuildBreakdown(conn, c, scope);   // same contextual breakdown shown in the preview
             g = BuildGrid(conn, c, scope, 0);   // 0 = all rows in scope
             ApplyHidden(g, c.hidden);
             LogExport(conn, c, g.Total, action);
         }
         string baseName = "Results_" + c.mode + "_" + DateTime.Now.ToString("yyyyMMdd_HHmm");
-        if (action == "csv") StreamCsv(g, baseName);
-        else StreamXlsx(g, stats, c, scope, baseName);
+        if (action == "csv") StreamCsv(g, bd, baseName);
+        else StreamXlsx(g, stats, bd, c, scope, baseName);
     }
 
     // Traceability: record every external-representation export.
@@ -662,7 +687,7 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
         catch { /* never let logging break an export */ }
     }
 
-    private void StreamCsv(Grid g, string fileName)
+    private void StreamCsv(Grid g, Breakdown bd, string fileName)
     {
         StringBuilder sb = new StringBuilder(1024 * 64);
         List<string> hs = new List<string>();
@@ -673,6 +698,21 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
             List<string> vs = new List<string>();
             foreach (string v in row) vs.Add(CsvEsc(v));
             sb.AppendLine(string.Join(",", vs.ToArray()));
+        }
+        // Contextual performance breakdown appended as a second labelled section.
+        if (bd != null && bd.columns != null && bd.rows != null && bd.rows.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine(CsvEsc(bd.title));
+            List<string> bh = new List<string>();
+            foreach (string h in bd.columns) bh.Add(CsvEsc(h));
+            sb.AppendLine(string.Join(",", bh.ToArray()));
+            foreach (string[] row in bd.rows)
+            {
+                List<string> vs = new List<string>();
+                foreach (string v in row) vs.Add(CsvEsc(v));
+                sb.AppendLine(string.Join(",", vs.ToArray()));
+            }
         }
         Response.Clear();
         Response.ContentType = "text/csv";
@@ -686,7 +726,7 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
     }
 
     // Multi-sheet SpreadsheetML (Cover + Data), branded, no external deps.
-    private void StreamXlsx(Grid g, Stats stats, Cfg c, MarksScope scope, string fileName)
+    private void StreamXlsx(Grid g, Stats stats, Breakdown bd, Cfg c, MarksScope scope, string fileName)
     {
         StringBuilder sb = new StringBuilder(1024 * 128);
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
@@ -736,6 +776,31 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
         Row(sb, "sLbl", "Top Performers (by GPA, selected scope)");
         if (stats.topPerformers != null) foreach (Perf pf in stats.topPerformers) Kv(sb, pf.regno + " · " + pf.name, Num(pf.gpa, 2));
         sb.AppendLine("</Table></Worksheet>");
+
+        // ---- Performance breakdown sheet (per faculty / programme / course unit) ----
+        if (bd != null && bd.columns != null && bd.rows != null && bd.rows.Count > 0)
+        {
+            sb.AppendLine("<Worksheet ss:Name=\"Performance\"><Table>");
+            Row(sb, "sTitle", "Muteesa I Royal University");
+            Row(sb, "sSub", (bd.title ?? "Performance breakdown") + "  ·  " + SourceLabel(c.source));
+            Row(sb, "sSub", "Scope: " + (scope.Label ?? "") + "  ·  Generated: " + DateTime.Now.ToString("ddd, dd MMM yyyy HH:mm"));
+            Blank(sb);
+            sb.Append("<Row>");
+            foreach (string h in bd.columns) sb.Append("<Cell ss:StyleID=\"sHdr\"><Data ss:Type=\"String\">").Append(XmlEsc(h)).Append("</Data></Cell>");
+            sb.AppendLine("</Row>");
+            foreach (string[] row in bd.rows)
+            {
+                sb.Append("<Row>");
+                foreach (string v in row)
+                {
+                    bool num = IsNumeric(v);
+                    sb.Append("<Cell ss:StyleID=\"sCell\"><Data ss:Type=\"").Append(num ? "Number" : "String").Append("\">")
+                      .Append(XmlEsc(num ? v : SafeCell(v))).Append("</Data></Cell>");
+                }
+                sb.AppendLine("</Row>");
+            }
+            sb.AppendLine("</Table></Worksheet>");
+        }
 
         // ---- Data sheet ----
         sb.AppendLine("<Worksheet ss:Name=\"Data\"><Table>");
