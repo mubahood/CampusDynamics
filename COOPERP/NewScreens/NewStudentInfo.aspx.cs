@@ -1441,8 +1441,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         System.Drawing.Font italicFont = new System.Drawing.Font("Tahoma", 7, System.Drawing.FontStyle.Italic);
         System.Drawing.Font summaryFont = new System.Drawing.Font("Tahoma", 8, System.Drawing.FontStyle.Bold);
         
-        // Page width for content area - slightly increased for better margin balance
-        float pageWidth = 555;
+        // Actual printable width (page minus margins) so the table fills the whole page
+        // instead of the old fixed 555. Columns below are scaled by 'sc' to fill it.
+        float pageWidth = gr.ClientPageSize.Width;
+        if (pageWidth < 50) pageWidth = 555; // safety fallback
+        float sc = pageWidth / 555f;
         float y = 0;
         
         // Categorize students. Basis = authoritative cumulative CGPA when available,
@@ -1518,12 +1521,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         // ========== COLUMN WIDTHS - FULL PAGE WIDTH (555) ==========
         // Columns: #, REG NO, STUDENT NAME, GENDER, CGPA, STATUS, REASON
-        float numWidth = 22;
-        float regNoWidth = 125;
-        float nameWidth = 140;
-        float genderWidth = 42;
-        float cgpaWidth = 66;   // shows "Sem / Cum" GPA pair
-        float statusWidth = 48;
+        float numWidth = 22 * sc;
+        float regNoWidth = 125 * sc;
+        float nameWidth = 140 * sc;
+        float genderWidth = 42 * sc;
+        float cgpaWidth = 66 * sc;   // shows "Sem / Cum" GPA pair
+        float statusWidth = 48 * sc;
         float reasonWidth = pageWidth - numWidth - regNoWidth - nameWidth - genderWidth - cgpaWidth - statusWidth;
         float rowHeight = 20;
         
@@ -2238,7 +2241,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 System.Drawing.Color lineColor = System.Drawing.Color.FromArgb(23, 77, 164);
                 
                 float y = 0;
-                float pageWidth = 822; // A4 landscape (842) minus margins (20)
+                // Use the ACTUAL printable width (page minus margins, in DevExpress document
+                // units) so the content fills the whole landscape page instead of the old
+                // hardcoded 822 (which assumed point units and left ~30% blank on the right).
+                float pageWidth = gr.ClientPageSize.Width;
+                if (pageWidth < 50) pageWidth = 822; // safety fallback
                 float logoWidth = 120;
                 float logoHeight = 40;
                 
