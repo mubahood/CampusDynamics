@@ -422,6 +422,12 @@ form, #form1 {
    ============================================ */
 .cd-main {
     flex: 1;
+    /* Flex item in the row-flex .cd-app: default min-width:auto refuses to shrink
+       below the content's intrinsic width, so wide content (grids, chart canvases,
+       tables) pushed .cd-main past the viewport and the root's overflow-x:hidden
+       clipped it off on the right. min-width:0 lets it shrink to the available
+       width; children then scroll/wrap inside their own boxes. */
+    min-width: 0;
     margin-left: var(--cd-sidebar-width);
     margin-top: 0;
     margin-right: 0;
@@ -683,6 +689,7 @@ form, #form1 {
 /* Content */
 .cd-content {
     flex: 1;
+    min-width: 0;
     padding: var(--cd-spacing-lg);
     background: var(--cd-bg);
 }

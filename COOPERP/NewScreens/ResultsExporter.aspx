@@ -12,7 +12,7 @@
        then push the whole column past the viewport (content cut off on the right
        until zoomed out). Allowing every flex/grid child to shrink to zero fixes
        it. Scoped to this page (inline <style> loads only here). */
-    .cd-content { min-width:0 !important; }
+    .cd-main, .cd-content { min-width:0 !important; }   /* also fixed globally in sidebar.css */
     .re-wrap *, .re-wrap { box-sizing:border-box; }
     .re-stats, .re-charts, .re-perf { min-width:0; }
     .re-stats > *, .re-charts > *, .re-perf > *, .re-card { min-width:0; }
@@ -41,12 +41,12 @@
     .re-seg button.on { background:#05275C; color:#fff; }
     .re-seglbl { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:#888; margin-right:6px; }
 
-    .re-stats { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:12px; }
+    .re-stats { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin-top:12px; }
     .re-kpi { background:#fff; border:1px solid #e0e5ed; border-left:3px solid #174DA4; padding:10px 12px; }
     .re-kpi b { display:block; font-size:19px; font-weight:700; color:#05275C; line-height:1; }
     .re-kpi span { font-size:9px; text-transform:uppercase; letter-spacing:.3px; color:#888; margin-top:4px; display:block; }
 
-    .re-charts { display:grid; grid-template-columns:1fr 1fr 1.1fr; gap:12px; margin-top:12px; }
+    .re-charts { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.1fr); gap:12px; margin-top:12px; }
 
     /* Staged marks-submission pipeline */
     .re-pipe { display:flex; flex-direction:column; gap:7px; }
@@ -60,7 +60,7 @@
     .re-stage__n { font-size:10px; font-weight:700; color:#1a1a2e; text-align:right; }
 
     /* Top / lowest performers */
-    .re-perf { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; }
+    .re-perf { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; margin-top:12px; }
     .re-plist { list-style:none; margin:0; padding:0; }
     .re-plist li { display:grid; grid-template-columns:20px 1fr auto; gap:8px; align-items:center; padding:4px 2px; border-bottom:1px solid #f0f2f6; font-size:10px; }
     .re-plist li:last-child { border-bottom:0; }
@@ -111,17 +111,17 @@
     .md-spinner { width:42px; height:42px; border:4px solid #e6ebf2; border-top-color:#05275C; border-radius:50%; animation:respin .75s linear infinite; margin:0 auto; }
     .md-loader__t { font-size:12px; color:#05275C; font-weight:600; margin-top:12px; text-align:center; }
     @keyframes respin { to { transform:rotate(360deg); } }
-    @media (max-width:1100px){ .re-stats{grid-template-columns:repeat(3,1fr);} .re-charts{grid-template-columns:1fr;} .re-perf{grid-template-columns:1fr;} }
+    @media (max-width:1100px){ .re-stats{grid-template-columns:repeat(3,minmax(0,1fr));} .re-charts{grid-template-columns:minmax(0,1fr);} .re-perf{grid-template-columns:minmax(0,1fr);} }
     @media (max-width:640px){
         .re-wrap{padding:8px;}
-        .re-stats{grid-template-columns:repeat(2,1fr);gap:6px;}
+        .re-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
         .re-kpi{padding:8px 9px;} .re-kpi b{font-size:16px;}
         .re-hd{padding:10px 12px;} .re-hd__s{display:none;}
         .re-fld{flex:1 1 46%;}
         .re-cfg{gap:8px;} .re-seg{flex-wrap:wrap;}
         .re-actions{flex-wrap:wrap;} .re-total{margin-left:0;width:100%;}
     }
-    @media (max-width:400px){ .re-stats{grid-template-columns:1fr 1fr;} .re-fld{flex:1 1 100%;} }
+    @media (max-width:400px){ .re-stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr);} .re-fld{flex:1 1 100%;} }
 </style>
 </asp:Content>
 
@@ -325,11 +325,28 @@ function renderStats(s){
 
     var clabels=(s.classes||[]).map(function(x){return x.name;});
     var cdata=(s.classes||[]).map(function(x){return Number(x.count)||0;});
+    var ctotal=cdata.reduce(function(a,b){return a+b;},0)||1;
     var ccolors=['#16a34a','#174DA4','#2f6fbf','#d97706','#dc3545'];
     if(classChart) classChart.destroy();
     classChart=new Chart(qs('chClass').getContext('2d'),{ type:'doughnut',
         data:{ labels:clabels, datasets:[{ data:cdata, backgroundColor:ccolors }] },
-        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:12}}} } });
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{
+            legend:{ position:'right', labels:{ font:{size:10}, boxWidth:12, padding:8,
+                // doughnut has no axis, so surface each slice's COUNT right in the legend
+                generateLabels:function(chart){
+                    var d=chart.data; if(!d.labels.length||!d.datasets.length) return [];
+                    var ds=d.datasets[0];
+                    return d.labels.map(function(label,i){
+                        var v=Number(ds.data[i])||0;
+                        return { text:label+'  ('+nfmt(v)+')', fillStyle:ds.backgroundColor[i],
+                            strokeStyle:'#fff', lineWidth:1, hidden:!chart.getDataVisibility(i), index:i };
+                    });
+                }
+            }},
+            tooltip:{ callbacks:{ label:function(ctx){
+                var v=Number(ctx.parsed)||0; return ' '+ctx.label+': '+nfmt(v)+' ('+(v*100/ctotal).toFixed(1)+'%)';
+            }}}
+        } } });
 }
 function visible(i){ return !hiddenSet[i]; }
 function renderTable(){
