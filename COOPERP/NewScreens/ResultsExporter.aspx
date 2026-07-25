@@ -3,7 +3,23 @@
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <style type="text/css">
-    .re-wrap { padding:12px; color:#1a1a2e; }
+    .re-wrap { padding:12px; color:#1a1a2e; min-width:0; max-width:100%; box-sizing:border-box; }
+
+    /* ── Horizontal-overflow fix ──────────────────────────────────────────────
+       The master's content column is `.cd-content{flex:1}` with the default
+       min-width:auto, so it refuses to shrink below its content's intrinsic
+       width — Chart.js canvases (which carry a pixel width) and grid children
+       then push the whole column past the viewport (content cut off on the right
+       until zoomed out). Allowing every flex/grid child to shrink to zero fixes
+       it. Scoped to this page (inline <style> loads only here). */
+    .cd-content { min-width:0 !important; }
+    .re-wrap *, .re-wrap { box-sizing:border-box; }
+    .re-stats, .re-charts, .re-perf { min-width:0; }
+    .re-stats > *, .re-charts > *, .re-perf > *, .re-card { min-width:0; }
+    .re-wrap canvas { max-width:100% !important; }
+    .re-chartbox { width:100%; }
+    .re-hd__l { min-width:0; }
+    .re-chip { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .re-hd { display:flex; align-items:center; justify-content:space-between; background:#05275C; color:#fff; padding:12px 18px; }
     .re-hd__l { display:flex; align-items:center; gap:12px; }
     .re-hd__ic { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; }
@@ -80,7 +96,10 @@
     .re-btn--accent { background:#174DA4; color:#fff; }
     .re-btn--ghost { background:#fff; color:#333; border-color:#cdd3de; }
     .re-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .re-btn--sm { padding:6px 12px; font-size:11px; }
     .re-total { font-size:11px; color:#555; margin-left:auto; }
+    .re-exp { display:inline-flex; align-items:center; gap:6px; margin-left:auto; flex-wrap:wrap; }
+    .re-exp .re-seglbl { margin-right:2px; }
 
     .re-note { font-size:9px; color:#9098a5; font-style:italic; margin-top:6px; }
     .re-err { display:none; background:#fef5f5; border:1px solid #f5c6cb; color:#dc3545; font-size:11px; padding:8px 12px; margin-top:10px; }
@@ -157,6 +176,12 @@
             </div>
             <button type="button" class="re-btn re-btn--accent" id="btnApply">Generate Preview</button>
             <button type="button" class="re-btn re-btn--ghost" id="btnReset">Reset</button>
+            <span class="re-exp">
+                <span class="re-seglbl">Export</span>
+                <button type="button" class="re-btn re-btn--primary re-btn--sm" id="btnXlsxTop" disabled="disabled">Excel</button>
+                <button type="button" class="re-btn re-btn--primary re-btn--sm" id="btnCsvTop" disabled="disabled">CSV</button>
+                <button type="button" class="re-btn re-btn--ghost re-btn--sm" id="btnPrintTop" disabled="disabled">Print</button>
+            </span>
         </div>
         <div class="re-srcnote" id="reSrcNote" style="display:none;"></div>
     </div>
@@ -230,6 +255,7 @@
 var opts=null, gradeChart=null, classChart=null, mode='marks';
 var hiddenSet={}, lastData=null, lastMode='';
 function qs(id){ return document.getElementById(id); }
+function setExportDisabled(dis){ ['btnXlsx','btnCsv','btnPrint','btnXlsxTop','btnCsvTop','btnPrintTop'].forEach(function(id){ var b=qs(id); if(b) b.disabled=dis; }); }
 function esc(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function nfmt(v){ return (Number(v)||0).toLocaleString('en-US'); }
 function setL(on){ var l=qs('reLoader'); if(l) l.className='md-loader'+(on?' show':''); }
@@ -318,7 +344,7 @@ function renderTable(){
     qs('reTblMeta').textContent = nfmt(lastData.total)+' total · showing '+nfmt(lastData.previewCount);
     qs('reTotal').textContent = nfmt(lastData.total)+' rows in scope';
     var none = !lastData.total || lastData.total===0;
-    qs('btnXlsx').disabled=none; qs('btnCsv').disabled=none; qs('btnPrint').disabled=none;
+    setExportDisabled(none);
 }
 function buildCols(cols){
     var pop=qs('colPop'); pop.innerHTML='';
@@ -430,6 +456,9 @@ document.addEventListener('DOMContentLoaded',function(){
     qs('btnXlsx').addEventListener('click',function(){ doExport('xlsx'); });
     qs('btnCsv').addEventListener('click',function(){ doExport('csv'); });
     qs('btnPrint').addEventListener('click',doPrint);
+    qs('btnXlsxTop').addEventListener('click',function(){ doExport('xlsx'); });
+    qs('btnCsvTop').addEventListener('click',function(){ doExport('csv'); });
+    qs('btnPrintTop').addEventListener('click',doPrint);
     qs('fFaculty').addEventListener('change',function(){ cascadeDept(); cascadeProg(); });
     qs('fDept').addEventListener('change',cascadeProg);
     qs('fSource').addEventListener('change',preview);
