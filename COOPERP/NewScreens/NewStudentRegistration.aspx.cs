@@ -493,26 +493,30 @@ public partial class COOPERP_NewScreens_NewStudentRegistration : System.Web.UI.P
                 MySqlTransaction tx = conn.BeginTransaction();
                 try
                 {
-                    // Clean up related rows in the current database, but ONLY for tables that
-                    // actually exist — acad_student_semester / acad_student_programme are not
-                    // present in this schema and previously crashed the whole delete
-                    // ("Table 'campus_dynamics.acad_student_semester' doesn't exist").
-                    // acad_registration is included so a deleted student leaves no orphaned
-                    // semester-registration row (the fee guard above already blocks deleting
-                    // any student who has been billed).
-                    foreach (string tbl in new string[] {
-                        "acad_registration", "acad_student_semester", "acad_student_programme", "acad_student_cards" })
+                    // Clean up related rows in the current database. Data-driven and safe:
+                    // for each candidate table we look up (via information_schema) which
+                    // student-key column it ACTUALLY has — regno (acad_registration) or
+                    // reg_no (acad_student_cards) — and delete on that column. A table that
+                    // doesn't exist, or has neither column, is simply skipped. This avoids the
+                    // earlier crashes: a missing table ("acad_student_semester") and a wrong
+                    // column ("Unknown column 'regno'" on acad_student_cards, which uses reg_no).
+                    // acad_registration cleanup ensures a deleted student leaves no orphaned
+                    // registration (the fee guard above already blocks deleting a billed student).
+                    foreach (string tbl in new string[] { "acad_registration", "acad_student_cards" })
                     {
-                        bool tableExists;
+                        string keyCol = null;
                         using (MySqlCommand ck = new MySqlCommand(
-                            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@t", conn, tx))
+                            "SELECT COLUMN_NAME FROM information_schema.COLUMNS " +
+                            "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@t AND COLUMN_NAME IN ('regno','reg_no') " +
+                            "ORDER BY FIELD(COLUMN_NAME,'regno','reg_no') LIMIT 1", conn, tx))
                         {
                             ck.Parameters.AddWithValue("@t", tbl);
-                            tableExists = Convert.ToInt64(ck.ExecuteScalar()) > 0;
+                            object o = ck.ExecuteScalar();
+                            if (o != null && o != DBNull.Value) keyCol = o.ToString();
                         }
-                        if (!tableExists) continue;
+                        if (keyCol == null) continue;   // table missing or no student-key column
 
-                        using (MySqlCommand dd = new MySqlCommand("DELETE FROM " + tbl + " WHERE regno = @r", conn, tx))
+                        using (MySqlCommand dd = new MySqlCommand("DELETE FROM " + tbl + " WHERE " + keyCol + " = @r", conn, tx))
                         { dd.Parameters.AddWithValue("@r", regno); dd.ExecuteNonQuery(); }
                     }
 
