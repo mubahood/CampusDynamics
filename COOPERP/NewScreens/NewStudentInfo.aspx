@@ -3830,6 +3830,7 @@
             queryParams += '&entryYear=' + encodeURIComponent(entryYear);
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
+            queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'approved');
             if (entryNumbers) {
                 queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
             }
@@ -3899,6 +3900,7 @@
             queryParams += '&entryYear=' + encodeURIComponent(entryYear);
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
+            queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'approved');
             if (entryNumbers) {
                 queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
             }
@@ -3957,6 +3959,7 @@
             queryParams += '&entryYear=' + encodeURIComponent(entryYear);
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
+            queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'approved');
             if (entryNumbers) {
                 queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
             }
@@ -4239,6 +4242,18 @@
                     Export student results/marksheets as a PDF summary report. <span style="color: #c0392b;">* Required fields</span>
                 </p>
                 
+                <!-- Results Source -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Results Source</label>
+                    <select id="ddlReportSource" class="cd-form-select">
+                        <option value="approved">Approved (Dean) — pending Senate approval</option>
+                        <option value="captured">Captured (HOD) — pending approval</option>
+                        <option value="entered">Entered (Lecturer) — pending capture</option>
+                        <option value="published">Published (final results)</option>
+                    </select>
+                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;">Approved / Captured / Entered are provisional (grades computed on the fly, NCHE 2015). Published reads final <code>acad_results</code>.</small>
+                </div>
+
                 <!-- Filter: Programme (Required) -->
                 <div class="cd-form-group">
                     <label class="cd-form-label">Filter by Programme <span style="color: #c0392b;">*</span></label>

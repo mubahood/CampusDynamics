@@ -57,6 +57,22 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         }
     }
 
+    protected void Page_Init(object sender, EventArgs e)
+    {
+        // CRITICAL: ViewState is disabled at the form level (SidebarMaster: <form EnableViewState="false">).
+        // With ViewState off, the ASPxGridView is empty during LoadPostData (which runs BEFORE Page_Load),
+        // so it cannot capture the edit-form editor values a user typed — binding it in Page_Load is too
+        // late and makes inline edits (e.g. a name change) silently fail to persist. DevExpress requires
+        // the grid to be bound in Page_Init in this scenario. Filters are read from the query string
+        // (the page is GET-state driven) since the filter controls aren't populated this early.
+        // AJAX/JSON/PDF endpoints (?action=...) handle their own response in Page_Load — skip binding.
+        if (string.IsNullOrEmpty(Request.QueryString["action"]))
+        {
+            EnsureValidationColumnsExist(); // guarded (once/app) — must run before the grid query uses these columns
+            BindStudentsGrid();
+        }
+    }
+
     protected void Page_Load(object sender, EventArgs e)
     {
         // Ensure validation columns exist in database (once per app start)
@@ -146,21 +162,21 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         // Always reload programmes - ViewState is disabled so dropdowns lose items on postback
         LoadBatchProgrammes();
-        
-        if (!IsPostBack)
-        {
-            LoadFilters();
-            ApplyFiltersFromQueryString();
 
-            // Set default photo URL for JavaScript use
-            hdnDefaultPhotoUrl.Value = ResolveUrl("~/COOPERP/StudentInfo/photos/default.png");
-            
-            // Update page header based on status
-            if (litPageTitle != null)
-                litPageTitle.Text = PageTitle;
-        }
-        // Always bind data (DevExpress grids need rebind on postback too for callbacks)
-        BindStudentsGrid();
+        // ViewState is disabled, so the filter bar (dropdown items + current selections) must be
+        // rebuilt on EVERY request — otherwise a save postback (inline edit) would leave the filter
+        // dropdowns empty and unselected. These are query-string driven and idempotent.
+        LoadFilters();
+        ApplyFiltersFromQueryString();
+
+        // Set default photo URL for JavaScript use (hidden field also loses its value with ViewState off)
+        hdnDefaultPhotoUrl.Value = ResolveUrl("~/COOPERP/StudentInfo/photos/default.png");
+
+        // Update page header based on status
+        if (litPageTitle != null)
+            litPageTitle.Text = PageTitle;
+        // NOTE: the students grid is bound in Page_Init (required because ViewState is disabled —
+        // see the comment there). Do NOT bind it here in Page_Load or inline edits stop persisting.
     }
 
     protected string BuildViewProfileOnclick(object regnoObj)
@@ -199,11 +215,14 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 conn.Open();
                 
                 // Check and add columns if they don't exist
-                string[] columns = new string[] { "has_passed", "is_curriculum_fully_set", "fail_reason" };
+                // completion_date: admin-entered academic completion date; overrides the transcript's
+                // auto-computed completion date (see AcademicDocumentPdfService + TranscriptPrint).
+                string[] columns = new string[] { "has_passed", "is_curriculum_fully_set", "fail_reason", "completion_date" };
                 string[] columnDefs = new string[] {
                     "VARCHAR(5) DEFAULT 'No'",
                     "VARCHAR(5) DEFAULT 'No'",
-                    "TEXT DEFAULT NULL"
+                    "TEXT DEFAULT NULL",
+                    "DATE NULL"
                 };
                 
                 for (int i = 0; i < columns.Length; i++)
@@ -983,6 +1002,76 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// <summary>
     /// Handles AJAX request to preview the count of students for summary report.
     /// </summary>
+    // ════════════════════════════════════════════════════════════════════════
+    //  Source-aware results layer for the Summary Report (aligned with the staged
+    //  marks workflow + ResultsExporter). "published" reads acad_results; the
+    //  staged stages (approved/captured/entered) read campus_dynamics_portal.
+    //  acad_course_registration at that mark_stage and derive grade / grade-point /
+    //  credit-units on the fly (NCHE 2015) — same column names either way.
+    // ════════════════════════════════════════════════════════════════════════
+    private static string SR_StageFor(string source)
+    {
+        switch ((source ?? "").Trim().ToLowerInvariant())
+        {
+            case "entered":  return "ENTERED";
+            case "captured": return "CAPTURED";
+            case "approved": return "APPROVED";
+            default:         return null;   // published
+        }
+    }
+    private static bool SR_IsPublished(string source) { return SR_StageFor(source) == null; }
+    private static string SR_SourceLabel(string source)
+    {
+        switch ((source ?? "").Trim().ToLowerInvariant())
+        {
+            case "entered":  return "Entered (Lecturer) — provisional, pending capture";
+            case "captured": return "Captured (HOD) — provisional, pending approval";
+            case "approved": return "Approved (Dean) — provisional, pending Senate approval";
+            default:         return "Published results";
+        }
+    }
+    private static string SR_GradeCase(string s)
+    {
+        return "CASE WHEN " + s + ">=80 THEN 'A' WHEN " + s + ">=75 THEN 'B+' WHEN " + s + ">=70 THEN 'B' " +
+               "WHEN " + s + ">=65 THEN 'C+' WHEN " + s + ">=60 THEN 'C' WHEN " + s + ">=55 THEN 'D+' " +
+               "WHEN " + s + ">=50 THEN 'D' ELSE 'F' END";
+    }
+    private static string SR_GptCase(string s)
+    {
+        return "CASE WHEN " + s + ">=80 THEN 5.0 WHEN " + s + ">=75 THEN 4.5 WHEN " + s + ">=70 THEN 4.0 " +
+               "WHEN " + s + ">=65 THEN 3.5 WHEN " + s + ">=60 THEN 3.0 WHEN " + s + ">=55 THEN 2.5 " +
+               "WHEN " + s + ">=50 THEN 2.0 ELSE 0.0 END";
+    }
+    // FROM clause whose row alias 'r' exposes the same columns as acad_results
+    // (regno, courseid, progid, acad, semester, studyyear, score, grade, gradept, gpa,
+    //  CreditUnits, is_retake) plus cw_marks/exam_marks/prov_total/sub_status for the
+    //  marksheet, and the standard student/programme/faculty/course joins.
+    private static string SR_ResultsFrom(string source)
+    {
+        string stage = SR_StageFor(source);
+        string joins =
+            " LEFT JOIN acad_student s ON s.regno=r.regno " +
+            " LEFT JOIN acad_programme p ON p.progcode=r.progid " +
+            " LEFT JOIN acad_faculty f ON f.faculty_code=p.faculty_code " +
+            " LEFT JOIN acad_course c ON c.courseID=r.courseid ";
+        if (stage == null)
+            return " FROM acad_results r " + joins;   // published
+
+        const string SC = "cr.provisional_total_marks";
+        return
+            " FROM ( SELECT cr.regno, cr.courseID courseid, cr.prog_id progid, cr.acad_year acad, cr.semester, " +
+            "   (SELECT MIN(pc.study_year) FROM acad_programmecourses pc WHERE pc.progcode=cr.prog_id AND pc.course_code=cr.courseID) studyyear, " +
+            "   " + SC + " score, " + SR_GradeCase(SC) + " grade, " + SR_GptCase(SC) + " gradept, " + SR_GptCase(SC) + " gpa, " +
+            "   IFNULL(ac.CreditUnit,0) CreditUnits, " +
+            "   IF(cr.registration_type='RETAKE' OR cr.retake_registration_id IS NOT NULL,1,0) is_retake, " +
+            "   cr.provisional_course_work_marks cw_marks, cr.provisional_exam_marks exam_marks, " +
+            "   cr.provisional_total_marks prov_total, cr.mark_stage sub_status " +
+            "  FROM campus_dynamics_portal.acad_course_registration cr " +
+            "  LEFT JOIN acad_course ac ON ac.courseID=cr.courseID " +
+            "  WHERE cr.mark_stage='" + stage + "' AND cr.provisional_total_marks IS NOT NULL ) r " +
+            joins;
+    }
+
     private void HandlePreviewSummaryReport()
     {
         Response.Clear();
@@ -995,8 +1084,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string studyYear = Request.QueryString["studyYear"] ?? "";
             string semester = Request.QueryString["semester"] ?? "";
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
-            
-            int count = GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers);
+            string source = Request.QueryString["source"] ?? "approved";
+
+            int count = GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers, source);
             
             JavaScriptSerializer serializer = new JavaScriptSerializer();
             Response.Write(serializer.Serialize(new { count = count }));
@@ -1019,22 +1109,19 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// <summary>
     /// Gets count of students who have results matching the filters.
     /// </summary>
-    private int GetSummaryReportStudentCount(string programme, string entryYear, string studyYear, string semester, string entryNumbers)
+    private int GetSummaryReportStudentCount(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source)
     {
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
-            
-            // Query to count students with results matching the filters
-            string sql = @"SELECT COUNT(DISTINCT s.regno) 
-                           FROM acad_student s
-                           INNER JOIN acad_results r ON s.regno = r.regno
-                           WHERE 1=1";
-            
+
+            // Source-aware: published -> acad_results; staged -> acad_course_registration.
+            string sql = "SELECT COUNT(DISTINCT s.regno) " + SR_ResultsFrom(source) + " WHERE 1=1";
+
             List<string> entryParams = new List<string>();
             string[] entries = null;
-            
-            // If entry numbers specified, use them
+
+            // Specific students: match canonical regno OR legacy entryno.
             if (!string.IsNullOrEmpty(entryNumbers))
             {
                 entries = entryNumbers.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
@@ -1042,10 +1129,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 {
                     for (int i = 0; i < entries.Length; i++)
                         entryParams.Add("@entry" + i);
-                    sql += " AND s.entryno IN (" + string.Join(",", entryParams) + ")";
+                    string inList = string.Join(",", entryParams);
+                    sql += " AND (s.regno IN (" + inList + ") OR s.entryno IN (" + inList + "))";
                 }
             }
-            
+
             // Always filter by programme, entry year, study year, and semester
             if (!string.IsNullOrEmpty(programme))
                 sql += " AND s.progid = @programme";
@@ -1055,7 +1143,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 sql += " AND r.studyyear = @studyYear";
             if (!string.IsNullOrEmpty(semester))
                 sql += " AND r.semester = @semester";
-            
+
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
                 if (!string.IsNullOrEmpty(entryNumbers) && entries != null && entries.Length > 0)
@@ -1092,9 +1180,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string studyYear = Request.QueryString["studyYear"] ?? "";
             string semester = Request.QueryString["semester"] ?? "";
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
-            
-            // Get students with their results
-            DataTable reportData = GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers);
+            string source = Request.QueryString["source"] ?? "approved";
+
+            // Get students with their results (source-aware)
+            DataTable reportData = GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, source);
             
             if (reportData.Rows.Count == 0)
             {
@@ -1134,10 +1223,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string studyYear = Request.QueryString["studyYear"] ?? "";
             string semester = Request.QueryString["semester"] ?? "";
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
-            
-            // Get students with CGPA data
-            DataTable studentData = GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers);
-            
+            string source = Request.QueryString["source"] ?? "approved";
+
+            // Get students with CGPA data (source-aware: published or a staged stage)
+            DataTable studentData = GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, source);
+
             if (studentData.Rows.Count == 0)
             {
                 Response.Clear();
@@ -1146,12 +1236,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
                 return;
             }
-            
+
             // Get programme name
             string programmeName = GetProgrammeName(programme);
-            
+
             // Generate Performance Report PDF
-            GeneratePerformanceReportPdf(studentData, programmeName, entryYear, studyYear, semester);
+            GeneratePerformanceReportPdf(studentData, programmeName, entryYear, studyYear, semester, source);
         }
         catch (System.Threading.ThreadAbortException)
         {
@@ -1182,35 +1272,46 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     
     private DataTable GetPerformanceReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers)
     {
+        return GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, "approved");
+    }
+
+    private DataTable GetPerformanceReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source)
+    {
         DataTable dt = new DataTable();
-        
+
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
-            
-            // Calculate CGPA for each student based on their results
-            // Include has_passed and fail_reason from acad_student table
-            string sql = @"SELECT 
+
+            // Two GPA figures per student:
+            //   sem_gpa  = credit-weighted GPA over the selected study-year + semester (from the chosen source)
+            //   cgpa     = authoritative cumulative CGPA (acad_CGPAFinder, published & retake-aware);
+            //              0 for a fresh cohort with no published history — the caller then falls back to sem_gpa.
+            // Also surfaced: fails (score<50) and any_retake, so the report can show Fail / Retake / Incomplete.
+            // NOTE: no HAVING filter — every student appears so the board sees fails/incompletes too.
+            string sql = @"SELECT
                 s.regno,
                 s.entryno,
                 CONCAT(COALESCE(s.firstname, ''), ' ', COALESCE(s.othername, '')) AS student_name,
                 s.gender,
                 p.progname,
+                IFNULL(p.levelCode, 3) AS level_code,
                 s.has_passed,
                 s.fail_reason,
-                ROUND(SUM(r.gradept * r.CreditUnits) / NULLIF(SUM(r.CreditUnits), 0), 2) AS cgpa
-            FROM acad_student s
-            INNER JOIN acad_results r ON s.regno = r.regno
-            LEFT JOIN acad_programme p ON s.progid = p.progcode
-            WHERE s.progid = @programme
-              AND s.entryyear = @entryYear
-              AND r.studyyear = @studyYear
-              AND r.semester = @semester";
-            
+                ROUND(SUM(r.gradept * r.CreditUnits) / NULLIF(SUM(r.CreditUnits), 0), 2) AS sem_gpa,
+                ROUND(acad_CGPAFinder(s.regno), 2) AS cgpa,
+                SUM(r.score < 50) AS fails,
+                MAX(r.is_retake) AS any_retake,
+                COUNT(*) AS courses"
+                + SR_ResultsFrom(source) +
+                @" WHERE s.progid = @programme
+                   AND s.entryyear = @entryYear
+                   AND r.studyyear = @studyYear
+                   AND r.semester = @semester";
+
             List<string> entryParams = new List<string>();
             string[] entries = null;
-            
-            // If entry numbers specified, use them
+
             if (!string.IsNullOrEmpty(entryNumbers))
             {
                 entries = entryNumbers.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
@@ -1218,46 +1319,46 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 {
                     for (int i = 0; i < entries.Length; i++)
                         entryParams.Add("@entry" + i);
-                    sql += " AND s.entryno IN (" + string.Join(",", entryParams) + ")";
+                    string inList = string.Join(",", entryParams);
+                    sql += " AND (s.regno IN (" + inList + ") OR s.entryno IN (" + inList + "))";
                 }
             }
-            
-            sql += @" GROUP BY s.regno, s.entryno, s.firstname, s.othername, s.gender, p.progname, s.has_passed, s.fail_reason
-                      HAVING cgpa IS NOT NULL AND cgpa >= 2.00
-                      ORDER BY cgpa DESC";
-            
+
+            sql += @" GROUP BY s.regno, s.entryno, s.firstname, s.othername, s.gender, p.progname, p.levelCode, s.has_passed, s.fail_reason
+                      ORDER BY sem_gpa DESC";
+
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
                 cmd.Parameters.AddWithValue("@programme", programme);
                 cmd.Parameters.AddWithValue("@entryYear", entryYear);
                 cmd.Parameters.AddWithValue("@studyYear", studyYear);
                 cmd.Parameters.AddWithValue("@semester", semester);
-                
+
                 if (!string.IsNullOrEmpty(entryNumbers) && entries != null && entries.Length > 0)
                 {
                     for (int i = 0; i < entries.Length; i++)
                         cmd.Parameters.AddWithValue("@entry" + i, entries[i].Trim());
                 }
-                
+
                 using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
                 {
                     adapter.Fill(dt);
                 }
             }
         }
-        
+
         return dt;
     }
     
-    private void GeneratePerformanceReportPdf(DataTable data, string programmeName, string entryYear, string studyYear, string semester)
+    private void GeneratePerformanceReportPdf(DataTable data, string programmeName, string entryYear, string studyYear, string semester, string source)
     {
         // Create DevExpress PrintingSystem
         DevExpress.XtraPrinting.PrintingSystem ps = new DevExpress.XtraPrinting.PrintingSystem();
-        
+
         // Create custom link for PDF content
         DevExpress.XtraPrinting.Link pdfLink = new DevExpress.XtraPrinting.Link(ps);
         pdfLink.CreateDetailArea += (s, args) => {
-            GeneratePerformanceReportContent(args.Graph, data, programmeName, entryYear, studyYear, semester);
+            GeneratePerformanceReportContent(args.Graph, data, programmeName, entryYear, studyYear, semester, source);
         };
         
         // Set page settings for A4
@@ -1303,8 +1404,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         }
     }
     
-    private void GeneratePerformanceReportContent(DevExpress.XtraPrinting.BrickGraphics gr, DataTable data, 
-        string programmeName, string entryYear, string studyYear, string semester)
+    private void GeneratePerformanceReportContent(DevExpress.XtraPrinting.BrickGraphics gr, DataTable data,
+        string programmeName, string entryYear, string studyYear, string semester, string source)
     {
         // Get university name and logo
         string universityName = GetUniversityName();
@@ -1344,19 +1445,31 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         float pageWidth = 555;
         float y = 0;
         
-        // Categorize students by CGPA
+        // Categorize students. Basis = authoritative cumulative CGPA when available,
+        // else the current semester GPA (fresh cohorts with no published history).
+        // Students with any failed course / retake are routed to Retake/Referred so a
+        // board sees them separately from the honour/class lists.
         List<DataRow> vcListStudents = new List<DataRow>();
         List<DataRow> deansListStudents = new List<DataRow>();
         List<DataRow> secondLowerStudents = new List<DataRow>();
         List<DataRow> passStudents = new List<DataRow>();
-        
+        List<DataRow> retakeStudents = new List<DataRow>();
+        List<DataRow> failStudents = new List<DataRow>();
+
         foreach (DataRow row in data.Rows)
         {
-            decimal cgpa = row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
-            if (cgpa >= 4.40m) vcListStudents.Add(row);
-            else if (cgpa >= 3.60m) deansListStudents.Add(row);
-            else if (cgpa >= 2.80m) secondLowerStudents.Add(row);
-            else if (cgpa >= 2.00m) passStudents.Add(row);
+            decimal cgpa = data.Columns.Contains("cgpa") && row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
+            decimal semGpa = data.Columns.Contains("sem_gpa") && row["sem_gpa"] != DBNull.Value ? Convert.ToDecimal(row["sem_gpa"]) : 0;
+            decimal basis = cgpa > 0 ? cgpa : semGpa;
+            long fails = data.Columns.Contains("fails") && row["fails"] != DBNull.Value ? Convert.ToInt64(row["fails"]) : 0;
+            bool retake = data.Columns.Contains("any_retake") && row["any_retake"] != DBNull.Value && Convert.ToInt32(row["any_retake"]) == 1;
+
+            if (fails > 0 || retake) retakeStudents.Add(row);
+            else if (basis >= 4.40m) vcListStudents.Add(row);
+            else if (basis >= 3.60m) deansListStudents.Add(row);
+            else if (basis >= 2.80m) secondLowerStudents.Add(row);
+            else if (basis >= 2.00m) passStudents.Add(row);
+            else failStudents.Add(row);
         }
         
         // ========== HEADER SECTION - CLEAN LETTERHEAD STYLE ==========
@@ -1379,8 +1492,14 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y += 16;
         
         // Generated timestamp
-        DrawTextLine(gr, "Generated: " + DateTime.Now.ToString("dddd, MMMM dd, yyyy - hh:mm tt"), 
+        DrawTextLine(gr, "Generated: " + DateTime.Now.ToString("dddd, MMMM dd, yyyy - hh:mm tt"),
             0, y, pageWidth, 11, smallFont, lightGray, System.Drawing.StringAlignment.Center);
+        y += 14;
+
+        // Results source / provisional-status banner (green when published, amber when staged)
+        DrawTextLine(gr, "Results source: " + SR_SourceLabel(source),
+            0, y, pageWidth, 12, boldNormalFont, SR_IsPublished(source) ? deansListColor : secondLowerColor,
+            System.Drawing.StringAlignment.Center);
         y += 14;
 
         // Horizontal line separator
@@ -1400,12 +1519,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         // ========== COLUMN WIDTHS - FULL PAGE WIDTH (555) ==========
         // Columns: #, REG NO, STUDENT NAME, GENDER, CGPA, STATUS, REASON
         float numWidth = 22;
-        float regNoWidth = 130;
-        float nameWidth = 145;
-        float genderWidth = 45;
-        float cgpaWidth = 40;
-        float statusWidth = 50;
-        float reasonWidth = pageWidth - numWidth - regNoWidth - nameWidth - genderWidth - cgpaWidth - statusWidth; // = 123
+        float regNoWidth = 125;
+        float nameWidth = 140;
+        float genderWidth = 42;
+        float cgpaWidth = 66;   // shows "Sem / Cum" GPA pair
+        float statusWidth = 48;
+        float reasonWidth = pageWidth - numWidth - regNoWidth - nameWidth - genderWidth - cgpaWidth - statusWidth;
         float rowHeight = 20;
         
         // ========== DRAW EACH CATEGORY ==========
@@ -1444,8 +1563,26 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             passColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
+        y += 10;
+
+        // 5. Retake / Referred — one or more failed courses or retakes
+        y = DrawPerformanceCategory(gr, retakeStudents, "5. RETAKE / REFERRED", retakeStudents.Count,
+            "The following students have one or more failed course(s) or retakes and must resit/clear before progressing.",
+            "No students with retakes/referrals in this category",
+            secondLowerColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
+            numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
+            headerBg, altRowColor, borderColor);
+        y += 10;
+
+        // 6. Fail — overall GPA below the pass mark
+        y = DrawPerformanceCategory(gr, failStudents, "6. FAIL (BELOW PASS MARK)", failStudents.Count,
+            "The following students obtained an overall GPA below 2.00.",
+            "No students in this category",
+            passColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
+            numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
+            headerBg, altRowColor, borderColor);
         y += 15;
-        
+
         // ========== OVERALL SUMMARY ==========
         DevExpress.XtraPrinting.LineBrick summaryLine = new DevExpress.XtraPrinting.LineBrick();
         summaryLine.ForeColor = brandColor;
@@ -1455,8 +1592,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         gr.DrawBrick(summaryLine, new System.Drawing.RectangleF(0, y, pageWidth, 1));
         y += 8;
         
-        string overallSummary = string.Format("OVERALL SUMMARY: First Class: {0} | Second Class Upper: {1} | Second Class Lower: {2} | Pass: {3} | TOTAL: {4}",
-            vcListStudents.Count, deansListStudents.Count, secondLowerStudents.Count, passStudents.Count, data.Rows.Count);
+        string overallSummary = string.Format("OVERALL: First {0} | 2nd Upper {1} | 2nd Lower {2} | Pass {3} | Retake/Referred {4} | Fail {5} | TOTAL {6}",
+            vcListStudents.Count, deansListStudents.Count, secondLowerStudents.Count, passStudents.Count, retakeStudents.Count, failStudents.Count, data.Rows.Count);
         
         DevExpress.XtraPrinting.TextBrick summaryBrick = new DevExpress.XtraPrinting.TextBrick();
         summaryBrick.Text = overallSummary;
@@ -1562,7 +1699,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             DrawTableHeaderCell(gr, "REG NO", x, y, regNoWidth, rowHeight, headerFont, headerBg, borderColor); x += regNoWidth;
             DrawTableHeaderCell(gr, "STUDENT NAME", x, y, nameWidth, rowHeight, headerFont, headerBg, borderColor); x += nameWidth;
             DrawTableHeaderCell(gr, "GENDER", x, y, genderWidth, rowHeight, headerFont, headerBg, borderColor); x += genderWidth;
-            DrawTableHeaderCell(gr, "CGPA", x, y, cgpaWidth, rowHeight, headerFont, headerBg, borderColor); x += cgpaWidth;
+            DrawTableHeaderCell(gr, "SEM / CUM", x, y, cgpaWidth, rowHeight, headerFont, headerBg, borderColor); x += cgpaWidth;
             DrawTableHeaderCell(gr, "STATUS", x, y, statusWidth, rowHeight, headerFont, headerBg, borderColor); x += statusWidth;
             DrawTableHeaderCell(gr, "REASON", x, y, reasonWidth, rowHeight, headerFont, headerBg, borderColor);
             y += rowHeight;
@@ -1575,12 +1712,17 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 System.Drawing.Color rowBg = rowNum % 2 == 0 ? altRowColor : System.Drawing.Color.White;
                 
                 DrawTableDataCell(gr, rowNum.ToString(), x, y, numWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += numWidth;
-                DrawTableDataCell(gr, row["entryno"].ToString(), x, y, regNoWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += regNoWidth;
+                string regNoText = row.Table.Columns.Contains("regno") && row["regno"] != DBNull.Value && row["regno"].ToString().Trim() != ""
+                    ? row["regno"].ToString() : row["entryno"].ToString();
+                DrawTableDataCell(gr, regNoText, x, y, regNoWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += regNoWidth;
                 DrawTableDataCell(gr, row["student_name"].ToString(), x, y, nameWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += nameWidth;
                 DrawTableDataCell(gr, row["gender"].ToString(), x, y, genderWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += genderWidth;
-                
-                decimal cgpa = row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
-                DrawTableDataCell(gr, cgpa.ToString("F2"), x, y, cgpaWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += cgpaWidth;
+
+                // GPA cell: "Sem / Cumulative" (cumulative = authoritative CGPA, or — when not yet published)
+                decimal semGpaVal = row.Table.Columns.Contains("sem_gpa") && row["sem_gpa"] != DBNull.Value ? Convert.ToDecimal(row["sem_gpa"]) : 0;
+                decimal cgpaVal = row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
+                string gpaText = semGpaVal.ToString("F2") + " / " + (cgpaVal > 0 ? cgpaVal.ToString("F2") : "—");
+                DrawTableDataCell(gr, gpaText, x, y, cgpaWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += cgpaWidth;
                 
                 // Status column with color coding - has_passed is VARCHAR(5) with 'Yes' or 'No'
                 string hasPassedValue = row["has_passed"] != DBNull.Value ? row["has_passed"].ToString() : "No";
@@ -1655,40 +1797,65 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// </summary>
     private DataTable GetSummaryReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers)
     {
-        // The report stays sourced from published results (acad_results), but is ENRICHED with
-        // the new marks-submission system fields (Course Work / Exam / Total + submission status)
-        // from campus_dynamics_portal.acad_course_registration. If that cross-database join is
-        // unavailable, we transparently fall back to the plain published-results query so the
-        // report never fails.
+        return GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, "published");
+    }
+
+    private DataTable GetSummaryReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source)
+    {
+        // Published: sourced from acad_results, ENRICHED with CW/Exam/Total + status from the
+        // portal provisional ledger (with a transparent fallback if that cross-DB join is
+        // unavailable). Staged (approved/captured/entered): sourced directly from the ledger at
+        // that mark_stage, with grade/GP/CU derived on the fly (NCHE 2015).
         Exception lastEx = null;
         foreach (bool includeProvisional in new[] { true, false })
         {
-            try { return BuildSummaryReportTable(programme, entryYear, studyYear, semester, entryNumbers, includeProvisional); }
+            try { return BuildSummaryReportTable(programme, entryYear, studyYear, semester, entryNumbers, includeProvisional, source); }
             catch (Exception ex) { lastEx = ex; }
         }
         throw lastEx;
     }
 
-    private DataTable BuildSummaryReportTable(string programme, string entryYear, string studyYear, string semester, string entryNumbers, bool includeProvisional)
+    private DataTable BuildSummaryReportTable(string programme, string entryYear, string studyYear, string semester, string entryNumbers, bool includeProvisional, string source)
     {
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
 
-            // New marks-submission system fields (from the portal provisional ledger).
-            string provSelect = includeProvisional
-                ? @", cr2.provisional_course_work_marks AS cw_marks,
-                      cr2.provisional_exam_marks        AS exam_marks,
-                      cr2.provisional_total_marks       AS prov_total,
-                      cr2.provisional_marks_status      AS sub_status "
-                : "";
-            string provJoin = includeProvisional
-                ? @" LEFT JOIN campus_dynamics_portal.acad_course_registration cr2
-                       ON cr2.regno = r.regno AND cr2.courseID = r.courseid
-                      AND cr2.acad_year = r.acad AND cr2.semester = r.semester "
-                : "";
+            bool unpub = !SR_IsPublished(source);
 
-            // Query to get student details and their published results with specialization
+            // CW/Exam/Total + status: for published these come from the portal ledger via a
+            // LEFT JOIN (cr2); for a staged source they ARE the source, exposed by SR_ResultsFrom.
+            string provSelect;
+            string fromClause;
+            if (unpub)
+            {
+                provSelect = @", r.cw_marks AS cw_marks, r.exam_marks AS exam_marks,
+                                 r.prov_total AS prov_total, r.sub_status AS sub_status ";
+                fromClause = SR_ResultsFrom(source) +
+                             " LEFT JOIN acad_specialisation sp ON s.specialisation = sp.spec_id ";
+            }
+            else
+            {
+                provSelect = includeProvisional
+                    ? @", cr2.provisional_course_work_marks AS cw_marks,
+                          cr2.provisional_exam_marks        AS exam_marks,
+                          cr2.provisional_total_marks       AS prov_total,
+                          cr2.provisional_marks_status      AS sub_status "
+                    : "";
+                string provJoin = includeProvisional
+                    ? @" LEFT JOIN campus_dynamics_portal.acad_course_registration cr2
+                           ON cr2.regno = r.regno AND cr2.courseID = r.courseid
+                          AND cr2.acad_year = r.acad AND cr2.semester = r.semester "
+                    : "";
+                fromClause =
+                    @" FROM acad_student s
+                       INNER JOIN acad_results r ON s.regno = r.regno
+                       LEFT JOIN acad_programme p ON s.progid = p.progcode
+                       LEFT JOIN acad_course c ON r.courseid = c.courseID
+                       LEFT JOIN acad_specialisation sp ON s.specialisation = sp.spec_id" + provJoin;
+            }
+
+            // Query to get student details and their results with specialization
             string sql = @"SELECT
                             s.regno,
                             s.entryno,
@@ -1709,12 +1876,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             r.grade,
                             r.gradept,
                             r.CreditUnits,
-                            r.gpa" + provSelect + @"
-                           FROM acad_student s
-                           INNER JOIN acad_results r ON s.regno = r.regno
-                           LEFT JOIN acad_programme p ON s.progid = p.progcode
-                           LEFT JOIN acad_course c ON r.courseid = c.courseID
-                           LEFT JOIN acad_specialisation sp ON s.specialisation = sp.spec_id" + provJoin + @"
+                            r.gpa" + provSelect + fromClause + @"
                            WHERE 1=1";
 
             List<string> entryParams = new List<string>();
@@ -1728,7 +1890,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 {
                     for (int i = 0; i < entries.Length; i++)
                         entryParams.Add("@entry" + i);
-                    sql += " AND s.entryno IN (" + string.Join(",", entryParams) + ")";
+                    string inList = string.Join(",", entryParams);
+                    sql += " AND (s.regno IN (" + inList + ") OR s.entryno IN (" + inList + "))";
                 }
             }
 
@@ -3166,25 +3329,39 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     
     private void BindStudentsGrid()
     {
-        DataTable allRows = GetStudentsData();
-        int totalRows = allRows.Rows.Count;
-
         int pageSize = ParseQueryInt("size", 20, 10, 200);
         int page = ParseQueryInt("page", 1, 1, 1000000);
+        int offset = (page - 1) * pageSize;
+
+        // Fetch only the requested page from SQL (LIMIT/OFFSET) + a COUNT for the pager,
+        // instead of loading all matching students and slicing in memory.
+        int totalRows;
+        DataTable pagedRows = GetStudentsData(offset, pageSize, out totalRows);
 
         int totalPages = totalRows > 0 ? (int)Math.Ceiling(totalRows / (double)pageSize) : 1;
-        if (page > totalPages) page = totalPages;
-
-        int offset = (page - 1) * pageSize;
-        DataTable pagedRows = allRows.Clone();
-        for (int i = offset; i < Math.Min(offset + pageSize, totalRows); i++)
-            pagedRows.ImportRow(allRows.Rows[i]);
+        if (page > totalPages)
+        {
+            // Requested page is past the end — refetch the last valid page.
+            page = totalPages;
+            offset = (page - 1) * pageSize;
+            pagedRows = GetStudentsData(offset, pageSize, out totalRows);
+        }
 
         gvStudents.DataSource = pagedRows;
         gvStudents.DataBind();
 
         litPageInfo.Text = "Page " + page + " of " + totalPages + " | Total: " + totalRows.ToString("N0");
         litPager.Text = BuildPagerHtml(page, totalPages, pageSize);
+    }
+
+    // Returns the query-string value for the given key (trimmed) when present,
+    // otherwise the supplied control value (trimmed). Used so grid filtering works
+    // when the grid is bound in Page_Init, before postback controls are populated.
+    private string QsOrCtl(string qsKey, string ctlValue)
+    {
+        string qs = Request.QueryString[qsKey];
+        if (!string.IsNullOrEmpty(qs)) return qs.Trim();
+        return (ctlValue ?? "").Trim();
     }
 
     private int ParseQueryInt(string key, int fallback, int min, int max)
@@ -3438,20 +3615,97 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     
     #region Data Loading
     
-    private DataTable GetStudentsData()
+    private DataTable GetStudentsData(int offset, int pageSize, out int totalRows)
     {
+        totalRows = 0;
         DataTable dt = new DataTable();
         try
         {
             // Resolve current academic year once for the registration check
             string currentAcadYear = AcademicYearHelper.GetCurrentAcademicYear();
-            
-            string sql = @"SELECT s.regno, s.entryno, s.firstname, s.othername, s.gender, s.dob, 
-                           s.nationality, s.religion, s.studPhone, s.email, s.home_dist, 
-                           s.national_id, s.progid, p.progcode, p.progname, s.specialisation, 
+
+            // ---- Build the shared WHERE once, plus a param-adder reused by COUNT + data queries ----
+            string where = " WHERE 1=1 ";
+
+            // Filters are resolved from the QUERY STRING first (this page is GET-state driven,
+            // and the grid is bound in Page_Init — before the filter controls are populated on a
+            // postback), falling back to the control selection when a query param is absent.
+            string searchTerm       = QsOrCtl("q",         txtSearch != null ? txtSearch.Text : "");
+            string effectiveStatus  = QsOrCtl("status",    ddlFilterStatus != null ? ddlFilterStatus.SelectedValue : "");
+            if (string.IsNullOrEmpty(effectiveStatus)) effectiveStatus = StatusFilter;
+            string selectedFaculty   = QsOrCtl("faculty",  ddlFilterFaculty != null ? ddlFilterFaculty.SelectedValue : "");
+            string selectedProgramme = QsOrCtl("prog",     ddlFilterProgramme != null ? ddlFilterProgramme.SelectedValue : "");
+            string selectedEntryYear = QsOrCtl("entryyear",ddlFilterEntryYear != null ? ddlFilterEntryYear.SelectedValue : "");
+            string selectedSession   = QsOrCtl("session",  ddlFilterSession != null ? ddlFilterSession.SelectedValue : "");
+            string selectedCampus    = QsOrCtl("campus",   ddlFilterCampus != null ? ddlFilterCampus.SelectedValue : "");
+
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                where += @" AND (TRIM(s.firstname) LIKE @search
+                           OR TRIM(s.othername) LIKE @search
+                           OR TRIM(s.regno) LIKE @search
+                           OR TRIM(s.entryno) LIKE @search
+                           OR TRIM(s.studPhone) LIKE @search
+                           OR TRIM(s.email) LIKE @search
+                           OR CONCAT(COALESCE(TRIM(s.firstname),''), ' ', COALESCE(TRIM(s.othername),'')) LIKE @search) ";
+            }
+
+            if (!string.IsNullOrEmpty(effectiveStatus) && effectiveStatus != "ALL")
+                where += " AND TRIM(s.new_status) = @status ";
+
+            if (!string.IsNullOrEmpty(selectedProgramme))
+                where += " AND TRIM(s.progid) = @progid ";
+            else if (!string.IsNullOrEmpty(selectedFaculty))
+                where += " AND TRIM(p.faculty_code) = @faculty ";
+
+            if (!string.IsNullOrEmpty(selectedEntryYear))
+                where += " AND TRIM(s.entryyear) = @entryyear ";
+            if (!string.IsNullOrEmpty(selectedSession))
+                where += " AND TRIM(s.studsesion) = @session ";
+
+            if (!string.IsNullOrEmpty(selectedCampus))
+                where += " AND TRIM(s.studCampus) = @campus ";
+
+            // Adds exactly the params referenced in `where` (order-independent).
+            Action<MySqlCommand> addWhereParams = delegate(MySqlCommand c)
+            {
+                if (!string.IsNullOrEmpty(searchTerm))
+                    c.Parameters.AddWithValue("@search", "%" + searchTerm + "%");
+                if (!string.IsNullOrEmpty(effectiveStatus) && effectiveStatus != "ALL")
+                    c.Parameters.AddWithValue("@status", effectiveStatus.Trim());
+                if (!string.IsNullOrEmpty(selectedProgramme))
+                    c.Parameters.AddWithValue("@progid", selectedProgramme.Trim());
+                else if (!string.IsNullOrEmpty(selectedFaculty))
+                    c.Parameters.AddWithValue("@faculty", selectedFaculty.Trim());
+                if (!string.IsNullOrEmpty(selectedEntryYear))
+                    c.Parameters.AddWithValue("@entryyear", selectedEntryYear.Trim());
+                if (!string.IsNullOrEmpty(selectedSession))
+                    c.Parameters.AddWithValue("@session", selectedSession.Trim());
+                if (!string.IsNullOrEmpty(selectedCampus))
+                    c.Parameters.AddWithValue("@campus", selectedCampus.Trim());
+            };
+
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+
+                // ---- COUNT (total rows for the pager) — only needs acad_student + acad_programme (faculty filter) ----
+                string countSql = "SELECT COUNT(*) FROM acad_student s LEFT JOIN acad_programme p ON s.progid = p.progcode" + where;
+                using (MySqlCommand cc = new MySqlCommand(countSql, conn))
+                {
+                    cc.CommandTimeout = 60;
+                    addWhereParams(cc);
+                    object o = cc.ExecuteScalar();
+                    totalRows = (o == null || o == DBNull.Value) ? 0 : Convert.ToInt32(o);
+                }
+
+                // ---- DATA (just the requested page) ----
+                string dataSql = @"SELECT s.regno, s.entryno, s.firstname, s.othername, s.gender, s.dob,
+                           s.nationality, s.religion, s.studPhone, s.email, s.home_dist,
+                           s.national_id, s.progid, p.progcode, p.progname, s.specialisation,
                            COALESCE(sp.spec, NULLIF(TRIM(s.specialisation), ''), '-') AS spec_name,
-                           s.entryyear, s.intake, 
-                           s.studsesion, s.studCampus, s.gradSystemID, s.photofile, s.stud_status, s.new_status,
+                           s.entryyear, s.intake,
+                           s.studsesion, s.studCampus, s.gradSystemID, s.completion_date, s.photofile, s.stud_status, s.new_status,
                            COALESCE(c.campus_name, s.studCampus, '-') AS campus_name,
                            COALESCE(s.has_passed, 'No') AS has_passed,
                            COALESCE(s.is_curriculum_fully_set, 'No') AS is_curriculum_fully_set,
@@ -3461,100 +3715,19 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                            LEFT JOIN acad_programme p ON s.progid = p.progcode
                            LEFT JOIN acad_specialisation sp ON s.specialisation = sp.spec_id
                            LEFT JOIN acad_campuses c ON s.studCampus = c.campus_code
-                           LEFT JOIN (SELECT DISTINCT regno FROM acad_registration WHERE acad_year = @currentAcadYear) r_curr ON s.regno = r_curr.regno
-                           WHERE 1=1 ";
-            
-            // --- Search filter: partial match across key columns ---
-            string searchTerm = txtSearch != null ? txtSearch.Text.Trim() : "";
-            if (!string.IsNullOrEmpty(searchTerm))
-            {
-                sql += @" AND (TRIM(s.firstname) LIKE @search 
-                           OR TRIM(s.othername) LIKE @search 
-                           OR TRIM(s.regno) LIKE @search 
-                           OR TRIM(s.entryno) LIKE @search 
-                           OR TRIM(s.studPhone) LIKE @search 
-                           OR TRIM(s.email) LIKE @search
-                           OR CONCAT(COALESCE(TRIM(s.firstname),''), ' ', COALESCE(TRIM(s.othername),'')) LIKE @search) ";
-            }
-            
-            // --- Status filter (from query string or dropdown) ---
-            string effectiveStatus = !string.IsNullOrEmpty(ddlFilterStatus.SelectedValue) 
-                ? ddlFilterStatus.SelectedValue.Trim() 
-                : StatusFilter;
-            
-            if (!string.IsNullOrEmpty(effectiveStatus) && effectiveStatus != "ALL")
-            {
-                sql += " AND TRIM(s.new_status) = @status ";
-            }
-            
-            // --- Programme filter ---
-            string selectedProgramme = ddlFilterProgramme != null ? ddlFilterProgramme.SelectedValue.Trim() : "";
-            
-            if (!string.IsNullOrEmpty(selectedProgramme))
-            {
-                sql += " AND TRIM(s.progid) = @progid ";
-            }
-            else if (!string.IsNullOrEmpty(ddlFilterFaculty.SelectedValue))
-            {
-                sql += " AND TRIM(p.faculty_code) = @faculty ";
-            }
-            
-            // --- Entry year filter ---
-            if (!string.IsNullOrEmpty(ddlFilterEntryYear.SelectedValue))
-            {
-                sql += " AND TRIM(s.entryyear) = @entryyear ";
-            }
-            
-            // --- Session filter ---
-            if (!string.IsNullOrEmpty(ddlFilterSession.SelectedValue))
-            {
-                sql += " AND TRIM(s.studsesion) = @session ";
-            }
-            
-            // --- Campus filter ---
-            string selectedCampus = ddlFilterCampus != null ? ddlFilterCampus.SelectedValue : "";
-            if (!string.IsNullOrEmpty(selectedCampus))
-            {
-                sql += " AND TRIM(s.studCampus) = @campus ";
-            }
-            
-            sql += " ORDER BY s.entryyear DESC, s.firstname, s.othername";
-            
-            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
-            {
-                conn.Open();
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                           LEFT JOIN (SELECT DISTINCT regno FROM acad_registration WHERE acad_year = @currentAcadYear) r_curr ON s.regno = r_curr.regno"
+                           + where
+                           + " ORDER BY s.entryyear DESC, s.firstname, s.othername LIMIT @off, @ps";
+
+                using (MySqlCommand cmd = new MySqlCommand(dataSql, conn))
                 {
                     cmd.CommandTimeout = 60;
-                    
-                    // Current academic year for registration check
                     cmd.Parameters.AddWithValue("@currentAcadYear", !string.IsNullOrEmpty(currentAcadYear) ? currentAcadYear : "0000/0000");
-                    
-                    if (!string.IsNullOrEmpty(searchTerm))
-                        cmd.Parameters.AddWithValue("@search", "%" + searchTerm + "%");
-                    
-                    if (!string.IsNullOrEmpty(effectiveStatus) && effectiveStatus != "ALL")
-                        cmd.Parameters.AddWithValue("@status", effectiveStatus.Trim());
-                    
-                    if (!string.IsNullOrEmpty(selectedProgramme))
-                        cmd.Parameters.AddWithValue("@progid", selectedProgramme.Trim());
-                    
-                    if (!string.IsNullOrEmpty(ddlFilterFaculty.SelectedValue))
-                        cmd.Parameters.AddWithValue("@faculty", ddlFilterFaculty.SelectedValue.Trim());
-                    
-                    if (!string.IsNullOrEmpty(ddlFilterEntryYear.SelectedValue))
-                        cmd.Parameters.AddWithValue("@entryyear", ddlFilterEntryYear.SelectedValue.Trim());
-                    
-                    if (!string.IsNullOrEmpty(ddlFilterSession.SelectedValue))
-                        cmd.Parameters.AddWithValue("@session", ddlFilterSession.SelectedValue.Trim());
-                    
-                    if (!string.IsNullOrEmpty(selectedCampus))
-                        cmd.Parameters.AddWithValue("@campus", selectedCampus.Trim());
-                    
+                    addWhereParams(cmd);
+                    cmd.Parameters.AddWithValue("@off", offset < 0 ? 0 : offset);
+                    cmd.Parameters.AddWithValue("@ps", pageSize < 1 ? 20 : pageSize);
                     using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
-                    {
                         adapter.Fill(dt);
-                    }
                 }
             }
         }
@@ -3562,10 +3735,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         {
             System.Diagnostics.Debug.WriteLine("Error loading students: " + ex.Message);
         }
-        
-        // Update student count indicator
-        UpdateStudentCount(dt.Rows.Count);
-        
+
+        // Update student count indicator with the TOTAL (not just this page)
+        UpdateStudentCount(totalRows);
+
         return dt;
     }
     
@@ -3680,6 +3853,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string session     = (e.NewValues["studsesion"] ?? "").ToString().Trim();
             string campus      = (e.NewValues["studCampus"] ?? "").ToString().Trim();
             string gradsystem  = (e.NewValues["gradSystemID"] ?? "").ToString().Trim();
+            object compDate    = e.NewValues["completion_date"] ?? DBNull.Value;
             string newstatus   = (e.NewValues["new_status"] ?? "ADMITTED").ToString().Trim();
             
             // Basic validation
@@ -3690,15 +3864,40 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             if (!string.IsNullOrEmpty(email) && !email.Contains("@"))
                 throw new Exception("Invalid email format.");
             
-            string sql = @"UPDATE acad_student SET 
-                           firstname=@firstname, othername=@othername, gender=@gender, 
-                           dob=@dob, nationality=@nationality, religion=@religion,
-                           studPhone=@phone, email=@email, home_dist=@district,
-                           national_id=@nin, entryyear=@entryyear,
-                           intake=@intake, studsesion=@session, studCampus=@campus,
-                           gradSystemID=@gradsystem, new_status=@newstatus
-                           WHERE regno=@regno";
-            
+            // ── Root-cause fix ─────────────────────────────────────────────
+            // (1) STRICT SQL mode rejects '' for INT/DATE columns ("Incorrect
+            //     integer/date value: ''"). This happened whenever a combo (campus,
+            //     grading system) rendered blank because the stored value was not in
+            //     its list, or dob/entryyear were cleared — the whole UPDATE failed.
+            //     Fix: parse numerics/date; bind NULL for nullable columns; for the
+            //     NOT NULL studCampus, omit it (keep the existing value) when blank.
+            // (2) MySQL returns rows *changed*, so re-saving unchanged data gives
+            //     rows==0 — the old code threw a false "no student" error. Fix:
+            //     only error if the regno genuinely doesn't exist.
+            int _iv;
+            object pEntry = int.TryParse(entryyear, out _iv) ? (object)_iv : DBNull.Value;
+            object pGrad  = int.TryParse(gradsystem, out _iv) ? (object)_iv : DBNull.Value;
+            bool campusOk = int.TryParse(campus, out _iv); int campusVal = campusOk ? _iv : 0;
+            object pDob = DBNull.Value; DateTime _dv;
+            if (dob != null && dob != DBNull.Value && DateTime.TryParse(dob.ToString(), out _dv) && _dv.Year > 1900)
+                pDob = _dv;
+            // completion_date: blank/cleared -> NULL (transcript falls back to the auto June default);
+            // a valid date -> stored and OVERRIDES the computed transcript completion date.
+            object pComp = DBNull.Value; DateTime _cv;
+            if (compDate != null && compDate != DBNull.Value && DateTime.TryParse(compDate.ToString(), out _cv) && _cv.Year > 1900)
+                pComp = _cv.Date;
+
+            System.Collections.Generic.List<string> sets = new System.Collections.Generic.List<string>();
+            sets.Add("firstname=@firstname"); sets.Add("othername=@othername"); sets.Add("gender=@gender");
+            sets.Add("dob=@dob"); sets.Add("nationality=@nationality"); sets.Add("religion=@religion");
+            sets.Add("studPhone=@phone"); sets.Add("email=@email"); sets.Add("home_dist=@district");
+            sets.Add("national_id=@nin"); sets.Add("entryyear=@entryyear"); sets.Add("intake=@intake");
+            if (!string.IsNullOrEmpty(session)) sets.Add("studsesion=@session");
+            if (campusOk) sets.Add("studCampus=@campus");
+            sets.Add("gradSystemID=@gradsystem"); sets.Add("completion_date=@completion_date"); sets.Add("new_status=@newstatus");
+            string sql = "UPDATE acad_student SET " + string.Join(", ", sets.ToArray()) + " WHERE regno=@regno";
+
+            bool changed = false;
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
@@ -3709,35 +3908,61 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     cmd.Parameters.AddWithValue("@firstname", firstname);
                     cmd.Parameters.AddWithValue("@othername", othername);
                     cmd.Parameters.AddWithValue("@gender", gender);
-                    cmd.Parameters.AddWithValue("@dob", dob);
+                    cmd.Parameters.AddWithValue("@dob", pDob);
                     cmd.Parameters.AddWithValue("@nationality", nationality);
                     cmd.Parameters.AddWithValue("@religion", religion);
                     cmd.Parameters.AddWithValue("@phone", phone);
                     cmd.Parameters.AddWithValue("@email", email);
                     cmd.Parameters.AddWithValue("@district", district);
                     cmd.Parameters.AddWithValue("@nin", nin);
-                    cmd.Parameters.AddWithValue("@entryyear", string.IsNullOrEmpty(entryyear) ? (object)DBNull.Value : entryyear);
+                    cmd.Parameters.AddWithValue("@entryyear", pEntry);
                     cmd.Parameters.AddWithValue("@intake", intake);
-                    cmd.Parameters.AddWithValue("@session", session);
-                    cmd.Parameters.AddWithValue("@campus", campus);
-                    cmd.Parameters.AddWithValue("@gradsystem", gradsystem);
+                    if (!string.IsNullOrEmpty(session)) cmd.Parameters.AddWithValue("@session", session);
+                    if (campusOk) cmd.Parameters.AddWithValue("@campus", campusVal);
+                    cmd.Parameters.AddWithValue("@gradsystem", pGrad);
+                    cmd.Parameters.AddWithValue("@completion_date", pComp);
                     cmd.Parameters.AddWithValue("@newstatus", newstatus);
-                    
+
                     int rows = cmd.ExecuteNonQuery();
+                    changed = rows > 0;
                     if (rows == 0)
-                        throw new Exception("No student found with regno " + regno + ". Update had no effect.");
+                    {
+                        // 0 rows CHANGED — either identical values (fine) or a missing regno.
+                        bool exists;
+                        using (MySqlCommand chk = new MySqlCommand("SELECT COUNT(*) FROM acad_student WHERE regno=@r", conn))
+                        { chk.Parameters.AddWithValue("@r", regno); exists = Convert.ToInt64(chk.ExecuteScalar()) > 0; }
+                        if (!exists)
+                            throw new Exception("No student found with regno " + regno + ".");
+                        // exists but nothing changed -> treat as a successful save.
+                    }
                 }
             }
-            
-            e.Cancel = true;
-            gvStudents.CancelEdit();
-            BindStudentsGrid();
+
+            e.Cancel = true;          // we ran our own UPDATE above
+            gvStudents.CancelEdit();  // close the popup edit form
+            BindStudentsGrid();       // re-render with the saved values
+            ShowSaveToast(true, changed
+                ? ("Student " + regno + " updated successfully.")
+                : ("Student " + regno + " saved — no changes were needed."));
         }
         catch (Exception ex)
         {
+            // Keep the edit form OPEN so the user can fix the input and retry; surface the reason
+            // instead of throwing an unhandled exception (which showed a blank/error page).
             e.Cancel = true;
-            throw new Exception("Error updating student: " + ex.Message);
+            ShowSaveToast(false, "Could not update student: " + ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Shows a floating success/error banner after an inline-edit postback. Injected via a startup
+    /// script because this page runs full postbacks (grid callbacks are disabled) and ViewState is off.
+    /// </summary>
+    private void ShowSaveToast(bool ok, string message)
+    {
+        string safe = (message ?? "").Replace("\\", "\\\\").Replace("'", "\\'").Replace("\r", " ").Replace("\n", " ");
+        string js = "if(window.cdToast){cdToast(" + (ok ? "true" : "false") + ",'" + safe + "');}";
+        ScriptManager.RegisterStartupScript(this, GetType(), "cdSaveToast", js, true);
     }
     
     protected void gvStudents_RowDeleting(object sender, DevExpress.Web.Data.ASPxDataDeletingEventArgs e)
