@@ -690,8 +690,36 @@ form, #form1 {
 .cd-content {
     flex: 1;
     min-width: 0;
+    max-width: 100%;
     padding: var(--cd-spacing-lg);
     background: var(--cd-bg);
+}
+
+/* ============================================================================
+   GLOBAL RESPONSIVENESS SAFETY NET (every SidebarMaster page)
+   Replaced elements carry an intrinsic pixel width (Chart.js sets a width
+   attribute on its <canvas>; images have natural widths). Inside a CSS-grid
+   or flex dashboard that width becomes the item's min-content, so a bare
+   `1fr` track (= minmax(auto,1fr)) refuses to shrink and the whole content
+   column is pushed past the viewport — then the root's overflow-x:hidden
+   clips it on the right ("hidden unless zoomed out"). Capping replaced
+   elements at 100% removes that forced minimum, so grid/flex tracks shrink
+   to fit on any screen. Safe: it only caps the UPPER bound; nothing that
+   already fits is affected, and Chart.js (responsive:true) redraws to the
+   new size. Pair with .cd-main/.cd-content min-width:0 above.
+   ============================================================================ */
+.cd-content img,
+.cd-content canvas,
+.cd-content video,
+.cd-content iframe,
+.cd-content svg.cd-responsive-svg {
+    max-width: 100%;
+}
+/* Long unbreakable tokens (codes, emails, URLs) can also force overflow;
+   break them only when they would otherwise not fit. */
+.cd-content .cd-card,
+.cd-content .re-card {
+    overflow-wrap: anywhere;
 }
 
 /* Footer - Pure white, edge to edge */
