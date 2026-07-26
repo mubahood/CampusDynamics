@@ -231,8 +231,8 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
         if (!string.IsNullOrEmpty(lect))
             where.Append(" AND EXISTS (SELECT 1 FROM acad_programmecourses pc2 WHERE pc2.lecturer_id = @lect AND pc2.course_code = " + (courseCol ?? "cr.course_code") + " AND pc2.progcode = cr.prog_id)");
 
-        // List only active (onboarded) students so it matches the active-only stats.
-        where.Append(ActiveStudentFilter.Clause("cr.regno"));
+        // The mark LIST shows ALL marks for everyone (alumni + active) — no filter.
+        // Only the funnel stats (LoadStats) are narrowed to active students.
 
         if (string.IsNullOrEmpty(courseCol))
         {

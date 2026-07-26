@@ -114,10 +114,8 @@ public partial class COOPERP_NewScreens_ProvisionalMarksReleaseController : Syst
         }
 
         StringBuilder where = BuildUnreleasedWhere(year, sem, status, prog, q, courseCol);
-        // Display list + its count consider only active (onboarded) students. The release
-        // ACTION deliberately uses its own unfiltered BuildUnreleasedWhere so a valid mark
-        // is never skipped just because the student has not onboarded yet.
-        where.Append(ActiveStudentFilter.Clause("cr.regno"));
+        // The mark LIST + its count show ALL marks for everyone (alumni + active) — no filter.
+        // Only the funnel stats (LoadStats) are narrowed to active students.
 
         int total;
         using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration cr " + where.ToString(), conn))

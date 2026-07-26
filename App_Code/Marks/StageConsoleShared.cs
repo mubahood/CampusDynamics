@@ -66,14 +66,14 @@ public static class StageConsoleShared
                 conn.Open();
                 MarkStage.EnsureSchema(conn);
                 using (var cmd = new MySqlCommand("SELECT DISTINCT cr.acad_year FROM " + MarkStage.REG + " cr WHERE cr.mark_stage=@s" +
-                    Scope(scope, "cr") + ActiveOnly("cr") + " AND cr.acad_year<>'' ORDER BY cr.acad_year DESC LIMIT 12", conn))
+                    Scope(scope, "cr") + " AND cr.acad_year<>'' ORDER BY cr.acad_year DESC LIMIT 12", conn))
                 {
                     cmd.Parameters.AddWithValue("@s", def.FromStage);
                     using (var r = cmd.ExecuteReader()) while (r.Read()) years.Add(r.GetString(0));
                 }
                 using (var cmd = new MySqlCommand("SELECT DISTINCT cr.prog_id, COALESCE(NULLIF(p.progname,''),cr.prog_id) pn FROM " +
                     MarkStage.REG + " cr LEFT JOIN acad_programme p ON p.progcode=cr.prog_id WHERE cr.mark_stage=@s" +
-                    Scope(scope, "cr") + ActiveOnly("cr") + " ORDER BY pn LIMIT 300", conn))
+                    Scope(scope, "cr") + " ORDER BY pn LIMIT 300", conn))
                 {
                     cmd.Parameters.AddWithValue("@s", def.FromStage);
                     using (var r = cmd.ExecuteReader()) while (r.Read())
@@ -128,7 +128,8 @@ public static class StageConsoleShared
                 conn.Open();
                 var where = new StringBuilder(" WHERE cr.mark_stage=@from");
                 where.Append(Scope(scope, "cr"));
-                where.Append(ActiveOnly("cr"));
+                // Browse shows ALL marks at this stage for everyone (alumni + active) — no filter.
+                // Only the funnel Stats() count above is narrowed to active students.
                 using (var cnt = new MySqlCommand("", conn))
                 {
                     cnt.Parameters.AddWithValue("@from", def.FromStage);
