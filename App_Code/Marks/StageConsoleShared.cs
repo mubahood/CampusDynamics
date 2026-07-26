@@ -44,8 +44,7 @@ public static class StageConsoleShared
     // reflect real, active students instead of the whole historical registration table.
     private static string ActiveOnly(string alias)
     {
-        return " AND EXISTS(SELECT 1 FROM campus_dynamics_portal.my_aspnet_users u " +
-               "WHERE u.name=" + alias + ".regno AND u.user_verification_status='ACTIVE STUDENT')";
+        return ActiveStudentFilter.Clause(alias + ".regno");
     }
 
     private static string DeniedJson(string stage)
