@@ -79,7 +79,7 @@ public partial class COOPERP_NewScreens_ProvisionalMarksReleaseController : Syst
                 SUM(CASE WHEN COALESCE(provisional_marks_status,'pending') = 'rejected' OR provisional_course_work_marks IS NULL OR provisional_exam_marks IS NULL THEN 1 ELSE 0 END) AS needs_attention,
                 SUM(CASE WHEN COALESCE(provisional_marks_status,'pending') = 'published' THEN 1 ELSE 0 END) AS published_cnt
             FROM campus_dynamics_portal.acad_course_registration
-            WHERE provisional_total_marks IS NOT NULL";
+            WHERE provisional_total_marks IS NOT NULL" + ActiveStudentFilter.Clause("regno");
 
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         using (var rdr = cmd.ExecuteReader())
@@ -114,6 +114,10 @@ public partial class COOPERP_NewScreens_ProvisionalMarksReleaseController : Syst
         }
 
         StringBuilder where = BuildUnreleasedWhere(year, sem, status, prog, q, courseCol);
+        // Display list + its count consider only active (onboarded) students. The release
+        // ACTION deliberately uses its own unfiltered BuildUnreleasedWhere so a valid mark
+        // is never skipped just because the student has not onboarded yet.
+        where.Append(ActiveStudentFilter.Clause("cr.regno"));
 
         int total;
         using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration cr " + where.ToString(), conn))

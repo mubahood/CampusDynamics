@@ -289,6 +289,10 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
         if (c.department != "" && int.TryParse(c.department, out depId)) { w.Append(" AND p.department_id=@department "); p["@department"] = depId; }
         if (c.programme != "") { w.Append(" AND cr.prog_id=@programme "); p["@programme"] = c.programme; }
         w.Append(scope.ProgFilter("cr", "prog_id"));
+        // The submission pipeline (not-entered/entered/…) counts only active (onboarded)
+        // students, so it matches the stage consoles. The RESULTS export itself is left
+        // unfiltered — external reps (Senate/Council/NCHE) need finalists/alumni too.
+        w.Append(ActiveStudentFilter.Clause("cr.regno"));
         try
         {
             using (MySqlCommand cmd = new MySqlCommand(

@@ -8,6 +8,7 @@ using System.Web.UI;
 using System.Web.UI.WebControls;
 using System.Web.Script.Serialization;
 using MySql.Data.MySqlClient;
+using System.Globalization;
 
 public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.UI.Page
 {
@@ -131,31 +132,65 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
     // ──────────────────────────────────────────────────
     private void LoadStats(MySqlConnection conn)
     {
+        // Only ACTIVE (onboarded) students are counted — the stud_status='ACTIVE' join
+        // still included alumni, so narrow it with the onboarding filter (ActiveStudentFilter).
         string sql = @"
             SELECT
                 COUNT(*)                                                                               AS cnt_total,
-                SUM(CASE WHEN provisional_course_work_marks IS NULL AND provisional_exam_marks IS NULL THEN 1 ELSE 0 END) AS cnt_not_entered,
-                SUM(CASE WHEN (provisional_course_work_marks IS NOT NULL OR provisional_exam_marks IS NOT NULL)
-                              AND COALESCE(provisional_marks_status,'pending') = 'pending'            THEN 1 ELSE 0 END) AS cnt_pending,
-                SUM(CASE WHEN provisional_marks_status = 'approved'  THEN 1 ELSE 0 END)               AS cnt_approved,
-                SUM(CASE WHEN provisional_marks_status = 'rejected'  THEN 1 ELSE 0 END)               AS cnt_rejected,
-                SUM(CASE WHEN provisional_marks_status = 'published' THEN 1 ELSE 0 END)               AS cnt_published,
-                SUM(CASE WHEN provisional_course_work_marks IS NOT NULL AND provisional_exam_marks IS NOT NULL
-                              AND COALESCE(provisional_marks_status,'pending') NOT IN ('published','rejected') THEN 1 ELSE 0 END) AS cnt_ready
-            FROM campus_dynamics_portal.acad_course_registration";
+                SUM(CASE WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL THEN 1 ELSE 0 END) AS cnt_not_entered,
+                SUM(CASE WHEN (cr.provisional_course_work_marks IS NOT NULL OR cr.provisional_exam_marks IS NOT NULL)
+                              AND COALESCE(cr.provisional_marks_status,'pending') = 'pending'         THEN 1 ELSE 0 END) AS cnt_pending,
+                SUM(CASE WHEN cr.provisional_marks_status = 'approved'  THEN 1 ELSE 0 END)            AS cnt_approved,
+                SUM(CASE WHEN cr.provisional_marks_status = 'rejected'  THEN 1 ELSE 0 END)            AS cnt_rejected,
+                SUM(CASE WHEN cr.provisional_marks_status = 'published' THEN 1 ELSE 0 END)            AS cnt_published,
+                SUM(CASE WHEN cr.provisional_course_work_marks IS NOT NULL AND cr.provisional_exam_marks IS NOT NULL
+                              AND COALESCE(cr.provisional_marks_status,'pending') NOT IN ('published','rejected') THEN 1 ELSE 0 END) AS cnt_ready
+            FROM campus_dynamics_portal.acad_course_registration cr
+            INNER JOIN campus_dynamics.acad_student s ON s.regno = cr.regno AND s.stud_status = 'ACTIVE'
+            WHERE 1=1" + ActiveStudentFilter.Clause("cr.regno");
 
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         using (var rdr = cmd.ExecuteReader())
         {
             if (rdr.Read())
             {
-                litStatTotal.Text  = (rdr.IsDBNull(0) ? 0 : Convert.ToInt32(rdr[0])).ToString();
-                litNotEntered.Text = (rdr.IsDBNull(1) ? 0 : Convert.ToInt32(rdr[1])).ToString();
-                litPending.Text    = (rdr.IsDBNull(2) ? 0 : Convert.ToInt32(rdr[2])).ToString();
-                litApproved.Text   = (rdr.IsDBNull(3) ? 0 : Convert.ToInt32(rdr[3])).ToString();
-                litRejected.Text   = (rdr.IsDBNull(4) ? 0 : Convert.ToInt32(rdr[4])).ToString();
-                litPublished.Text  = (rdr.IsDBNull(5) ? 0 : Convert.ToInt32(rdr[5])).ToString();
-                litReady.Text      = (rdr.IsDBNull(6) ? 0 : Convert.ToInt32(rdr[6])).ToString();
+                int cntTotal      = rdr.IsDBNull(0) ? 0 : Convert.ToInt32(rdr[0]);
+                int cntNotEntered = rdr.IsDBNull(1) ? 0 : Convert.ToInt32(rdr[1]);
+                int cntPending    = rdr.IsDBNull(2) ? 0 : Convert.ToInt32(rdr[2]);
+                int cntApproved   = rdr.IsDBNull(3) ? 0 : Convert.ToInt32(rdr[3]);
+                int cntRejected   = rdr.IsDBNull(4) ? 0 : Convert.ToInt32(rdr[4]);
+                int cntPublished  = rdr.IsDBNull(5) ? 0 : Convert.ToInt32(rdr[5]);
+                int cntReady      = rdr.IsDBNull(6) ? 0 : Convert.ToInt32(rdr[6]);
+
+                Func<int, string> pct = v =>
+                    cntTotal > 0 ? Math.Round(v * 100.0 / cntTotal, 1).ToString("0.#", CultureInfo.InvariantCulture) + "%" : "—";
+
+                litStatTotal.Text  = cntTotal.ToString("N0", CultureInfo.InvariantCulture);
+                litNotEntered.Text = cntNotEntered.ToString("N0", CultureInfo.InvariantCulture);
+                litPending.Text    = cntPending.ToString("N0", CultureInfo.InvariantCulture);
+                litApproved.Text   = cntApproved.ToString("N0", CultureInfo.InvariantCulture);
+                litRejected.Text   = cntRejected.ToString("N0", CultureInfo.InvariantCulture);
+                litPublished.Text  = cntPublished.ToString("N0", CultureInfo.InvariantCulture);
+                litReady.Text      = cntReady.ToString("N0", CultureInfo.InvariantCulture);
+
+                litStatTotalPct.Text  = cntTotal > 0 ? "100%" : "—";
+                litNotEnteredPct.Text = pct(cntNotEntered);
+                litPendingPct.Text    = pct(cntPending);
+                litApprovedPct.Text   = pct(cntApproved);
+                litRejectedPct.Text   = pct(cntRejected);
+                litPublishedPct.Text  = pct(cntPublished);
+                litReadyPct.Text      = pct(cntReady);
+
+                litInsights.Text = string.Format(
+                    "<span class='pib-item pib-pub'><strong>{0}</strong> published</span>" +
+                    "<span class='pib-sep'>&nbsp;&middot;&nbsp;</span>" +
+                    "<span class='pib-item pib-ready'><strong>{1}</strong> ready to publish</span>" +
+                    "<span class='pib-sep'>&nbsp;&middot;&nbsp;</span>" +
+                    "<span class='pib-item pib-pend'><strong>{2}</strong> pending review</span>" +
+                    "<span class='pib-sep'>&nbsp;&middot;&nbsp;</span>" +
+                    "<span class='pib-item pib-miss'><strong>{3}</strong> missing marks</span>",
+                    pct(cntPublished), pct(cntReady), pct(cntPending), pct(cntNotEntered)
+                );
             }
         }
     }
@@ -196,6 +231,9 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
         if (!string.IsNullOrEmpty(lect))
             where.Append(" AND EXISTS (SELECT 1 FROM acad_programmecourses pc2 WHERE pc2.lecturer_id = @lect AND pc2.course_code = " + (courseCol ?? "cr.course_code") + " AND pc2.progcode = cr.prog_id)");
 
+        // List only active (onboarded) students so it matches the active-only stats.
+        where.Append(ActiveStudentFilter.Clause("cr.regno"));
+
         if (string.IsNullOrEmpty(courseCol))
         {
             litRows.Text = "<tr><td colspan='14' style='padding:16px;color:#b42318;font-size:11px;'>Course column not found on acad_course_registration.</td></tr>";
@@ -234,6 +272,7 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                    COALESCE(cr.prog_id,'') AS prog_id,
                    " + courseCol + @" AS courseID,
                    COALESCE(c.courseName, " + courseCol + @") AS course_name,
+                   COALESCE(cr.course_status,'') AS course_status,
                    cr.acad_year, cr.semester,
                    COALESCE((SELECT MAX(r2.studyyear) FROM acad_registration r2 WHERE r2.regno=cr.regno AND r2.acad_year=cr.acad_year AND r2.semester=cr.semester),1) AS study_year,
                    cr.provisional_course_work_marks,
@@ -242,6 +281,7 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                    (SELECT ar3.score FROM acad_results ar3 WHERE ar3.regno=cr.regno AND ar3.courseid=" + courseCol + @" AND ar3.semester=cr.semester AND ar3.acad=cr.acad_year ORDER BY ar3.ID DESC LIMIT 1) AS published_mark,
                    (SELECT ar4.grade FROM acad_results ar4 WHERE ar4.regno=cr.regno AND ar4.courseid=" + courseCol + @" AND ar4.semester=cr.semester AND ar4.acad=cr.acad_year ORDER BY ar4.ID DESC LIMIT 1) AS published_grade,
                    CASE
+                     WHEN COALESCE(cr.provisional_marks_status,'pending') = 'published' THEN 'published'
                      WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL THEN 'not_entered'
                      ELSE COALESCE(cr.provisional_marks_status,'pending')
                    END AS prov_status
@@ -264,6 +304,8 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                     string studentName = rdr["student_name"].ToString().Trim();
                     string courseID = rdr["courseID"].ToString();
                     string courseName = rdr["course_name"].ToString();
+                    bool isRetake = rdr["course_status"].ToString().Trim().ToUpperInvariant() == "RETAKE";
+                    string rtBadge = isRetake ? "<span title='Retake' style='display:inline-block;margin-left:6px;padding:0 5px;font-size:8.5px;font-weight:700;color:#b45309;background:#fff3e0;border-radius:8px;vertical-align:middle;'>RT</span>" : "";
                     string progId = rdr["prog_id"].ToString();
                     string acadYear = rdr["acad_year"].ToString();
                     string semester = rdr["semester"].ToString();
@@ -299,7 +341,7 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                     sb.AppendFormat("<td class='col-sel pm-center'><input type='checkbox' class='pm-row-chk pm-row-sel' value='{0}' title='Select for batch action' /></td>", id);
                     sb.AppendFormat("<td class='col-regno' title='{0}'><span class='pm-code pm-ellipsis'>{0}</span></td>", HtmlEnc(regno));
                     sb.AppendFormat("<td class='col-student' title='{0}'><span class='pm-ellipsis'>{0}</span></td>", HtmlEnc(studentName));
-                    sb.AppendFormat("<td class='col-course' title='{1}'><span class='pm-code pm-ellipsis'>{0}</span></td>", HtmlEnc(courseID), HtmlEnc(courseName));
+                    sb.AppendFormat("<td class='col-course' title='{1}'><span class='pm-code pm-ellipsis'>{0}</span>{2}</td>", HtmlEnc(courseID), HtmlEnc(courseName), rtBadge);
                     sb.AppendFormat("<td class='col-prog pm-muted'><span class='pm-ellipsis'>{0}</span></td>", HtmlEnc(progId));
                     sb.AppendFormat("<td class='col-yr pm-muted'>{0}</td>", HtmlEnc(acadYear));
                     sb.AppendFormat("<td class='col-sem pm-muted'><strong>Yr {0}, Sem {1}</strong></td>", HtmlEnc(studyYear), HtmlEnc(semester));
@@ -335,10 +377,10 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
         litRows.Text = sb.ToString();
         int displayFrom = total == 0 ? 0 : offset + 1;
         int displayTo = Math.Min(offset + pageSize, total);
-        litFrom.Text = displayFrom.ToString();
-        litTo.Text = displayTo.ToString();
-        litTotal.Text = total.ToString();
-        litTotal2.Text = total.ToString();
+        litFrom.Text = displayFrom.ToString("N0", CultureInfo.InvariantCulture);
+        litTo.Text = displayTo.ToString("N0", CultureInfo.InvariantCulture);
+        litTotal.Text = total.ToString("N0", CultureInfo.InvariantCulture);
+        litTotal2.Text = total.ToString("N0", CultureInfo.InvariantCulture);
         litPage.Text = page.ToString();
         litPageCount.Text = pageCount.ToString();
         string pagerHtml = BuildPager(page, pageCount, year, sem, prog, StatusPending, lect, search, pageSize.ToString(), onlyReady);
@@ -412,7 +454,8 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                            cr.provisional_course_work_marks,
                            cr.provisional_exam_marks,
                            cr.provisional_total_marks,
-                           CASE WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL THEN 'not_entered'
+                           CASE WHEN COALESCE(cr.provisional_marks_status,'pending') = 'published' THEN 'published'
+                                WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL THEN 'not_entered'
                                 ELSE COALESCE(cr.provisional_marks_status,'pending') END AS provisional_marks_status,
                            COALESCE(cr.provisional_marks_review_comments,'') AS provisional_marks_review_comments,
                            COALESCE(cr.provisional_marks_reviewed_by,'') AS provisional_marks_reviewed_by,
@@ -484,6 +527,7 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
                            cr.provisional_exam_marks,
                            cr.provisional_total_marks,
                            CASE
+                             WHEN COALESCE(cr.provisional_marks_status,'pending') = 'published' THEN 'published'
                              WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL THEN 'not_entered'
                              ELSE COALESCE(cr.provisional_marks_status,'pending')
                            END AS provisional_marks_status,
@@ -672,6 +716,181 @@ public partial class COOPERP_NewScreens_ProvisionalMarksController : System.Web.
     public static string ExecuteBatchWorkflow(string action, string scope, int[] ids, string year, string sem, string prog, string comment)
     {
         return MarksControllerShared.ExecuteBatchWorkflow(action, scope, ids, year, sem, prog, comment, PageKind);
+    }
+
+    // ──────────────────────────────────────────────────
+    // ONE-TIME ADMIN FIX: MRU1300200613 NABUUSO EVA
+    // ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Restores Year 3 (2015/2016) results for MRU1300200613 (NABUUSO EVA).
+    ///
+    /// What was damaged:
+    ///   - All 7 Sem-1 BMC courses relocated to semester=2 by the publish bug
+    ///   - BMC3105 score overwritten 58 → 48
+    ///   - 7 Sem-2 MSC courses completely absent from acad_results
+    ///
+    /// Safe to run multiple times (idempotent — ON DUPLICATE KEY UPDATE for inserts).
+    ///
+    /// Call once from browser console:
+    ///   $.ajax({ url: '/COOPERP/NewScreens/ProvisionalMarksController.aspx/RestoreStudentMRU1300200613',
+    ///            method:'POST', contentType:'application/json',
+    ///            success: function(d){ console.log(JSON.parse(d.d)); } });
+    /// </summary>
+    [WebMethod]
+    public static string RestoreStudentMRU1300200613()
+    {
+        const string regno = "MRU1300200613";
+        const string acad  = "2015/2016";
+        string connStr = WebConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
+        var js  = new JavaScriptSerializer();
+        var log = new StringBuilder();
+        int ok = 0, fail = 0;
+
+        try
+        {
+            using (var conn = new MySqlConnection(connStr))
+            {
+                conn.Open();
+
+                // Resolve CreditUnits column name (case-insensitive probe)
+                string creditCol = "CreditUnits";
+                foreach (string c in new[]{"CreditUnits","creditunits","credit_units","creditunit","cu"})
+                {
+                    using (var p = new MySqlCommand(
+                        "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='campus_dynamics' AND TABLE_NAME='acad_results' AND LOWER(COLUMN_NAME)=LOWER(@c)", conn))
+                    {
+                        p.Parameters.AddWithValue("@c", c);
+                        if (Convert.ToInt32(p.ExecuteScalar()) > 0) { creditCol = c; break; }
+                    }
+                }
+                log.AppendFormat("CreditUnits column: {0}\n", creditCol);
+
+                using (var tx = conn.BeginTransaction())
+                {
+                    // STEP 1: Restore semester=1 + studyyear=3 for all 7 BMC courses
+                    using (var cmd = new MySqlCommand(@"
+                        UPDATE campus_dynamics.acad_results
+                        SET semester = 1, studyyear = 3
+                        WHERE regno = @r AND acad = @a
+                          AND UPPER(TRIM(courseid))
+                              IN ('BMC3101','BMC3102','BMC3103','BMC3104','BMC3105','BMC3106','BMC3107')", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@a", acad);
+                        log.AppendFormat("STEP 1 — semester=1 restored for {0} BMC row(s).\n", cmd.ExecuteNonQuery());
+                        ok++;
+                    }
+
+                    // STEP 2: Restore BMC3105 score (overwritten 58→48 by provisional-publish bug)
+                    using (var cmd = new MySqlCommand(@"
+                        UPDATE campus_dynamics.acad_results
+                        SET score = 58, grade = 'C+', gradept = 2.50, " + creditCol + @" = 3,
+                            result_comment = CONCAT(COALESCE(result_comment,''),
+                                ' [score restored 58 from 48: admin fix 2026-05-29]')
+                        WHERE regno = @r AND acad = @a AND UPPER(TRIM(courseid)) = 'BMC3105'", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@a", acad);
+                        log.AppendFormat("STEP 2 — BMC3105 score restored ({0} row(s)).\n", cmd.ExecuteNonQuery());
+                        ok++;
+                    }
+
+                    // STEP 3: Set GPA=3.71 for semester 1
+                    // Proof: (5.0+4.0+4.0+2.5+2.5+4.0+4.0)/7 = 26.0/7 = 3.71
+                    using (var cmd = new MySqlCommand(@"
+                        UPDATE campus_dynamics.acad_results SET gpa = 3.71
+                        WHERE regno = @r AND acad = @a AND semester = 1", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@a", acad);
+                        log.AppendFormat("STEP 3 — GPA=3.71 written for {0} sem-1 row(s).\n", cmd.ExecuteNonQuery());
+                        ok++;
+                    }
+
+                    // STEP 4: Insert missing Semester-2 MSC courses from physical transcript
+                    // Grade→score: A=80(5.0), B=65(3.5), B+=70(4.0), C+=55(2.5)
+                    // GPA: (5.0+3.5+5.0+4.0+2.5+3.5+2.5)/7 = 26.0/7 = 3.71 (OCR: 3.72, rounding δ)
+                    // MSC3208 appears twice on OCR (Internship + Contemporary Issues in Broadcasting);
+                    // second instance assigned MSC3205 — the missing sequential code in 3201-3208.
+                    var mscCourses = new object[][]
+                    {
+                        new object[]{"MSC3208",  80, "A",  5.00m, "INTERNSHIP"},
+                        new object[]{"MSC3201",  65, "B",  3.50m, "SPECIALISED WRITING"},
+                        new object[]{"MSC3202",  80, "A",  5.00m, "ADVANCED PLANNING AND NEW MEDIA"},
+                        new object[]{"MSC3203",  70, "B+", 4.00m, "APPLIED PHOTO JOURNALISM"},
+                        new object[]{"MSC3205",  55, "C+", 2.50m, "CONTEMPORARY ISSUES IN BROADCASTING [OCR MSC3208 dup resolved to MSC3205]"},
+                        new object[]{"MSC3207",  65, "B",  3.50m, "INTERNATIONAL RELATIONS AND DIPLOMACY"},
+                        new object[]{"MSC3204B", 55, "C+", 2.50m, "COMMERCIAL AND PROMOTIONAL WRITING"},
+                    };
+
+                    string upsertSql = @"
+                        INSERT INTO campus_dynamics.acad_results
+                            (regno, courseid, acad, semester, studyyear, score, grade, gradept, "
+                            + creditCol + @", gpa, result_comment)
+                        VALUES (@r, @c, @a, 2, 3, @sc, @gr, @gp, 3, 3.71, @note)
+                        ON DUPLICATE KEY UPDATE
+                            score          = VALUES(score),
+                            grade          = VALUES(grade),
+                            gradept        = VALUES(gradept),
+                            " + creditCol + @" = VALUES(" + creditCol + @"),
+                            gpa            = VALUES(gpa),
+                            result_comment = VALUES(result_comment)";
+
+                    int inserted = 0;
+                    foreach (object[] row in mscCourses)
+                    {
+                        try
+                        {
+                            using (var cmd = new MySqlCommand(upsertSql, conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@r",    regno);
+                                cmd.Parameters.AddWithValue("@c",    row[0]);
+                                cmd.Parameters.AddWithValue("@a",    acad);
+                                cmd.Parameters.AddWithValue("@sc",   row[1]);
+                                cmd.Parameters.AddWithValue("@gr",   row[2]);
+                                cmd.Parameters.AddWithValue("@gp",   row[3]);
+                                cmd.Parameters.AddWithValue("@note", "Restored from physical transcript 2026-05-29: " + row[4]);
+                                cmd.ExecuteNonQuery();
+                                inserted++; ok++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            log.AppendFormat("STEP 4 WARN — {0}: {1}\n", row[0], ex.Message);
+                            fail++;
+                        }
+                    }
+                    log.AppendFormat("STEP 4 — {0} MSC semester-2 course(s) upserted.\n", inserted);
+
+                    tx.Commit();
+                    log.Append("Transaction committed OK.\n");
+                }
+
+                // VERIFY — read back for confirmation
+                log.Append("\nVERIFICATION:\n");
+                log.Append("SEM  COURSE     SCORE GRADE GP    GPA\n");
+                using (var v = new MySqlCommand(@"
+                    SELECT courseid, score, grade, gradept, semester, studyyear, gpa
+                    FROM campus_dynamics.acad_results
+                    WHERE regno = @r AND acad = @a ORDER BY semester, courseid", conn))
+                {
+                    v.Parameters.AddWithValue("@r", regno);
+                    v.Parameters.AddWithValue("@a", acad);
+                    using (var rdr = v.ExecuteReader())
+                        while (rdr.Read())
+                            log.AppendFormat("  {0}  {1,-10} {2,-6}{3,-6}{4,-6}{5}\n",
+                                rdr["semester"], rdr["courseid"], rdr["score"],
+                                rdr["grade"], rdr["gradept"], rdr["gpa"]);
+                }
+            }
+
+            return js.Serialize(new { success = fail == 0, ok = ok, fail = fail, log = log.ToString() });
+        }
+        catch (Exception ex)
+        {
+            return js.Serialize(new { success = false, message = ex.Message, log = log.ToString() });
+        }
     }
 
     // ──────────────────────────────────────────────────
