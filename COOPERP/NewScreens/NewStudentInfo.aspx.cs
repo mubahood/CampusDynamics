@@ -1093,6 +1093,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string programme = Request.QueryString["programme"] ?? "";
             string source = Request.QueryString["source"] ?? "approved";
             var combos = new List<object>();
+            var years = new List<string>();   // ALL entry years the programme has (not limited to ones with marks)
 
             if (!string.IsNullOrWhiteSpace(programme))
             {
@@ -1143,10 +1144,19 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             }
                         }
                     }
+
+                    // Every entry year the programme has (so the user can pick any, not just ones with marks).
+                    using (MySqlCommand cmdY = new MySqlCommand(
+                        "SELECT DISTINCT entryyear FROM acad_student WHERE progid=@programme AND TRIM(IFNULL(entryyear,''))<>'' ORDER BY entryyear DESC", conn))
+                    {
+                        cmdY.Parameters.AddWithValue("@programme", programme);
+                        using (MySqlDataReader ry = cmdY.ExecuteReader())
+                            while (ry.Read()) years.Add(Convert.ToString(ry["entryyear"]).Trim());
+                    }
                 }
             }
 
-            Response.Write(new JavaScriptSerializer().Serialize(new { combos = combos }));
+            Response.Write(new JavaScriptSerializer().Serialize(new { combos = combos, years = years }));
         }
         catch (Exception ex)
         {

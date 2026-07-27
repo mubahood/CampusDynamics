@@ -592,7 +592,7 @@ document.addEventListener('DOMContentLoaded',function(){
                     <div class="sr-list" id="srProgList"></div>
                 </div>
             </div>
-            <div class="sr-status" id="srStatus">Pick a programme &mdash; the fields below fill in automatically with only the terms that have data.</div>
+            <div class="sr-status" id="srStatus">Pick a programme &mdash; the fields below fill in automatically (you can still change any of them). Counts show where marks exist.</div>
 
             <div class="sr-fg">
                 <label>Entry Year <span class="sr-req">*</span></label>
@@ -650,7 +650,7 @@ document.addEventListener('DOMContentLoaded',function(){
    to the NewStudentInfo feature. Self-contained; exposes only the 4 window.* entry points. */
 (function(){
     var BACKEND='NewStudentInfo.aspx';
-    var srProgs=[], srCombos=[];          // srCombos: [{y,sy,s,n}] valid terms for source+programme
+    var srProgs=[], srCombos=[], srAllYears=[];   // srCombos: [{y,sy,s,n}] terms WITH data; srAllYears: all entry years for the programme
     function d(id){ return document.getElementById(id); }
     function e2(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function stu(n){ return n+' student'+(n==1?'':'s'); }
@@ -682,64 +682,78 @@ document.addEventListener('DOMContentLoaded',function(){
         opts.forEach(function(o){ h+='<option value="'+e2(o.v)+'">'+e2(o.t)+'</option>'; });
         el.innerHTML=h; el.value=''; el.disabled=!enabled;
     }
-    function years(){ var m={}; srCombos.forEach(function(c){ m[c.y]=(m[c.y]||0)+c.n; });
-        return Object.keys(m).sort(function(a,b){return b.localeCompare(a);}).map(function(y){ return {v:y,t:'Entry '+y+'  ·  '+stu(m[y])}; }); }
-    function studies(y){ var m={}; srCombos.forEach(function(c){ if(c.y===y) m[c.sy]=(m[c.sy]||0)+c.n; });
-        return Object.keys(m).sort().map(function(sy){ return {v:sy,t:'Year '+sy+'  ·  '+stu(m[sy])}; }); }
-    function sems(y,sy){ var m={}; srCombos.forEach(function(c){ if(c.y===y&&c.sy===sy) m[c.s]=(m[c.s]||0)+c.n; });
-        return Object.keys(m).sort().map(function(s){ return {v:s,t:'Semester '+s+'  ·  '+stu(m[s])}; }); }
+    // counts from the data-bearing combos (used to annotate + auto-fill; NOT to limit options)
+    function cntYear(y){ var t=0; srCombos.forEach(function(c){ if(c.y===y) t+=c.n; }); return t; }
+    function cntStudy(y,sy){ var t=0; srCombos.forEach(function(c){ if(c.y===y&&c.sy===sy) t+=c.n; }); return t; }
+    function cntSem(y,sy,s){ var t=0; srCombos.forEach(function(c){ if(c.y===y&&c.sy===sy&&c.s===s) t+=c.n; }); return t; }
+    function bestFor(pred){ var b=null; srCombos.forEach(function(c){ if(pred(c) && (!b||c.n>b.n)) b=c; }); return b; }
+    var STUDY_YEARS=['1','2','3','4','5'], SEMS=['1','2','3'];
+    function yearOpts(){
+        var list=srAllYears.slice();
+        // include any data-bearing year not already in the master list (safety)
+        srCombos.forEach(function(c){ if(c.y && list.indexOf(c.y)<0) list.push(c.y); });
+        list.sort(function(a,b){ return b.localeCompare(a); });
+        return list.map(function(y){ var n=cntYear(y); return {v:y, t:'Entry '+y+(n>0?('  ·  '+stu(n)):'')}; });
+    }
 
     function clearPreview(){ d('srPrev').classList.remove('show'); d('srPrevN').textContent='0'; d('srBtnMarks').disabled=true; d('srBtnPerf').disabled=true; }
     var SRC_LBL={published:'published',approved:'approved',captured:'captured',entered:'entered'};
 
     function fetchCascade(){
         var prog=d('srProg').value;
-        srCombos=[];
+        srCombos=[]; srAllYears=[];
         setSel('srYear',[], 'Select a programme first…', false);
         setSel('srStudyYear',[], 'Select entry year first…', false);
         setSel('srSem',[], 'Select year of study first…', false);
         clearPreview();
         if(!prog){ status('Pick a programme &mdash; the fields below fill in automatically.'); return; }
-        status('<span class="sr-spin"></span> Finding terms with data&hellip;','sr-status--load');
+        status('<span class="sr-spin"></span> Loading&hellip;','sr-status--load');
         var src=d('srSource').value||'approved';
         var xhr=new XMLHttpRequest();
         xhr.open('GET', BACKEND+'?action=SummaryReportCascade&source='+encodeURIComponent(src)+'&programme='+encodeURIComponent(prog), true);
         xhr.onreadystatechange=function(){
             if(xhr.readyState!==4) return;
             var r=null; try{ r=JSON.parse(xhr.responseText); }catch(ex){}
-            if(!r||!r.combos){ status('Could not load available terms. Please retry.','sr-status--warn'); return; }
-            srCombos=r.combos;
-            if(!srCombos.length){ status('No <b>'+e2(SRC_LBL[src]||src)+'</b> marks for this programme yet — try a different Results Source.','sr-status--warn');
-                setSel('srYear',[], 'No data for this source', false); return; }
+            if(!r){ status('Could not load. Please retry.','sr-status--warn'); return; }
+            srCombos=r.combos||[]; srAllYears=r.years||[];
             populateYears();
         };
-        xhr.onerror=function(){ status('Network error loading terms.','sr-status--warn'); };
+        xhr.onerror=function(){ status('Network error. Please retry.','sr-status--warn'); };
         xhr.send();
     }
+    // Populate ALL fields with their full option ranges (years = every entry year the programme has;
+    // study = Year 1–5; semester = 1–3), annotate with student counts where data exists, and
+    // auto-select the best-populated combo. The user can freely change any field afterwards.
     function populateYears(){
-        var ys=years();
+        var ys=yearOpts();
         setSel('srYear', ys, '-- Select Entry Year --', true);
-        setSel('srStudyYear',[], 'Select entry year first…', false);
-        setSel('srSem',[], 'Select year of study first…', false);
+        setSel('srStudyYear', STUDY_YEARS.map(function(sy){ return {v:sy,t:'Year '+sy}; }), '-- Select Year of Study --', true);
+        setSel('srSem', SEMS.map(function(s){ return {v:s,t:'Semester '+s}; }), '-- Select Semester --', true);
         clearPreview();
-        if(ys.length===1){ d('srYear').value=ys[0].v; onYear(); status('Auto-filled — this programme has data for one entry year only.','sr-status--ok'); }
-        else status('<b>'+ys.length+'</b> entry years have data — choose one and the rest narrow automatically.','sr-status--ok');
+        var b=bestFor(function(){ return true; });   // globally best-populated (source, programme) combo
+        if(b){ d('srYear').value=b.y; onYear();
+               var src=d('srSource').value||'approved';
+               status('Auto-filled to the term with the most '+e2(SRC_LBL[src]||src)+' marks — change any field freely.','sr-status--ok'); }
+        else { var src2=d('srSource').value||'approved';
+               status('No <b>'+e2(SRC_LBL[src2]||src2)+'</b> marks for this programme yet — pick any term (may return 0) or change the Results Source.','sr-status--warn'); }
     }
     function onYear(){
         var y=d('srYear').value;
-        setSel('srSem',[], 'Select year of study first…', false); clearPreview();
-        if(!y){ setSel('srStudyYear',[], 'Select entry year first…', false); return; }
-        var sy=studies(y);
-        setSel('srStudyYear', sy, '-- Select Year of Study --', true);
-        if(sy.length===1){ d('srStudyYear').value=sy[0].v; onStudy(); }
+        // re-annotate Year of Study with counts for the chosen year (full 1–5 range kept)
+        setSel('srStudyYear', STUDY_YEARS.map(function(sy){ var n=cntStudy(y,sy); return {v:sy,t:'Year '+sy+(n>0?('  ·  '+stu(n)):'')}; }), '-- Select Year of Study --', true);
+        setSel('srSem', SEMS.map(function(s){ return {v:s,t:'Semester '+s}; }), '-- Select Semester --', true);
+        clearPreview();
+        if(!y) return;
+        var b=bestFor(function(c){ return c.y===y; });
+        if(b){ d('srStudyYear').value=b.sy; onStudy(); }
     }
     function onStudy(){
         var y=d('srYear').value, sy=d('srStudyYear').value;
+        setSel('srSem', SEMS.map(function(s){ var n=cntSem(y,sy,s); return {v:s,t:'Semester '+s+(n>0?('  ·  '+stu(n)):'')}; }), '-- Select Semester --', true);
         clearPreview();
-        if(!sy){ setSel('srSem',[], 'Select year of study first…', false); return; }
-        var ss=sems(y,sy);
-        setSel('srSem', ss, '-- Select Semester --', true);
-        if(ss.length===1){ d('srSem').value=ss[0].v; maybeAutoPreview(); }
+        if(!sy) return;
+        var b=bestFor(function(c){ return c.y===y&&c.sy===sy; });
+        if(b){ d('srSem').value=b.s; maybeAutoPreview(); }
     }
     function maybeAutoPreview(){
         if(d('srProg').value && d('srYear').value && d('srStudyYear').value && d('srSem').value) window.srPreview(true);
@@ -749,13 +763,13 @@ document.addEventListener('DOMContentLoaded',function(){
     function reset(){
         d('srSource').value='approved';
         d('srProg').value=''; d('srProgInput').value='';
-        srCombos=[];
+        srCombos=[]; srAllYears=[];
         setSel('srYear',[], 'Select a programme first…', false);
         setSel('srStudyYear',[], 'Select entry year first…', false);
         setSel('srSem',[], 'Select year of study first…', false);
         d('srReg').value='';
         clearPreview();
-        status('Pick a programme &mdash; the fields below fill in automatically with only the terms that have data.');
+        status('Pick a programme &mdash; the fields below fill in automatically (you can still change any of them).');
     }
     function collect(silent){
         var p=d('srProg').value, y=d('srYear').value, sy=d('srStudyYear').value, sm=d('srSem').value;
