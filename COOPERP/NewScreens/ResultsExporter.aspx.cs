@@ -524,7 +524,7 @@ public partial class COOPERP_NewScreens_ResultsExporter : Page
 
                 using (MySqlCommand cmd = new MySqlCommand(
                     "SELECT TRIM(p.progcode) pc, COALESCE(p.progname,p.progcode) pn, TRIM(IFNULL(p.faculty_code,'')) fc, IFNULL(p.department_id,0) dep " +
-                    "FROM acad_programme p WHERE TRIM(p.progcode)<>''" + pf + " ORDER BY pn", conn))
+                    "FROM acad_programme p WHERE TRIM(p.progcode) NOT IN ('','-')" + pf + " ORDER BY pn", conn))
                 using (MySqlDataReader r = cmd.ExecuteReader())
                     while (r.Read()) { string v = RS(r, 0); if (v != "") programmes.Add(new { value = v, text = RS(r, 1), faculty = RS(r, 2), department = RS(r, 3) }); }
 

@@ -662,7 +662,10 @@ document.addEventListener('DOMContentLoaded',function(){
 
     function loadProgs(){
         srProgs=[]; var sel=d('fProg');
-        if(sel){ for(var i=0;i<sel.options.length;i++){ var o=sel.options[i]; if(o.value) srProgs.push({value:o.value,text:o.text}); } }
+        if(sel){ for(var i=0;i<sel.options.length;i++){ var o=sel.options[i];
+            var v=(o.value||'').trim();
+            if(!v || v==='-' || v.toUpperCase()==='ALL') continue;   // skip the blank/placeholder programme rows
+            srProgs.push({value:v,text:o.text}); } }
     }
     function loadYears(){ srYears=[]; var y=new Date().getFullYear(); for(var yr=y;yr>=2000;yr--) srYears.push(String(yr)); }
 
