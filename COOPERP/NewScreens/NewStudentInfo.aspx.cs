@@ -1473,7 +1473,6 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 s.has_passed,
                 s.fail_reason,
                 ROUND(SUM(r.gradept * r.CreditUnits) / NULLIF(SUM(r.CreditUnits), 0), 2) AS sem_gpa,
-                ROUND(acad_CGPAFinder(s.regno), 2) AS cgpa,
                 SUM(r.score < 50) AS fails,
                 MAX(r.is_retake) AS any_retake,
                 COUNT(*) AS courses"
@@ -1641,9 +1640,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 
         foreach (DataRow row in data.Rows)
         {
-            decimal cgpa = data.Columns.Contains("cgpa") && row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
             decimal semGpa = data.Columns.Contains("sem_gpa") && row["sem_gpa"] != DBNull.Value ? Convert.ToDecimal(row["sem_gpa"]) : 0;
-            decimal basis = cgpa > 0 ? cgpa : semGpa;
+            decimal basis = semGpa;   // single, per-semester GPA (same value the GPA column & marksheet show)
             long fails = data.Columns.Contains("fails") && row["fails"] != DBNull.Value ? Convert.ToInt64(row["fails"]) : 0;
             long courses = hasCourses && row["courses"] != DBNull.Value ? Convert.ToInt64(row["courses"]) : 0;
 
@@ -1718,12 +1716,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y += 8;
         
         // ========== COLUMN WIDTHS - FULL PAGE WIDTH (555) ==========
-        // Columns: #, REG NO, STUDENT NAME, GENDER, CGPA, STATUS, REASON
+        // Columns: #, REG NO, STUDENT NAME, GENDER, GPA, STATUS, REASON
         float numWidth = 22 * sc;
         float regNoWidth = 125 * sc;
         float nameWidth = 140 * sc;
         float genderWidth = 42 * sc;
-        float cgpaWidth = 66 * sc;   // shows "Sem / Cum" GPA pair
+        float cgpaWidth = 66 * sc;   // single per-semester GPA
         float statusWidth = 48 * sc;
         float reasonWidth = pageWidth - numWidth - regNoWidth - nameWidth - genderWidth - cgpaWidth - statusWidth;
         float rowHeight = 20;
@@ -1732,8 +1730,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         // 1. VC's List (First Class)
         y = DrawPerformanceCategory(gr, vcListStudents, "1. VC'S LIST (FIRST CLASS)", vcListStudents.Count,
-            "The following students obtained a CGPA between 4.40 and 5.00.",
-            "No students meet the First Class criteria (CGPA 4.40 - 5.00)",
+            "The following students obtained a GPA between 4.40 and 5.00.",
+            "No students meet the First Class criteria (GPA 4.40 - 5.00)",
             vcListColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
@@ -1741,8 +1739,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         // 2. Dean's List (Second Class Upper)
         y = DrawPerformanceCategory(gr, deansListStudents, "2. DEAN'S LIST (SECOND CLASS UPPER DIVISION)", deansListStudents.Count,
-            "The following students obtained a CGPA between 3.60 and 4.39.",
-            "No students meet the Second Class Upper criteria (CGPA 3.60 - 4.39)",
+            "The following students obtained a GPA between 3.60 and 4.39.",
+            "No students meet the Second Class Upper criteria (GPA 3.60 - 4.39)",
             deansListColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
@@ -1750,7 +1748,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         // 3. Second Class Lower
         y = DrawPerformanceCategory(gr, secondLowerStudents, "3. SECOND CLASS LOWER DIVISION", secondLowerStudents.Count,
-            "The following students obtained a CGPA between 2.80 and 3.59.",
+            "The following students obtained a GPA between 2.80 and 3.59.",
             "No students in this category",
             secondLowerColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
@@ -1759,7 +1757,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         
         // 4. Pass
         y = DrawPerformanceCategory(gr, passStudents, "4. PASS", passStudents.Count,
-            "The following students obtained a CGPA between 2.00 and 2.79.",
+            "The following students obtained a GPA between 2.00 and 2.79.",
             "No students in this category",
             passColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
@@ -1894,13 +1892,13 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         }
         else
         {
-            // Table header row - Columns: #, REG NO, NAME, GENDER, CGPA, STATUS, REASON
+            // Table header row - Columns: #, REG NO, NAME, GENDER, GPA, STATUS, REASON
             float x = 0;
             DrawTableHeaderCell(gr, "#", x, y, numWidth, rowHeight, headerFont, headerBg, borderColor); x += numWidth;
             DrawTableHeaderCell(gr, "REG NO", x, y, regNoWidth, rowHeight, headerFont, headerBg, borderColor); x += regNoWidth;
             DrawTableHeaderCell(gr, "STUDENT NAME", x, y, nameWidth, rowHeight, headerFont, headerBg, borderColor); x += nameWidth;
             DrawTableHeaderCell(gr, "GENDER", x, y, genderWidth, rowHeight, headerFont, headerBg, borderColor); x += genderWidth;
-            DrawTableHeaderCell(gr, "SEM / CUM", x, y, cgpaWidth, rowHeight, headerFont, headerBg, borderColor); x += cgpaWidth;
+            DrawTableHeaderCell(gr, "GPA", x, y, cgpaWidth, rowHeight, headerFont, headerBg, borderColor); x += cgpaWidth;
             DrawTableHeaderCell(gr, "STATUS", x, y, statusWidth, rowHeight, headerFont, headerBg, borderColor); x += statusWidth;
             DrawTableHeaderCell(gr, "REASON", x, y, reasonWidth, rowHeight, headerFont, headerBg, borderColor);
             y += rowHeight;
@@ -1919,15 +1917,15 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 DrawTableDataCell(gr, row["student_name"].ToString(), x, y, nameWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Near); x += nameWidth;
                 DrawTableDataCell(gr, row["gender"].ToString(), x, y, genderWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += genderWidth;
 
-                // GPA cell: "Sem / Cumulative" (cumulative = authoritative CGPA, or — when not yet published)
+                // GPA cell: the single per-semester GPA (no cumulative).
                 decimal semGpaVal = row.Table.Columns.Contains("sem_gpa") && row["sem_gpa"] != DBNull.Value ? Convert.ToDecimal(row["sem_gpa"]) : 0;
-                decimal cgpaVal = row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
-                string gpaText = semGpaVal.ToString("F2") + " / " + (cgpaVal > 0 ? cgpaVal.ToString("F2") : "—");
+                string gpaText = semGpaVal.ToString("F2");
                 DrawTableDataCell(gr, gpaText, x, y, cgpaWidth, rowHeight, cellFont, rowBg, borderColor, System.Drawing.StringAlignment.Center); x += cgpaWidth;
-                
-                // Status column with color coding - has_passed is VARCHAR(5) with 'Yes' or 'No'
-                string hasPassedValue = row["has_passed"] != DBNull.Value ? row["has_passed"].ToString() : "No";
-                bool hasPassed = hasPassedValue.Equals("Yes", StringComparison.OrdinalIgnoreCase);
+
+                // Status column — derived from the SAME curriculum-free rule as the classification:
+                // a row is FAIL only when it carries a fail reason (set for the Fail category), else PASS.
+                string failReasonVal = row.Table.Columns.Contains("fail_reason") && row["fail_reason"] != DBNull.Value ? row["fail_reason"].ToString().Trim() : "";
+                bool hasPassed = failReasonVal == "";
                 string statusText = hasPassed ? "PASS" : "FAIL";
                 System.Drawing.Color statusBgColor = hasPassed ? System.Drawing.Color.FromArgb(200, 230, 200) : System.Drawing.Color.FromArgb(255, 200, 200);
                 System.Drawing.Color statusTextColor = hasPassed ? System.Drawing.Color.FromArgb(34, 139, 34) : System.Drawing.Color.FromArgb(178, 34, 34);
@@ -2622,10 +2620,6 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     string progId = specGroup.First()["progid"] != DBNull.Value ? specGroup.First()["progid"].ToString() : "";
                     string specId = specGroup.Key; // This is the actual spec_id from the database
                     
-                    // Get curriculum validation info for this exact spec_id
-                    CurriculumInfo curricInfo = GetCurriculumInfo(
-                        specId != "0" ? specId : "", progId, studyYear, semester);
-                    
                     // Get unique courses for this specialization
                     var courses = specGroup
                         .Select(r => new { 
@@ -2668,18 +2662,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     // Calculate course column width to fill remaining space exactly
                     float courseColWidth = displayedCourses > 0 ? availableWidth / displayedCourses : 48;
                     
-                    // ========== SPECIALIZATION HEADER WITH CURRICULUM VALIDATION ==========
-                    // Colors for badges
-                    System.Drawing.Color successColor = System.Drawing.Color.FromArgb(39, 174, 96);  // Green
-                    System.Drawing.Color warningColor = System.Drawing.Color.FromArgb(243, 156, 18); // Orange/Yellow
-                    System.Drawing.Color dangerColor = System.Drawing.Color.FromArgb(192, 57, 43);   // Red
-                    
-                    // Build header text with curriculum info
+                    // ========== SPECIALIZATION HEADER ==========
+                    // Specialization header (full width) — name + student count. No curriculum info shown.
                     string specHeaderText = "  " + specName + " (" + students.Count + " students)";
-                    string curricText = "Curriculum: " + curricInfo.CurriculumCourseCount + " courses";
-                    if (curricInfo.IsDefault) curricText += " [Default]";
-                    
-                    // Specialization Header - left part with name
                     DevExpress.XtraPrinting.TextBrick specHeader = new DevExpress.XtraPrinting.TextBrick();
                     specHeader.Text = specHeaderText;
                     specHeader.Font = subtitleFont;
@@ -2687,37 +2672,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     specHeader.BackColor = specHeaderBg;
                     specHeader.Sides = DevExpress.XtraPrinting.BorderSide.None;
                     specHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 6, 6);
-                    gr.DrawBrick(specHeader, new System.Drawing.RectangleF(0, y, pageWidth * 0.45f, 24));
-                    
-                    // Curriculum info text
-                    DevExpress.XtraPrinting.TextBrick curricBrick = new DevExpress.XtraPrinting.TextBrick();
-                    curricBrick.Text = curricText;
-                    curricBrick.Font = smallFont;
-                    curricBrick.ForeColor = System.Drawing.Color.FromArgb(200, 200, 200);
-                    curricBrick.BackColor = specHeaderBg;
-                    curricBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                    curricBrick.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 6, 6);
-                    curricBrick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                    gr.DrawBrick(curricBrick, new System.Drawing.RectangleF(pageWidth * 0.45f, y, pageWidth * 0.3f, 24));
-                    
-                    // Badge for curriculum status
-                    string badgeText = curricInfo.IsFullySet ? "FULLY SET" : "NOT SET";
-                    System.Drawing.Color badgeBgColor = curricInfo.IsFullySet ? successColor : warningColor;
-                    if (curricInfo.CurriculumCourseCount == 0) 
-                    { 
-                        badgeText = "NO CURRICULUM"; 
-                        badgeBgColor = dangerColor; 
-                    }
-                    
-                    DevExpress.XtraPrinting.TextBrick badgeBrick = new DevExpress.XtraPrinting.TextBrick();
-                    badgeBrick.Text = badgeText;
-                    badgeBrick.Font = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
-                    badgeBrick.ForeColor = System.Drawing.Color.White;
-                    badgeBrick.BackColor = badgeBgColor;
-                    badgeBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                    badgeBrick.Padding = new DevExpress.XtraPrinting.PaddingInfo(6, 6, 4, 4);
-                    badgeBrick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                    gr.DrawBrick(badgeBrick, new System.Drawing.RectangleF(pageWidth * 0.75f, y, pageWidth * 0.15f, 24));
+                    gr.DrawBrick(specHeader, new System.Drawing.RectangleF(0, y, pageWidth, 24));
                     
                     // Right filler to complete the header bar
                     DevExpress.XtraPrinting.TextBrick rightFiller = new DevExpress.XtraPrinting.TextBrick();
@@ -2900,39 +2855,18 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             x += courseColWidth;
                         }
                         
-                        // Status Cell - Determine if student passed based on curriculum
-                        // IMPORTANT: Student can only be marked as PASSED if:
-                        // 1. Curriculum is fully set (IsFullySet = true)
-                        // 2. Curriculum has courses defined (CurriculumCourseCount > 0)
-                        // 3. Student's passed count >= curriculum course count
-                        bool studentPassed = false;
-                        string statusText = "";
-                        System.Drawing.Color statusBgColor;
-                        System.Drawing.Color statusTextColor;
-                        
-                        if (curricInfo.CurriculumCourseCount > 0 && curricInfo.IsFullySet)
-                        {
-                            // Curriculum is fully set - can determine pass/fail
-                            studentPassed = (studentPassedCount >= curricInfo.CurriculumCourseCount);
-                            statusText = studentPassed ? "PASSED" : "FAILED";
-                            statusText += " (" + studentPassedCount + "/" + curricInfo.CurriculumCourseCount + ")";
-                            statusBgColor = studentPassed ? System.Drawing.Color.FromArgb(212, 237, 218) : System.Drawing.Color.FromArgb(248, 215, 218);
-                            statusTextColor = studentPassed ? System.Drawing.Color.FromArgb(21, 87, 36) : System.Drawing.Color.FromArgb(114, 28, 36);
-                        }
-                        else if (curricInfo.CurriculumCourseCount > 0 && !curricInfo.IsFullySet)
-                        {
-                            // Curriculum exists but NOT fully set - cannot determine pass status
-                            statusText = "PENDING (" + studentPassedCount + "/" + curricInfo.CurriculumCourseCount + ")";
-                            statusBgColor = System.Drawing.Color.FromArgb(255, 243, 205); // Yellow/warning
-                            statusTextColor = System.Drawing.Color.FromArgb(133, 100, 4);
-                        }
-                        else
-                        {
-                            // No curriculum defined - show results count only
-                            statusText = "N/A (" + studentResultCount + ")";
-                            statusBgColor = System.Drawing.Color.FromArgb(255, 243, 205);
-                            statusTextColor = System.Drawing.Color.FromArgb(133, 100, 4);
-                        }
+                        // Status Cell — curriculum-free rule (matches the Performance report):
+                        // a student FAILS the semester if they have any F (score < 50) OR sat fewer
+                        // than 4 courses; otherwise PASS. studentPassedCount = non-F results.
+                        int studentFailCount = studentResultCount - studentPassedCount;
+                        bool studentFail = studentFailCount > 0 || studentResultCount < 4;
+                        string statusText = studentFail
+                            ? "FAIL (" + (studentFailCount > 0 ? studentFailCount + "F" : studentResultCount + " papers") + ")"
+                            : "PASS";
+                        System.Drawing.Color statusBgColor = studentFail
+                            ? System.Drawing.Color.FromArgb(248, 215, 218) : System.Drawing.Color.FromArgb(212, 237, 218);
+                        System.Drawing.Color statusTextColor = studentFail
+                            ? System.Drawing.Color.FromArgb(114, 28, 36) : System.Drawing.Color.FromArgb(21, 87, 36);
                         
                         DevExpress.XtraPrinting.TextBrick statusCell = new DevExpress.XtraPrinting.TextBrick();
                         statusCell.Text = statusText;
@@ -3035,158 +2969,24 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 statValue3.BackColor = System.Drawing.Color.Transparent;
                 gr.DrawBrick(statValue3, new System.Drawing.RectangleF(sumCol3X + 80, summaryY, 100, 12));
                 
-                // Legend section - Row 2
+
+                // Status legend — curriculum-free rule
                 summaryY += 18;
                 DevExpress.XtraPrinting.TextBrick legendTitle = new DevExpress.XtraPrinting.TextBrick();
-                legendTitle.Text = "Status Legend:";
+                legendTitle.Text = "Status:";
                 legendTitle.Font = filterLabelFont;
                 legendTitle.ForeColor = darkGray;
                 legendTitle.Sides = DevExpress.XtraPrinting.BorderSide.None;
                 legendTitle.BackColor = System.Drawing.Color.Transparent;
-                gr.DrawBrick(legendTitle, new System.Drawing.RectangleF(sumCol1X, summaryY, 70, 12));
-                
-                // PASSED badge
-                DevExpress.XtraPrinting.TextBrick passedBadge = new DevExpress.XtraPrinting.TextBrick();
-                passedBadge.Text = "PASSED";
-                passedBadge.Font = new System.Drawing.Font("Tahoma", 5, System.Drawing.FontStyle.Bold);
-                passedBadge.ForeColor = System.Drawing.Color.FromArgb(21, 87, 36);
-                passedBadge.BackColor = System.Drawing.Color.FromArgb(212, 237, 218);
-                passedBadge.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                passedBadge.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 2, 2);
-                passedBadge.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                gr.DrawBrick(passedBadge, new System.Drawing.RectangleF(sumCol1X + 70, summaryY, 40, 12));
-                
-                DevExpress.XtraPrinting.TextBrick passedDesc = new DevExpress.XtraPrinting.TextBrick();
-                passedDesc.Text = "= Fully Set & ≥ Req";
-                passedDesc.Font = smallFont;
-                passedDesc.ForeColor = lightGray;
-                passedDesc.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                passedDesc.BackColor = System.Drawing.Color.Transparent;
-                gr.DrawBrick(passedDesc, new System.Drawing.RectangleF(sumCol1X + 115, summaryY, 90, 12));
-                
-                // FAILED badge
-                DevExpress.XtraPrinting.TextBrick failedBadge = new DevExpress.XtraPrinting.TextBrick();
-                failedBadge.Text = "FAILED";
-                failedBadge.Font = new System.Drawing.Font("Tahoma", 5, System.Drawing.FontStyle.Bold);
-                failedBadge.ForeColor = System.Drawing.Color.FromArgb(114, 28, 36);
-                failedBadge.BackColor = System.Drawing.Color.FromArgb(248, 215, 218);
-                failedBadge.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                failedBadge.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 2, 2);
-                failedBadge.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                gr.DrawBrick(failedBadge, new System.Drawing.RectangleF(sumCol2X - 30, summaryY, 38, 12));
-                
-                DevExpress.XtraPrinting.TextBrick failedDesc = new DevExpress.XtraPrinting.TextBrick();
-                failedDesc.Text = "= Fully Set & < Req";
-                failedDesc.Font = smallFont;
-                failedDesc.ForeColor = lightGray;
-                failedDesc.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                failedDesc.BackColor = System.Drawing.Color.Transparent;
-                gr.DrawBrick(failedDesc, new System.Drawing.RectangleF(sumCol2X + 12, summaryY, 90, 12));
-                
-                // PENDING badge
-                DevExpress.XtraPrinting.TextBrick pendingBadge = new DevExpress.XtraPrinting.TextBrick();
-                pendingBadge.Text = "PENDING";
-                pendingBadge.Font = new System.Drawing.Font("Tahoma", 5, System.Drawing.FontStyle.Bold);
-                pendingBadge.ForeColor = System.Drawing.Color.FromArgb(133, 100, 4);
-                pendingBadge.BackColor = System.Drawing.Color.FromArgb(255, 243, 205);
-                pendingBadge.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                pendingBadge.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 2, 2);
-                pendingBadge.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                gr.DrawBrick(pendingBadge, new System.Drawing.RectangleF(sumCol2X + 110, summaryY, 45, 12));
-                
-                DevExpress.XtraPrinting.TextBrick pendingDesc = new DevExpress.XtraPrinting.TextBrick();
-                pendingDesc.Text = "= Not Fully Set";
-                pendingDesc.Font = smallFont;
-                pendingDesc.ForeColor = lightGray;
-                pendingDesc.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                pendingDesc.BackColor = System.Drawing.Color.Transparent;
-                gr.DrawBrick(pendingDesc, new System.Drawing.RectangleF(sumCol2X + 160, summaryY, 80, 12));
-                
-                // N/A badge
-                DevExpress.XtraPrinting.TextBrick naBadge = new DevExpress.XtraPrinting.TextBrick();
-                naBadge.Text = "N/A";
-                naBadge.Font = new System.Drawing.Font("Tahoma", 5, System.Drawing.FontStyle.Bold);
-                naBadge.ForeColor = System.Drawing.Color.FromArgb(133, 100, 4);
-                naBadge.BackColor = System.Drawing.Color.FromArgb(255, 243, 205);
-                naBadge.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                naBadge.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 2, 2);
-                naBadge.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                gr.DrawBrick(naBadge, new System.Drawing.RectangleF(sumCol3X + 30, summaryY, 25, 12));
-                
-                DevExpress.XtraPrinting.TextBrick naDesc = new DevExpress.XtraPrinting.TextBrick();
-                naDesc.Text = "= No Curriculum";
-                naDesc.Font = smallFont;
-                naDesc.ForeColor = lightGray;
-                naDesc.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                naDesc.BackColor = System.Drawing.Color.Transparent;
-                gr.DrawBrick(naDesc, new System.Drawing.RectangleF(sumCol3X + 60, summaryY, 90, 12));
-                
-                // Curriculum badges legend - Row 3
-                summaryY += 18;
-                DevExpress.XtraPrinting.TextBrick curricLegendTitle = new DevExpress.XtraPrinting.TextBrick();
-                curricLegendTitle.Text = "Curriculum:";
-                curricLegendTitle.Font = filterLabelFont;
-                curricLegendTitle.ForeColor = darkGray;
-                curricLegendTitle.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                curricLegendTitle.BackColor = System.Drawing.Color.Transparent;
-                gr.DrawBrick(curricLegendTitle, new System.Drawing.RectangleF(sumCol1X, summaryY, 80, 12));
-                
-                // FULLY SET badge
-                DevExpress.XtraPrinting.TextBrick fullySetBadge = new DevExpress.XtraPrinting.TextBrick();
-                fullySetBadge.Text = "FULLY SET";
-                fullySetBadge.Font = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
-                fullySetBadge.ForeColor = System.Drawing.Color.White;
-                fullySetBadge.BackColor = System.Drawing.Color.FromArgb(39, 174, 96);
-                fullySetBadge.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                fullySetBadge.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 2, 2);
-                fullySetBadge.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                gr.DrawBrick(fullySetBadge, new System.Drawing.RectangleF(sumCol1X + 80, summaryY, 55, 12));
-                
-                DevExpress.XtraPrinting.TextBrick fullySetDesc = new DevExpress.XtraPrinting.TextBrick();
-                fullySetDesc.Text = "= Complete";
-                fullySetDesc.Font = smallFont;
-                fullySetDesc.ForeColor = lightGray;
-                fullySetDesc.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                fullySetDesc.BackColor = System.Drawing.Color.Transparent;
-                gr.DrawBrick(fullySetDesc, new System.Drawing.RectangleF(sumCol1X + 140, summaryY, 80, 12));
-                
-                // NOT SET badge
-                DevExpress.XtraPrinting.TextBrick notSetBadge = new DevExpress.XtraPrinting.TextBrick();
-                notSetBadge.Text = "NOT SET";
-                notSetBadge.Font = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
-                notSetBadge.ForeColor = System.Drawing.Color.White;
-                notSetBadge.BackColor = System.Drawing.Color.FromArgb(243, 156, 18);
-                notSetBadge.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                notSetBadge.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 2, 2);
-                notSetBadge.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                gr.DrawBrick(notSetBadge, new System.Drawing.RectangleF(sumCol2X, summaryY, 50, 12));
-                
-                DevExpress.XtraPrinting.TextBrick notSetDesc = new DevExpress.XtraPrinting.TextBrick();
-                notSetDesc.Text = "= Incomplete";
-                notSetDesc.Font = smallFont;
-                notSetDesc.ForeColor = lightGray;
-                notSetDesc.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                notSetDesc.BackColor = System.Drawing.Color.Transparent;
-                gr.DrawBrick(notSetDesc, new System.Drawing.RectangleF(sumCol2X + 55, summaryY, 80, 12));
-                
-                // NO CURRICULUM badge
-                DevExpress.XtraPrinting.TextBrick noCurricBadge = new DevExpress.XtraPrinting.TextBrick();
-                noCurricBadge.Text = "NO CURRICULUM";
-                noCurricBadge.Font = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
-                noCurricBadge.ForeColor = System.Drawing.Color.White;
-                noCurricBadge.BackColor = System.Drawing.Color.FromArgb(192, 57, 43);
-                noCurricBadge.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                noCurricBadge.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 2, 2);
-                noCurricBadge.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                gr.DrawBrick(noCurricBadge, new System.Drawing.RectangleF(sumCol3X, summaryY, 80, 12));
-                
-                DevExpress.XtraPrinting.TextBrick noCurricDesc = new DevExpress.XtraPrinting.TextBrick();
-                noCurricDesc.Text = "= Not Defined";
-                noCurricDesc.Font = smallFont;
-                noCurricDesc.ForeColor = lightGray;
-                noCurricDesc.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                noCurricDesc.BackColor = System.Drawing.Color.Transparent;
-                gr.DrawBrick(noCurricDesc, new System.Drawing.RectangleF(sumCol3X + 85, summaryY, 80, 12));
+                gr.DrawBrick(legendTitle, new System.Drawing.RectangleF(sumCol1X, summaryY, 50, 12));
+
+                DevExpress.XtraPrinting.TextBrick legendText = new DevExpress.XtraPrinting.TextBrick();
+                legendText.Text = "PASS = no F and at least 4 papers      FAIL = one or more F, or fewer than 4 papers";
+                legendText.Font = smallFont;
+                legendText.ForeColor = lightGray;
+                legendText.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                legendText.BackColor = System.Drawing.Color.Transparent;
+                gr.DrawBrick(legendText, new System.Drawing.RectangleF(sumCol1X + 52, summaryY, pageWidth - sumCol1X - 60, 12));
 
                 // ===== Marks-submission legend (only when enriched from the new system) =====
                 if (hasProvisional)
