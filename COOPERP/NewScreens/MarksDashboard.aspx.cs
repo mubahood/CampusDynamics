@@ -46,13 +46,24 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
                     }
                 }
 
-                List<FilterOption> programmes = new List<FilterOption>();
+                // Programmes that actually have active-student marks data, carrying their
+                // faculty + department so the client can cascade Faculty → Dept → Programme.
+                // Faculties + departments are derived from this same set so every option has data.
+                List<CascadeOption> programmes = new List<CascadeOption>();
+                var facMap = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // code -> name
+                var deptMap = new SortedDictionary<string, DeptOpt>();                                  // id   -> {name,faculty}
                 using (MySqlCommand cmd = new MySqlCommand(@"
-                    SELECT DISTINCT p.progcode, COALESCE(p.progname, p.progcode) AS progname
+                    SELECT DISTINCT p.progcode, COALESCE(NULLIF(p.progname,''), p.progcode) AS progname,
+                           TRIM(IFNULL(p.faculty_code,'')) AS fcode,
+                           COALESCE(NULLIF(f.faculty_name,''), TRIM(IFNULL(p.faculty_code,''))) AS fname,
+                           CAST(IFNULL(p.department_id,0) AS CHAR) AS deptid,
+                           COALESCE(NULLIF(d.dept_name,''),'') AS dname
                     FROM acad_programme p
                     INNER JOIN campus_dynamics_portal.acad_course_registration cr ON cr.prog_id = p.progcode
                     INNER JOIN campus_dynamics_portal.my_aspnet_users u ON u.name = cr.regno AND u.user_verification_status = 'ACTIVE STUDENT'
                     INNER JOIN campus_dynamics.acad_student s ON s.regno = cr.regno AND s.stud_status = 'ACTIVE'
+                    LEFT JOIN acad_faculty f ON f.faculty_code = p.faculty_code
+                    LEFT JOIN hrm_departments d ON d.ID = p.department_id
                     WHERE 1=1" + sf + @"
                     ORDER BY progname", conn))
                 using (MySqlDataReader rdr = cmd.ExecuteReader())
@@ -60,15 +71,31 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
                     while (rdr.Read())
                     {
                         string v = rdr.IsDBNull(0) ? string.Empty : rdr.GetString(0);
+                        if (string.IsNullOrEmpty(v)) continue;
                         string t = rdr.IsDBNull(1) ? v : rdr.GetString(1);
-                        if (!string.IsNullOrEmpty(v)) programmes.Add(new FilterOption { value = v, text = t });
+                        string fc = rdr.IsDBNull(2) ? "" : rdr.GetString(2);
+                        string fn = rdr.IsDBNull(3) ? fc : rdr.GetString(3);
+                        string di = rdr.IsDBNull(4) ? "0" : rdr.GetString(4);
+                        string dn = rdr.IsDBNull(5) ? "" : rdr.GetString(5);
+                        programmes.Add(new CascadeOption { value = v, text = t, faculty = fc, department = di });
+                        if (fc != "" && !facMap.ContainsKey(fc)) facMap[fc] = fn;
+                        if (di != "0" && dn != "" && !deptMap.ContainsKey(di)) deptMap[di] = new DeptOpt { name = dn, faculty = fc };
                     }
                 }
+
+                var faculties = new List<FilterOption>();
+                foreach (var kv in facMap) faculties.Add(new FilterOption { value = kv.Key, text = kv.Value });
+                faculties.Sort((a, b) => string.Compare(a.text, b.text, StringComparison.OrdinalIgnoreCase));
+                var departments = new List<CascadeOption>();
+                foreach (var kv in deptMap) departments.Add(new CascadeOption { value = kv.Key, text = kv.Value.name, faculty = kv.Value.faculty });
+                departments.Sort((a, b) => string.Compare(a.text, b.text, StringComparison.OrdinalIgnoreCase));
 
                 return Json.Serialize(new
                 {
                     success = true,
                     years = years,
+                    faculties = faculties,
+                    departments = departments,
                     programmes = programmes,
                     scope = new { mode = scope.Mode, label = scope.Label, role = scope.RoleNote, isAdmin = scope.IsAdmin, hasAccess = scope.HasAccess }
                 });
@@ -81,7 +108,7 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
     }
 
     [WebMethod(EnableSession = true)]
-    public static string GetDashboardStats(string year, string semester, string programme)
+    public static string GetDashboardStats(string year, string semester, string programme, string faculty, string department)
     {
         try
         {
@@ -89,7 +116,7 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
             using (MySqlConnection conn = new MySqlConnection(GetConnStr()))
             {
                 conn.Open();
-                DashboardStats stats = BuildStats(conn, year, semester, programme, scope);
+                DashboardStats stats = BuildStats(conn, year, semester, programme, faculty, department, scope);
                 return Json.Serialize(new
                 {
                     success = true,
@@ -246,10 +273,15 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
     }
 
 
-    private static DashboardStats BuildStats(MySqlConnection conn, string year, string semester, string programme, MarksScope scope)
+    private static DashboardStats BuildStats(MySqlConnection conn, string year, string semester, string programme, string faculty, string department, MarksScope scope)
     {
         string courseExpr = GetCourseColumnExpression(conn, "cr");
         string courseCountSql = string.IsNullOrEmpty(courseExpr) ? "0" : "COUNT(DISTINCT " + courseExpr + ")";
+
+        // Faculty / department filters resolve against acad_programme (aliased p, joined in every
+        // query). Faculty is a code; department is a numeric id.
+        bool hasFac = !string.IsNullOrEmpty(faculty);
+        int depId; bool hasDept = int.TryParse(department ?? "", out depId) && depId > 0;
 
         // Server-enforced scope predicate (cannot be widened from the client).
         // Active-student narrowing is done via an INNER JOIN on my_aspnet_users in each FROM
@@ -261,6 +293,8 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
         string where = "WHERE 1=1" + scopeFilter;
         if (!string.IsNullOrEmpty(year))      where += " AND cr.acad_year = @year";
         if (!string.IsNullOrEmpty(semester))  where += " AND CAST(cr.semester AS CHAR) = @semester";
+        if (hasFac)                           where += " AND p.faculty_code = @faculty";
+        if (hasDept)                          where += " AND p.department_id = @department";
         if (!string.IsNullOrEmpty(programme)) where += " AND cr.prog_id = @programme";
 
         // ── Main query: ALL stats restricted to active students via INNER JOIN ──
@@ -287,6 +321,7 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
             FROM campus_dynamics_portal.acad_course_registration cr
             INNER JOIN campus_dynamics_portal.my_aspnet_users u ON u.name = cr.regno AND u.user_verification_status = 'ACTIVE STUDENT'
             INNER JOIN campus_dynamics.acad_student s ON s.regno = cr.regno AND s.stud_status = 'ACTIVE'
+            LEFT JOIN acad_programme p ON p.progcode = cr.prog_id
             " + where;
 
         var stats = new DashboardStats();
@@ -295,6 +330,8 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
         {
             if (!string.IsNullOrEmpty(year))      cmd.Parameters.AddWithValue("@year",      year);
             if (!string.IsNullOrEmpty(semester))  cmd.Parameters.AddWithValue("@semester",  semester);
+            if (hasFac)                           cmd.Parameters.AddWithValue("@faculty",   faculty);
+            if (hasDept)                          cmd.Parameters.AddWithValue("@department",depId);
             if (!string.IsNullOrEmpty(programme)) cmd.Parameters.AddWithValue("@programme", programme);
 
             using (MySqlDataReader rdr = cmd.ExecuteReader())
@@ -328,11 +365,14 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
                 FROM campus_dynamics_portal.acad_course_registration cr
                 INNER JOIN campus_dynamics_portal.my_aspnet_users u ON u.name = cr.regno AND u.user_verification_status = 'ACTIVE STUDENT'
                 INNER JOIN campus_dynamics.acad_student s ON s.regno = cr.regno AND s.stud_status = 'ACTIVE'
+                LEFT JOIN acad_programme p ON p.progcode = cr.prog_id
                 LEFT JOIN acad_course c ON c.courseID = " + courseExpr + @"
                 WHERE (cr.provisional_course_work_marks IS NULL OR cr.provisional_exam_marks IS NULL)
                   AND COALESCE(cr.provisional_marks_status,'') <> 'published'" + scopeFilter +
                 (string.IsNullOrEmpty(year)      ? "" : " AND cr.acad_year = @year") +
                 (string.IsNullOrEmpty(semester)  ? "" : " AND CAST(cr.semester AS CHAR) = @semester") +
+                (hasFac                          ? " AND p.faculty_code = @faculty" : "") +
+                (hasDept                         ? " AND p.department_id = @department" : "") +
                 (string.IsNullOrEmpty(programme) ? "" : " AND cr.prog_id = @programme") +
                 " GROUP BY " + courseExpr + @", c.courseName ORDER BY missing_count DESC LIMIT 25";
 
@@ -340,6 +380,8 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
             {
                 if (!string.IsNullOrEmpty(year))      cmd2.Parameters.AddWithValue("@year",      year);
                 if (!string.IsNullOrEmpty(semester))  cmd2.Parameters.AddWithValue("@semester",  semester);
+                if (hasFac)                           cmd2.Parameters.AddWithValue("@faculty",   faculty);
+                if (hasDept)                          cmd2.Parameters.AddWithValue("@department",depId);
                 if (!string.IsNullOrEmpty(programme)) cmd2.Parameters.AddWithValue("@programme", programme);
 
                 stats.topMissingCourses = new List<TopCourse>();
@@ -385,6 +427,8 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
         {
             if (!string.IsNullOrEmpty(year))      cmd3.Parameters.AddWithValue("@year",      year);
             if (!string.IsNullOrEmpty(semester))  cmd3.Parameters.AddWithValue("@semester",  semester);
+            if (hasFac)                           cmd3.Parameters.AddWithValue("@faculty",   faculty);
+            if (hasDept)                          cmd3.Parameters.AddWithValue("@department",depId);
             if (!string.IsNullOrEmpty(programme)) cmd3.Parameters.AddWithValue("@programme", programme);
 
             stats.programmeStats = new List<ProgrammeStat>();
@@ -407,9 +451,9 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
         }
 
         // ── Stats by FACULTY (active students, same scope + filters) ──────────
-        stats.facultyStats  = BuildGroupStats(conn, where, year, semester, programme, true);
+        stats.facultyStats  = BuildGroupStats(conn, where, year, semester, programme, faculty, department, true);
         // ── Stats by DEPARTMENT ───────────────────────────────────────────────
-        stats.departmentStats = BuildGroupStats(conn, where, year, semester, programme, false);
+        stats.departmentStats = BuildGroupStats(conn, where, year, semester, programme, faculty, department, false);
 
         return stats;
     }
@@ -419,8 +463,10 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
     /// resolved from acad_programme. Reuses the same active-student + scope WHERE.
     /// </summary>
     private static List<GroupStat> BuildGroupStats(MySqlConnection conn, string where,
-        string year, string semester, string programme, bool byFaculty)
+        string year, string semester, string programme, string faculty, string department, bool byFaculty)
     {
+        bool hasFac = !string.IsNullOrEmpty(faculty);
+        int depId; bool hasDept = int.TryParse(department ?? "", out depId) && depId > 0;
         string keyExpr  = byFaculty ? "IFNULL(p.faculty_code,'')" : "CAST(IFNULL(p.department_id,0) AS CHAR)";
         string nameExpr = byFaculty
             ? "COALESCE(NULLIF(f.faculty_name,''), '(Unassigned faculty)')"
@@ -455,6 +501,8 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
         {
             if (!string.IsNullOrEmpty(year))      cmd.Parameters.AddWithValue("@year",      year);
             if (!string.IsNullOrEmpty(semester))  cmd.Parameters.AddWithValue("@semester",  semester);
+            if (hasFac)                           cmd.Parameters.AddWithValue("@faculty",   faculty);
+            if (hasDept)                          cmd.Parameters.AddWithValue("@department",depId);
             if (!string.IsNullOrEmpty(programme)) cmd.Parameters.AddWithValue("@programme", programme);
 
             using (MySqlDataReader rdr = cmd.ExecuteReader())
@@ -515,6 +563,8 @@ public partial class COOPERP_NewScreens_MarksDashboard : Page
     }
 
     private class FilterOption { public string value { get; set; } public string text { get; set; } }
+    private class CascadeOption { public string value { get; set; } public string text { get; set; } public string faculty { get; set; } public string department { get; set; } }
+    private class DeptOpt { public string name { get; set; } public string faculty { get; set; } }
 
     private class TopCourse
     {

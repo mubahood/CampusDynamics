@@ -11,10 +11,22 @@
 .md-filter-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#05275C;}
 .md-filter-sub{font-size:9px;color:#94a3b8;margin-top:2px;}
 .md-badge-active{display:inline-flex;align-items:center;padding:2px 9px;background:#e6f4ea;border:1px solid #a7d9b2;border-radius:10px;font-size:9px;font-weight:800;color:#2e7d32;letter-spacing:.2px;white-space:nowrap;flex-shrink:0;}
-.md-filters{padding:8px 10px;display:grid;grid-template-columns:minmax(140px,.8fr) minmax(110px,.65fr) minmax(160px,.9fr) auto auto;gap:6px;align-items:flex-end;}
-.md-fg{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.md-filters{padding:8px 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;}
+.md-fg{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 150px;}
+.md-fg--act{flex:0 0 auto;}
 .md-fg label{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:700;}
-.md-select{height:30px;border:1px solid #cdd8e6;padding:4px 8px;font-size:11px;background:#fff;border-radius:6px;color:#1a1a2e;font-family:inherit;}
+.md-select{height:30px;border:1px solid #cdd8e6;padding:4px 8px;font-size:11px;background:#fff;border-radius:6px;color:#1a1a2e;font-family:inherit;width:100%;box-sizing:border-box;}
+/* searchable programme combobox */
+.md-combo{position:relative;}
+.md-combo__input{cursor:text;}
+.md-combo__list{display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:50;background:#fff;border:1px solid #cdd8e6;border-radius:6px;box-shadow:0 8px 24px rgba(5,39,92,.16);max-height:260px;overflow-y:auto;}
+.md-combo.open .md-combo__list{display:block;}
+.md-combo__opt{padding:6px 9px;font-size:11px;color:#1a1a2e;cursor:pointer;border-bottom:1px solid #f0f3f8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.md-combo__opt:last-child{border-bottom:none;}
+.md-combo__opt:hover,.md-combo__opt.active{background:#eef4ff;color:#05275C;}
+.md-combo__opt--all{font-weight:700;color:#05275C;}
+.md-combo__opt small{color:#94a3b8;font-weight:400;}
+.md-combo__none{padding:8px 9px;font-size:11px;color:#94a3b8;font-style:italic;}
 .md-select:focus{outline:none;border-color:#174DA4;box-shadow:0 0 0 2px rgba(23,77,164,.12);}
 .md-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:5px 10px;border:1px solid #d2dae6;background:#fff;color:#05275C;font-size:10px;font-weight:800;cursor:pointer;border-radius:6px;min-height:30px;}
 .md-btn:hover{color:#174DA4;border-color:#174DA4;background:#f4f8ff;}
@@ -125,9 +137,18 @@
                 <option value="3">Semester 3</option>
             </select>
         </div>
-        <div class="md-fg"><label>Programme</label><select id="mdProgramme" class="md-select"></select></div>
-        <div class="md-fg"><label>&nbsp;</label><button type="button" id="mdApply" class="md-btn md-btn--primary">Apply Filters</button></div>
-        <div class="md-fg"><label>&nbsp;</label><button type="button" id="mdReset" class="md-btn">Reset</button></div>
+        <div class="md-fg"><label>Faculty</label><select id="mdFaculty" class="md-select"></select></div>
+        <div class="md-fg"><label>Department</label><select id="mdDepartment" class="md-select"></select></div>
+        <div class="md-fg" style="flex:1 1 200px;">
+            <label>Programme</label>
+            <div class="md-combo" id="mdProgCombo">
+                <input type="text" id="mdProgInput" class="md-select md-combo__input" placeholder="All programmes" autocomplete="off" spellcheck="false" />
+                <input type="hidden" id="mdProgramme" value="" />
+                <div class="md-combo__list" id="mdProgList"></div>
+            </div>
+        </div>
+        <div class="md-fg md-fg--act"><label>&nbsp;</label><button type="button" id="mdApply" class="md-btn md-btn--primary">Apply Filters</button></div>
+        <div class="md-fg md-fg--act"><label>&nbsp;</label><button type="button" id="mdReset" class="md-btn">Reset</button></div>
     </div>
     <div class="md-scope-bar">
         <span>Viewing: <strong id="mdScopeText">All years &nbsp;&middot;&nbsp; All semesters &nbsp;&middot;&nbsp; All programmes</strong></span>
@@ -472,12 +493,13 @@ function fillSelect(id,items,allText){
     (items||[]).forEach(function(it){ h+='<option value="'+esc(it.value||'')+'">'+esc(it.text||it.value||'')+'</option>'; });
     el.innerHTML=h;
 }
+function selText(id,all){ var e=qs(id); return (e&&e.value)?e.options[e.selectedIndex].text:all; }
 function setScopeText(){
-    var y=qs('mdYear'),s=qs('mdSemester'),p=qs('mdProgramme');
-    var yt=y&&y.value?y.options[y.selectedIndex].text:'All years';
-    var st=s&&s.value?s.options[s.selectedIndex].text:'All semesters';
-    var pt=p&&p.value?p.options[p.selectedIndex].text:'All programmes';
-    var el=qs('mdScopeText'); if(el) el.innerHTML=esc(yt)+'&nbsp;&middot;&nbsp;'+esc(st)+'&nbsp;&middot;&nbsp;'+esc(pt);
+    var parts=[selText('mdYear','All years'),selText('mdSemester','All semesters')];
+    if(qs('mdFaculty').value) parts.push(selText('mdFaculty','All faculties'));
+    if(qs('mdDepartment').value) parts.push(selText('mdDepartment','All departments'));
+    parts.push(qs('mdProgramme').value ? (qs('mdProgInput').value||'Programme') : 'All programmes');
+    var el=qs('mdScopeText'); if(el) el.innerHTML=parts.map(esc).join('&nbsp;&middot;&nbsp;');
 }
 function setV(id,v){ var el=qs(id); if(el) el.textContent=fmt(v); }
 function setP(id,v,tot){ var el=qs(id); if(el) el.textContent=pct(v,tot); }
@@ -639,6 +661,8 @@ function loadStats(){
     callAJAX('GetDashboardStats',{
         year:qs('mdYear').value,
         semester:qs('mdSemester').value,
+        faculty:qs('mdFaculty').value,
+        department:qs('mdDepartment').value,
         programme:qs('mdProgramme').value
     },function(d){
         setLoading(false);
@@ -711,6 +735,51 @@ function mcaDetail(r){
     qs('mcaOvl').classList.add('open');
 }
 
+/* ── Faculty / Department / searchable Programme filters ── */
+var _progs=[];   // [{value,text,faculty,department}]
+function fillFilter(id,items,allText){
+    var el=qs(id); if(!el) return;
+    var h='<option value="">'+esc(allText)+'</option>';
+    (items||[]).forEach(function(it){ h+='<option value="'+esc(it.value)+'" data-fac="'+esc(it.faculty||'')+'">'+esc(it.text||it.value)+'</option>'; });
+    el.innerHTML=h;
+}
+function cascadeDept(){
+    var fac=qs('mdFaculty').value, sel=qs('mdDepartment');
+    for(var i=0;i<sel.options.length;i++){ var o=sel.options[i]; if(!o.value) continue; o.style.display=(!fac||o.getAttribute('data-fac')===fac)?'':'none'; }
+    if(sel.selectedIndex>0 && sel.options[sel.selectedIndex].style.display==='none') sel.value='';
+}
+function progMatches(p){
+    var fac=qs('mdFaculty').value, dep=qs('mdDepartment').value;
+    return (!fac||p.faculty===fac) && (!dep||p.department===dep);
+}
+function progFilteredList(){
+    var q=(qs('mdProgInput').value||'').toLowerCase().trim();
+    return _progs.filter(function(p){
+        if(!progMatches(p)) return false;
+        if(q && p.text.toLowerCase().indexOf(q)<0 && (''+p.value).toLowerCase().indexOf(q)<0) return false;
+        return true;
+    });
+}
+function renderProgList(){
+    var list=qs('mdProgList'); var items=progFilteredList();
+    var h='<div class="md-combo__opt md-combo__opt--all" data-v="">All programmes</div>';
+    if(!items.length) h+='<div class="md-combo__none">No programmes match</div>';
+    else items.slice(0,400).forEach(function(p){ h+='<div class="md-combo__opt" data-v="'+esc(p.value)+'">'+esc(p.text)+' <small>'+esc(p.value)+'</small></div>'; });
+    list.innerHTML=h;
+    var opts=list.querySelectorAll('.md-combo__opt');
+    for(var i=0;i<opts.length;i++) opts[i].onclick=function(){ selectProg(this.getAttribute('data-v'),true); };
+}
+function selectProg(v,doLoad){
+    qs('mdProgramme').value=v||'';
+    var m=v?_progs.filter(function(p){return p.value===v;})[0]:null;
+    qs('mdProgInput').value=m?m.text:'';
+    qs('mdProgCombo').classList.remove('open');
+    if(doLoad) loadStats();
+}
+function openCombo(){ renderProgList(); qs('mdProgCombo').classList.add('open'); }
+function closeCombo(){ qs('mdProgCombo').classList.remove('open'); var v=qs('mdProgramme').value; var m=v?_progs.filter(function(p){return p.value===v;})[0]:null; qs('mdProgInput').value=m?m.text:''; }
+function syncProgToFilters(){ var v=qs('mdProgramme').value; if(!v) return; var m=_progs.filter(function(p){return p.value===v;})[0]; if(m && !progMatches(m)) selectProg(''); }
+
 function init(){
     // Ready card click → open provisional marks queue filtered to ready records
     var readyCard=qs('kReadyCard');
@@ -726,10 +795,27 @@ function init(){
         if(!d||!d.success){ showError((d&&d.message)||'Failed to load filters.'); return; }
         if(d.scope) applyScope(d.scope,true);
         fillSelect('mdYear',d.years,'All Years');
-        fillSelect('mdProgramme',d.programmes,'All Programmes');
+        fillFilter('mdFaculty',d.faculties,'All Faculties');
+        fillFilter('mdDepartment',d.departments,'All Departments');
+        _progs=d.programmes||[];
+        cascadeDept();
+        // Faculty / Department cascade
+        qs('mdFaculty').onchange=function(){ cascadeDept(); syncProgToFilters(); };
+        qs('mdDepartment').onchange=function(){ syncProgToFilters(); };
+        // Searchable programme combobox
+        var pin=qs('mdProgInput');
+        pin.onfocus=openCombo; pin.onclick=openCombo;
+        pin.oninput=function(){ qs('mdProgramme').value=''; openCombo(); };
+        pin.onkeydown=function(e){
+            if(e.key==='Escape'){ closeCombo(); }
+            else if(e.key==='Enter'){ e.preventDefault(); var l=progFilteredList(); selectProg(l.length?l[0].value:'',true); }
+        };
+        document.addEventListener('click',function(e){ var c=qs('mdProgCombo'); if(c && !c.contains(e.target)) closeCombo(); });
         qs('mdApply').onclick=function(){ loadStats(); };
         qs('mdReset').onclick=function(){
-            qs('mdYear').value=''; qs('mdSemester').value=''; qs('mdProgramme').value='';
+            qs('mdYear').value=''; qs('mdSemester').value='';
+            qs('mdFaculty').value=''; qs('mdDepartment').value=''; cascadeDept();
+            selectProg('');
             loadStats();
         };
         loadStats();
