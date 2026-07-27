@@ -1672,7 +1672,22 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         }
         
         // ========== HEADER SECTION - CLEAN LETTERHEAD STYLE ==========
-        
+
+        // University logo (top-left), balanced against the centered letterhead text.
+        if (System.IO.File.Exists(logoPath))
+        {
+            try
+            {
+                System.Drawing.Image logoImg = System.Drawing.Image.FromFile(logoPath);
+                DevExpress.XtraPrinting.ImageBrick logoBrick = new DevExpress.XtraPrinting.ImageBrick();
+                logoBrick.Image = logoImg;
+                logoBrick.SizeMode = DevExpress.XtraPrinting.ImageSizeMode.ZoomImage;
+                logoBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                gr.DrawBrick(logoBrick, new System.Drawing.RectangleF(0, y, 92 * sc, 46));
+            }
+            catch { }
+        }
+
         // University Name - Large, Centered, Bold
         DrawTextLine(gr, universityName, 0, y, pageWidth, 22, uniNameFont, brandColor, System.Drawing.StringAlignment.Center);
         y += 20;
@@ -1693,12 +1708,6 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         // Generated timestamp
         DrawTextLine(gr, "Generated: " + DateTime.Now.ToString("dddd, MMMM dd, yyyy - hh:mm tt"),
             0, y, pageWidth, 11, smallFont, lightGray, System.Drawing.StringAlignment.Center);
-        y += 14;
-
-        // Results source / provisional-status banner (green when published, amber when staged)
-        DrawTextLine(gr, "Results source: " + SR_SourceLabel(source),
-            0, y, pageWidth, 12, boldNormalFont, SR_IsPublished(source) ? deansListColor : secondLowerColor,
-            System.Drawing.StringAlignment.Center);
         y += 14;
 
         // Horizontal line separator
@@ -2755,7 +2764,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     y += headerHeight;
                     
                     // Student Data Rows - taller to fit Grade(Score) on line 1 and CW·Exam on line 2
-                    float rowHeight = hasProvisional ? 30 : 22;
+                    float rowHeight = 22;   // single-line cells (grade + score only)
                     int sn = 0;
                     foreach (var student in students)
                     {
@@ -2816,21 +2825,15 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                                 string grade = result["grade"].ToString();
                                 string score = result["score"] != DBNull.Value ? result["score"].ToString() : "";
 
-                                // Line 1: published "Grade (Score)" e.g. "C (60)"
+                                // Cell shows ONLY the grade and the score, e.g. "C (60)".
                                 if (!string.IsNullOrEmpty(score))
                                     displayText = grade + " (" + score + ")";
                                 else
                                     displayText = grade;
 
-                                // Line 2: new-system Course Work · Exam breakdown (when available)
+                                // Tint the cell background by marks-submission status (no CW/Exam text).
                                 if (hasProvisional)
                                 {
-                                    string cw = result.Table.Columns.Contains("cw_marks") && result["cw_marks"] != DBNull.Value ? result["cw_marks"].ToString() : "";
-                                    string ex = result.Table.Columns.Contains("exam_marks") && result["exam_marks"] != DBNull.Value ? result["exam_marks"].ToString() : "";
-                                    if (!string.IsNullOrEmpty(cw) || !string.IsNullOrEmpty(ex))
-                                        displayText += "\r\n" + (string.IsNullOrEmpty(cw) ? "–" : cw) + "·" + (string.IsNullOrEmpty(ex) ? "–" : ex);
-
-                                    // Tint cell background by marks-submission status
                                     string subStatus = result["sub_status"] != DBNull.Value ? result["sub_status"].ToString() : "";
                                     cellBg = GetSubmissionTint(subStatus, rowBg);
                                 }
@@ -3002,7 +3005,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     gr.DrawBrick(subLegendTitle, new System.Drawing.RectangleF(sumCol1X, summaryY, 90, 12));
 
                     DevExpress.XtraPrinting.TextBrick lineNote = new DevExpress.XtraPrinting.TextBrick();
-                    lineNote.Text = "Cell line 2 = CourseWork·Exam";
+                    lineNote.Text = "Cell tint = submission status";
                     lineNote.Font = smallFont;
                     lineNote.ForeColor = lightGray;
                     lineNote.Sides = DevExpress.XtraPrinting.BorderSide.None;

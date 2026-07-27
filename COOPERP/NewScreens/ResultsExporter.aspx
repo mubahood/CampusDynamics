@@ -572,8 +572,6 @@ document.addEventListener('DOMContentLoaded',function(){
             <button type="button" class="sr-hd__x" onclick="closeSRModal()" aria-label="Close">&times;</button>
         </div>
         <div class="sr-bd">
-            <p class="sr-intro">Generate a PDF for a cohort: a per-student <b>marksheet</b> (<i>Export Results</i>) or a <b>performance classification</b> (<i>Summary Report</i>). Approved / Captured / Entered are provisional — grades computed on the fly (NCHE 2015); Published reads final <code>acad_results</code>. <span class="sr-req">*</span> required.</p>
-
             <div class="sr-fg">
                 <label>Results Source</label>
                 <select id="srSource" class="sr-sel">
