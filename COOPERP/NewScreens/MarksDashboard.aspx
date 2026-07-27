@@ -147,7 +147,7 @@
     <div class="md-stats-grid">
         <div class="md-stat">
             <div class="md-stat__meta"><div class="md-stat__val" id="kMarksRows">—</div><div class="md-stat__pct" id="kMarksRowsPct">100%</div></div>
-            <div class="md-stat__lbl">Total Registrations</div>
+            <div class="md-stat__lbl">Total Marks Records</div>
             <div class="md-stat__cap">All active student–course enrolments in scope</div>
         </div>
         <div class="md-stat md-stat--nomarks">
