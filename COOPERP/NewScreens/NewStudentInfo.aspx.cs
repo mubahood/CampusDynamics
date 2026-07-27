@@ -1021,14 +1021,17 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             case "entered":  return "ENTERED";
             case "captured": return "CAPTURED";
             case "approved": return "APPROVED";
-            default:         return null;   // published
+            default:         return null;   // published / all
         }
     }
-    private static bool SR_IsPublished(string source) { return SR_StageFor(source) == null; }
+    // "all" = every result that is published OR fully marked (both CW & Exam). Widest coverage.
+    private static bool SR_IsAll(string source) { return (source ?? "").Trim().ToLowerInvariant() == "all"; }
+    private static bool SR_IsPublished(string source) { return !SR_IsAll(source) && SR_StageFor(source) == null; }
     private static string SR_SourceLabel(string source)
     {
         switch ((source ?? "").Trim().ToLowerInvariant())
         {
+            case "all":      return "All results (published block figures + fully-marked provisional)";
             case "entered":  return "Entered (Lecturer) — provisional, pending capture";
             case "captured": return "Captured (HOD) — provisional, pending approval";
             case "approved": return "Approved (Dean) — provisional, pending Senate approval";
@@ -1053,16 +1056,39 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     //  marksheet, and the standard student/programme/faculty/course joins.
     private static string SR_ResultsFrom(string source)
     {
-        string stage = SR_StageFor(source);
         string joins =
             " LEFT JOIN acad_student s ON s.regno=r.regno " +
             " LEFT JOIN acad_programme p ON p.progcode=r.progid " +
             " LEFT JOIN acad_faculty f ON f.faculty_code=p.faculty_code " +
             " LEFT JOIN acad_course c ON c.courseID=r.courseid ";
+        const string SC = "cr.provisional_total_marks";
+
+        if (SR_IsAll(source))
+        {
+            // ALL results: every acad_course_registration row with a total mark that is either
+            // fully marked (BOTH course-work & exam) OR published. After the classic-marks
+            // migration this table holds the published block figures AND portal marks, so this is
+            // the widest coverage. (Heavy on MySQL 5.6 — used only for the on-demand PDF export;
+            // the interactive count/cascade use lean cohort-driven queries.)
+            return
+                " FROM ( SELECT cr.regno, cr.courseID courseid, cr.prog_id progid, cr.acad_year acad, cr.semester, " +
+                "   (SELECT MIN(pc.study_year) FROM acad_programmecourses pc WHERE pc.progcode=cr.prog_id AND pc.course_code=cr.courseID) studyyear, " +
+                "   " + SC + " score, " + SR_GradeCase(SC) + " grade, " + SR_GptCase(SC) + " gradept, " + SR_GptCase(SC) + " gpa, " +
+                "   IFNULL(ac.CreditUnit,0) CreditUnits, " +
+                "   IF(cr.registration_type='RETAKE' OR cr.retake_registration_id IS NOT NULL,1,0) is_retake, " +
+                "   cr.provisional_course_work_marks cw_marks, cr.provisional_exam_marks exam_marks, " +
+                "   cr.provisional_total_marks prov_total, cr.mark_stage sub_status " +
+                "  FROM campus_dynamics_portal.acad_course_registration cr " +
+                "  LEFT JOIN acad_course ac ON ac.courseID=cr.courseID " +
+                "  WHERE " + SC + " IS NOT NULL AND ( (cr.provisional_course_work_marks IS NOT NULL AND cr.provisional_exam_marks IS NOT NULL) " +
+                "        OR UPPER(IFNULL(cr.mark_stage,''))='PUBLISHED' OR UPPER(IFNULL(cr.provisional_marks_status,''))='PUBLISHED' ) ) r " +
+                joins;
+        }
+
+        string stage = SR_StageFor(source);
         if (stage == null)
             return " FROM acad_results r " + joins;   // published
 
-        const string SC = "cr.provisional_total_marks";
         return
             " FROM ( SELECT cr.regno, cr.courseID courseid, cr.prog_id progid, cr.acad_year acad, cr.semester, " +
             "   (SELECT MIN(pc.study_year) FROM acad_programmecourses pc WHERE pc.progcode=cr.prog_id AND pc.course_code=cr.courseID) studyyear, " +
@@ -1075,6 +1101,20 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             "  LEFT JOIN acad_course ac ON ac.courseID=cr.courseID " +
             "  WHERE cr.mark_stage='" + stage + "' AND cr.provisional_total_marks IS NOT NULL ) r " +
             joins;
+    }
+
+    // The "all" mark predicate on an acad_course_registration alias: has a total, and is either
+    // fully marked (both CW & Exam) or published. Used by the lean cohort-driven count/cascade so
+    // the interactive parts stay fast (the derived-table SR_ResultsFrom("all") is only for export).
+    private static string SR_AllMarkPredicate(string cr)
+    {
+        return " " + cr + ".provisional_total_marks IS NOT NULL AND ( (" + cr + ".provisional_course_work_marks IS NOT NULL AND " + cr + ".provisional_exam_marks IS NOT NULL) " +
+               "OR UPPER(IFNULL(" + cr + ".mark_stage,''))='PUBLISHED' OR UPPER(IFNULL(" + cr + ".provisional_marks_status,''))='PUBLISHED' ) ";
+    }
+    // The course→study-year expression for a cr alias (matches the derived-table studyyear column).
+    private static string SR_StudyYearExpr(string cr)
+    {
+        return "(SELECT MIN(pc.study_year) FROM acad_programmecourses pc WHERE pc.progcode=" + cr + ".prog_id AND pc.course_code=" + cr + ".courseID)";
     }
 
     /// <summary>
@@ -1099,7 +1139,21 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             {
                 string stage = SR_StageFor(source);   // null => published
                 string sql;
-                if (stage == null)
+                if (SR_IsAll(source))
+                {
+                    // ALL: published OR fully-marked provisional, cohort-driven. Study-year comes from a
+                    // pre-grouped acad_programmecourses join (≈4× faster than a per-row subquery here,
+                    // since this scans every one of the programme's marks across all years).
+                    sql = "SELECT s.entryyear y, pcs.sy sy, cr.semester s, COUNT(DISTINCT s.regno) n " +
+                          "FROM acad_student s JOIN campus_dynamics_portal.acad_course_registration cr ON cr.regno = s.regno " +
+                          "LEFT JOIN (SELECT progcode, course_code, MIN(study_year) sy FROM acad_programmecourses GROUP BY progcode, course_code) pcs " +
+                          "  ON pcs.progcode = cr.prog_id AND pcs.course_code = cr.courseID " +
+                          "WHERE s.progid = @programme AND TRIM(IFNULL(s.entryyear,'')) <> '' AND" + SR_AllMarkPredicate("cr") +
+                          "  AND cr.semester IS NOT NULL " +
+                          "GROUP BY s.entryyear, pcs.sy, cr.semester HAVING n > 0 AND pcs.sy IS NOT NULL " +
+                          "ORDER BY y DESC, sy, s";
+                }
+                else if (stage == null)
                 {
                     sql = "SELECT s.entryyear y, r.studyyear sy, r.semester s, COUNT(DISTINCT s.regno) n " +
                           "FROM acad_student s JOIN acad_results r ON r.regno = s.regno " +
@@ -1211,8 +1265,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         {
             conn.Open();
 
-            // Source-aware: published -> acad_results; staged -> acad_course_registration.
-            string sql = "SELECT COUNT(DISTINCT s.regno) " + SR_ResultsFrom(source) + " WHERE 1=1";
+            // Source-aware. For "all" use a lean cohort-driven direct join (fast on MySQL 5.6);
+            // otherwise the normalized SR_ResultsFrom (published = acad_results; staged = ACR@stage).
+            bool all = SR_IsAll(source);
+            string sql = all
+                ? "SELECT COUNT(DISTINCT s.regno) FROM acad_student s JOIN campus_dynamics_portal.acad_course_registration cr ON cr.regno=s.regno WHERE" + SR_AllMarkPredicate("cr")
+                : "SELECT COUNT(DISTINCT s.regno) " + SR_ResultsFrom(source) + " WHERE 1=1";
 
             List<string> entryParams = new List<string>();
             string[] entries = null;
@@ -1236,9 +1294,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             if (!string.IsNullOrEmpty(entryYear))
                 sql += " AND s.entryyear = @entryYear";
             if (!string.IsNullOrEmpty(studyYear))
-                sql += " AND r.studyyear = @studyYear";
+                sql += all ? " AND @studyYear = " + SR_StudyYearExpr("cr") : " AND r.studyyear = @studyYear";
             if (!string.IsNullOrEmpty(semester))
-                sql += " AND r.semester = @semester";
+                sql += all ? " AND cr.semester = @semester" : " AND r.semester = @semester";
 
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
@@ -1575,20 +1633,44 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         List<DataRow> retakeStudents = new List<DataRow>();
         List<DataRow> failStudents = new List<DataRow>();
 
+        // Minimum papers a full semester load is expected to have. Fewer results than this is
+        // treated as a fail reason (incomplete sitting), independent of any curriculum.
+        const long MIN_PAPERS = 4;
+        bool hasCourses = data.Columns.Contains("courses");
+        bool hasReason = data.Columns.Contains("fail_reason");
+
         foreach (DataRow row in data.Rows)
         {
             decimal cgpa = data.Columns.Contains("cgpa") && row["cgpa"] != DBNull.Value ? Convert.ToDecimal(row["cgpa"]) : 0;
             decimal semGpa = data.Columns.Contains("sem_gpa") && row["sem_gpa"] != DBNull.Value ? Convert.ToDecimal(row["sem_gpa"]) : 0;
             decimal basis = cgpa > 0 ? cgpa : semGpa;
             long fails = data.Columns.Contains("fails") && row["fails"] != DBNull.Value ? Convert.ToInt64(row["fails"]) : 0;
-            bool retake = data.Columns.Contains("any_retake") && row["any_retake"] != DBNull.Value && Convert.ToInt32(row["any_retake"]) == 1;
+            long courses = hasCourses && row["courses"] != DBNull.Value ? Convert.ToInt64(row["courses"]) : 0;
 
-            if (fails > 0 || retake) retakeStudents.Add(row);
-            else if (basis >= 4.40m) vcListStudents.Add(row);
-            else if (basis >= 3.60m) deansListStudents.Add(row);
-            else if (basis >= 2.80m) secondLowerStudents.Add(row);
-            else if (basis >= 2.00m) passStudents.Add(row);
-            else failStudents.Add(row);
+            // SIMPLE fail rule (no curriculum): a student fails the semester if they have any F
+            // (score < 50) OR sat fewer than MIN_PAPERS papers in the semester.
+            bool isFail = fails > 0 || courses < MIN_PAPERS;
+
+            if (isFail)
+            {
+                // Build a plain, curriculum-free reason for the Fail table.
+                var parts = new List<string>();
+                if (fails > 0) parts.Add(fails + " failed paper" + (fails == 1 ? "" : "s"));
+                if (courses < MIN_PAPERS) parts.Add("only " + courses + " paper" + (courses == 1 ? "" : "s") + " (min " + MIN_PAPERS + ")");
+                if (hasReason) row["fail_reason"] = string.Join("; ", parts);
+                failStudents.Add(row);
+            }
+            else
+            {
+                if (hasReason) row["fail_reason"] = "";   // clear any stale curriculum reason
+                bool retake = data.Columns.Contains("any_retake") && row["any_retake"] != DBNull.Value && Convert.ToInt32(row["any_retake"]) == 1;
+                if (retake) retakeStudents.Add(row);      // passed but retaking a course → Retake/Referred
+                else if (basis >= 4.40m) vcListStudents.Add(row);
+                else if (basis >= 3.60m) deansListStudents.Add(row);
+                else if (basis >= 2.80m) secondLowerStudents.Add(row);
+                else if (basis >= 2.00m) passStudents.Add(row);
+                else passStudents.Add(row);   // no F and enough papers → at worst a Pass
+            }
         }
         
         // ========== HEADER SECTION - CLEAN LETTERHEAD STYLE ==========
@@ -1693,9 +1775,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             headerBg, altRowColor, borderColor);
         y += 10;
 
-        // 6. Fail — overall GPA below the pass mark
-        y = DrawPerformanceCategory(gr, failStudents, "6. FAIL (BELOW PASS MARK)", failStudents.Count,
-            "The following students obtained an overall GPA below 2.00.",
+        // 6. Fail — has one or more F, or sat fewer than 4 papers (curriculum-free rule)
+        y = DrawPerformanceCategory(gr, failStudents, "6. FAIL", failStudents.Count,
+            "The following students failed the semester: one or more failed paper(s) (score below 50) and/or fewer than 4 papers sat.",
             "No students in this category",
             passColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,

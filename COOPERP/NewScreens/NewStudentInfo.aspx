@@ -3830,7 +3830,7 @@
             queryParams += '&entryYear=' + encodeURIComponent(entryYear);
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
-            queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'approved');
+            queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'all');
             if (entryNumbers) {
                 queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
             }
@@ -3900,7 +3900,7 @@
             queryParams += '&entryYear=' + encodeURIComponent(entryYear);
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
-            queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'approved');
+            queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'all');
             if (entryNumbers) {
                 queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
             }
@@ -3959,7 +3959,7 @@
             queryParams += '&entryYear=' + encodeURIComponent(entryYear);
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
-            queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'approved');
+            queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'all');
             if (entryNumbers) {
                 queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
             }
@@ -4246,12 +4246,13 @@
                 <div class="cd-form-group">
                     <label class="cd-form-label">Results Source</label>
                     <select id="ddlReportSource" class="cd-form-select">
+                        <option value="all" selected="selected">All results — published + fully-marked (widest coverage)</option>
+                        <option value="published">Published (final results only)</option>
                         <option value="approved">Approved (Dean) — pending Senate approval</option>
                         <option value="captured">Captured (HOD) — pending approval</option>
                         <option value="entered">Entered (Lecturer) — pending capture</option>
-                        <option value="published">Published (final results)</option>
                     </select>
-                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;">Approved / Captured / Entered are provisional (grades computed on the fly, NCHE 2015). Published reads final <code>acad_results</code>.</small>
+                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;"><b>All</b> = every result that is published or fully marked (both CW &amp; Exam). Approved / Captured / Entered are provisional (grades computed on the fly, NCHE 2015). Published reads final <code>acad_results</code>.</small>
                 </div>
 
                 <!-- Filter: Programme (Required) -->

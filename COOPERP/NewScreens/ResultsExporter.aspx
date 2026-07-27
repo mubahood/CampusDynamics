@@ -577,10 +577,11 @@ document.addEventListener('DOMContentLoaded',function(){
             <div class="sr-fg">
                 <label>Results Source</label>
                 <select id="srSource" class="sr-sel">
+                    <option value="all" selected="selected">All results — published + fully-marked (widest coverage)</option>
+                    <option value="published">Published (final results only)</option>
                     <option value="approved">Approved (Dean) — pending Senate approval</option>
                     <option value="captured">Captured (HOD) — pending approval</option>
                     <option value="entered">Entered (Lecturer) — pending capture</option>
-                    <option value="published">Published (final results)</option>
                 </select>
             </div>
 
@@ -697,7 +698,7 @@ document.addEventListener('DOMContentLoaded',function(){
     }
 
     function clearPreview(){ d('srPrev').classList.remove('show'); d('srPrevN').textContent='0'; d('srBtnMarks').disabled=true; d('srBtnPerf').disabled=true; }
-    var SRC_LBL={published:'published',approved:'approved',captured:'captured',entered:'entered'};
+    var SRC_LBL={all:'all-results',published:'published',approved:'approved',captured:'captured',entered:'entered'};
 
     function fetchCascade(){
         var prog=d('srProg').value;
@@ -708,7 +709,7 @@ document.addEventListener('DOMContentLoaded',function(){
         clearPreview();
         if(!prog){ status('Pick a programme &mdash; the fields below fill in automatically.'); return; }
         status('<span class="sr-spin"></span> Loading&hellip;','sr-status--load');
-        var src=d('srSource').value||'approved';
+        var src=d('srSource').value||'all';
         var xhr=new XMLHttpRequest();
         xhr.open('GET', BACKEND+'?action=SummaryReportCascade&source='+encodeURIComponent(src)+'&programme='+encodeURIComponent(prog), true);
         xhr.onreadystatechange=function(){
@@ -732,9 +733,9 @@ document.addEventListener('DOMContentLoaded',function(){
         clearPreview();
         var b=bestFor(function(){ return true; });   // globally best-populated (source, programme) combo
         if(b){ d('srYear').value=b.y; onYear();
-               var src=d('srSource').value||'approved';
+               var src=d('srSource').value||'all';
                status('Auto-filled to the term with the most '+e2(SRC_LBL[src]||src)+' marks — change any field freely.','sr-status--ok'); }
-        else { var src2=d('srSource').value||'approved';
+        else { var src2=d('srSource').value||'all';
                status('No <b>'+e2(SRC_LBL[src2]||src2)+'</b> marks for this programme yet — pick any term (may return 0) or change the Results Source.','sr-status--warn'); }
     }
     function onYear(){
@@ -761,7 +762,7 @@ document.addEventListener('DOMContentLoaded',function(){
     }
 
     function reset(){
-        d('srSource').value='approved';
+        d('srSource').value='all';
         d('srProg').value=''; d('srProgInput').value='';
         srCombos=[]; srAllYears=[];
         setSel('srYear',[], 'Select a programme first…', false);
@@ -777,7 +778,7 @@ document.addEventListener('DOMContentLoaded',function(){
         if(!y){ if(!silent) alert('Please select an Entry Year.'); return null; }
         if(!sy){ if(!silent) alert('Please select a Year of Study.'); return null; }
         if(!sm){ if(!silent) alert('Please select a Semester.'); return null; }
-        return { programme:p, entryYear:y, studyYear:sy, semester:sm, source:d('srSource').value||'approved', entryNumbers:(d('srReg').value||'').trim() };
+        return { programme:p, entryYear:y, studyYear:sy, semester:sm, source:d('srSource').value||'all', entryNumbers:(d('srReg').value||'').trim() };
     }
     function query(action,c){
         var q='?action='+action+'&programme='+encodeURIComponent(c.programme)+'&entryYear='+encodeURIComponent(c.entryYear)
