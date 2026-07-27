@@ -1086,8 +1086,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
             string source = Request.QueryString["source"] ?? "approved";
 
-            int count = GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers, source);
-            
+            // Guard: never count the whole database. Require a programme (or explicit reg numbers).
+            int count = (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
+                ? 0
+                : GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers, source);
+
             JavaScriptSerializer serializer = new JavaScriptSerializer();
             Response.Write(serializer.Serialize(new { count = count }));
         }
@@ -1182,6 +1185,16 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
             string source = Request.QueryString["source"] ?? "approved";
 
+            // Guard: refuse an unscoped export (would pull the whole database).
+            if (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
+            {
+                Response.Clear();
+                Response.ContentType = "text/html";
+                Response.Write("<html><body style='font-family:sans-serif;padding:24px;color:#333'><h3>Please select a Programme (or enter registration numbers) before generating the report.</h3></body></html>");
+                try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
+                return;
+            }
+
             // Get students with their results (source-aware)
             DataTable reportData = GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, source);
             
@@ -1224,6 +1237,16 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string semester = Request.QueryString["semester"] ?? "";
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
             string source = Request.QueryString["source"] ?? "approved";
+
+            // Guard: refuse an unscoped export (would pull the whole database).
+            if (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
+            {
+                Response.Clear();
+                Response.ContentType = "text/html";
+                Response.Write("<html><body style='font-family:sans-serif;padding:24px;color:#333'><h3>Please select a Programme (or enter registration numbers) before generating the report.</h3></body></html>");
+                try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
+                return;
+            }
 
             // Get students with CGPA data (source-aware: published or a staged stage)
             DataTable studentData = GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, source);

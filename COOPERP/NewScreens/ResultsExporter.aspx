@@ -122,6 +122,60 @@
         .re-actions{flex-wrap:wrap;} .re-total{margin-left:0;width:100%;}
     }
     @media (max-width:400px){ .re-stats{grid-template-columns:minmax(0,1fr) minmax(0,1fr);} .re-fld{flex:1 1 100%;} }
+
+    /* ── Summary Report: standout launch button (gold on navy header) ── */
+    .re-hd__r { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+    .re-srlaunch { position:relative; display:inline-flex; align-items:center; gap:9px; padding:9px 16px; border:none; cursor:pointer; border-radius:24px; font-family:inherit; font-size:12.5px; font-weight:800; color:#05275C; white-space:nowrap; overflow:hidden;
+        background:linear-gradient(135deg,#ffe694 0%,#f6b301 55%,#e59400 100%); box-shadow:0 4px 14px rgba(245,179,1,.45), inset 0 1px 0 rgba(255,255,255,.55); transition:transform .15s, box-shadow .15s; }
+    .re-srlaunch:hover { transform:translateY(-1px); box-shadow:0 8px 22px rgba(245,179,1,.62), inset 0 1px 0 rgba(255,255,255,.65); }
+    .re-srlaunch:active { transform:translateY(0); }
+    .re-srlaunch svg { width:17px; height:17px; stroke:#05275C; flex-shrink:0; }
+    .re-srlaunch__tag { font-size:8px; font-weight:900; letter-spacing:.5px; background:#05275C; color:#ffd45e; padding:2px 6px; border-radius:8px; }
+    .re-srlaunch__sheen { position:absolute; top:0; left:-60%; width:38%; height:100%; background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent); transform:skewX(-18deg); animation:reSheen 3.6s ease-in-out infinite; pointer-events:none; }
+    @keyframes reSheen { 0%,58%{left:-60%} 100%{left:135%} }
+
+    /* ── Summary Report modal ── */
+    .sr-ov { display:none; position:fixed; inset:0; background:rgba(6,20,45,.55); z-index:10000; align-items:flex-start; justify-content:center; padding:26px 14px; overflow-y:auto; }
+    .sr-ov.show { display:flex; }
+    .sr-modal { background:#fff; width:560px; max-width:100%; border-radius:4px; box-shadow:0 24px 60px rgba(0,0,0,.32); overflow:hidden; animation:srPop .18s ease; }
+    @keyframes srPop { from{opacity:0;transform:translateY(-8px) scale(.985)} to{opacity:1;transform:none} }
+    .sr-hd { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 18px; background:linear-gradient(135deg,#05275C,#174DA4); color:#fff; }
+    .sr-hd__t { font-size:14px; font-weight:800; display:flex; align-items:center; gap:8px; }
+    .sr-hd__x { background:none; border:none; color:#fff; font-size:24px; line-height:1; cursor:pointer; opacity:.85; }
+    .sr-hd__x:hover { opacity:1; }
+    .sr-bd { padding:16px 18px; max-height:calc(100vh - 200px); overflow-y:auto; }
+    .sr-intro { font-size:11px; color:#64748b; margin:0 0 14px; line-height:1.5; }
+    .sr-req { color:#dc3545; }
+    .sr-fg { margin-bottom:12px; }
+    .sr-fg label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:#475569; font-weight:700; margin-bottom:4px; }
+    .sr-in,.sr-sel,.sr-ta { width:100%; box-sizing:border-box; border:1px solid #cdd5e1; border-radius:4px; padding:8px 10px; font-size:12px; font-family:inherit; color:#1a1a2e; background:#fff; }
+    .sr-in:focus,.sr-sel:focus,.sr-ta:focus { outline:none; border-color:#174DA4; box-shadow:0 0 0 3px rgba(23,77,164,.12); }
+    .sr-ta { resize:vertical; min-height:52px; }
+    .sr-hint { font-size:10px; color:#94a3b8; margin-top:4px; display:block; }
+    .sr-hint code { background:#f1f5f9; padding:1px 4px; border-radius:3px; }
+    .sr-combo { position:relative; }
+    .sr-list { display:none; position:absolute; top:calc(100% + 2px); left:0; right:0; z-index:20; background:#fff; border:1px solid #cdd5e1; border-radius:4px; max-height:210px; overflow-y:auto; box-shadow:0 8px 24px rgba(5,39,92,.16); }
+    .sr-combo.open .sr-list { display:block; }
+    .sr-opt { padding:7px 10px; font-size:11px; cursor:pointer; border-bottom:1px solid #f0f3f8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sr-opt:last-child { border-bottom:none; }
+    .sr-opt:hover,.sr-opt.active { background:#eef4ff; color:#05275C; }
+    .sr-opt small { color:#94a3b8; }
+    .sr-none { padding:8px 10px; font-size:11px; color:#94a3b8; font-style:italic; }
+    .sr-div { border:none; border-top:1px solid #eef2f7; margin:14px 0; }
+    .sr-prev { display:none; align-items:center; gap:14px; margin-top:14px; padding:12px 14px; background:#f0f7ff; border:1px solid #cfe0f5; border-radius:4px; }
+    .sr-prev.show { display:flex; }
+    .sr-prev__n { font-size:26px; font-weight:800; color:#05275C; line-height:1; font-variant-numeric:tabular-nums; }
+    .sr-prev__l { font-size:11px; color:#475569; }
+    .sr-ft { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px 18px; border-top:1px solid #eef2f7; background:#fafbfc; }
+    .sr-ft__sp { flex:1 1 auto; }
+    .sr-btn { padding:8px 14px; font-size:12px; font-weight:600; border:1px solid transparent; border-radius:4px; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+    .sr-btn svg { width:14px; height:14px; }
+    .sr-btn--nav { background:#174DA4; color:#fff; } .sr-btn--nav:hover { background:#123d84; }
+    .sr-btn--primary { background:#05275C; color:#fff; } .sr-btn--primary:hover { background:#041d45; }
+    .sr-btn--ok { background:#16a34a; color:#fff; } .sr-btn--ok:hover { background:#12833c; }
+    .sr-btn--ghost { background:#fff; color:#334155; border-color:#cdd5e1; } .sr-btn--ghost:hover { background:#f1f5f9; }
+    .sr-btn:disabled { opacity:.5; cursor:not-allowed; }
+    @media (max-width:560px){ .sr-ft{flex-direction:column;align-items:stretch;} .sr-ft__sp{display:none;} .sr-btn{justify-content:center;} }
 </style>
 </asp:Content>
 
@@ -138,7 +192,15 @@
                 <div class="re-hd__s">Export marks &amp; results statistics for external representation</div>
             </div>
         </div>
-        <div class="re-chip" id="reScope">&nbsp;</div>
+        <div class="re-hd__r">
+            <button type="button" class="re-srlaunch" id="btnSRLaunch" onclick="openSRModal()" title="Generate per-student marksheet or performance-classification PDF (Published / Approved / Captured / Entered)">
+                <span class="re-srlaunch__sheen"></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                Export Summary Report
+                <span class="re-srlaunch__tag">PDF</span>
+            </button>
+            <div class="re-chip" id="reScope">&nbsp;</div>
+        </div>
     </div>
 
     <div class="re-noaccess" id="reNoAccess"></div>
@@ -492,6 +554,205 @@ document.addEventListener('DOMContentLoaded',function(){
     }); })(mb[i]); }
     init();
 });
+})();
+</script>
+
+<!-- ========== EXPORT SUMMARY REPORT MODAL ========== -->
+<div class="sr-ov" id="srModal">
+    <div class="sr-modal" role="dialog" aria-modal="true" aria-label="Export Summary Report">
+        <div class="sr-hd">
+            <div class="sr-hd__t">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                Export Summary Report
+            </div>
+            <button type="button" class="sr-hd__x" onclick="closeSRModal()" aria-label="Close">&times;</button>
+        </div>
+        <div class="sr-bd">
+            <p class="sr-intro">Generate a PDF for a cohort: a per-student <b>marksheet</b> (<i>Export Results</i>) or a <b>performance classification</b> (<i>Summary Report</i>). Approved / Captured / Entered are provisional — grades computed on the fly (NCHE 2015); Published reads final <code>acad_results</code>. <span class="sr-req">*</span> required.</p>
+
+            <div class="sr-fg">
+                <label>Results Source</label>
+                <select id="srSource" class="sr-sel">
+                    <option value="approved">Approved (Dean) — pending Senate approval</option>
+                    <option value="captured">Captured (HOD) — pending approval</option>
+                    <option value="entered">Entered (Lecturer) — pending capture</option>
+                    <option value="published">Published (final results)</option>
+                </select>
+            </div>
+
+            <div class="sr-fg">
+                <label>Programme <span class="sr-req">*</span></label>
+                <div class="sr-combo" id="srProgCombo">
+                    <input type="text" id="srProgInput" class="sr-in" placeholder="Type to search programme&hellip;" autocomplete="off" spellcheck="false" />
+                    <input type="hidden" id="srProg" value="" />
+                    <div class="sr-list" id="srProgList"></div>
+                </div>
+            </div>
+
+            <div class="sr-fg">
+                <label>Entry Year <span class="sr-req">*</span></label>
+                <div class="sr-combo" id="srYearCombo">
+                    <input type="text" id="srYearInput" class="sr-in" placeholder="Type to search entry year&hellip;" autocomplete="off" spellcheck="false" />
+                    <input type="hidden" id="srYear" value="" />
+                    <div class="sr-list" id="srYearList"></div>
+                </div>
+            </div>
+
+            <div class="sr-fg">
+                <label>Year of Study <span class="sr-req">*</span></label>
+                <select id="srStudyYear" class="sr-sel">
+                    <option value="">-- Select Year of Study --</option>
+                    <option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option>
+                    <option value="4">Year 4</option><option value="5">Year 5</option>
+                </select>
+            </div>
+
+            <div class="sr-fg">
+                <label>Semester <span class="sr-req">*</span></label>
+                <select id="srSem" class="sr-sel">
+                    <option value="">-- Select Semester --</option>
+                    <option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option>
+                </select>
+            </div>
+
+            <hr class="sr-div" />
+
+            <div class="sr-fg" style="margin-bottom:0;">
+                <label>Or specific students by registration number</label>
+                <textarea id="srReg" class="sr-ta" placeholder="Comma-separated reg numbers, e.g. MRU2024001230, MRU2024001231"></textarea>
+                <span class="sr-hint">If provided, Programme &amp; Entry Year are still required.</span>
+            </div>
+
+            <div class="sr-fg" style="margin:14px 0 0;">
+                <button type="button" class="sr-btn sr-btn--nav" onclick="srPreview()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    Preview Students
+                </button>
+            </div>
+
+            <div class="sr-prev" id="srPrev">
+                <div class="sr-prev__n" id="srPrevN">0</div>
+                <div class="sr-prev__l" id="srPrevL">students will be included in the report</div>
+            </div>
+        </div>
+        <div class="sr-ft">
+            <button type="button" class="sr-btn sr-btn--ghost" onclick="closeSRModal()">Cancel</button>
+            <span class="sr-ft__sp"></span>
+            <button type="button" class="sr-btn sr-btn--primary" id="srBtnMarks" onclick="srExport('ExportSummaryReport',this)" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Export Results
+            </button>
+            <button type="button" class="sr-btn sr-btn--ok" id="srBtnPerf" onclick="srExport('ExportPerformanceReport',this)" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line></svg>
+                Summary Report
+            </button>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+/* Export Summary Report — reuses NewStudentInfo.aspx's proven, source-aware handlers
+   (Preview / ExportSummaryReport / ExportPerformanceReport) so the output is identical
+   to the NewStudentInfo feature. Self-contained; exposes only the 4 window.* entry points. */
+(function(){
+    var BACKEND='NewStudentInfo.aspx';
+    var srProgs=[], srYears=[];
+    function d(id){ return document.getElementById(id); }
+    function e2(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function loadProgs(){
+        srProgs=[]; var sel=d('fProg');
+        if(sel){ for(var i=0;i<sel.options.length;i++){ var o=sel.options[i]; if(o.value) srProgs.push({value:o.value,text:o.text}); } }
+    }
+    function loadYears(){ srYears=[]; var y=new Date().getFullYear(); for(var yr=y;yr>=2000;yr--) srYears.push(String(yr)); }
+
+    function renderProg(){
+        var q=(d('srProgInput').value||'').toLowerCase().trim(), list=d('srProgList'), h='';
+        var items=srProgs.filter(function(p){ return !q||p.text.toLowerCase().indexOf(q)>-1||String(p.value).toLowerCase().indexOf(q)>-1; });
+        if(!items.length) h='<div class="sr-none">No programmes found</div>';
+        else items.slice(0,400).forEach(function(p){ h+='<div class="sr-opt" data-v="'+e2(p.value)+'" data-t="'+e2(p.text)+'">'+e2(p.text)+' <small>'+e2(p.value)+'</small></div>'; });
+        list.innerHTML=h;
+        var o=list.querySelectorAll('.sr-opt');
+        for(var i=0;i<o.length;i++) o[i].onmousedown=function(ev){ ev.preventDefault(); d('srProg').value=this.getAttribute('data-v')||''; d('srProgInput').value=this.getAttribute('data-t')||''; d('srProgCombo').classList.remove('open'); };
+    }
+    function renderYear(){
+        var q=(d('srYearInput').value||'').trim(), list=d('srYearList'), h='';
+        var items=srYears.filter(function(y){ return !q||y.indexOf(q)>-1; });
+        if(!items.length) h='<div class="sr-none">No years</div>';
+        else items.slice(0,60).forEach(function(y){ h+='<div class="sr-opt" data-v="'+e2(y)+'">'+e2(y)+'</div>'; });
+        list.innerHTML=h;
+        var o=list.querySelectorAll('.sr-opt');
+        for(var i=0;i<o.length;i++) o[i].onmousedown=function(ev){ ev.preventDefault(); d('srYear').value=this.getAttribute('data-v')||''; d('srYearInput').value=this.getAttribute('data-v')||''; d('srYearCombo').classList.remove('open'); };
+    }
+
+    function reset(){
+        d('srSource').value='approved';
+        d('srProg').value=''; d('srProgInput').value='';
+        d('srYear').value=''; d('srYearInput').value='';
+        d('srStudyYear').value=''; d('srSem').value=''; d('srReg').value='';
+        d('srPrev').classList.remove('show'); d('srPrevN').textContent='0';
+        d('srBtnMarks').disabled=true; d('srBtnPerf').disabled=true;
+    }
+    function collect(){
+        var p=d('srProg').value, y=d('srYear').value, sy=d('srStudyYear').value, sm=d('srSem').value;
+        if(!p){ alert('Please select a Programme. This field is required.'); d('srProgInput').focus(); return null; }
+        if(!y){ alert('Please select an Entry Year. This field is required.'); d('srYearInput').focus(); return null; }
+        if(!sy){ alert('Please select a Year of Study. This field is required.'); d('srStudyYear').focus(); return null; }
+        if(!sm){ alert('Please select a Semester. This field is required.'); d('srSem').focus(); return null; }
+        return { programme:p, entryYear:y, studyYear:sy, semester:sm, source:d('srSource').value||'approved', entryNumbers:(d('srReg').value||'').trim() };
+    }
+    function query(action,c){
+        var q='?action='+action+'&programme='+encodeURIComponent(c.programme)+'&entryYear='+encodeURIComponent(c.entryYear)
+            +'&studyYear='+encodeURIComponent(c.studyYear)+'&semester='+encodeURIComponent(c.semester)+'&source='+encodeURIComponent(c.source);
+        if(c.entryNumbers) q+='&entryNumbers='+encodeURIComponent(c.entryNumbers);
+        return q;
+    }
+
+    window.openSRModal=function(){ loadProgs(); loadYears(); reset(); d('srModal').classList.add('show'); };
+    window.closeSRModal=function(){ d('srModal').classList.remove('show'); };
+
+    window.srPreview=function(){
+        var c=collect(); if(!c) return;
+        d('srPrevN').textContent='…'; d('srPrev').classList.add('show');
+        d('srBtnMarks').disabled=true; d('srBtnPerf').disabled=true;
+        var xhr=new XMLHttpRequest();
+        xhr.open('GET', BACKEND+query('PreviewSummaryReport',c), true);
+        xhr.onreadystatechange=function(){
+            if(xhr.readyState!==4) return;
+            if(xhr.status===200){
+                var r=null; try{ r=JSON.parse(xhr.responseText); }catch(ex){ r=null; }
+                if(!r){ d('srPrevN').textContent='0'; alert('Unexpected server response during preview.'); return; }
+                var n=Number(r.count)||0;
+                d('srPrevN').textContent=n.toLocaleString('en-US');
+                d('srPrevL').textContent=(n===1?'student will be included in the report':'students will be included in the report');
+                d('srBtnMarks').disabled=(n===0); d('srBtnPerf').disabled=(n===0);
+                if(r.error) alert('Error: '+r.error);
+            } else { d('srPrevN').textContent='0'; alert('Preview failed (HTTP '+xhr.status+'). Please try again.'); }
+        };
+        xhr.onerror=function(){ d('srPrevN').textContent='0'; alert('Network error during preview.'); };
+        xhr.send();
+    };
+    window.srExport=function(action,btn){
+        var c=collect(); if(!c) return;
+        var n=parseInt((d('srPrevN').textContent||'0').replace(/[^0-9]/g,''),10)||0;
+        if(n<=0){ alert('Please preview students first — the count must be greater than 0.'); return; }
+        var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='Generating&hellip;';
+        window.open(BACKEND+query(action,c), '_blank');
+        setTimeout(function(){ btn.innerHTML=orig; btn.disabled=false; }, 2200);
+    };
+
+    function wire(){
+        var pi=d('srProgInput');
+        if(pi){ pi.addEventListener('focus',function(){ renderProg(); d('srProgCombo').classList.add('open'); });
+                pi.addEventListener('input',function(){ d('srProg').value=''; renderProg(); d('srProgCombo').classList.add('open'); }); }
+        var yi=d('srYearInput');
+        if(yi){ yi.addEventListener('focus',function(){ renderYear(); d('srYearCombo').classList.add('open'); });
+                yi.addEventListener('input',function(){ d('srYear').value=''; renderYear(); d('srYearCombo').classList.add('open'); }); }
+        document.addEventListener('click',function(ev){ ['srProgCombo','srYearCombo'].forEach(function(id){ var c=d(id); if(c && !c.contains(ev.target)) c.classList.remove('open'); }); });
+        document.addEventListener('keydown',function(ev){ if(ev.key==='Escape' && d('srModal').classList.contains('show')) window.closeSRModal(); });
+        var ov=d('srModal'); if(ov) ov.addEventListener('click',function(ev){ if(ev.target===ov) window.closeSRModal(); });
+    }
+    if(document.readyState!=='loading') wire(); else document.addEventListener('DOMContentLoaded',wire);
 })();
 </script>
 </asp:Content>
