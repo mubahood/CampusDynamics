@@ -144,14 +144,50 @@
 .mat-alert--error{border-color:#dc3545;background:#fef5f5;color:#991b1b}
 .mat-alert--info{border-color:#174DA4;background:#e8f0fc;color:#0d47a1}
 
+/* ── Page hero header ── */
+.mat-hero{background:linear-gradient(135deg,#05275C 0%,#174DA4 100%);color:#fff;padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-radius:2px}
+.mat-hero__l{display:flex;align-items:center;gap:14px;min-width:0}
+.mat-hero__ic{width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mat-hero__ic svg{width:24px;height:24px;fill:#fff}
+.mat-hero__t{font-size:18px;font-weight:800;line-height:1.15;display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0}
+.mat-hero__tag{font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;background:#16a34a;color:#fff;padding:3px 9px;border-radius:10px}
+.mat-hero__s{font-size:11.5px;opacity:.88;margin-top:4px;max-width:660px;line-height:1.5}
+.mat-hero__r{display:flex;gap:20px;flex-wrap:wrap}
+.mat-hero__kv .n{font-size:19px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.mat-hero__kv .l{font-size:9px;text-transform:uppercase;letter-spacing:.4px;opacity:.82;margin-top:3px}
+/* grid horizontal-scroll wrapper — keeps the fixed DX table from clipping on small screens */
+.mat-gridwrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* legend under the grid */
+.mat-legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center;padding:9px 14px;background:#f8f9fb;border-top:1px solid #eef2f7;font-size:10px;color:#64748b}
+.mat-legend__grp{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mat-legend__grp>b{color:#334155;font-weight:700}
+.mat-legend__i{display:inline-flex;align-items:center;gap:4px}
+.mat-legend__dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+
 /* ── Responsive ── */
 @media(max-width:1200px){.mat-cols{grid-template-columns:1fr}.mat-stats{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:768px){.mat-stats{grid-template-columns:1fr}}
-@media print{.em-hdr,.em-tabs,.mat-qf{display:none!important}}
+@media(max-width:900px){.mat-hero__r{width:100%;justify-content:flex-start;gap:26px}}
+@media(max-width:768px){.mat-stats{grid-template-columns:1fr}.mat-hero{padding:14px}.mat-hero__t{font-size:16px}.mat-hero__ic{display:none}.mat-filtbar__row{gap:6px}.mat-fg select,.mat-fg input[type=text]{min-width:0;width:100%}.mat-fg{flex:1 1 130px}}
+@media print{.em-hdr,.em-tabs,.mat-qf,.mat-hero__r,.mat-card__hdr .mat-btn,.mat-card__hdr .mat-btn--filter{display:none!important}.mat-hero{background:#05275C!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style>
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+
+<!-- ── Hero Header ── -->
+<div class="mat-hero">
+    <div class="mat-hero__l">
+        <div class="mat-hero__ic"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg></div>
+        <div>
+            <h1 class="mat-hero__t">Marks Audit Trail <span class="mat-hero__tag">Advanced</span></h1>
+            <div class="mat-hero__s">Forensic record of every marks operation &mdash; captures, edits (old &rarr; new values), approvals &amp; cancellations, auto-pass and mark-request decisions &mdash; with the who, when, where (IP) and full detail. Read-only &amp; exportable.</div>
+        </div>
+    </div>
+    <div class="mat-hero__r">
+        <div class="mat-hero__kv"><div class="n"><asp:Literal ID="litHeroTotal" runat="server">0</asp:Literal></div><div class="l">Total events</div></div>
+        <div class="mat-hero__kv"><div class="n"><asp:Literal ID="litHeroWindow" runat="server">30</asp:Literal></div><div class="l">Day window</div></div>
+    </div>
+</div>
 
 <!-- ── Stats — 2x4 grid with icons, trends, sub-values ── -->
 <div class="mat-stats">
@@ -290,6 +326,7 @@
                 <asp:Button ID="btnClear" runat="server" Text="Clear" CssClass="mat-btn mat-btn--ghost mat-btn--sm" OnClick="btnClear_Click" />
             </div>
         </div>
+        <div class="mat-gridwrap">
         <dx:ASPxGridView ID="gvLog" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="logid" CssClass="mat-grid" ClientInstanceName="gvLog">
             <SettingsPager PageSize="100" AlwaysShowPager="true">
                 <Summary Visible="true" Text="Page {0} of {1} ({2} items)" />
@@ -332,6 +369,15 @@
                 <dx:GridViewDataTextColumn FieldName="teacher_email" Caption="Email" VisibleIndex="10" Width="140px" Visible="false" />
             </Columns>
         </dx:ASPxGridView>
+        </div>
+        <div class="mat-legend">
+            <span class="mat-legend__grp"><b>Severity:</b>
+                <span class="mat-legend__i"><span class="mat-legend__dot" style="background:#d32f2f"></span>Critical</span>
+                <span class="mat-legend__i"><span class="mat-legend__dot" style="background:#f57c00"></span>High</span>
+                <span class="mat-legend__i"><span class="mat-legend__dot" style="background:#388e3c"></span>Normal</span>
+            </span>
+            <span class="mat-legend__grp"><b>Tip:</b> click a column header to sort, use the header filter row to narrow, or the Filters bar for date / user / search. Rows scroll horizontally on small screens.</span>
+        </div>
         <dx:ASPxGridViewExporter ID="gvExporter" runat="server" GridViewID="gvLog" />
     </div>
 

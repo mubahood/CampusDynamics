@@ -127,6 +127,8 @@ public partial class COOPERP_NewScreens_MarksAuditTrail : System.Web.UI.Page
                 int total = ScalarInt(conn,
                     "SELECT COUNT(*) FROM acad_activity_log WHERE page_function IN " + MarksInClause);
                 litTotal.Text = total.ToString("N0");
+                litHeroTotal.Text = total.ToString("N0");
+                try { litHeroWindow.Text = Math.Max(0, (int)(dtTo.Date - dtFrom.Date).TotalDays).ToString("N0"); } catch { }
 
                 // ── Row 2: Today + yesterday comparison ──
                 int today = ScalarInt(conn,
