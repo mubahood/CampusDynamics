@@ -1618,6 +1618,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         // instead of the old fixed 555. Columns below are scaled by 'sc' to fill it.
         float pageWidth = gr.ClientPageSize.Width;
         if (pageWidth < 50) pageWidth = 555; // safety fallback
+        float pageHeight = gr.ClientPageSize.Height;
+        if (pageHeight < 50) pageHeight = 780; // safety fallback (A4 portrait)
         float sc = pageWidth / 555f;
         float y = 0;
         
@@ -1741,7 +1743,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y = DrawPerformanceCategory(gr, vcListStudents, "1. VC'S LIST (FIRST CLASS)", vcListStudents.Count,
             "The following students obtained a GPA between 4.40 and 5.00.",
             "No students meet the First Class criteria (GPA 4.40 - 5.00)",
-            vcListColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
+            vcListColor, y, pageWidth, pageHeight, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 10;
@@ -1750,7 +1752,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y = DrawPerformanceCategory(gr, deansListStudents, "2. DEAN'S LIST (SECOND CLASS UPPER DIVISION)", deansListStudents.Count,
             "The following students obtained a GPA between 3.60 and 4.39.",
             "No students meet the Second Class Upper criteria (GPA 3.60 - 4.39)",
-            deansListColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
+            deansListColor, y, pageWidth, pageHeight, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 10;
@@ -1759,7 +1761,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y = DrawPerformanceCategory(gr, secondLowerStudents, "3. SECOND CLASS LOWER DIVISION", secondLowerStudents.Count,
             "The following students obtained a GPA between 2.80 and 3.59.",
             "No students in this category",
-            secondLowerColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
+            secondLowerColor, y, pageWidth, pageHeight, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 10;
@@ -1768,7 +1770,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y = DrawPerformanceCategory(gr, passStudents, "4. PASS", passStudents.Count,
             "The following students obtained a GPA between 2.00 and 2.79.",
             "No students in this category",
-            passColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
+            passColor, y, pageWidth, pageHeight, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 10;
@@ -1777,7 +1779,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y = DrawPerformanceCategory(gr, retakeStudents, "5. RETAKE / REFERRED", retakeStudents.Count,
             "The following students have one or more failed course(s) or retakes and must resit/clear before progressing.",
             "No students with retakes/referrals in this category",
-            secondLowerColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
+            secondLowerColor, y, pageWidth, pageHeight, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 10;
@@ -1786,7 +1788,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y = DrawPerformanceCategory(gr, failStudents, "6. FAIL", failStudents.Count,
             "The following students failed the semester: one or more failed paper(s) (score below 50) and/or fewer than 4 papers sat.",
             "No students in this category",
-            passColor, y, pageWidth, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
+            passColor, y, pageWidth, pageHeight, rowHeight, categoryHeaderFont, tableHeaderFont, cellFont, normalFont, italicFont,
             numWidth, regNoWidth, nameWidth, genderWidth, cgpaWidth, statusWidth, reasonWidth,
             headerBg, altRowColor, borderColor);
         y += 15;
@@ -1870,12 +1872,17 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     
     private float DrawPerformanceCategory(DevExpress.XtraPrinting.BrickGraphics gr, List<DataRow> students,
         string categoryTitle, int studentCount, string description, string emptyMessage,
-        System.Drawing.Color categoryColor, float y, float pageWidth,
+        System.Drawing.Color categoryColor, float y, float pageWidth, float pageHeight,
         float rowHeight, System.Drawing.Font categoryFont, System.Drawing.Font headerFont, System.Drawing.Font cellFont,
         System.Drawing.Font normalFont, System.Drawing.Font italicFont,
         float numWidth, float regNoWidth, float nameWidth, float genderWidth, float cgpaWidth, float statusWidth, float reasonWidth,
         System.Drawing.Color headerBg, System.Drawing.Color altRowColor, System.Drawing.Color borderColor)
     {
+        // Keep a non-empty category's heading with its first rows: start a new page if there isn't
+        // room for the category bar + description + table header + a couple of rows.
+        if (students.Count > 0 && (y % pageHeight) + 90 > pageHeight)
+            y = ((float)Math.Floor(y / pageHeight) + 1) * pageHeight;
+
         // Category header: "1. VC'S LIST (FIRST CLASS) 0 STUDENTS"
         string headerText = string.Format("{0}   {1} STUDENTS", categoryTitle, studentCount);
         DevExpress.XtraPrinting.TextBrick categoryBrick = new DevExpress.XtraPrinting.TextBrick();
@@ -1901,21 +1908,32 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         }
         else
         {
-            // Table header row - Columns: #, REG NO, NAME, GENDER, GPA, STATUS, REASON
+            // Table header — reusable so it REPEATS at the top of each page the table spills onto.
             float x = 0;
-            DrawTableHeaderCell(gr, "#", x, y, numWidth, rowHeight, headerFont, headerBg, borderColor); x += numWidth;
-            DrawTableHeaderCell(gr, "REG NO", x, y, regNoWidth, rowHeight, headerFont, headerBg, borderColor); x += regNoWidth;
-            DrawTableHeaderCell(gr, "STUDENT NAME", x, y, nameWidth, rowHeight, headerFont, headerBg, borderColor); x += nameWidth;
-            DrawTableHeaderCell(gr, "GENDER", x, y, genderWidth, rowHeight, headerFont, headerBg, borderColor); x += genderWidth;
-            DrawTableHeaderCell(gr, "GPA", x, y, cgpaWidth, rowHeight, headerFont, headerBg, borderColor); x += cgpaWidth;
-            DrawTableHeaderCell(gr, "STATUS", x, y, statusWidth, rowHeight, headerFont, headerBg, borderColor); x += statusWidth;
-            DrawTableHeaderCell(gr, "REASON", x, y, reasonWidth, rowHeight, headerFont, headerBg, borderColor);
-            y += rowHeight;
-            
+            Action drawHdr = () =>
+            {
+                x = 0;
+                DrawTableHeaderCell(gr, "#", x, y, numWidth, rowHeight, headerFont, headerBg, borderColor); x += numWidth;
+                DrawTableHeaderCell(gr, "REG NO", x, y, regNoWidth, rowHeight, headerFont, headerBg, borderColor); x += regNoWidth;
+                DrawTableHeaderCell(gr, "STUDENT NAME", x, y, nameWidth, rowHeight, headerFont, headerBg, borderColor); x += nameWidth;
+                DrawTableHeaderCell(gr, "GENDER", x, y, genderWidth, rowHeight, headerFont, headerBg, borderColor); x += genderWidth;
+                DrawTableHeaderCell(gr, "GPA", x, y, cgpaWidth, rowHeight, headerFont, headerBg, borderColor); x += cgpaWidth;
+                DrawTableHeaderCell(gr, "STATUS", x, y, statusWidth, rowHeight, headerFont, headerBg, borderColor); x += statusWidth;
+                DrawTableHeaderCell(gr, "REASON", x, y, reasonWidth, rowHeight, headerFont, headerBg, borderColor);
+                y += rowHeight;
+            };
+            drawHdr();
+
             // Data rows
             int rowNum = 1;
             foreach (DataRow row in students)
             {
+                // Repeat the header on a new page when the row would overflow the current one.
+                if ((y % pageHeight) + rowHeight > pageHeight - 4)
+                {
+                    y = ((float)Math.Floor(y / pageHeight) + 1) * pageHeight;
+                    drawHdr();
+                }
                 x = 0;
                 System.Drawing.Color rowBg = rowNum % 2 == 0 ? altRowColor : System.Drawing.Color.White;
                 
@@ -2451,6 +2469,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 // hardcoded 822 (which assumed point units and left ~30% blank on the right).
                 float pageWidth = gr.ClientPageSize.Width;
                 if (pageWidth < 50) pageWidth = 822; // safety fallback
+                // Printable page height — used to repeat table headers when a table spills to a new page.
+                float pageHeight = gr.ClientPageSize.Height;
+                if (pageHeight < 50) pageHeight = 560; // safety fallback (A4 landscape)
                 float logoWidth = 120;
                 float logoHeight = 40;
                 
@@ -2671,6 +2692,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     // Calculate course column width to fill remaining space exactly
                     float courseColWidth = displayedCourses > 0 ? availableWidth / displayedCourses : 48;
                     
+                    // Keep a specialization's header with at least its first row: if there isn't room
+                    // for spec header (26) + table header (24) + one row (22), start on a new page.
+                    if ((y % pageHeight) + 72 > pageHeight)
+                        y = ((float)Math.Floor(y / pageHeight) + 1) * pageHeight;
+
                     // ========== SPECIALIZATION HEADER ==========
                     // Specialization header (full width) — name + student count. No curriculum info shown.
                     string specHeaderText = "  " + specName + " (" + students.Count + " students)";
@@ -2692,82 +2718,89 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     
                     y += 26;
                     
-                    // Table Header Row - increased height
+                    // Table header — defined as a reusable action so it can be REPEATED at the top of
+                    // each page this specialization's table spills onto (manual BrickGraphics paging).
                     float x = 0;
                     float headerHeight = 24;
-                    
-                    // SN Header
-                    DevExpress.XtraPrinting.TextBrick snHeader = new DevExpress.XtraPrinting.TextBrick();
-                    snHeader.Text = "#";
-                    snHeader.Font = headerFont;
-                    snHeader.ForeColor = System.Drawing.Color.White;
-                    snHeader.BackColor = headerBg;
-                    snHeader.BorderColor = borderColor;
-                    snHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
-                    snHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 6, 6);
-                    snHeader.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                    gr.DrawBrick(snHeader, new System.Drawing.RectangleF(x, y, snWidth, headerHeight));
-                    x += snWidth;
-                    
-                    // Name Header
-                    DevExpress.XtraPrinting.TextBrick nameHeader = new DevExpress.XtraPrinting.TextBrick();
-                    nameHeader.Text = "Student Name";
-                    nameHeader.Font = headerFont;
-                    nameHeader.ForeColor = System.Drawing.Color.White;
-                    nameHeader.BackColor = headerBg;
-                    nameHeader.BorderColor = borderColor;
-                    nameHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
-                    nameHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 6, 6);
-                    gr.DrawBrick(nameHeader, new System.Drawing.RectangleF(x, y, nameWidth, headerHeight));
-                    x += nameWidth;
-                    
-                    // RegNo Header
-                    DevExpress.XtraPrinting.TextBrick regHeader = new DevExpress.XtraPrinting.TextBrick();
-                    regHeader.Text = "Reg No";
-                    regHeader.Font = headerFont;
-                    regHeader.ForeColor = System.Drawing.Color.White;
-                    regHeader.BackColor = headerBg;
-                    regHeader.BorderColor = borderColor;
-                    regHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
-                    regHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 6, 6);
-                    gr.DrawBrick(regHeader, new System.Drawing.RectangleF(x, y, regWidth, headerHeight));
-                    x += regWidth;
-                    
-                    // Course Headers
-                    for (int i = 0; i < displayedCourses; i++)
+                    Action drawTableHeader = () =>
                     {
-                        DevExpress.XtraPrinting.TextBrick courseHeader = new DevExpress.XtraPrinting.TextBrick();
-                        courseHeader.Text = courses[i].Code;
-                        courseHeader.Font = headerFont;
-                        courseHeader.ForeColor = System.Drawing.Color.White;
-                        courseHeader.BackColor = headerBg;
-                        courseHeader.BorderColor = borderColor;
-                        courseHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
-                        courseHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 6, 6);
-                        courseHeader.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                        gr.DrawBrick(courseHeader, new System.Drawing.RectangleF(x, y, courseColWidth, headerHeight));
-                        x += courseColWidth;
-                    }
-                    
-                    // Status Header (new column)
-                    DevExpress.XtraPrinting.TextBrick statusHeader = new DevExpress.XtraPrinting.TextBrick();
-                    statusHeader.Text = "STATUS";
-                    statusHeader.Font = headerFont;
-                    statusHeader.ForeColor = System.Drawing.Color.White;
-                    statusHeader.BackColor = headerBg;
-                    statusHeader.BorderColor = borderColor;
-                    statusHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
-                    statusHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 6, 6);
-                    statusHeader.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
-                    gr.DrawBrick(statusHeader, new System.Drawing.RectangleF(x, y, statusWidth, headerHeight));
-                    
-                    y += headerHeight;
+                        x = 0;
+                        DevExpress.XtraPrinting.TextBrick snHeader = new DevExpress.XtraPrinting.TextBrick();
+                        snHeader.Text = "#";
+                        snHeader.Font = headerFont;
+                        snHeader.ForeColor = System.Drawing.Color.White;
+                        snHeader.BackColor = headerBg;
+                        snHeader.BorderColor = borderColor;
+                        snHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                        snHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 6, 6);
+                        snHeader.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+                        gr.DrawBrick(snHeader, new System.Drawing.RectangleF(x, y, snWidth, headerHeight));
+                        x += snWidth;
+
+                        DevExpress.XtraPrinting.TextBrick nameHeader = new DevExpress.XtraPrinting.TextBrick();
+                        nameHeader.Text = "Student Name";
+                        nameHeader.Font = headerFont;
+                        nameHeader.ForeColor = System.Drawing.Color.White;
+                        nameHeader.BackColor = headerBg;
+                        nameHeader.BorderColor = borderColor;
+                        nameHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                        nameHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 6, 6);
+                        gr.DrawBrick(nameHeader, new System.Drawing.RectangleF(x, y, nameWidth, headerHeight));
+                        x += nameWidth;
+
+                        DevExpress.XtraPrinting.TextBrick regHeader = new DevExpress.XtraPrinting.TextBrick();
+                        regHeader.Text = "Reg No";
+                        regHeader.Font = headerFont;
+                        regHeader.ForeColor = System.Drawing.Color.White;
+                        regHeader.BackColor = headerBg;
+                        regHeader.BorderColor = borderColor;
+                        regHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                        regHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 6, 6);
+                        gr.DrawBrick(regHeader, new System.Drawing.RectangleF(x, y, regWidth, headerHeight));
+                        x += regWidth;
+
+                        for (int i = 0; i < displayedCourses; i++)
+                        {
+                            DevExpress.XtraPrinting.TextBrick courseHeader = new DevExpress.XtraPrinting.TextBrick();
+                            courseHeader.Text = courses[i].Code;
+                            courseHeader.Font = headerFont;
+                            courseHeader.ForeColor = System.Drawing.Color.White;
+                            courseHeader.BackColor = headerBg;
+                            courseHeader.BorderColor = borderColor;
+                            courseHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                            courseHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 6, 6);
+                            courseHeader.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+                            gr.DrawBrick(courseHeader, new System.Drawing.RectangleF(x, y, courseColWidth, headerHeight));
+                            x += courseColWidth;
+                        }
+
+                        DevExpress.XtraPrinting.TextBrick statusHeader = new DevExpress.XtraPrinting.TextBrick();
+                        statusHeader.Text = "STATUS";
+                        statusHeader.Font = headerFont;
+                        statusHeader.ForeColor = System.Drawing.Color.White;
+                        statusHeader.BackColor = headerBg;
+                        statusHeader.BorderColor = borderColor;
+                        statusHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                        statusHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 6, 6);
+                        statusHeader.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+                        gr.DrawBrick(statusHeader, new System.Drawing.RectangleF(x, y, statusWidth, headerHeight));
+
+                        y += headerHeight;
+                    };
+                    drawTableHeader();
                     
                     // Student Data Rows - taller to fit Grade(Score) on line 1 and CW·Exam on line 2
                     float rowHeight = 22;   // single-line cells (grade + score only)
                     int sn = 0;
                     foreach (var student in students)
                     {
+                        // If this row would spill past the page bottom, move to the next page and
+                        // REPEAT the table header there so the continuation stays readable.
+                        if ((y % pageHeight) + rowHeight > pageHeight - 4)
+                        {
+                            y = ((float)Math.Floor(y / pageHeight) + 1) * pageHeight;
+                            drawTableHeader();
+                        }
                         sn++;
                         x = 0;
                         System.Drawing.Color rowBg = (sn % 2 == 0) ? altRowColor : System.Drawing.Color.White;
