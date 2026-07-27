@@ -175,6 +175,10 @@
     .sr-btn--ok { background:#16a34a; color:#fff; } .sr-btn--ok:hover { background:#12833c; }
     .sr-btn--ghost { background:#fff; color:#334155; border-color:#cdd5e1; } .sr-btn--ghost:hover { background:#f1f5f9; }
     .sr-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .sr-sel:disabled { background:#f5f7fa; color:#9aa6b6; cursor:not-allowed; }
+    .sr-status { font-size:10.5px; color:#64748b; margin:0 0 12px; min-height:14px; display:flex; align-items:center; gap:6px; line-height:1.4; }
+    .sr-status--load { color:#174DA4; } .sr-status--ok { color:#16a34a; } .sr-status--warn { color:#b45309; }
+    .sr-spin { width:11px; height:11px; border:2px solid #cfe0f5; border-top-color:#174DA4; border-radius:50%; animation:respin .7s linear infinite; display:inline-block; flex-shrink:0; }
     @media (max-width:560px){ .sr-ft{flex-direction:column;align-items:stretch;} .sr-ft__sp{display:none;} .sr-btn{justify-content:center;} }
 </style>
 </asp:Content>
@@ -580,7 +584,7 @@ document.addEventListener('DOMContentLoaded',function(){
                 </select>
             </div>
 
-            <div class="sr-fg">
+            <div class="sr-fg" style="margin-bottom:6px;">
                 <label>Programme <span class="sr-req">*</span></label>
                 <div class="sr-combo" id="srProgCombo">
                     <input type="text" id="srProgInput" class="sr-in" placeholder="Type to search programme&hellip;" autocomplete="off" spellcheck="false" />
@@ -588,31 +592,21 @@ document.addEventListener('DOMContentLoaded',function(){
                     <div class="sr-list" id="srProgList"></div>
                 </div>
             </div>
+            <div class="sr-status" id="srStatus">Pick a programme &mdash; the fields below fill in automatically with only the terms that have data.</div>
 
             <div class="sr-fg">
                 <label>Entry Year <span class="sr-req">*</span></label>
-                <div class="sr-combo" id="srYearCombo">
-                    <input type="text" id="srYearInput" class="sr-in" placeholder="Type to search entry year&hellip;" autocomplete="off" spellcheck="false" />
-                    <input type="hidden" id="srYear" value="" />
-                    <div class="sr-list" id="srYearList"></div>
-                </div>
+                <select id="srYear" class="sr-sel" disabled><option value="">Select a programme first&hellip;</option></select>
             </div>
 
             <div class="sr-fg">
                 <label>Year of Study <span class="sr-req">*</span></label>
-                <select id="srStudyYear" class="sr-sel">
-                    <option value="">-- Select Year of Study --</option>
-                    <option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option>
-                    <option value="4">Year 4</option><option value="5">Year 5</option>
-                </select>
+                <select id="srStudyYear" class="sr-sel" disabled><option value="">Select entry year first&hellip;</option></select>
             </div>
 
             <div class="sr-fg">
                 <label>Semester <span class="sr-req">*</span></label>
-                <select id="srSem" class="sr-sel">
-                    <option value="">-- Select Semester --</option>
-                    <option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option>
-                </select>
+                <select id="srSem" class="sr-sel" disabled><option value="">Select year of study first&hellip;</option></select>
             </div>
 
             <hr class="sr-div" />
@@ -656,9 +650,11 @@ document.addEventListener('DOMContentLoaded',function(){
    to the NewStudentInfo feature. Self-contained; exposes only the 4 window.* entry points. */
 (function(){
     var BACKEND='NewStudentInfo.aspx';
-    var srProgs=[], srYears=[];
+    var srProgs=[], srCombos=[];          // srCombos: [{y,sy,s,n}] valid terms for source+programme
     function d(id){ return document.getElementById(id); }
     function e2(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function stu(n){ return n+' student'+(n==1?'':'s'); }
+    function status(html,cls){ var el=d('srStatus'); if(el){ el.className='sr-status'+(cls?' '+cls:''); el.innerHTML=html||''; } }
 
     function loadProgs(){
         srProgs=[]; var sel=d('fProg');
@@ -667,8 +663,6 @@ document.addEventListener('DOMContentLoaded',function(){
             if(!v || v==='-' || v.toUpperCase()==='ALL') continue;   // skip the blank/placeholder programme rows
             srProgs.push({value:v,text:o.text}); } }
     }
-    function loadYears(){ srYears=[]; var y=new Date().getFullYear(); for(var yr=y;yr>=2000;yr--) srYears.push(String(yr)); }
-
     function renderProg(){
         var q=(d('srProgInput').value||'').toLowerCase().trim(), list=d('srProgList'), h='';
         var items=srProgs.filter(function(p){ return !q||p.text.toLowerCase().indexOf(q)>-1||String(p.value).toLowerCase().indexOf(q)>-1; });
@@ -676,32 +670,99 @@ document.addEventListener('DOMContentLoaded',function(){
         else items.slice(0,400).forEach(function(p){ h+='<div class="sr-opt" data-v="'+e2(p.value)+'" data-t="'+e2(p.text)+'">'+e2(p.text)+' <small>'+e2(p.value)+'</small></div>'; });
         list.innerHTML=h;
         var o=list.querySelectorAll('.sr-opt');
-        for(var i=0;i<o.length;i++) o[i].onmousedown=function(ev){ ev.preventDefault(); d('srProg').value=this.getAttribute('data-v')||''; d('srProgInput').value=this.getAttribute('data-t')||''; d('srProgCombo').classList.remove('open'); };
+        for(var i=0;i<o.length;i++) o[i].onmousedown=function(ev){ ev.preventDefault();
+            d('srProg').value=this.getAttribute('data-v')||''; d('srProgInput').value=this.getAttribute('data-t')||'';
+            d('srProgCombo').classList.remove('open'); fetchCascade(); };
     }
-    function renderYear(){
-        var q=(d('srYearInput').value||'').trim(), list=d('srYearList'), h='';
-        var items=srYears.filter(function(y){ return !q||y.indexOf(q)>-1; });
-        if(!items.length) h='<div class="sr-none">No years</div>';
-        else items.slice(0,60).forEach(function(y){ h+='<div class="sr-opt" data-v="'+e2(y)+'">'+e2(y)+'</div>'; });
-        list.innerHTML=h;
-        var o=list.querySelectorAll('.sr-opt');
-        for(var i=0;i<o.length;i++) o[i].onmousedown=function(ev){ ev.preventDefault(); d('srYear').value=this.getAttribute('data-v')||''; d('srYearInput').value=this.getAttribute('data-v')||''; d('srYearCombo').classList.remove('open'); };
+
+    // ── dependent-select helpers ──
+    function setSel(id,opts,placeholder,enabled){
+        var el=d(id); if(!el) return;
+        var h='<option value="">'+e2(placeholder)+'</option>';
+        opts.forEach(function(o){ h+='<option value="'+e2(o.v)+'">'+e2(o.t)+'</option>'; });
+        el.innerHTML=h; el.value=''; el.disabled=!enabled;
+    }
+    function years(){ var m={}; srCombos.forEach(function(c){ m[c.y]=(m[c.y]||0)+c.n; });
+        return Object.keys(m).sort(function(a,b){return b.localeCompare(a);}).map(function(y){ return {v:y,t:'Entry '+y+'  ·  '+stu(m[y])}; }); }
+    function studies(y){ var m={}; srCombos.forEach(function(c){ if(c.y===y) m[c.sy]=(m[c.sy]||0)+c.n; });
+        return Object.keys(m).sort().map(function(sy){ return {v:sy,t:'Year '+sy+'  ·  '+stu(m[sy])}; }); }
+    function sems(y,sy){ var m={}; srCombos.forEach(function(c){ if(c.y===y&&c.sy===sy) m[c.s]=(m[c.s]||0)+c.n; });
+        return Object.keys(m).sort().map(function(s){ return {v:s,t:'Semester '+s+'  ·  '+stu(m[s])}; }); }
+
+    function clearPreview(){ d('srPrev').classList.remove('show'); d('srPrevN').textContent='0'; d('srBtnMarks').disabled=true; d('srBtnPerf').disabled=true; }
+    var SRC_LBL={published:'published',approved:'approved',captured:'captured',entered:'entered'};
+
+    function fetchCascade(){
+        var prog=d('srProg').value;
+        srCombos=[];
+        setSel('srYear',[], 'Select a programme first…', false);
+        setSel('srStudyYear',[], 'Select entry year first…', false);
+        setSel('srSem',[], 'Select year of study first…', false);
+        clearPreview();
+        if(!prog){ status('Pick a programme &mdash; the fields below fill in automatically.'); return; }
+        status('<span class="sr-spin"></span> Finding terms with data&hellip;','sr-status--load');
+        var src=d('srSource').value||'approved';
+        var xhr=new XMLHttpRequest();
+        xhr.open('GET', BACKEND+'?action=SummaryReportCascade&source='+encodeURIComponent(src)+'&programme='+encodeURIComponent(prog), true);
+        xhr.onreadystatechange=function(){
+            if(xhr.readyState!==4) return;
+            var r=null; try{ r=JSON.parse(xhr.responseText); }catch(ex){}
+            if(!r||!r.combos){ status('Could not load available terms. Please retry.','sr-status--warn'); return; }
+            srCombos=r.combos;
+            if(!srCombos.length){ status('No <b>'+e2(SRC_LBL[src]||src)+'</b> marks for this programme yet — try a different Results Source.','sr-status--warn');
+                setSel('srYear',[], 'No data for this source', false); return; }
+            populateYears();
+        };
+        xhr.onerror=function(){ status('Network error loading terms.','sr-status--warn'); };
+        xhr.send();
+    }
+    function populateYears(){
+        var ys=years();
+        setSel('srYear', ys, '-- Select Entry Year --', true);
+        setSel('srStudyYear',[], 'Select entry year first…', false);
+        setSel('srSem',[], 'Select year of study first…', false);
+        clearPreview();
+        if(ys.length===1){ d('srYear').value=ys[0].v; onYear(); status('Auto-filled — this programme has data for one entry year only.','sr-status--ok'); }
+        else status('<b>'+ys.length+'</b> entry years have data — choose one and the rest narrow automatically.','sr-status--ok');
+    }
+    function onYear(){
+        var y=d('srYear').value;
+        setSel('srSem',[], 'Select year of study first…', false); clearPreview();
+        if(!y){ setSel('srStudyYear',[], 'Select entry year first…', false); return; }
+        var sy=studies(y);
+        setSel('srStudyYear', sy, '-- Select Year of Study --', true);
+        if(sy.length===1){ d('srStudyYear').value=sy[0].v; onStudy(); }
+    }
+    function onStudy(){
+        var y=d('srYear').value, sy=d('srStudyYear').value;
+        clearPreview();
+        if(!sy){ setSel('srSem',[], 'Select year of study first…', false); return; }
+        var ss=sems(y,sy);
+        setSel('srSem', ss, '-- Select Semester --', true);
+        if(ss.length===1){ d('srSem').value=ss[0].v; maybeAutoPreview(); }
+    }
+    function maybeAutoPreview(){
+        if(d('srProg').value && d('srYear').value && d('srStudyYear').value && d('srSem').value) window.srPreview(true);
+        else clearPreview();
     }
 
     function reset(){
         d('srSource').value='approved';
         d('srProg').value=''; d('srProgInput').value='';
-        d('srYear').value=''; d('srYearInput').value='';
-        d('srStudyYear').value=''; d('srSem').value=''; d('srReg').value='';
-        d('srPrev').classList.remove('show'); d('srPrevN').textContent='0';
-        d('srBtnMarks').disabled=true; d('srBtnPerf').disabled=true;
+        srCombos=[];
+        setSel('srYear',[], 'Select a programme first…', false);
+        setSel('srStudyYear',[], 'Select entry year first…', false);
+        setSel('srSem',[], 'Select year of study first…', false);
+        d('srReg').value='';
+        clearPreview();
+        status('Pick a programme &mdash; the fields below fill in automatically with only the terms that have data.');
     }
-    function collect(){
+    function collect(silent){
         var p=d('srProg').value, y=d('srYear').value, sy=d('srStudyYear').value, sm=d('srSem').value;
-        if(!p){ alert('Please select a Programme. This field is required.'); d('srProgInput').focus(); return null; }
-        if(!y){ alert('Please select an Entry Year. This field is required.'); d('srYearInput').focus(); return null; }
-        if(!sy){ alert('Please select a Year of Study. This field is required.'); d('srStudyYear').focus(); return null; }
-        if(!sm){ alert('Please select a Semester. This field is required.'); d('srSem').focus(); return null; }
+        if(!p){ if(!silent){ alert('Please select a Programme.'); d('srProgInput').focus(); } return null; }
+        if(!y){ if(!silent) alert('Please select an Entry Year.'); return null; }
+        if(!sy){ if(!silent) alert('Please select a Year of Study.'); return null; }
+        if(!sm){ if(!silent) alert('Please select a Semester.'); return null; }
         return { programme:p, entryYear:y, studyYear:sy, semester:sm, source:d('srSource').value||'approved', entryNumbers:(d('srReg').value||'').trim() };
     }
     function query(action,c){
@@ -711,11 +772,11 @@ document.addEventListener('DOMContentLoaded',function(){
         return q;
     }
 
-    window.openSRModal=function(){ loadProgs(); loadYears(); reset(); d('srModal').classList.add('show'); };
+    window.openSRModal=function(){ loadProgs(); reset(); d('srModal').classList.add('show'); setTimeout(function(){ var pi=d('srProgInput'); if(pi) pi.focus(); },60); };
     window.closeSRModal=function(){ d('srModal').classList.remove('show'); };
 
-    window.srPreview=function(){
-        var c=collect(); if(!c) return;
+    window.srPreview=function(auto){
+        var c=collect(auto===true); if(!c) return;
         d('srPrevN').textContent='…'; d('srPrev').classList.add('show');
         d('srBtnMarks').disabled=true; d('srBtnPerf').disabled=true;
         var xhr=new XMLHttpRequest();
@@ -724,21 +785,21 @@ document.addEventListener('DOMContentLoaded',function(){
             if(xhr.readyState!==4) return;
             if(xhr.status===200){
                 var r=null; try{ r=JSON.parse(xhr.responseText); }catch(ex){ r=null; }
-                if(!r){ d('srPrevN').textContent='0'; alert('Unexpected server response during preview.'); return; }
+                if(!r){ d('srPrevN').textContent='0'; if(auto!==true) alert('Unexpected server response during preview.'); return; }
                 var n=Number(r.count)||0;
                 d('srPrevN').textContent=n.toLocaleString('en-US');
                 d('srPrevL').textContent=(n===1?'student will be included in the report':'students will be included in the report');
                 d('srBtnMarks').disabled=(n===0); d('srBtnPerf').disabled=(n===0);
-                if(r.error) alert('Error: '+r.error);
-            } else { d('srPrevN').textContent='0'; alert('Preview failed (HTTP '+xhr.status+'). Please try again.'); }
+                if(r.error && auto!==true) alert('Error: '+r.error);
+            } else { d('srPrevN').textContent='0'; if(auto!==true) alert('Preview failed (HTTP '+xhr.status+'). Please try again.'); }
         };
-        xhr.onerror=function(){ d('srPrevN').textContent='0'; alert('Network error during preview.'); };
+        xhr.onerror=function(){ d('srPrevN').textContent='0'; if(auto!==true) alert('Network error during preview.'); };
         xhr.send();
     };
     window.srExport=function(action,btn){
-        var c=collect(); if(!c) return;
+        var c=collect(false); if(!c) return;
         var n=parseInt((d('srPrevN').textContent||'0').replace(/[^0-9]/g,''),10)||0;
-        if(n<=0){ alert('Please preview students first — the count must be greater than 0.'); return; }
+        if(n<=0){ alert('No students match — adjust the filters (the preview count must be greater than 0).'); return; }
         var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='Generating&hellip;';
         window.open(BACKEND+query(action,c), '_blank');
         setTimeout(function(){ btn.innerHTML=orig; btn.disabled=false; }, 2200);
@@ -748,10 +809,11 @@ document.addEventListener('DOMContentLoaded',function(){
         var pi=d('srProgInput');
         if(pi){ pi.addEventListener('focus',function(){ renderProg(); d('srProgCombo').classList.add('open'); });
                 pi.addEventListener('input',function(){ d('srProg').value=''; renderProg(); d('srProgCombo').classList.add('open'); }); }
-        var yi=d('srYearInput');
-        if(yi){ yi.addEventListener('focus',function(){ renderYear(); d('srYearCombo').classList.add('open'); });
-                yi.addEventListener('input',function(){ d('srYear').value=''; renderYear(); d('srYearCombo').classList.add('open'); }); }
-        document.addEventListener('click',function(ev){ ['srProgCombo','srYearCombo'].forEach(function(id){ var c=d(id); if(c && !c.contains(ev.target)) c.classList.remove('open'); }); });
+        var src=d('srSource'); if(src) src.addEventListener('change',function(){ if(d('srProg').value) fetchCascade(); });
+        var y=d('srYear'); if(y) y.addEventListener('change',onYear);
+        var sy=d('srStudyYear'); if(sy) sy.addEventListener('change',onStudy);
+        var sm=d('srSem'); if(sm) sm.addEventListener('change',maybeAutoPreview);
+        document.addEventListener('click',function(ev){ var c=d('srProgCombo'); if(c && !c.contains(ev.target)) c.classList.remove('open'); });
         document.addEventListener('keydown',function(ev){ if(ev.key==='Escape' && d('srModal').classList.contains('show')) window.closeSRModal(); });
         var ov=d('srModal'); if(ov) ov.addEventListener('click',function(ev){ if(ev.target===ov) window.closeSRModal(); });
     }

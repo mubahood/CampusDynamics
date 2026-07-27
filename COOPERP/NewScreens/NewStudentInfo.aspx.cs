@@ -109,6 +109,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 HandlePreviewSummaryReport();
                 handledAction = true;
             }
+            else if (action == "SummaryReportCascade")
+            {
+                HandleSummaryReportCascade();
+                handledAction = true;
+            }
             else if (action == "ExportSummaryReport")
             {
                 HandleExportSummaryReport();
@@ -1070,6 +1075,84 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             "  LEFT JOIN acad_course ac ON ac.courseID=cr.courseID " +
             "  WHERE cr.mark_stage='" + stage + "' AND cr.provisional_total_marks IS NOT NULL ) r " +
             joins;
+    }
+
+    /// <summary>
+    /// Cascade helper for the Summary Report modal: given a source + programme, returns every
+    /// (entryYear, studyYear, semester) combination that actually has gradeable data, with a
+    /// student count. The client uses this to populate — and auto-select — the dependent
+    /// dropdowns, so the user can never pick an empty combination. Leaner than SR_ResultsFrom
+    /// (driven from acad_student for speed) but the same logical result set.
+    /// </summary>
+    private void HandleSummaryReportCascade()
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+        try
+        {
+            string programme = Request.QueryString["programme"] ?? "";
+            string source = Request.QueryString["source"] ?? "approved";
+            var combos = new List<object>();
+
+            if (!string.IsNullOrWhiteSpace(programme))
+            {
+                string stage = SR_StageFor(source);   // null => published
+                string sql;
+                if (stage == null)
+                {
+                    sql = "SELECT s.entryyear y, r.studyyear sy, r.semester s, COUNT(DISTINCT s.regno) n " +
+                          "FROM acad_student s JOIN acad_results r ON r.regno = s.regno " +
+                          "WHERE s.progid = @programme AND TRIM(IFNULL(s.entryyear,'')) <> '' " +
+                          "  AND r.studyyear IS NOT NULL AND r.semester IS NOT NULL " +
+                          "GROUP BY s.entryyear, r.studyyear, r.semester HAVING n > 0 " +
+                          "ORDER BY y DESC, sy, s";
+                }
+                else
+                {
+                    sql = "SELECT s.entryyear y, sub.sy sy, sub.s s, COUNT(DISTINCT s.regno) n " +
+                          "FROM acad_student s JOIN ( " +
+                          "   SELECT cr.regno, cr.semester s, " +
+                          "     (SELECT MIN(pc.study_year) FROM acad_programmecourses pc " +
+                          "        WHERE pc.progcode = cr.prog_id AND pc.course_code = cr.courseID) sy " +
+                          "   FROM campus_dynamics_portal.acad_course_registration cr " +
+                          "   WHERE cr.mark_stage = @stage AND cr.provisional_total_marks IS NOT NULL ) sub " +
+                          "  ON sub.regno = s.regno " +
+                          "WHERE s.progid = @programme AND TRIM(IFNULL(s.entryyear,'')) <> '' AND sub.sy IS NOT NULL " +
+                          "GROUP BY s.entryyear, sub.sy, sub.s HAVING n > 0 " +
+                          "ORDER BY y DESC, sy, s";
+                }
+
+                using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+                {
+                    conn.Open();
+                    using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@programme", programme);
+                        if (stage != null) cmd.Parameters.AddWithValue("@stage", stage);
+                        using (MySqlDataReader rdr = cmd.ExecuteReader())
+                        {
+                            while (rdr.Read())
+                            {
+                                combos.Add(new
+                                {
+                                    y = rdr["y"] == DBNull.Value ? "" : Convert.ToString(rdr["y"]).Trim(),
+                                    sy = rdr["sy"] == DBNull.Value ? "" : Convert.ToString(rdr["sy"]).Trim(),
+                                    s = rdr["s"] == DBNull.Value ? "" : Convert.ToString(rdr["s"]).Trim(),
+                                    n = rdr["n"] == DBNull.Value ? 0 : Convert.ToInt32(rdr["n"])
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            Response.Write(new JavaScriptSerializer().Serialize(new { combos = combos }));
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"combos\": [], \"error\": \"" + ex.Message.Replace("\"", "'").Replace("\r", " ").Replace("\n", " ") + "\"}");
+        }
+        try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
     }
 
     private void HandlePreviewSummaryReport()
