@@ -1634,9 +1634,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         List<DataRow> retakeStudents = new List<DataRow>();
         List<DataRow> failStudents = new List<DataRow>();
 
-        // Minimum papers a full semester load is expected to have. Fewer results than this is
-        // treated as a fail reason (incomplete sitting), independent of any curriculum.
-        const long MIN_PAPERS = 4;
+        // Minimum papers a full semester load is expected to have, by award level
+        // (Diploma 5 / Bachelor 6). Fewer results than this is a fail reason (incomplete sitting),
+        // independent of any curriculum. One programme per report, so the level is constant.
+        int perfLevelCode = data.Rows.Count > 0 && data.Columns.Contains("level_code") && data.Rows[0]["level_code"] != DBNull.Value
+            ? Convert.ToInt32(data.Rows[0]["level_code"]) : 3;
+        long MIN_PAPERS = MinCoursesForLevel(perfLevelCode);
         bool hasCourses = data.Columns.Contains("courses");
         bool hasReason = data.Columns.Contains("fail_reason");
 
@@ -1648,7 +1651,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             long courses = hasCourses && row["courses"] != DBNull.Value ? Convert.ToInt64(row["courses"]) : 0;
 
             // SIMPLE fail rule (no curriculum): a student fails the semester if they have any F
-            // (score < 50) OR sat fewer than MIN_PAPERS papers in the semester.
+            // (score < 50) OR sat fewer than MIN_PAPERS papers (level minimum) in the semester.
             bool isFail = fails > 0 || courses < MIN_PAPERS;
 
             if (isFail)
@@ -2091,6 +2094,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             s.entryyear,
                             s.progid,
                             p.progname,
+                            IFNULL(p.levelCode, 3) AS level_code,
+                            ROUND(acad_CGPAFinder(s.regno), 2) AS cgpa,
                             s.specialisation AS spec_id,
                             CASE WHEN sp.spec IS NULL OR TRIM(sp.spec) = '' OR TRIM(sp.spec) = '-' THEN 'General' ELSE TRIM(sp.spec) END AS specialization,
                             r.courseid,
@@ -2398,6 +2403,19 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// <summary>
     /// Generates a PDF summary report grouped by specialization with courses as columns.
     /// </summary>
+    // Minimum courses a full semester load is expected to have, by NCHE award level:
+    // Diploma (levelCode 2) = 5, Bachelor (levelCode 3) = 6. Sitting fewer is a fail reason.
+    private static int MinCoursesForLevel(int levelCode)
+    {
+        switch (levelCode)
+        {
+            case 3: return 6;   // Bachelor
+            case 2: return 5;   // Diploma
+            case 4: return 5;   // Postgraduate Diploma (diploma-like)
+            default: return 5;  // Certificate / Master / unknown — reasonable default
+        }
+    }
+
     private void GenerateSummaryReportPdf(DataTable data, string studyYear, string semester, string entryYear)
     {
         string universityName = GetUniversityName();
@@ -2462,7 +2480,13 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 System.Drawing.Color altRowColor = System.Drawing.Color.FromArgb(245, 245, 245);
                 System.Drawing.Color borderColor = System.Drawing.Color.FromArgb(150, 150, 150);
                 System.Drawing.Color lineColor = System.Drawing.Color.FromArgb(23, 77, 164);
-                
+
+                // Level-based minimum courses for a full semester (Diploma 5 / Bachelor 6). One
+                // programme per marksheet, so the level is constant across all students here.
+                int levelCode = data.Rows.Count > 0 && data.Columns.Contains("level_code") && data.Rows[0]["level_code"] != DBNull.Value
+                    ? Convert.ToInt32(data.Rows[0]["level_code"]) : 3;
+                int minCourses = MinCoursesForLevel(levelCode);
+
                 float y = 0;
                 // Use the ACTUAL printable width (page minus margins, in DevExpress document
                 // units) so the content fills the whole landscape page instead of the old
@@ -2670,19 +2694,22 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             EntryNo = g.Key,
                             RegNo = g.First()["entryno"] != DBNull.Value ? g.First()["entryno"].ToString() : "",
                             Name = g.First()["student_name"] != DBNull.Value ? g.First()["student_name"].ToString() : "",
+                            Cgpa = (g.First().Table.Columns.Contains("cgpa") && g.First()["cgpa"] != DBNull.Value && Convert.ToDecimal(g.First()["cgpa"]) > 0)
+                                     ? Convert.ToDecimal(g.First()["cgpa"]).ToString("0.00") : "-",
                             Results = g.ToList()
                         })
                         .OrderBy(s => s.Name)
                         .ToList();
-                    
+
                     if (students.Count == 0) continue;
-                    
-                    // Calculate column widths - now including Status column
+
+                    // Calculate column widths - fixed cols: SN, Name, Reg, CGPA, Status
                     float snWidth = 22;
                     float nameWidth = 100;
                     float regWidth = 130;
-                    float statusWidth = 55; // New status column
-                    float fixedWidth = snWidth + nameWidth + regWidth + statusWidth;
+                    float cgpaWidth = 40;   // cumulative GPA column
+                    float statusWidth = 55; // Status column
+                    float fixedWidth = snWidth + nameWidth + regWidth + cgpaWidth + statusWidth;
                     float availableWidth = pageWidth - fixedWidth;
                     
                     // Min width for grade+score display like "C (60)"
@@ -2773,6 +2800,18 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             gr.DrawBrick(courseHeader, new System.Drawing.RectangleF(x, y, courseColWidth, headerHeight));
                             x += courseColWidth;
                         }
+
+                        DevExpress.XtraPrinting.TextBrick cgpaHeader = new DevExpress.XtraPrinting.TextBrick();
+                        cgpaHeader.Text = "CGPA";
+                        cgpaHeader.Font = headerFont;
+                        cgpaHeader.ForeColor = System.Drawing.Color.White;
+                        cgpaHeader.BackColor = headerBg;
+                        cgpaHeader.BorderColor = borderColor;
+                        cgpaHeader.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                        cgpaHeader.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 6, 6);
+                        cgpaHeader.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+                        gr.DrawBrick(cgpaHeader, new System.Drawing.RectangleF(x, y, cgpaWidth, headerHeight));
+                        x += cgpaWidth;
 
                         DevExpress.XtraPrinting.TextBrick statusHeader = new DevExpress.XtraPrinting.TextBrick();
                         statusHeader.Text = "STATUS";
@@ -2890,14 +2929,27 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             gr.DrawBrick(gradeCell, new System.Drawing.RectangleF(x, y, courseColWidth, rowHeight));
                             x += courseColWidth;
                         }
-                        
-                        // Status Cell — curriculum-free rule (matches the Performance report):
-                        // a student FAILS the semester if they have any F (score < 50) OR sat fewer
-                        // than 4 courses; otherwise PASS. studentPassedCount = non-F results.
+
+                        // CGPA cell (cumulative, authoritative)
+                        DevExpress.XtraPrinting.TextBrick cgpaCell = new DevExpress.XtraPrinting.TextBrick();
+                        cgpaCell.Text = student.Cgpa;
+                        cgpaCell.Font = cellFont;
+                        cgpaCell.ForeColor = System.Drawing.Color.FromArgb(23, 77, 164);
+                        cgpaCell.BackColor = rowBg;
+                        cgpaCell.BorderColor = borderColor;
+                        cgpaCell.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                        cgpaCell.Padding = new DevExpress.XtraPrinting.PaddingInfo(4, 4, 4, 4);
+                        cgpaCell.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+                        gr.DrawBrick(cgpaCell, new System.Drawing.RectangleF(x, y, cgpaWidth, rowHeight));
+                        x += cgpaWidth;
+
+                        // Status Cell — curriculum-free rule. A student FAILS the semester if they have
+                        // any F (score < 50) OR sat fewer than the level minimum (Diploma 5 / Bachelor 6)
+                        // courses; otherwise PASS. studentPassedCount = non-F results.
                         int studentFailCount = studentResultCount - studentPassedCount;
-                        bool studentFail = studentFailCount > 0 || studentResultCount < 4;
+                        bool studentFail = studentFailCount > 0 || studentResultCount < minCourses;
                         string statusText = studentFail
-                            ? "FAIL (" + (studentFailCount > 0 ? studentFailCount + "F" : studentResultCount + " papers") + ")"
+                            ? "FAIL (" + (studentFailCount > 0 ? studentFailCount + "F" : studentResultCount + "/" + minCourses) + ")"
                             : "PASS";
                         System.Drawing.Color statusBgColor = studentFail
                             ? System.Drawing.Color.FromArgb(248, 215, 218) : System.Drawing.Color.FromArgb(212, 237, 218);
