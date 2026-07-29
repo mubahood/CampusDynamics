@@ -1818,7 +1818,33 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         summaryBrick.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
         gr.DrawBrick(summaryBrick, new System.Drawing.RectangleF(0, y, pageWidth, 22));
         y += 30;
-        
+
+        // ========== SIGNATURES ==========
+        // Four approval signatories, side by side: a signing line on top, full designation below.
+        y += 40; // leave room to sign above the lines
+        if ((y % pageHeight) + 34 > pageHeight)   // keep the signature row together on one page
+            y = ((float)Math.Floor(y / pageHeight) + 1) * pageHeight + 24;
+
+        string[] sigLabels = new string[] { "Head of Department", "Dean", "Academic Registrar", "Deputy Vice Chancellor" };
+        float sigColW = pageWidth / 4f;
+        float sigGap = 20f; // inset so a line doesn't run into its neighbour
+        for (int sgi = 0; sgi < sigLabels.Length; sgi++)
+        {
+            float colX = sgi * sigColW;
+
+            // Signing line (on top)
+            DevExpress.XtraPrinting.LineBrick sigLine = new DevExpress.XtraPrinting.LineBrick();
+            sigLine.ForeColor = darkGray;
+            sigLine.LineStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+            sigLine.LineWidth = 1;
+            sigLine.Sides = DevExpress.XtraPrinting.BorderSide.None;
+            gr.DrawBrick(sigLine, new System.Drawing.RectangleF(colX + sigGap / 2f, y, sigColW - sigGap, 1));
+
+            // Designation (below the line), centered
+            DrawTextLine(gr, sigLabels[sgi], colX, y + 4, sigColW, 14, boldNormalFont, darkGray, System.Drawing.StringAlignment.Center);
+        }
+        y += 26;
+
         // ========== FOOTER ==========
         DevExpress.XtraPrinting.LineBrick footerLine = new DevExpress.XtraPrinting.LineBrick();
         footerLine.ForeColor = brandColor;
@@ -1833,7 +1859,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         y += 16;
         
         // Computer generated notice
-        DrawTextLine(gr, "This is a computer-generated report. No signature required.", 0, y, pageWidth, 12, italicFont, lightGray, System.Drawing.StringAlignment.Center);
+        DrawTextLine(gr, "Computer-generated report — valid once signed by the officers above.", 0, y, pageWidth, 12, italicFont, lightGray, System.Drawing.StringAlignment.Center);
         y += 14;
         
         // Copyright
