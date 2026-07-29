@@ -2652,6 +2652,245 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 
                 y = filterBoxY + filterBoxHeight + 8;
                 
+                // ========== COURSE PERFORMANCE ANALYSIS TABLE ==========
+                {
+                    // Aggregate stats per course across ALL specializations
+                    var courseStats = data.AsEnumerable()
+                        .Where(r => r["courseid"] != DBNull.Value && !string.IsNullOrEmpty(r["courseid"].ToString())
+                                 && r["grade"] != DBNull.Value && !string.IsNullOrEmpty(r["grade"].ToString()))
+                        .GroupBy(r => r["courseid"].ToString())
+                        .Select(g => {
+                            var scores = g.Where(r => r["score"] != DBNull.Value)
+                                          .Select(r => { 
+                                              decimal val; 
+                                              return decimal.TryParse(r["score"].ToString(), out val) ? val : -1m; 
+                                          })
+                                          .Where(s => s >= 0)
+                                          .ToList();
+                            
+                            int totalResults = g.Count();
+                            int passCount = g.Count(r => r["grade"].ToString() != "F");
+                            int failCount = totalResults - passCount;
+                            
+                            string courseTitle = g.First()["course_title"] != DBNull.Value 
+                                ? g.First()["course_title"].ToString() : "";
+                            
+                            decimal creditUnits = 0;
+                            var cuRow = g.FirstOrDefault(r => r["CreditUnits"] != DBNull.Value);
+                            if (cuRow != null) decimal.TryParse(cuRow["CreditUnits"].ToString(), out creditUnits);
+                            
+                            return new {
+                                Code = g.Key,
+                                Title = courseTitle,
+                                CreditUnits = creditUnits,
+                                TotalResults = totalResults,
+                                PassCount = passCount,
+                                FailCount = failCount,
+                                PassRate = totalResults > 0 ? Math.Round((decimal)passCount / totalResults * 100, 1) : 0m,
+                                AvgScore = scores.Count > 0 ? Math.Round(scores.Average(), 1) : 0m,
+                                HighScore = scores.Count > 0 ? scores.Max() : 0m,
+                                LowScore = scores.Count > 0 ? scores.Min() : 0m
+                            };
+                        })
+                        .OrderBy(c => c.Code)
+                        .ToList();
+                    
+                    if (courseStats.Count > 0)
+                    {
+                        // Section title
+                        DevExpress.XtraPrinting.TextBrick cpaTitle = new DevExpress.XtraPrinting.TextBrick();
+                        cpaTitle.Text = "  COURSE PERFORMANCE ANALYSIS";
+                        cpaTitle.Font = new System.Drawing.Font("Tahoma", 8, System.Drawing.FontStyle.Bold);
+                        cpaTitle.ForeColor = System.Drawing.Color.White;
+                        cpaTitle.BackColor = brandColor;
+                        cpaTitle.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                        cpaTitle.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 5, 5);
+                        gr.DrawBrick(cpaTitle, new System.Drawing.RectangleF(0, y, pageWidth, 20));
+                        y += 22;
+                        
+                        // Column widths
+                        float cpaSn = 22;
+                        float cpaCode = 70;
+                        float cpaName = 215;
+                        float cpaCU = 28;
+                        float cpaStudents = 52;
+                        float cpaAvg = 50;
+                        float cpaHigh = 50;
+                        float cpaLow = 50;
+                        float cpaPass = 42;
+                        float cpaFail = 42;
+                        float cpaRate = 55;
+                        float cpaBar = pageWidth - cpaSn - cpaCode - cpaName - cpaCU - cpaStudents 
+                                     - cpaAvg - cpaHigh - cpaLow - cpaPass - cpaFail - cpaRate;
+                        
+                        // Table header
+                        float cpaHeaderH = 20;
+                        System.Drawing.Font cpaHeaderFont = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
+                        System.Drawing.Font cpaDataFont = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Regular);
+                        System.Drawing.Color cpaHeaderBg = System.Drawing.Color.FromArgb(52, 73, 94);
+                        
+                        float cx = 0;
+                        string[] cpaHeaders = new string[] { "#", "COURSE CODE", "COURSE NAME", "CU", "STUDENTS", "AVG", "HIGHEST", "LOWEST", "PASS", "FAIL", "PASS %", "" };
+                        float[] cpaWidths = new float[] { cpaSn, cpaCode, cpaName, cpaCU, cpaStudents, cpaAvg, cpaHigh, cpaLow, cpaPass, cpaFail, cpaRate, cpaBar };
+                        System.Drawing.StringAlignment[] cpaAligns = new System.Drawing.StringAlignment[] {
+                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Near, System.Drawing.StringAlignment.Near,
+                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center,
+                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center,
+                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Near
+                        };
+                        
+                        for (int h = 0; h < cpaHeaders.Length; h++)
+                        {
+                            DevExpress.XtraPrinting.TextBrick hdr = new DevExpress.XtraPrinting.TextBrick();
+                            hdr.Text = cpaHeaders[h];
+                            hdr.Font = cpaHeaderFont;
+                            hdr.ForeColor = System.Drawing.Color.White;
+                            hdr.BackColor = cpaHeaderBg;
+                            hdr.BorderColor = borderColor;
+                            hdr.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                            hdr.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 4, 4);
+                            hdr.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(cpaAligns[h]);
+                            gr.DrawBrick(hdr, new System.Drawing.RectangleF(cx, y, cpaWidths[h], cpaHeaderH));
+                            cx += cpaWidths[h];
+                        }
+                        y += cpaHeaderH;
+                        
+                        // Data rows
+                        float cpaRowH = 18;
+                        int cpaRowNum = 0;
+                        
+                        // Compute overall totals for the footer row
+                        int grandTotalResults = 0;
+                        int grandTotalPass = 0;
+                        int grandTotalFail = 0;
+                        decimal grandScoreSum = 0;
+                        int grandScoreCount = 0;
+                        
+                        foreach (var cs in courseStats)
+                        {
+                            cpaRowNum++;
+                            cx = 0;
+                            System.Drawing.Color cpaRowBg = (cpaRowNum % 2 == 0) ? altRowColor : System.Drawing.Color.White;
+                            
+                            // Determine pass rate color
+                            System.Drawing.Color rateColor;
+                            if (cs.PassRate >= 80) rateColor = System.Drawing.Color.FromArgb(39, 174, 96);        // Green
+                            else if (cs.PassRate >= 60) rateColor = System.Drawing.Color.FromArgb(41, 128, 185);   // Blue
+                            else if (cs.PassRate >= 40) rateColor = System.Drawing.Color.FromArgb(243, 156, 18);   // Orange
+                            else rateColor = System.Drawing.Color.FromArgb(192, 57, 43);                           // Red
+                            
+                            // Truncate long course names
+                            string cpaDispName = cs.Title.Length > 38 ? cs.Title.Substring(0, 38) + ".." : cs.Title;
+                            
+                            string[] cpaValues = new string[] {
+                                cpaRowNum.ToString(),
+                                cs.Code,
+                                cpaDispName,
+                                cs.CreditUnits > 0 ? cs.CreditUnits.ToString("0") : "-",
+                                cs.TotalResults.ToString(),
+                                cs.AvgScore > 0 ? cs.AvgScore.ToString("0.0") : "-",
+                                cs.HighScore > 0 ? cs.HighScore.ToString("0") : "-",
+                                cs.LowScore > 0 ? cs.LowScore.ToString("0") : "-",
+                                cs.PassCount.ToString(),
+                                cs.FailCount.ToString(),
+                                cs.PassRate.ToString("0.0") + "%",
+                                ""
+                            };
+                            
+                            for (int d = 0; d < cpaValues.Length; d++)
+                            {
+                                DevExpress.XtraPrinting.TextBrick cell = new DevExpress.XtraPrinting.TextBrick();
+                                cell.Text = cpaValues[d];
+                                cell.Font = cpaDataFont;
+                                cell.BackColor = cpaRowBg;
+                                cell.BorderColor = borderColor;
+                                cell.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                                cell.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 3, 3);
+                                cell.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(cpaAligns[d]);
+                                
+                                // Color-code specific columns
+                                if (d == 10) cell.ForeColor = rateColor; // Pass %
+                                else if (d == 9 && cs.FailCount > 0) cell.ForeColor = System.Drawing.Color.FromArgb(192, 57, 43); // Fail count in red
+                                else cell.ForeColor = darkGray;
+                                
+                                // Bold the pass % column
+                                if (d == 10) cell.Font = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
+                                
+                                gr.DrawBrick(cell, new System.Drawing.RectangleF(cx, y, cpaWidths[d], cpaRowH));
+                                cx += cpaWidths[d];
+                            }
+                            
+                            // Visual pass-rate bar in the last column
+                            if (cpaBar > 4)
+                            {
+                                float barMaxWidth = cpaBar - 6;
+                                float barWidth = barMaxWidth * (float)(cs.PassRate / 100m);
+                                if (barWidth < 1 && cs.PassRate > 0) barWidth = 1;
+                                
+                                DevExpress.XtraPrinting.TextBrick barBrick = new DevExpress.XtraPrinting.TextBrick();
+                                barBrick.Text = "";
+                                barBrick.BackColor = rateColor;
+                                barBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                                gr.DrawBrick(barBrick, new System.Drawing.RectangleF(
+                                    cx - cpaBar + 3, y + 4, barWidth, cpaRowH - 8));
+                            }
+                            
+                            // Accumulate grand totals
+                            grandTotalResults += cs.TotalResults;
+                            grandTotalPass += cs.PassCount;
+                            grandTotalFail += cs.FailCount;
+                            if (cs.AvgScore > 0)
+                            {
+                                grandScoreSum += cs.AvgScore * cs.TotalResults;
+                                grandScoreCount += cs.TotalResults;
+                            }
+                            
+                            y += cpaRowH;
+                        }
+                        
+                        // ========== TOTALS / OVERALL ROW ==========
+                        cx = 0;
+                        System.Drawing.Color totalsBg = System.Drawing.Color.FromArgb(44, 62, 80);
+                        System.Drawing.Font totalsFont = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
+                        decimal grandAvg = grandScoreCount > 0 ? Math.Round(grandScoreSum / grandScoreCount, 1) : 0m;
+                        decimal grandPassRate = grandTotalResults > 0 ? Math.Round((decimal)grandTotalPass / grandTotalResults * 100, 1) : 0m;
+                        
+                        string[] totalValues = new string[] {
+                            "", "OVERALL", courseStats.Count + " courses", "",
+                            grandTotalResults.ToString(),
+                            grandAvg > 0 ? grandAvg.ToString("0.0") : "-",
+                            "", "",
+                            grandTotalPass.ToString(),
+                            grandTotalFail.ToString(),
+                            grandPassRate.ToString("0.0") + "%",
+                            ""
+                        };
+                        
+                        for (int t = 0; t < totalValues.Length; t++)
+                        {
+                            DevExpress.XtraPrinting.TextBrick tCell = new DevExpress.XtraPrinting.TextBrick();
+                            tCell.Text = totalValues[t];
+                            tCell.Font = totalsFont;
+                            tCell.ForeColor = System.Drawing.Color.White;
+                            tCell.BackColor = totalsBg;
+                            tCell.BorderColor = borderColor;
+                            tCell.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                            tCell.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 3, 3);
+                            tCell.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(cpaAligns[t]);
+                            
+                            // Highlight fail count in totals row
+                            if (t == 9 && grandTotalFail > 0) 
+                                tCell.ForeColor = System.Drawing.Color.FromArgb(255, 180, 180);
+                            
+                            gr.DrawBrick(tCell, new System.Drawing.RectangleF(cx, y, cpaWidths[t], cpaRowH + 2));
+                            cx += cpaWidths[t];
+                        }
+                        
+                        y += cpaRowH + 2;
+                        y += 12;
+                    }
+                }
+
                 // ========== SPECIALIZATION SECTIONS ==========
                 foreach (var specGroup in specializationGroups)
                 {
@@ -3123,247 +3362,44 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 
                 y += summaryBoxHeight + 8;
                 
-                // ========== COURSE PERFORMANCE ANALYSIS TABLE ==========
+                
+                // ========== SIGNATURES ==========
+                // Four approval signatories, side by side: a signing line on top, full designation below.
+                y += 40; // leave room to sign above the lines
+                // keep the whole signature row together on one page
+                if ((y % pageHeight) + 34 > pageHeight)
+                    y = ((float)Math.Floor(y / pageHeight) + 1) * pageHeight + 24;
+
+                string[] sigLabels = new string[] { "Head of Department", "Dean", "Academic Registrar", "Deputy Vice Chancellor" };
+                float sigColW = pageWidth / 4f;
+                float sigGap = 20f; // inset so a line doesn't run into its neighbour
+                System.Drawing.Font sigFont = new System.Drawing.Font("Tahoma", 7, System.Drawing.FontStyle.Bold);
+                for (int sgi = 0; sgi < sigLabels.Length; sgi++)
                 {
-                    // Aggregate stats per course across ALL specializations
-                    var courseStats = data.AsEnumerable()
-                        .Where(r => r["courseid"] != DBNull.Value && !string.IsNullOrEmpty(r["courseid"].ToString())
-                                 && r["grade"] != DBNull.Value && !string.IsNullOrEmpty(r["grade"].ToString()))
-                        .GroupBy(r => r["courseid"].ToString())
-                        .Select(g => {
-                            var scores = g.Where(r => r["score"] != DBNull.Value)
-                                          .Select(r => { 
-                                              decimal val; 
-                                              return decimal.TryParse(r["score"].ToString(), out val) ? val : -1m; 
-                                          })
-                                          .Where(s => s >= 0)
-                                          .ToList();
-                            
-                            int totalResults = g.Count();
-                            int passCount = g.Count(r => r["grade"].ToString() != "F");
-                            int failCount = totalResults - passCount;
-                            
-                            string courseTitle = g.First()["course_title"] != DBNull.Value 
-                                ? g.First()["course_title"].ToString() : "";
-                            
-                            decimal creditUnits = 0;
-                            var cuRow = g.FirstOrDefault(r => r["CreditUnits"] != DBNull.Value);
-                            if (cuRow != null) decimal.TryParse(cuRow["CreditUnits"].ToString(), out creditUnits);
-                            
-                            return new {
-                                Code = g.Key,
-                                Title = courseTitle,
-                                CreditUnits = creditUnits,
-                                TotalResults = totalResults,
-                                PassCount = passCount,
-                                FailCount = failCount,
-                                PassRate = totalResults > 0 ? Math.Round((decimal)passCount / totalResults * 100, 1) : 0m,
-                                AvgScore = scores.Count > 0 ? Math.Round(scores.Average(), 1) : 0m,
-                                HighScore = scores.Count > 0 ? scores.Max() : 0m,
-                                LowScore = scores.Count > 0 ? scores.Min() : 0m
-                            };
-                        })
-                        .OrderBy(c => c.Code)
-                        .ToList();
-                    
-                    if (courseStats.Count > 0)
-                    {
-                        // Section title
-                        DevExpress.XtraPrinting.TextBrick cpaTitle = new DevExpress.XtraPrinting.TextBrick();
-                        cpaTitle.Text = "  COURSE PERFORMANCE ANALYSIS";
-                        cpaTitle.Font = new System.Drawing.Font("Tahoma", 8, System.Drawing.FontStyle.Bold);
-                        cpaTitle.ForeColor = System.Drawing.Color.White;
-                        cpaTitle.BackColor = brandColor;
-                        cpaTitle.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                        cpaTitle.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 5, 5);
-                        gr.DrawBrick(cpaTitle, new System.Drawing.RectangleF(0, y, pageWidth, 20));
-                        y += 22;
-                        
-                        // Column widths
-                        float cpaSn = 22;
-                        float cpaCode = 70;
-                        float cpaName = 215;
-                        float cpaCU = 28;
-                        float cpaStudents = 52;
-                        float cpaAvg = 50;
-                        float cpaHigh = 50;
-                        float cpaLow = 50;
-                        float cpaPass = 42;
-                        float cpaFail = 42;
-                        float cpaRate = 55;
-                        float cpaBar = pageWidth - cpaSn - cpaCode - cpaName - cpaCU - cpaStudents 
-                                     - cpaAvg - cpaHigh - cpaLow - cpaPass - cpaFail - cpaRate;
-                        
-                        // Table header
-                        float cpaHeaderH = 20;
-                        System.Drawing.Font cpaHeaderFont = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
-                        System.Drawing.Font cpaDataFont = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Regular);
-                        System.Drawing.Color cpaHeaderBg = System.Drawing.Color.FromArgb(52, 73, 94);
-                        
-                        float cx = 0;
-                        string[] cpaHeaders = new string[] { "#", "COURSE CODE", "COURSE NAME", "CU", "STUDENTS", "AVG", "HIGHEST", "LOWEST", "PASS", "FAIL", "PASS %", "" };
-                        float[] cpaWidths = new float[] { cpaSn, cpaCode, cpaName, cpaCU, cpaStudents, cpaAvg, cpaHigh, cpaLow, cpaPass, cpaFail, cpaRate, cpaBar };
-                        System.Drawing.StringAlignment[] cpaAligns = new System.Drawing.StringAlignment[] {
-                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Near, System.Drawing.StringAlignment.Near,
-                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center,
-                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center,
-                            System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Center, System.Drawing.StringAlignment.Near
-                        };
-                        
-                        for (int h = 0; h < cpaHeaders.Length; h++)
-                        {
-                            DevExpress.XtraPrinting.TextBrick hdr = new DevExpress.XtraPrinting.TextBrick();
-                            hdr.Text = cpaHeaders[h];
-                            hdr.Font = cpaHeaderFont;
-                            hdr.ForeColor = System.Drawing.Color.White;
-                            hdr.BackColor = cpaHeaderBg;
-                            hdr.BorderColor = borderColor;
-                            hdr.Sides = DevExpress.XtraPrinting.BorderSide.All;
-                            hdr.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 4, 4);
-                            hdr.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(cpaAligns[h]);
-                            gr.DrawBrick(hdr, new System.Drawing.RectangleF(cx, y, cpaWidths[h], cpaHeaderH));
-                            cx += cpaWidths[h];
-                        }
-                        y += cpaHeaderH;
-                        
-                        // Data rows
-                        float cpaRowH = 18;
-                        int cpaRowNum = 0;
-                        
-                        // Compute overall totals for the footer row
-                        int grandTotalResults = 0;
-                        int grandTotalPass = 0;
-                        int grandTotalFail = 0;
-                        decimal grandScoreSum = 0;
-                        int grandScoreCount = 0;
-                        
-                        foreach (var cs in courseStats)
-                        {
-                            cpaRowNum++;
-                            cx = 0;
-                            System.Drawing.Color cpaRowBg = (cpaRowNum % 2 == 0) ? altRowColor : System.Drawing.Color.White;
-                            
-                            // Determine pass rate color
-                            System.Drawing.Color rateColor;
-                            if (cs.PassRate >= 80) rateColor = System.Drawing.Color.FromArgb(39, 174, 96);        // Green
-                            else if (cs.PassRate >= 60) rateColor = System.Drawing.Color.FromArgb(41, 128, 185);   // Blue
-                            else if (cs.PassRate >= 40) rateColor = System.Drawing.Color.FromArgb(243, 156, 18);   // Orange
-                            else rateColor = System.Drawing.Color.FromArgb(192, 57, 43);                           // Red
-                            
-                            // Truncate long course names
-                            string cpaDispName = cs.Title.Length > 38 ? cs.Title.Substring(0, 38) + ".." : cs.Title;
-                            
-                            string[] cpaValues = new string[] {
-                                cpaRowNum.ToString(),
-                                cs.Code,
-                                cpaDispName,
-                                cs.CreditUnits > 0 ? cs.CreditUnits.ToString("0") : "-",
-                                cs.TotalResults.ToString(),
-                                cs.AvgScore > 0 ? cs.AvgScore.ToString("0.0") : "-",
-                                cs.HighScore > 0 ? cs.HighScore.ToString("0") : "-",
-                                cs.LowScore > 0 ? cs.LowScore.ToString("0") : "-",
-                                cs.PassCount.ToString(),
-                                cs.FailCount.ToString(),
-                                cs.PassRate.ToString("0.0") + "%",
-                                ""
-                            };
-                            
-                            for (int d = 0; d < cpaValues.Length; d++)
-                            {
-                                DevExpress.XtraPrinting.TextBrick cell = new DevExpress.XtraPrinting.TextBrick();
-                                cell.Text = cpaValues[d];
-                                cell.Font = cpaDataFont;
-                                cell.BackColor = cpaRowBg;
-                                cell.BorderColor = borderColor;
-                                cell.Sides = DevExpress.XtraPrinting.BorderSide.All;
-                                cell.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 3, 3);
-                                cell.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(cpaAligns[d]);
-                                
-                                // Color-code specific columns
-                                if (d == 10) cell.ForeColor = rateColor; // Pass %
-                                else if (d == 9 && cs.FailCount > 0) cell.ForeColor = System.Drawing.Color.FromArgb(192, 57, 43); // Fail count in red
-                                else cell.ForeColor = darkGray;
-                                
-                                // Bold the pass % column
-                                if (d == 10) cell.Font = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
-                                
-                                gr.DrawBrick(cell, new System.Drawing.RectangleF(cx, y, cpaWidths[d], cpaRowH));
-                                cx += cpaWidths[d];
-                            }
-                            
-                            // Visual pass-rate bar in the last column
-                            if (cpaBar > 4)
-                            {
-                                float barMaxWidth = cpaBar - 6;
-                                float barWidth = barMaxWidth * (float)(cs.PassRate / 100m);
-                                if (barWidth < 1 && cs.PassRate > 0) barWidth = 1;
-                                
-                                DevExpress.XtraPrinting.TextBrick barBrick = new DevExpress.XtraPrinting.TextBrick();
-                                barBrick.Text = "";
-                                barBrick.BackColor = rateColor;
-                                barBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;
-                                gr.DrawBrick(barBrick, new System.Drawing.RectangleF(
-                                    cx - cpaBar + 3, y + 4, barWidth, cpaRowH - 8));
-                            }
-                            
-                            // Accumulate grand totals
-                            grandTotalResults += cs.TotalResults;
-                            grandTotalPass += cs.PassCount;
-                            grandTotalFail += cs.FailCount;
-                            if (cs.AvgScore > 0)
-                            {
-                                grandScoreSum += cs.AvgScore * cs.TotalResults;
-                                grandScoreCount += cs.TotalResults;
-                            }
-                            
-                            y += cpaRowH;
-                        }
-                        
-                        // ========== TOTALS / OVERALL ROW ==========
-                        cx = 0;
-                        System.Drawing.Color totalsBg = System.Drawing.Color.FromArgb(44, 62, 80);
-                        System.Drawing.Font totalsFont = new System.Drawing.Font("Tahoma", 6, System.Drawing.FontStyle.Bold);
-                        decimal grandAvg = grandScoreCount > 0 ? Math.Round(grandScoreSum / grandScoreCount, 1) : 0m;
-                        decimal grandPassRate = grandTotalResults > 0 ? Math.Round((decimal)grandTotalPass / grandTotalResults * 100, 1) : 0m;
-                        
-                        string[] totalValues = new string[] {
-                            "", "OVERALL", courseStats.Count + " courses", "",
-                            grandTotalResults.ToString(),
-                            grandAvg > 0 ? grandAvg.ToString("0.0") : "-",
-                            "", "",
-                            grandTotalPass.ToString(),
-                            grandTotalFail.ToString(),
-                            grandPassRate.ToString("0.0") + "%",
-                            ""
-                        };
-                        
-                        for (int t = 0; t < totalValues.Length; t++)
-                        {
-                            DevExpress.XtraPrinting.TextBrick tCell = new DevExpress.XtraPrinting.TextBrick();
-                            tCell.Text = totalValues[t];
-                            tCell.Font = totalsFont;
-                            tCell.ForeColor = System.Drawing.Color.White;
-                            tCell.BackColor = totalsBg;
-                            tCell.BorderColor = borderColor;
-                            tCell.Sides = DevExpress.XtraPrinting.BorderSide.All;
-                            tCell.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 3, 3);
-                            tCell.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(cpaAligns[t]);
-                            
-                            // Highlight fail count in totals row
-                            if (t == 9 && grandTotalFail > 0) 
-                                tCell.ForeColor = System.Drawing.Color.FromArgb(255, 180, 180);
-                            
-                            gr.DrawBrick(tCell, new System.Drawing.RectangleF(cx, y, cpaWidths[t], cpaRowH + 2));
-                            cx += cpaWidths[t];
-                        }
-                        
-                        y += cpaRowH + 2;
-                        y += 12;
-                    }
+                    float colX = sgi * sigColW;
+
+                    // Signing line (on top)
+                    DevExpress.XtraPrinting.LineBrick sigLine = new DevExpress.XtraPrinting.LineBrick();
+                    sigLine.ForeColor = darkGray;
+                    sigLine.LineStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+                    sigLine.LineWidth = 1;
+                    sigLine.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                    gr.DrawBrick(sigLine, new System.Drawing.RectangleF(colX + sigGap / 2f, y, sigColW - sigGap, 1));
+
+                    // Designation (below the line), centered under the line
+                    DevExpress.XtraPrinting.TextBrick sigText = new DevExpress.XtraPrinting.TextBrick();
+                    sigText.Text = sigLabels[sgi];
+                    sigText.Font = sigFont;
+                    sigText.ForeColor = darkGray;
+                    sigText.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                    sigText.BackColor = System.Drawing.Color.Transparent;
+                    sigText.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
+                    gr.DrawBrick(sigText, new System.Drawing.RectangleF(colX, y + 4, sigColW, 14));
                 }
-                
+                y += 26;
+
                 // ========== PROFESSIONAL FOOTER ==========
-                
+
                 // Thin line above footer
                 DevExpress.XtraPrinting.LineBrick footerLine = new DevExpress.XtraPrinting.LineBrick();
                 footerLine.ForeColor = lineColor;
