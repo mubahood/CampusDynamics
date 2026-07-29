@@ -3783,6 +3783,7 @@
             document.getElementById('hdnSelectedEntryYear').value = '';
             document.getElementById('ddlReportStudyYear').value = '';
             document.getElementById('ddlReportSemester').value = '';
+            var mc = document.getElementById('txtReportMinCourses'); if (mc) mc.value = '5';
             document.getElementById('txtReportEntryNumbers').value = '';
             document.getElementById('reportPreviewSection').style.display = 'none';
             document.getElementById('reportPreviewCount').innerText = '0';
@@ -3831,6 +3832,7 @@
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
             queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'all');
+            queryParams += '&minCourses=' + encodeURIComponent((document.getElementById('txtReportMinCourses') || {}).value || '');
             if (entryNumbers) {
                 queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
             }
@@ -3901,6 +3903,7 @@
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
             queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'all');
+            queryParams += '&minCourses=' + encodeURIComponent((document.getElementById('txtReportMinCourses') || {}).value || '');
             if (entryNumbers) {
                 queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
             }
@@ -3960,6 +3963,7 @@
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
             queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'all');
+            queryParams += '&minCourses=' + encodeURIComponent((document.getElementById('txtReportMinCourses') || {}).value || '');
             if (entryNumbers) {
                 queryParams += '&entryNumbers=' + encodeURIComponent(entryNumbers);
             }
@@ -4305,7 +4309,14 @@
                         <option value="3">Semester 3</option>
                     </select>
                 </div>
-                
+
+                <!-- Minimum courses to pass (used by the exports; defaults to 4 if left blank) -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Minimum courses to pass</label>
+                    <input type="number" id="txtReportMinCourses" class="cd-form-input" min="1" max="30" step="1" value="5" />
+                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;">A student who sits fewer than this many courses is marked FAIL. Leave blank to use 4.</small>
+                </div>
+
                 <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;" />
                 
                 <!-- Specific Registration Numbers -->

@@ -1335,6 +1335,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string semester = Request.QueryString["semester"] ?? "";
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
             string source = Request.QueryString["source"] ?? "approved";
+            int minCourses = ParseMinCourses(Request.QueryString["minCourses"]);   // provided figure, else 4
 
             // Guard: refuse an unscoped export (would pull the whole database).
             if (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
@@ -1348,7 +1349,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 
             // Get students with their results (source-aware)
             DataTable reportData = GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, source);
-            
+
             if (reportData.Rows.Count == 0)
             {
                 Response.Clear();
@@ -1357,9 +1358,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
                 return;
             }
-            
+
             // Generate PDF using DevExpress XtraPrinting
-            GenerateSummaryReportPdf(reportData, studyYear, semester, entryYear);
+            GenerateSummaryReportPdf(reportData, studyYear, semester, entryYear, minCourses);
         }
         catch (System.Threading.ThreadAbortException)
         {
@@ -1388,6 +1389,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string semester = Request.QueryString["semester"] ?? "";
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
             string source = Request.QueryString["source"] ?? "approved";
+            int minCourses = ParseMinCourses(Request.QueryString["minCourses"]);   // provided figure, else 4
 
             // Guard: refuse an unscoped export (would pull the whole database).
             if (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
@@ -1415,7 +1417,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string programmeName = GetProgrammeName(programme);
 
             // Generate Performance Report PDF
-            GeneratePerformanceReportPdf(studentData, programmeName, entryYear, studyYear, semester, source);
+            GeneratePerformanceReportPdf(studentData, programmeName, entryYear, studyYear, semester, source, minCourses);
         }
         catch (System.Threading.ThreadAbortException)
         {
@@ -1523,7 +1525,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         return dt;
     }
     
-    private void GeneratePerformanceReportPdf(DataTable data, string programmeName, string entryYear, string studyYear, string semester, string source)
+    private void GeneratePerformanceReportPdf(DataTable data, string programmeName, string entryYear, string studyYear, string semester, string source, int minCourses)
     {
         // Create DevExpress PrintingSystem
         DevExpress.XtraPrinting.PrintingSystem ps = new DevExpress.XtraPrinting.PrintingSystem();
@@ -1531,7 +1533,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         // Create custom link for PDF content
         DevExpress.XtraPrinting.Link pdfLink = new DevExpress.XtraPrinting.Link(ps);
         pdfLink.CreateDetailArea += (s, args) => {
-            GeneratePerformanceReportContent(args.Graph, data, programmeName, entryYear, studyYear, semester, source);
+            GeneratePerformanceReportContent(args.Graph, data, programmeName, entryYear, studyYear, semester, source, minCourses);
         };
         
         // Set page settings for A4
@@ -1578,7 +1580,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     }
     
     private void GeneratePerformanceReportContent(DevExpress.XtraPrinting.BrickGraphics gr, DataTable data,
-        string programmeName, string entryYear, string studyYear, string semester, string source)
+        string programmeName, string entryYear, string studyYear, string semester, string source, int minCourses)
     {
         // Get university name and logo
         string universityName = GetUniversityName();
@@ -1634,12 +1636,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         List<DataRow> retakeStudents = new List<DataRow>();
         List<DataRow> failStudents = new List<DataRow>();
 
-        // Minimum papers a full semester load is expected to have, by award level
-        // (Diploma 5 / Bachelor 6). Fewer results than this is a fail reason (incomplete sitting),
-        // independent of any curriculum. One programme per report, so the level is constant.
-        int perfLevelCode = data.Rows.Count > 0 && data.Columns.Contains("level_code") && data.Rows[0]["level_code"] != DBNull.Value
-            ? Convert.ToInt32(data.Rows[0]["level_code"]) : 3;
-        long MIN_PAPERS = MinCoursesForLevel(perfLevelCode);
+        // Minimum courses to pass — supplied on the export form (defaults to 4 server-side). Fewer
+        // results than this is a fail reason (incomplete sitting), independent of any curriculum.
+        long MIN_PAPERS = minCourses;
         bool hasCourses = data.Columns.Contains("courses");
         bool hasReason = data.Columns.Contains("fail_reason");
 
@@ -2429,20 +2428,16 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// <summary>
     /// Generates a PDF summary report grouped by specialization with courses as columns.
     /// </summary>
-    // Minimum courses a full semester load is expected to have, by NCHE award level:
-    // Diploma (levelCode 2) = 5, Bachelor (levelCode 3) = 6. Sitting fewer is a fail reason.
-    private static int MinCoursesForLevel(int levelCode)
+    // The "minimum courses to pass" figure the operator supplies on the export form. When absent or
+    // invalid the exports default to 4. (The modal pre-fills 5.)
+    private static int ParseMinCourses(string raw)
     {
-        switch (levelCode)
-        {
-            case 3: return 6;   // Bachelor
-            case 2: return 5;   // Diploma
-            case 4: return 5;   // Postgraduate Diploma (diploma-like)
-            default: return 5;  // Certificate / Master / unknown — reasonable default
-        }
+        int n;
+        if (int.TryParse((raw ?? "").Trim(), out n) && n >= 1 && n <= 30) return n;
+        return 4;
     }
 
-    private void GenerateSummaryReportPdf(DataTable data, string studyYear, string semester, string entryYear)
+    private void GenerateSummaryReportPdf(DataTable data, string studyYear, string semester, string entryYear, int minCourses)
     {
         string universityName = GetUniversityName();
         string progName = data.Rows.Count > 0 && data.Rows[0]["progname"] != DBNull.Value 
@@ -2507,11 +2502,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 System.Drawing.Color borderColor = System.Drawing.Color.FromArgb(150, 150, 150);
                 System.Drawing.Color lineColor = System.Drawing.Color.FromArgb(23, 77, 164);
 
-                // Level-based minimum courses for a full semester (Diploma 5 / Bachelor 6). One
-                // programme per marksheet, so the level is constant across all students here.
-                int levelCode = data.Rows.Count > 0 && data.Columns.Contains("level_code") && data.Rows[0]["level_code"] != DBNull.Value
-                    ? Convert.ToInt32(data.Rows[0]["level_code"]) : 3;
-                int minCourses = MinCoursesForLevel(levelCode);
+                // Minimum courses to pass — supplied on the export form (defaults to 4 server-side).
+                // 'minCourses' is a method parameter; used directly by the STATUS rule below.
 
                 float y = 0;
                 // Use the ACTUAL printable width (page minus margins, in DevExpress document

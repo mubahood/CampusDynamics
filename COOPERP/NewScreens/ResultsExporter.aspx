@@ -608,6 +608,12 @@ document.addEventListener('DOMContentLoaded',function(){
                 <select id="srSem" class="sr-sel" disabled><option value="">Select year of study first&hellip;</option></select>
             </div>
 
+            <div class="sr-fg">
+                <label>Minimum courses to pass</label>
+                <input type="number" id="srMinCourses" class="sr-in" min="1" max="30" step="1" value="5" />
+                <span class="sr-hint">A student who sits fewer than this many courses is marked FAIL. Leave blank to use 4.</span>
+            </div>
+
             <hr class="sr-div" />
 
             <div class="sr-fg" style="margin-bottom:0;">
@@ -766,7 +772,7 @@ document.addEventListener('DOMContentLoaded',function(){
         setSel('srYear',[], 'Select a programme first…', false);
         setSel('srStudyYear',[], 'Select entry year first…', false);
         setSel('srSem',[], 'Select year of study first…', false);
-        d('srReg').value='';
+        d('srReg').value=''; var mc=d('srMinCourses'); if(mc) mc.value='5';
         clearPreview();
         status('Pick a programme &mdash; the fields below fill in automatically (you can still change any of them).');
     }
@@ -776,11 +782,12 @@ document.addEventListener('DOMContentLoaded',function(){
         if(!y){ if(!silent) alert('Please select an Entry Year.'); return null; }
         if(!sy){ if(!silent) alert('Please select a Year of Study.'); return null; }
         if(!sm){ if(!silent) alert('Please select a Semester.'); return null; }
-        return { programme:p, entryYear:y, studyYear:sy, semester:sm, source:d('srSource').value||'all', entryNumbers:(d('srReg').value||'').trim() };
+        return { programme:p, entryYear:y, studyYear:sy, semester:sm, source:d('srSource').value||'all', entryNumbers:(d('srReg').value||'').trim(), minCourses:((d('srMinCourses')||{}).value||'') };
     }
     function query(action,c){
         var q='?action='+action+'&programme='+encodeURIComponent(c.programme)+'&entryYear='+encodeURIComponent(c.entryYear)
-            +'&studyYear='+encodeURIComponent(c.studyYear)+'&semester='+encodeURIComponent(c.semester)+'&source='+encodeURIComponent(c.source);
+            +'&studyYear='+encodeURIComponent(c.studyYear)+'&semester='+encodeURIComponent(c.semester)+'&source='+encodeURIComponent(c.source)
+            +'&minCourses='+encodeURIComponent(c.minCourses||'');
         if(c.entryNumbers) q+='&entryNumbers='+encodeURIComponent(c.entryNumbers);
         return q;
     }
