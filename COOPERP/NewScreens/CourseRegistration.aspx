@@ -417,6 +417,32 @@
         .cr-move-info > div b { color: #05275C; text-align: right; }
         .crx-a--move { color: #174DA4; }
 
+        /* Enrolment modal */
+        .cr-modal--wide { max-width: 780px; }
+        .cr-enr-body { max-height: 72vh; overflow-y: auto; }
+        .cr-enr-head { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 14px; background: #f4f7fb; border: 1px solid #e2e8f2; padding: 10px 12px; margin-bottom: 12px; }
+        .cr-enr-head .nm { grid-column: 1 / -1; font-size: 13px; font-weight: 700; color: #05275C; }
+        .cr-enr-head .f { display: flex; flex-direction: column; }
+        .cr-enr-head .f span { font-size: 9px; text-transform: uppercase; letter-spacing: .3px; color: #8a94a6; }
+        .cr-enr-head .f b { font-size: 11px; color: #1a1a2e; font-weight: 600; }
+        .cr-enr-sit { border: 1px solid #e2e8f2; margin-bottom: 10px; }
+        .cr-enr-sit__hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 7px 10px; background: #05275C; color: #fff; }
+        .cr-enr-sit__hd .t { font-size: 11px; font-weight: 700; }
+        .cr-enr-sit__hd .t small { font-weight: 400; opacity: .85; margin-left: 6px; }
+        .cr-enr-tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .cr-enr-tbl th { text-align: left; padding: 5px 8px; background: #f4f7fb; color: #6b7280; font-size: 9px; text-transform: uppercase; letter-spacing: .3px; border-bottom: 1px solid #e2e8f2; }
+        .cr-enr-tbl td { padding: 5px 8px; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
+        .cr-enr-tbl tr:last-child td { border-bottom: none; }
+        .cr-enr-tbl .c { text-align: center; }
+        .cr-enr-empty { padding: 16px; text-align: center; color: #8a94a6; font-size: 12px; }
+        .cr-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+        .cr-badge--reg { background: #e6f0ff; color: #174DA4; }
+        .cr-badge--ok { background: #e9f7ee; color: #1c7a3e; }
+        .cr-badge--warn { background: #fff4e5; color: #b26a00; }
+        .cr-badge--mut { background: #eef1f5; color: #6b7280; }
+        .cr-badge--pub { background: #e9f7ee; color: #1c7a3e; }
+        @media (max-width: 640px) { .cr-modal--wide { max-width: 100%; } .cr-enr-tbl .hide-sm { display: none; } }
+
         @media (max-width: 900px) {
             .cr-batch-bar { flex-direction: column; align-items: stretch; }
             .cr-batch-actions { flex-wrap: wrap; }
@@ -646,6 +672,25 @@
             <div class="cr-modal__foot">
                 <button type="button" class="cr-batch-btn" onclick="closeMoveModal()">Cancel</button>
                 <button type="button" class="cr-batch-btn cr-batch-btn--primary" id="moveSubmitBtn" onclick="submitMove(this)">Move Student</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Course & Semester Enrolment (read-only, AJAX) ===== -->
+    <div class="cr-modal-overlay" id="enrModalOverlay" role="dialog" aria-modal="true" aria-labelledby="enrModalTitle">
+        <div class="cr-modal cr-modal--wide">
+            <div class="cr-modal__head">
+                <span class="cr-modal__title" id="enrModalTitle">Course &amp; Semester Enrolment</span>
+                <button type="button" class="cr-modal__close" onclick="closeEnrolment()" aria-label="Close">&times;</button>
+            </div>
+            <div class="cr-modal__body cr-enr-body">
+                <div id="enrMsg" class="cr-inline-msg"></div>
+                <div id="enrStudent" class="cr-enr-head"></div>
+                <div id="enrBody"></div>
+            </div>
+            <div class="cr-modal__foot">
+                <a id="enrResultsLink" class="cr-batch-btn" href="#" target="_blank" style="display:none;">Open Full Results</a>
+                <button type="button" class="cr-batch-btn cr-batch-btn--primary" onclick="closeEnrolment()">Close</button>
             </div>
         </div>
     </div>
@@ -1002,12 +1047,13 @@
         document.addEventListener('DOMContentLoaded', wireGetFilters);
 
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') { closeAddModal(); closeMoveModal(); }
+            if (e.key === 'Escape') { closeAddModal(); closeMoveModal(); if (window.closeEnrolment) closeEnrolment(); }
         });
 
         document.addEventListener('click', function (e) {
             if (e.target === document.getElementById('addModalOverlay')) closeAddModal();
             if (e.target === document.getElementById('moveModalOverlay')) closeMoveModal();
+            if (e.target === document.getElementById('enrModalOverlay') && window.closeEnrolment) closeEnrolment();
         });
         
         // Filters are hidden by default; user toggles when needed.
@@ -1280,6 +1326,89 @@
             });
         };
         window.closeMoveModal = function () { var m = qs('moveModalOverlay'); if (m) m.classList.remove('show'); moveCtx = null; };
+
+        // ===== COURSE & SEMESTER ENROLMENT (read-only) ===========================
+        function esc(s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function stageBadge(stage, mstat) {
+            var s = (stage || '').toUpperCase(), m = (mstat || '').toUpperCase();
+            if (s === 'PUBLISHED' || m === 'PUBLISHED') return '<span class="cr-badge cr-badge--pub">Published</span>';
+            if (s === 'APPROVED') return '<span class="cr-badge cr-badge--ok">Approved</span>';
+            if (s === 'CAPTURED') return '<span class="cr-badge cr-badge--warn">Captured</span>';
+            if (s === 'ENTERED') return '<span class="cr-badge cr-badge--warn">Entered</span>';
+            if (s === 'RETURNED') return '<span class="cr-badge cr-badge--warn">Returned</span>';
+            return '<span class="cr-badge cr-badge--mut">Not entered</span>';
+        }
+        function regBadge(st) {
+            var s = (st || '').toUpperCase();
+            if (s === 'REGISTERED' || s === 'CLEARED' || s === 'LATE REGISTERED') return '<span class="cr-badge cr-badge--ok">' + esc(st) + '</span>';
+            if (s === 'UNREGISTERED') return '<span class="cr-badge cr-badge--mut">' + esc(st) + '</span>';
+            if (!s) return '';
+            return '<span class="cr-badge cr-badge--warn">' + esc(st) + '</span>';
+        }
+        window.openEnrolment = function (regno) {
+            qs('enrModalOverlay').classList.add('show');
+            msg('enrMsg', '');
+            qs('enrStudent').innerHTML = '';
+            qs('enrBody').innerHTML = '<div class="cr-enr-empty">Loading enrolment&hellip;</div>';
+            var rl = qs('enrResultsLink'); if (rl) rl.style.display = 'none';
+            callAjax('GetStudentEnrolment', { regno: regno }, function (r) {
+                if (!r || !r.success) { qs('enrBody').innerHTML = ''; msg('enrMsg', (r && r.message) || 'Could not load enrolment.'); return; }
+                renderEnrolment(r);
+            });
+        };
+        window.closeEnrolment = function () { var m = qs('enrModalOverlay'); if (m) m.classList.remove('show'); };
+        function renderEnrolment(r) {
+            var s = r.student || {};
+            function f(lbl, val) { return '<div class="f"><span>' + esc(lbl) + '</span><b>' + (val ? esc(val) : '—') + '</b></div>'; }
+            qs('enrStudent').innerHTML =
+                '<div class="nm">' + esc(s.name || '') + '</div>' +
+                f('Reg No', s.regno) + f('Entry No', s.entryno) + f('Programme', s.prog) +
+                f('Entry Year', s.entryyear) + f('Intake', s.intake) + f('Session', s.session) +
+                f('Campus', s.campus) + f('Status', s.status);
+            var rl = qs('enrResultsLink');
+            if (rl && s.regno) { rl.href = 'StudentResultsView.aspx?regno=' + encodeURIComponent(s.regno); rl.style.display = ''; }
+
+            // Group by sitting = acad_year + semester (union of registrations and courses).
+            var sit = {}, order = [];
+            function key(a, sm) { return (a || '') + '||' + (sm || ''); }
+            function ensure(a, sm) { var k = key(a, sm); if (!sit[k]) { sit[k] = { acad: a, sem: sm, sy: '', reg: '', courses: [] }; order.push(k); } return sit[k]; }
+            (r.registrations || []).forEach(function (g) { var o = ensure(g.acad, g.sem); o.sy = g.sy; o.reg = g.status; });
+            (r.courses || []).forEach(function (c) { ensure(c.acad, c.sem).courses.push(c); });
+
+            order.sort(function (a, b) {
+                var A = sit[a], B = sit[b];
+                if (A.acad !== B.acad) return B.acad.localeCompare(A.acad);   // newest academic year first
+                return (parseInt(B.sem, 10) || 0) - (parseInt(A.sem, 10) || 0);
+            });
+
+            if (!order.length) { qs('enrBody').innerHTML = '<div class="cr-enr-empty">No semester registrations or course enrolments found for this student.</div>'; return; }
+
+            var html = '';
+            order.forEach(function (k) {
+                var o = sit[k];
+                html += '<div class="cr-enr-sit"><div class="cr-enr-sit__hd">' +
+                        '<span class="t">' + esc(o.acad || '—') + '  ·  Semester ' + esc(o.sem || '—') +
+                        (o.sy ? '<small>Year of study ' + esc(o.sy) + '</small>' : '') + '</span>' +
+                        '<span>' + (o.reg ? regBadge(o.reg) : '<span class="cr-badge cr-badge--mut">No semester-registration row</span>') + '</span></div>';
+                if (!o.courses.length) {
+                    html += '<div class="cr-enr-empty">No course registrations captured for this semester.</div>';
+                } else {
+                    html += '<table class="cr-enr-tbl"><thead><tr><th>Code</th><th>Course</th><th class="c">CU</th><th class="c hide-sm">Type</th><th class="c hide-sm">CW</th><th class="c hide-sm">Exam</th><th class="c">Total</th><th class="c">Marks</th></tr></thead><tbody>';
+                    o.courses.forEach(function (c) {
+                        html += '<tr><td><b>' + esc(c.code) + '</b></td><td>' + esc(c.name || '') + '</td>' +
+                                '<td class="c">' + (c.cu && c.cu !== '0' ? esc(c.cu) : '—') + '</td>' +
+                                '<td class="c hide-sm">' + esc(c.cstatus || '') + '</td>' +
+                                '<td class="c hide-sm">' + (c.cw !== '' ? esc(c.cw) : '—') + '</td>' +
+                                '<td class="c hide-sm">' + (c.ex !== '' ? esc(c.ex) : '—') + '</td>' +
+                                '<td class="c">' + (c.tot !== '' ? '<b>' + esc(c.tot) + '</b>' : '—') + '</td>' +
+                                '<td class="c">' + stageBadge(c.stage, c.mstat) + '</td></tr>';
+                    });
+                    html += '</tbody></table>';
+                }
+                html += '</div>';
+            });
+            qs('enrBody').innerHTML = html;
+        }
         window.submitMove = function (btn) {
             if (!moveCtx) return;
             var nw = resolveCode(moveCourses, qs('moveNew').value);

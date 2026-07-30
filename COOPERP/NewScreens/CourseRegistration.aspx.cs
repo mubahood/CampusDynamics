@@ -536,7 +536,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
             sb.Append("<tr>");
             sb.AppendFormat("<td class='crx-sel'><input type='checkbox' class='crx-row-sel' data-key=\"{0}\" onclick='onRowSel(this)' /></td>", regnoA);
-            sb.AppendFormat("<td><a class='crx-link' title='Quick Edit' onclick=\"openQuickEdit('{0}')\"><span class='crx-code'>{1}</span></a></td>", JsEnc(regno), H(regno));
+            sb.AppendFormat("<td><a class='crx-link' title='View course &amp; semester enrolment' onclick=\"openEnrolment('{0}')\"><span class='crx-code'>{1}</span></a></td>", JsEnc(regno), H(regno));
             sb.AppendFormat("<td title=\"{0}\">{0}</td>", H(name));
             sb.AppendFormat("<td title=\"{0}\">{0}</td>", H(spec));
             sb.AppendFormat("<td><span class='crx-code'>{0}</span></td>", H(course));
@@ -548,7 +548,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             sb.AppendFormat("<td>{0}</td>", GetCourseStatusBadge(courseStatus));
 
             sb.Append("<td class='crx-act'>");
-            sb.AppendFormat("<a class='crx-a' onclick=\"openQuickEdit('{0}')\">Edit</a>", JsEnc(regno));
+            sb.AppendFormat("<a class='crx-a' onclick=\"openEnrolment('{0}')\" title='View course &amp; semester enrolment'>Enrolment</a>", JsEnc(regno));
             if (!isPendingView)
             {
                 sb.AppendFormat("<button type='button' class='crx-a' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" data-status=\"{4}\" onclick='crxStatus(this)' title='Change course status'>Status</button>", regnoA, courseA, acadA, semA, statusA);
@@ -1086,6 +1086,111 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             return js.Serialize(new { success = true, prog = prog, student = studentName, courses = courses, taken = taken });
         }
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>
+    /// Read-only course/semester enrolment snapshot for one student, powering the enrolment modal:
+    /// the student header, their semester registrations (acad_registration) and every course they
+    /// are registered for (portal acad_course_registration) with its mark stage / provisional marks —
+    /// grouped by the client into academic-year + semester sittings.
+    /// </summary>
+    [WebMethod]
+    public static string GetStudentEnrolment(string regno)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(regno))
+                return js.Serialize(new { success = false, message = "Missing registration number." });
+            regno = regno.Trim();
+
+            object student = null;
+            var regs = new List<object>();
+            var courses = new List<object>();
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+
+                using (var cmd = new MySqlCommand(
+                    @"SELECT s.regno, s.entryno,
+                             TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS name,
+                             s.progid, p.progname, s.entryyear, s.intake, s.studsesion,
+                             IFNULL(cm.campus_name, s.studCampus) AS campus, s.stud_status
+                        FROM acad_student s
+                        LEFT JOIN acad_programme p ON p.progcode = s.progid
+                        LEFT JOIN acad_campuses cm ON cm.campus_code = s.studCampus
+                       WHERE s.regno = @r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (!rdr.Read())
+                            return js.Serialize(new { success = false, message = "Student not found: " + regno });
+                        student = new
+                        {
+                            regno = SR(rdr, "regno"),
+                            entryno = SR(rdr, "entryno"),
+                            name = SR(rdr, "name"),
+                            prog = SR(rdr, "progid"),
+                            progname = SR(rdr, "progname"),
+                            entryyear = SR(rdr, "entryyear"),
+                            intake = SR(rdr, "intake"),
+                            session = SR(rdr, "studsesion"),
+                            campus = SR(rdr, "campus"),
+                            status = SR(rdr, "stud_status")
+                        };
+                    }
+                }
+
+                using (var cmd = new MySqlCommand(
+                    @"SELECT acad_year, studyyear, semester, regstatus
+                        FROM acad_registration WHERE TRIM(regno) = @r
+                       ORDER BY acad_year DESC, studyyear DESC, semester DESC", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rdr = cmd.ExecuteReader())
+                        while (rdr.Read())
+                            regs.Add(new { acad = SR(rdr, "acad_year"), sy = SR(rdr, "studyyear"), sem = SR(rdr, "semester"), status = SR(rdr, "regstatus") });
+                }
+
+                using (var cmd = new MySqlCommand(
+                    @"SELECT cr.acad_year, cr.semester, cr.courseID, c.courseName,
+                             cr.course_status, cr.mark_stage,
+                             cr.provisional_course_work_marks AS cw, cr.provisional_exam_marks AS ex,
+                             cr.provisional_total_marks AS tot, cr.provisional_marks_status AS mstat,
+                             IFNULL(c.CreditUnit,0) AS cu
+                        FROM campus_dynamics_portal.acad_course_registration cr
+                        LEFT JOIN acad_course c ON c.courseID = cr.courseID
+                       WHERE TRIM(cr.regno) = @r
+                       ORDER BY cr.acad_year DESC, cr.semester DESC, cr.courseID", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rdr = cmd.ExecuteReader())
+                        while (rdr.Read())
+                            courses.Add(new
+                            {
+                                acad = SR(rdr, "acad_year"),
+                                sem = SR(rdr, "semester"),
+                                code = SR(rdr, "courseID"),
+                                name = SR(rdr, "courseName"),
+                                cstatus = SR(rdr, "course_status"),
+                                stage = SR(rdr, "mark_stage"),
+                                cw = SR(rdr, "cw"),
+                                ex = SR(rdr, "ex"),
+                                tot = SR(rdr, "tot"),
+                                mstat = SR(rdr, "mstat"),
+                                cu = SR(rdr, "cu")
+                            });
+                }
+            }
+            return js.Serialize(new { success = true, student = student, registrations = regs, courses = courses });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+    private static string SR(MySqlDataReader r, string col)
+    {
+        try { object o = r[col]; return o == null || o == DBNull.Value ? "" : o.ToString(); } catch { return ""; }
     }
 
     /// <summary>
