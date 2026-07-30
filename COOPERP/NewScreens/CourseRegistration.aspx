@@ -45,9 +45,9 @@
         .cr-filter-toggle svg { width: 12px; height: 12px; }
         
         .cr-filter-row {
-            display: none;
-            gap: 8px;
-            padding: 8px 10px;
+            display: flex;
+            gap: 8px 10px;
+            padding: 10px 12px;
             background: #f8f9fa;
             border: 1px solid #e0e0e0;
             margin-bottom: 10px;
@@ -526,14 +526,10 @@
             <span class="cr-stat-item__value"><asp:Literal ID="litRetakeCount" runat="server">0</asp:Literal></span>
         </div>
         
-        <button type="button" class="cr-filter-toggle" onclick="toggleFilters()">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-            <span>Filters</span>
-        </button>
     </div>
-    
-    <!-- Filter Row -->
-    <div class="cr-filter-row" id="filterRow">
+
+    <!-- Filter Row (always visible, GET-driven) -->
+    <div class="cr-filter-row show" id="filterRow">
         <span class="cr-filter-row__label">Academic Year:</span>
         <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="cr-filter-select"></asp:DropDownList>
         
@@ -556,26 +552,27 @@
             <asp:ListItem Value="3" Text="Sem 3"></asp:ListItem>
         </asp:DropDownList>
         
-        <span class="cr-filter-row__label">Entry Year:</span>
-        <asp:DropDownList ID="ddlEntryYear" runat="server" CssClass="cr-filter-select"></asp:DropDownList>
-        
-        <span class="cr-filter-row__label">Intake:</span>
-        <asp:DropDownList ID="ddlIntake" runat="server" CssClass="cr-filter-select">
-            <asp:ListItem Value="-" Text="-- All --" Selected="True"></asp:ListItem>
-            <asp:ListItem Value="JANUARY" Text="January"></asp:ListItem>
-            <asp:ListItem Value="FEBRUARY" Text="February"></asp:ListItem>
-            <asp:ListItem Value="MARCH" Text="March"></asp:ListItem>
-            <asp:ListItem Value="APRIL" Text="April"></asp:ListItem>
-            <asp:ListItem Value="MAY" Text="May"></asp:ListItem>
-            <asp:ListItem Value="JUNE" Text="June"></asp:ListItem>
-            <asp:ListItem Value="JULY" Text="July"></asp:ListItem>
-            <asp:ListItem Value="AUGUST" Text="August"></asp:ListItem>
-            <asp:ListItem Value="SEPTEMBER" Text="September"></asp:ListItem>
-            <asp:ListItem Value="OCTOBER" Text="October"></asp:ListItem>
-            <asp:ListItem Value="NOVEMBER" Text="November"></asp:ListItem>
-            <asp:ListItem Value="DECEMBER" Text="December"></asp:ListItem>
-        </asp:DropDownList>
-        
+        <%-- Entry Year + Intake retired from the UI as non-essential for course registration.
+             Kept as hidden controls (default "-" = All) so the server logic stays intact. --%>
+        <span style="display:none;">
+            <asp:DropDownList ID="ddlEntryYear" runat="server" CssClass="cr-filter-select"></asp:DropDownList>
+            <asp:DropDownList ID="ddlIntake" runat="server" CssClass="cr-filter-select">
+                <asp:ListItem Value="-" Text="-- All --" Selected="True"></asp:ListItem>
+                <asp:ListItem Value="JANUARY" Text="January"></asp:ListItem>
+                <asp:ListItem Value="FEBRUARY" Text="February"></asp:ListItem>
+                <asp:ListItem Value="MARCH" Text="March"></asp:ListItem>
+                <asp:ListItem Value="APRIL" Text="April"></asp:ListItem>
+                <asp:ListItem Value="MAY" Text="May"></asp:ListItem>
+                <asp:ListItem Value="JUNE" Text="June"></asp:ListItem>
+                <asp:ListItem Value="JULY" Text="July"></asp:ListItem>
+                <asp:ListItem Value="AUGUST" Text="August"></asp:ListItem>
+                <asp:ListItem Value="SEPTEMBER" Text="September"></asp:ListItem>
+                <asp:ListItem Value="OCTOBER" Text="October"></asp:ListItem>
+                <asp:ListItem Value="NOVEMBER" Text="November"></asp:ListItem>
+                <asp:ListItem Value="DECEMBER" Text="December"></asp:ListItem>
+            </asp:DropDownList>
+        </span>
+
         <span class="cr-filter-row__label">Course:</span>
         <asp:DropDownList ID="ddlCourse" runat="server" CssClass="cr-filter-select" Width="300px"></asp:DropDownList>
         
@@ -730,14 +727,14 @@
         <div class="crx-table-wrap">
             <table class="crx-table">
                 <colgroup>
-                    <col style="width:30px;" /><col style="width:120px;" /><col /><col style="width:160px;" />
-                    <col style="width:90px;" /><col style="width:80px;" /><col style="width:54px;" /><col style="width:70px;" />
-                    <col style="width:80px;" /><col style="width:90px;" /><col style="width:96px;" /><col style="width:158px;" />
+                    <col style="width:30px;" /><col style="width:120px;" /><col />
+                    <col style="width:96px;" /><col style="width:86px;" /><col style="width:50px;" /><col style="width:70px;" />
+                    <col style="width:80px;" /><col style="width:96px;" /><col style="width:104px;" /><col style="width:150px;" />
                 </colgroup>
                 <thead>
                     <tr>
                         <th class="crx-sel"><input type="checkbox" id="crxChkAll" onclick="toggleAll(this)" title="Select all on this page" /></th>
-                        <th>Reg No</th><th>Student</th><th>Specialisation</th><th>Course</th><th>Acad Yr</th><th>Sem</th>
+                        <th>Reg No</th><th>Student</th><th>Course</th><th>Acad Yr</th><th>Sem</th>
                         <th>Entry Yr</th><th>Intake</th><th>Reg Status</th><th>Course Status</th><th class="crx-act">Actions</th>
                     </tr>
                 </thead>
@@ -952,18 +949,6 @@
     </div>
     
     <script type="text/javascript">
-        function toggleFilters() {
-            var filterRow = document.getElementById('filterRow');
-            var toggleBtn = document.querySelector('.cr-filter-toggle');
-            if (filterRow.classList.contains('show')) {
-                filterRow.classList.remove('show');
-                toggleBtn.classList.remove('active');
-            } else {
-                filterRow.classList.add('show');
-                toggleBtn.classList.add('active');
-            }
-        }
-        
         function validateBatchAction(actionType) {
             var course = document.getElementById('<%= ddlCourse.ClientID %>');
             if (!course || !course.value) {
@@ -1045,6 +1030,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', wireGetFilters);
+        // Filters are always visible now (GET-driven; each change re-navigates with the new query).
 
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') { closeAddModal(); closeMoveModal(); if (window.closeEnrolment) closeEnrolment(); }

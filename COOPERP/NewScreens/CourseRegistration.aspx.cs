@@ -359,9 +359,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             if (isPendingView)
             {
                 // Show students who are registered in the programme but not in this course
-                sql = @"SELECT r.regno, 
+                sql = @"SELECT r.regno,
                               CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) as stud_name,
-                              COALESCE(sp.spec, NULLIF(s.specialisation, ''), '-') AS spec_name,
                               @course AS course_code,
                               @acad AS acad_year,
                               @sem AS semester,
@@ -371,8 +370,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                               'PENDING' as course_status
                        FROM acad_registration r
                        INNER JOIN acad_student s ON r.regno = s.regno
-                       LEFT JOIN acad_specialisation sp ON s.specialisation = CAST(sp.spec_id AS CHAR)
-                       WHERE s.progid = @prog 
+                       WHERE s.progid = @prog
                          AND r.studyyear = @yr
                          AND r.acad_year = @acad
                          AND r.regstatus IN ('REGISTERED', 'CLEARED', 'LATE REGISTERED')
@@ -405,9 +403,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             else
             {
                                 // Default/simple view: show already registered rows (all when no course/programme selected)
-                                                                sql = @"SELECT cr.regno, 
+                                                                sql = @"SELECT cr.regno,
                                                             CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) as stud_name,
-                                                            COALESCE(sp.spec, NULLIF(s.specialisation, ''), '-') AS spec_name,
                                                             cr.courseID AS course_code,
                                                             cr.acad_year AS acad_year,
                                                             cr.semester AS semester,
@@ -417,8 +414,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                                                             cr.course_status
                        FROM campus_dynamics_portal.acad_course_registration cr
                        INNER JOIN acad_student s ON cr.regno = s.regno
-                       LEFT JOIN acad_specialisation sp ON s.specialisation = CAST(sp.spec_id AS CHAR)
-                                             WHERE cr.acad_year = @acad 
+                                             WHERE cr.acad_year = @acad
                          AND cr.semester = @sem
                                                  AND (@prog = '' OR cr.prog_id = @prog)
                                                  AND (@course = '' OR cr.courseID = @course)
@@ -510,7 +506,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
         if (dt.Rows.Count == 0)
         {
-            litRows.Text = "<tr><td colspan='12' class='crx-empty'>No course-registration records match the current filters.</td></tr>";
+            litRows.Text = "<tr><td colspan='11' class='crx-empty'>No course-registration records match the current filters.</td></tr>";
             return;
         }
 
@@ -519,7 +515,6 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         {
             string regno = SafeCell(r, "regno");
             string name = SafeCell(r, "stud_name");
-            string spec = SafeCell(r, "spec_name");
             string course = SafeCell(r, "course_code");
             string acad = SafeCell(r, "acad_year");
             string sem = SafeCell(r, "semester");
@@ -538,7 +533,6 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             sb.AppendFormat("<td class='crx-sel'><input type='checkbox' class='crx-row-sel' data-key=\"{0}\" onclick='onRowSel(this)' /></td>", regnoA);
             sb.AppendFormat("<td><a class='crx-link' title='View course &amp; semester enrolment' onclick=\"openEnrolment('{0}')\"><span class='crx-code'>{1}</span></a></td>", JsEnc(regno), H(regno));
             sb.AppendFormat("<td title=\"{0}\">{0}</td>", H(name));
-            sb.AppendFormat("<td title=\"{0}\">{0}</td>", H(spec));
             sb.AppendFormat("<td><span class='crx-code'>{0}</span></td>", H(course));
             sb.AppendFormat("<td>{0}</td>", H(acad));
             sb.AppendFormat("<td class='c'>{0}</td>", H(sem));
