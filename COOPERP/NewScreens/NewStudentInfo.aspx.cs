@@ -154,6 +154,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 HandleCheckStudentForSetPassword();
                 handledAction = true;
             }
+            else if (action == "ChangeProgInit")   { HandleChangeProgInit();   handledAction = true; }
+            else if (action == "SpecList")          { HandleSpecList();          handledAction = true; }
+            else if (action == "ChangeProgramme")   { HandleChangeProgramme();   handledAction = true; }
+            else if (action == "ChangeEntryYear")   { HandleChangeEntryYear();   handledAction = true; }
+            else if (action == "ExportStudentsList"){ HandleExportStudentsList();handledAction = true; }
 
             // For action endpoints (JSON/PDF/etc), stop normal page rendering lifecycle.
             // Returning from Page_Load alone is not enough in WebForms; the page can still render.
@@ -6936,6 +6941,271 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 return false;
             }
         }
+    }
+
+    // ===============================================================
+    //  ADMIN ROW ACTIONS  (change programme / entry year) + LIST EXPORT
+    //  All AJAX (JSON), following the SetPassword pattern. Conn = campus_dynamics.
+    // ===============================================================
+
+    /// <summary>Bundle for the Change-Programme modal: the student's current programme/spec + the
+    /// full active programme list, in one round-trip.</summary>
+    private void HandleChangeProgInit()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request.Form["regno"] ?? Request.QueryString["regno"] ?? "").Trim();
+            if (regno == "") { WriteJsonAndComplete(js, new { success = false, message = "Missing registration number." }); return; }
+
+            object current = null;
+            var programmes = new List<object>();
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    @"SELECT s.regno, TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) nm,
+                             s.progid, p.progname, s.specialisation,
+                             COALESCE(sp.spec, NULLIF(TRIM(s.specialisation),''),'') specname, s.entryyear
+                        FROM acad_student s
+                        LEFT JOIN acad_programme p ON p.progcode = s.progid
+                        LEFT JOIN acad_specialisation sp ON sp.spec_id = s.specialisation
+                       WHERE s.regno=@r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (!rdr.Read()) { WriteJsonAndComplete(js, new { success = false, message = "Student not found: " + regno }); return; }
+                        current = new
+                        {
+                            regno = SafeStr(rdr, "regno"), name = SafeStr(rdr, "nm"),
+                            prog = SafeStr(rdr, "progid"), progname = SafeStr(rdr, "progname"),
+                            spec = SafeStr(rdr, "specialisation"), specname = SafeStr(rdr, "specname"),
+                            entryyear = SafeStr(rdr, "entryyear")
+                        };
+                    }
+                }
+                using (var cmd = new MySqlCommand(
+                    "SELECT progcode, progname FROM acad_programme WHERE TRIM(IFNULL(progcode,''))<>'' ORDER BY progname", conn))
+                using (var rdr = cmd.ExecuteReader())
+                    while (rdr.Read())
+                        programmes.Add(new { code = SafeStr(rdr, "progcode"), name = SafeStr(rdr, "progname") });
+            }
+            WriteJsonAndComplete(js, new { success = true, current = current, programmes = programmes });
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>Specialisations for a programme (cascade). Empty list = the programme has none.</summary>
+    private void HandleSpecList()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string prog = (Request.Form["prog"] ?? Request.QueryString["prog"] ?? "").Trim();
+            var items = new List<object>();
+            if (prog != "")
+                using (var conn = new MySqlConnection(ConnectionString))
+                {
+                    conn.Open();
+                    using (var cmd = new MySqlCommand(
+                        @"SELECT spec_id, spec FROM acad_specialisation
+                          WHERE prog_id=@p AND UPPER(TRIM(IFNULL(is_active,'Active')))='ACTIVE'
+                            AND TRIM(IFNULL(spec,''))<>'' AND TRIM(spec)<>'-'
+                          ORDER BY spec", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@p", prog);
+                        using (var rdr = cmd.ExecuteReader())
+                            while (rdr.Read())
+                                items.Add(new { id = SafeStr(rdr, "spec_id"), name = SafeStr(rdr, "spec") });
+                    }
+                }
+            WriteJsonAndComplete(js, new { success = true, items = items, hasSpecs = items.Count > 0 });
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>Moves a student to a different programme (and optional specialisation). Validates the
+    /// programme exists and the specialisation belongs to it; logged to acad_activity_log.</summary>
+    private void HandleChangeProgramme()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request.Form["regno"] ?? "").Trim();
+            string prog  = (Request.Form["prog"] ?? "").Trim();
+            string spec  = (Request.Form["spec"] ?? "").Trim();   // spec_id, or "" for none
+            if (regno == "" || prog == "") { WriteJsonAndComplete(js, new { success = false, message = "Registration number and programme are required." }); return; }
+
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand("SELECT progname FROM acad_programme WHERE progcode=@p LIMIT 1", conn))
+                { cmd.Parameters.AddWithValue("@p", prog); if (cmd.ExecuteScalar() == null) { WriteJsonAndComplete(js, new { success = false, message = "Programme '" + prog + "' does not exist." }); return; } }
+
+                if (spec != "")
+                    using (var cmd = new MySqlCommand("SELECT 1 FROM acad_specialisation WHERE spec_id=@s AND prog_id=@p LIMIT 1", conn))
+                    { cmd.Parameters.AddWithValue("@s", spec); cmd.Parameters.AddWithValue("@p", prog);
+                      if (cmd.ExecuteScalar() == null) { WriteJsonAndComplete(js, new { success = false, message = "That specialisation does not belong to the selected programme." }); return; } }
+
+                string oldProg = "";
+                using (var cmd = new MySqlCommand("SELECT progid FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                { cmd.Parameters.AddWithValue("@r", regno); var o = cmd.ExecuteScalar(); if (o == null) { WriteJsonAndComplete(js, new { success = false, message = "Student not found." }); return; } oldProg = o == DBNull.Value ? "" : o.ToString(); }
+
+                int n;
+                using (var cmd = new MySqlCommand("UPDATE acad_student SET progid=@p, specialisation=@s WHERE regno=@r", conn))
+                {
+                    cmd.Parameters.AddWithValue("@p", prog);
+                    cmd.Parameters.AddWithValue("@s", (object)(spec == "" ? (object)DBNull.Value : spec) ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    n = cmd.ExecuteNonQuery();
+                }
+                LogStudentAction(conn, regno, "ChangeProgramme", "Programme " + oldProg + " -> " + prog + (spec != "" ? " (spec " + spec + ")" : ""));
+                WriteJsonAndComplete(js, new { success = true, message = "Programme updated to " + prog + "." });
+            }
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>Changes a student's entry year (validated 1990..currentYear+1); logged.</summary>
+    private void HandleChangeEntryYear()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request.Form["regno"] ?? "").Trim();
+            string yearS = (Request.Form["year"] ?? "").Trim();
+            int year;
+            if (regno == "" || !int.TryParse(yearS, out year))
+            { WriteJsonAndComplete(js, new { success = false, message = "Registration number and a valid year are required." }); return; }
+            if (year < 1990 || year > DateTime.Now.Year + 1)
+            { WriteJsonAndComplete(js, new { success = false, message = "Entry year must be between 1990 and " + (DateTime.Now.Year + 1) + "." }); return; }
+
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                string oldY = "";
+                using (var cmd = new MySqlCommand("SELECT entryyear FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                { cmd.Parameters.AddWithValue("@r", regno); var o = cmd.ExecuteScalar(); if (o == null) { WriteJsonAndComplete(js, new { success = false, message = "Student not found." }); return; } oldY = o == DBNull.Value ? "" : o.ToString(); }
+
+                using (var cmd = new MySqlCommand("UPDATE acad_student SET entryyear=@y WHERE regno=@r", conn))
+                { cmd.Parameters.AddWithValue("@y", year); cmd.Parameters.AddWithValue("@r", regno); cmd.ExecuteNonQuery(); }
+                LogStudentAction(conn, regno, "ChangeEntryYear", "Entry year " + oldY + " -> " + year);
+                WriteJsonAndComplete(js, new { success = true, message = "Entry year updated to " + year + "." });
+            }
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>Streams the CURRENT filtered student list (all rows, not just the page) with the
+    /// user-selected columns, as CSV or Excel-openable HTML. Reuses GetStudentsData so filters + data
+    /// exactly match the on-screen list.</summary>
+    private void HandleExportStudentsList()
+    {
+        try
+        {
+            string fmt  = (Request.QueryString["fmt"] ?? "csv").Trim().ToLowerInvariant();
+            string cols = (Request.QueryString["cols"] ?? "").Trim();
+
+            // key -> (header, DataTable field). Order here is the fallback order.
+            var map = new System.Collections.Generic.List<string[]> {
+                new[]{"entryno","Reg No","entryno"}, new[]{"regno","Entry No","regno"},
+                new[]{"name","Student Name","__name"}, new[]{"gender","Gender","gender"},
+                new[]{"phone","Phone","studPhone"}, new[]{"email","Email","email"},
+                new[]{"entryyear","Entry Year","entryyear"}, new[]{"intake","Intake","intake"},
+                new[]{"prog","Programme Code","progcode"}, new[]{"progname","Programme","progname"},
+                new[]{"spec","Specialisation","spec_name"}, new[]{"session","Session","studsesion"},
+                new[]{"campus","Campus","campus_name"}, new[]{"status","Status","new_status"},
+                new[]{"nationality","Nationality","nationality"}, new[]{"nin","NIN","national_id"},
+                new[]{"district","Home District","home_dist"}, new[]{"registered","Registered","is_registered"}
+            };
+            var wanted = new System.Collections.Generic.HashSet<string>(
+                (cols == "" ? "entryno,regno,name,gender,phone,email,entryyear,prog,progname,spec,session,campus,status" : cols)
+                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+            var chosen = map.FindAll(m => wanted.Contains(m[0]));
+            if (chosen.Count == 0) chosen = map.GetRange(0, 13);
+
+            int total;
+            DataTable dt = GetStudentsData(0, int.MaxValue, out total);   // ALL filtered rows
+
+            string stamp = DateTime.Now.ToString("yyyyMMdd_HHmm");
+            if (fmt == "excel" || fmt == "xls")
+            {
+                Response.Clear();
+                Response.ContentType = "application/vnd.ms-excel";
+                Response.AddHeader("Content-Disposition", "attachment; filename=\"students_" + stamp + ".xls\"");
+                var sb = new StringBuilder();
+                sb.Append("<table border='1'><thead><tr>");
+                foreach (var c in chosen) sb.Append("<th style='background:#05275C;color:#fff'>").Append(HttpUtility.HtmlEncode(c[1])).Append("</th>");
+                sb.Append("</tr></thead><tbody>");
+                foreach (DataRow r in dt.Rows)
+                {
+                    sb.Append("<tr>");
+                    foreach (var c in chosen) sb.Append("<td>").Append(HttpUtility.HtmlEncode(ExportCell(r, c[2]))).Append("</td>");
+                    sb.Append("</tr>");
+                }
+                sb.Append("</tbody></table>");
+                Response.Write(sb.ToString());
+            }
+            else
+            {
+                Response.Clear();
+                Response.ContentType = "text/csv";
+                Response.AddHeader("Content-Disposition", "attachment; filename=\"students_" + stamp + ".csv\"");
+                var sb = new StringBuilder();
+                sb.Append(string.Join(",", chosen.ConvertAll(c => CsvCell(c[1])).ToArray())).Append("\r\n");
+                foreach (DataRow r in dt.Rows)
+                    sb.Append(string.Join(",", chosen.ConvertAll(c => CsvCell(ExportCell(r, c[2]))).ToArray())).Append("\r\n");
+                Response.Write(sb.ToString());
+            }
+            try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
+        }
+        catch (Exception ex)
+        {
+            try { Response.Clear(); Response.ContentType = "text/plain"; Response.Write("Export failed: " + ex.Message); Response.End(); }
+            catch (System.Threading.ThreadAbortException) { }
+        }
+    }
+
+    private static string ExportCell(DataRow r, string field)
+    {
+        if (field == "__name")
+            return ((SafeCol(r, "firstname") + " " + SafeCol(r, "othername")).Trim());
+        return SafeCol(r, field);
+    }
+    private static string SafeCol(DataRow r, string col)
+    {
+        if (!r.Table.Columns.Contains(col)) return "";
+        object o = r[col]; return o == null || o == DBNull.Value ? "" : o.ToString().Trim();
+    }
+    private static string CsvCell(string s)
+    {
+        s = s ?? "";
+        if (s.IndexOf('"') >= 0 || s.IndexOf(',') >= 0 || s.IndexOf('\n') >= 0 || s.IndexOf('\r') >= 0)
+            return "\"" + s.Replace("\"", "\"\"") + "\"";
+        return s;
+    }
+    private static string SafeStr(MySqlDataReader r, string col)
+    {
+        try { object o = r[col]; return o == null || o == DBNull.Value ? "" : o.ToString(); } catch { return ""; }
+    }
+    private void LogStudentAction(MySqlConnection conn, string regno, string fn, string comment)
+    {
+        try
+        {
+            string actor = ""; try { actor = HttpContext.Current.User.Identity.Name; } catch { }
+            using (var cmd = new MySqlCommand(
+                @"INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date)
+                  VALUES (@u, @f, @p, @c, NOW())", conn))
+            {
+                cmd.Parameters.AddWithValue("@u", (string.IsNullOrEmpty(actor) ? "system" : actor).Length > 100 ? actor.Substring(0, 100) : (string.IsNullOrEmpty(actor) ? "system" : actor));
+                cmd.Parameters.AddWithValue("@f", ("NewStudentInfo:" + fn).Length > 45 ? ("NewStudentInfo:" + fn).Substring(0, 45) : "NewStudentInfo:" + fn);
+                cmd.Parameters.AddWithValue("@p", regno.Length > 300 ? regno.Substring(0, 300) : regno);
+                cmd.Parameters.AddWithValue("@c", comment.Length > 200 ? comment.Substring(0, 200) : comment);
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch { /* logging must never block the action */ }
     }
 
     private void WriteJsonAndComplete(JavaScriptSerializer serializer, object payload)

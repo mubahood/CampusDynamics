@@ -1361,6 +1361,10 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
                         Promote Students
                     </a>
+                    <a href="javascript:void(0);" class="cd-batch-menu__item" onclick="openExportListModal();toggleBatchMenu(event)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        <span style="color:#174DA4;font-weight:600;">Export List (pick columns &amp; format)</span>
+                    </a>
                     <a href="javascript:void(0);" class="cd-batch-menu__item" onclick="openBatchExportModal()">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                         Export Students Data
@@ -1588,9 +1592,14 @@
                         <EditFormSettings Visible="True" />
                     </dx:GridViewDataComboBoxColumn>
                     
-                    <dx:GridViewDataTextColumn Caption="Phone" FieldName="studPhone" VisibleIndex="11" Width="95px" Visible="False">
+                    <dx:GridViewDataTextColumn Caption="Contact" FieldName="studPhone" VisibleIndex="9" Width="105px">
                         <HeaderStyle Font-Size="11px" />
                         <EditFormSettings Visible="True" />
+                        <DataItemTemplate>
+                            <%# string.IsNullOrEmpty((Eval("studPhone") ?? "").ToString().Trim())
+                                ? "<span style='color:#bbb;'>&mdash;</span>"
+                                : "<a href='tel:" + HttpUtility.HtmlAttributeEncode((Eval("studPhone") ?? "").ToString().Trim()) + "' style='color:#174DA4;text-decoration:none;font-variant-numeric:tabular-nums;'>" + HttpUtility.HtmlEncode((Eval("studPhone") ?? "").ToString().Trim()) + "</a>" %>
+                        </DataItemTemplate>
                     </dx:GridViewDataTextColumn>
                     
                     <dx:GridViewDataTextColumn Caption="Email" FieldName="email" VisibleIndex="12" Width="150px" Visible="False">
@@ -1798,6 +1807,26 @@
                                                     onclick='openAcademicDocumentModalForSingle(this.getAttribute("data-regno"), this.getAttribute("data-student")); closeAllActionPopovers(); return false;' role="menuitem">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
                                                 Academic Documents
+                                            </button>
+                                        </li>
+                                        <li class="cd-action-popover__divider"></li>
+                                        <li class="cd-action-popover__item">
+                                            <button type="button" class="cd-action-popover__btn"
+                                                    data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
+                                                    data-student='<%# HttpUtility.HtmlAttributeEncode(((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()).Trim()) %>'
+                                                    onclick='openChangeProgModal(this.getAttribute("data-regno"), this.getAttribute("data-student")); closeAllActionPopovers(); return false;' role="menuitem">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 23l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                                                Change Programme
+                                            </button>
+                                        </li>
+                                        <li class="cd-action-popover__item">
+                                            <button type="button" class="cd-action-popover__btn"
+                                                    data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
+                                                    data-student='<%# HttpUtility.HtmlAttributeEncode(((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()).Trim()) %>'
+                                                    data-year='<%# HttpUtility.HtmlAttributeEncode((Eval("entryyear") ?? "").ToString().Trim()) %>'
+                                                    onclick='openChangeEntryYearModal(this.getAttribute("data-regno"), this.getAttribute("data-student"), this.getAttribute("data-year")); closeAllActionPopovers(); return false;' role="menuitem">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                                Change Entry Year
                                             </button>
                                         </li>
                                     </ul>
@@ -2562,6 +2591,116 @@
         </div>
     </div>
 
+    <!-- ===== Change Programme Modal (cascading prog -> specialisation) ===== -->
+    <div id="changeProgOverlay" class="cd-modal-overlay">
+        <div class="cd-modal" style="max-width: 460px;">
+            <div class="cd-modal__header">
+                <h3 class="cd-modal__title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M17 1l4 4-4 4"></path><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><path d="M7 23l-4-4 4-4"></path><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                    Change Programme
+                </h3>
+                <button type="button" class="cd-modal__close" onclick="closeChangeProgModal()">&times;</button>
+            </div>
+            <div class="cd-modal__body">
+                <div style="background:#f0f4ff;border:1px solid #c4d9f8;padding:10px 12px;margin-bottom:14px;">
+                    <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Student</div>
+                    <div id="cpStudentName" style="font-size:13px;font-weight:600;color:#333;"></div>
+                    <div id="cpStudentRegno" style="font-size:11px;color:#174DA4;font-weight:500;"></div>
+                    <div id="cpCurrent" style="font-size:11px;color:#555;margin-top:4px;"></div>
+                </div>
+                <div class="cd-form-group">
+                    <label class="cd-form-label">New Programme <span style="color:#c0392b;">*</span></label>
+                    <select id="cpProg" class="cd-form-select" onchange="cpOnProgChange()"><option value="">Loading&hellip;</option></select>
+                </div>
+                <div class="cd-form-group" id="cpSpecWrap">
+                    <label class="cd-form-label">Specialisation</label>
+                    <select id="cpSpec" class="cd-form-select"><option value="">-- None --</option></select>
+                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;">Cascades from the selected programme. Leave as "None" if the programme has no specialisation.</small>
+                </div>
+                <div id="cpStatus" style="display:none;padding:8px 10px;font-size:11px;margin-top:8px;"></div>
+            </div>
+            <div class="cd-modal__footer">
+                <button type="button" class="cd-btn cd-btn--outline" onclick="closeChangeProgModal()">Cancel</button>
+                <button type="button" id="btnChangeProg" class="cd-btn cd-btn--primary" onclick="submitChangeProg()">Change Programme</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Change Entry Year Modal ===== -->
+    <div id="changeYearOverlay" class="cd-modal-overlay">
+        <div class="cd-modal" style="max-width: 400px;">
+            <div class="cd-modal__header">
+                <h3 class="cd-modal__title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Change Entry Year
+                </h3>
+                <button type="button" class="cd-modal__close" onclick="closeChangeEntryYearModal()">&times;</button>
+            </div>
+            <div class="cd-modal__body">
+                <div style="background:#f0f4ff;border:1px solid #c4d9f8;padding:10px 12px;margin-bottom:14px;">
+                    <div style="font-size:10px;color:#666;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Student</div>
+                    <div id="cyStudentName" style="font-size:13px;font-weight:600;color:#333;"></div>
+                    <div id="cyStudentRegno" style="font-size:11px;color:#174DA4;font-weight:500;"></div>
+                </div>
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Entry Year <span style="color:#c0392b;">*</span></label>
+                    <input type="number" id="cyYear" class="cd-form-input" min="1990" max="2100" step="1" placeholder="e.g. 2026" />
+                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;">Current: <span id="cyCurrent">-</span></small>
+                </div>
+                <div id="cyStatus" style="display:none;padding:8px 10px;font-size:11px;margin-top:8px;"></div>
+            </div>
+            <div class="cd-modal__footer">
+                <button type="button" class="cd-btn cd-btn--outline" onclick="closeChangeEntryYearModal()">Cancel</button>
+                <button type="button" id="btnChangeYear" class="cd-btn cd-btn--primary" onclick="submitChangeYear()">Update Entry Year</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Export Students Modal (columns + format + summary) ===== -->
+    <div id="exportListOverlay" class="cd-modal-overlay">
+        <div class="cd-modal" style="max-width: 600px;">
+            <div class="cd-modal__header">
+                <h3 class="cd-modal__title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export Students
+                </h3>
+                <button type="button" class="cd-modal__close" onclick="closeExportListModal()">&times;</button>
+            </div>
+            <div class="cd-modal__body">
+                <div style="background:#eef7f0;border:1px solid #bfe6cd;padding:9px 12px;margin-bottom:14px;font-size:11px;color:#1c7a3e;">
+                    Exports the <b>current filtered list</b> (all matching students, not just this page). Applied filters: <span id="elFilters" style="font-weight:600;">All students</span>.
+                </div>
+                <div class="cd-form-group">
+                    <label class="cd-form-label" style="display:flex;justify-content:space-between;align-items:center;">
+                        <span>Columns</span>
+                        <span style="font-weight:400;font-size:10px;">
+                            <a href="javascript:void(0)" onclick="elSelectCols(true)" style="color:#174DA4;">All</a> &middot;
+                            <a href="javascript:void(0)" onclick="elSelectCols(false)" style="color:#174DA4;">None</a>
+                        </span>
+                    </label>
+                    <div id="elCols" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 12px;border:1px solid #e0e5ed;padding:10px;max-height:180px;overflow:auto;"></div>
+                </div>
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Format</label>
+                    <div style="display:flex;gap:16px;">
+                        <label style="display:flex;align-items:center;gap:6px;font-weight:500;cursor:pointer;"><input type="radio" name="elFmt" value="csv" checked /> CSV (.csv)</label>
+                        <label style="display:flex;align-items:center;gap:6px;font-weight:500;cursor:pointer;"><input type="radio" name="elFmt" value="excel" /> Excel (.xls)</label>
+                    </div>
+                </div>
+                <div style="background:#f8fafc;border:1px solid #e2e8f2;padding:8px 12px;font-size:11px;color:#334155;">
+                    <span id="elSummary">Select the columns and format, then export.</span>
+                </div>
+            </div>
+            <div class="cd-modal__footer">
+                <button type="button" class="cd-btn cd-btn--outline" onclick="closeExportListModal()">Cancel</button>
+                <button type="button" id="btnExportList" class="cd-btn cd-btn--primary" onclick="submitExportList()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Set Photo Modal -->
     <div id="setPhotoOverlay" class="cd-modal-overlay">
         <div class="cd-modal" style="max-width: 420px;">
@@ -2910,7 +3049,165 @@
             };
             xhr.send('regno=' + encodeURIComponent(_spRegno) + '&newPassword=' + encodeURIComponent(newPwd));
         }
-        
+
+        /* ================================================================
+           ADMIN ROW ACTIONS + LIST EXPORT  (AJAX, JSON — SetPassword pattern)
+           ================================================================ */
+        function _njPost(action, body, cb) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', window.location.pathname + '?action=' + action, true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) return;
+                if (xhr.status === 200) { try { cb(JSON.parse(xhr.responseText)); } catch (e) { cb({ success: false, message: 'Unexpected server response.' }); } }
+                else cb({ success: false, message: 'Server error (' + xhr.status + ').' });
+            };
+            xhr.onerror = function () { cb({ success: false, message: 'Network error.' }); };
+            xhr.send(body);
+        }
+        function _njStatus(id, msg, isErr) {
+            var el = document.getElementById(id); if (!el) return;
+            el.style.display = 'block'; el.innerText = msg;
+            el.style.background = isErr ? '#f8d7da' : '#d4edda';
+            el.style.color = isErr ? '#721c24' : '#155724';
+            el.style.border = '1px solid ' + (isErr ? '#f5c6cb' : '#c3e6cb');
+        }
+        function _njHide(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; }
+        function _njEsc(s) { var d = document.createElement('div'); d.appendChild(document.createTextNode(s == null ? '' : s)); return d.innerHTML; }
+
+        // ---- Change Programme (cascading prog -> specialisation) ----
+        var _cpRegno = '';
+        function openChangeProgModal(regno, student) {
+            if (!regno) { alert('No registration number.'); return; }
+            _cpRegno = regno;
+            document.getElementById('cpStudentName').innerText = student || '';
+            document.getElementById('cpStudentRegno').innerText = regno;
+            document.getElementById('cpCurrent').innerText = '';
+            document.getElementById('cpProg').innerHTML = '<option value="">Loading…</option>';
+            document.getElementById('cpSpec').innerHTML = '<option value="">-- None --</option>';
+            _njHide('cpStatus');
+            document.getElementById('btnChangeProg').disabled = false;
+            document.getElementById('changeProgOverlay').style.display = 'flex';
+            _njPost('ChangeProgInit', 'regno=' + encodeURIComponent(regno), function (r) {
+                if (!r || !r.success) { _njStatus('cpStatus', (r && r.message) || 'Could not load.', true); return; }
+                var cur = r.current || {}, h = '<option value="">-- Select programme --</option>';
+                (r.programmes || []).forEach(function (p) {
+                    h += '<option value="' + _njEsc(p.code) + '"' + (p.code === cur.prog ? ' selected' : '') + '>' + _njEsc(p.name) + '  (' + _njEsc(p.code) + ')</option>';
+                });
+                document.getElementById('cpProg').innerHTML = h;
+                document.getElementById('cpCurrent').innerHTML = 'Currently: <b>' + _njEsc(cur.progname || cur.prog || '-') + '</b>' + (cur.specname ? ' &middot; ' + _njEsc(cur.specname) : '');
+                if (cur.prog) cpOnProgChange(cur.spec);
+            });
+        }
+        function cpOnProgChange(preselectSpec) {
+            var prog = document.getElementById('cpProg').value;
+            var sel = document.getElementById('cpSpec');
+            sel.innerHTML = '<option value="">Loading…</option>';
+            if (!prog) { sel.innerHTML = '<option value="">-- None --</option>'; return; }
+            _njPost('SpecList', 'prog=' + encodeURIComponent(prog), function (r) {
+                var h = '<option value="">-- None --</option>';
+                if (r && r.success) (r.items || []).forEach(function (s) {
+                    h += '<option value="' + _njEsc(s.id) + '"' + (String(s.id) === String(preselectSpec || '') ? ' selected' : '') + '>' + _njEsc(s.name) + '</option>';
+                });
+                sel.innerHTML = h;
+                document.getElementById('cpSpecWrap').style.display = (r && r.hasSpecs) ? 'block' : 'block';
+            });
+        }
+        function closeChangeProgModal() { document.getElementById('changeProgOverlay').style.display = 'none'; _cpRegno = ''; }
+        function submitChangeProg() {
+            var prog = document.getElementById('cpProg').value, spec = document.getElementById('cpSpec').value;
+            if (!prog) { _njStatus('cpStatus', 'Please select a programme.', true); return; }
+            if (!confirm('Move ' + _cpRegno + ' to programme ' + prog + (spec ? ' (with the selected specialisation)' : '') + '?')) return;
+            var btn = document.getElementById('btnChangeProg'); btn.disabled = true; var o = btn.innerText; btn.innerText = 'Saving…';
+            _njPost('ChangeProgramme', 'regno=' + encodeURIComponent(_cpRegno) + '&prog=' + encodeURIComponent(prog) + '&spec=' + encodeURIComponent(spec), function (r) {
+                if (r && r.success) { _njStatus('cpStatus', r.message + ' Refreshing…', false); setTimeout(function () { window.location.reload(); }, 700); }
+                else { _njStatus('cpStatus', (r && r.message) || 'Failed.', true); btn.disabled = false; btn.innerText = o; }
+            });
+        }
+
+        // ---- Change Entry Year ----
+        var _cyRegno = '';
+        function openChangeEntryYearModal(regno, student, year) {
+            if (!regno) { alert('No registration number.'); return; }
+            _cyRegno = regno;
+            document.getElementById('cyStudentName').innerText = student || '';
+            document.getElementById('cyStudentRegno').innerText = regno;
+            document.getElementById('cyCurrent').innerText = year || '-';
+            document.getElementById('cyYear').value = year || '';
+            _njHide('cyStatus');
+            document.getElementById('btnChangeYear').disabled = false;
+            document.getElementById('changeYearOverlay').style.display = 'flex';
+            setTimeout(function () { document.getElementById('cyYear').focus(); }, 80);
+        }
+        function closeChangeEntryYearModal() { document.getElementById('changeYearOverlay').style.display = 'none'; _cyRegno = ''; }
+        function submitChangeYear() {
+            var y = (document.getElementById('cyYear').value || '').trim();
+            if (!/^\d{4}$/.test(y)) { _njStatus('cyStatus', 'Enter a valid 4-digit year.', true); return; }
+            if (!confirm('Change entry year of ' + _cyRegno + ' to ' + y + '?')) return;
+            var btn = document.getElementById('btnChangeYear'); btn.disabled = true; var o = btn.innerText; btn.innerText = 'Saving…';
+            _njPost('ChangeEntryYear', 'regno=' + encodeURIComponent(_cyRegno) + '&year=' + encodeURIComponent(y), function (r) {
+                if (r && r.success) { _njStatus('cyStatus', r.message + ' Refreshing…', false); setTimeout(function () { window.location.reload(); }, 700); }
+                else { _njStatus('cyStatus', (r && r.message) || 'Failed.', true); btn.disabled = false; btn.innerText = o; }
+            });
+        }
+
+        // ---- Export Students (columns + format + current filters) ----
+        var EL_COLS = [
+            ['entryno', 'Reg No'], ['regno', 'Entry No'], ['name', 'Student Name'], ['gender', 'Gender'],
+            ['phone', 'Contact'], ['email', 'Email'], ['entryyear', 'Entry Year'], ['intake', 'Intake'],
+            ['prog', 'Programme Code'], ['progname', 'Programme'], ['spec', 'Specialisation'], ['session', 'Session'],
+            ['campus', 'Campus'], ['status', 'Status'], ['nationality', 'Nationality'], ['nin', 'NIN'],
+            ['district', 'Home District'], ['registered', 'Registered']
+        ];
+        var EL_DEFAULT = ['entryno', 'regno', 'name', 'gender', 'phone', 'email', 'entryyear', 'prog', 'progname', 'spec', 'session', 'campus', 'status'];
+        function openExportListModal() {
+            var wrap = document.getElementById('elCols');
+            var def = {}; EL_DEFAULT.forEach(function (k) { def[k] = 1; });
+            var h = '';
+            EL_COLS.forEach(function (c) {
+                h += '<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;">'
+                   + '<input type="checkbox" id="elc_' + c[0] + '" onchange="elUpdateSummary()"' + (def[c[0]] ? ' checked' : '') + ' /> ' + _njEsc(c[1]) + '</label>';
+            });
+            wrap.innerHTML = h;
+            // Human-readable current filters
+            var p = new URLSearchParams(window.location.search), parts = [];
+            if (p.get('entryyear')) parts.push('Entry ' + p.get('entryyear'));
+            if (p.get('status')) parts.push(p.get('status'));
+            if (p.get('prog')) parts.push('Prog ' + p.get('prog'));
+            if (p.get('faculty')) parts.push('Faculty ' + p.get('faculty'));
+            if (p.get('session')) parts.push(p.get('session'));
+            if (p.get('campus')) parts.push('Campus ' + p.get('campus'));
+            if (p.get('q')) parts.push('“' + p.get('q') + '”');
+            document.getElementById('elFilters').innerText = parts.length ? parts.join(' · ') : 'All students';
+            elUpdateSummary();
+            document.getElementById('exportListOverlay').style.display = 'flex';
+        }
+        function closeExportListModal() { document.getElementById('exportListOverlay').style.display = 'none'; }
+        function elSelectCols(all) { EL_COLS.forEach(function (c) { var cb = document.getElementById('elc_' + c[0]); if (cb) cb.checked = all; }); elUpdateSummary(); }
+        function elUpdateSummary() {
+            var n = 0; EL_COLS.forEach(function (c) { var cb = document.getElementById('elc_' + c[0]); if (cb && cb.checked) n++; });
+            var fmt = (document.querySelector('input[name=elFmt]:checked') || {}).value || 'csv';
+            document.getElementById('elSummary').innerHTML = '<b>' + n + '</b> column' + (n === 1 ? '' : 's') + ' &middot; format <b>' + fmt.toUpperCase() + '</b> &middot; current filters. Click Export to download.';
+        }
+        function submitExportList() {
+            var cols = []; EL_COLS.forEach(function (c) { var cb = document.getElementById('elc_' + c[0]); if (cb && cb.checked) cols.push(c[0]); });
+            if (!cols.length) { document.getElementById('elSummary').innerHTML = '<span style="color:#c0392b;">Select at least one column.</span>'; return; }
+            var fmt = (document.querySelector('input[name=elFmt]:checked') || {}).value || 'csv';
+            var p = new URLSearchParams(window.location.search);
+            p.delete('page'); p.delete('action'); p.delete('fmt'); p.delete('cols');
+            p.set('action', 'ExportStudentsList'); p.set('fmt', fmt); p.set('cols', cols.join(','));
+            window.location.href = window.location.pathname + '?' + p.toString();
+            setTimeout(closeExportListModal, 400);
+        }
+        // Close the new modals on overlay click / Escape
+        ['changeProgOverlay', 'changeYearOverlay', 'exportListOverlay'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('click', function (e) { if (e.target === this) this.style.display = 'none'; });
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { closeChangeProgModal(); closeChangeEntryYearModal(); closeExportListModal(); }
+        });
+
         // Close Set Password modal on overlay click
         document.getElementById('setPasswordOverlay').addEventListener('click', function(e) {
             if (e.target === this) {
