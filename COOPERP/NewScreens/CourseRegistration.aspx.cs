@@ -8,6 +8,8 @@ using System.Web.UI;
 using System.Web.UI.WebControls;
 using MySql.Data.MySqlClient;
 using DevExpress.XtraPrinting;
+using System.Web.Services;
+using System.Web.Script.Serialization;
 
 public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 {
@@ -317,21 +319,44 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     
     private void BindGrid()
     {
+        int requestedPage = GetRequestedPage();
+        int totalRows, totalPages;
+        bool isPendingView;
+        DataTable dt = QueryRegistrations(true, ref requestedPage, out totalRows, out totalPages, out isPendingView);
+
+        btnRegisterSelected.Visible = isPendingView;
+        btnRemoveSelected.Visible = (!isPendingView && !string.IsNullOrEmpty(ddlCourse.SelectedValue));
+
+        RenderTable(dt, requestedPage, totalPages, totalRows, isPendingView);
+
+        // Reset any client-side selection after a (re)render so checkboxes and the
+        // bulk bar never show stale counts following a batch action.
+        ScriptManager.RegisterStartupScript(upCourseReg, upCourseReg.GetType(), "crxResetSel",
+            "if(window.clearSel){window.clearSel();}", true);
+    }
+
+    /// <summary>
+    /// Builds the registration result set for the current filters. When <paramref name="paged"/>
+    /// is true the page slice is returned (for the on-screen datatable); otherwise the full set
+    /// is returned (for Excel export). Shared by BindGrid and the export handler.
+    /// </summary>
+    private DataTable QueryRegistrations(bool paged, ref int requestedPage, out int totalRows, out int totalPages, out bool isPendingView)
+    {
         bool hasProgramme = !string.IsNullOrEmpty(ddlProgramme.SelectedValue);
         bool hasCourse = !string.IsNullOrEmpty(ddlCourse.SelectedValue);
         string studentTerm = (txtStudentFilter.Text ?? string.Empty).Trim();
-        int requestedPage = GetRequestedPage();
-        
+        isPendingView = (ddlStatus.SelectedValue == "Pending" && hasProgramme && hasCourse);
+
         DataTable dt = new DataTable();
-        int totalRows = 0;
-        int totalPages = 1;
-        
+        totalRows = 0;
+        totalPages = 1;
+
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
             string sql = "";
-            
-            if (ddlStatus.SelectedValue == "Pending" && hasProgramme && hasCourse)
+
+            if (isPendingView)
             {
                 // Show students who are registered in the programme but not in this course
                 sql = @"SELECT r.regno, 
@@ -376,9 +401,6 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 }
                 
                                 sql += " ORDER BY s.firstname, s.othername";
-                
-                                btnRegisterSelected.Visible = true;
-                                btnRemoveSelected.Visible = false;
             }
             else
             {
@@ -404,9 +426,6 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                                                  AND (@intake = '-' OR s.intake = @intake)
                                                  AND (@student = '' OR cr.regno LIKE @studentLike OR CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) LIKE @studentLike)
                                              ORDER BY cr.acad_year DESC, cr.semester DESC, s.firstname, s.othername";
-                
-                                btnRegisterSelected.Visible = false;
-                                btnRemoveSelected.Visible = hasCourse;
             }
 
             string countSql = "SELECT COUNT(*) FROM (" + sql + ") AS x";
@@ -420,25 +439,27 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             if (requestedPage > totalPages)
                 requestedPage = totalPages;
 
-            int offset = (requestedPage - 1) * QueryPageSize;
-            string pagedSql = sql + " LIMIT @offset, @pageSize";
-            
-            using (MySqlCommand cmd = new MySqlCommand(pagedSql, conn))
+            string finalSql = sql;
+            if (paged) finalSql += " LIMIT @offset, @pageSize";
+
+            using (MySqlCommand cmd = new MySqlCommand(finalSql, conn))
             {
                 AddGridParameters(cmd, hasProgramme, hasCourse, studentTerm);
-                cmd.Parameters.AddWithValue("@offset", offset);
-                cmd.Parameters.AddWithValue("@pageSize", QueryPageSize);
-                
+                if (paged)
+                {
+                    int offset = (requestedPage - 1) * QueryPageSize;
+                    cmd.Parameters.AddWithValue("@offset", offset);
+                    cmd.Parameters.AddWithValue("@pageSize", QueryPageSize);
+                }
+
                 using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
                 {
                     adapter.Fill(dt);
                 }
             }
         }
-        
-        gvCourseReg.DataSource = dt;
-        gvCourseReg.DataBind();
-        RenderQueryPager(requestedPage, totalPages, totalRows);
+
+        return dt;
     }
 
     private void AddGridParameters(MySqlCommand cmd, bool hasProgramme, bool hasCourse, string studentTerm)
@@ -470,39 +491,115 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         return 1;
     }
 
-    private void RenderQueryPager(int page, int totalPages, int totalRows)
+    // ── New datatable rendering (GET-driven, server-paged) ──
+    private void RenderTable(DataTable dt, int page, int totalPages, int totalRows, bool isPendingView)
     {
-        if (totalRows <= QueryPageSize)
+        int from = totalRows == 0 ? 0 : ((page - 1) * QueryPageSize) + 1;
+        int to = (int)Math.Min((long)page * QueryPageSize, totalRows);
+
+        litFrom.Text = from.ToString();
+        litTo.Text = to.ToString();
+        litTotal.Text = totalRows.ToString("N0");
+        litTotal2.Text = totalRows.ToString("N0");
+        litPage.Text = page.ToString();
+        litPageCount.Text = totalPages.ToString();
+
+        string pager = BuildPagerHtml(page, totalPages);
+        litPager.Text = pager;
+        litPager2.Text = pager;
+
+        if (dt.Rows.Count == 0)
         {
-            litQueryPager.Text = string.Empty;
+            litRows.Text = "<tr><td colspan='12' class='crx-empty'>No course-registration records match the current filters.</td></tr>";
             return;
         }
 
-        StringBuilder html = new StringBuilder();
-        html.Append("<div class='cr-query-pager'>");
-        html.AppendFormat("<span class='meta'>Total: {0}</span>", totalRows);
+        var sb = new StringBuilder();
+        foreach (DataRow r in dt.Rows)
+        {
+            string regno = SafeCell(r, "regno");
+            string name = SafeCell(r, "stud_name");
+            string spec = SafeCell(r, "spec_name");
+            string course = SafeCell(r, "course_code");
+            string acad = SafeCell(r, "acad_year");
+            string sem = SafeCell(r, "semester");
+            string entry = SafeCell(r, "entryyear");
+            string intake = SafeCell(r, "intake");
+            string regStatus = SafeCell(r, "reg_status");
+            string courseStatus = SafeCell(r, "course_status");
 
+            string regnoA = HttpUtility.HtmlAttributeEncode(regno);
+            string courseA = HttpUtility.HtmlAttributeEncode(course);
+            string acadA = HttpUtility.HtmlAttributeEncode(acad);
+            string semA = HttpUtility.HtmlAttributeEncode(sem);
+            string statusA = HttpUtility.HtmlAttributeEncode(courseStatus);
+
+            sb.Append("<tr>");
+            sb.AppendFormat("<td class='crx-sel'><input type='checkbox' class='crx-row-sel' data-key=\"{0}\" onclick='onRowSel(this)' /></td>", regnoA);
+            sb.AppendFormat("<td><a class='crx-link' title='Quick Edit' onclick=\"openQuickEdit('{0}')\"><span class='crx-code'>{1}</span></a></td>", JsEnc(regno), H(regno));
+            sb.AppendFormat("<td title=\"{0}\">{0}</td>", H(name));
+            sb.AppendFormat("<td title=\"{0}\">{0}</td>", H(spec));
+            sb.AppendFormat("<td><span class='crx-code'>{0}</span></td>", H(course));
+            sb.AppendFormat("<td>{0}</td>", H(acad));
+            sb.AppendFormat("<td class='c'>{0}</td>", H(sem));
+            sb.AppendFormat("<td class='c'>{0}</td>", H(entry));
+            sb.AppendFormat("<td>{0}</td>", H(intake));
+            sb.AppendFormat("<td>{0}</td>", H(regStatus));
+            sb.AppendFormat("<td>{0}</td>", GetCourseStatusBadge(courseStatus));
+
+            sb.Append("<td class='crx-act'>");
+            sb.AppendFormat("<a class='crx-a' onclick=\"openQuickEdit('{0}')\">Edit</a>", JsEnc(regno));
+            if (!isPendingView)
+            {
+                sb.AppendFormat("<button type='button' class='crx-a' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" data-status=\"{4}\" onclick='crxStatus(this)' title='Change course status'>Status</button>", regnoA, courseA, acadA, semA, statusA);
+                sb.AppendFormat("<button type='button' class='crx-a crx-a--move' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" data-name=\"{5}\" onclick='crxMove(this)' title='Move this student to the correct course code'>Move</button>", regnoA, courseA, acadA, semA, statusA, HttpUtility.HtmlAttributeEncode(name));
+                sb.AppendFormat("<a class='crx-a' href='StudentResultsView.aspx?regno={0}' target='_blank' title='View results'>Results</a>", HttpUtility.UrlEncode(regno));
+                sb.AppendFormat("<button type='button' class='crx-a crx-a--danger' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" onclick='crxDelete(this)' title='Delete registration'>Delete</button>", regnoA, courseA, acadA, semA);
+            }
+            sb.Append("</td></tr>");
+        }
+        litRows.Text = sb.ToString();
+    }
+
+    private string BuildPagerHtml(int page, int totalPages)
+    {
+        if (totalPages <= 1) return string.Empty;
+        var sb = new StringBuilder();
         if (page > 1)
-            html.AppendFormat("<a href='{0}'>&laquo; Prev</a>", BuildPagerUrl(page - 1));
+            sb.AppendFormat("<a href='{0}'>&laquo; Prev</a>", BuildPagerUrl(page - 1));
 
         int start = Math.Max(1, page - 2);
         int end = Math.Min(totalPages, start + 4);
         start = Math.Max(1, end - 4);
-
         for (int i = start; i <= end; i++)
         {
-            if (i == page)
-                html.AppendFormat("<span class='active'>{0}</span>", i);
-            else
-                html.AppendFormat("<a href='{0}'>{1}</a>", BuildPagerUrl(i), i);
+            if (i == page) sb.AppendFormat("<span class='active'>{0}</span>", i);
+            else sb.AppendFormat("<a href='{0}'>{1}</a>", BuildPagerUrl(i), i);
         }
 
         if (page < totalPages)
-            html.AppendFormat("<a href='{0}'>Next &raquo;</a>", BuildPagerUrl(page + 1));
+            sb.AppendFormat("<a href='{0}'>Next &raquo;</a>", BuildPagerUrl(page + 1));
+        return sb.ToString();
+    }
 
-        html.AppendFormat("<span class='meta'>Page {0} of {1}</span>", page, totalPages);
-        html.Append("</div>");
-        litQueryPager.Text = html.ToString();
+    private static string SafeCell(DataRow r, string col)
+    {
+        return r.Table.Columns.Contains(col) && r[col] != DBNull.Value ? r[col].ToString() : "";
+    }
+    private static string H(string s) { return HttpUtility.HtmlEncode(s ?? ""); }
+    private static string JsEnc(string s) { return HttpUtility.JavaScriptStringEncode(s ?? ""); }
+
+    /// <summary>Reads the comma-separated reg numbers ticked in the new datatable.</summary>
+    private List<string> GetSelectedRegnos()
+    {
+        var list = new List<string>();
+        string raw = hfSelectedKeys.Value ?? string.Empty;
+        foreach (string part in raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            string v = part.Trim();
+            if (v.Length > 0 && !list.Contains(v)) list.Add(v);
+        }
+        return list;
     }
 
     private string BuildPagerUrl(int page)
@@ -643,7 +740,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             {
                 conn.Open();
 
-                List<object> selectedRows = gvCourseReg.GetSelectedFieldValues("regno");
+                List<string> selectedRows = GetSelectedRegnos();
 
                 if (selectedRows.Count == 0)
                 {
@@ -730,7 +827,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         else
             ShowMessage("No students were registered. " + msg, "info");
         
-        gvCourseReg.Selection.UnselectAll();
+        hfSelectedKeys.Value = string.Empty;
         LoadStats();
         BindGrid();
     }
@@ -754,7 +851,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             {
                 conn.Open();
                 
-                List<object> selectedRows = gvCourseReg.GetSelectedFieldValues("regno");
+                List<string> selectedRows = GetSelectedRegnos();
                 
                 if (selectedRows.Count == 0)
                 {
@@ -819,166 +916,369 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         else
             ShowMessage("No registrations were removed.", "info");
         
-        gvCourseReg.Selection.UnselectAll();
+        hfSelectedKeys.Value = string.Empty;
         LoadStats();
         BindGrid();
     }
     
-    protected void btnAddRetake_Click(object sender, EventArgs e)
-    {
-        if (string.IsNullOrEmpty(ddlCourse.SelectedValue))
-        {
-            ShowMessage("Please select a course first.", "error");
-            LoadStats();
-            BindGrid();
-            return;
-        }
-        
-        if (string.IsNullOrEmpty(txtRetakeRegNo.Text.Trim()))
-        {
-            ShowMessage("Please enter a student registration number.", "error");
-            LoadStats();
-            BindGrid();
-            return;
-        }
-        
-        string regno = txtRetakeRegNo.Text.Trim();
-        string recordType = (ddlNewRecordType.SelectedValue ?? "REGULAR").Trim().ToUpper();
-        if (recordType != "RETAKE") recordType = "REGULAR";
-        string username = HttpContext.Current.User.Identity.Name;
-
-        // Enforce semester active status — block retake registration if semester is closed
-        int semNumRtk;
-        if (!int.TryParse(ddlSemester.SelectedValue, out semNumRtk) || !AcademicYearHelper.IsSemesterActive(semNumRtk))
-        {
-            ShowMessage(string.Format(
-                "Semester {0} is not currently open for course registration. " +
-                "An administrator must set Semester {0} as active on the Academic Years page before registration can proceed.",
-                ddlSemester.SelectedValue), "error");
-            LoadStats();
-            BindGrid();
-            return;
-        }
-
-        try
-        {
-            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
-            {
-                conn.Open();
-                
-                // Check if student exists and get programme
-                string studentProg = "";
-                string checkStudentSql = "SELECT progid FROM acad_student WHERE regno = @regno LIMIT 1";
-                using (MySqlCommand checkCmd = new MySqlCommand(checkStudentSql, conn))
-                {
-                    checkCmd.Parameters.AddWithValue("@regno", regno);
-                    object progObj = checkCmd.ExecuteScalar();
-                    if (progObj == null || progObj == DBNull.Value)
-                    {
-                        ShowMessage("Student with registration number '" + regno + "' not found.", "error");
-                        LoadStats();
-                        BindGrid();
-                        return;
-                    }
-                    studentProg = progObj.ToString();
-                }
-
-                if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue)
-                    && !string.Equals(ddlProgramme.SelectedValue, studentProg, StringComparison.OrdinalIgnoreCase))
-                {
-                    ShowMessage("Selected student does not belong to the selected programme.", "error");
-                    LoadStats();
-                    BindGrid();
-                    return;
-                }
-
-                if (recordType == "REGULAR")
-                {
-                    string checkSemesterRegSql = @"SELECT COUNT(*) FROM acad_registration
-                                                   WHERE regno=@regno
-                                                     AND acad_year=@acad
-                                                     AND studyyear=@yr
-                                                     AND regstatus IN ('REGISTERED','CLEARED','LATE REGISTERED')";
-                    using (MySqlCommand semCmd = new MySqlCommand(checkSemesterRegSql, conn))
-                    {
-                        semCmd.Parameters.AddWithValue("@regno", regno);
-                        semCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                        semCmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
-                        if (Convert.ToInt32(semCmd.ExecuteScalar()) == 0)
-                        {
-                            ShowMessage("Student is not semester-registered for the selected academic year/study year.", "error");
-                            LoadStats();
-                            BindGrid();
-                            return;
-                        }
-                    }
-                }
-                
-                // Check if already registered for this course
-                string checkRegSql = @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration 
-                                      WHERE regno = @regno AND courseID = @course 
-                                        AND acad_year = @acad AND semester = @sem";
-                
-                using (MySqlCommand checkCmd = new MySqlCommand(checkRegSql, conn))
-                {
-                    checkCmd.Parameters.AddWithValue("@regno", regno);
-                    checkCmd.Parameters.AddWithValue("@course", ddlCourse.SelectedValue);
-                    checkCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                    checkCmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
-                    
-                    if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
-                    {
-                        ShowMessage("Student is already registered for this course in the selected year/semester.", "error");
-                        LoadStats();
-                        BindGrid();
-                        return;
-                    }
-                }
-                
-                // Use stored procedure for proper registration handling + logging
-                using (MySqlCommand spCmd = new MySqlCommand("acad_CourseRegister", conn))
-                {
-                    spCmd.CommandType = CommandType.StoredProcedure;
-                    spCmd.Parameters.AddWithValue("@reg", regno);
-                    spCmd.Parameters.AddWithValue("@csid", ddlCourse.SelectedValue);
-                    spCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                    spCmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
-                    spCmd.Parameters.AddWithValue("@cs_stat", recordType);
-                    spCmd.Parameters.AddWithValue("@prog", !string.IsNullOrEmpty(ddlProgramme.SelectedValue) ? ddlProgramme.SelectedValue : studentProg);
-                    spCmd.Parameters.AddWithValue("@usr", username);
-                    spCmd.Parameters.AddWithValue("@act", "Pending");
-                    using (MySqlDataReader rdr = spCmd.ExecuteReader())
-                    {
-                        while (rdr.Read()) { }
-                    }
-                }
-            }
-            
-            ShowMessage((recordType == "RETAKE" ? "Retake" : "Regular") + " record added successfully for student: " + regno, "success");
-            txtRetakeRegNo.Text = "";
-            ScriptManager.RegisterStartupScript(this, GetType(), "closeRetakeModal", "closeRetakeModal();", true);
-        }
-        catch (Exception ex)
-        {
-            ShowMessage("Error adding new record: " + ex.Message, "error");
-        }
-        
-        LoadStats();
-        BindGrid();
-    }
     
     protected void btnExportExcel_Click(object sender, EventArgs e)
     {
-        string fileName = string.Format("CourseRegistration_{0}_{1}_Sem{2}", 
+        // The on-screen list is now a server-rendered HTML datatable; bind the hidden
+        // DevExpress grid with the FULL (unpaged) result set just for the Excel export.
+        int reqPage = 1; int totalRows, totalPages; bool isPendingView;
+        DataTable dt = QueryRegistrations(false, ref reqPage, out totalRows, out totalPages, out isPendingView);
+        gvCourseReg.DataSource = dt;
+        gvCourseReg.DataBind();
+
+        string fileName = string.Format("CourseRegistration_{0}_{1}_Sem{2}",
             ddlProgramme.SelectedValue, ddlAcadYear.SelectedValue.Replace("/", "-"), ddlSemester.SelectedValue);
         gvExporter.WriteXlsxToResponse(fileName, new XlsxExportOptionsEx { ExportType = DevExpress.Export.ExportType.WYSIWYG });
     }
-    
-    protected void gvCourseReg_CustomCallback(object sender, DevExpress.Web.ASPxGridViewCustomCallbackEventArgs e)
+
+    // ===============================================================
+    //  ADMIN ROW ACTIONS (AJAX) — delete & change course status
+    // ===============================================================
+    private static string ActionConn
     {
-        BindGrid();
+        get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
+    }
+
+    [WebMethod]
+    public static string DeleteRegistration(string regno, string course, string acad, int sem)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(regno) || string.IsNullOrWhiteSpace(course) || string.IsNullOrWhiteSpace(acad))
+                return js.Serialize(new { success = false, message = "Missing record key." });
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(@"
+                    DELETE FROM campus_dynamics_portal.acad_course_registration
+                    WHERE TRIM(regno) = @r AND courseID = @c AND acad_year = @a AND semester = @s", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno.Trim());
+                    cmd.Parameters.AddWithValue("@c", course.Trim());
+                    cmd.Parameters.AddWithValue("@a", acad.Trim());
+                    cmd.Parameters.AddWithValue("@s", sem);
+                    int n = cmd.ExecuteNonQuery();
+                    if (n <= 0) return js.Serialize(new { success = false, message = "No matching registration was found to delete." });
+                }
+            }
+            return js.Serialize(new { success = true });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    [WebMethod]
+    public static string SetCourseStatus(string regno, string course, string acad, int sem, string status)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string st = (status ?? "").Trim().ToUpperInvariant();
+            if (st != "REGULAR" && st != "RETAKE" && st != "NORMAL")
+                return js.Serialize(new { success = false, message = "Invalid course status." });
+            if (string.IsNullOrWhiteSpace(regno) || string.IsNullOrWhiteSpace(course) || string.IsNullOrWhiteSpace(acad))
+                return js.Serialize(new { success = false, message = "Missing record key." });
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(@"
+                    UPDATE campus_dynamics_portal.acad_course_registration
+                    SET course_status = @st
+                    WHERE TRIM(regno) = @r AND courseID = @c AND acad_year = @a AND semester = @s", conn))
+                {
+                    cmd.Parameters.AddWithValue("@st", st);
+                    cmd.Parameters.AddWithValue("@r", regno.Trim());
+                    cmd.Parameters.AddWithValue("@c", course.Trim());
+                    cmd.Parameters.AddWithValue("@a", acad.Trim());
+                    cmd.Parameters.AddWithValue("@s", sem);
+                    int n = cmd.ExecuteNonQuery();
+                    if (n <= 0) return js.Serialize(new { success = false, message = "No matching registration was found to update." });
+                }
+            }
+            return js.Serialize(new { success = true });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
     }
     
+    // ===============================================================
+    //  COURSE-CODE MOVE + SELF-CONTAINED ADD  (stable AJAX WebMethods)
+    // ===============================================================
+
+    /// <summary>
+    /// Returns the target courses an admin can move a student onto (their programme's catalogue,
+    /// annotated with study-year/semester), plus the codes the student already holds for this
+    /// (academic year, semester) so the client can prevent a collision. Also used to fill the
+    /// searchable course picker in the Add-Record modal.
+    /// </summary>
+    [WebMethod]
+    public static string GetStudentCourseOptions(string regno, string acad, int sem)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(regno))
+                return js.Serialize(new { success = false, message = "Missing registration number." });
+            regno = regno.Trim();
+
+            string prog = null, studentName = null;
+            var courses = new List<object>();
+            var taken = new List<string>();
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    "SELECT progid, TRIM(CONCAT(COALESCE(firstname,''),' ',COALESCE(othername,''))) nm FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (!rdr.Read())
+                            return js.Serialize(new { success = false, message = "Student not found: " + regno });
+                        prog = rdr["progid"] == DBNull.Value ? "" : rdr["progid"].ToString().Trim();
+                        studentName = rdr["nm"] == DBNull.Value ? "" : rdr["nm"].ToString();
+                    }
+                }
+
+                // The programme's catalogue courses (deduped), with their curriculum year/semester + CU.
+                using (var cmd = new MySqlCommand(
+                    @"SELECT c.courseID code, c.courseName name,
+                             MIN(pc.study_year) sy, MIN(pc.semester) sem, IFNULL(c.CreditUnit,0) cu
+                        FROM acad_programmecourses pc
+                        JOIN acad_course c ON c.courseID = pc.course_code
+                       WHERE pc.progcode = @p AND IFNULL(pc.status,'Active') <> 'Inactive'
+                       GROUP BY c.courseID, c.courseName, c.CreditUnit
+                       ORDER BY sy, sem, name", conn))
+                {
+                    cmd.Parameters.AddWithValue("@p", prog);
+                    using (var rdr = cmd.ExecuteReader())
+                        while (rdr.Read())
+                            courses.Add(new
+                            {
+                                code = rdr["code"].ToString(),
+                                name = rdr["name"] == DBNull.Value ? "" : rdr["name"].ToString(),
+                                sy = rdr["sy"] == DBNull.Value ? "" : rdr["sy"].ToString(),
+                                sem = rdr["sem"] == DBNull.Value ? "" : rdr["sem"].ToString(),
+                                cu = rdr["cu"] == DBNull.Value ? "0" : rdr["cu"].ToString()
+                            });
+                }
+
+                // Codes the student already has for this sitting (so the UI blocks a duplicate).
+                if (!string.IsNullOrWhiteSpace(acad))
+                    using (var cmd = new MySqlCommand(
+                        @"SELECT courseID FROM campus_dynamics_portal.acad_course_registration
+                          WHERE TRIM(regno)=@r AND acad_year=@a AND semester=@s", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@a", (acad ?? "").Trim());
+                        cmd.Parameters.AddWithValue("@s", sem);
+                        using (var rdr = cmd.ExecuteReader())
+                            while (rdr.Read()) taken.Add(rdr["courseID"].ToString().Trim());
+                    }
+            }
+            return js.Serialize(new { success = true, prog = prog, student = studentName, courses = courses, taken = taken });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>
+    /// Moves ONE student from a wrongly-selected course code to the correct one for a given sitting,
+    /// carrying the marks with it: updates the portal registration (with its provisional CW/Exam),
+    /// the published result and the transcript result — so the course now counts under the correct
+    /// code in every result summary. Refuses if the student already holds the target course that
+    /// sitting (would duplicate). Everything runs in one transaction.
+    /// </summary>
+    [WebMethod]
+    public static string ChangeCourseCode(string regno, string oldCourse, string acad, int sem, string newCourse, string reason)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            regno = (regno ?? "").Trim();
+            oldCourse = (oldCourse ?? "").Trim();
+            newCourse = (newCourse ?? "").Trim();
+            acad = (acad ?? "").Trim();
+            if (regno == "" || oldCourse == "" || newCourse == "" || acad == "")
+                return js.Serialize(new { success = false, message = "Missing record key." });
+            if (string.Equals(oldCourse, newCourse, StringComparison.OrdinalIgnoreCase))
+                return js.Serialize(new { success = false, message = "The new course is the same as the current one." });
+
+            string actor = "";
+            try { actor = HttpContext.Current.User.Identity.Name; } catch { }
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+
+                // Target course must exist in the catalogue; grab its programme study-year + CU so the
+                // result/transcript rows stay internally consistent after the move.
+                string prog = "";
+                using (var cmd = new MySqlCommand("SELECT progid FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                { cmd.Parameters.AddWithValue("@r", regno); var o = cmd.ExecuteScalar(); prog = o == null || o == DBNull.Value ? "" : o.ToString().Trim(); }
+
+                double? newCu = null;
+                using (var cmd = new MySqlCommand("SELECT CreditUnit FROM acad_course WHERE courseID=@c LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@c", newCourse);
+                    var o = cmd.ExecuteScalar();
+                    if (o == null) return js.Serialize(new { success = false, message = "Target course '" + newCourse + "' does not exist in the course catalogue." });
+                    if (o != DBNull.Value) { double d; if (double.TryParse(o.ToString(), out d) && d > 0) newCu = d; }
+                }
+                int? newSy = null;
+                using (var cmd = new MySqlCommand("SELECT MIN(study_year) FROM acad_programmecourses WHERE progcode=@p AND course_code=@c", conn))
+                { cmd.Parameters.AddWithValue("@p", prog); cmd.Parameters.AddWithValue("@c", newCourse); var o = cmd.ExecuteScalar(); if (o != null && o != DBNull.Value) { int v; if (int.TryParse(o.ToString(), out v)) newSy = v; } }
+
+                // Collision guard: refuse if the student already holds the target code this sitting.
+                using (var cmd = new MySqlCommand(
+                    @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration
+                      WHERE TRIM(regno)=@r AND courseID=@n AND acad_year=@a AND semester=@s", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@n", newCourse);
+                    cmd.Parameters.AddWithValue("@a", acad); cmd.Parameters.AddWithValue("@s", sem);
+                    if (Convert.ToInt32(cmd.ExecuteScalar()) > 0)
+                        return js.Serialize(new { success = false, message = "This student is already registered for " + newCourse + " in " + acad + " Semester " + sem + ". Delete the duplicate first, or pick a different code." });
+                }
+
+                using (var tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        int moved;
+                        using (var cmd = new MySqlCommand(
+                            @"UPDATE campus_dynamics_portal.acad_course_registration
+                              SET courseID=@n
+                              WHERE TRIM(regno)=@r AND courseID=@o AND acad_year=@a AND semester=@s", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@n", newCourse); cmd.Parameters.AddWithValue("@r", regno);
+                            cmd.Parameters.AddWithValue("@o", oldCourse); cmd.Parameters.AddWithValue("@a", acad); cmd.Parameters.AddWithValue("@s", sem);
+                            moved = cmd.ExecuteNonQuery();
+                        }
+                        if (moved <= 0) { tx.Rollback(); return js.Serialize(new { success = false, message = "No matching registration was found to move." }); }
+
+                        // Published result + transcript: move the mark to the new code and keep CU / study-year consistent.
+                        foreach (string tbl in new[] { "acad_results", "acad_transcript_results" })
+                            using (var cmd = new MySqlCommand(
+                                "UPDATE " + tbl + " SET courseid=@n" +
+                                (newCu.HasValue ? ", CreditUnits=@cu" : "") +
+                                (newSy.HasValue ? ", studyyear=@sy" : "") +
+                                " WHERE TRIM(regno)=@r AND courseid=@o AND acad=@a AND semester=@s", conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@n", newCourse); cmd.Parameters.AddWithValue("@r", regno);
+                                cmd.Parameters.AddWithValue("@o", oldCourse); cmd.Parameters.AddWithValue("@a", acad); cmd.Parameters.AddWithValue("@s", sem);
+                                if (newCu.HasValue) cmd.Parameters.AddWithValue("@cu", newCu.Value);
+                                if (newSy.HasValue) cmd.Parameters.AddWithValue("@sy", newSy.Value);
+                                cmd.ExecuteNonQuery();
+                            }
+
+                        using (var cmd = new MySqlCommand(
+                            @"INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date)
+                              VALUES (@u, 'CourseRegistration:ChangeCourseCode', @par, @cmt, NOW())", conn, tx))
+                        {
+                            string par = regno + "|" + acad + "|S" + sem;
+                            string cmt = "Moved " + oldCourse + " -> " + newCourse + (string.IsNullOrWhiteSpace(reason) ? "" : " (" + reason.Trim() + ")");
+                            cmd.Parameters.AddWithValue("@u", (string.IsNullOrEmpty(actor) ? "system" : actor).Length > 100 ? actor.Substring(0, 100) : (string.IsNullOrEmpty(actor) ? "system" : actor));
+                            cmd.Parameters.AddWithValue("@par", par.Length > 300 ? par.Substring(0, 300) : par);
+                            cmd.Parameters.AddWithValue("@cmt", cmt.Length > 200 ? cmt.Substring(0, 200) : cmt);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        tx.Commit();
+                    }
+                    catch { tx.Rollback(); throw; }
+                }
+            }
+            return js.Serialize(new { success = true, message = "Moved to " + newCourse + "." });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>
+    /// Self-contained add of a course registration (no page postback / UpdatePanel), so the
+    /// Add-Record popup is stable. Study-year is derived from the target course's curriculum
+    /// position; keeps the semester-active + semester-registration guards.
+    /// </summary>
+    [WebMethod]
+    public static string AddCourseRegistration(string regno, string course, string acad, int sem, string type)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            regno = (regno ?? "").Trim();
+            course = (course ?? "").Trim();
+            acad = (acad ?? "").Trim();
+            string recordType = (type ?? "REGULAR").Trim().ToUpperInvariant();
+            if (recordType != "RETAKE") recordType = "REGULAR";
+            if (regno == "" || course == "" || acad == "")
+                return js.Serialize(new { success = false, message = "Please provide registration number, course and academic year." });
+
+            if (!AcademicYearHelper.IsSemesterActive(sem))
+                return js.Serialize(new { success = false, message = "Semester " + sem + " is not open for registration. An administrator must set it active on the Academic Years page first." });
+
+            string actor = "";
+            try { actor = HttpContext.Current.User.Identity.Name; } catch { }
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+
+                string prog;
+                using (var cmd = new MySqlCommand("SELECT progid FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                { cmd.Parameters.AddWithValue("@r", regno); var o = cmd.ExecuteScalar();
+                  if (o == null || o == DBNull.Value) return js.Serialize(new { success = false, message = "Student '" + regno + "' not found." });
+                  prog = o.ToString().Trim(); }
+
+                // Study year from the target course's curriculum position (for the REGULAR guard).
+                int studyYear = 0;
+                using (var cmd = new MySqlCommand("SELECT MIN(study_year) FROM acad_programmecourses WHERE progcode=@p AND course_code=@c", conn))
+                { cmd.Parameters.AddWithValue("@p", prog); cmd.Parameters.AddWithValue("@c", course); var o = cmd.ExecuteScalar(); if (o != null && o != DBNull.Value) int.TryParse(o.ToString(), out studyYear); }
+
+                if (recordType == "REGULAR" && studyYear > 0)
+                    using (var cmd = new MySqlCommand(
+                        @"SELECT COUNT(*) FROM acad_registration
+                          WHERE regno=@r AND acad_year=@a AND studyyear=@y
+                            AND regstatus IN ('REGISTERED','CLEARED','LATE REGISTERED')", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@a", acad); cmd.Parameters.AddWithValue("@y", studyYear);
+                        if (Convert.ToInt32(cmd.ExecuteScalar()) == 0)
+                            return js.Serialize(new { success = false, message = "Student is not semester-registered for " + acad + ", Year " + studyYear + ". Register the semester first, or add it as a RETAKE." });
+                    }
+
+                using (var cmd = new MySqlCommand(
+                    @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration
+                      WHERE TRIM(regno)=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@c", course);
+                    cmd.Parameters.AddWithValue("@a", acad); cmd.Parameters.AddWithValue("@s", sem);
+                    if (Convert.ToInt32(cmd.ExecuteScalar()) > 0)
+                        return js.Serialize(new { success = false, message = "Student is already registered for " + course + " in " + acad + " Semester " + sem + "." });
+                }
+
+                using (var cmd = new MySqlCommand("acad_CourseRegister", conn))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cmd.Parameters.AddWithValue("@reg", regno);
+                    cmd.Parameters.AddWithValue("@csid", course);
+                    cmd.Parameters.AddWithValue("@acad", acad);
+                    cmd.Parameters.AddWithValue("@sem", sem);
+                    cmd.Parameters.AddWithValue("@cs_stat", recordType);
+                    cmd.Parameters.AddWithValue("@prog", prog);
+                    cmd.Parameters.AddWithValue("@usr", string.IsNullOrEmpty(actor) ? "system" : actor);
+                    cmd.Parameters.AddWithValue("@act", "Pending");
+                    using (var rdr = cmd.ExecuteReader()) { while (rdr.Read()) { } }
+                }
+            }
+            return js.Serialize(new { success = true, message = (recordType == "RETAKE" ? "Retake" : "Regular") + " record added for " + regno + "." });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
     private void ShowMessage(string message, string type)
     {
         pnlMessage.Visible = true;

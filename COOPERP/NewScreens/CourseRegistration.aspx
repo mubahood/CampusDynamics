@@ -398,6 +398,24 @@
             border-top: 1px solid #e6ebf2;
             background: #f8fafc;
         }
+        /* Add / Move modal form fields */
+        .cr-fld { margin-bottom: 10px; }
+        .cr-fld2 { display: flex; gap: 10px; margin-bottom: 10px; }
+        .cr-fld2 > div { flex: 1; min-width: 0; }
+        .cr-fld label, .cr-fld2 label { display: block; font-size: 10px; font-weight: 700; color: #05275C; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 4px; }
+        .cr-in { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid #cfd6e0; border-radius: 0; font-size: 12px; color: #1a1a2e; background: #fff; }
+        .cr-in:focus { outline: none; border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.12); }
+        .cr-in:disabled { background: #f1f3f7; color: #9aa3af; }
+        .cr-hint { display: block; font-size: 10px; color: #94a3b8; margin-top: 4px; }
+        .cr-inline-msg { display: none; padding: 8px 10px; border-radius: 0; font-size: 11px; margin-bottom: 10px; }
+        .cr-inline-msg.show { display: block; }
+        .cr-inline-msg--err { background: #fdecec; color: #a12622; border: 1px solid #f3c7c4; }
+        .cr-inline-msg--ok { background: #e9f7ee; color: #1c7a3e; border: 1px solid #bfe6cd; }
+        .cr-move-info { background: #f8fafc; border: 1px solid #e6ebf2; padding: 8px 10px; margin-bottom: 12px; }
+        .cr-move-info > div { display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 3px 0; }
+        .cr-move-info > div span { color: #6b7280; }
+        .cr-move-info > div b { color: #05275C; text-align: right; }
+        .crx-a--move { color: #174DA4; }
 
         @media (max-width: 900px) {
             .cr-batch-bar { flex-direction: column; align-items: stretch; }
@@ -407,9 +425,51 @@
             .cr-filter-select { width: 100% !important; min-width: 100%; }
         }
 
+        /* ===== New datatable approach (crx-) ===== */
+        .crx-card{background:#fff;border:1px solid #e3e9f2;border-radius:8px;}
+        .crx-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid #edf1f6;}
+        .crx-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#05275C;}
+        .crx-sub{font-size:10px;color:#6b7280;margin-top:2px;}
+        .crx-toolbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+        .crx-filters{padding:8px 10px;border-bottom:1px solid #eef2f6;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;align-items:end;background:#fff;}
+        .crx-fg{display:flex;flex-direction:column;gap:2px;min-width:0;}
+        .crx-fg label{font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;}
+        .crx-fg .cr-filter-select,.crx-fg select,.crx-fg input{height:30px;border:1px solid #cdd8e6;padding:4px 8px;font-size:11px;background:#fff;border-radius:6px;color:#1a1a2e;width:100%;min-width:0;}
+        .crx-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:5px 10px;border:1px solid #d2dae6;background:#fff;color:#05275C;font-size:10px;font-weight:800;cursor:pointer;border-radius:6px;min-height:30px;}
+        .crx-btn:hover{color:#174DA4;border-color:#174DA4;background:#f4f8ff;}
+        .crx-btn--primary{background:#05275C;color:#fff;border-color:#05275C;}
+        .crx-btn--primary:hover{background:#174DA4;border-color:#174DA4;color:#fff;}
+        .crx-btn--success{background:#2e7d32;color:#fff;border-color:#2e7d32;}
+        .crx-btn--danger{background:#c62828;color:#fff;border-color:#c62828;}
+        .crx-bulk{display:none;padding:6px 10px;border-bottom:1px solid #fdba74;background:#fff7ed;align-items:center;gap:8px;flex-wrap:wrap;}
+        .crx-bulk.show{display:flex;}
+        .crx-bulk__lbl{font-size:11px;font-weight:700;color:#92400e;}
+        .crx-meta{padding:6px 10px;border-bottom:1px solid #eef2f6;font-size:10px;color:#64748b;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;}
+        .crx-pager{display:flex;gap:3px;flex-wrap:wrap;}
+        .crx-pager a,.crx-pager span{border:1px solid #d4dbe8;background:#fff;color:#334155;font-size:9px;text-decoration:none;padding:4px 7px;border-radius:6px;}
+        .crx-pager a:hover{border-color:#174DA4;color:#174DA4;background:#f4f8ff;}
+        .crx-pager .active{background:#05275C;border-color:#05275C;color:#fff;}
+        .crx-table-wrap{overflow:auto;background:#fff;}
+        .crx-table{width:100%;min-width:980px;border-collapse:collapse;table-layout:fixed;}
+        .crx-table th{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e0e5ed;font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;padding:6px 5px;text-align:left;white-space:nowrap;z-index:1;}
+        .crx-table td{border-bottom:1px solid #eef2f6;font-size:10.5px;color:#1f2937;padding:5px 5px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;}
+        .crx-table tbody tr:hover td{background:#fafcff;}
+        .crx-table .c{text-align:center;}
+        .crx-code{font-family:Consolas,monospace;font-size:10px;color:#174DA4;font-weight:700;}
+        .crx-link{color:#174DA4;text-decoration:underline;cursor:pointer;}
+        .crx-sel{width:30px;text-align:center;}
+        .crx-act{width:150px;}
+        .crx-row-sel{width:14px;height:14px;cursor:pointer;accent-color:#174DA4;}
+        .crx-empty{padding:26px 12px;text-align:center;color:#6b7280;font-size:11px;}
+        .crx-a{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border:1px solid #d6deea;background:#fff;color:#334155;font-size:9px;font-weight:700;cursor:pointer;border-radius:4px;margin:1px;text-decoration:none;}
+        .crx-a:hover{border-color:#174DA4;color:#174DA4;background:#f4f8ff;}
+        .crx-a--danger{color:#b42318;border-color:#f3c2c2;}
+        .crx-a--danger:hover{background:#fef2f2;border-color:#dc3545;color:#b42318;}
+
         /* Print Styles */
         @media print {
-            .cr-batch-bar, .cr-filter-row, .cr-retake-panel, .qe-overlay { display: none !important; }
+            .cr-batch-bar, .cr-filter-row, .cr-retake-panel, .qe-overlay,
+            .crx-toolbar, .crx-filters, .crx-bulk, .crx-act, .crx-sel { display: none !important; }
         }
     </style>
 </asp:Content>
@@ -467,6 +527,7 @@
         <asp:DropDownList ID="ddlSemester" runat="server" CssClass="cr-filter-select">
             <asp:ListItem Value="1" Text="Sem 1" Selected="True"></asp:ListItem>
             <asp:ListItem Value="2" Text="Sem 2"></asp:ListItem>
+            <asp:ListItem Value="3" Text="Sem 3"></asp:ListItem>
         </asp:DropDownList>
         
         <span class="cr-filter-row__label">Entry Year:</span>
@@ -508,92 +569,152 @@
         <asp:Literal ID="litMessage" runat="server"></asp:Literal>
     </asp:Panel>
     
-    <!-- Retake Panel -->
-    <div class="cr-modal-overlay" id="retakeModalOverlay" role="dialog" aria-modal="true" aria-labelledby="retakeModalTitle">
+    <!-- ===== Add Course Registration (self-contained AJAX — no postback) ===== -->
+    <div class="cr-modal-overlay" id="addModalOverlay" role="dialog" aria-modal="true" aria-labelledby="addModalTitle">
         <div class="cr-modal">
             <div class="cr-modal__head">
-                <span class="cr-modal__title" id="retakeModalTitle">Add New Record</span>
-                <button type="button" class="cr-modal__close" onclick="closeRetakeModal()" aria-label="Close">&times;</button>
+                <span class="cr-modal__title" id="addModalTitle">Add Course Registration</span>
+                <button type="button" class="cr-modal__close" onclick="closeAddModal()" aria-label="Close">&times;</button>
             </div>
             <div class="cr-modal__body">
-                <div class="cr-retake-row">
-                    <span class="cr-filter-row__label">Reg No:</span>
-                    <asp:TextBox ID="txtRetakeRegNo" runat="server" CssClass="cr-retake-input" placeholder="Enter Student Reg No"></asp:TextBox>
+                <div id="addMsg" class="cr-inline-msg"></div>
+                <div class="cr-fld">
+                    <label>Registration Number</label>
+                    <input type="text" id="addRegNo" class="cr-in" placeholder="e.g. MRU2024001234" autocomplete="off" onblur="addLoadCourses()" />
+                    <span id="addStudent" class="cr-hint"></span>
                 </div>
-                <div class="cr-retake-row" style="margin-top:8px;">
-                    <span class="cr-filter-row__label">Record Type:</span>
-                    <asp:DropDownList ID="ddlNewRecordType" runat="server" CssClass="cr-filter-select" Width="220px">
-                        <asp:ListItem Value="REGULAR" Text="Regular Course Registration" Selected="True"></asp:ListItem>
-                        <asp:ListItem Value="RETAKE" Text="Retake Course Registration"></asp:ListItem>
-                    </asp:DropDownList>
+                <div class="cr-fld">
+                    <label>Course</label>
+                    <input type="text" id="addCourse" class="cr-in" list="addCourseList" placeholder="Enter the reg number first, then type a code or name&hellip;" autocomplete="off" disabled />
+                    <datalist id="addCourseList"></datalist>
+                </div>
+                <div class="cr-fld2">
+                    <div>
+                        <label>Academic Year</label>
+                        <input type="text" id="addAcad" class="cr-in" placeholder="2025/2026" autocomplete="off" />
+                    </div>
+                    <div>
+                        <label>Semester</label>
+                        <select id="addSem" class="cr-in">
+                            <option value="1">Semester 1</option>
+                            <option value="2">Semester 2</option>
+                            <option value="3">Semester 3</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="cr-fld">
+                    <label>Record Type</label>
+                    <select id="addType" class="cr-in">
+                        <option value="REGULAR">Regular Course Registration</option>
+                        <option value="RETAKE">Retake Course Registration</option>
+                    </select>
                 </div>
             </div>
             <div class="cr-modal__foot">
-                <button type="button" class="cr-batch-btn" onclick="closeRetakeModal()">Cancel</button>
-                <asp:Button ID="btnAddRetake" runat="server" Text="Add Record" CssClass="cr-batch-btn cr-batch-btn--primary" OnClick="btnAddRetake_Click" OnClientClick="return validateAddRecordForm();" />
+                <button type="button" class="cr-batch-btn" onclick="closeAddModal()">Cancel</button>
+                <button type="button" class="cr-batch-btn cr-batch-btn--primary" id="addSubmitBtn" onclick="submitAdd(this)">Add Record</button>
             </div>
         </div>
     </div>
-    
-    <!-- Batch Actions & Grid -->
-    <div class="cd-card">
-        <div class="cr-batch-bar">
-            <div class="cr-batch-actions">
-                <asp:Button ID="btnRegisterSelected" runat="server" Text="Register Selected" CssClass="cr-batch-btn cr-batch-btn--success" OnClick="btnRegisterSelected_Click" OnClientClick="return validateBatchAction('register');" />
-                <asp:Button ID="btnRemoveSelected" runat="server" Text="Remove Selected" CssClass="cr-batch-btn cr-batch-btn--danger" OnClick="btnRemoveSelected_Click" OnClientClick="return validateBatchAction('remove');" Visible="false" />
-                <button type="button" class="cr-batch-btn" onclick="openRetakeModal()">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    Add New Record
-                </button>
+
+    <!-- ===== Move to Correct Course Code (change the paper a student sits) ===== -->
+    <div class="cr-modal-overlay" id="moveModalOverlay" role="dialog" aria-modal="true" aria-labelledby="moveModalTitle">
+        <div class="cr-modal">
+            <div class="cr-modal__head">
+                <span class="cr-modal__title" id="moveModalTitle">Move to Correct Course Code</span>
+                <button type="button" class="cr-modal__close" onclick="closeMoveModal()" aria-label="Close">&times;</button>
             </div>
+            <div class="cr-modal__body">
+                <div id="moveMsg" class="cr-inline-msg"></div>
+                <div class="cr-move-info">
+                    <div><span>Student</span><b id="moveStudent">-</b></div>
+                    <div><span>Reg No</span><b id="moveReg">-</b></div>
+                    <div><span>Sitting</span><b id="moveContext">-</b></div>
+                    <div><span>Current course</span><b id="moveOld" class="crx-code">-</b></div>
+                </div>
+                <div class="cr-fld">
+                    <label>Correct course</label>
+                    <input type="text" id="moveNew" class="cr-in" list="moveCourseList" placeholder="Type the correct code or name&hellip;" autocomplete="off" />
+                    <datalist id="moveCourseList"></datalist>
+                    <span class="cr-hint">The student&rsquo;s mark for this paper (course-work, exam, published result and transcript) moves with them to the new code, so it counts under the correct course in every result summary.</span>
+                </div>
+                <div class="cr-fld">
+                    <label>Reason <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+                    <input type="text" id="moveReason" class="cr-in" placeholder="e.g. student was registered under the wrong code" autocomplete="off" />
+                </div>
+            </div>
+            <div class="cr-modal__foot">
+                <button type="button" class="cr-batch-btn" onclick="closeMoveModal()">Cancel</button>
+                <button type="button" class="cr-batch-btn cr-batch-btn--primary" id="moveSubmitBtn" onclick="submitMove(this)">Move Student</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== New GET-driven datatable ===== -->
+    <div class="crx-card">
+        <div class="crx-head">
             <div>
-                <asp:Button ID="btnExportExcel" runat="server" Text="Export Excel" CssClass="cr-batch-btn" OnClick="btnExportExcel_Click" />
+                <div class="crx-title">Course Registration Records</div>
+                <div class="crx-sub">Server-paged &middot; filter, select and act on records below</div>
+            </div>
+            <div class="crx-toolbar">
+                <button type="button" class="crx-btn" onclick="openAddModal()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add Record
+                </button>
+                <asp:Button ID="btnExportExcel" runat="server" Text="Export Excel" CssClass="crx-btn" OnClick="btnExportExcel_Click" />
             </div>
         </div>
-        <div class="cd-card__body cr-table-wrap">
-            <dx:ASPxGridView ID="gvCourseReg" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="regno" 
-            CssClass="cr-grid" ClientInstanceName="gvCourseReg" OnCustomCallback="gvCourseReg_CustomCallback">
-                <SettingsPager PageSize="50" Visible="false" Mode="ShowAllRecords">
-                </SettingsPager>
-            <SettingsBehavior AllowFocusedRow="true" ConfirmDelete="true" AllowSort="true" />
-            <Settings ShowFilterRow="true" ShowFilterRowMenu="true" />
-                <SettingsSearchPanel Visible="true" ShowApplyButton="true" />
-                <Columns>
-                    <dx:GridViewCommandColumn ShowSelectCheckbox="true" SelectAllCheckboxMode="Page" VisibleIndex="0" Width="30px">
-                    </dx:GridViewCommandColumn>
-                    <dx:GridViewDataTextColumn FieldName="regno" Caption="Reg No" VisibleIndex="1" Width="120px">
-                        <Settings AllowAutoFilter="true" />
-                        <DataItemTemplate>
-                            <a href="javascript:void(0)" onclick="openQuickEdit('<%# Container.Text %>')" title="Quick Edit" style="color:#174DA4;text-decoration:underline;cursor:pointer;"><%# Container.Text %></a>
-                        </DataItemTemplate>
-                    </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="stud_name" Caption="Student Name" VisibleIndex="2">
-                        <Settings AllowAutoFilter="true" />
-                    </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="spec_name" Caption="Specialisation" VisibleIndex="3" Width="200px">
-                    </dx:GridViewDataTextColumn>
-                    <dx:GridViewDataTextColumn FieldName="course_code" Caption="Course" VisibleIndex="4" Width="110px" />
-                    <dx:GridViewDataTextColumn FieldName="acad_year" Caption="Acad Year" VisibleIndex="5" Width="90px" />
-                    <dx:GridViewDataTextColumn FieldName="semester" Caption="Sem" VisibleIndex="6" Width="50px" />
-                    <dx:GridViewDataTextColumn FieldName="entryyear" Caption="Entry Year" VisibleIndex="7" Width="80px" />
-                    <dx:GridViewDataTextColumn FieldName="intake" Caption="Intake" VisibleIndex="8" Width="90px" />
-                    <dx:GridViewDataTextColumn FieldName="reg_status" Caption="Reg Status" VisibleIndex="9" Width="100px" />
-                    <dx:GridViewDataTextColumn FieldName="course_status" Caption="Course Status" VisibleIndex="10" Width="110px">
-                        <DataItemTemplate>
-                            <%# GetCourseStatusBadge(Eval("course_status")) %>
-                        </DataItemTemplate>
-                    </dx:GridViewDataTextColumn>
-                </Columns>
-                <Styles>
-                    <Header BackColor="#f8f9fa" Font-Bold="true" Font-Size="10px" />
-                    <Row Font-Size="11px" />
-                    <AlternatingRow BackColor="#fafafa" />
-                </Styles>
-            </dx:ASPxGridView>
-            <dx:ASPxGridViewExporter ID="gvExporter" runat="server" GridViewID="gvCourseReg">
-            </dx:ASPxGridViewExporter>
-            <asp:Literal ID="litQueryPager" runat="server"></asp:Literal>
+
+        <!-- Bulk action bar (shown when rows are selected) -->
+        <div class="crx-bulk" id="crxBulk">
+            <span class="crx-bulk__lbl" id="crxBulkLbl">0 selected</span>
+            <asp:Button ID="btnRegisterSelected" runat="server" Text="Register Selected" CssClass="crx-btn crx-btn--success" OnClick="btnRegisterSelected_Click" OnClientClick="return prepBulk('register');" />
+            <asp:Button ID="btnRemoveSelected" runat="server" Text="Remove Selected" CssClass="crx-btn crx-btn--danger" OnClick="btnRemoveSelected_Click" OnClientClick="return prepBulk('remove');" Visible="false" />
+            <button type="button" class="crx-btn" onclick="clearSel()">Clear Selection</button>
         </div>
+
+        <!-- Meta + pager -->
+        <div class="crx-meta">
+            <span>Showing <strong><asp:Literal ID="litFrom" runat="server">0</asp:Literal></strong>&ndash;<strong><asp:Literal ID="litTo" runat="server">0</asp:Literal></strong>
+                of <strong><asp:Literal ID="litTotal" runat="server">0</asp:Literal></strong> records
+                &nbsp;|&nbsp; Page <asp:Literal ID="litPage" runat="server">1</asp:Literal> of <asp:Literal ID="litPageCount" runat="server">1</asp:Literal></span>
+            <div class="crx-pager"><asp:Literal ID="litPager" runat="server"></asp:Literal></div>
+        </div>
+
+        <div class="crx-table-wrap">
+            <table class="crx-table">
+                <colgroup>
+                    <col style="width:30px;" /><col style="width:120px;" /><col /><col style="width:160px;" />
+                    <col style="width:90px;" /><col style="width:80px;" /><col style="width:54px;" /><col style="width:70px;" />
+                    <col style="width:80px;" /><col style="width:90px;" /><col style="width:96px;" /><col style="width:158px;" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th class="crx-sel"><input type="checkbox" id="crxChkAll" onclick="toggleAll(this)" title="Select all on this page" /></th>
+                        <th>Reg No</th><th>Student</th><th>Specialisation</th><th>Course</th><th>Acad Yr</th><th>Sem</th>
+                        <th>Entry Yr</th><th>Intake</th><th>Reg Status</th><th>Course Status</th><th class="crx-act">Actions</th>
+                    </tr>
+                </thead>
+                <tbody><asp:Literal ID="litRows" runat="server"></asp:Literal></tbody>
+            </table>
+        </div>
+
+        <div class="crx-meta" style="border-bottom:none;">
+            <span><asp:Literal ID="litTotal2" runat="server">0</asp:Literal> total records</span>
+            <div class="crx-pager"><asp:Literal ID="litPager2" runat="server"></asp:Literal></div>
+        </div>
+    </div>
+
+    <!-- Selection + bulk-action carriers -->
+    <asp:HiddenField ID="hfSelectedKeys" runat="server" />
+
+    <!-- Hidden DevExpress grid retained only for Excel export -->
+    <div style="display:none;">
+        <dx:ASPxGridView ID="gvCourseReg" runat="server" Width="100%" AutoGenerateColumns="True" KeyFieldName="regno">
+        </dx:ASPxGridView>
+        <dx:ASPxGridViewExporter ID="gvExporter" runat="server" GridViewID="gvCourseReg">
+        </dx:ASPxGridViewExporter>
     </div>
     
     <!-- Loading Panel -->
@@ -798,36 +919,6 @@
             }
         }
         
-        function openRetakeModal() {
-            var modal = document.getElementById('retakeModalOverlay');
-            if (!modal) return;
-            modal.classList.add('show');
-            var input = document.getElementById('<%= txtRetakeRegNo.ClientID %>');
-            if (input) input.focus();
-        }
-
-        function closeRetakeModal() {
-            var modal = document.getElementById('retakeModalOverlay');
-            if (!modal) return;
-            modal.classList.remove('show');
-        }
-
-        function validateAddRecordForm() {
-            var regInput = document.getElementById('<%= txtRetakeRegNo.ClientID %>');
-            if (!regInput || !regInput.value.trim()) {
-                alert('Please enter a student registration number.');
-                return false;
-            }
-
-            var course = document.getElementById('<%= ddlCourse.ClientID %>');
-            if (!course || !course.value) {
-                alert('Please select a course first.');
-                return false;
-            }
-
-            return true;
-        }
-
         function validateBatchAction(actionType) {
             var course = document.getElementById('<%= ddlCourse.ClientID %>');
             if (!course || !course.value) {
@@ -911,12 +1002,12 @@
         document.addEventListener('DOMContentLoaded', wireGetFilters);
 
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') closeRetakeModal();
+            if (e.key === 'Escape') { closeAddModal(); closeMoveModal(); }
         });
 
         document.addEventListener('click', function (e) {
-            var modal = document.getElementById('retakeModalOverlay');
-            if (modal && e.target === modal) closeRetakeModal();
+            if (e.target === document.getElementById('addModalOverlay')) closeAddModal();
+            if (e.target === document.getElementById('moveModalOverlay')) closeMoveModal();
         });
         
         // Filters are hidden by default; user toggles when needed.
@@ -994,10 +1085,220 @@
             document.getElementById('<%= btnPrintResults.ClientID %>').click();
         }
 
-        // Wire up grid row double-click for quick edit
-        function onGridFocusedRowChanged(s, e) {
-            var key = s.GetFocusedRowKey();
-            if (key) openQuickEdit(key);
+    </script>
+
+    <!-- ===== New datatable: selection + admin row actions ===== -->
+    <script type="text/javascript">
+    (function () {
+        var selected = {};
+        function qs(id) { return document.getElementById(id); }
+        function hf() { return qs('<%= hfSelectedKeys.ClientID %>'); }
+
+        function updateBulk() {
+            var keys = Object.keys(selected);
+            var bar = qs('crxBulk'), lbl = qs('crxBulkLbl');
+            if (lbl) lbl.textContent = keys.length + ' selected';
+            if (bar) bar.classList.toggle('show', keys.length > 0);
+            var h = hf(); if (h) h.value = keys.join(',');
         }
+        window.onRowSel = function (cb) {
+            var k = cb.getAttribute('data-key');
+            if (cb.checked) selected[k] = 1; else delete selected[k];
+            updateBulk();
+        };
+        window.toggleAll = function (master) {
+            var boxes = document.querySelectorAll('.crx-row-sel');
+            for (var i = 0; i < boxes.length; i++) {
+                boxes[i].checked = master.checked;
+                var k = boxes[i].getAttribute('data-key');
+                if (master.checked) selected[k] = 1; else delete selected[k];
+            }
+            updateBulk();
+        };
+        window.clearSel = function () {
+            selected = {};
+            var boxes = document.querySelectorAll('.crx-row-sel');
+            for (var i = 0; i < boxes.length; i++) boxes[i].checked = false;
+            var m = qs('crxChkAll'); if (m) m.checked = false;
+            updateBulk();
+        };
+        window.prepBulk = function (action) {
+            var h = hf();
+            var keys = h && h.value ? h.value.split(',').filter(Boolean) : [];
+            if (keys.length === 0) { alert('Select at least one student by ticking the checkboxes.'); return false; }
+            var course = document.getElementById('<%= ddlCourse.ClientID %>');
+            if (!course || !course.value) { alert('Please select a course first.'); return false; }
+            return confirm(action === 'register'
+                ? ('Register ' + keys.length + ' selected student(s) for the selected course?')
+                : ('Remove registration for ' + keys.length + ' selected student(s)?'));
+        };
+
+        function callAjax(method, payload, cb) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', 'CourseRegistration.aspx/' + method, true);
+            xhr.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
+            xhr.onload = function () {
+                try { var o = JSON.parse(xhr.responseText); cb(typeof o.d === 'string' ? JSON.parse(o.d) : o.d); }
+                catch (e) { cb({ success: false, message: 'Unexpected server response.' }); }
+            };
+            xhr.onerror = function () { cb({ success: false, message: 'Network error.' }); };
+            xhr.send(JSON.stringify(payload));
+        }
+
+        window.crxDelete = function (btn) {
+            var d = btn.dataset;
+            if (!confirm('Delete this course registration?\n\n' + d.regno + ' — ' + d.course + ' (' + d.acad + ', Sem ' + d.sem + ')\n\nThis cannot be undone.')) return;
+            btn.disabled = true;
+            callAjax('DeleteRegistration', { regno: d.regno, course: d.course, acad: d.acad, sem: parseInt(d.sem, 10) }, function (r) {
+                if (r && r.success) { window.location.reload(); }
+                else { alert((r && r.message) || 'Delete failed.'); btn.disabled = false; }
+            });
+        };
+        window.crxStatus = function (btn) {
+            var d = btn.dataset;
+            var cur = (d.status || '').toUpperCase();
+            var next = cur === 'RETAKE' ? 'REGULAR' : 'RETAKE';
+            if (!confirm('Change course status of ' + d.regno + ' — ' + d.course + '\nfrom ' + (cur || '-') + ' to ' + next + '?')) return;
+            btn.disabled = true;
+            callAjax('SetCourseStatus', { regno: d.regno, course: d.course, acad: d.acad, sem: parseInt(d.sem, 10), status: next }, function (r) {
+                if (r && r.success) { window.location.reload(); }
+                else { alert((r && r.message) || 'Update failed.'); btn.disabled = false; }
+            });
+        };
+
+        // ===== shared helpers =====================================================
+        function msg(id, text, kind) {
+            var el = qs(id); if (!el) return;
+            if (!text) { el.className = 'cr-inline-msg'; el.textContent = ''; return; }
+            el.className = 'cr-inline-msg show cr-inline-msg--' + (kind || 'err');
+            el.textContent = text;
+        }
+        function pageVal(clientId) { var el = qs(clientId); return el ? (el.value || '') : ''; }
+        // Fill a <datalist> with the programme's courses; skip any code in `skip` (already held).
+        function fillCourseList(listId, courses, skip) {
+            var dl = qs(listId); if (!dl) return;
+            var s = {}; (skip || []).forEach(function (c) { s[(c || '').toUpperCase()] = 1; });
+            var h = '';
+            (courses || []).forEach(function (c) {
+                if (s[(c.code || '').toUpperCase()]) return;
+                var lbl = c.code + (c.name ? ' — ' + c.name : '') + (c.sy ? '  (Yr ' + c.sy + (c.sem ? ' S' + c.sem : '') + ')' : '');
+                h += '<option value="' + c.code.replace(/"/g, '&quot;') + '">' + lbl.replace(/</g, '&lt;') + '</option>';
+            });
+            dl.innerHTML = h;
+        }
+        function codeInList(courses, code, skip) {
+            var up = (code || '').trim().toUpperCase(); if (!up) return false;
+            var s = {}; (skip || []).forEach(function (c) { s[(c || '').toUpperCase()] = 1; });
+            if (s[up]) return false;
+            for (var i = 0; i < (courses || []).length; i++) if ((courses[i].code || '').toUpperCase() === up) return true;
+            return false;
+        }
+        // Resolve what the user typed/selected to a real code: exact match first (handles codes with
+        // spaces), then the leading token as a fallback. Returns the canonical code or ''.
+        function resolveCode(courses, raw) {
+            var v = (raw || '').trim(); if (!v) return '';
+            for (var i = 0; i < (courses || []).length; i++) if ((courses[i].code || '').toUpperCase() === v.toUpperCase()) return courses[i].code;
+            var head = v.split(/\s+—\s+|\s+-\s+/)[0].trim();  // strip a " — Name" / " - Name" suffix only
+            for (var j = 0; j < (courses || []).length; j++) if ((courses[j].code || '').toUpperCase() === head.toUpperCase()) return courses[j].code;
+            return head;
+        }
+
+        // ===== ADD RECORD (self-contained) ========================================
+        var addCourses = [], addTaken = [];
+        window.openAddModal = function () {
+            msg('addMsg', '');
+            qs('addRegNo').value = '';
+            qs('addStudent').textContent = '';
+            var c = qs('addCourse'); c.value = ''; c.disabled = true; qs('addCourseList').innerHTML = '';
+            addCourses = []; addTaken = [];
+            // Pre-fill sitting context from the page filters (editable).
+            var a = pageVal('<%= ddlAcadYear.ClientID %>'); if (a) qs('addAcad').value = a;
+            var s = pageVal('<%= ddlSemester.ClientID %>'); if (s && qs('addSem').querySelector('option[value="' + s + '"]')) qs('addSem').value = s;
+            var t = pageVal('<%= ddlCourse.ClientID %>');  // if a course filter is active, seed it after courses load
+            qs('addModalOverlay').classList.add('show');
+            setTimeout(function () { qs('addRegNo').focus(); }, 60);
+            window._addSeedCourse = t || '';
+        };
+        window.closeAddModal = function () { var m = qs('addModalOverlay'); if (m) m.classList.remove('show'); };
+        window.addLoadCourses = function () {
+            var reg = (qs('addRegNo').value || '').trim();
+            var c = qs('addCourse');
+            if (!reg) { c.disabled = true; qs('addStudent').textContent = ''; return; }
+            qs('addStudent').textContent = 'Loading student…';
+            callAjax('GetStudentCourseOptions', { regno: reg, acad: (qs('addAcad').value || '').trim(), sem: parseInt(qs('addSem').value, 10) || 0 }, function (r) {
+                if (!r || !r.success) { qs('addStudent').textContent = (r && r.message) || 'Student not found.'; c.disabled = true; return; }
+                addCourses = r.courses || []; addTaken = r.taken || [];
+                qs('addStudent').textContent = (r.student || '') + (r.prog ? '  ·  ' + r.prog : '');
+                fillCourseList('addCourseList', addCourses, addTaken);
+                c.disabled = false;
+                if (window._addSeedCourse && codeInList(addCourses, window._addSeedCourse, addTaken)) c.value = window._addSeedCourse;
+            });
+        };
+        window.submitAdd = function (btn) {
+            var reg = (qs('addRegNo').value || '').trim();
+            var course = (qs('addCourse').value || '').trim();
+            var acad = (qs('addAcad').value || '').trim();
+            var sem = parseInt(qs('addSem').value, 10) || 0;
+            var type = qs('addType').value || 'REGULAR';
+            if (!reg) { msg('addMsg', 'Please enter a registration number.'); return; }
+            if (!acad) { msg('addMsg', 'Please enter the academic year (e.g. 2025/2026).'); return; }
+            if (!course) { msg('addMsg', 'Please choose a course.'); return; }
+            course = resolveCode(addCourses, course);
+            if (!codeInList(addCourses, course, addTaken)) {
+                msg('addMsg', addTaken.indexOf(course.toUpperCase()) > -1
+                    ? 'The student already has ' + course + ' this semester.'
+                    : 'Pick a valid course from the list for this student’s programme.');
+                return;
+            }
+            msg('addMsg', '');
+            btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Adding…';
+            callAjax('AddCourseRegistration', { regno: reg, course: course, acad: acad, sem: sem, type: type }, function (r) {
+                if (r && r.success) { window.location.reload(); }
+                else { msg('addMsg', (r && r.message) || 'Could not add the record.'); btn.disabled = false; btn.textContent = orig; }
+            });
+        };
+
+        // ===== MOVE TO CORRECT COURSE ============================================
+        var moveCtx = null, moveCourses = [], moveTaken = [];
+        window.crxMove = function (btn) {
+            var d = btn.dataset;
+            moveCtx = { regno: d.regno, course: d.course, acad: d.acad, sem: d.sem, name: d.name || '' };
+            msg('moveMsg', '');
+            qs('moveStudent').textContent = moveCtx.name || '-';
+            qs('moveReg').textContent = moveCtx.regno;
+            qs('moveContext').textContent = moveCtx.acad + '  ·  Semester ' + moveCtx.sem;
+            qs('moveOld').textContent = moveCtx.course;
+            qs('moveNew').value = ''; qs('moveReason').value = ''; qs('moveCourseList').innerHTML = '';
+            moveCourses = []; moveTaken = [];
+            qs('moveModalOverlay').classList.add('show');
+            callAjax('GetStudentCourseOptions', { regno: moveCtx.regno, acad: moveCtx.acad, sem: parseInt(moveCtx.sem, 10) || 0 }, function (r) {
+                if (!r || !r.success) { msg('moveMsg', (r && r.message) || 'Could not load courses.'); return; }
+                moveCourses = r.courses || []; moveTaken = r.taken || [];
+                // the current (wrong) code is one the student holds — allow moving OFF it, so keep it selectable-away
+                fillCourseList('moveCourseList', moveCourses, moveTaken);
+                setTimeout(function () { qs('moveNew').focus(); }, 40);
+            });
+        };
+        window.closeMoveModal = function () { var m = qs('moveModalOverlay'); if (m) m.classList.remove('show'); moveCtx = null; };
+        window.submitMove = function (btn) {
+            if (!moveCtx) return;
+            var nw = resolveCode(moveCourses, qs('moveNew').value);
+            if (!nw) { msg('moveMsg', 'Please choose the correct course.'); return; }
+            if (nw.toUpperCase() === (moveCtx.course || '').toUpperCase()) { msg('moveMsg', 'That is the same as the current course.'); return; }
+            if (!codeInList(moveCourses, nw, moveTaken)) {
+                msg('moveMsg', moveTaken.indexOf(nw.toUpperCase()) > -1
+                    ? 'The student already has ' + nw + ' this semester — delete that duplicate first.'
+                    : 'Pick a valid course from the list for this student’s programme.');
+                return;
+            }
+            if (!confirm('Move ' + moveCtx.regno + '\nfrom ' + moveCtx.course + ' to ' + nw + '\nfor ' + moveCtx.acad + ', Semester ' + moveCtx.sem + '?\n\nThe mark moves with the student.')) return;
+            msg('moveMsg', '');
+            btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Moving…';
+            callAjax('ChangeCourseCode', { regno: moveCtx.regno, oldCourse: moveCtx.course, acad: moveCtx.acad, sem: parseInt(moveCtx.sem, 10) || 0, newCourse: nw, reason: (qs('moveReason').value || '').trim() }, function (r) {
+                if (r && r.success) { window.location.reload(); }
+                else { msg('moveMsg', (r && r.message) || 'Move failed.'); btn.disabled = false; btn.textContent = orig; }
+            });
+        };
+    })();
     </script>
 </asp:Content>
