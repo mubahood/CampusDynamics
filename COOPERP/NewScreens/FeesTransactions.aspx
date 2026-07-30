@@ -440,18 +440,18 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <asp:TextBox ID="txtSearch" runat="server" CssClass="ft-search-box" placeholder="Search by reg no, student name, description..." AutoPostBack="false" />
             </div>
-            <button type="button" class="ft-btn ft-btn--primary ft-btn--sm" onclick="document.getElementById('<%= btnSearch.ClientID %>').click()">Search</button>
+            <button type="button" class="ft-btn ft-btn--primary ft-btn--sm" onclick="ftApply()">Search</button>
             <asp:Label ID="lblRecordCount" runat="server" CssClass="ft-card__meta" Text="0 records" />
             <asp:Literal ID="litAcadContext" runat="server" />
         </div>
         <div class="ft-filters__row">
             <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Academic Year</label>
-                <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlAcadYear_SelectedIndexChanged" />
+                <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="ft-filter-select" AutoPostBack="false" onchange="ftApply()" />
             </div>
             <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Semester</label>
-                <asp:DropDownList ID="ddlSemester" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlSemester_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlSemester" runat="server" CssClass="ft-filter-select" AutoPostBack="false" onchange="ftApply()">
                     <asp:ListItem Value="" Text="All Semesters" />
                     <asp:ListItem Value="1" Text="Semester 1" />
                     <asp:ListItem Value="2" Text="Semester 2" />
@@ -460,7 +460,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
             </div>
             <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Type</label>
-                <asp:DropDownList ID="ddlTransType" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlTransType_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlTransType" runat="server" CssClass="ft-filter-select" AutoPostBack="false" onchange="ftApply()">
                     <asp:ListItem Value="" Text="All Types" />
                     <asp:ListItem Value="Bill" Text="Bills" />
                     <asp:ListItem Value="Payment" Text="Payments" />
@@ -468,11 +468,11 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
             </div>
             <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Billing Item</label>
-                <asp:DropDownList ID="ddlBillItem" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlBillItem_SelectedIndexChanged" style="min-width:160px;" />
+                <asp:DropDownList ID="ddlBillItem" runat="server" CssClass="ft-filter-select" AutoPostBack="false" onchange="ftApply()" style="min-width:160px;" />
             </div>
             <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Post Status</label>
-                <asp:DropDownList ID="ddlPostStatus" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlPostStatus_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlPostStatus" runat="server" CssClass="ft-filter-select" AutoPostBack="false" onchange="ftApply()">
                     <asp:ListItem Value="" Text="All" />
                     <asp:ListItem Value="Posted" Text="Posted" />
                     <asp:ListItem Value="Pending" Text="Pending" />
@@ -480,7 +480,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
             </div>
             <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Student Status</label>
-                <asp:DropDownList ID="ddlStudStatus" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlStudStatus_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlStudStatus" runat="server" CssClass="ft-filter-select" AutoPostBack="false" onchange="ftApply()">
                     <asp:ListItem Value="" Text="All Students" Selected="True" />
                     <asp:ListItem Value="Active" Text="Active" />
                     <asp:ListItem Value="ADMITTED" Text="Admitted" />
@@ -488,7 +488,7 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
             </div>
             <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Source</label>
-                <asp:DropDownList ID="ddlSource" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlSource_SelectedIndexChanged">
+                <asp:DropDownList ID="ddlSource" runat="server" CssClass="ft-filter-select" AutoPostBack="false" onchange="ftApply()">
                     <asp:ListItem Value="" Text="All Sources" Selected="True" />
                     <asp:ListItem Value="manual" Text="Manual Only" />
                     <asp:ListItem Value="gl_only" Text="GL Only (Orphaned)" />
@@ -496,14 +496,14 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
             </div>
             <div class="ft-filter-grp">
                 <label class="ft-filter-grp__label">Per Page</label>
-                <asp:DropDownList ID="ddlPageSize" runat="server" CssClass="ft-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlPageSize_Changed" style="min-width:80px;">
+                <asp:DropDownList ID="ddlPageSize" runat="server" CssClass="ft-filter-select" AutoPostBack="false" onchange="ftApply()" style="min-width:80px;">
                     <asp:ListItem Value="50" Text="50" Selected="True" />
                     <asp:ListItem Value="100" Text="100" />
                     <asp:ListItem Value="200" Text="200" />
                     <asp:ListItem Value="500" Text="500" />
                 </asp:DropDownList>
             </div>
-            <button type="button" class="ft-btn ft-btn--ghost ft-btn--sm" style="align-self:flex-end;" onclick="document.getElementById('<%= btnReset.ClientID %>').click()">
+            <button type="button" class="ft-btn ft-btn--ghost ft-btn--sm" style="align-self:flex-end;" onclick="ftReset()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.5"></path></svg>
                 Reset
             </button>
@@ -647,7 +647,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tb.addEventListener('keydown', function(e) {
             if (e.keyCode === 13) {
                 e.preventDefault();
-                document.getElementById('<%= btnSearch.ClientID %>').click();
+                ftApply();
             }
         });
     }
@@ -1245,11 +1245,31 @@ function doConfirmAction() {
 function _fmtNum(x) { if (!x) return '0'; return parseFloat(x).toLocaleString(); }
 function _esc(str) { var d = document.createElement('div'); d.appendChild(document.createTextNode(str || '')); return d.innerHTML; }
 
-/* ==== Pager navigation ==== */
+/* ==== GET-driven filters + pagination (no postback) ==== */
+function _ftv(id){ var el=document.getElementById(id); return el ? (el.value||'') : ''; }
+// Build the canonical query string from the current filter controls and navigate (GET).
+function ftApply() {
+    var p = new URLSearchParams();
+    function s(k,v){ v=(v==null?'':(''+v)).trim(); if(v!=='') p.set(k,v); }
+    s('acad',       _ftv('<%= ddlAcadYear.ClientID %>'));
+    s('sem',        _ftv('<%= ddlSemester.ClientID %>'));
+    s('type',       _ftv('<%= ddlTransType.ClientID %>'));
+    s('item',       _ftv('<%= ddlBillItem.ClientID %>'));
+    s('post',       _ftv('<%= ddlPostStatus.ClientID %>'));
+    s('studstatus', _ftv('<%= ddlStudStatus.ClientID %>'));
+    s('source',     _ftv('<%= ddlSource.ClientID %>'));
+    var sz = _ftv('<%= ddlPageSize.ClientID %>'); if (sz && sz !== '50') p.set('size', sz);
+    var q  = _ftv('<%= txtSearch.ClientID %>').trim(); if (q) p.set('q', q);
+    p.set('page', '1');   // any filter/search change returns to page 1
+    window.location.href = window.location.pathname + '?' + p.toString();
+}
+function ftReset() { window.location.href = window.location.pathname; }
+// Pager buttons pass a 0-based index; the URL carries a 1-based page.
 function goToPage(idx) {
-    if (idx < 0) return;
-    document.getElementById('<%= hfPageIndex.ClientID %>').value = idx;
-    document.getElementById('<%= btnGoToPage.ClientID %>').click();
+    idx = parseInt(idx, 10); if (isNaN(idx) || idx < 0) return;
+    var p = new URLSearchParams(window.location.search);
+    p.set('page', (idx + 1).toString());
+    window.location.href = window.location.pathname + '?' + p.toString();
 }
 
 /* ================================================================
@@ -2446,7 +2466,7 @@ function batchPostStatus(status) {
             if (d.ok) {
                 alert('Done! ' + d.updated + ' transaction(s) marked as ' + status + '.');
                 batchClearAll();
-                document.getElementById('<%= btnSearch.ClientID %>').click();
+                window.location.reload();
             } else {
                 alert('Error: ' + (d.error || 'Unknown error'));
             }
@@ -2536,7 +2556,7 @@ function doBatchDelete() {
                 text.textContent = 'Complete.';
                 batchClearAll();
                 document.getElementById('batchDelFooter').innerHTML =
-                    '<button type="button" class="ft-confirm__btn ft-confirm__btn--cancel" onclick="closeBatchDeleteModal();document.getElementById(\'<%= btnSearch.ClientID %>\').click()">Close &amp; Refresh</button>';
+                    '<button type="button" class="ft-confirm__btn ft-confirm__btn--cancel" onclick="closeBatchDeleteModal();window.location.reload()">Close &amp; Refresh</button>';
             } else {
                 resDiv.className = 'ft-batch-result ft-batch-result--err';
                 resDiv.textContent = 'Error: ' + (d.error || 'Unknown error');

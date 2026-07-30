@@ -90,6 +90,19 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
 
         if (!IsPostBack)
         {
+            // GET-driven filters: hydrate the controls from the query string so the UI mirrors the URL
+            // and LoadTransactions (which reads the controls) needs no change. Filters/paging are now
+            // plain GET navigation (bookmarkable, back-button friendly, no postback/ViewState churn).
+            SetDdlFromQuery(ddlAcadYear,   Request.QueryString["acad"]);
+            SetDdlFromQuery(ddlSemester,   Request.QueryString["sem"]);
+            SetDdlFromQuery(ddlTransType,  Request.QueryString["type"]);
+            SetDdlFromQuery(ddlBillItem,   Request.QueryString["item"]);
+            SetDdlFromQuery(ddlPostStatus, Request.QueryString["post"]);
+            SetDdlFromQuery(ddlStudStatus, Request.QueryString["studstatus"]);
+            SetDdlFromQuery(ddlSource,     Request.QueryString["source"]);
+            SetDdlFromQuery(ddlPageSize,   Request.QueryString["size"]);
+            txtSearch.Text = Request.QueryString["q"] ?? "";
+
             // If a specific TID is requested via querystring, clear the year filter
             // so the record always shows regardless of academic year.
             string tidParam = Request.QueryString["tid"];
@@ -100,10 +113,25 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                 if (ddlAcadYear.Items.FindByValue("") != null)
                     ddlAcadYear.SelectedValue = "";
             }
-            // Default to All Years — admin must explicitly select a year to filter
         }
 
         LoadTransactions();
+    }
+
+    /// <summary>Selects a dropdown value from a query-string parameter (no-op if the value is absent
+    /// or not in the list), so the filters reflect the GET URL.</summary>
+    private void SetDdlFromQuery(DropDownList ddl, string val)
+    {
+        if (ddl == null) return;
+        ListItem item = ddl.Items.FindByValue(val ?? "");
+        if (item != null) { ddl.ClearSelection(); item.Selected = true; }
+    }
+
+    /// <summary>Invalidates every cached transaction-summary aggregate (called after any write) so the
+    /// totals bar recomputes on the next load instead of showing a stale count.</summary>
+    private static void BumpFtStatsCache()
+    {
+        try { System.Web.HttpRuntime.Cache["ftstatsver"] = Guid.NewGuid().ToString("N"); } catch { }
     }
 
     private void RestorePostedValue(DropDownList ddl)
@@ -341,60 +369,48 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
           + " SUM(CASE WHEN c.trans_type='Payment' THEN c.amount ELSE 0 END) AS pay_amt"
           + " FROM (" + inner + ") AS c " + outerW;
 
-        // ── Paging ────────────────────────────────────────────────────────
+        // ── Paging (GET-driven) ───────────────────────────────────────────
+        // Page size and page number come from the URL (?size=, ?page= 1-based). A filter/search
+        // change navigates with page=1 (client-side), so no postback page-tracking is needed.
         int pageSize = 50;
         try { pageSize = Convert.ToInt32(ddlPageSize.SelectedValue); } catch { }
 
-        string eventTarget     = Request.Form["__EVENTTARGET"] ?? "";
-        bool isPageNavClick    = Request.Form[btnGoToPage.UniqueID] != null;
-        bool isFilterDropdown  =
-            eventTarget == ddlAcadYear.UniqueID    || eventTarget == ddlSemester.UniqueID   ||
-            eventTarget == ddlTransType.UniqueID   || eventTarget == ddlBillItem.UniqueID   ||
-            eventTarget == ddlPostStatus.UniqueID  || eventTarget == ddlStudStatus.UniqueID ||
-            eventTarget == ddlPageSize.UniqueID    || eventTarget == ddlSource.UniqueID;
-        bool isSearchOrReset   =
-            Request.Form[btnSearch.UniqueID] != null || Request.Form[btnReset.UniqueID] != null;
-
-        int pageIndex = 0;
-        if (isPageNavClick)
-        {
-            int.TryParse(hfPageIndex.Value, out pageIndex);
-            if (pageIndex < 0) pageIndex = 0;
-        }
-        else if (isFilterDropdown || isSearchOrReset || !IsPostBack)
-        {
+        int pageIndex = 0, pgUrl;
+        if (int.TryParse(Request.QueryString["page"], out pgUrl) && pgUrl > 0) pageIndex = pgUrl - 1;
+        if (pageIndex < 0) pageIndex = 0;
+        // After a single-row add/edit/delete (still a postback) jump to page 1 so the result is visible.
+        if (IsPostBack && (
+                Request.Form[btnSaveTransaction.UniqueID]   != null || Request.Form[btnEditTransaction.UniqueID] != null ||
+                Request.Form[btnDeleteTransaction.UniqueID] != null || Request.Form[btnRemoveFromGL.UniqueID]    != null))
             pageIndex = 0;
-            hfPageIndex.Value = "0";
-        }
-        else
-        {
-            int.TryParse(hfPageIndex.Value, out pageIndex);
-            if (pageIndex < 0) pageIndex = 0;
-        }
+        hfPageIndex.Value = pageIndex.ToString();   // kept in sync for any legacy references
 
         using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
 
             // 1. Stats — the aggregate (COUNT + SUM over the whole filtered union) is the expensive
-            //    half of the load and does NOT change while you page through the same filter. So it is
-            //    computed once per filter and cached in ViewState; a pure page-navigation reuses it and
-            //    skips the second full union build. Any filter/search/reset recomputes (signature miss).
+            //    half of the load and does NOT change while you page through the same filter. It is
+            //    cached app-wide (HttpRuntime.Cache) keyed by the filter signature with a short TTL, so
+            //    paging (GET navigation, which resets ViewState) still reuses it and skips the 2nd union
+            //    build. A different filter is a different key → recompute; the TTL bounds staleness.
             string filterSig = string.Join("|", new[] {
                 ddlAcadYear.SelectedValue, ddlSemester.SelectedValue, ddlTransType.SelectedValue,
                 ddlBillItem.SelectedValue, ddlPostStatus.SelectedValue, ddlStudStatus.SelectedValue,
                 ddlSource.SelectedValue, search, isTidFilter ? tidParamVal.ToString() : "" });
+            // A version token (bumped by every write via BumpFtStatsCache) is folded into the key so any
+            // add/edit/delete instantly invalidates the cached totals — no stale summary after a write.
+            string statVer = (System.Web.HttpRuntime.Cache["ftstatsver"] as string) ?? "0";
+            string statCacheKey = "ftstats::" + statVer + "::" + filterSig;
 
             long totalTx = 0, billCnt = 0, payCnt = 0;
             decimal billAmt = 0, payAmt = 0;
-            bool useCache = isPageNavClick && (ViewState["ftSig"] as string) == filterSig && ViewState["ftTotal"] != null;
-            if (useCache)
+            object[] cached = System.Web.HttpRuntime.Cache[statCacheKey] as object[];
+            if (cached != null && cached.Length == 5)
             {
-                totalTx = Convert.ToInt64(ViewState["ftTotal"]);
-                billCnt = Convert.ToInt64(ViewState["ftBillCnt"]);
-                payCnt  = Convert.ToInt64(ViewState["ftPayCnt"]);
-                billAmt = Convert.ToDecimal(ViewState["ftBillAmt"]);
-                payAmt  = Convert.ToDecimal(ViewState["ftPayAmt"]);
+                totalTx = Convert.ToInt64(cached[0]); billCnt = Convert.ToInt64(cached[1]);
+                payCnt  = Convert.ToInt64(cached[2]); billAmt = Convert.ToDecimal(cached[3]);
+                payAmt  = Convert.ToDecimal(cached[4]);
             }
             else
             {
@@ -412,12 +428,9 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
                         payAmt  = rdr["pay_amt"]  != DBNull.Value ? Convert.ToDecimal(rdr["pay_amt"])  : 0;
                     }
                 }
-                ViewState["ftSig"]     = filterSig;
-                ViewState["ftTotal"]   = totalTx;
-                ViewState["ftBillCnt"] = billCnt;
-                ViewState["ftPayCnt"]  = payCnt;
-                ViewState["ftBillAmt"] = billAmt;
-                ViewState["ftPayAmt"]  = payAmt;
+                System.Web.HttpRuntime.Cache.Insert(statCacheKey,
+                    new object[] { totalTx, billCnt, payCnt, billAmt, payAmt }, null,
+                    DateTime.Now.AddSeconds(45), System.Web.Caching.Cache.NoSlidingExpiration);
             }
             ApplyStats(totalTx, billCnt, payCnt, billAmt, payAmt);
 
@@ -859,6 +872,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     // ====================================================================
     protected void btnSaveTransaction_Click(object sender, EventArgs e)
     {
+        BumpFtStatsCache();   // invalidate the cached summary totals after this write
         // Restore modal posted values
         RestorePostedValue(ddlTxTransType);
         RestorePostedValue(ddlTxBillItem);
@@ -1080,6 +1094,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     // ====================================================================
     protected void btnEditTransaction_Click(object sender, EventArgs e)
     {
+        BumpFtStatsCache();   // invalidate the cached summary totals after this write
         // Restore edit modal posted values
         RestorePostedValue(ddlEditTransType);
         RestorePostedValue(ddlEditBillItem);
@@ -1252,6 +1267,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     // ====================================================================
     protected void btnRemoveFromGL_Click(object sender, EventArgs e)
     {
+        BumpFtStatsCache();   // invalidate the cached summary totals after this write
         string glTidStr = hfRemoveGLTID.Value.Trim();
         int glTid;
         if (!int.TryParse(glTidStr, out glTid) || glTid <= 0)
@@ -1351,6 +1367,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     // ====================================================================
     protected void btnDeleteTransaction_Click(object sender, EventArgs e)
     {
+        BumpFtStatsCache();   // invalidate the cached summary totals after this write
         string tidStr = hfDeleteTID.Value.Trim();
         int tid;
         if (!int.TryParse(tidStr, out tid) || tid <= 0)
@@ -2612,6 +2629,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     // ====================================================================
     private void HandleBatchDelete()
     {
+        BumpFtStatsCache();   // invalidate the cached summary totals after this write
         Response.Clear();
         Response.ContentType = "application/json";
 
@@ -2795,6 +2813,7 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
     // ====================================================================
     private void HandleBatchPostStatus()
     {
+        BumpFtStatsCache();   // invalidate the cached summary totals after this write
         Response.Clear();
         Response.ContentType = "application/json";
 
