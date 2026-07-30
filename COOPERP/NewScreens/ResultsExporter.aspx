@@ -162,6 +162,8 @@
     .sr-opt small { color:#94a3b8; }
     .sr-none { padding:8px 10px; font-size:11px; color:#94a3b8; font-style:italic; }
     .sr-div { border:none; border-top:1px solid #eef2f7; margin:14px 0; }
+    .sr-chk { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:#334155; cursor:pointer; }
+    .sr-chk input { width:15px; height:15px; margin:0; cursor:pointer; }
     .sr-prev { display:none; align-items:center; gap:14px; margin-top:14px; padding:12px 14px; background:#f0f7ff; border:1px solid #cfe0f5; border-radius:4px; }
     .sr-prev.show { display:flex; }
     .sr-prev__n { font-size:26px; font-weight:800; color:#05275C; line-height:1; font-variant-numeric:tabular-nums; }
@@ -594,18 +596,29 @@ document.addEventListener('DOMContentLoaded',function(){
             <div class="sr-status" id="srStatus">Pick a programme &mdash; the fields below fill in automatically (you can still change any of them). Counts show where marks exist.</div>
 
             <div class="sr-fg">
-                <label>Entry Year <span class="sr-req">*</span></label>
-                <select id="srYear" class="sr-sel" disabled><option value="">Select a programme first&hellip;</option></select>
+                <label>Academic Year <span class="sr-req">*</span></label>
+                <select id="srAcadYear" class="sr-sel" disabled><option value="">Select a programme first&hellip;</option></select>
+                <span class="sr-hint">The sitting. Marks are scoped to this academic year, so students who sat this semester in a different year are not mixed in.</span>
             </div>
 
             <div class="sr-fg">
                 <label>Year of Study <span class="sr-req">*</span></label>
-                <select id="srStudyYear" class="sr-sel" disabled><option value="">Select entry year first&hellip;</option></select>
+                <select id="srStudyYear" class="sr-sel" disabled><option value="">Select academic year first&hellip;</option></select>
             </div>
 
             <div class="sr-fg">
                 <label>Semester <span class="sr-req">*</span></label>
                 <select id="srSem" class="sr-sel" disabled><option value="">Select year of study first&hellip;</option></select>
+            </div>
+
+            <div class="sr-fg">
+                <label>Entry Year <span class="sr-hint" style="font-weight:400;">(optional — narrows to one intake)</span></label>
+                <select id="srYear" class="sr-sel" disabled><option value="">All intakes</option></select>
+            </div>
+
+            <div class="sr-fg" style="margin-bottom:8px;">
+                <label class="sr-chk"><input type="checkbox" id="srExcludePromoted" /> Only students still at this year/semester</label>
+                <span class="sr-hint">Off (default): include everyone who sat this sitting, even if they have since moved on — their completed marks are never dropped. On: keep only students whose latest registration is not beyond this semester.</span>
             </div>
 
             <div class="sr-fg">
@@ -687,18 +700,24 @@ document.addEventListener('DOMContentLoaded',function(){
         opts.forEach(function(o){ h+='<option value="'+e2(o.v)+'">'+e2(o.t)+'</option>'; });
         el.innerHTML=h; el.value=''; el.disabled=!enabled;
     }
-    // counts from the data-bearing combos (used to annotate + auto-fill; NOT to limit options)
-    function cntYear(y){ var t=0; srCombos.forEach(function(c){ if(c.y===y) t+=c.n; }); return t; }
-    function cntStudy(y,sy){ var t=0; srCombos.forEach(function(c){ if(c.y===y&&c.sy===sy) t+=c.n; }); return t; }
-    function cntSem(y,sy,s){ var t=0; srCombos.forEach(function(c){ if(c.y===y&&c.sy===sy&&c.s===s) t+=c.n; }); return t; }
+    // counts from the data-bearing combos (used to annotate + auto-fill; NOT to limit options).
+    // The sitting is now anchored on ACADEMIC YEAR (ay); entry year (y) is an optional narrowing.
+    function eyMatch(c){ var y=d('srYear').value; return !y || c.y===y; }   // honour the optional entry-year filter
+    function cntAY(ay){ var t=0; srCombos.forEach(function(c){ if(c.ay===ay&&eyMatch(c)) t+=c.n; }); return t; }
+    function cntStudy(ay,sy){ var t=0; srCombos.forEach(function(c){ if(c.ay===ay&&c.sy===sy&&eyMatch(c)) t+=c.n; }); return t; }
+    function cntSem(ay,sy,s){ var t=0; srCombos.forEach(function(c){ if(c.ay===ay&&c.sy===sy&&c.s===s&&eyMatch(c)) t+=c.n; }); return t; }
     function bestFor(pred){ var b=null; srCombos.forEach(function(c){ if(pred(c) && (!b||c.n>b.n)) b=c; }); return b; }
     var STUDY_YEARS=['1','2','3','4','5'], SEMS=['1','2','3'];
-    function yearOpts(){
+    function acadYearOpts(){
+        var list=[]; srCombos.forEach(function(c){ if(c.ay && list.indexOf(c.ay)<0) list.push(c.ay); });
+        list.sort(function(a,b){ return b.localeCompare(a); });   // newest first
+        return list.map(function(ay){ var n=cntAY(ay); return {v:ay, t:ay+(n>0?('  ·  '+stu(n)):'')}; });
+    }
+    function entryYearOpts(){
         var list=srAllYears.slice();
-        // include any data-bearing year not already in the master list (safety)
         srCombos.forEach(function(c){ if(c.y && list.indexOf(c.y)<0) list.push(c.y); });
         list.sort(function(a,b){ return b.localeCompare(a); });
-        return list.map(function(y){ var n=cntYear(y); return {v:y, t:'Entry '+y+(n>0?('  ·  '+stu(n)):'')}; });
+        return list.map(function(y){ return {v:y, t:'Entry '+y}; });
     }
 
     function clearPreview(){ d('srPrev').classList.remove('show'); d('srPrevN').textContent='0'; d('srBtnMarks').disabled=true; d('srBtnPerf').disabled=true; }
@@ -707,9 +726,10 @@ document.addEventListener('DOMContentLoaded',function(){
     function fetchCascade(){
         var prog=d('srProg').value;
         srCombos=[]; srAllYears=[];
-        setSel('srYear',[], 'Select a programme first…', false);
-        setSel('srStudyYear',[], 'Select entry year first…', false);
+        setSel('srAcadYear',[], 'Select a programme first…', false);
+        setSel('srStudyYear',[], 'Select academic year first…', false);
         setSel('srSem',[], 'Select year of study first…', false);
+        setSel('srYear',[], 'All intakes', false);
         clearPreview();
         if(!prog){ status('Pick a programme &mdash; the fields below fill in automatically.'); return; }
         status('<span class="sr-spin"></span> Loading&hellip;','sr-status--load');
@@ -721,47 +741,50 @@ document.addEventListener('DOMContentLoaded',function(){
             var r=null; try{ r=JSON.parse(xhr.responseText); }catch(ex){}
             if(!r){ status('Could not load. Please retry.','sr-status--warn'); return; }
             srCombos=r.combos||[]; srAllYears=r.years||[];
-            populateYears();
+            populateAcadYears();
         };
         xhr.onerror=function(){ status('Network error. Please retry.','sr-status--warn'); };
         xhr.send();
     }
-    // Populate ALL fields with their full option ranges (years = every entry year the programme has;
-    // study = Year 1–5; semester = 1–3), annotate with student counts where data exists, and
-    // auto-select the best-populated combo. The user can freely change any field afterwards.
-    function populateYears(){
-        var ys=yearOpts();
-        setSel('srYear', ys, '-- Select Entry Year --', true);
+    // Anchor on academic year: populate Academic Year (the sittings that have data), Year of Study 1–5,
+    // Semester 1–3, and the optional Entry Year (all intakes); annotate with counts and auto-select the
+    // best-populated sitting. The user can freely change any field afterwards.
+    function populateAcadYears(){
+        setSel('srAcadYear', acadYearOpts(), '-- Select Academic Year --', true);
         setSel('srStudyYear', STUDY_YEARS.map(function(sy){ return {v:sy,t:'Year '+sy}; }), '-- Select Year of Study --', true);
         setSel('srSem', SEMS.map(function(s){ return {v:s,t:'Semester '+s}; }), '-- Select Semester --', true);
+        setSel('srYear', entryYearOpts(), 'All intakes', true);
         clearPreview();
-        var b=bestFor(function(){ return true; });   // globally best-populated (source, programme) combo
-        if(b){ d('srYear').value=b.y; onYear();
+        var ays=acadYearOpts();   // newest-first
+        if(ays.length){ d('srAcadYear').value=ays[0].v; onAcadYear();   // default to the most recent sitting
                var src=d('srSource').value||'all';
-               status('Auto-filled to the term with the most '+e2(SRC_LBL[src]||src)+' marks — change any field freely.','sr-status--ok'); }
+               status('Auto-filled to the latest sitting ('+e2(ays[0].v)+') with '+e2(SRC_LBL[src]||src)+' marks — change any field freely.','sr-status--ok'); }
         else { var src2=d('srSource').value||'all';
-               status('No <b>'+e2(SRC_LBL[src2]||src2)+'</b> marks for this programme yet — pick any term (may return 0) or change the Results Source.','sr-status--warn'); }
+               status('No <b>'+e2(SRC_LBL[src2]||src2)+'</b> marks for this programme yet — pick any sitting (may return 0) or change the Results Source.','sr-status--warn'); }
     }
-    function onYear(){
-        var y=d('srYear').value;
-        // re-annotate Year of Study with counts for the chosen year (full 1–5 range kept)
-        setSel('srStudyYear', STUDY_YEARS.map(function(sy){ var n=cntStudy(y,sy); return {v:sy,t:'Year '+sy+(n>0?('  ·  '+stu(n)):'')}; }), '-- Select Year of Study --', true);
+    function onAcadYear(){
+        var ay=d('srAcadYear').value;
+        setSel('srStudyYear', STUDY_YEARS.map(function(sy){ var n=cntStudy(ay,sy); return {v:sy,t:'Year '+sy+(n>0?('  ·  '+stu(n)):'')}; }), '-- Select Year of Study --', true);
         setSel('srSem', SEMS.map(function(s){ return {v:s,t:'Semester '+s}; }), '-- Select Semester --', true);
         clearPreview();
-        if(!y) return;
-        var b=bestFor(function(c){ return c.y===y; });
+        if(!ay) return;
+        var b=bestFor(function(c){ return c.ay===ay&&eyMatch(c); });
         if(b){ d('srStudyYear').value=b.sy; onStudy(); }
     }
     function onStudy(){
-        var y=d('srYear').value, sy=d('srStudyYear').value;
-        setSel('srSem', SEMS.map(function(s){ var n=cntSem(y,sy,s); return {v:s,t:'Semester '+s+(n>0?('  ·  '+stu(n)):'')}; }), '-- Select Semester --', true);
+        var ay=d('srAcadYear').value, sy=d('srStudyYear').value;
+        setSel('srSem', SEMS.map(function(s){ var n=cntSem(ay,sy,s); return {v:s,t:'Semester '+s+(n>0?('  ·  '+stu(n)):'')}; }), '-- Select Semester --', true);
         clearPreview();
         if(!sy) return;
-        var b=bestFor(function(c){ return c.y===y&&c.sy===sy; });
+        var b=bestFor(function(c){ return c.ay===ay&&c.sy===sy&&eyMatch(c); });
         if(b){ d('srSem').value=b.s; maybeAutoPreview(); }
     }
+    function onEntryYear(){
+        // Entry year is an optional narrowing — re-annotate the sitting fields with its counts.
+        onAcadYear();
+    }
     function maybeAutoPreview(){
-        if(d('srProg').value && d('srYear').value && d('srStudyYear').value && d('srSem').value) window.srPreview(true);
+        if(d('srProg').value && d('srAcadYear').value && d('srStudyYear').value && d('srSem').value) window.srPreview(true);
         else clearPreview();
     }
 
@@ -769,25 +792,32 @@ document.addEventListener('DOMContentLoaded',function(){
         d('srSource').value='all';
         d('srProg').value=''; d('srProgInput').value='';
         srCombos=[]; srAllYears=[];
-        setSel('srYear',[], 'Select a programme first…', false);
-        setSel('srStudyYear',[], 'Select entry year first…', false);
+        setSel('srAcadYear',[], 'Select a programme first…', false);
+        setSel('srStudyYear',[], 'Select academic year first…', false);
         setSel('srSem',[], 'Select year of study first…', false);
+        setSel('srYear',[], 'All intakes', false);
+        var xp=d('srExcludePromoted'); if(xp) xp.checked=false;
         d('srReg').value=''; var mc=d('srMinCourses'); if(mc) mc.value='5';
         clearPreview();
         status('Pick a programme &mdash; the fields below fill in automatically (you can still change any of them).');
     }
     function collect(silent){
-        var p=d('srProg').value, y=d('srYear').value, sy=d('srStudyYear').value, sm=d('srSem').value;
+        var p=d('srProg').value, ay=d('srAcadYear').value, sy=d('srStudyYear').value, sm=d('srSem').value;
         if(!p){ if(!silent){ alert('Please select a Programme.'); d('srProgInput').focus(); } return null; }
-        if(!y){ if(!silent) alert('Please select an Entry Year.'); return null; }
+        if(!ay){ if(!silent) alert('Please select an Academic Year.'); return null; }
         if(!sy){ if(!silent) alert('Please select a Year of Study.'); return null; }
         if(!sm){ if(!silent) alert('Please select a Semester.'); return null; }
-        return { programme:p, entryYear:y, studyYear:sy, semester:sm, source:d('srSource').value||'all', entryNumbers:(d('srReg').value||'').trim(), minCourses:((d('srMinCourses')||{}).value||'') };
+        return { programme:p, acadYear:ay, entryYear:(d('srYear').value||''), studyYear:sy, semester:sm,
+                 source:d('srSource').value||'all', entryNumbers:(d('srReg').value||'').trim(),
+                 minCourses:((d('srMinCourses')||{}).value||''),
+                 excludePromoted:(d('srExcludePromoted')&&d('srExcludePromoted').checked)?'1':'' };
     }
     function query(action,c){
-        var q='?action='+action+'&programme='+encodeURIComponent(c.programme)+'&entryYear='+encodeURIComponent(c.entryYear)
+        var q='?action='+action+'&programme='+encodeURIComponent(c.programme)+'&acadYear='+encodeURIComponent(c.acadYear||'')
+            +'&entryYear='+encodeURIComponent(c.entryYear||'')
             +'&studyYear='+encodeURIComponent(c.studyYear)+'&semester='+encodeURIComponent(c.semester)+'&source='+encodeURIComponent(c.source)
             +'&minCourses='+encodeURIComponent(c.minCourses||'');
+        if(c.excludePromoted) q+='&excludePromoted=1';
         if(c.entryNumbers) q+='&entryNumbers='+encodeURIComponent(c.entryNumbers);
         return q;
     }
@@ -830,9 +860,11 @@ document.addEventListener('DOMContentLoaded',function(){
         if(pi){ pi.addEventListener('focus',function(){ renderProg(); d('srProgCombo').classList.add('open'); });
                 pi.addEventListener('input',function(){ d('srProg').value=''; renderProg(); d('srProgCombo').classList.add('open'); }); }
         var src=d('srSource'); if(src) src.addEventListener('change',function(){ if(d('srProg').value) fetchCascade(); });
-        var y=d('srYear'); if(y) y.addEventListener('change',onYear);
+        var ay=d('srAcadYear'); if(ay) ay.addEventListener('change',onAcadYear);
+        var y=d('srYear'); if(y) y.addEventListener('change',onEntryYear);
         var sy=d('srStudyYear'); if(sy) sy.addEventListener('change',onStudy);
         var sm=d('srSem'); if(sm) sm.addEventListener('change',maybeAutoPreview);
+        var xp=d('srExcludePromoted'); if(xp) xp.addEventListener('change',function(){ if(d('srProg').value&&d('srAcadYear').value&&d('srStudyYear').value&&d('srSem').value) window.srPreview(true); });
         document.addEventListener('click',function(ev){ var c=d('srProgCombo'); if(c && !c.contains(ev.target)) c.classList.remove('open'); });
         document.addEventListener('keydown',function(ev){ if(ev.key==='Escape' && d('srModal').classList.contains('show')) window.closeSRModal(); });
         var ov=d('srModal'); if(ov) ov.addEventListener('click',function(ev){ if(ev.target===ov) window.closeSRModal(); });

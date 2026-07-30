@@ -1117,6 +1117,33 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         return "(SELECT MIN(pc.study_year) FROM acad_programmecourses pc WHERE pc.progcode=" + cr + ".prog_id AND pc.course_code=" + cr + ".courseID)";
     }
 
+    // ----- Academic-year (sitting) scoping ------------------------------------------------------
+    // A results summary is a SITTING = (academic year, year-of-study, semester). The academic-year
+    // filter is what pins it to one sitting instead of pooling every year a course was ever taught.
+    // acadCol = the academic-year column on the marks alias ("acad" for acad_results / the derived
+    // SR_ResultsFrom alias r; "acad_year" for the raw portal cr). Caller binds @acadYear (via
+    // SR_BindSitting) when acadYear is non-empty, and @semester when semester is non-empty.
+    //
+    // excludePromoted (optional, default off) drops students whose LATEST active semester
+    // registration is AFTER the requested sitting — i.e. keep only those still at this level. It is
+    // OFF by default on purpose: inclusion is decided by the marks' own academic year, never by the
+    // student's current standing, so a student who has since moved on still appears on the report for
+    // the semester they actually sat (no completed-semester marks are ever dropped).
+    private static string SR_SittingFilter(string acadCol, string acadYear, string semester, bool excludePromoted)
+    {
+        if (string.IsNullOrWhiteSpace(acadYear)) return "";
+        string w = " AND " + acadCol + " = @acadYear";
+        if (excludePromoted && !string.IsNullOrWhiteSpace(semester))
+            w += " AND NOT EXISTS (SELECT 1 FROM acad_registration g WHERE g.regno = s.regno " +
+                 "AND g.regstatus IN ('REGISTERED','CLEARED','LATE REGISTERED') " +
+                 "AND (g.acad_year > @acadYear OR (g.acad_year = @acadYear AND g.semester > @semester)))";
+        return w;
+    }
+    private static void SR_BindSitting(MySqlCommand cmd, string acadYear)
+    {
+        if (!string.IsNullOrWhiteSpace(acadYear)) cmd.Parameters.AddWithValue("@acadYear", acadYear);
+    }
+
     /// <summary>
     /// Cascade helper for the Summary Report modal: given a source + programme, returns every
     /// (entryYear, studyYear, semester) combination that actually has gradeable data, with a
@@ -1143,38 +1170,39 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 {
                     // ALL: published OR fully-marked provisional, cohort-driven. Study-year comes from a
                     // pre-grouped acad_programmecourses join (≈4× faster than a per-row subquery here,
-                    // since this scans every one of the programme's marks across all years).
-                    sql = "SELECT s.entryyear y, pcs.sy sy, cr.semester s, COUNT(DISTINCT s.regno) n " +
+                    // since this scans every one of the programme's marks across all years). Academic
+                    // year (cr.acad_year) is now part of the combo so the client can cascade on the sitting.
+                    sql = "SELECT s.entryyear y, cr.acad_year ay, pcs.sy sy, cr.semester s, COUNT(DISTINCT s.regno) n " +
                           "FROM acad_student s JOIN campus_dynamics_portal.acad_course_registration cr ON cr.regno = s.regno " +
                           "LEFT JOIN (SELECT progcode, course_code, MIN(study_year) sy FROM acad_programmecourses GROUP BY progcode, course_code) pcs " +
                           "  ON pcs.progcode = cr.prog_id AND pcs.course_code = cr.courseID " +
                           "WHERE s.progid = @programme AND TRIM(IFNULL(s.entryyear,'')) <> '' AND" + SR_AllMarkPredicate("cr") +
                           "  AND cr.semester IS NOT NULL " +
-                          "GROUP BY s.entryyear, pcs.sy, cr.semester HAVING n > 0 AND pcs.sy IS NOT NULL " +
-                          "ORDER BY y DESC, sy, s";
+                          "GROUP BY s.entryyear, cr.acad_year, pcs.sy, cr.semester HAVING n > 0 AND pcs.sy IS NOT NULL " +
+                          "ORDER BY ay DESC, y DESC, sy, s";
                 }
                 else if (stage == null)
                 {
-                    sql = "SELECT s.entryyear y, r.studyyear sy, r.semester s, COUNT(DISTINCT s.regno) n " +
+                    sql = "SELECT s.entryyear y, r.acad ay, r.studyyear sy, r.semester s, COUNT(DISTINCT s.regno) n " +
                           "FROM acad_student s JOIN acad_results r ON r.regno = s.regno " +
                           "WHERE s.progid = @programme AND TRIM(IFNULL(s.entryyear,'')) <> '' " +
                           "  AND r.studyyear IS NOT NULL AND r.semester IS NOT NULL " +
-                          "GROUP BY s.entryyear, r.studyyear, r.semester HAVING n > 0 " +
-                          "ORDER BY y DESC, sy, s";
+                          "GROUP BY s.entryyear, r.acad, r.studyyear, r.semester HAVING n > 0 " +
+                          "ORDER BY ay DESC, y DESC, sy, s";
                 }
                 else
                 {
-                    sql = "SELECT s.entryyear y, sub.sy sy, sub.s s, COUNT(DISTINCT s.regno) n " +
+                    sql = "SELECT s.entryyear y, sub.ay ay, sub.sy sy, sub.s s, COUNT(DISTINCT s.regno) n " +
                           "FROM acad_student s JOIN ( " +
-                          "   SELECT cr.regno, cr.semester s, " +
+                          "   SELECT cr.regno, cr.acad_year ay, cr.semester s, " +
                           "     (SELECT MIN(pc.study_year) FROM acad_programmecourses pc " +
                           "        WHERE pc.progcode = cr.prog_id AND pc.course_code = cr.courseID) sy " +
                           "   FROM campus_dynamics_portal.acad_course_registration cr " +
                           "   WHERE cr.mark_stage = @stage AND cr.provisional_total_marks IS NOT NULL ) sub " +
                           "  ON sub.regno = s.regno " +
                           "WHERE s.progid = @programme AND TRIM(IFNULL(s.entryyear,'')) <> '' AND sub.sy IS NOT NULL " +
-                          "GROUP BY s.entryyear, sub.sy, sub.s HAVING n > 0 " +
-                          "ORDER BY y DESC, sy, s";
+                          "GROUP BY s.entryyear, sub.ay, sub.sy, sub.s HAVING n > 0 " +
+                          "ORDER BY ay DESC, y DESC, sy, s";
                 }
 
                 using (MySqlConnection conn = new MySqlConnection(ConnectionString))
@@ -1191,6 +1219,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                                 combos.Add(new
                                 {
                                     y = rdr["y"] == DBNull.Value ? "" : Convert.ToString(rdr["y"]).Trim(),
+                                    ay = rdr["ay"] == DBNull.Value ? "" : Convert.ToString(rdr["ay"]).Trim(),
                                     sy = rdr["sy"] == DBNull.Value ? "" : Convert.ToString(rdr["sy"]).Trim(),
                                     s = rdr["s"] == DBNull.Value ? "" : Convert.ToString(rdr["s"]).Trim(),
                                     n = rdr["n"] == DBNull.Value ? 0 : Convert.ToInt32(rdr["n"])
@@ -1232,11 +1261,13 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string semester = Request.QueryString["semester"] ?? "";
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
             string source = Request.QueryString["source"] ?? "approved";
+            string acadYear = Request.QueryString["acadYear"] ?? "";
+            bool excludePromoted = (Request.QueryString["excludePromoted"] ?? "") == "1";
 
             // Guard: never count the whole database. Require a programme (or explicit reg numbers).
             int count = (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
                 ? 0
-                : GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers, source);
+                : GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted);
 
             JavaScriptSerializer serializer = new JavaScriptSerializer();
             Response.Write(serializer.Serialize(new { count = count }));
@@ -1260,6 +1291,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// Gets count of students who have results matching the filters.
     /// </summary>
     private int GetSummaryReportStudentCount(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source)
+    {
+        return GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers, source, "", false);
+    }
+
+    private int GetSummaryReportStudentCount(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source, string acadYear, bool excludePromoted)
     {
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -1297,6 +1333,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 sql += all ? " AND @studyYear = " + SR_StudyYearExpr("cr") : " AND r.studyyear = @studyYear";
             if (!string.IsNullOrEmpty(semester))
                 sql += all ? " AND cr.semester = @semester" : " AND r.semester = @semester";
+            // Academic-year sitting filter: the "all" branch scans the raw portal cr (acad_year);
+            // every other source uses the derived/results alias r (acad).
+            sql += SR_SittingFilter(all ? "cr.acad_year" : "r.acad", acadYear, semester, excludePromoted);
 
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
@@ -1305,7 +1344,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     for (int i = 0; i < entries.Length; i++)
                         cmd.Parameters.AddWithValue("@entry" + i, entries[i].Trim());
                 }
-                
+
                 if (!string.IsNullOrEmpty(programme))
                     cmd.Parameters.AddWithValue("@programme", programme);
                 if (!string.IsNullOrEmpty(entryYear))
@@ -1314,7 +1353,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     cmd.Parameters.AddWithValue("@studyYear", studyYear);
                 if (!string.IsNullOrEmpty(semester))
                     cmd.Parameters.AddWithValue("@semester", semester);
-                
+                SR_BindSitting(cmd, acadYear);
+
                 object result = cmd.ExecuteScalar();
                 return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
             }
@@ -1336,6 +1376,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
             string source = Request.QueryString["source"] ?? "approved";
             int minCourses = ParseMinCourses(Request.QueryString["minCourses"]);   // provided figure, else 4
+            string acadYear = Request.QueryString["acadYear"] ?? "";               // sitting anchor (blank = all years)
+            bool excludePromoted = (Request.QueryString["excludePromoted"] ?? "") == "1";
 
             // Guard: refuse an unscoped export (would pull the whole database).
             if (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
@@ -1348,7 +1390,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             }
 
             // Get students with their results (source-aware)
-            DataTable reportData = GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, source);
+            DataTable reportData = GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted);
 
             if (reportData.Rows.Count == 0)
             {
@@ -1360,7 +1402,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             }
 
             // Generate PDF using DevExpress XtraPrinting
-            GenerateSummaryReportPdf(reportData, studyYear, semester, entryYear, minCourses);
+            GenerateSummaryReportPdf(reportData, studyYear, semester, entryYear, minCourses, acadYear);
         }
         catch (System.Threading.ThreadAbortException)
         {
@@ -1390,6 +1432,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string entryNumbers = Request.QueryString["entryNumbers"] ?? "";
             string source = Request.QueryString["source"] ?? "approved";
             int minCourses = ParseMinCourses(Request.QueryString["minCourses"]);   // provided figure, else 4
+            string acadYear = Request.QueryString["acadYear"] ?? "";               // sitting anchor (blank = all years)
+            bool excludePromoted = (Request.QueryString["excludePromoted"] ?? "") == "1";
 
             // Guard: refuse an unscoped export (would pull the whole database).
             if (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
@@ -1402,7 +1446,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             }
 
             // Get students with CGPA data (source-aware: published or a staged stage)
-            DataTable studentData = GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, source);
+            DataTable studentData = GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted);
 
             if (studentData.Rows.Count == 0)
             {
@@ -1417,7 +1461,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string programmeName = GetProgrammeName(programme);
 
             // Generate Performance Report PDF
-            GeneratePerformanceReportPdf(studentData, programmeName, entryYear, studyYear, semester, source, minCourses);
+            GeneratePerformanceReportPdf(studentData, programmeName, entryYear, studyYear, semester, source, minCourses, acadYear);
         }
         catch (System.Threading.ThreadAbortException)
         {
@@ -1448,10 +1492,15 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     
     private DataTable GetPerformanceReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers)
     {
-        return GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, "approved");
+        return GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, "approved", "", false);
     }
 
     private DataTable GetPerformanceReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source)
+    {
+        return GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, source, "", false);
+    }
+
+    private DataTable GetPerformanceReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source, string acadYear, bool excludePromoted)
     {
         DataTable dt = new DataTable();
 
@@ -1480,9 +1529,14 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 COUNT(*) AS courses"
                 + SR_ResultsFrom(source) +
                 @" WHERE s.progid = @programme
-                   AND s.entryyear = @entryYear
                    AND r.studyyear = @studyYear
                    AND r.semester = @semester";
+
+            // Entry year is now an OPTIONAL cohort narrowing (the academic-year sitting is the anchor).
+            if (!string.IsNullOrWhiteSpace(entryYear))
+                sql += " AND s.entryyear = @entryYear";
+            // Academic-year sitting filter (+ optional exclude-promoted). r exposes .acad in every source.
+            sql += SR_SittingFilter("r.acad", acadYear, semester, excludePromoted);
 
             List<string> entryParams = new List<string>();
             string[] entries = null;
@@ -1505,9 +1559,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
                 cmd.Parameters.AddWithValue("@programme", programme);
-                cmd.Parameters.AddWithValue("@entryYear", entryYear);
+                if (!string.IsNullOrWhiteSpace(entryYear))
+                    cmd.Parameters.AddWithValue("@entryYear", entryYear);
                 cmd.Parameters.AddWithValue("@studyYear", studyYear);
                 cmd.Parameters.AddWithValue("@semester", semester);
+                SR_BindSitting(cmd, acadYear);
 
                 if (!string.IsNullOrEmpty(entryNumbers) && entries != null && entries.Length > 0)
                 {
@@ -1527,13 +1583,18 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     
     private void GeneratePerformanceReportPdf(DataTable data, string programmeName, string entryYear, string studyYear, string semester, string source, int minCourses)
     {
+        GeneratePerformanceReportPdf(data, programmeName, entryYear, studyYear, semester, source, minCourses, "");
+    }
+
+    private void GeneratePerformanceReportPdf(DataTable data, string programmeName, string entryYear, string studyYear, string semester, string source, int minCourses, string acadYear)
+    {
         // Create DevExpress PrintingSystem
         DevExpress.XtraPrinting.PrintingSystem ps = new DevExpress.XtraPrinting.PrintingSystem();
 
         // Create custom link for PDF content
         DevExpress.XtraPrinting.Link pdfLink = new DevExpress.XtraPrinting.Link(ps);
         pdfLink.CreateDetailArea += (s, args) => {
-            GeneratePerformanceReportContent(args.Graph, data, programmeName, entryYear, studyYear, semester, source, minCourses);
+            GeneratePerformanceReportContent(args.Graph, data, programmeName, entryYear, studyYear, semester, source, minCourses, acadYear);
         };
         
         // Set page settings for A4
@@ -1582,12 +1643,18 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     private void GeneratePerformanceReportContent(DevExpress.XtraPrinting.BrickGraphics gr, DataTable data,
         string programmeName, string entryYear, string studyYear, string semester, string source, int minCourses)
     {
+        GeneratePerformanceReportContent(gr, data, programmeName, entryYear, studyYear, semester, source, minCourses, "");
+    }
+
+    private void GeneratePerformanceReportContent(DevExpress.XtraPrinting.BrickGraphics gr, DataTable data,
+        string programmeName, string entryYear, string studyYear, string semester, string source, int minCourses, string acadYear)
+    {
         // Get university name and logo
         string universityName = GetUniversityName();
         string logoPath = Server.MapPath("~/COOPERP/images/welcomelogo.png");
-        
-        // Get academic year
-        string academicYear = AcademicYearHelper.GetCurrentAcademicYear();
+
+        // Academic year of the SITTING (as requested); fall back to the current year for legacy links.
+        string academicYear = !string.IsNullOrWhiteSpace(acadYear) ? acadYear : AcademicYearHelper.GetCurrentAcademicYear();
         
         // Colors
         System.Drawing.Color brandColor = System.Drawing.Color.FromArgb(23, 77, 164);
@@ -2051,10 +2118,15 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     /// </summary>
     private DataTable GetSummaryReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers)
     {
-        return GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, "published");
+        return GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, "published", "", false);
     }
 
     private DataTable GetSummaryReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source)
+    {
+        return GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, source, "", false);
+    }
+
+    private DataTable GetSummaryReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source, string acadYear, bool excludePromoted)
     {
         // Published: sourced from acad_results, ENRICHED with CW/Exam/Total + status from the
         // portal provisional ledger (with a transparent fallback if that cross-DB join is
@@ -2063,13 +2135,18 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         Exception lastEx = null;
         foreach (bool includeProvisional in new[] { true, false })
         {
-            try { return BuildSummaryReportTable(programme, entryYear, studyYear, semester, entryNumbers, includeProvisional, source); }
+            try { return BuildSummaryReportTable(programme, entryYear, studyYear, semester, entryNumbers, includeProvisional, source, acadYear, excludePromoted); }
             catch (Exception ex) { lastEx = ex; }
         }
         throw lastEx;
     }
 
     private DataTable BuildSummaryReportTable(string programme, string entryYear, string studyYear, string semester, string entryNumbers, bool includeProvisional, string source)
+    {
+        return BuildSummaryReportTable(programme, entryYear, studyYear, semester, entryNumbers, includeProvisional, source, "", false);
+    }
+
+    private DataTable BuildSummaryReportTable(string programme, string entryYear, string studyYear, string semester, string entryNumbers, bool includeProvisional, string source, string acadYear, bool excludePromoted)
     {
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -2151,7 +2228,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 }
             }
 
-            // Always filter by programme, entry year, study year, and semester
+            // Programme + year-of-study + semester scope the sitting; entry year is optional; the
+            // academic-year filter pins it to one sitting (was missing — the cause of cross-year pooling).
             if (!string.IsNullOrEmpty(programme))
                 sql += " AND s.progid = @programme";
             if (!string.IsNullOrEmpty(entryYear))
@@ -2160,6 +2238,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 sql += " AND r.studyyear = @studyYear";
             if (!string.IsNullOrEmpty(semester))
                 sql += " AND r.semester = @semester";
+            sql += SR_SittingFilter("r.acad", acadYear, semester, excludePromoted);
 
             sql += " ORDER BY s.entryno, r.semester, r.courseid";
 
@@ -2180,6 +2259,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     cmd.Parameters.AddWithValue("@studyYear", studyYear);
                 if (!string.IsNullOrEmpty(semester))
                     cmd.Parameters.AddWithValue("@semester", semester);
+                SR_BindSitting(cmd, acadYear);
 
                 using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
                 {
@@ -2439,6 +2519,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 
     private void GenerateSummaryReportPdf(DataTable data, string studyYear, string semester, string entryYear, int minCourses)
     {
+        GenerateSummaryReportPdf(data, studyYear, semester, entryYear, minCourses, "");
+    }
+
+    private void GenerateSummaryReportPdf(DataTable data, string studyYear, string semester, string entryYear, int minCourses, string acadYear)
+    {
         string universityName = GetUniversityName();
         string progName = data.Rows.Count > 0 && data.Rows[0]["progname"] != DBNull.Value 
             ? data.Rows[0]["progname"].ToString() : "";
@@ -2649,9 +2734,10 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 semLabelBrick.BackColor = System.Drawing.Color.Transparent;
                 gr.DrawBrick(semLabelBrick, new System.Drawing.RectangleF(col2X, row2Y, labelWidth, 14));
                 
-                // Semester Value
+                // Semester Value (append the academic year of the sitting when supplied)
                 DevExpress.XtraPrinting.TextBrick semValueBrick = new DevExpress.XtraPrinting.TextBrick();
-                semValueBrick.Text = !string.IsNullOrEmpty(semester) ? "Semester " + semester : "All";
+                semValueBrick.Text = (!string.IsNullOrEmpty(semester) ? "Semester " + semester : "All")
+                    + (!string.IsNullOrWhiteSpace(acadYear) ? "  ·  " + acadYear : "");
                 semValueBrick.Font = filterValueFont;
                 semValueBrick.ForeColor = brandColor;
                 semValueBrick.Sides = DevExpress.XtraPrinting.BorderSide.None;

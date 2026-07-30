@@ -3781,6 +3781,8 @@
             document.getElementById('<%= ddlReportProgramme.ClientID %>').value = '';
             document.getElementById('txtSearchEntryYear').value = '';
             document.getElementById('hdnSelectedEntryYear').value = '';
+            var ay = document.getElementById('txtReportAcadYear'); if (ay) ay.value = '';
+            var xp = document.getElementById('chkReportExcludePromoted'); if (xp) xp.checked = false;
             document.getElementById('ddlReportStudyYear').value = '';
             document.getElementById('ddlReportSemester').value = '';
             var mc = document.getElementById('txtReportMinCourses'); if (mc) mc.value = '5';
@@ -3795,6 +3797,8 @@
         function previewSummaryReport() {
             var programme = document.getElementById('hdnSelectedProgramme').value || document.getElementById('<%= ddlReportProgramme.ClientID %>').value;
             var entryYear = document.getElementById('hdnSelectedEntryYear').value;
+            var acadYear = (document.getElementById('txtReportAcadYear') || {}).value || '';
+            var excludePromoted = (document.getElementById('chkReportExcludePromoted') || {}).checked ? '1' : '';
             var studyYear = document.getElementById('ddlReportStudyYear').value;
             var semester = document.getElementById('ddlReportSemester').value;
             var entryNumbers = document.getElementById('txtReportEntryNumbers').value.trim();
@@ -3805,9 +3809,9 @@
                 document.getElementById('txtSearchProgramme').focus();
                 return;
             }
-            if (!entryYear) {
-                alert('Please select an Entry Year. This field is required.');
-                document.getElementById('txtSearchEntryYear').focus();
+            if (!acadYear) {
+                alert('Please enter an Academic Year (e.g. 2025/2026). This field is required.');
+                var _ay = document.getElementById('txtReportAcadYear'); if (_ay) _ay.focus();
                 return;
             }
             if (!studyYear) {
@@ -3828,7 +3832,9 @@
             // Build query string
             var queryParams = '?action=PreviewSummaryReport';
             queryParams += '&programme=' + encodeURIComponent(programme);
+            queryParams += '&acadYear=' + encodeURIComponent(acadYear);
             queryParams += '&entryYear=' + encodeURIComponent(entryYear);
+            if (excludePromoted) queryParams += '&excludePromoted=1';
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
             queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'all');
@@ -3862,6 +3868,8 @@
         function exportSummaryReport() {
             var programme = document.getElementById('hdnSelectedProgramme').value || document.getElementById('<%= ddlReportProgramme.ClientID %>').value;
             var entryYear = document.getElementById('hdnSelectedEntryYear').value;
+            var acadYear = (document.getElementById('txtReportAcadYear') || {}).value || '';
+            var excludePromoted = (document.getElementById('chkReportExcludePromoted') || {}).checked ? '1' : '';
             var studyYear = document.getElementById('ddlReportStudyYear').value;
             var semester = document.getElementById('ddlReportSemester').value;
             var entryNumbers = document.getElementById('txtReportEntryNumbers').value.trim();
@@ -3872,8 +3880,8 @@
                 alert('Please select a Programme. This field is required.');
                 return;
             }
-            if (!entryYear) {
-                alert('Please select an Entry Year. This field is required.');
+            if (!acadYear) {
+                alert('Please enter an Academic Year (e.g. 2025/2026). This field is required.');
                 return;
             }
             if (!studyYear) {
@@ -3899,7 +3907,9 @@
             // Build query string for PDF generation
             var queryParams = '?action=ExportSummaryReport';
             queryParams += '&programme=' + encodeURIComponent(programme);
+            queryParams += '&acadYear=' + encodeURIComponent(acadYear);
             queryParams += '&entryYear=' + encodeURIComponent(entryYear);
+            if (excludePromoted) queryParams += '&excludePromoted=1';
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
             queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'all');
@@ -3922,6 +3932,8 @@
         function exportPerformanceReport() {
             var programme = document.getElementById('hdnSelectedProgramme').value || document.getElementById('<%= ddlReportProgramme.ClientID %>').value;
             var entryYear = document.getElementById('hdnSelectedEntryYear').value;
+            var acadYear = (document.getElementById('txtReportAcadYear') || {}).value || '';
+            var excludePromoted = (document.getElementById('chkReportExcludePromoted') || {}).checked ? '1' : '';
             var studyYear = document.getElementById('ddlReportStudyYear').value;
             var semester = document.getElementById('ddlReportSemester').value;
             var entryNumbers = document.getElementById('txtReportEntryNumbers').value.trim();
@@ -3932,8 +3944,8 @@
                 alert('Please select a Programme. This field is required.');
                 return;
             }
-            if (!entryYear) {
-                alert('Please select an Entry Year. This field is required.');
+            if (!acadYear) {
+                alert('Please enter an Academic Year (e.g. 2025/2026). This field is required.');
                 return;
             }
             if (!studyYear) {
@@ -3959,7 +3971,9 @@
             // Build query string for Performance Report PDF generation
             var queryParams = '?action=ExportPerformanceReport';
             queryParams += '&programme=' + encodeURIComponent(programme);
+            queryParams += '&acadYear=' + encodeURIComponent(acadYear);
             queryParams += '&entryYear=' + encodeURIComponent(entryYear);
+            if (excludePromoted) queryParams += '&excludePromoted=1';
             queryParams += '&studyYear=' + encodeURIComponent(studyYear);
             queryParams += '&semester=' + encodeURIComponent(semester);
             queryParams += '&source=' + encodeURIComponent((document.getElementById('ddlReportSource') || {}).value || 'all');
@@ -4274,18 +4288,25 @@
                     <input type="hidden" id="hdnSelectedProgramme" value="" />
                 </div>
                 
-                <!-- Filter: Entry Year (Required) -->
+                <!-- Filter: Academic Year (Required) — the sitting anchor -->
                 <div class="cd-form-group">
-                    <label class="cd-form-label">Entry Year <span style="color: #c0392b;">*</span></label>
+                    <label class="cd-form-label">Academic Year <span style="color: #c0392b;">*</span></label>
+                    <input type="text" id="txtReportAcadYear" class="cd-form-input" placeholder="e.g. 2025/2026" autocomplete="off" />
+                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;">The sitting. Marks are scoped to this academic year, so students who sat this semester in a different year are not mixed in.</small>
+                </div>
+
+                <!-- Filter: Entry Year (optional narrowing) -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label">Entry Year <span style="color:#888;font-weight:400;">(optional — narrows to one intake)</span></label>
                     <div style="position: relative;">
-                        <input type="text" id="txtSearchEntryYear" class="cd-form-input" placeholder="Type to search entry year..." 
+                        <input type="text" id="txtSearchEntryYear" class="cd-form-input" placeholder="Leave blank for all intakes..."
                                onkeyup="filterEntryYearDropdown(this.value)" onclick="showEntryYearDropdown()" onblur="hideEntryYearDropdown()" autocomplete="off" />
                         <div id="entryYearDropdownList" class="cd-searchable-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; max-height:200px; overflow-y:auto; background:#fff; border:1px solid #ccc; border-radius:4px; z-index:1000; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
                         </div>
                     </div>
                     <input type="hidden" id="hdnSelectedEntryYear" value="" />
                 </div>
-                
+
                 <!-- Filter: Year of Study (Required) -->
                 <div class="cd-form-group">
                     <label class="cd-form-label">Year of Study <span style="color: #c0392b;">*</span></label>
@@ -4308,6 +4329,15 @@
                         <option value="2">Semester 2</option>
                         <option value="3">Semester 3</option>
                     </select>
+                </div>
+
+                <!-- Only students still at this year/semester (optional) -->
+                <div class="cd-form-group">
+                    <label class="cd-form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+                        <input type="checkbox" id="chkReportExcludePromoted" style="width:15px;height:15px;margin:0;cursor:pointer;" />
+                        Only students still at this year/semester
+                    </label>
+                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;">Off (default): include everyone who sat this sitting, even if they have since moved on — their completed marks are never dropped. On: keep only students whose latest registration is not beyond this semester.</small>
                 </div>
 
                 <!-- Minimum courses to pass (used by the exports; defaults to 4 if left blank) -->
