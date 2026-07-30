@@ -156,6 +156,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             }
             else if (action == "ChangeProgInit")   { HandleChangeProgInit();   handledAction = true; }
             else if (action == "SpecList")          { HandleSpecList();          handledAction = true; }
+            else if (action == "PreviewProgRegno") { HandlePreviewProgRegno();  handledAction = true; }
             else if (action == "ChangeProgramme")   { HandleChangeProgramme();   handledAction = true; }
             else if (action == "ChangeEntryYear")   { HandleChangeEntryYear();   handledAction = true; }
             else if (action == "ExportStudentsList"){ HandleExportStudentsList();handledAction = true; }
@@ -7048,20 +7049,113 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     { cmd.Parameters.AddWithValue("@s", spec); cmd.Parameters.AddWithValue("@p", prog);
                       if (cmd.ExecuteScalar() == null) { WriteJsonAndComplete(js, new { success = false, message = "That specialisation does not belong to the selected programme." }); return; } }
 
-                string oldProg = "";
-                using (var cmd = new MySqlCommand("SELECT progid FROM acad_student WHERE regno=@r LIMIT 1", conn))
-                { cmd.Parameters.AddWithValue("@r", regno); var o = cmd.ExecuteScalar(); if (o == null) { WriteJsonAndComplete(js, new { success = false, message = "Student not found." }); return; } oldProg = o == DBNull.Value ? "" : o.ToString(); }
-
-                int n;
-                using (var cmd = new MySqlCommand("UPDATE acad_student SET progid=@p, specialisation=@s WHERE regno=@r", conn))
+                string oldProg = "", oldEntryno = "";
+                using (var cmd = new MySqlCommand("SELECT progid, entryno FROM acad_student WHERE regno=@r LIMIT 1", conn))
                 {
-                    cmd.Parameters.AddWithValue("@p", prog);
-                    cmd.Parameters.AddWithValue("@s", (object)(spec == "" ? (object)DBNull.Value : spec) ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@r", regno);
-                    n = cmd.ExecuteNonQuery();
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (!rdr.Read()) { WriteJsonAndComplete(js, new { success = false, message = "Student not found." }); return; }
+                        oldProg = SafeStr(rdr, "progid"); oldEntryno = SafeStr(rdr, "entryno");
+                    }
                 }
-                LogStudentAction(conn, regno, "ChangeProgramme", "Programme " + oldProg + " -> " + prog + (spec != "" ? " (spec " + spec + ")" : ""));
-                WriteJsonAndComplete(js, new { success = true, message = "Programme updated to " + prog + "." });
+
+                // The formatted registration number (entryno) embeds the programme code (segment 3) and
+                // the per-programme student number (segment 4). Moving programmes regenerates BOTH: the
+                // new programme code + the next free student-number in that programme. The canonical
+                // acad_student.regno (PRIMARY KEY / system-wide FK) is intentionally NEVER changed.
+                string newEntryno = ComputeNewEntryno(conn, oldEntryno, prog);
+
+                using (var tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        using (var cmd = new MySqlCommand(
+                            "UPDATE acad_student SET progid=@p, specialisation=@s" + (newEntryno != "" ? ", entryno=@e" : "") + " WHERE regno=@r", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@p", prog);
+                            cmd.Parameters.AddWithValue("@s", spec == "" ? (object)DBNull.Value : spec);
+                            if (newEntryno != "") cmd.Parameters.AddWithValue("@e", newEntryno);
+                            cmd.Parameters.AddWithValue("@r", regno);
+                            cmd.ExecuteNonQuery();
+                        }
+                        // Keep the only other table that references entryno in step.
+                        if (newEntryno != "" && oldEntryno != "" && !string.Equals(newEntryno, oldEntryno))
+                            using (var cmd = new MySqlCommand("UPDATE acad_haltcases SET entryno=@n WHERE entryno=@o", conn, tx))
+                            { cmd.Parameters.AddWithValue("@n", newEntryno); cmd.Parameters.AddWithValue("@o", oldEntryno); cmd.ExecuteNonQuery(); }
+                        tx.Commit();
+                    }
+                    catch { tx.Rollback(); throw; }
+                }
+
+                LogStudentAction(conn, regno, "ChangeProgramme",
+                    "Programme " + oldProg + " -> " + prog + (spec != "" ? " (spec " + spec + ")" : "")
+                    + (newEntryno != "" ? "; Reg No " + oldEntryno + " -> " + newEntryno : ""));
+                WriteJsonAndComplete(js, new { success = true, newEntryno = newEntryno,
+                    message = "Programme updated to " + prog + "." + (newEntryno != "" ? " New Reg No: " + newEntryno : "") });
+            }
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>Rebuilds the formatted registration number (entryno) for a new programme: keeps the year
+    /// prefix / level / campus / session segments, sets segment 3 = new programme code, and segment 4 =
+    /// the next free student-number for that (year, programme). Returns "" when the entryno isn't in the
+    /// standard slash format (then only progid/specialisation change). Guards against a duplicate entryno.</summary>
+    private string ComputeNewEntryno(MySqlConnection conn, string oldEntryno, string newProg)
+    {
+        if (string.IsNullOrWhiteSpace(oldEntryno)) return "";
+        string[] seg = oldEntryno.Split('/');
+        if (seg.Length < 4) return "";                 // not the YY/U/PROG/SEQ/... form → leave identifiers alone
+        string yearPrefix = seg[0];
+        string oldSeq = (seg[3] ?? "").Trim();
+
+        long next = 1;
+        using (var cmd = new MySqlCommand(
+            @"SELECT MAX(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(entryno,'/',4),'/',-1) AS UNSIGNED))
+                FROM acad_student
+               WHERE SUBSTRING_INDEX(entryno,'/',1)=@yr
+                 AND SUBSTRING_INDEX(SUBSTRING_INDEX(entryno,'/',3),'/',-1)=@prog", conn))
+        {
+            cmd.Parameters.AddWithValue("@yr", yearPrefix);
+            cmd.Parameters.AddWithValue("@prog", newProg);
+            var o = cmd.ExecuteScalar();
+            long m; if (o != null && o != DBNull.Value && long.TryParse(o.ToString(), out m)) next = m + 1;
+        }
+
+        int ov, width = 4;
+        if (int.TryParse(oldSeq, out ov)) width = Math.Max(4, oldSeq.Length);
+
+        // Build, then bump the number until the entryno is unique (defends against a rare race).
+        for (int guard = 0; guard < 1000; guard++)
+        {
+            seg[2] = newProg;
+            seg[3] = next.ToString().PadLeft(width, '0');
+            string candidate = string.Join("/", seg);
+            using (var cmd = new MySqlCommand("SELECT 1 FROM acad_student WHERE entryno=@e LIMIT 1", conn))
+            { cmd.Parameters.AddWithValue("@e", candidate); if (cmd.ExecuteScalar() == null) return candidate; }
+            next++;
+        }
+        return "";   // extremely unlikely — fall back to leaving entryno unchanged
+    }
+
+    /// <summary>Preview the new Reg No / student number a programme change would produce (no write).</summary>
+    private void HandlePreviewProgRegno()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request.Form["regno"] ?? Request.QueryString["regno"] ?? "").Trim();
+            string prog  = (Request.Form["prog"]  ?? Request.QueryString["prog"]  ?? "").Trim();
+            if (regno == "" || prog == "") { WriteJsonAndComplete(js, new { success = false, message = "Missing parameters." }); return; }
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                string oldEntryno = "";
+                using (var cmd = new MySqlCommand("SELECT entryno FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                { cmd.Parameters.AddWithValue("@r", regno); var o = cmd.ExecuteScalar(); oldEntryno = (o == null || o == DBNull.Value) ? "" : o.ToString(); }
+                string preview = ComputeNewEntryno(conn, oldEntryno, prog);
+                WriteJsonAndComplete(js, new { success = true, oldEntryno = oldEntryno, newEntryno = preview });
             }
         }
         catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }

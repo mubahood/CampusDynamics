@@ -2617,6 +2617,7 @@
                     <select id="cpSpec" class="cd-form-select"><option value="">-- None --</option></select>
                     <small style="color:#888;margin-top:4px;display:block;font-size:10px;">Cascades from the selected programme. Leave as "None" if the programme has no specialisation.</small>
                 </div>
+                <div id="cpPreview" style="display:none;background:#fff8e1;border:1px solid #ffe0a3;padding:8px 10px;font-size:11px;color:#7a5c00;margin-bottom:6px;"></div>
                 <div id="cpStatus" style="display:none;padding:8px 10px;font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="cd-modal__footer">
@@ -3099,10 +3100,12 @@
                 if (cur.prog) cpOnProgChange(cur.spec);
             });
         }
+        var _cpNewRegno = '';
         function cpOnProgChange(preselectSpec) {
             var prog = document.getElementById('cpProg').value;
             var sel = document.getElementById('cpSpec');
             sel.innerHTML = '<option value="">Loading…</option>';
+            var pv = document.getElementById('cpPreview'); pv.style.display = 'none'; _cpNewRegno = '';
             if (!prog) { sel.innerHTML = '<option value="">-- None --</option>'; return; }
             _njPost('SpecList', 'prog=' + encodeURIComponent(prog), function (r) {
                 var h = '<option value="">-- None --</option>';
@@ -3110,14 +3113,24 @@
                     h += '<option value="' + _njEsc(s.id) + '"' + (String(s.id) === String(preselectSpec || '') ? ' selected' : '') + '>' + _njEsc(s.name) + '</option>';
                 });
                 sel.innerHTML = h;
-                document.getElementById('cpSpecWrap').style.display = (r && r.hasSpecs) ? 'block' : 'block';
+            });
+            // Preview the new Reg No + student number this move would produce.
+            _njPost('PreviewProgRegno', 'regno=' + encodeURIComponent(_cpRegno) + '&prog=' + encodeURIComponent(prog), function (r) {
+                if (r && r.success && r.newEntryno) {
+                    _cpNewRegno = r.newEntryno;
+                    pv.innerHTML = 'New Reg No will be <b>' + _njEsc(r.newEntryno) + '</b>'
+                        + (r.oldEntryno ? ' <span style="color:#aa8a3a;">(was ' + _njEsc(r.oldEntryno) + ')</span>' : '')
+                        + '<br><span style="font-size:10px;">The reg number &amp; student number update to the new programme; the internal student ID is unchanged.</span>';
+                    pv.style.display = 'block';
+                } else { pv.style.display = 'none'; _cpNewRegno = ''; }
             });
         }
         function closeChangeProgModal() { document.getElementById('changeProgOverlay').style.display = 'none'; _cpRegno = ''; }
         function submitChangeProg() {
             var prog = document.getElementById('cpProg').value, spec = document.getElementById('cpSpec').value;
             if (!prog) { _njStatus('cpStatus', 'Please select a programme.', true); return; }
-            if (!confirm('Move ' + _cpRegno + ' to programme ' + prog + (spec ? ' (with the selected specialisation)' : '') + '?')) return;
+            if (!confirm('Move ' + _cpRegno + ' to programme ' + prog + (spec ? ' (with the selected specialisation)' : '') + '?'
+                + (_cpNewRegno ? '\n\nReg No & student number will become:\n' + _cpNewRegno : ''))) return;
             var btn = document.getElementById('btnChangeProg'); btn.disabled = true; var o = btn.innerText; btn.innerText = 'Saving…';
             _njPost('ChangeProgramme', 'regno=' + encodeURIComponent(_cpRegno) + '&prog=' + encodeURIComponent(prog) + '&spec=' + encodeURIComponent(spec), function (r) {
                 if (r && r.success) { _njStatus('cpStatus', r.message + ' Refreshing…', false); setTimeout(function () { window.location.reload(); }, 700); }
