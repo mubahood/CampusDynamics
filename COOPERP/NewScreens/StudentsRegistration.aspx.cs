@@ -32,8 +32,11 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
     protected void Page_Load(object sender, EventArgs e)
     {
-        // Short-circuit for AJAX requests (preview / batch processing)
-        if (HandleAjaxRequest()) return;
+        // AJAX endpoints for the rich delete flow (summary + transactional delete). These respond
+        // with JSON and end the request before any page rendering.
+        string ajax = Request.QueryString["ajax"];
+        if (ajax == "delreg_summary") { HandleDeleteRegSummary(); return; }
+        if (ajax == "delreg_execute") { HandleDeleteRegExecute(); return; }
 
         // ALWAYS reload dropdown items — ViewState is disabled on master page,
         // so dropdown items are lost on every postback. ASP.NET's second
@@ -44,19 +47,32 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
         if (!IsPostBack)
         {
-            // Filter defaults: current academic year + current semester
-            // ddlAcadYear already has current year selected by PopulateDropDown
-            int curSem = AcademicYearHelper.GetCurrentSemester();
-            if (curSem >= 1 && curSem <= 3)
-                ddlSemester.SelectedValue = curSem.ToString();
-
+            // Filter default = ALL (year + semester). The GET query string is the
+            // single source of truth for the active filters; nothing is pre-selected
+            // so picking "All" sticks instead of snapping back to the current period.
             ApplyFiltersFromQueryString();
 
-            // Form defaults: current period
-            ddlAddSemester.SelectedValue = curSem.ToString();
+            // Add-modal defaults to the current period for data-entry convenience.
+            int curSem = AcademicYearHelper.GetCurrentSemester();
+            if (curSem >= 1 && curSem <= 3)
+                ddlAddSemester.SelectedValue = curSem.ToString();
+
             UpdateDisplayLabels();
             LoadStats();
             BindGrid();
+        }
+        else
+        {
+            // ViewState is disabled on the master page, and the Add/Edit *year* dropdowns are
+            // dynamically (re)populated on every load with a current-year default (via
+            // AcademicYearHelper.PopulateDropDown(..., selectCurrent:true)). On a form submit that
+            // default would overwrite the year the user actually picked in the modal — so restore
+            // each year dropdown from its posted value here, BEFORE the Add/Edit save handlers read
+            // it. This guarantees create/edit uses exactly the year set in the form, not "current".
+            // (The other modal fields — semester, study year, status, residence — are static markup
+            // items, so ASP.NET already restores their posted selection.)
+            SetSelectedIfExists(ddlAddAcadYear, Request.Form[ddlAddAcadYear.UniqueID]);
+            SetSelectedIfExists(ddlEditAcadYear, Request.Form[ddlEditAcadYear.UniqueID]);
         }
     }
 
@@ -66,11 +82,13 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
     private void LoadAcademicYears()
     {
-        // Main filter dropdown (with "All" option, select current year)
-        AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, true);
+        // Main filter dropdown: "All" option, default to ALL (no pre-selected year).
+        // GET query-string fully controls the selection; an empty/absent value = All.
+        AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, false);
 
-        // Form dropdown (no "All" option, default to current year)
+        // Form dropdowns (no "All" option, default to current year)
         AcademicYearHelper.PopulateDropDown(ddlAddAcadYear, false, true);
+        AcademicYearHelper.PopulateDropDown(ddlEditAcadYear, false, true);
     }
 
     private void LoadProgrammes()
@@ -239,7 +257,11 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                 SUM(CASE WHEN r.regstatus = 'DISCONTINUED'    THEN 1 ELSE 0 END)  AS discontinued,
                 SUM(CASE WHEN r.regstatus = 'HALTED'          THEN 1 ELSE 0 END)  AS halted,
                 SUM(CASE WHEN r.regstatus = 'DEAD YEAR'       THEN 1 ELSE 0 END)  AS dead_year,
-                SUM(CASE WHEN sreg.new_status = 'ACTIVE' AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                -- Billed / Not-billed measured among ENROLLED rows only (REGISTERED /
+                -- LATE REGISTERED / CLEARED). Do NOT gate on acad_student.new_status -- it
+                -- is corrupted (28k+ active students carry a stale ALUMNI value), which
+                -- would undercount and make the cards disagree with the grid filter.
+                SUM(CASE WHEN r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
                     AND EXISTS(
                         SELECT 1
                         FROM campus_dynamics_accounts.fin_studentfeestracking ft
@@ -249,7 +271,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                           AND ft.trans_type = 'Bill'
                     )
                 THEN 1 ELSE 0 END) AS billed,
-                SUM(CASE WHEN sreg.new_status = 'ACTIVE' AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                SUM(CASE WHEN r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
                     AND NOT EXISTS(
                         SELECT 1
                         FROM campus_dynamics_accounts.fin_studentfeestracking ft
@@ -260,7 +282,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                     )
                 THEN 1 ELSE 0 END) AS not_billed
             FROM acad_registration r
-            LEFT JOIN acad_student sreg ON TRIM(sreg.regno) = TRIM(r.regno)
+            LEFT JOIN acad_student sreg ON sreg.regno = r.regno
             WHERE 1=1");
 
         var parms = new List<MySqlParameter>();
@@ -313,7 +335,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
         var fromWhere = new StringBuilder(@"
             FROM acad_registration r
-            LEFT JOIN acad_student sreg ON TRIM(sreg.regno) = TRIM(r.regno)
+            LEFT JOIN acad_student sreg ON sreg.regno = r.regno
             LEFT JOIN acad_programme preg ON sreg.progid = preg.progcode
             WHERE 1=1");
 
@@ -362,10 +384,14 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         }
         if (!string.IsNullOrEmpty(ddlBilling.SelectedValue))
         {
+            // Billed / Not-billed apply to ENROLLED registrations only (REGISTERED /
+            // LATE REGISTERED / CLEARED), so the grid matches the Billed/Not-Billed
+            // stat-card counts exactly. An UNREGISTERED row is never "not billed" here
+            // (it's expected to have no bill) — it belongs under the Unregistered filter.
             if (ddlBilling.SelectedValue == "BILLED")
-                fromWhere.Append(" AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
+                fromWhere.Append(" AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED') AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
             else
-                fromWhere.Append(" AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
+                fromWhere.Append(" AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED') AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')");
         }
         if (!string.IsNullOrEmpty(search))
         {
@@ -405,6 +431,8 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                         COALESCE(r.examClearance, 'UNCLEARED')       AS examClearance,
                         CASE WHEN r.examClearanceDate IS NULL OR r.examClearanceDate = '0000-00-00'
                              THEN '' ELSE DATE_FORMAT(r.examClearanceDate,'%d %b %Y') END AS examClearanceDate,
+                        CASE WHEN r.examClearanceDate IS NULL OR r.examClearanceDate = '0000-00-00'
+                             THEN '' ELSE DATE_FORMAT(r.examClearanceDate,'%Y-%m-%d') END AS examClearanceDateRaw,
                         COALESCE(r.registeredBy, '') AS registeredBy,
                         COALESCE(r.clearedBy, '')    AS clearedBy,
                         NULLIF(TRIM(CONCAT_WS(' ', NULLIF(sreg.firstname, ''), NULLIF(sreg.othername, ''))), '') AS student_name,
@@ -673,18 +701,6 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     // INDIVIDUAL ACTIONS
     // ===================================================================
 
-    protected void btnRegister_Click(object sender, EventArgs e)
-    {
-        ShowToast(false, "Semester registration is now student self-service. Students must register through the student portal.");
-        LoadStats(); BindGrid();
-    }
-
-    protected void btnLateRegister_Click(object sender, EventArgs e)
-    {
-        ShowToast(false, "Semester registration is now student self-service. Students must register through the student portal.");
-        LoadStats(); BindGrid();
-    }
-
     protected void btnClear_Click(object sender, EventArgs e)
     {
         int id = GetLinkButtonID(sender);
@@ -848,8 +864,189 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     }
 
     // ===================================================================
-    // DELETE REGISTRATION
+    // DELETE REGISTRATION  (rich flow: summary + optional courses + billings)
+    // One connection via AcctConnStr (root) uses fully-qualified names across the 3 DBs:
+    //   campus_dynamics.acad_registration | campus_dynamics_portal.acad_course_registration
+    //   campus_dynamics_accounts.fin_studentfeestracking (+ fin_ledger mirror, MyISAM)
+    // Every delete is BACKED UP first into *_regdel_bak tables (fin_ledger is MyISAM = no
+    // rollback, so the backup is the recovery guarantee).
     // ===================================================================
+
+    private void WriteJsonEnd(string json)
+    {
+        // Response.End() throws ThreadAbortException — kept OUTSIDE any try/catch so it propagates to
+        // the framework (which finishes the request) instead of being mis-reported as an error.
+        Response.Clear(); Response.ContentType = "application/json"; Response.Write(json); Response.End();
+    }
+
+    /// <summary>Summary of what a semester-registration delete would remove: the registration, its
+    /// courses (flagging any that already carry marks), and the fee bills/payments for that semester.</summary>
+    private void HandleDeleteRegSummary()
+    {
+        var js = new JavaScriptSerializer();
+        string json;
+        try
+        {
+            int id; int.TryParse(Request.QueryString["id"], out id);
+            if (id <= 0) { WriteJsonEnd(js.Serialize(new { success = false, message = "Missing registration id." })); return; }
+
+            string regno = "", acadYear = "", sem = "", sy = "", status = "", name = "";
+            int courseCount = 0, courseWithMarks = 0, sftBills = 0, sftPays = 0, glCount = 0;
+            decimal billAmt = 0, payAmt = 0;
+            var sampleCourses = new List<string>();
+
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    @"SELECT r.regno, r.acad_year, r.semester, r.studyyear, r.regstatus,
+                             TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) nm
+                        FROM campus_dynamics.acad_registration r
+                        LEFT JOIN campus_dynamics.acad_student s ON s.regno=r.regno
+                       WHERE r.ID=@id LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (!rdr.Read()) { WriteJsonEnd(js.Serialize(new { success = false, message = "Registration not found." })); return; }
+                        regno = S(rdr, "regno"); acadYear = S(rdr, "acad_year"); sem = S(rdr, "semester");
+                        sy = S(rdr, "studyyear"); status = S(rdr, "regstatus"); name = S(rdr, "nm");
+                    }
+                }
+
+                using (var cmd = new MySqlCommand(
+                    @"SELECT cr.courseID, IF(cr.provisional_total_marks IS NOT NULL OR UPPER(IFNULL(cr.mark_stage,'NOT_ENTERED'))<>'NOT_ENTERED',1,0) hasmark
+                        FROM campus_dynamics_portal.acad_course_registration cr
+                       WHERE TRIM(cr.regno)=@r AND cr.acad_year=@a AND cr.semester=@s ORDER BY cr.courseID", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@a", acadYear); cmd.Parameters.AddWithValue("@s", sem);
+                    using (var rdr = cmd.ExecuteReader())
+                        while (rdr.Read())
+                        {
+                            courseCount++;
+                            if (S(rdr, "hasmark") == "1") courseWithMarks++;
+                            if (sampleCourses.Count < 12) sampleCourses.Add(S(rdr, "courseID"));
+                        }
+                }
+
+                using (var cmd = new MySqlCommand(
+                    @"SELECT SUM(trans_type='Bill') bills, SUM(trans_type='Payment') pays,
+                             SUM(CASE WHEN trans_type='Bill' THEN amount ELSE 0 END) billamt,
+                             SUM(CASE WHEN trans_type='Payment' THEN amount ELSE 0 END) payamt
+                        FROM campus_dynamics_accounts.fin_studentfeestracking
+                       WHERE TRIM(regno)=@r AND acadyear=@a AND semester=@s", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@a", acadYear); cmd.Parameters.AddWithValue("@s", sem);
+                    using (var rdr = cmd.ExecuteReader())
+                        if (rdr.Read())
+                        {
+                            sftBills = rdr["bills"] == DBNull.Value ? 0 : Convert.ToInt32(rdr["bills"]);
+                            sftPays = rdr["pays"] == DBNull.Value ? 0 : Convert.ToInt32(rdr["pays"]);
+                            billAmt = rdr["billamt"] == DBNull.Value ? 0 : Convert.ToDecimal(rdr["billamt"]);
+                            payAmt = rdr["payamt"] == DBNull.Value ? 0 : Convert.ToDecimal(rdr["payamt"]);
+                        }
+                }
+
+                using (var cmd = new MySqlCommand(
+                    @"SELECT COUNT(*) FROM campus_dynamics_accounts.fin_ledger fl
+                       WHERE fl.accountcode=@r AND EXISTS (
+                             SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking t
+                              WHERE TRIM(t.regno)=@r AND t.acadyear=@a AND t.semester=@s
+                                AND (fl.tracking_ref=t.TID OR fl.voucherNo=t.TID OR fl.folio=CONCAT('BillNo:',t.TID)))", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@a", acadYear); cmd.Parameters.AddWithValue("@s", sem);
+                    var o = cmd.ExecuteScalar(); glCount = o == null || o == DBNull.Value ? 0 : Convert.ToInt32(o);
+                }
+            }
+
+            json = js.Serialize(new
+            {
+                success = true,
+                reg = new { regno, name, acadYear, studyYear = sy, semester = sem, status },
+                courses = new { count = courseCount, withMarks = courseWithMarks, sample = sampleCourses },
+                billings = new { sftCount = sftBills + sftPays, bills = sftBills, pays = sftPays, glCount, billAmt, payAmt }
+            });
+        }
+        catch (Exception ex) { json = js.Serialize(new { success = false, message = ex.Message }); }
+        WriteJsonEnd(json);
+    }
+
+    /// <summary>Executes the delete: backs up every affected row, then removes the registration plus
+    /// (optionally) the semester's courses and the semester's fee bills/payments (+ their GL mirror).</summary>
+    private void HandleDeleteRegExecute()
+    {
+        var js = new JavaScriptSerializer();
+        string json;
+        try
+        {
+            int id; int.TryParse(Request.Form["id"] ?? Request.QueryString["id"], out id);
+            bool delCourses  = (Request.Form["courses"]  ?? "") == "1";
+            bool delBillings = (Request.Form["billings"] ?? "") == "1";
+            if (id <= 0) { WriteJsonEnd(js.Serialize(new { success = false, message = "Missing registration id." })); return; }
+
+            string regno = "", acadYear = "", sem = "";
+            int delCoursesN = 0, delSftN = 0, delGlN = 0;
+
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand("SELECT regno, acad_year, semester FROM campus_dynamics.acad_registration WHERE ID=@id LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (!rdr.Read()) { WriteJsonEnd(js.Serialize(new { success = false, message = "Registration not found (already deleted?)." })); return; }
+                        regno = S(rdr, "regno"); acadYear = S(rdr, "acad_year"); sem = S(rdr, "semester");
+                    }
+                }
+
+                Action<string, string> run = (sql, tag) => { using (var c = new MySqlCommand(sql, conn)) { c.CommandTimeout = 120; c.Parameters.AddWithValue("@id", id); c.Parameters.AddWithValue("@r", regno); c.Parameters.AddWithValue("@a", acadYear); c.Parameters.AddWithValue("@s", sem); c.ExecuteNonQuery(); } };
+                Func<string, int> runN = (sql) => { using (var c = new MySqlCommand(sql, conn)) { c.CommandTimeout = 120; c.Parameters.AddWithValue("@id", id); c.Parameters.AddWithValue("@r", regno); c.Parameters.AddWithValue("@a", acadYear); c.Parameters.AddWithValue("@s", sem); return c.ExecuteNonQuery(); } };
+
+                const string glMatch = @" fl.accountcode=@r AND EXISTS (SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking t WHERE TRIM(t.regno)=@r AND t.acadyear=@a AND t.semester=@s AND (fl.tracking_ref=t.TID OR fl.voucherNo=t.TID OR fl.folio=CONCAT('BillNo:',t.TID)))";
+
+                // ---- 1) BACKUP everything first (recovery net) ----
+                run("INSERT INTO campus_dynamics.acad_registration_regdel_bak SELECT * FROM campus_dynamics.acad_registration WHERE ID=@id", "reg");
+                if (delCourses)
+                    run("INSERT INTO campus_dynamics_portal.acad_course_registration_regdel_bak SELECT * FROM campus_dynamics_portal.acad_course_registration WHERE TRIM(regno)=@r AND acad_year=@a AND semester=@s", "crs");
+                if (delBillings)
+                {
+                    run("INSERT INTO campus_dynamics_accounts.fin_studentfeestracking_regdel_bak SELECT * FROM campus_dynamics_accounts.fin_studentfeestracking WHERE TRIM(regno)=@r AND acadyear=@a AND semester=@s", "sft");
+                    run("INSERT INTO campus_dynamics_accounts.fin_ledger_regdel_bak SELECT fl.* FROM campus_dynamics_accounts.fin_ledger fl WHERE" + glMatch, "gl");
+                }
+
+                // ---- 2) DELETE (fin_ledger MyISAM first while its tracking rows still exist) ----
+                if (delBillings)
+                {
+                    delGlN  = runN("DELETE fl FROM campus_dynamics_accounts.fin_ledger fl WHERE" + glMatch);
+                    delSftN = runN("DELETE FROM campus_dynamics_accounts.fin_studentfeestracking WHERE TRIM(regno)=@r AND acadyear=@a AND semester=@s");
+                }
+                if (delCourses)
+                    delCoursesN = runN("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE TRIM(regno)=@r AND acad_year=@a AND semester=@s");
+                runN("DELETE FROM campus_dynamics.acad_registration WHERE ID=@id");
+
+                // ---- 3) Log ----
+                string actor = ""; try { actor = HttpContext.Current.User.Identity.Name; } catch { }
+                using (var cmd = new MySqlCommand(
+                    @"INSERT INTO campus_dynamics.acad_activity_log (user_id, page_function, par, comments, access_date)
+                      VALUES (@u, 'StudentsRegistration:DeleteRegistration', @p, @c, NOW())", conn))
+                {
+                    cmd.Parameters.AddWithValue("@u", string.IsNullOrEmpty(actor) ? "system" : actor);
+                    cmd.Parameters.AddWithValue("@p", (regno + "|" + acadYear + "|S" + sem));
+                    cmd.Parameters.AddWithValue("@c", ("Deleted registration" + (delCourses ? " + " + delCoursesN + " courses" : "") + (delBillings ? " + " + delSftN + " bills/pays, " + delGlN + " GL" : "") + " (backed up to *_regdel_bak)"));
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            json = js.Serialize(new { success = true, deletedCourses = delCoursesN, deletedBillings = delSftN, deletedGl = delGlN,
+                message = "Registration deleted for " + regno + " (" + acadYear + " Sem " + sem + ")." });
+        }
+        catch (Exception ex) { json = js.Serialize(new { success = false, message = ex.Message }); }
+        WriteJsonEnd(json);
+    }
+
+    private static string S(MySqlDataReader r, string c)
+    { try { object o = r[c]; return o == null || o == DBNull.Value ? "" : o.ToString().Trim(); } catch { return ""; } }
 
     protected void btnDeleteReg_Click(object sender, EventArgs e)
     {
@@ -917,8 +1114,6 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     // BATCH ACTIONS
     // ===================================================================
 
-    protected void btnBatchRegister_Click(object sender, EventArgs e)          { RunBatch("register");     }
-    protected void btnBatchLateRegister_Click(object sender, EventArgs e)      { RunBatch("late");         }
     protected void btnBatchClear_Click(object sender, EventArgs e)             { RunBatch("clear");        }
     protected void btnBatchUndoReg_Click(object sender, EventArgs e)           { RunBatch("undoreg");      }
     protected void btnBatchUndoClear_Click(object sender, EventArgs e)         { RunBatch("undoclear");    }
@@ -930,11 +1125,6 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
     private void RunBatch(string action)
     {
-        if (action == "register" || action == "late")
-        {
-            ShowToast(false, "Semester registration is now student self-service. Students must register through the student portal.");
-            return;
-        }
         string idsRaw = (hdnBatchIds.Value ?? "").Trim();
         hdnBatchIds.Value = "";
         if (string.IsNullOrEmpty(idsRaw))
@@ -960,8 +1150,6 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
             bool ok = false;
             switch (action)
             {
-                case "register":    break;
-                case "late":        break;
                 case "clear":       ok = ClearStudent(id);  break;
                 case "undoreg":     ok = BatchUndoReg(id);  break;
                 case "undoclear":   ok = BatchUndoClear(id); break;
@@ -1006,12 +1194,6 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         if (semester < 1 || semester > 3)
         {
             ShowAddRegError("Please select a valid semester.");
-            return;
-        }
-
-        if (status == "REGISTERED" || status == "LATE REGISTERED")
-        {
-            ShowAddRegError("Semester registration is now student self-service. Students must register through the student portal.");
             return;
         }
 
@@ -1118,53 +1300,154 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
     }
 
     // ===================================================================
-    // CHANGE STATUS MODAL
+    // EDIT REGISTRATION RECORD MODAL  (full admin adjustment)
     // ===================================================================
 
-    protected void btnDoChangeStatus_Click(object sender, EventArgs e)
+    protected void btnDoEditReg_Click(object sender, EventArgs e)
     {
-        int id = SafeInt(hdnCSID.Value, 0);
-        if (id <= 0) { ShowToast(false, "Invalid record ID."); return; }
+        int id = SafeInt(hdnEditID.Value, 0);
+        if (id <= 0) { ShowEditError("Invalid record ID."); return; }
 
-        string newStatus = ddlNewStatus.SelectedValue;
-        if (string.IsNullOrEmpty(newStatus)) { ShowToast(false, "Please select a status."); return; }
+        string acadYear  = ddlEditAcadYear.SelectedValue;
+        int    semester  = SafeInt(ddlEditSemester.SelectedValue, 0);
+        int    studyYear = SafeInt(ddlEditStudyYear.SelectedValue, 0);
+        string regStatus = (ddlEditRegStatus.SelectedValue ?? "").Trim();
+        string residence = (ddlEditResidence.SelectedValue ?? "NON-RESIDENT").Trim();
+        string idCard    = (ddlEditIDCard.SelectedValue == "ISSUED") ? "ISSUED" : "NOT ISSUED";
+        string examClear = (ddlEditExamClearance.SelectedValue ?? "UNCLEARED").Trim();
+        string clearDate = (hdnEditClearanceDate.Value ?? "").Trim();   // yyyy-MM-dd or ""
 
-        if (newStatus == "REGISTERED" || newStatus == "LATE REGISTERED")
-        {
-            ShowToast(false, "Semester registration is now student self-service. Students must register through the student portal.");
-            return;
-        }
+        if (string.IsNullOrEmpty(acadYear)) { ShowEditError("Please select an academic year."); return; }
+        if (semester < 1 || semester > 3)   { ShowEditError("Please select a valid semester."); return; }
+        if (studyYear < 1 || studyYear > 9) { ShowEditError("Please select a valid study year."); return; }
+        if (string.IsNullOrEmpty(regStatus)) { ShowEditError("Please select a registration status."); return; }
+
+        // Normalise a clearance date if needed
+        DateTime parsedDate;
+        bool haveDate = DateTime.TryParse(clearDate, out parsedDate);
 
         try
         {
             using (var conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = "UPDATE acad_registration SET regstatus=@s WHERE ID=@id";
-                // Also clear/set related fields based on new status
-                if (newStatus == "CLEARED")
-                    sql = "UPDATE acad_registration SET regstatus=@s, examClearance='CLEARED', examClearanceDate=NOW(), clearedBy=@user WHERE ID=@id";
-                else if (newStatus == "REGISTERED" || newStatus == "LATE REGISTERED")
-                    sql = "UPDATE acad_registration SET regstatus=@s, registeredBy=@user WHERE ID=@id";
-                else if (newStatus == "UNREGISTERED")
-                    sql = "UPDATE acad_registration SET regstatus=@s, registeredBy=NULL, examClearance='UNCLEARED' WHERE ID=@id";
 
-                using (var cmd = new MySqlCommand(sql, conn))
+                // Load the current record
+                string curRegno = "", curYear = "";
+                int curSem = 0;
+                using (var cmd = new MySqlCommand(
+                    "SELECT regno, acad_year, semester FROM acad_registration WHERE ID=@id LIMIT 1", conn))
                 {
-                    cmd.Parameters.AddWithValue("@s",    newStatus);
-                    cmd.Parameters.AddWithValue("@id",   id);
-                    cmd.Parameters.AddWithValue("@user", GetCurrentUser());
-                    bool ok = cmd.ExecuteNonQuery() > 0;
-                    if (ok && (newStatus == "REGISTERED" || newStatus == "LATE REGISTERED"))
-                        AutoBillStudent(id);
-                    ScriptManager.RegisterStartupScript(this, GetType(), "closecs", "closeModal('changeStatusModal');", true);
-                    ShowToast(ok, ok ? "Status changed to " + newStatus + "." : "No changes made.");
+                    cmd.Parameters.AddWithValue("@id", id);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (!rdr.Read()) { ShowEditError("Registration record not found."); return; }
+                        curRegno = rdr["regno"].ToString();
+                        curYear  = rdr["acad_year"].ToString();
+                        curSem   = Convert.ToInt32(rdr["semester"]);
+                    }
                 }
+
+                // Guard against creating a duplicate for the same student + period
+                bool periodChanged = !string.Equals(curYear, acadYear, StringComparison.OrdinalIgnoreCase) || curSem != semester;
+                if (periodChanged)
+                {
+                    using (var dup = new MySqlCommand(
+                        "SELECT COUNT(*) FROM acad_registration WHERE regno=@r AND acad_year=@y AND semester=@s AND ID<>@id", conn))
+                    {
+                        dup.Parameters.AddWithValue("@r", curRegno);
+                        dup.Parameters.AddWithValue("@y", acadYear);
+                        dup.Parameters.AddWithValue("@s", semester);
+                        dup.Parameters.AddWithValue("@id", id);
+                        if (Convert.ToInt64(dup.ExecuteScalar()) > 0)
+                        {
+                            ShowEditError(string.Format(
+                                "Student {0} already has a record for {1}, Semester {2}. Duplicate entries are not allowed.",
+                                Server.HtmlEncode(curRegno), Server.HtmlEncode(acadYear), semester));
+                            return;
+                        }
+                    }
+                }
+
+                // Resolve exam-clearance side effects
+                bool isCleared = (examClear == "CLEARED" || examClear == "PRINTED");
+                string user = GetCurrentUser();
+
+                var sql = new StringBuilder("UPDATE acad_registration SET ");
+                sql.Append("acad_year=@ay, semester=@sem, studyyear=@sy, regstatus=@rs, ");
+                sql.Append("residence_status=@res, id_cardStatus=@idc, examClearance=@ec");
+
+                if (isCleared)
+                {
+                    if (haveDate) sql.Append(", examClearanceDate=@ecdate");
+                    else          sql.Append(", examClearanceDate=COALESCE(examClearanceDate, NOW())");
+                    sql.Append(", clearedBy=COALESCE(NULLIF(clearedBy,''), @user)");
+                }
+                else
+                {
+                    sql.Append(", examClearanceDate=NULL, clearedBy=NULL");
+                }
+
+                // Registration auditing column
+                if (regStatus == "REGISTERED" || regStatus == "LATE REGISTERED" || regStatus == "CLEARED")
+                    sql.Append(", registeredBy=COALESCE(NULLIF(registeredBy,''), @user)");
+                else if (regStatus == "UNREGISTERED")
+                    sql.Append(", registeredBy=NULL");
+
+                sql.Append(" WHERE ID=@id");
+
+                bool ok;
+                using (var cmd = new MySqlCommand(sql.ToString(), conn))
+                {
+                    cmd.Parameters.AddWithValue("@ay",  acadYear);
+                    cmd.Parameters.AddWithValue("@sem", semester);
+                    cmd.Parameters.AddWithValue("@sy",  studyYear);
+                    cmd.Parameters.AddWithValue("@rs",  regStatus);
+                    cmd.Parameters.AddWithValue("@res", residence);
+                    cmd.Parameters.AddWithValue("@idc", idCard);
+                    cmd.Parameters.AddWithValue("@ec",  examClear);
+                    if (isCleared && haveDate)
+                        cmd.Parameters.AddWithValue("@ecdate", parsedDate.ToString("yyyy-MM-dd"));
+                    cmd.Parameters.AddWithValue("@user", user);
+                    cmd.Parameters.AddWithValue("@id",  id);
+                    ok = cmd.ExecuteNonQuery() >= 0;   // >=0: update may set identical values (0 rows) yet still succeed
+                }
+
+                // Audit log
+                using (var logCmd = new MySqlCommand(
+                    "INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date) VALUES (@usr, 'Edit Registration', @par, @cmt, NOW())", conn))
+                {
+                    logCmd.Parameters.AddWithValue("@usr", user);
+                    logCmd.Parameters.AddWithValue("@par", string.Format("{0} | {1} Sem {2}", curRegno, acadYear, semester));
+                    logCmd.Parameters.AddWithValue("@cmt", string.Format("Status={0}; StudyYr={1}; Res={2}; IDCard={3}; ExamClr={4}", regStatus, studyYear, residence, idCard, examClear));
+                    logCmd.ExecuteNonQuery();
+                }
+
+                // Auto-bill if now Registered / Late / Cleared and not yet billed
+                string billWarn = null;
+                if (regStatus == "REGISTERED" || regStatus == "LATE REGISTERED" || regStatus == "CLEARED")
+                    billWarn = AutoBillStudent(id);
+
+                ScriptManager.RegisterStartupScript(this, GetType(), "closeEdit", "closeModal('editRegModal');", true);
+                ShowToast(ok, "Registration record updated.");
+                if (!string.IsNullOrEmpty(billWarn))
+                    ScriptManager.RegisterStartupScript(this, GetType(), "editBillWarn",
+                        "setTimeout(function(){showToast(false,'" + billWarn.Replace("'", "\\'") + "');},700);", true);
             }
         }
-        catch (Exception ex) { ShowToast(false, "Error: " + ex.Message); }
+        catch (Exception ex) { ShowEditError("Update failed: " + ex.Message); return; }
+
         LoadStats();
         BindGrid();
+    }
+
+    private void ShowEditError(string msg)
+    {
+        editResult.Visible = true;
+        editResult.Attributes["class"] = "hr-result hr-result--err";
+        litEditResult.Text = Server.HtmlEncode(msg);
+        ScriptManager.RegisterStartupScript(this, GetType(), "reopenEdit",
+            "document.getElementById('editRegModal').classList.add('open');", true);
     }
 
     // ===================================================================
@@ -1196,7 +1479,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                 COALESCE(b.total_billed, 0) AS total_billed,
                 COALESCE(b.total_paid, 0)   AS total_paid
             FROM acad_registration r
-            LEFT JOIN acad_student sreg ON TRIM(sreg.regno)=TRIM(r.regno)
+            LEFT JOIN acad_student sreg ON sreg.regno=r.regno
             LEFT JOIN (
                 SELECT LOWER(TRIM(email)) AS email_key, MIN(regno) AS regno
                 FROM acad_student
@@ -1227,7 +1510,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
         if (!string.IsNullOrEmpty(ddlExamClearance.SelectedValue)) { sb.Append(" AND r.examClearance=@ec"); parameters.Add(new MySqlParameter("@ec", ddlExamClearance.SelectedValue)); }
         if (!string.IsNullOrEmpty(ddlIDCard.SelectedValue))        { if (ddlIDCard.SelectedValue == "ISSUED") sb.Append(" AND r.id_cardStatus='ISSUED'"); else sb.Append(" AND (r.id_cardStatus IS NULL OR r.id_cardStatus!='ISSUED')"); }
         if (!string.IsNullOrEmpty(ddlResidence.SelectedValue))     { if (ddlResidence.SelectedValue == "RESIDENT") sb.Append(" AND r.residence_status='RESIDENT'"); else sb.Append(" AND r.residence_status!='RESIDENT'"); }
-        if (!string.IsNullOrEmpty(ddlBilling.SelectedValue))        { if (ddlBilling.SelectedValue == "BILLED") sb.Append(" AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); else sb.Append(" AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); }
+        if (!string.IsNullOrEmpty(ddlBilling.SelectedValue))        { if (ddlBilling.SelectedValue == "BILLED") sb.Append(" AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED') AND EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); else sb.Append(" AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED') AND NOT EXISTS(SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking ft WHERE ft.regno=COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno)) AND ft.acadyear=r.acad_year AND ft.semester=r.semester AND ft.trans_type='Bill')"); }
         if (!string.IsNullOrEmpty(search))                         { sb.Append(" AND (COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno)) LIKE @s OR TRIM(CONCAT_WS(' ', NULLIF(COALESCE(sreg.firstname, semail.firstname), ''), NULLIF(COALESCE(sreg.othername, semail.othername), ''))) LIKE @s)"); parameters.Add(new MySqlParameter("@s", "%" + search + "%")); }
         sb.Append(" ORDER BY COALESCE(sreg.firstname, semail.firstname), COALESCE(sreg.othername, semail.othername), COALESCE(NULLIF(TRIM(sreg.regno), ''), NULLIF(TRIM(semail.regno), ''), TRIM(r.regno))");
 
@@ -1405,238 +1688,6 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
             }
         }
         catch { }
-    }
-
-    // ===================================================================
-    // REGISTER ALL — AJAX HANDLERS (preview + batch processing)
-    // ===================================================================
-
-    /// <summary>
-    /// Intercepts AJAX requests via ?action= querystring.
-    /// Returns true (short-circuit Page_Load) if an AJAX action was handled.
-    /// </summary>
-    private bool HandleAjaxRequest()
-    {
-        string action = Request.QueryString["action"];
-        if (string.IsNullOrEmpty(action)) return false;
-
-        Response.Clear();
-        Response.ContentType = "application/json";
-        Response.Cache.SetCacheability(HttpCacheability.NoCache);
-        try
-        {
-            switch (action)
-            {
-                case "preview_register_all": HandlePreviewRegisterAll(); break;
-                case "register_batch":       HandleRegisterBatch();      break;
-                default: Response.Write("{\"error\":\"Unknown action\"}"); break;
-            }
-        }
-        catch (Exception ex)
-        {
-            Response.Write("{\"error\":\"" + JsEncode(ex.Message) + "\"}");
-        }
-        try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
-        return true;
-    }
-
-    /// <summary>
-    /// Returns JSON preview: student list, programme breakdown, year breakdown
-    /// for UNREGISTERED + ACTIVE students in current year+semester.
-    /// </summary>
-    private void HandlePreviewRegisterAll()
-    {
-        // Admin registration disabled — students self-register via the portal
-        Response.Write("{\"error\":\"Semester registration is now student self-service. Students must register through the student portal.\"}");
-        return;
-        string curYear = AcademicYearHelper.GetCurrentAcademicYear();
-        int curSem = AcademicYearHelper.GetCurrentSemester();
-        if (string.IsNullOrEmpty(curYear) || curSem < 1)
-        {
-            Response.Write("{\"error\":\"Could not determine current academic year/semester.\"}");
-            return;
-        }
-
-        var sb = new StringBuilder();
-        sb.Append("{");
-        sb.AppendFormat("\"acadYear\":\"{0}\",\"semester\":{1},", JsEncode(curYear), curSem);
-
-        var allIds = new List<int>();
-        var students = new List<string>();
-        var progCounts = new Dictionary<string, int>();
-        var yearCounts = new Dictionary<int, int>();
-
-        using (var conn = new MySqlConnection(ConnectionString))
-        {
-            conn.Open();
-            const string sql = @"
-                SELECT r.ID, r.regno,
-                       TRIM(CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,''))) AS fullname,
-                       IFNULL(p.progname, s.progid) AS programme,
-                       r.studyyear
-                FROM acad_registration r
-                INNER JOIN acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
-                LEFT JOIN acad_programme p ON p.progcode = s.progid
-                WHERE r.acad_year = @ay AND r.semester = @sem
-                  AND r.regstatus = 'UNREGISTERED'
-                ORDER BY p.progname, s.firstname, s.othername";
-            using (var cmd = new MySqlCommand(sql, conn))
-            {
-                cmd.Parameters.AddWithValue("@ay", curYear);
-                cmd.Parameters.AddWithValue("@sem", curSem);
-                using (var rdr = cmd.ExecuteReader())
-                {
-                    while (rdr.Read())
-                    {
-                        int id = Convert.ToInt32(rdr["ID"]);
-                        string prog = rdr["programme"].ToString().Trim();
-                        int yr = 0;
-                        int.TryParse(rdr["studyyear"].ToString(), out yr);
-
-                        allIds.Add(id);
-
-                        if (!progCounts.ContainsKey(prog)) progCounts[prog] = 0;
-                        progCounts[prog]++;
-                        if (!yearCounts.ContainsKey(yr)) yearCounts[yr] = 0;
-                        yearCounts[yr]++;
-
-                        // Preview detail limited to 200 rows
-                        if (students.Count < 200)
-                        {
-                            students.Add(string.Format(
-                                "{{\"id\":{0},\"r\":\"{1}\",\"n\":\"{2}\",\"p\":\"{3}\",\"y\":{4}}}",
-                                id,
-                                JsEncode(rdr["regno"].ToString().Trim()),
-                                JsEncode(rdr["fullname"].ToString().Trim()),
-                                JsEncode(prog),
-                                yr));
-                        }
-                    }
-                }
-            }
-        }
-
-        sb.AppendFormat("\"totalCount\":{0},", allIds.Count);
-
-        // IDs for processing
-        sb.Append("\"ids\":[");
-        for (int i = 0; i < allIds.Count; i++)
-        {
-            if (i > 0) sb.Append(",");
-            sb.Append(allIds[i]);
-        }
-        sb.Append("],");
-
-        // Programme breakdown
-        sb.Append("\"byProgramme\":[");
-        int pi = 0;
-        foreach (var kv in progCounts)
-        {
-            if (pi++ > 0) sb.Append(",");
-            sb.AppendFormat("{{\"p\":\"{0}\",\"c\":{1}}}", JsEncode(kv.Key), kv.Value);
-        }
-        sb.Append("],");
-
-        // Year breakdown
-        sb.Append("\"byYear\":[");
-        int yi = 0;
-        foreach (var kv in yearCounts)
-        {
-            if (yi++ > 0) sb.Append(",");
-            sb.AppendFormat("{{\"y\":{0},\"c\":{1}}}", kv.Key, kv.Value);
-        }
-        sb.Append("],");
-
-        // Students preview
-        sb.Append("\"students\":[");
-        sb.Append(string.Join(",", students.ToArray()));
-        sb.Append("]}");
-        Response.Write(sb.ToString());
-    }
-
-    /// <summary>
-    /// Processes a batch of registration IDs: registers + auto-bills each.
-    /// Accepts POST body: {"ids":[1,2,3,...]}
-    /// Returns JSON: {registered, billed, errors, results:[{id,s}]}
-    /// </summary>
-    private void HandleRegisterBatch()
-    {
-        // Admin registration disabled — students self-register via the portal
-        Response.Write("{\"error\":\"Semester registration is now student self-service. Students must register through the student portal.\"}");
-        return;
-        string body;
-        using (var reader = new StreamReader(Request.InputStream))
-        {
-            body = reader.ReadToEnd();
-        }
-
-        // Parse ids from JSON body: {"ids":[1,2,3]}
-        int idsStart = body.IndexOf('[');
-        int idsEnd = body.IndexOf(']');
-        if (idsStart < 0 || idsEnd < 0 || idsEnd <= idsStart)
-        {
-            Response.Write("{\"error\":\"Invalid request body\"}");
-            return;
-        }
-        string idsStr = body.Substring(idsStart + 1, idsEnd - idsStart - 1);
-        var ids = new List<int>();
-        foreach (string s in idsStr.Split(','))
-        {
-            int id;
-            if (int.TryParse(s.Trim(), out id)) ids.Add(id);
-        }
-        if (ids.Count == 0) { Response.Write("{\"registered\":0,\"billed\":0,\"errors\":0,\"results\":[]}"); return; }
-
-        string user = GetCurrentUser();
-        int registered = 0, billed = 0, errors = 0;
-        var results = new List<string>();
-
-        foreach (int id in ids)
-        {
-            try
-            {
-                bool regOk = false;
-                using (var conn = new MySqlConnection(ConnectionString))
-                {
-                    conn.Open();
-                    using (var cmd = new MySqlCommand(
-                        @"UPDATE acad_registration SET regstatus='REGISTERED', registeredBy=@user
-                          WHERE ID=@id AND regstatus='UNREGISTERED'", conn))
-                    {
-                        cmd.Parameters.AddWithValue("@id", id);
-                        cmd.Parameters.AddWithValue("@user", user);
-                        regOk = cmd.ExecuteNonQuery() > 0;
-                    }
-                }
-                if (regOk)
-                {
-                    registered++;
-                    string billWarn = AutoBillStudent(id);
-                    if (string.IsNullOrEmpty(billWarn))
-                    {
-                        billed++;
-                        results.Add(string.Format("{{\"id\":{0},\"s\":\"ok\"}}", id));
-                    }
-                    else
-                    {
-                        results.Add(string.Format("{{\"id\":{0},\"s\":\"reg_ok_bill_warn\",\"m\":\"{1}\"}}", id, JsEncode(billWarn)));
-                    }
-                }
-                else
-                {
-                    results.Add(string.Format("{{\"id\":{0},\"s\":\"skip\"}}", id));
-                }
-            }
-            catch (Exception ex)
-            {
-                errors++;
-                results.Add(string.Format("{{\"id\":{0},\"s\":\"error\",\"m\":\"{1}\"}}", id, JsEncode(ex.Message)));
-            }
-        }
-
-        Response.Write(string.Format(
-            "{{\"registered\":{0},\"billed\":{1},\"errors\":{2},\"results\":[{3}]}}",
-            registered, billed, errors, string.Join(",", results.ToArray())));
     }
 
     private bool ClearStudent(int id)
