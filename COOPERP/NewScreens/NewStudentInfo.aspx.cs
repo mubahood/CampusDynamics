@@ -7158,8 +7158,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     sb.Append(string.Join(",", chosen.ConvertAll(c => CsvCell(ExportCell(r, c[2]))).ToArray())).Append("\r\n");
                 Response.Write(sb.ToString());
             }
-            try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
+            Response.End();
         }
+        // Response.End() raises ThreadAbortException — it auto-re-raises out of any catch, so it MUST be
+        // caught here (before the general catch) or it lands in "catch (Exception)" as a false failure.
+        catch (System.Threading.ThreadAbortException) { /* expected — the framework finishes the response */ }
         catch (Exception ex)
         {
             try { Response.Clear(); Response.ContentType = "text/plain"; Response.Write("Export failed: " + ex.Message); Response.End(); }
