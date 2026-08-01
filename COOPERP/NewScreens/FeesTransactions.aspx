@@ -53,11 +53,12 @@
 .ft-badge--pending { background: #f8d7da; color: #721c24; }
 
 /* === Custom Data Table ================================================= */
-.ft-table-wrap { overflow: auto; max-height: 560px; border-bottom: 1px solid #e0e5ed; position: relative; }
-.ft-table { width: 100%; border-collapse: collapse; min-width: 1200px; font-size: 12px; }
-.ft-table thead tr { position: sticky; top: 0; z-index: 10; }
+/* Single natural page scroll (no inner fixed-height box, no sticky header). Wide table
+   scrolls horizontally inside its wrap; the page scrolls vertically as one. */
+.ft-table-wrap { overflow-x: auto; border-bottom: 1px solid #e0e5ed; position: relative; }
+.ft-table { width: 100%; border-collapse: collapse; min-width: 960px; font-size: 12px; }
 .ft-table thead th { background: #f5f7fa; color: #555; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; font-weight: 600; padding: 9px 12px; border-bottom: 2px solid #e0e5ed; white-space: nowrap; box-shadow: 0 2px 0 #e0e5ed; }
-.ft-table tbody tr { border-bottom: 1px solid #f0f2f5; transition: background .08s; }
+.ft-table tbody tr { border-bottom: 1px solid #f0f2f5; transition: background .08s; cursor: pointer; }
 .ft-table tbody tr:nth-child(even) { background: #f9fafb; }
 .ft-table tbody tr:hover, .ft-table tbody tr:nth-child(even):hover { background: #eef2fc; }
 .ft-table tbody td { padding: 8px 12px; vertical-align: middle; color: #1a1a2e; font-size: 11px; }
@@ -68,7 +69,7 @@
 .ft-col-type  { width: 82px;  white-space: nowrap; }
 .ft-col-item  { width: 148px; }
 .ft-col-amt   { width: 120px; white-space: nowrap; text-align: right; }
-.ft-col-detail{ min-width: 160px; }
+.ft-col-detail{ min-width: 260px; }
 .ft-col-status{ width: 82px;  white-space: nowrap; }
 .ft-col-date  { width: 92px;  white-space: nowrap; }
 .ft-col-year  { width: 92px;  white-space: nowrap; }
@@ -76,7 +77,7 @@
 .ft-col-action{ width: 44px;  text-align: center; white-space: nowrap; }
 td.ft-col-regno { color: #05275C; font-weight: 700; }
 td.ft-col-amt   { font-weight: 700; font-variant-numeric: tabular-nums; }
-td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 230px; }
+td.ft-col-detail { white-space: normal; word-break: break-word; line-height: 1.45; }
 /* Pager */
 .ft-pager { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: #f8f9fb; border-top: 1px solid #e0e5ed; font-size: 11px; color: #666; flex-wrap: wrap; gap: 8px; }
 .ft-pager__info strong { color: #05275C; }
@@ -532,8 +533,8 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
         <table class="ft-table">
             <colgroup>
                 <col class="ft-col-chk"><col class="ft-col-id"><col class="ft-col-regno"><col class="ft-col-name">
-                <col class="ft-col-type"><col class="ft-col-item"><col class="ft-col-amt">
-                <col class="ft-col-detail"><col class="ft-col-status"><col class="ft-col-date">
+                <col class="ft-col-type"><col class="ft-col-amt">
+                <col class="ft-col-detail"><col class="ft-col-date">
                 <col class="ft-col-year"><col class="ft-col-sem"><col style="width:78px;"><col class="ft-col-action">
             </colgroup>
             <thead>
@@ -543,10 +544,8 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                     <th class="ft-col-regno">Reg No</th>
                     <th class="ft-col-name">Student</th>
                     <th class="ft-col-type">Type</th>
-                    <th class="ft-col-item">Billing Item</th>
                     <th class="ft-col-amt">Amount</th>
                     <th class="ft-col-detail">Description</th>
-                    <th class="ft-col-status">Status</th>
                     <th class="ft-col-date">Date</th>
                     <th class="ft-col-year">Year</th>
                     <th class="ft-col-sem">Sem</th>
@@ -557,16 +556,28 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
             <tbody>
                 <asp:Repeater ID="rptTransactions" runat="server">
                     <ItemTemplate>
-                        <tr data-tid='<%# Eval("TID") %>'>
-                            <td class="ft-col-chk"><input type="checkbox" class="ft-chk ft-row-chk" value='<%# Eval("TID") %>' data-source='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("row_source"))) %>' onclick="batchRowCheck(this)" /></td>
+                        <tr data-tid='<%# Eval("TID") %>'
+                            data-regno='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("regno"))) %>'
+                            data-name='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("student_name"))) %>'
+                            data-type='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("trans_type"))) %>'
+                            data-itemcode='<%# Eval("item_code") %>'
+                            data-itemname='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("item_name"))) %>'
+                            data-amount='<%# Eval("amount") %>'
+                            data-amountfmt='<%# HttpUtility.HtmlAttributeEncode(FormatAmt(Eval("amount"))) %>'
+                            data-detail='<%# HttpUtility.HtmlAttributeEncode(DisplayDetail(Eval("detail"), Eval("item_name"), Eval("trans_type"), Eval("TID"))) %>'
+                            data-status='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("post_status"))) %>'
+                            data-date='<%# FormatDateISO(Eval("trans_date")) %>'
+                            data-year='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("acadyear"))) %>'
+                            data-sem='<%# Eval("semester") %>'
+                            data-source='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("row_source"))) %>'
+                            onclick="ftShowDetails(this)">
+                            <td class="ft-col-chk"><input type="checkbox" class="ft-chk ft-row-chk" value='<%# Eval("TID") %>' data-source='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("row_source"))) %>' onclick="event.stopPropagation();batchRowCheck(this)" /></td>
                             <td class="ft-col-id"><%# Eval("TID") %></td>
                             <td class="ft-col-regno"><%# HttpUtility.HtmlEncode(SafeStr(Eval("regno"))) %></td>
                             <td class="ft-col-name"><%# HttpUtility.HtmlEncode(SafeStr(Eval("student_name"))) %></td>
                             <td class="ft-col-type"><span class='ft-badge <%# GetTypeClass(Eval("trans_type")) %>'><%# HttpUtility.HtmlEncode(SafeStr(Eval("trans_type"))) %></span></td>
-                            <td class="ft-col-item"><%# HttpUtility.HtmlEncode(SafeStr(Eval("item_name"))) %></td>
                             <td class="ft-col-amt"><%# FormatAmt(Eval("amount")) %></td>
-                            <td class="ft-col-detail" title='<%# HttpUtility.HtmlAttributeEncode(DisplayDetail(Eval("detail"), Eval("item_name"), Eval("trans_type"), Eval("TID"))) %>'><%# HttpUtility.HtmlEncode(DisplayDetail(Eval("detail"), Eval("item_name"), Eval("trans_type"), Eval("TID"))) %></td>
-                            <td class="ft-col-status"><span class='ft-badge <%# GetStatusClass(Eval("post_status")) %>'><%# HttpUtility.HtmlEncode(SafeStr(Eval("post_status"))) %></span></td>
+                            <td class="ft-col-detail"><%# HttpUtility.HtmlEncode(DisplayDetail(Eval("detail"), Eval("item_name"), Eval("trans_type"), Eval("TID"))) %></td>
                             <td class="ft-col-date"><%# FormatDateShort(Eval("trans_date")) %></td>
                             <td class="ft-col-year"><%# HttpUtility.HtmlEncode(SafeStr(Eval("acadyear"))) %></td>
                             <td class="ft-col-sem"><%# Eval("semester") %></td>
@@ -585,13 +596,13 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
                                     data-year='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("acadyear"))) %>'
                                     data-sem='<%# Eval("semester") %>'
                                     data-source='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("row_source"))) %>'
-                                    onclick="showRowAction(event,this)">&#8942;</button>
+                                    onclick="event.stopPropagation();showRowAction(event,this)">&#8942;</button>
                             </td>
                         </tr>
                     </ItemTemplate>
                 </asp:Repeater>
                 <asp:PlaceHolder ID="phNoData" runat="server" Visible="false">
-                    <tr><td colspan="14" style="padding:44px 20px;text-align:center;color:#999;font-size:13px;">
+                    <tr><td colspan="12" style="padding:44px 20px;text-align:center;color:#999;font-size:13px;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="display:block;margin:0 auto 8px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                         No transactions match your current filters.
                     </td></tr>
@@ -638,6 +649,23 @@ td.ft-col-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowra
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
         Remove from GL
     </button>
+</div>
+
+<!-- Transaction Details Modal (click any row) -->
+<div id="ftDetailsOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:1200;align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto;" onclick="if(event.target===this)ftCloseDetails()">
+    <div style="background:#fff;max-width:560px;width:100%;border-radius:4px;box-shadow:0 12px 40px rgba(5,39,92,.28);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;background:#05275C;color:#fff;border-radius:4px 4px 0 0;">
+            <div style="font-size:14px;font-weight:700;">Transaction Details <span id="ftdTid" style="opacity:.7;font-weight:500;"></span></div>
+            <button type="button" onclick="ftCloseDetails()" style="background:none;border:none;color:#fff;font-size:22px;line-height:1;cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:16px 18px;">
+            <div id="ftdStudent" style="font-size:15px;font-weight:700;color:#05275C;margin-bottom:2px;"></div>
+            <div id="ftdRegno" style="font-size:12px;color:#174DA4;font-weight:600;margin-bottom:14px;"></div>
+            <dl id="ftdGrid" style="display:grid;grid-template-columns:130px 1fr;gap:0;margin:0;"></dl>
+            <div id="ftdLinks" style="margin-top:16px;border-top:1px dashed #e0e5ed;padding-top:12px;"></div>
+        </div>
+        <div id="ftdActions" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;padding:12px 18px;background:#f8f9fb;border-top:1px solid #e0e5ed;border-radius:0 0 4px 4px;"></div>
+    </div>
 </div>
 
 <script type="text/javascript">
@@ -973,6 +1001,62 @@ function validateAndSaveTx() {
 /* ==== Row Action Popover ==== */
 var _activeRowData = null;
 var _deleteMode    = 'manual'; // 'manual' | 'gl'
+
+// ---- Transaction details (click a row) ----
+function ftEsc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function ftDRow(label, val){
+    return '<dt style="font-size:10.5px;color:#888;text-transform:uppercase;letter-spacing:.4px;padding:7px 0;border-bottom:1px solid #f0f2f5;">'+ftEsc(label)+'</dt>'
+         + '<dd style="margin:0;font-size:12.5px;color:#1a1a2e;font-weight:600;padding:7px 0;border-bottom:1px solid #f0f2f5;word-break:break-word;">'+(val&&val.length?val:'&mdash;')+'</dd>';
+}
+function ftShowDetails(row){
+    var d = {
+        tid: row.getAttribute('data-tid'), regno: row.getAttribute('data-regno'), name: row.getAttribute('data-name'),
+        type: row.getAttribute('data-type'), itemcode: row.getAttribute('data-itemcode'), itemname: row.getAttribute('data-itemname'),
+        amount: row.getAttribute('data-amount'), amountfmt: row.getAttribute('data-amountfmt'), detail: row.getAttribute('data-detail'),
+        status: row.getAttribute('data-status'), date: row.getAttribute('data-date'), year: row.getAttribute('data-year'),
+        sem: row.getAttribute('data-sem'), source: row.getAttribute('data-source') || 'manual'
+    };
+    // Make the row's actions (edit / delete / remove-GL) available from the modal.
+    _activeRowData = { tid:d.tid, regno:d.regno, name:d.name, type:d.type, itemcode:d.itemcode, amount:d.amount, detail:d.detail, status:d.status, date:d.date, year:d.year, sem:d.sem, source:d.source };
+
+    document.getElementById('ftdTid').textContent = '#' + (d.tid||'');
+    document.getElementById('ftdStudent').textContent = d.name || '(no name)';
+    document.getElementById('ftdRegno').textContent = d.regno || '';
+
+    var srcMap = {manual:'Manual entry', auto:'Auto (from GL)', ghost:'GL orphan (no manual row)', gl:'General Ledger'};
+    var g = '';
+    g += ftDRow('Type', ftEsc(d.type));
+    g += ftDRow('Billing Item', ftEsc(d.itemname || d.itemcode));
+    g += ftDRow('Amount', 'UGX ' + ftEsc(d.amountfmt || d.amount));
+    g += ftDRow('Status', ftEsc(d.status));
+    g += ftDRow('Description', ftEsc(d.detail));
+    g += ftDRow('Date', ftEsc(d.date));
+    g += ftDRow('Academic Year', ftEsc(d.year));
+    g += ftDRow('Semester', ftEsc(d.sem));
+    g += ftDRow('Source', ftEsc(srcMap[d.source] || d.source));
+    g += ftDRow('Transaction ID', ftEsc(d.tid));
+    document.getElementById('ftdGrid').innerHTML = g;
+
+    var rq = encodeURIComponent(d.regno||''), tq = encodeURIComponent(d.type||'');
+    var links = '<div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Linked views</div>'
+        + '<a href="FeesTransactions.aspx?q='+rq+'" style="display:block;font-size:12px;color:#174DA4;font-weight:600;text-decoration:none;padding:4px 0;">&rsaquo; All transactions for this student</a>'
+        + '<a href="FeesTransactions.aspx?q='+rq+'&type='+tq+'" style="display:block;font-size:12px;color:#174DA4;font-weight:600;text-decoration:none;padding:4px 0;">&rsaquo; This student’s '+ftEsc(d.type||'')+' entries only</a>'
+        + '<a href="FeesManagement.aspx" style="display:block;font-size:12px;color:#174DA4;font-weight:600;text-decoration:none;padding:4px 0;">&rsaquo; Open Fees Management</a>';
+    document.getElementById('ftdLinks').innerHTML = links;
+
+    var isManual = (d.source === 'manual'), a = '';
+    if (isManual) {
+        a += '<button type="button" onclick="ftCloseDetails();openEditTx();" style="padding:7px 14px;font-size:12px;font-weight:600;border:1px solid #174DA4;background:#fff;color:#174DA4;cursor:pointer;">Edit</button>';
+        a += '<button type="button" onclick="ftCloseDetails();confirmDeleteTx();" style="padding:7px 14px;font-size:12px;font-weight:600;border:1px solid #c0392b;background:#fff;color:#c0392b;cursor:pointer;">Delete</button>';
+    } else {
+        a += '<button type="button" onclick="ftCloseDetails();confirmRemoveGL();" style="padding:7px 14px;font-size:12px;font-weight:600;border:1px solid #c0392b;background:#fff;color:#c0392b;cursor:pointer;">Remove from GL</button>';
+    }
+    a += '<button type="button" onclick="ftCloseDetails()" style="padding:7px 14px;font-size:12px;font-weight:600;border:1px solid #e0e5ed;background:#fff;color:#444;cursor:pointer;">Close</button>';
+    document.getElementById('ftdActions').innerHTML = a;
+
+    document.getElementById('ftDetailsOverlay').style.display = 'flex';
+}
+function ftCloseDetails(){ document.getElementById('ftDetailsOverlay').style.display = 'none'; }
 
 function showRowAction(evt, btn) {
     evt.stopPropagation();
