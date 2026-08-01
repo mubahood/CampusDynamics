@@ -124,11 +124,36 @@ public class SelfPhotoUpload : IHttpHandler
             using (MySqlConnection conn = new MySqlConnection(ConnStr()))
             {
                 conn.Open();
-                using (MySqlCommand cmd = new MySqlCommand("UPDATE acad_student SET photofile = @photofile WHERE regno = @regno", conn))
+
+                // Capture the photo being replaced, for the change-tracking record.
+                string oldPhoto = "";
+                using (MySqlCommand sel = new MySqlCommand("SELECT COALESCE(photofile,'') FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                {
+                    sel.Parameters.AddWithValue("@r", regno);
+                    object o = sel.ExecuteScalar();
+                    oldPhoto = o == null || o == DBNull.Value ? "" : o.ToString();
+                }
+
+                // The new photo goes live but PENDING admin approval (photo change tracker).
+                using (MySqlCommand cmd = new MySqlCommand("UPDATE acad_student SET photofile = @photofile, photo_status = 'PENDING' WHERE regno = @regno", conn))
                 {
                     cmd.Parameters.AddWithValue("@photofile", fileName);
                     cmd.Parameters.AddWithValue("@regno", regno);
                     rows = cmd.ExecuteNonQuery();
+                }
+
+                if (rows > 0)
+                {
+                    // One record per change — admin approves/rejects it in eadmin.
+                    using (MySqlCommand ins = new MySqlCommand(
+                        "INSERT INTO stud_photo_change (regno, old_photofile, new_photofile, status, source, requested_at) " +
+                        "VALUES (@r, @o, @n, 'PENDING', 'eportal-self', NOW())", conn))
+                    {
+                        ins.Parameters.AddWithValue("@r", regno);
+                        ins.Parameters.AddWithValue("@o", oldPhoto);
+                        ins.Parameters.AddWithValue("@n", fileName);
+                        ins.ExecuteNonQuery();
+                    }
                 }
             }
 
@@ -139,7 +164,7 @@ public class SelfPhotoUpload : IHttpHandler
             }
 
             string photoUrl = "https://eadmin.mru.ac.ug/COOPERP/StudentInfo/photos/" + fileName;
-            WriteJson(res, true, "Photo updated successfully.", photoUrl);
+            WriteJson(res, true, "Photo uploaded. It is now pending administrator approval.", photoUrl);
         }
         catch (Exception ex)
         {
