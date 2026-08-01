@@ -63,6 +63,13 @@
 .pc-fld textarea{min-height:64px;resize:vertical;}
 .pc-hint{font-size:11px;color:#8b93a3;margin-top:5px;line-height:1.45;}
 .pc-modal__f{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;background:#f8f9fb;border-top:1px solid #e0e5ed;}
+/* reject-reason chips */
+.pc-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 12px;}
+.pc-chip{font-size:11.5px;border:1px solid #e0e5ed;background:#fff;color:#3a4250;padding:6px 11px;border-radius:14px;cursor:pointer;transition:all .12s;user-select:none;}
+.pc-chip:hover{border-color:#b3261e;color:#b3261e;}
+.pc-chip--on{background:#b3261e;border-color:#b3261e;color:#fff;}
+.pc-reject-who{font-size:12px;color:#5b6472;background:#f5f7fa;border:1px solid #e0e5ed;padding:8px 11px;margin-bottom:12px;}
+.pc-reject-who b{color:#05275C;}
 </style>
 </asp:Content>
 
@@ -92,7 +99,8 @@
                 </select>
             </div>
             <div class="pc-fld">
-                <label>Note / reason (optional)</label>
+                <label>Note / reason <span style="font-weight:400;text-transform:none;color:#8b93a3;">(optional &mdash; tap to add)</span></label>
+                <div class="pc-chips" id="piChips"></div>
                 <textarea id="piComment" placeholder="Shown to the student if you reject."></textarea>
                 <div class="pc-hint">Creates a photo-change record for this student and sets their status. <b>REJECTED</b> also removes the current photo, so the student is prompted to upload a new one.</div>
             </div>
@@ -101,6 +109,29 @@
         <div class="pc-modal__f">
             <button type="button" class="pc-btn" onclick="pcCloseInit()">Cancel</button>
             <button type="button" class="pc-btn pc-btn--nav" id="piGo" onclick="pcSubmitInit()">Apply</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reject reason modal (per-row & batch) with clickable common reasons -->
+<div class="pc-mov" id="pcRejOv" onclick="if(event.target===this)pcRejClose()">
+    <div class="pc-modal">
+        <div class="pc-modal__h"><b>Reject photo</b><button type="button" class="pc-modal__x" onclick="pcRejClose()">&times;</button></div>
+        <div class="pc-modal__b">
+            <div class="pc-reject-who" id="pcRejWho"></div>
+            <div class="pc-fld">
+                <label>Common reasons <span style="font-weight:400;text-transform:none;color:#8b93a3;">(tap to add)</span></label>
+                <div class="pc-chips" id="pcChips"></div>
+            </div>
+            <div class="pc-fld">
+                <label>Reason shown to the student</label>
+                <textarea id="pcRejReason" placeholder="Pick from above or type your own reason..."></textarea>
+                <div class="pc-hint">This message is shown to the student, and their photo is removed &mdash; they must upload a new one before they can use their dashboard.</div>
+            </div>
+        </div>
+        <div class="pc-modal__f">
+            <button type="button" class="pc-btn" onclick="pcRejClose()">Cancel</button>
+            <button type="button" class="pc-btn pc-btn--danger" id="pcRejGo" onclick="pcRejConfirm()">Reject photo</button>
         </div>
     </div>
 </div>
@@ -114,6 +145,7 @@
         document.getElementById("piStatus").value = "APPROVED";
         document.getElementById("piComment").value = "";
         var m = document.getElementById("piMsg"); m.style.display = "none";
+        if (window.pcBuildChips) window.pcBuildChips("piChips", "piComment");
         document.getElementById("pcInitOv").style.display = "flex";
         document.getElementById("piReg").focus();
     };
@@ -145,15 +177,65 @@
             method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" }, body: data
         }).then(function (r) { return r.json(); });
     }
+    // ---- reject-reason modal (per-row & batch) with clickable common reasons ----
+    var REASONS = [
+        "Photo is blurry or out of focus",
+        "Not taken straight-on (face at an angle)",
+        "Face is not clearly visible",
+        "Background is not plain (busy or dark)",
+        "Wearing a hat, cap or sunglasses",
+        "This is a selfie, not a passport-style photo",
+        "Does not appear to be the actual student",
+        "Image quality too low / too small",
+        "Other people or objects in the frame",
+        "Photo is not appropriate for official records"
+    ];
+    var _rejTarget = null; // {mode:'single', id} | {mode:'batch', ids:[]}
+
+    window.pcRejClose = function () { document.getElementById("pcRejOv").style.display = "none"; };
+
+    window.pcBuildChips = function (containerId, taId) {
+        var wrap = document.getElementById(containerId); if (!wrap) return; wrap.innerHTML = "";
+        REASONS.forEach(function (r) {
+            var b = document.createElement("span");
+            b.className = "pc-chip"; b.textContent = r;
+            b.onclick = function () { toggleChip(b, r, taId); };
+            wrap.appendChild(b);
+        });
+    };
+    function openReject(target, whoHtml) {
+        _rejTarget = target;
+        document.getElementById("pcRejWho").innerHTML = whoHtml;
+        document.getElementById("pcRejReason").value = "";
+        window.pcBuildChips("pcChips", "pcRejReason");
+        document.getElementById("pcRejOv").style.display = "flex";
+    }
+    function toggleChip(el, text, taId) {
+        var ta = document.getElementById(taId);
+        var parts = ta.value.split(/;\s*/).map(function (s) { return s.trim(); }).filter(Boolean);
+        var i = parts.indexOf(text);
+        if (i >= 0) { parts.splice(i, 1); el.classList.remove("pc-chip--on"); }
+        else { parts.push(text); el.classList.add("pc-chip--on"); }
+        ta.value = parts.join("; ");
+    }
+    window.pcRejConfirm = function () {
+        var reason = document.getElementById("pcRejReason").value.trim();
+        if (!reason && !confirm("Reject without a reason? The student will not be told why.")) return;
+        var body = _rejTarget.mode === "single"
+            ? "action=review&id=" + encodeURIComponent(_rejTarget.id) + "&decision=reject&comment=" + encodeURIComponent(reason)
+            : "action=batch&ids=" + encodeURIComponent(_rejTarget.ids.join(",")) + "&decision=reject&comment=" + encodeURIComponent(reason);
+        var go = document.getElementById("pcRejGo"); go.disabled = true;
+        post(body).then(function (d) {
+            go.disabled = false;
+            if (d && d.success) { pcRejClose(); pcToast(d.message || "Done"); setTimeout(reloadKeep, 800); }
+            else { pcToast((d && d.message) || "Failed.", true); }
+        }).catch(function () { go.disabled = false; pcToast("Request failed.", true); });
+    };
+
     window.pcReview = function (id, approve) {
-        var comment = "";
-        if (!approve) {
-            comment = prompt("Reason for rejecting this photo (shown to the student):", "");
-            if (comment === null) return; // cancelled
-        } else {
-            if (!confirm("Approve this photo?")) return;
-        }
-        post("action=review&id=" + encodeURIComponent(id) + "&decision=" + (approve ? "approve" : "reject") + "&comment=" + encodeURIComponent(comment))
+        if (!approve) { openReject({ mode: "single", id: id }, "Rejecting <b>1</b> photo &mdash; it will be removed and the student asked to re-upload."); return; }
+        if (!confirm("Approve this photo?")) return;
+        post("action=review&id=" + encodeURIComponent(id) + "&decision=approve&comment=")
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 700); })
             .catch(function () { pcToast("Request failed.", true); });
     };
@@ -161,14 +243,9 @@
         var ids = [];
         document.querySelectorAll(".pc-chk:checked").forEach(function (c) { ids.push(c.value); });
         if (ids.length === 0) { pcToast("Select at least one photo first.", true); return; }
-        var comment = "";
-        if (!approve) {
-            comment = prompt("Reason for rejecting these " + ids.length + " photos (shown to the students):", "");
-            if (comment === null) return;
-        } else {
-            if (!confirm("Approve " + ids.length + " selected photo(s)?")) return;
-        }
-        post("action=batch&ids=" + encodeURIComponent(ids.join(",")) + "&decision=" + (approve ? "approve" : "reject") + "&comment=" + encodeURIComponent(comment))
+        if (!approve) { openReject({ mode: "batch", ids: ids }, "Rejecting <b>" + ids.length + "</b> selected photo(s) &mdash; each will be removed and the students asked to re-upload."); return; }
+        if (!confirm("Approve " + ids.length + " selected photo(s)?")) return;
+        post("action=batch&ids=" + encodeURIComponent(ids.join(",")) + "&decision=approve&comment=")
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 800); })
             .catch(function () { pcToast("Request failed.", true); });
     };
