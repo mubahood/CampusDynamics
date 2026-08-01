@@ -22,6 +22,7 @@ public partial class COOPERP_NewScreens_MarkPublishController : Page
     [WebMethod(EnableSession = true)] public static string Commit(int recordId) { return StageConsoleShared.Commit("PUBLISH", recordId); }
     [WebMethod(EnableSession = true)] public static string Cancel(int recordId) { return StageConsoleShared.Cancel("PUBLISH", recordId); }
     [WebMethod(EnableSession = true)] public static string ReturnMarks(int[] ids, string reason) { return StageConsoleShared.ReturnMarks("PUBLISH", ids, reason); }
+    [WebMethod(EnableSession = true)] public static string AdvanceSelected(int[] ids, string notes) { return StageConsoleShared.AdvanceSelected("PUBLISH", ids, notes); }
     [WebMethod(EnableSession = true)] public static string Records(int page) { return StageConsoleShared.Records("PUBLISH", page); }
     [WebMethod(EnableSession = true)] public static string RecordDetail(int recordId) { return StageConsoleShared.RecordDetail("PUBLISH", recordId); }
 }

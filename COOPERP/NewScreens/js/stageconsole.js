@@ -40,6 +40,8 @@ function boot() {
         fillSelect('sc-p-year', d.years, 'All years', true);   // wizard academic-year dropdown
         var launch = qs('sc-launch');
         if (!d.canAct && launch) { launch.disabled = true; var n = qs('sc-cantact'); if (n) n.style.display = 'inline-block'; }
+        var adv = qs('sc-advance-btn');
+        if (adv) { adv.innerHTML = '&#10003; ' + (VERB[d.stage] || 'Advance') + ' selected'; if (!d.canAct) adv.style.display = 'none'; }
         loadStats(); loadBrowse(1);
     });
 }
@@ -151,6 +153,23 @@ function toggleFailed() {
     loadBrowse(1);
 }
 
+/* ── Advance selected (forward) ── */
+var VERB = { CAPTURE: 'Capture', APPROVE: 'Approve', PUBLISH: 'Publish' };
+function advanceSelected() {
+    if (!STAGE.canAct) { toast('Your role cannot perform this stage.', true); return; }
+    var ids = []; var ch = document.querySelectorAll('.sc-chk:checked'); for (var i=0;i<ch.length;i++) ids.push(parseInt(ch[i].value,10));
+    if (!ids.length) { toast('Select one or more marks first.', true); return; }
+    var verb = VERB[STAGE.name] || 'Advance';
+    var extra = (STAGE.name === 'PUBLISH') ? ' and publish them to results' : '';
+    if (!confirm(verb + ' ' + ids.length + ' selected mark(s)?\n\nThis moves them to "' + STAGE.toLabel + '"' + extra + '.')) return;
+    var btn = qs('sc-advance-btn'); if (btn) btn.disabled = true;
+    call('AdvanceSelected', { ids: ids, notes: '' }, function (d) {
+        if (btn) btn.disabled = false;
+        if (!d || !d.success) { toast((d && d.message) || 'Advance failed.', true); return; }
+        toast(d.message); loadStats(); loadBrowse(PAGE);
+    });
+}
+
 /* ── Send-back ── */
 function returnSelected() {
     var ids = []; var ch = document.querySelectorAll('.sc-chk:checked'); for (var i=0;i<ch.length;i++) ids.push(parseInt(ch[i].value,10));
@@ -214,7 +233,7 @@ function tab(which) {
 }
 
 window.SC = { go: loadBrowse, openWizard: openWizard, doPreview: doPreview, wizBack: wizBack, commit: commit,
-    closeWizard: closeWizard, returnSelected: returnSelected, tab: tab, viewRec: viewRec, closeDetail: closeDetail, toggleFailed: toggleFailed,
+    closeWizard: closeWizard, returnSelected: returnSelected, advanceSelected: advanceSelected, tab: tab, viewRec: viewRec, closeDetail: closeDetail, toggleFailed: toggleFailed,
     apply: function(){ loadBrowse(1); }, reset: function(){ qs('sc-year').value=''; qs('sc-sem').value=''; qs('sc-prog').value=''; qs('sc-q').value=''; FAILED_ONLY=false; var tb=qs('sc-failed-toggle'); if(tb){ tb.classList.remove('sc-btn--danger'); tb.innerHTML='&#9873; Show failed (F) only'; } loadBrowse(1); },
     selectAll: function(cb){ var ch=document.querySelectorAll('.sc-chk'); for(var i=0;i<ch.length;i++) ch[i].checked=cb.checked; } };
 

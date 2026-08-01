@@ -236,6 +236,18 @@ public static class StageConsoleShared
         catch (Exception ex) { return Json.Serialize(new { success = false, message = ex.Message }); }
     }
 
+    // Advance a hand-picked set of marks (checkbox selection) forward one stage.
+    public static string AdvanceSelected(string stage, int[] ids, string notes)
+    {
+        try
+        {
+            MarksScope scope = MarksScopeResolver.Resolve();
+            if (!CanAct(stage, scope)) return DeniedJson(stage);
+            return Json.Serialize(StageAdvanceService.AdvanceMarks(Def(stage), scope, ids, notes, User(), UserName(), RoleFor(scope)));
+        }
+        catch (Exception ex) { return Json.Serialize(new { success = false, message = ex.Message }); }
+    }
+
     // ── HISTORY: committed sessions for this stage within scope ──
     public static string Records(string stage, int page)
     {

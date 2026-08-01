@@ -22,6 +22,7 @@ public partial class COOPERP_NewScreens_MarkCaptureController : Page
     [WebMethod(EnableSession = true)] public static string Commit(int recordId) { return StageConsoleShared.Commit("CAPTURE", recordId); }
     [WebMethod(EnableSession = true)] public static string Cancel(int recordId) { return StageConsoleShared.Cancel("CAPTURE", recordId); }
     [WebMethod(EnableSession = true)] public static string ReturnMarks(int[] ids, string reason) { return StageConsoleShared.ReturnMarks("CAPTURE", ids, reason); }
+    [WebMethod(EnableSession = true)] public static string AdvanceSelected(int[] ids, string notes) { return StageConsoleShared.AdvanceSelected("CAPTURE", ids, notes); }
     [WebMethod(EnableSession = true)] public static string Records(int page) { return StageConsoleShared.Records("CAPTURE", page); }
     [WebMethod(EnableSession = true)] public static string RecordDetail(int recordId) { return StageConsoleShared.RecordDetail("CAPTURE", recordId); }
 }

@@ -52,6 +52,7 @@
         <strong style="font-size:11px;color:#05275C;">Marks awaiting approval</strong>
         <span style="margin-left:auto"></span>
         <button type="button" class="sc-btn sc-btn--ghost" id="sc-failed-toggle" onclick="SC.toggleFailed()">&#9873; Show failed (F) only</button>
+        <button type="button" class="sc-btn sc-btn--navy" id="sc-advance-btn" onclick="SC.advanceSelected()">&#10003; Advance selected</button>
         <button type="button" class="sc-btn sc-btn--ghost" onclick="SC.returnSelected()">&#8634; Send selected back</button>
       </div>
       <div class="sc-tw">
@@ -117,5 +118,5 @@
   </div>
 </div>
 
-<script src="js/stageconsole.js?v=20260711a" type="text/javascript"></script>
+<script src="js/stageconsole.js?v=20260801a" type="text/javascript"></script>
 </asp:Content>

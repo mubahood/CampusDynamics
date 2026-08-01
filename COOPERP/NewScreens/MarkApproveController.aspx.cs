@@ -22,6 +22,7 @@ public partial class COOPERP_NewScreens_MarkApproveController : Page
     [WebMethod(EnableSession = true)] public static string Commit(int recordId) { return StageConsoleShared.Commit("APPROVE", recordId); }
     [WebMethod(EnableSession = true)] public static string Cancel(int recordId) { return StageConsoleShared.Cancel("APPROVE", recordId); }
     [WebMethod(EnableSession = true)] public static string ReturnMarks(int[] ids, string reason) { return StageConsoleShared.ReturnMarks("APPROVE", ids, reason); }
+    [WebMethod(EnableSession = true)] public static string AdvanceSelected(int[] ids, string notes) { return StageConsoleShared.AdvanceSelected("APPROVE", ids, notes); }
     [WebMethod(EnableSession = true)] public static string Records(int page) { return StageConsoleShared.Records("APPROVE", page); }
     [WebMethod(EnableSession = true)] public static string RecordDetail(int recordId) { return StageConsoleShared.RecordDetail("APPROVE", recordId); }
 }

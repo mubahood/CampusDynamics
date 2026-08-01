@@ -366,6 +366,95 @@ public static class StageAdvanceService
         }
     }
 
+    // ── Advance specific marks one stage UP (the forward counterpart of ReturnMarks) ──
+    // Advances the selected acad_course_registration rows from FromStage → ToStage, guarded by
+    // scope + FromStage, with a COMMITTED audit record (so it appears in Session history / CSV).
+    // For PUBLISH (WritesResults) each row is written to acad_results via PublishSingle, exactly
+    // like the wizard Commit path.
+    public static object AdvanceMarks(StageDef def, MarksScope scope, int[] ids, string notes,
+        string actor, string actorName, string role)
+    {
+        if (ids == null || ids.Length == 0) return new { success = false, message = "No marks selected." };
+        using (var conn = new MySqlConnection(MarkStage.ConnStr))
+        {
+            conn.Open();
+
+            // 1) Audit record (DRAFT) — records who advanced how many, by explicit selection.
+            int recordId;
+            using (var cmd = new MySqlCommand(
+                "INSERT INTO campus_dynamics_portal." + def.RecordTable +
+                " (status, performed_by, performed_by_name, performed_by_role, scope_faculty_code, scope_department_id," +
+                "  param_all, param_fail_mode, params_json, notes, created_at)" +
+                " VALUES ('DRAFT',@by,@nm,@role,@fac,@dept,0,'INCLUDE',@pj,@notes,NOW())", conn))
+            {
+                cmd.Parameters.AddWithValue("@by", actor ?? "");
+                cmd.Parameters.AddWithValue("@nm", actorName ?? "");
+                cmd.Parameters.AddWithValue("@role", role ?? "");
+                cmd.Parameters.AddWithValue("@fac", (scope.FacultyCodes.Count > 0) ? (object)scope.FacultyCodes[0] : DBNull.Value);
+                cmd.Parameters.AddWithValue("@dept", (scope.DepartmentIds.Count > 0) ? (object)scope.DepartmentIds[0] : DBNull.Value);
+                cmd.Parameters.AddWithValue("@pj", Json.Serialize(new { mode = "SELECTED", selectedIds = ids.Length }));
+                cmd.Parameters.AddWithValue("@notes", string.IsNullOrEmpty(notes) ? ("Advanced " + ids.Length + " selected mark(s).") : notes);
+                cmd.ExecuteNonQuery();
+                recordId = (int)cmd.LastInsertedId;
+            }
+
+            int affected = 0, skipped = 0;
+            using (var tx = conn.BeginTransaction())
+            {
+                try
+                {
+                    foreach (int id in ids)
+                    {
+                        // Guard: row must currently be at FromStage AND within the actor's scope.
+                        using (var chk = new MySqlCommand(
+                            "SELECT COALESCE(prog_id,'') FROM " + MarkStage.REG + " WHERE id=@id AND mark_stage=@from LIMIT 1", conn, tx))
+                        {
+                            chk.Parameters.AddWithValue("@id", id);
+                            chk.Parameters.AddWithValue("@from", def.FromStage);
+                            object v = chk.ExecuteScalar();
+                            if (v == null || v == DBNull.Value) { skipped++; continue; }
+                            if (!scope.IsAdmin && !scope.AllowsProg(v.ToString().Trim())) { skipped++; continue; }
+                        }
+
+                        if (def.WritesResults)
+                        {
+                            if (MarksControllerShared.PublishSingle(conn, tx, id, actor)) { StampRow(conn, tx, def, recordId, actor, id); affected++; }
+                            else skipped++;
+                        }
+                        else
+                        {
+                            StampRow(conn, tx, def, recordId, actor, id); affected++;
+                        }
+                    }
+
+                    string finalStatus = affected > 0 ? "COMMITTED" : "CANCELLED";
+                    using (var fin = new MySqlCommand("UPDATE campus_dynamics_portal." + def.RecordTable +
+                        " SET status=@st, committed_at=NOW(), affected_count=@n, summary_json=@sum WHERE id=@id", conn, tx))
+                    {
+                        fin.Parameters.AddWithValue("@st", finalStatus);
+                        fin.Parameters.AddWithValue("@n", affected);
+                        fin.Parameters.AddWithValue("@sum", Json.Serialize(new { fromStage = def.FromStage, toStage = def.ToStage, mode = "SELECTED", selected = ids.Length, advanced = affected, skipped = skipped }));
+                        fin.Parameters.AddWithValue("@id", recordId);
+                        fin.ExecuteNonQuery();
+                    }
+                    tx.Commit();
+                }
+                catch (Exception ex)
+                {
+                    try { tx.Rollback(); } catch { }
+                    try { using (var c = new MySqlCommand("UPDATE campus_dynamics_portal." + def.RecordTable + " SET status='CANCELLED' WHERE id=@id", conn)) { c.Parameters.AddWithValue("@id", recordId); c.ExecuteNonQuery(); } } catch { }
+                    return new { success = false, message = "Advance failed: " + ex.Message };
+                }
+            }
+
+            if (affected == 0)
+                return new { success = false, affected = 0, message = "No eligible marks were advanced — they may already have moved on, or are outside your scope." };
+
+            return new { success = true, affected = affected, skipped = skipped, recordId = recordId,
+                         message = affected + " mark(s) advanced to " + MarkStage.Label(def.ToStage) + "." + (skipped > 0 ? (" " + skipped + " skipped.") : "") };
+        }
+    }
+
     private static int ToI(object v) { return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v); }
     private static string S(object v) { return v == null || v == DBNull.Value ? "" : v.ToString(); }
 }
