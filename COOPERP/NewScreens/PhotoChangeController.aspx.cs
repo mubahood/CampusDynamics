@@ -46,6 +46,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             {
                 if (action == "review") Response.Write(HandleReview());
                 else if (action == "batch") Response.Write(HandleBatch());
+                else if (action == "admininit") Response.Write(HandleAdminInit());
                 else Response.Write("{\"success\":false,\"message\":\"Unknown action.\"}");
             }
             catch (Exception ex)
@@ -104,6 +105,76 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         }
         string verb = approve ? "approved" : "rejected";
         return "{\"success\":true,\"message\":\"" + done + " " + verb + (skipped > 0 ? ", " + skipped + " skipped (already reviewed)" : "") + ".\"}";
+    }
+
+    /// <summary>
+    /// Admin-initiated override: create a record for a specific student and set their
+    /// photo_status to ANY value (PENDING / APPROVED / REJECTED). REJECTED blanks the
+    /// photofile (blocks it), matching the normal reject. Recorded as an admin action.
+    /// </summary>
+    private string HandleAdminInit()
+    {
+        string regno = (Request.Form["regno"] ?? "").Trim();
+        string status = (Request.Form["status"] ?? "").Trim().ToUpperInvariant();
+        string comment = (Request.Form["comment"] ?? "").Trim();
+
+        if (regno == "") return "{\"success\":false,\"message\":\"Please enter a registration number.\"}";
+        if (status != "PENDING" && status != "APPROVED" && status != "REJECTED")
+            return "{\"success\":false,\"message\":\"Choose a valid status (PENDING, APPROVED or REJECTED).\"}";
+
+        using (var conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+
+            string curPhoto = null, name = "";
+            using (var cmd = new MySqlCommand(
+                "SELECT COALESCE(photofile,''), TRIM(CONCAT(COALESCE(firstname,''),' ',COALESCE(othername,''))) FROM acad_student WHERE regno=@r LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                using (var rd = cmd.ExecuteReader())
+                {
+                    if (!rd.Read()) return "{\"success\":false,\"message\":\"No student found with reg no '" + JsEnc(regno) + "'.\"}";
+                    curPhoto = rd.IsDBNull(0) ? "" : rd.GetString(0);
+                    name = rd.IsDBNull(1) ? "" : rd.GetString(1);
+                }
+            }
+
+            string user = GetCurrentUser();
+            using (var tx = conn.BeginTransaction())
+            {
+                try
+                {
+                    if (status == "REJECTED")
+                    {
+                        using (var cmd = new MySqlCommand("UPDATE acad_student SET photo_status='REJECTED', photofile='' WHERE regno=@r", conn, tx))
+                        { cmd.Parameters.AddWithValue("@r", regno); cmd.ExecuteNonQuery(); }
+                    }
+                    else
+                    {
+                        using (var cmd = new MySqlCommand("UPDATE acad_student SET photo_status=@s WHERE regno=@r", conn, tx))
+                        { cmd.Parameters.AddWithValue("@s", status); cmd.Parameters.AddWithValue("@r", regno); cmd.ExecuteNonQuery(); }
+                    }
+
+                    using (var cmd = new MySqlCommand(
+                        "INSERT INTO stud_photo_change (regno, old_photofile, new_photofile, status, source, requested_at, reviewed_by, reviewed_at, review_comment) " +
+                        "VALUES (@r, @o, @n, @s, 'eadmin-admin', NOW(), @by, NOW(), @c)", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@o", curPhoto);
+                        cmd.Parameters.AddWithValue("@n", status == "REJECTED" ? "" : curPhoto);
+                        cmd.Parameters.AddWithValue("@s", status);
+                        cmd.Parameters.AddWithValue("@by", user);
+                        cmd.Parameters.AddWithValue("@c", comment == "" ? (object)DBNull.Value : comment);
+                        cmd.ExecuteNonQuery();
+                    }
+                    tx.Commit();
+                }
+                catch { tx.Rollback(); throw; }
+            }
+
+            string who = name == "" ? regno : name + " (" + regno + ")";
+            return "{\"success\":true,\"message\":\"Photo status for " + JsEnc(who) + " set to " + status + ".\"}";
+        }
     }
 
     /// <summary>Reviews a single PENDING change. Returns "OK" or a skip reason.</summary>
@@ -229,9 +300,12 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             sb.Append(Tab("DELETED", "Deleted", status, q, -1));
             sb.Append(Tab("ALL", "All", status, q, -1));
             sb.Append("</div>");
+            sb.Append("<div class='pc-bar__right'>");
             sb.Append("<form method='get' class='pc-search'><input type='hidden' name='status' value='" + HE(status) + "'/>" +
                       "<input type='text' name='q' value='" + HE(q) + "' placeholder='Search reg no or name...' class='pc-search__in'/>" +
                       "<button class='pc-btn pc-btn--sm'>Search</button>" + (q != "" ? "<a class='pc-clear' href='PhotoChangeController.aspx?status=" + HE(status) + "'>clear</a>" : "") + "</form>");
+            sb.Append("<button type='button' class='pc-btn pc-btn--nav' onclick='pcOpenInit()'>&#43; Set a student&rsquo;s status</button>");
+            sb.Append("</div>");
             sb.Append("</div>");
 
             // Batch action bar (only meaningful for pending)

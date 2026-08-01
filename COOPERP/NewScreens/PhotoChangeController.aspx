@@ -48,6 +48,21 @@
 .pc-pg.off{opacity:.4;pointer-events:none;}
 .pc-toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#05275C;color:#fff;padding:11px 18px;font-size:12.5px;font-weight:600;z-index:9999;box-shadow:0 6px 22px rgba(5,39,92,.3);display:none;}
 .pc-toast--err{background:#b3261e;}
+.pc-bar__right{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.pc-btn--nav{background:#05275C;color:#fff;} .pc-btn--nav:hover{background:#0a3a82;}
+/* admin set-status modal */
+.pc-mov{position:fixed;inset:0;background:rgba(5,39,92,.5);z-index:9998;display:none;align-items:flex-start;justify-content:center;padding:50px 16px;overflow:auto;}
+.pc-modal{background:#fff;max-width:440px;width:100%;box-shadow:0 18px 50px rgba(5,39,92,.3);}
+.pc-modal__h{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;background:#05275C;color:#fff;}
+.pc-modal__h b{font-size:14px;font-weight:700;}
+.pc-modal__x{background:none;border:0;color:#fff;font-size:22px;line-height:1;cursor:pointer;}
+.pc-modal__b{padding:18px;}
+.pc-fld{margin-bottom:14px;}
+.pc-fld label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#5b6472;margin-bottom:5px;}
+.pc-fld input,.pc-fld select,.pc-fld textarea{width:100%;box-sizing:border-box;border:1px solid #e0e5ed;padding:9px 11px;font-size:13px;font-family:inherit;}
+.pc-fld textarea{min-height:64px;resize:vertical;}
+.pc-hint{font-size:11px;color:#8b93a3;margin-top:5px;line-height:1.45;}
+.pc-modal__f{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;background:#f8f9fb;border-top:1px solid #e0e5ed;}
 </style>
 </asp:Content>
 
@@ -59,10 +74,67 @@
     </div>
     <asp:Literal ID="litBody" runat="server" />
 </div>
+<!-- Admin: initiate a record / set a student's photo status (any -> any) -->
+<div class="pc-mov" id="pcInitOv" onclick="if(event.target===this)pcCloseInit()">
+    <div class="pc-modal">
+        <div class="pc-modal__h"><b>Set a student's photo status</b><button type="button" class="pc-modal__x" onclick="pcCloseInit()">&times;</button></div>
+        <div class="pc-modal__b">
+            <div class="pc-fld">
+                <label>Registration number</label>
+                <input type="text" id="piReg" placeholder="e.g. MRU2024001234" autocomplete="off" />
+            </div>
+            <div class="pc-fld">
+                <label>Set status to</label>
+                <select id="piStatus">
+                    <option value="APPROVED">APPROVED — photo is valid &amp; visible</option>
+                    <option value="PENDING">PENDING — awaiting review (photo stays visible)</option>
+                    <option value="REJECTED">REJECTED — block &amp; remove the photo (student must re-upload)</option>
+                </select>
+            </div>
+            <div class="pc-fld">
+                <label>Note / reason (optional)</label>
+                <textarea id="piComment" placeholder="Shown to the student if you reject."></textarea>
+                <div class="pc-hint">Creates a photo-change record for this student and sets their status. <b>REJECTED</b> also removes the current photo, so the student is prompted to upload a new one.</div>
+            </div>
+            <div class="pc-msg" id="piMsg" style="display:none;font-size:12px;padding:8px 10px;"></div>
+        </div>
+        <div class="pc-modal__f">
+            <button type="button" class="pc-btn" onclick="pcCloseInit()">Cancel</button>
+            <button type="button" class="pc-btn pc-btn--nav" id="piGo" onclick="pcSubmitInit()">Apply</button>
+        </div>
+    </div>
+</div>
+
 <div class="pc-toast" id="pcToast"></div>
 
 <script type="text/javascript">
 (function () {
+    window.pcOpenInit = function () {
+        document.getElementById("piReg").value = "";
+        document.getElementById("piStatus").value = "APPROVED";
+        document.getElementById("piComment").value = "";
+        var m = document.getElementById("piMsg"); m.style.display = "none";
+        document.getElementById("pcInitOv").style.display = "flex";
+        document.getElementById("piReg").focus();
+    };
+    window.pcCloseInit = function () { document.getElementById("pcInitOv").style.display = "none"; };
+    window.pcSubmitInit = function () {
+        var reg = document.getElementById("piReg").value.trim();
+        var st = document.getElementById("piStatus").value;
+        var c = document.getElementById("piComment").value.trim();
+        var m = document.getElementById("piMsg");
+        if (!reg) { m.style.display = "block"; m.style.background = "#fdecec"; m.style.color = "#b3261e"; m.textContent = "Enter a registration number."; return; }
+        if (st === "REJECTED" && !confirm("Reject and REMOVE " + reg + "'s photo? They will be blocked from the dashboard until they re-upload.")) return;
+        var go = document.getElementById("piGo"); go.disabled = true;
+        fetch("PhotoChangeController.aspx", {
+            method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" },
+            body: "action=admininit&regno=" + encodeURIComponent(reg) + "&status=" + encodeURIComponent(st) + "&comment=" + encodeURIComponent(c)
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            go.disabled = false;
+            if (d && d.success) { pcCloseInit(); pcToast(d.message || "Done"); setTimeout(function () { window.location.reload(); }, 800); }
+            else { m.style.display = "block"; m.style.background = "#fdecec"; m.style.color = "#b3261e"; m.textContent = (d && d.message) ? d.message : "Failed."; }
+        }).catch(function () { go.disabled = false; m.style.display = "block"; m.style.background = "#fdecec"; m.style.color = "#b3261e"; m.textContent = "Request failed."; });
+    };
     window.pcToast = function (text, err) {
         var t = document.getElementById("pcToast");
         t.textContent = text; t.className = "pc-toast" + (err ? " pc-toast--err" : "");
