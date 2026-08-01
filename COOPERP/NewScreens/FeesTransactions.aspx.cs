@@ -535,7 +535,20 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
               + " t.item_code,"
               + " CASE WHEN b.ItemName IS NOT NULL AND b.ItemName != '' THEN b.ItemName"
               + "      WHEN t.item_code IS NULL OR t.item_code = 0 THEN '\u2014'"
-              + "      ELSE CONCAT('Item ', t.item_code) END AS item_name"
+              + "      ELSE CONCAT('Item ', t.item_code) END AS item_name,"
+              // Created-by: fin_studentfeestracking has no creator column, so read the teller from the
+              // GL mirror. Narrow via the accountcode index to this student's few ledger rows, match by
+              // amount + type + same day (catches payments), and prefer an exact tracking_ref/folio link
+              // (bills). Index-backed and one lookup per row.
+              + " (SELECT NULLIF(TRIM(fm.teller),'') FROM fin_ledger fm"
+              + "    WHERE fm.accountcode = t.regno"
+              + "      AND fm.transaction_amount = t.amount"
+              + "      AND fm.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END"
+              + "      AND fm.transactionDate >= DATE(t.trans_date)"
+              + "      AND fm.transactionDate <  DATE(t.trans_date) + INTERVAL 1 DAY"
+              + "      AND NULLIF(TRIM(fm.teller),'') IS NOT NULL"
+              + "    ORDER BY (fm.tracking_ref = t.TID) DESC, (fm.folio = CONCAT('BillNo:', t.TID)) DESC"
+              + "    LIMIT 1) AS created_by"
               + " FROM fin_studentfeestracking t"
               + " LEFT JOIN campus_dynamics.acad_student s ON s.regno = t.regno"
               + " LEFT JOIN academicbillingitems b ON b.ItemCode = t.item_code"
@@ -557,7 +570,8 @@ public partial class COOPERP_NewScreens_FeesTransactions : System.Web.UI.Page
               + " CAST(NULL AS CHAR) AS acadyear,"
               + " CAST(NULL AS SIGNED) AS semester,"
               + " CAST(NULL AS SIGNED) AS item_code,"
-              + " '\u2014' AS item_name"
+              + " '\u2014' AS item_name,"
+              + " COALESCE(NULLIF(TRIM(fl.teller),''),'') AS created_by"
               + " FROM fin_ledger fl"
               // INNER JOIN ensures accountcode is a real student regno.
               // No account_type filter — AUTO billing SPs use different values (e.g. 'AutoBill').

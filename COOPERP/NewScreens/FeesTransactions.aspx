@@ -57,11 +57,11 @@
    scrolls horizontally inside its wrap; the page scrolls vertically as one. */
 .ft-table-wrap { overflow-x: auto; border-bottom: 1px solid #e0e5ed; position: relative; }
 .ft-table { width: 100%; border-collapse: collapse; min-width: 960px; font-size: 12px; }
-.ft-table thead th { background: #f5f7fa; color: #555; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; font-weight: 600; padding: 9px 12px; border-bottom: 2px solid #e0e5ed; white-space: nowrap; box-shadow: 0 2px 0 #e0e5ed; }
+.ft-table thead th { background: #f5f7fa; color: #555; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; font-weight: 600; padding: 5px 8px; border-bottom: 2px solid #e0e5ed; white-space: nowrap; box-shadow: 0 2px 0 #e0e5ed; }
 .ft-table tbody tr { border-bottom: 1px solid #f0f2f5; transition: background .08s; cursor: pointer; }
 .ft-table tbody tr:nth-child(even) { background: #f9fafb; }
 .ft-table tbody tr:hover, .ft-table tbody tr:nth-child(even):hover { background: #eef2fc; }
-.ft-table tbody td { padding: 8px 12px; vertical-align: middle; color: #1a1a2e; font-size: 11px; }
+.ft-table tbody td { padding: 4px 8px; vertical-align: middle; color: #1a1a2e; font-size: 11px; }
 /* Column widths */
 .ft-col-id    { width: 62px;  }
 .ft-col-regno { width: 135px; white-space: nowrap; }
@@ -74,6 +74,7 @@
 .ft-col-date  { width: 92px;  white-space: nowrap; }
 .ft-col-year  { width: 92px;  white-space: nowrap; }
 .ft-col-sem   { width: 46px;  text-align: center; white-space: nowrap; }
+.ft-col-by    { width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
 .ft-col-action{ width: 44px;  text-align: center; white-space: nowrap; }
 td.ft-col-regno { color: #05275C; font-weight: 700; }
 td.ft-col-amt   { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -535,7 +536,7 @@ td.ft-col-detail { white-space: normal; word-break: break-word; line-height: 1.4
                 <col class="ft-col-chk"><col class="ft-col-id"><col class="ft-col-regno"><col class="ft-col-name">
                 <col class="ft-col-type"><col class="ft-col-amt">
                 <col class="ft-col-detail"><col class="ft-col-date">
-                <col class="ft-col-year"><col class="ft-col-sem"><col style="width:78px;"><col class="ft-col-action">
+                <col class="ft-col-year"><col class="ft-col-sem"><col class="ft-col-by"><col style="width:78px;"><col class="ft-col-action">
             </colgroup>
             <thead>
                 <tr>
@@ -549,6 +550,7 @@ td.ft-col-detail { white-space: normal; word-break: break-word; line-height: 1.4
                     <th class="ft-col-date">Date</th>
                     <th class="ft-col-year">Year</th>
                     <th class="ft-col-sem">Sem</th>
+                    <th class="ft-col-by">Created By</th>
                     <th style="width:78px;">Source</th>
                     <th class="ft-col-action"></th>
                 </tr>
@@ -570,6 +572,7 @@ td.ft-col-detail { white-space: normal; word-break: break-word; line-height: 1.4
                             data-year='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("acadyear"))) %>'
                             data-sem='<%# Eval("semester") %>'
                             data-source='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("row_source"))) %>'
+                            data-createdby='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("created_by"))) %>'
                             onclick="ftShowDetails(this)">
                             <td class="ft-col-chk"><input type="checkbox" class="ft-chk ft-row-chk" value='<%# Eval("TID") %>' data-source='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("row_source"))) %>' onclick="event.stopPropagation();batchRowCheck(this)" /></td>
                             <td class="ft-col-id"><%# Eval("TID") %></td>
@@ -581,6 +584,7 @@ td.ft-col-detail { white-space: normal; word-break: break-word; line-height: 1.4
                             <td class="ft-col-date"><%# FormatDateShort(Eval("trans_date")) %></td>
                             <td class="ft-col-year"><%# HttpUtility.HtmlEncode(SafeStr(Eval("acadyear"))) %></td>
                             <td class="ft-col-sem"><%# Eval("semester") %></td>
+                            <td class="ft-col-by" title='<%# HttpUtility.HtmlAttributeEncode(SafeStr(Eval("created_by"))) %>'><%# HttpUtility.HtmlEncode(SafeStr(Eval("created_by"))) %></td>
                             <td><%# GetSourceBadge(Eval("row_source")) %></td>
                             <td class="ft-col-action">
                                 <button type="button" class="ft-row-action"
@@ -602,7 +606,7 @@ td.ft-col-detail { white-space: normal; word-break: break-word; line-height: 1.4
                     </ItemTemplate>
                 </asp:Repeater>
                 <asp:PlaceHolder ID="phNoData" runat="server" Visible="false">
-                    <tr><td colspan="12" style="padding:44px 20px;text-align:center;color:#999;font-size:13px;">
+                    <tr><td colspan="13" style="padding:44px 20px;text-align:center;color:#999;font-size:13px;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="display:block;margin:0 auto 8px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                         No transactions match your current filters.
                     </td></tr>
@@ -1014,7 +1018,8 @@ function ftShowDetails(row){
         type: row.getAttribute('data-type'), itemcode: row.getAttribute('data-itemcode'), itemname: row.getAttribute('data-itemname'),
         amount: row.getAttribute('data-amount'), amountfmt: row.getAttribute('data-amountfmt'), detail: row.getAttribute('data-detail'),
         status: row.getAttribute('data-status'), date: row.getAttribute('data-date'), year: row.getAttribute('data-year'),
-        sem: row.getAttribute('data-sem'), source: row.getAttribute('data-source') || 'manual'
+        sem: row.getAttribute('data-sem'), source: row.getAttribute('data-source') || 'manual',
+        createdby: row.getAttribute('data-createdby')
     };
     // Make the row's actions (edit / delete / remove-GL) available from the modal.
     _activeRowData = { tid:d.tid, regno:d.regno, name:d.name, type:d.type, itemcode:d.itemcode, amount:d.amount, detail:d.detail, status:d.status, date:d.date, year:d.year, sem:d.sem, source:d.source };
@@ -1033,6 +1038,7 @@ function ftShowDetails(row){
     g += ftDRow('Date', ftEsc(d.date));
     g += ftDRow('Academic Year', ftEsc(d.year));
     g += ftDRow('Semester', ftEsc(d.sem));
+    g += ftDRow('Created By', ftEsc(d.createdby));
     g += ftDRow('Source', ftEsc(srcMap[d.source] || d.source));
     g += ftDRow('Transaction ID', ftEsc(d.tid));
     document.getElementById('ftdGrid').innerHTML = g;
