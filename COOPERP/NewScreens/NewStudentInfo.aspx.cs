@@ -4741,20 +4741,24 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     er.acad_year,
                     er.semester,
                     er.approved_by,
-                    CASE 
-                        WHEN er.finalmark >= 75 THEN 'A'
-                        WHEN er.finalmark >= 65 THEN 'B'
-                        WHEN er.finalmark >= 55 THEN 'C'
+                    CASE
+                        WHEN er.finalmark >= 80 THEN 'A'
+                        WHEN er.finalmark >= 75 THEN 'B+'
+                        WHEN er.finalmark >= 70 THEN 'B'
+                        WHEN er.finalmark >= 65 THEN 'C+'
+                        WHEN er.finalmark >= 60 THEN 'C'
+                        WHEN er.finalmark >= 55 THEN 'D+'
                         WHEN er.finalmark >= 50 THEN 'D'
                         ELSE 'F'
                     END AS computed_grade,
-                    CASE 
-                        WHEN er.finalmark >= 75 THEN 4.0
-                        WHEN er.finalmark >= 70 THEN 3.5
-                        WHEN er.finalmark >= 65 THEN 3.0
-                        WHEN er.finalmark >= 60 THEN 2.5
-                        WHEN er.finalmark >= 55 THEN 2.0
-                        WHEN er.finalmark >= 50 THEN 1.5
+                    CASE
+                        WHEN er.finalmark >= 80 THEN 5.0
+                        WHEN er.finalmark >= 75 THEN 4.5
+                        WHEN er.finalmark >= 70 THEN 4.0
+                        WHEN er.finalmark >= 65 THEN 3.5
+                        WHEN er.finalmark >= 60 THEN 3.0
+                        WHEN er.finalmark >= 55 THEN 2.5
+                        WHEN er.finalmark >= 50 THEN 2.0
                         ELSE 0.0
                     END AS computed_gp
                 FROM acad_examresults_faculty er

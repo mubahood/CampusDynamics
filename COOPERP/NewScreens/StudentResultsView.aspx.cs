@@ -280,13 +280,14 @@ public partial class COOPERP_NewScreens_StudentResultsView : System.Web.UI.Page
 
     private double ConvertToGPA(double mark)
     {
-        // Standard conversion: A (75-100) = 4.0, B (65-74) = 3.0, C (55-64) = 2.0, D (50-54) = 1.0, F (<50) = 0
-        if (mark >= 75) return 4.0;
-        if (mark >= 70) return 3.5;
-        if (mark >= 65) return 3.0;
-        if (mark >= 60) return 2.5;
-        if (mark >= 55) return 2.0;
-        if (mark >= 50) return 1.5;
+        // MRU / NCHE 5.0 scale: 80 A 5.0 · 75 B+ 4.5 · 70 B 4.0 · 65 C+ 3.5 · 60 C 3.0 · 55 D+ 2.5 · 50 D 2.0 · <50 F 0.
+        if (mark >= 80) return 5.0;
+        if (mark >= 75) return 4.5;
+        if (mark >= 70) return 4.0;
+        if (mark >= 65) return 3.5;
+        if (mark >= 60) return 3.0;
+        if (mark >= 55) return 2.5;
+        if (mark >= 50) return 2.0;
         return 0.0;
     }
 
@@ -386,10 +387,13 @@ public partial class COOPERP_NewScreens_StudentResultsView : System.Web.UI.Page
                 er.ca_mark,
                 er.exam_mark,
                 er.finalmark,
-                CASE 
-                    WHEN er.finalmark >= 75 THEN 'A'
-                    WHEN er.finalmark >= 65 THEN 'B'
-                    WHEN er.finalmark >= 55 THEN 'C'
+                CASE
+                    WHEN er.finalmark >= 80 THEN 'A'
+                    WHEN er.finalmark >= 75 THEN 'B+'
+                    WHEN er.finalmark >= 70 THEN 'B'
+                    WHEN er.finalmark >= 65 THEN 'C+'
+                    WHEN er.finalmark >= 60 THEN 'C'
+                    WHEN er.finalmark >= 55 THEN 'D+'
                     WHEN er.finalmark >= 50 THEN 'D'
                     ELSE 'F'
                 END AS grade,

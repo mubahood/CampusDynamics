@@ -1472,34 +1472,34 @@ public static class MarksControllerShared
         return parsed;
     }
 
+    // MRU / NCHE grading scale (see the transcript "KEY TO GRADES"):
+    //   80-100 A 5.0 | 75-79 B+ 4.5 | 70-74 B 4.0 | 65-69 C+ 3.5
+    //   60-64 C 3.0 | 55-59 D+ 2.5 | 50-54 D 2.0 | 0-49 F 0.0
+    // There is NO A+, A-, B-, C-, D- or E in this scheme.
     private static string ComputeGrade(int score)
     {
         if (score >= 80) return "A";
-        if (score >= 75) return "A-";
-        if (score >= 70) return "B+";
-        if (score >= 65) return "B";
-        if (score >= 60) return "B-";
-        if (score >= 55) return "C+";
-        if (score >= 50) return "C";
-        if (score >= 45) return "C-";
-        if (score >= 40) return "D";
-        return "E";
+        if (score >= 75) return "B+";
+        if (score >= 70) return "B";
+        if (score >= 65) return "C+";
+        if (score >= 60) return "C";
+        if (score >= 55) return "D+";
+        if (score >= 50) return "D";
+        return "F";
     }
 
     private static decimal ComputeGradePoint(string grade)
     {
         switch ((grade ?? string.Empty).Trim().ToUpperInvariant())
         {
-            case "A": return 5.0m;
-            case "A-": return 4.5m;
-            case "B+": return 4.0m;
-            case "B": return 3.5m;
-            case "B-": return 3.0m;
-            case "C+": return 2.5m;
-            case "C": return 2.0m;
-            case "C-": return 1.5m;
-            case "D": return 1.0m;
-            default: return 0.0m;
+            case "A":  return 5.0m;
+            case "B+": return 4.5m;
+            case "B":  return 4.0m;
+            case "C+": return 3.5m;
+            case "C":  return 3.0m;
+            case "D+": return 2.5m;
+            case "D":  return 2.0m;
+            default:   return 0.0m;   // F
         }
     }
 

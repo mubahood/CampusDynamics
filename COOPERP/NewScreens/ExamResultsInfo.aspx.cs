@@ -1184,16 +1184,15 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     /// </summary>
     private string CalculateGrade(int totalMark)
     {
-        if (totalMark >= 90) return "A";
-        if (totalMark >= 80) return "A-";
+        // MRU / NCHE scale: 80 A · 75 B+ · 70 B · 65 C+ · 60 C · 55 D+ · 50 D · <50 F.
+        if (totalMark >= 80) return "A";
         if (totalMark >= 75) return "B+";
         if (totalMark >= 70) return "B";
-        if (totalMark >= 65) return "B-";
-        if (totalMark >= 60) return "C+";
-        if (totalMark >= 55) return "C";
-        if (totalMark >= 50) return "C-";
-        if (totalMark >= 45) return "D";
-        return "E";
+        if (totalMark >= 65) return "C+";
+        if (totalMark >= 60) return "C";
+        if (totalMark >= 55) return "D+";
+        if (totalMark >= 50) return "D";
+        return "F";
     }
     
     /// <summary>
@@ -1205,16 +1204,13 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
         switch (grade)
         {
             case "A":  return 5.0;
-            case "A-": return 4.5;
-            case "B+": return 4.0;
-            case "B":  return 3.5;
-            case "B-": return 3.0;
-            case "C+": return 2.5;
-            case "C":  return 2.0;
-            case "C-": return 1.5;
-            case "D":  return 1.0;
-            case "E":  return 0.0;
-            default:   return 0.0;
+            case "B+": return 4.5;
+            case "B":  return 4.0;
+            case "C+": return 3.5;
+            case "C":  return 3.0;
+            case "D+": return 2.5;
+            case "D":  return 2.0;
+            default:   return 0.0;   // F
         }
     }
     

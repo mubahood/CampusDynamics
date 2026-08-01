@@ -1661,15 +1661,16 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     //  GRADE / GPA HELPERS
     // ════════════════════════════════════════════════════════════════════════════
 
+    // MRU / NCHE scale: 80 A · 75 B+ · 70 B · 65 C+ · 60 C · 55 D+ · 50 D · <50 F.
     private static string CalcGrade(int score)
     {
-        if (score >= 70) return "A";
-        if (score >= 60) return "B+";
-        if (score >= 55) return "B";
-        if (score >= 50) return "C+";
-        if (score >= 45) return "C";
-        if (score >= 40) return "D+";
-        if (score >= 35) return "D";
+        if (score >= 80) return "A";
+        if (score >= 75) return "B+";
+        if (score >= 70) return "B";
+        if (score >= 65) return "C+";
+        if (score >= 60) return "C";
+        if (score >= 55) return "D+";
+        if (score >= 50) return "D";
         return "F";
     }
 

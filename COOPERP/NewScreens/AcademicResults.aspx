@@ -329,15 +329,13 @@
         <asp:DropDownList ID="ddlGrade" runat="server" CssClass="ar-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFilter_Changed">
             <asp:ListItem Value="" Text="-- All --" Selected="True"></asp:ListItem>
             <asp:ListItem Value="A" Text="A"></asp:ListItem>
-            <asp:ListItem Value="A-" Text="A-"></asp:ListItem>
             <asp:ListItem Value="B+" Text="B+"></asp:ListItem>
             <asp:ListItem Value="B" Text="B"></asp:ListItem>
-            <asp:ListItem Value="B-" Text="B-"></asp:ListItem>
             <asp:ListItem Value="C+" Text="C+"></asp:ListItem>
             <asp:ListItem Value="C" Text="C"></asp:ListItem>
-            <asp:ListItem Value="C-" Text="C-"></asp:ListItem>
+            <asp:ListItem Value="D+" Text="D+"></asp:ListItem>
             <asp:ListItem Value="D" Text="D"></asp:ListItem>
-            <asp:ListItem Value="E" Text="E / Fail"></asp:ListItem>
+            <asp:ListItem Value="F" Text="F / Fail"></asp:ListItem>
         </asp:DropDownList>
         
         <span class="ar-filter-row__label">Comment:</span>

@@ -432,33 +432,29 @@ public partial class COOPERP_NewScreens_AcademicResults : System.Web.UI.Page
     
     private string CalculateGrade(int score)
     {
-        if (score >= 90) return "A";
-        if (score >= 80) return "A-";
+        // MRU / NCHE scale: 80 A · 75 B+ · 70 B · 65 C+ · 60 C · 55 D+ · 50 D · <50 F.
+        if (score >= 80) return "A";
         if (score >= 75) return "B+";
         if (score >= 70) return "B";
-        if (score >= 65) return "B-";
-        if (score >= 60) return "C+";
-        if (score >= 55) return "C";
-        if (score >= 50) return "C-";
-        if (score >= 45) return "D";
-        return "E";
+        if (score >= 65) return "C+";
+        if (score >= 60) return "C";
+        if (score >= 55) return "D+";
+        if (score >= 50) return "D";
+        return "F";
     }
-    
+
     private double CalculateGradePoint(string grade)
     {
         switch (grade)
         {
             case "A":  return 5.0;
-            case "A-": return 4.5;
-            case "B+": return 4.0;
-            case "B":  return 3.5;
-            case "B-": return 3.0;
-            case "C+": return 2.5;
-            case "C":  return 2.0;
-            case "C-": return 1.5;
-            case "D":  return 1.0;
-            case "E":  return 0.0;
-            default:   return 0.0;
+            case "B+": return 4.5;
+            case "B":  return 4.0;
+            case "C+": return 3.5;
+            case "C":  return 3.0;
+            case "D+": return 2.5;
+            case "D":  return 2.0;
+            default:   return 0.0;   // F
         }
     }
     

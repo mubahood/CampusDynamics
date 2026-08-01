@@ -1223,34 +1223,31 @@ public partial class COOPERP_NewScreens_ResultsUpdates : System.Web.UI.Page
         pnlMessage.Visible = true;
     }
     
+    // MRU / NCHE scale: 80 A · 75 B+ · 70 B · 65 C+ · 60 C · 55 D+ · 50 D · <50 F (no A-/B-/C-).
     private string CalculateGrade(decimal total)
     {
         if (total >= 80) return "A";
-        if (total >= 75) return "A-";
-        if (total >= 70) return "B+";
-        if (total >= 65) return "B";
-        if (total >= 60) return "B-";
-        if (total >= 55) return "C+";
-        if (total >= 50) return "C";
-        if (total >= 45) return "C-";
-        if (total >= 40) return "D";
-        return "E";
+        if (total >= 75) return "B+";
+        if (total >= 70) return "B";
+        if (total >= 65) return "C+";
+        if (total >= 60) return "C";
+        if (total >= 55) return "D+";
+        if (total >= 50) return "D";
+        return "F";
     }
-    
+
     private decimal CalculateGPA(string grade)
     {
         switch (grade)
         {
-            case "A": return 5.0m;
-            case "A-": return 4.5m;
-            case "B+": return 4.0m;
-            case "B": return 3.5m;
-            case "B-": return 3.0m;
-            case "C+": return 2.5m;
-            case "C": return 2.0m;
-            case "C-": return 1.5m;
-            case "D": return 1.0m;
-            default: return 0.0m;
+            case "A":  return 5.0m;
+            case "B+": return 4.5m;
+            case "B":  return 4.0m;
+            case "C+": return 3.5m;
+            case "C":  return 3.0m;
+            case "D+": return 2.5m;
+            case "D":  return 2.0m;
+            default:   return 0.0m;   // F
         }
     }
     

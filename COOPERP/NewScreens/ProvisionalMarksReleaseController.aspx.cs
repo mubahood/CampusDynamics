@@ -710,29 +710,26 @@ public partial class COOPERP_NewScreens_ProvisionalMarksReleaseController : Syst
         switch (grade)
         {
             case "A":  return 5.0;
-            case "A-": return 4.7;
-            case "B+": return 4.3;
+            case "B+": return 4.5;
             case "B":  return 4.0;
-            case "B-": return 3.7;
-            case "C+": return 3.3;
+            case "C+": return 3.5;
             case "C":  return 3.0;
-            case "D+": return 2.3;
+            case "D+": return 2.5;
             case "D":  return 2.0;
-            default:   return 0.0;
+            default:   return 0.0;   // F
         }
     }
 
+    // MRU / NCHE scale: 80 A · 75 B+ · 70 B · 65 C+ · 60 C · 55 D+ · 50 D · <50 F (no A-/B-/C-).
     private static string ComputeGradeFallback(int score)
     {
         if (score >= 80) return "A";
-        if (score >= 75) return "A-";
-        if (score >= 70) return "B+";
-        if (score >= 65) return "B";
-        if (score >= 60) return "B-";
-        if (score >= 55) return "C+";
-        if (score >= 50) return "C";
-        if (score >= 45) return "D+";
-        if (score >= 40) return "D";
+        if (score >= 75) return "B+";
+        if (score >= 70) return "B";
+        if (score >= 65) return "C+";
+        if (score >= 60) return "C";
+        if (score >= 55) return "D+";
+        if (score >= 50) return "D";
         return "F";
     }
 
