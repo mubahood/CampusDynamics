@@ -7036,18 +7036,13 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string regno = (Request.Form["regno"] ?? "").Trim();
             string prog  = (Request.Form["prog"] ?? "").Trim();
             string spec  = (Request.Form["spec"] ?? "").Trim();   // spec_id, or "" for none
-            if (regno == "" || prog == "") { WriteJsonAndComplete(js, new { success = false, message = "Registration number and programme are required." }); return; }
+            bool changeProg  = (Request.Form["changeProg"]  ?? "0") == "1";  // caller explicitly wants to move programme
+            bool updateRegNo = (Request.Form["updateRegNo"] ?? "0") == "1";  // caller explicitly wants the reg/entry no regenerated
+            if (regno == "") { WriteJsonAndComplete(js, new { success = false, message = "Registration number is required." }); return; }
 
             using (var conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                using (var cmd = new MySqlCommand("SELECT progname FROM acad_programme WHERE progcode=@p LIMIT 1", conn))
-                { cmd.Parameters.AddWithValue("@p", prog); if (cmd.ExecuteScalar() == null) { WriteJsonAndComplete(js, new { success = false, message = "Programme '" + prog + "' does not exist." }); return; } }
-
-                if (spec != "")
-                    using (var cmd = new MySqlCommand("SELECT 1 FROM acad_specialisation WHERE spec_id=@s AND prog_id=@p LIMIT 1", conn))
-                    { cmd.Parameters.AddWithValue("@s", spec); cmd.Parameters.AddWithValue("@p", prog);
-                      if (cmd.ExecuteScalar() == null) { WriteJsonAndComplete(js, new { success = false, message = "That specialisation does not belong to the selected programme." }); return; } }
 
                 string oldProg = "", oldEntryno = "";
                 using (var cmd = new MySqlCommand("SELECT progid, entryno FROM acad_student WHERE regno=@r LIMIT 1", conn))
@@ -7060,26 +7055,43 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     }
                 }
 
-                // The formatted registration number (entryno) embeds the programme code (segment 3) and
-                // the per-programme student number (segment 4). Moving programmes regenerates BOTH: the
-                // new programme code + the next free student-number in that programme. The canonical
-                // acad_student.regno (PRIMARY KEY / system-wide FK) is intentionally NEVER changed.
-                string newEntryno = ComputeNewEntryno(conn, oldEntryno, prog);
+                // Backend enforcement (independent of the UI checkboxes — defence in depth):
+                //  • the programme changes ONLY when the caller asked to change it AND picked a *different* one;
+                //  • the reg/entry number is regenerated ONLY on top of that, and only when the caller opted in.
+                // Without those flags the reg/entry number is never touched — the common case is a spec-only edit.
+                bool progChanged  = changeProg && prog != "" && !string.Equals(prog, oldProg, StringComparison.OrdinalIgnoreCase);
+                string effProg    = progChanged ? prog : oldProg;   // spec is validated against the effective programme
+                bool regenEntryno = progChanged && updateRegNo;
+
+                using (var cmd = new MySqlCommand("SELECT progname FROM acad_programme WHERE progcode=@p LIMIT 1", conn))
+                { cmd.Parameters.AddWithValue("@p", effProg); if (cmd.ExecuteScalar() == null) { WriteJsonAndComplete(js, new { success = false, message = "Programme '" + effProg + "' does not exist." }); return; } }
+
+                if (spec != "")
+                    using (var cmd = new MySqlCommand("SELECT 1 FROM acad_specialisation WHERE spec_id=@s AND prog_id=@p LIMIT 1", conn))
+                    { cmd.Parameters.AddWithValue("@s", spec); cmd.Parameters.AddWithValue("@p", effProg);
+                      if (cmd.ExecuteScalar() == null) { WriteJsonAndComplete(js, new { success = false, message = "That specialisation does not belong to the selected programme." }); return; } }
+
+                // The formatted registration number (entryno) embeds the programme code + the per-programme
+                // student number. It is regenerated ONLY when the programme actually moves AND the caller
+                // opted in. The canonical acad_student.regno (PRIMARY KEY / system-wide FK) is never changed.
+                string newEntryno = regenEntryno ? ComputeNewEntryno(conn, oldEntryno, prog) : "";
 
                 using (var tx = conn.BeginTransaction())
                 {
                     try
                     {
-                        using (var cmd = new MySqlCommand(
-                            "UPDATE acad_student SET progid=@p, specialisation=@s" + (newEntryno != "" ? ", entryno=@e" : "") + " WHERE regno=@r", conn, tx))
+                        var sets = new System.Collections.Generic.List<string> { "specialisation=@s" };
+                        if (progChanged)      sets.Add("progid=@p");
+                        if (newEntryno != "") sets.Add("entryno=@e");
+                        using (var cmd = new MySqlCommand("UPDATE acad_student SET " + string.Join(", ", sets) + " WHERE regno=@r", conn, tx))
                         {
-                            cmd.Parameters.AddWithValue("@p", prog);
                             cmd.Parameters.AddWithValue("@s", spec == "" ? (object)DBNull.Value : spec);
+                            if (progChanged)      cmd.Parameters.AddWithValue("@p", prog);
                             if (newEntryno != "") cmd.Parameters.AddWithValue("@e", newEntryno);
                             cmd.Parameters.AddWithValue("@r", regno);
                             cmd.ExecuteNonQuery();
                         }
-                        // Keep the only other table that references entryno in step.
+                        // Keep the only other table that references entryno in step (only if it actually changed).
                         if (newEntryno != "" && oldEntryno != "" && !string.Equals(newEntryno, oldEntryno))
                             using (var cmd = new MySqlCommand("UPDATE acad_haltcases SET entryno=@n WHERE entryno=@o", conn, tx))
                             { cmd.Parameters.AddWithValue("@n", newEntryno); cmd.Parameters.AddWithValue("@o", oldEntryno); cmd.ExecuteNonQuery(); }
@@ -7088,11 +7100,16 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     catch { tx.Rollback(); throw; }
                 }
 
-                LogStudentAction(conn, regno, "ChangeProgramme",
-                    "Programme " + oldProg + " -> " + prog + (spec != "" ? " (spec " + spec + ")" : "")
-                    + (newEntryno != "" ? "; Reg No " + oldEntryno + " -> " + newEntryno : ""));
-                WriteJsonAndComplete(js, new { success = true, newEntryno = newEntryno,
-                    message = "Programme updated to " + prog + "." + (newEntryno != "" ? " New Reg No: " + newEntryno : "") });
+                string logMsg = progChanged
+                    ? ("Programme " + oldProg + " -> " + prog + (spec != "" ? " (spec " + spec + ")" : "")
+                        + (newEntryno != "" ? "; Reg No " + oldEntryno + " -> " + newEntryno : "; Reg No kept " + oldEntryno))
+                    : ("Specialisation updated" + (spec != "" ? " (spec " + spec + ")" : " (cleared)") + "; programme & reg no unchanged");
+                LogStudentAction(conn, regno, "ChangeProgramme", logMsg);
+
+                string userMsg = progChanged
+                    ? ("Programme updated to " + prog + "." + (newEntryno != "" ? " New Reg No: " + newEntryno : " Registration number kept unchanged."))
+                    : "Specialisation updated. Programme and registration number were left unchanged.";
+                WriteJsonAndComplete(js, new { success = true, newEntryno = newEntryno, message = userMsg });
             }
         }
         catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }

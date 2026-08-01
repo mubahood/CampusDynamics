@@ -2608,21 +2608,39 @@
                     <div id="cpStudentRegno" style="font-size:11px;color:#174DA4;font-weight:500;"></div>
                     <div id="cpCurrent" style="font-size:11px;color:#555;margin-top:4px;"></div>
                 </div>
-                <div class="cd-form-group">
-                    <label class="cd-form-label">New Programme <span style="color:#c0392b;">*</span></label>
-                    <select id="cpProg" class="cd-form-select" onchange="cpOnProgChange()"><option value="">Loading&hellip;</option></select>
-                </div>
+                <!-- Specialisation is the primary edit here and changes freely. -->
                 <div class="cd-form-group" id="cpSpecWrap">
                     <label class="cd-form-label">Specialisation</label>
                     <select id="cpSpec" class="cd-form-select"><option value="">-- None --</option></select>
-                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;">Cascades from the selected programme. Leave as "None" if the programme has no specialisation.</small>
+                    <small style="color:#888;margin-top:4px;display:block;font-size:10px;">The usual reason to open this window. Pick the specialisation for the student's current programme.</small>
                 </div>
-                <div id="cpPreview" style="display:none;background:#fff8e1;border:1px solid #ffe0a3;padding:8px 10px;font-size:11px;color:#7a5c00;margin-bottom:6px;"></div>
+
+                <!-- Programme change is OFF by default. It NEVER touches the reg/entry number unless explicitly requested. -->
+                <div style="border-top:1px dashed #e0e5ed;margin:8px 0 12px;"></div>
+                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-weight:600;color:#05275C;font-size:12.5px;">
+                    <input type="checkbox" id="cpChangeProg" onchange="cpToggleProg()" style="margin-top:2px;">
+                    <span>Change the student's programme<br><span style="font-weight:400;color:#888;font-size:10px;">Leave OFF to only update the specialisation &mdash; the programme &amp; registration number stay untouched.</span></span>
+                </label>
+
+                <div class="cd-form-group" id="cpProgWrap" style="display:none;margin-top:10px;">
+                    <label class="cd-form-label">New Programme <span style="color:#c0392b;">*</span></label>
+                    <select id="cpProg" class="cd-form-select" onchange="cpOnProgChange()" disabled><option value="">Loading&hellip;</option></select>
+                </div>
+
+                <!-- Reg-number regeneration: shown only when a DIFFERENT programme is picked; opt-in + confirmed. -->
+                <div id="cpRegnoWrap" style="display:none;margin-top:4px;">
+                    <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:12px;color:#7a5c00;">
+                        <input type="checkbox" id="cpUpdateRegno" onchange="cpRenderPreview()" checked style="margin-top:2px;">
+                        <span>Also regenerate the registration / entry number for the new programme</span>
+                    </label>
+                    <div id="cpPreview" style="display:none;background:#fff8e1;border:1px solid #ffe0a3;padding:8px 10px;font-size:11px;color:#7a5c00;margin-top:6px;"></div>
+                </div>
+
                 <div id="cpStatus" style="display:none;padding:8px 10px;font-size:11px;margin-top:8px;"></div>
             </div>
             <div class="cd-modal__footer">
                 <button type="button" class="cd-btn cd-btn--outline" onclick="closeChangeProgModal()">Cancel</button>
-                <button type="button" id="btnChangeProg" class="cd-btn cd-btn--primary" onclick="submitChangeProg()">Change Programme</button>
+                <button type="button" id="btnChangeProg" class="cd-btn cd-btn--primary" onclick="submitChangeProg()">Save Changes</button>
             </div>
         </div>
     </div>
@@ -3076,36 +3094,61 @@
         function _njHide(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; }
         function _njEsc(s) { var d = document.createElement('div'); d.appendChild(document.createTextNode(s == null ? '' : s)); return d.innerHTML; }
 
-        // ---- Change Programme (cascading prog -> specialisation) ----
-        var _cpRegno = '';
+        // ---- Change Programme / Specialisation ----
+        // Default action = change the SPECIALISATION only. The programme (and therefore the reg/entry
+        // number) is locked behind an explicit "Change programme" checkbox; regenerating the reg number
+        // is a second opt-in + confirmation. So the identifier never changes unless the user asks for it,
+        // and if the programme itself doesn't change the reg number is never touched.
+        var _cpRegno = '', _cpCurProg = '', _cpCurSpec = '', _cpNewRegno = '', _cpOldRegno = '';
         function openChangeProgModal(regno, student) {
             if (!regno) { alert('No registration number.'); return; }
-            _cpRegno = regno;
+            _cpRegno = regno; _cpCurProg = ''; _cpCurSpec = ''; _cpNewRegno = ''; _cpOldRegno = '';
             document.getElementById('cpStudentName').innerText = student || '';
             document.getElementById('cpStudentRegno').innerText = regno;
             document.getElementById('cpCurrent').innerText = '';
+            document.getElementById('cpChangeProg').checked = false;
+            document.getElementById('cpUpdateRegno').checked = true;
+            document.getElementById('cpProgWrap').style.display = 'none';
+            document.getElementById('cpRegnoWrap').style.display = 'none';
+            document.getElementById('cpPreview').style.display = 'none';
             document.getElementById('cpProg').innerHTML = '<option value="">Loading…</option>';
+            document.getElementById('cpProg').disabled = true;
             document.getElementById('cpSpec').innerHTML = '<option value="">-- None --</option>';
             _njHide('cpStatus');
             document.getElementById('btnChangeProg').disabled = false;
             document.getElementById('changeProgOverlay').style.display = 'flex';
             _njPost('ChangeProgInit', 'regno=' + encodeURIComponent(regno), function (r) {
                 if (!r || !r.success) { _njStatus('cpStatus', (r && r.message) || 'Could not load.', true); return; }
-                var cur = r.current || {}, h = '<option value="">-- Select programme --</option>';
+                var cur = r.current || {};
+                _cpCurProg = cur.prog || ''; _cpCurSpec = cur.spec || '';
+                var h = '';
                 (r.programmes || []).forEach(function (p) {
-                    h += '<option value="' + _njEsc(p.code) + '"' + (p.code === cur.prog ? ' selected' : '') + '>' + _njEsc(p.name) + '  (' + _njEsc(p.code) + ')</option>';
+                    h += '<option value="' + _njEsc(p.code) + '"' + (p.code === _cpCurProg ? ' selected' : '') + '>' + _njEsc(p.name) + '  (' + _njEsc(p.code) + ')</option>';
                 });
                 document.getElementById('cpProg').innerHTML = h;
                 document.getElementById('cpCurrent').innerHTML = 'Currently: <b>' + _njEsc(cur.progname || cur.prog || '-') + '</b>' + (cur.specname ? ' &middot; ' + _njEsc(cur.specname) : '');
-                if (cur.prog) cpOnProgChange(cur.spec);
+                // Load specialisations for the CURRENT programme — the default editable list.
+                cpLoadSpecs(_cpCurProg, _cpCurSpec);
             });
         }
-        var _cpNewRegno = '';
-        function cpOnProgChange(preselectSpec) {
-            var prog = document.getElementById('cpProg').value;
+        function cpToggleProg() {
+            var on = document.getElementById('cpChangeProg').checked;
+            document.getElementById('cpProgWrap').style.display = on ? 'block' : 'none';
+            document.getElementById('cpProg').disabled = !on;
+            if (!on) {
+                // Back to spec-only: restore the current programme + its specialisations, hide reg-number section.
+                document.getElementById('cpProg').value = _cpCurProg;
+                document.getElementById('cpRegnoWrap').style.display = 'none';
+                document.getElementById('cpPreview').style.display = 'none';
+                _cpNewRegno = '';
+                cpLoadSpecs(_cpCurProg, _cpCurSpec);
+            } else {
+                cpOnProgChange();
+            }
+        }
+        function cpLoadSpecs(prog, preselectSpec) {
             var sel = document.getElementById('cpSpec');
             sel.innerHTML = '<option value="">Loading…</option>';
-            var pv = document.getElementById('cpPreview'); pv.style.display = 'none'; _cpNewRegno = '';
             if (!prog) { sel.innerHTML = '<option value="">-- None --</option>'; return; }
             _njPost('SpecList', 'prog=' + encodeURIComponent(prog), function (r) {
                 var h = '<option value="">-- None --</option>';
@@ -3114,26 +3157,58 @@
                 });
                 sel.innerHTML = h;
             });
-            // Preview the new Reg No + student number this move would produce.
+        }
+        function cpOnProgChange() {
+            var prog = document.getElementById('cpProg').value;
+            cpLoadSpecs(prog, '');
+            // Reg-number regeneration only applies when the programme actually DIFFERS from the current one.
+            var changed = document.getElementById('cpChangeProg').checked && prog && prog !== _cpCurProg;
+            if (!changed) { document.getElementById('cpRegnoWrap').style.display = 'none'; document.getElementById('cpPreview').style.display = 'none'; _cpNewRegno = ''; return; }
+            document.getElementById('cpRegnoWrap').style.display = 'block';
             _njPost('PreviewProgRegno', 'regno=' + encodeURIComponent(_cpRegno) + '&prog=' + encodeURIComponent(prog), function (r) {
-                if (r && r.success && r.newEntryno) {
-                    _cpNewRegno = r.newEntryno;
-                    pv.innerHTML = 'New Reg No will be <b>' + _njEsc(r.newEntryno) + '</b>'
-                        + (r.oldEntryno ? ' <span style="color:#aa8a3a;">(was ' + _njEsc(r.oldEntryno) + ')</span>' : '')
-                        + '<br><span style="font-size:10px;">The reg number &amp; student number update to the new programme; the internal student ID is unchanged.</span>';
-                    pv.style.display = 'block';
-                } else { pv.style.display = 'none'; _cpNewRegno = ''; }
+                if (r && r.success && r.newEntryno) { _cpNewRegno = r.newEntryno; _cpOldRegno = r.oldEntryno || ''; }
+                else { _cpNewRegno = ''; _cpOldRegno = ''; }
+                cpRenderPreview();
             });
+        }
+        function cpRenderPreview() {
+            var pv = document.getElementById('cpPreview');
+            if (!document.getElementById('cpUpdateRegno').checked || !_cpNewRegno) { pv.style.display = 'none'; return; }
+            pv.innerHTML = 'New Reg No will be <b>' + _njEsc(_cpNewRegno) + '</b>'
+                + (_cpOldRegno ? ' <span style="color:#aa8a3a;">(was ' + _njEsc(_cpOldRegno) + ')</span>' : '')
+                + '<br><span style="font-size:10px;">The reg &amp; student number move to the new programme; the internal student ID never changes.</span>';
+            pv.style.display = 'block';
         }
         function closeChangeProgModal() { document.getElementById('changeProgOverlay').style.display = 'none'; _cpRegno = ''; }
         function submitChangeProg() {
-            var prog = document.getElementById('cpProg').value, spec = document.getElementById('cpSpec').value;
-            if (!prog) { _njStatus('cpStatus', 'Please select a programme.', true); return; }
-            if (!confirm('Move ' + _cpRegno + ' to programme ' + prog + (spec ? ' (with the selected specialisation)' : '') + '?'
-                + (_cpNewRegno ? '\n\nReg No & student number will become:\n' + _cpNewRegno : ''))) return;
+            var spec = document.getElementById('cpSpec').value;
+            var wantProg = document.getElementById('cpChangeProg').checked;
+            var prog = wantProg ? document.getElementById('cpProg').value : _cpCurProg;
+            var changeProg = 0, updateRegno = 0;
+
+            if (wantProg) {
+                if (!prog) { _njStatus('cpStatus', 'Please select the new programme.', true); return; }
+                if (prog === _cpCurProg) {
+                    if (!confirm('The programme is the same as now, so only the specialisation will be updated. Continue?')) return;
+                    // leaves changeProg = 0 -> reg number untouched
+                } else {
+                    changeProg = 1;
+                    updateRegno = document.getElementById('cpUpdateRegno').checked ? 1 : 0;
+                    var m = 'Move ' + _cpRegno + ' from programme ' + _cpCurProg + ' to ' + prog + '.';
+                    m += updateRegno
+                        ? '\n\nThe registration / entry number WILL be regenerated to:\n' + (_cpNewRegno || '(new number)') + (_cpOldRegno ? '\n(was ' + _cpOldRegno + ')' : '')
+                        : '\n\nThe registration / entry number will be KEPT unchanged.';
+                    if (!confirm(m + '\n\nProceed?')) return;
+                }
+            } else {
+                if (!confirm('Update the specialisation for ' + _cpRegno + '?\n\n(Programme and registration number will NOT change.)')) return;
+            }
+
             var btn = document.getElementById('btnChangeProg'); btn.disabled = true; var o = btn.innerText; btn.innerText = 'Saving…';
-            _njPost('ChangeProgramme', 'regno=' + encodeURIComponent(_cpRegno) + '&prog=' + encodeURIComponent(prog) + '&spec=' + encodeURIComponent(spec), function (r) {
-                if (r && r.success) { _njStatus('cpStatus', r.message + ' Refreshing…', false); setTimeout(function () { window.location.reload(); }, 700); }
+            var data = 'regno=' + encodeURIComponent(_cpRegno) + '&prog=' + encodeURIComponent(prog)
+                     + '&spec=' + encodeURIComponent(spec) + '&changeProg=' + changeProg + '&updateRegNo=' + updateRegno;
+            _njPost('ChangeProgramme', data, function (r) {
+                if (r && r.success) { _njStatus('cpStatus', r.message + ' Refreshing…', false); setTimeout(function () { window.location.reload(); }, 800); }
                 else { _njStatus('cpStatus', (r && r.message) || 'Failed.', true); btn.disabled = false; btn.innerText = o; }
             });
         }
