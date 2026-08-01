@@ -64,8 +64,12 @@ public static partial class IDCardService
             using (var cmd = new MySqlCommand(
                 "SELECT s.regno, IFNULL(NULLIF(TRIM(s.entryno),''),s.regno) studno," +
                 " TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) nm, IFNULL(s.email,'') email," +
-                " IFNULL(s.photofile,'') photo, IFNULL(s.photo_status,'') photostatus, s.progid, IFNULL(p.progname,s.progid) pn, IFNULL(s.studsesion,'') sess" +
-                " FROM acad_student s LEFT JOIN acad_programme p ON p.progcode=s.progid WHERE s.regno=@r LIMIT 1", conn))
+                " IFNULL(s.photofile,'') photo, IFNULL(s.photo_status,'') photostatus, s.progid, IFNULL(p.progname,s.progid) pn," +
+                " IFNULL(s.studsesion,'') sess, IFNULL(s.entryyear,'') entryyr, IFNULL(cp.campus_name,'') campus," +
+                " IFNULL(s.gender,'') gender, IFNULL(s.studPhone,'') phone, IFNULL(s.intake,'') intake," +
+                " IFNULL(s.nationality,'') nationality, IFNULL(s.stud_status,'') sstatus" +
+                " FROM acad_student s LEFT JOIN acad_programme p ON p.progcode=s.progid" +
+                " LEFT JOIN acad_campuses cp ON cp.ID=s.studCampus WHERE s.regno=@r LIMIT 1", conn))
             {
                 cmd.Parameters.AddWithValue("@r", regno ?? "");
                 using (var r = cmd.ExecuteReader())
@@ -74,7 +78,11 @@ public static partial class IDCardService
                     d["type"] = "STUDENT"; d["number"] = S(r["studno"]); d["regno"] = S(r["regno"]);
                     d["name"] = S(r["nm"]); d["email"] = S(r["email"]); d["photo"] = S(r["photo"]);
                     d["photoStatus"] = S(r["photostatus"]);
-                    d["subtitle"] = S(r["pn"]) + " (" + S(r["sess"]) + ")";
+                    d["programme"] = S(r["pn"]); d["session"] = S(r["sess"]);
+                    d["entryYear"] = S(r["entryyr"]); d["campus"] = S(r["campus"]);
+                    d["gender"] = S(r["gender"]); d["phone"] = S(r["phone"]); d["intake"] = S(r["intake"]);
+                    d["nationality"] = S(r["nationality"]); d["studStatus"] = S(r["sstatus"]);
+                    d["subtitle"] = S(r["pn"]) + (S(r["sess"]) != "" ? (" (" + S(r["sess"]) + ")") : "");
                     string ph = S(r["photo"]);
                     d["hasPhoto"] = !string.IsNullOrEmpty(ph) && ph != "-";
                 }
