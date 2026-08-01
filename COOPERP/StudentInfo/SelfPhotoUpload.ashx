@@ -125,13 +125,20 @@ public class SelfPhotoUpload : IHttpHandler
             {
                 conn.Open();
 
-                // Capture the photo being replaced, for the change-tracking record.
+                // Capture the photo being replaced + its status, for change-tracking + auto-resume.
                 string oldPhoto = "";
-                using (MySqlCommand sel = new MySqlCommand("SELECT COALESCE(photofile,'') FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                string oldStatus = "";
+                using (MySqlCommand sel = new MySqlCommand("SELECT COALESCE(photofile,''), COALESCE(photo_status,'APPROVED') FROM acad_student WHERE regno=@r LIMIT 1", conn))
                 {
                     sel.Parameters.AddWithValue("@r", regno);
-                    object o = sel.ExecuteScalar();
-                    oldPhoto = o == null || o == DBNull.Value ? "" : o.ToString();
+                    using (MySqlDataReader rd = sel.ExecuteReader())
+                    {
+                        if (rd.Read())
+                        {
+                            oldPhoto = rd.IsDBNull(0) ? "" : rd.GetString(0);
+                            oldStatus = rd.IsDBNull(1) ? "" : rd.GetString(1).Trim().ToUpperInvariant();
+                        }
+                    }
                 }
 
                 // The new photo goes live but PENDING admin approval (photo change tracker).
@@ -154,6 +161,33 @@ public class SelfPhotoUpload : IHttpHandler
                         ins.Parameters.AddWithValue("@n", fileName);
                         ins.ExecuteNonQuery();
                     }
+                }
+
+                // Auto-resume: if the photo had been REJECTED, any ID card requests halted awaiting a
+                // new photo re-enter the print queue (HALTED -> SUBMITTED). Keeps the student's dashboard
+                // alert / photo-gate and the card bureau's queue consistent without manual intervention.
+                if (oldStatus == "REJECTED")
+                {
+                    try
+                    {
+                        var halted = new System.Collections.Generic.List<int>();
+                        using (MySqlCommand sel = new MySqlCommand("SELECT id FROM idcard_requests WHERE regno=@r AND status='HALTED'", conn))
+                        {
+                            sel.Parameters.AddWithValue("@r", regno);
+                            using (MySqlDataReader rd = sel.ExecuteReader())
+                                while (rd.Read()) halted.Add(rd.GetInt32(0));
+                        }
+                        foreach (int rid in halted)
+                        {
+                            using (MySqlCommand up = new MySqlCommand("UPDATE idcard_requests SET status='SUBMITTED', halt_reason=NULL, updated_at=NOW() WHERE id=@id AND status='HALTED'", conn))
+                            { up.Parameters.AddWithValue("@id", rid); up.ExecuteNonQuery(); }
+                            using (MySqlCommand ev = new MySqlCommand(
+                                "INSERT INTO idcard_request_events (request_id, from_status, to_status, actor, actor_role, channel, note, created_at) " +
+                                "VALUES (@id,'HALTED','SUBMITTED','system','system','eportal','Auto-resubmitted after the student updated their photograph', NOW())", conn))
+                            { ev.Parameters.AddWithValue("@id", rid); ev.ExecuteNonQuery(); }
+                        }
+                    }
+                    catch { /* non-critical — photo update already succeeded */ }
                 }
             }
 

@@ -64,7 +64,7 @@ public static partial class IDCardService
             using (var cmd = new MySqlCommand(
                 "SELECT s.regno, IFNULL(NULLIF(TRIM(s.entryno),''),s.regno) studno," +
                 " TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) nm, IFNULL(s.email,'') email," +
-                " IFNULL(s.photofile,'') photo, s.progid, IFNULL(p.progname,s.progid) pn, IFNULL(s.studsesion,'') sess" +
+                " IFNULL(s.photofile,'') photo, IFNULL(s.photo_status,'') photostatus, s.progid, IFNULL(p.progname,s.progid) pn, IFNULL(s.studsesion,'') sess" +
                 " FROM acad_student s LEFT JOIN acad_programme p ON p.progcode=s.progid WHERE s.regno=@r LIMIT 1", conn))
             {
                 cmd.Parameters.AddWithValue("@r", regno ?? "");
@@ -73,6 +73,7 @@ public static partial class IDCardService
                     if (!r.Read()) return null;
                     d["type"] = "STUDENT"; d["number"] = S(r["studno"]); d["regno"] = S(r["regno"]);
                     d["name"] = S(r["nm"]); d["email"] = S(r["email"]); d["photo"] = S(r["photo"]);
+                    d["photoStatus"] = S(r["photostatus"]);
                     d["subtitle"] = S(r["pn"]) + " (" + S(r["sess"]) + ")";
                     string ph = S(r["photo"]);
                     d["hasPhoto"] = !string.IsNullOrEmpty(ph) && ph != "-";
@@ -486,6 +487,7 @@ public static partial class IDCardService
                 using (var cmd = new MySqlCommand(
                     "SELECT req.request_no, req.requester_type, req.card_type, req.status, req.created_at, req.submitted_at, req.updated_at," +
                     " COALESCE(NULLIF(TRIM(s.entryno),''), req.regno) studno, TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) sname," +
+                    " IFNULL(s.photofile,'') sphoto, IFNULL(s.photo_status,'') sphotostatus, IFNULL(e.photo_file,'') ephoto," +
                     " e.empID, TRIM(e.emp_name) ename FROM idcard_requests req" +
                     " LEFT JOIN acad_student s ON s.regno=req.regno LEFT JOIN hrm_employee e ON e.empID=req.emp_id" +
                     where + " ORDER BY " + sortCol + " " + ord + ", req.id " + ord + " LIMIT @off,@ps", conn))
@@ -499,7 +501,8 @@ public static partial class IDCardService
                             bool staff = S(r["requester_type"]) == "STAFF";
                             rows.Add(new { requestNo = S(r["request_no"]), type = S(r["requester_type"]), cardType = S(r["card_type"]),
                                 status = S(r["status"]), createdAt = S(r["created_at"]), submittedAt = S(r["submitted_at"]), updatedAt = S(r["updated_at"]),
-                                number = staff ? S(r["empID"]) : S(r["studno"]), name = staff ? S(r["ename"]) : S(r["sname"]) });
+                                number = staff ? S(r["empID"]) : S(r["studno"]), name = staff ? S(r["ename"]) : S(r["sname"]),
+                                photo = staff ? S(r["ephoto"]) : S(r["sphoto"]), photoStatus = staff ? "" : S(r["sphotostatus"]) });
                         }
                 }
                 int pages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
