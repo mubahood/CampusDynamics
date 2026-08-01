@@ -1766,10 +1766,11 @@
                                         </li>
                                         <li class="cd-action-popover__item">
                                             <button type="button" class="cd-action-popover__btn cd-action-popover__btn--edit"
-                                                    data-key='<%# HttpUtility.HtmlAttributeEncode((Container.KeyValue ?? "").ToString()) %>'
-                                                    onclick='gridEditRow("gvStudents", this.getAttribute("data-key")); return false;' role="menuitem">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                                Edit
+                                                    data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
+                                                    data-student='<%# HttpUtility.HtmlAttributeEncode(((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()).Trim()) %>'
+                                                    onclick='openQuickEdit(this.getAttribute("data-regno"), this.getAttribute("data-student")); closeAllActionPopovers(); return false;' role="menuitem">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                                                Quick Edit
                                             </button>
                                         </li>
                                         <li class="cd-action-popover__item">
@@ -2541,6 +2542,118 @@
     </div>
     
     <!-- Set Password Modal -->
+    <!-- ══════════ QUICK EDIT MODAL ══════════ -->
+    <div id="quickEditOverlay" class="cd-modal-overlay">
+        <div class="cd-modal qe-modal">
+            <div class="cd-modal__header">
+                <h3 class="cd-modal__title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                    Quick Edit <span id="qeTitleName" style="font-weight:400;opacity:.85;"></span>
+                </h3>
+                <button type="button" class="cd-modal__close" onclick="closeQuickEdit()">&times;</button>
+            </div>
+            <div class="cd-modal__body">
+                <div id="qeIdentity" class="qe-idbar">
+                    <div><span class="qe-id-l">Reg No</span><span class="qe-id-v" id="qeRegno">—</span></div>
+                    <div><span class="qe-id-l">Entry No</span><span class="qe-id-v" id="qeEntryno">—</span></div>
+                    <div><span class="qe-id-l">Programme</span><span class="qe-id-v" id="qeProg">—</span></div>
+                    <div class="qe-id-note">Reg&nbsp;/&nbsp;Entry number &amp; programme change only via <b>Full Edit</b> / <b>Change Programme</b>.</div>
+                </div>
+
+                <div id="qeLoading" style="padding:30px;text-align:center;color:#888;">Loading student…</div>
+
+                <div id="qeForm" style="display:none;">
+                    <div class="qe-grid">
+                        <!-- Personal -->
+                        <div class="qe-col">
+                            <div class="qe-sec">Personal Information</div>
+                            <div class="qe-row2">
+                                <div class="cd-form-group"><label class="cd-form-label">First Name *</label><input type="text" id="qe_firstname" class="cd-form-input" /></div>
+                                <div class="cd-form-group"><label class="cd-form-label">Other Names</label><input type="text" id="qe_othername" class="cd-form-input" /></div>
+                            </div>
+                            <div class="qe-row2">
+                                <div class="cd-form-group"><label class="cd-form-label">Gender</label>
+                                    <select id="qe_gender" class="cd-form-input"><option value="">—</option><option>MALE</option><option>FEMALE</option><option>OTHER</option></select>
+                                </div>
+                                <div class="cd-form-group"><label class="cd-form-label">Date of Birth</label><input type="date" id="qe_dob" class="cd-form-input" /></div>
+                            </div>
+                            <div class="qe-row2">
+                                <div class="cd-form-group"><label class="cd-form-label">Nationality</label>
+                                    <input type="text" id="qe_nationality" class="cd-form-input" list="qeNationalities" placeholder="UGANDAN" />
+                                    <datalist id="qeNationalities"><option>UGANDAN</option><option>KENYAN</option><option>TANZANIAN</option><option>RWANDAN</option><option>BURUNDIAN</option><option>SOUTH SUDANESE</option><option>CONGOLESE</option><option>SOMALI</option><option>NIGERIAN</option><option>ERITREAN</option><option>ETHIOPIAN</option></datalist>
+                                </div>
+                                <div class="cd-form-group"><label class="cd-form-label">Religion</label>
+                                    <select id="qe_religion" class="cd-form-input"><option value="">—</option><option>CATHOLIC</option><option>ANGLICAN</option><option>PROTESTANT</option><option>MUSLIM</option><option>BORN AGAIN</option><option>PENTECOSTAL</option><option>SDA</option><option>ADVENTIST</option><option>CHRISTIAN</option><option>OTHERS</option></select>
+                                </div>
+                            </div>
+                            <div class="qe-row2">
+                                <div class="cd-form-group"><label class="cd-form-label">Contact / Phone</label><input type="text" id="qe_studPhone" class="cd-form-input" placeholder="07xx xxxxxx" /></div>
+                                <div class="cd-form-group"><label class="cd-form-label">Email</label><input type="email" id="qe_email" class="cd-form-input" /></div>
+                            </div>
+                            <div class="qe-row2">
+                                <div class="cd-form-group"><label class="cd-form-label">Home District</label><input type="text" id="qe_home_dist" class="cd-form-input" /></div>
+                                <div class="cd-form-group"><label class="cd-form-label">NIN</label><input type="text" id="qe_national_id" class="cd-form-input" /></div>
+                            </div>
+                        </div>
+                        <!-- Academic -->
+                        <div class="qe-col">
+                            <div class="qe-sec">Academic Information</div>
+                            <div class="qe-row2">
+                                <div class="cd-form-group"><label class="cd-form-label">Entry Year</label><input type="number" id="qe_entryyear" class="cd-form-input" min="1990" max="2100" /></div>
+                                <div class="cd-form-group"><label class="cd-form-label">Intake</label>
+                                    <select id="qe_intake" class="cd-form-input"><option value="">—</option><option>JANUARY</option><option>FEBRUARY</option><option>MARCH</option><option>APRIL</option><option>MAY</option><option>JUNE</option><option>JULY</option><option>AUGUST</option><option>SEPTEMBER</option><option>OCTOBER</option><option>NOVEMBER</option><option>DECEMBER</option></select>
+                                </div>
+                            </div>
+                            <div class="qe-row2">
+                                <div class="cd-form-group"><label class="cd-form-label">Session</label>
+                                    <select id="qe_studsesion" class="cd-form-input"><option value="">—</option><option>DAY</option><option>EVENING</option><option>WEEKEND</option><option>INSERVICE</option></select>
+                                </div>
+                                <div class="cd-form-group"><label class="cd-form-label">Campus</label>
+                                    <select id="qe_studCampus" class="cd-form-input"><option value="">—</option></select>
+                                </div>
+                            </div>
+                            <div class="qe-row2">
+                                <div class="cd-form-group"><label class="cd-form-label">Entry Method</label>
+                                    <select id="qe_entrymethod" class="cd-form-input"><option value="">—</option><option>DIRECT</option><option>A LEVEL</option><option>O LEVEL</option><option>CERTIFICATE</option><option>ORDINARY DIPLOMA</option><option>DIPLOMA</option><option>HIGHER DIPLOMA</option><option>HIGHER EDUCATION CERTIFICATE</option><option>BACHELORS DEGREE</option><option>MATURE AGE</option><option>ACCESS</option></select>
+                                </div>
+                                <div class="cd-form-group"><label class="cd-form-label">Grading System</label>
+                                    <select id="qe_gradSystemID" class="cd-form-input"><option value="">—</option></select>
+                                </div>
+                            </div>
+                            <div class="qe-row2">
+                                <div class="cd-form-group"><label class="cd-form-label">Student Status</label>
+                                    <select id="qe_new_status" class="cd-form-input"><option>ADMITTED</option><option>ACTIVE</option><option>ALUMNI</option></select>
+                                </div>
+                                <div class="cd-form-group"><label class="cd-form-label">Completion Date <span style="font-weight:400;color:#999;">(auto if blank)</span></label><input type="date" id="qe_completion_date" class="cd-form-input" /></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="qeStatus" style="display:none;margin-top:12px;padding:9px 12px;font-size:12.5px;border-radius:2px;"></div>
+                </div>
+            </div>
+            <div class="cd-modal__footer">
+                <button type="button" class="cd-btn cd-btn--secondary" onclick="closeQuickEdit()">Cancel</button>
+                <button type="button" class="cd-btn cd-btn--primary" id="btnQuickEdit" onclick="submitQuickEdit()">Save changes</button>
+            </div>
+        </div>
+    </div>
+    <style>
+        .qe-modal{max-width:760px;width:96%;}
+        .qe-idbar{display:flex;flex-wrap:wrap;gap:16px;align-items:center;background:#f0f4ff;border:1px solid #c4d9f8;padding:10px 14px;margin-bottom:14px;border-radius:2px;}
+        .qe-idbar .qe-id-l{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;font-weight:700;}
+        .qe-idbar .qe-id-v{display:block;font-size:12.5px;font-weight:700;color:#05275C;}
+        .qe-id-note{flex:1;min-width:180px;text-align:right;font-size:10.5px;color:#8a93a5;line-height:1.4;}
+        .qe-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;}
+        .qe-sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#174DA4;border-bottom:2px solid #e0e5ed;padding-bottom:5px;margin:0 0 10px;}
+        .qe-row2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+        .qe-col .cd-form-group{margin-bottom:11px;}
+        .qe-col .cd-form-label{font-size:11px;color:#4a5568;font-weight:600;margin-bottom:3px;display:block;}
+        .qe-col .cd-form-input{width:100%;height:34px;font-size:12.5px;padding:4px 9px;border:1px solid #d6dbe5;border-radius:0;}
+        .qe-col select.cd-form-input{height:34px;}
+        .qe-col .cd-form-input:focus{outline:none;border-color:#174DA4;}
+        @media(max-width:680px){.qe-grid{grid-template-columns:1fr;}}
+    </style>
+
     <div id="setPasswordOverlay" class="cd-modal-overlay">
         <div class="cd-modal" style="max-width: 420px;">
             <div class="cd-modal__header">
@@ -3210,6 +3323,74 @@
             _njPost('ChangeProgramme', data, function (r) {
                 if (r && r.success) { _njStatus('cpStatus', r.message + ' Refreshing…', false); setTimeout(function () { window.location.reload(); }, 800); }
                 else { _njStatus('cpStatus', (r && r.message) || 'Failed.', true); btn.disabled = false; btn.innerText = o; }
+            });
+        }
+
+        // ---- Quick Edit (modal-driven single-student editor) ----
+        var _qeRegno = '';
+        function openQuickEdit(regno, name) {
+            closeAllActionPopovers();
+            if (!regno) { alert('No registration number provided'); return; }
+            _qeRegno = regno;
+            document.getElementById('qeTitleName').innerText = name ? ('— ' + name) : '';
+            document.getElementById('qeForm').style.display = 'none';
+            var ld = document.getElementById('qeLoading'); ld.style.display = 'block'; ld.innerText = 'Loading student…';
+            document.getElementById('qeStatus').style.display = 'none';
+            document.getElementById('quickEditOverlay').style.display = 'flex';
+            _njPost('QuickEditLoad', 'regno=' + encodeURIComponent(regno), function (r) {
+                if (!r || !r.success) { ld.innerText = (r && r.message) || 'Failed to load student.'; return; }
+                populateQuickEdit(r);
+            });
+        }
+        function qeSetVal(id, val) { var el = document.getElementById(id); if (el) el.value = (val == null ? '' : val); }
+        function qeSetSelect(id, val) {
+            var el = document.getElementById(id); if (!el) return; val = (val == null ? '' : String(val));
+            if (val !== '' && !Array.prototype.some.call(el.options, function (o) { return o.value.toUpperCase() === val.toUpperCase(); })) {
+                var op = document.createElement('option'); op.value = val; op.text = val; el.appendChild(op);   // keep legacy values
+            }
+            var matched = false;
+            Array.prototype.forEach.call(el.options, function (o) { if (o.value.toUpperCase() === val.toUpperCase()) { el.value = o.value; matched = true; } });
+            if (!matched) el.value = val;
+        }
+        function populateQuickEdit(r) {
+            var s = r.student || {};
+            document.getElementById('qeRegno').innerText = s.regno || '—';
+            document.getElementById('qeEntryno').innerText = s.entryno || '—';
+            document.getElementById('qeProg').innerText = (s.progname || s.progid || '—');
+            var camp = document.getElementById('qe_studCampus'); camp.innerHTML = '<option value="">—</option>';
+            (r.campuses || []).forEach(function (c) { var o = document.createElement('option'); o.value = c.id; o.text = c.name; camp.appendChild(o); });
+            var grd = document.getElementById('qe_gradSystemID'); grd.innerHTML = '<option value="">—</option>';
+            (r.grading || []).forEach(function (g) { var o = document.createElement('option'); o.value = g.id; o.text = g.name; grd.appendChild(o); });
+            qeSetVal('qe_firstname', s.firstname); qeSetVal('qe_othername', s.othername); qeSetVal('qe_dob', s.dob);
+            qeSetVal('qe_nationality', s.nationality); qeSetVal('qe_studPhone', s.studPhone); qeSetVal('qe_email', s.email);
+            qeSetVal('qe_home_dist', s.home_dist); qeSetVal('qe_national_id', s.national_id); qeSetVal('qe_entryyear', s.entryyear);
+            qeSetVal('qe_completion_date', s.completion_date);
+            qeSetSelect('qe_gender', s.gender); qeSetSelect('qe_religion', s.religion); qeSetSelect('qe_intake', s.intake);
+            qeSetSelect('qe_studsesion', s.studsesion); qeSetSelect('qe_entrymethod', s.entrymethod);
+            qeSetSelect('qe_new_status', s.new_status || 'ADMITTED');
+            if (s.studCampus && !isNaN(parseInt(s.studCampus, 10))) camp.value = String(parseInt(s.studCampus, 10));
+            if (s.gradSystemID && !isNaN(parseInt(s.gradSystemID, 10))) grd.value = String(parseInt(s.gradSystemID, 10));
+            document.getElementById('qeLoading').style.display = 'none';
+            document.getElementById('qeForm').style.display = 'block';
+        }
+        function closeQuickEdit() { document.getElementById('quickEditOverlay').style.display = 'none'; _qeRegno = ''; }
+        function submitQuickEdit() {
+            var fn = (document.getElementById('qe_firstname').value || '').trim();
+            if (!fn) { _njStatus('qeStatus', 'First name is required.', true); return; }
+            var em = (document.getElementById('qe_email').value || '').trim();
+            if (em && em.indexOf('@') < 0) { _njStatus('qeStatus', 'Invalid email format.', true); return; }
+            var btn = document.getElementById('btnQuickEdit'); btn.disabled = true; var o = btn.innerText; btn.innerText = 'Saving…';
+            function v(id) { return encodeURIComponent((document.getElementById(id).value || '').trim()); }
+            var body = 'regno=' + encodeURIComponent(_qeRegno)
+                + '&firstname=' + v('qe_firstname') + '&othername=' + v('qe_othername') + '&gender=' + v('qe_gender')
+                + '&dob=' + v('qe_dob') + '&nationality=' + v('qe_nationality') + '&religion=' + v('qe_religion')
+                + '&studPhone=' + v('qe_studPhone') + '&email=' + v('qe_email') + '&home_dist=' + v('qe_home_dist')
+                + '&national_id=' + v('qe_national_id') + '&entryyear=' + v('qe_entryyear') + '&intake=' + v('qe_intake')
+                + '&studsesion=' + v('qe_studsesion') + '&studCampus=' + v('qe_studCampus') + '&entrymethod=' + v('qe_entrymethod')
+                + '&gradSystemID=' + v('qe_gradSystemID') + '&new_status=' + v('qe_new_status') + '&completion_date=' + v('qe_completion_date');
+            _njPost('QuickEditSave', body, function (r) {
+                if (r && r.success) { _njStatus('qeStatus', (r.message || 'Saved.') + ' Refreshing…', false); setTimeout(function () { window.location.reload(); }, 800); }
+                else { _njStatus('qeStatus', (r && r.message) || 'Save failed.', true); btn.disabled = false; btn.innerText = o; }
             });
         }
 

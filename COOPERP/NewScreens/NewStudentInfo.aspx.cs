@@ -159,6 +159,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             else if (action == "PreviewProgRegno") { HandlePreviewProgRegno();  handledAction = true; }
             else if (action == "ChangeProgramme")   { HandleChangeProgramme();   handledAction = true; }
             else if (action == "ChangeEntryYear")   { HandleChangeEntryYear();   handledAction = true; }
+            else if (action == "QuickEditLoad")      { HandleQuickEditLoad();      handledAction = true; }
+            else if (action == "QuickEditSave")      { HandleQuickEditSave();      handledAction = true; }
             else if (action == "ExportStudentsList"){ HandleExportStudentsList();handledAction = true; }
 
             // For action endpoints (JSON/PDF/etc), stop normal page rendering lifecycle.
@@ -7183,6 +7185,132 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     }
 
     /// <summary>Changes a student's entry year (validated 1990..currentYear+1); logged.</summary>
+    // ── Quick Edit: load a single student's editable fields + dropdown option sources ──
+    private void HandleQuickEditLoad()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request.Form["regno"] ?? Request.QueryString["regno"] ?? "").Trim();
+            if (regno == "") { WriteJsonAndComplete(js, new { success = false, message = "Registration number is required." }); return; }
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                System.Collections.Generic.Dictionary<string, object> stud = null;
+                using (var cmd = new MySqlCommand(
+                    "SELECT s.regno, IFNULL(s.entryno,'') entryno, IFNULL(s.firstname,'') firstname, IFNULL(s.othername,'') othername," +
+                    " IFNULL(s.gender,'') gender, CASE WHEN s.dob IS NULL OR s.dob='0000-00-00' THEN '' ELSE DATE_FORMAT(s.dob,'%Y-%m-%d') END dob," +
+                    " IFNULL(s.nationality,'') nationality, IFNULL(s.religion,'') religion, IFNULL(s.studPhone,'') studPhone, IFNULL(s.email,'') email," +
+                    " IFNULL(s.home_dist,'') home_dist, IFNULL(s.national_id,'') national_id, IFNULL(s.entryyear,'') entryyear, IFNULL(s.intake,'') intake," +
+                    " IFNULL(s.studsesion,'') studsesion, IFNULL(s.studCampus,'') studCampus, IFNULL(s.gradSystemID,'') gradSystemID," +
+                    " IFNULL(s.entrymethod,'') entrymethod, IFNULL(s.new_status,'') new_status," +
+                    " CASE WHEN s.completion_date IS NULL OR s.completion_date='0000-00-00' THEN '' ELSE DATE_FORMAT(s.completion_date,'%Y-%m-%d') END completion_date," +
+                    " IFNULL(p.progname,'') progname, IFNULL(s.progid,'') progid" +
+                    " FROM acad_student s LEFT JOIN acad_programme p ON p.progcode=s.progid WHERE s.regno=@r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        if (!r.Read()) { WriteJsonAndComplete(js, new { success = false, message = "Student not found." }); return; }
+                        stud = new System.Collections.Generic.Dictionary<string, object>();
+                        for (int i = 0; i < r.FieldCount; i++) stud[r.GetName(i)] = r.IsDBNull(i) ? "" : r.GetValue(i).ToString();
+                    }
+                }
+                var campuses = new System.Collections.Generic.List<object>();
+                using (var cmd = new MySqlCommand("SELECT ID, campus_name FROM acad_campuses WHERE ID>0 ORDER BY ID", conn))
+                using (var r = cmd.ExecuteReader())
+                    while (r.Read()) campuses.Add(new { id = r.GetValue(0).ToString(), name = r.GetValue(1).ToString() });
+                var grading = new System.Collections.Generic.List<object>();
+                using (var cmd = new MySqlCommand("SELECT ID, gs_name FROM acad_gradingsystem ORDER BY ID", conn))
+                using (var r = cmd.ExecuteReader())
+                    while (r.Read()) grading.Add(new { id = r.GetValue(0).ToString(), name = r.GetValue(1).ToString() });
+                WriteJsonAndComplete(js, new { success = true, student = stud, campuses = campuses, grading = grading });
+            }
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
+    }
+
+    // ── Quick Edit: save the edited fields (strict-SQL-mode safe; identity fields untouched) ──
+    private void HandleQuickEditSave()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request.Form["regno"] ?? "").Trim();
+            if (regno == "") { WriteJsonAndComplete(js, new { success = false, message = "Registration number is required." }); return; }
+            System.Func<string, string> F = k => (Request.Form[k] ?? "").ToString().Trim();
+
+            string firstname = F("firstname");
+            if (firstname == "") { WriteJsonAndComplete(js, new { success = false, message = "First name is required." }); return; }
+            string othername = F("othername"), gender = F("gender"), nationality = F("nationality"), religion = F("religion"),
+                   phone = F("studPhone"), email = F("email"), district = F("home_dist"), nin = F("national_id"),
+                   entryyear = F("entryyear"), intake = F("intake"), session = F("studsesion"), campus = F("studCampus"),
+                   gradsystem = F("gradSystemID"), entrymethod = F("entrymethod"), newstatus = F("new_status"),
+                   dobS = F("dob"), compS = F("completion_date");
+            if (email != "" && !email.Contains("@")) { WriteJsonAndComplete(js, new { success = false, message = "Invalid email format." }); return; }
+            if (newstatus == "") newstatus = "ADMITTED";
+
+            // Strict-SQL-mode safe: numerics/dates parse or bind NULL; NOT NULL studCampus omitted when blank.
+            int _iv;
+            object pEntry = int.TryParse(entryyear, out _iv) ? (object)_iv : DBNull.Value;
+            object pGrad  = int.TryParse(gradsystem, out _iv) ? (object)_iv : DBNull.Value;
+            bool campusOk = int.TryParse(campus, out _iv); int campusVal = campusOk ? _iv : 0;
+            object pDob = DBNull.Value; DateTime _dv;
+            if (dobS != "" && DateTime.TryParse(dobS, out _dv) && _dv.Year > 1900) pDob = _dv.Date;
+            object pComp = DBNull.Value; DateTime _cv;
+            if (compS != "" && DateTime.TryParse(compS, out _cv) && _cv.Year > 1900) pComp = _cv.Date;
+
+            var sets = new System.Collections.Generic.List<string>();
+            sets.Add("firstname=@firstname"); sets.Add("othername=@othername"); sets.Add("gender=@gender");
+            sets.Add("dob=@dob"); sets.Add("nationality=@nationality"); sets.Add("religion=@religion");
+            sets.Add("studPhone=@phone"); sets.Add("email=@email"); sets.Add("home_dist=@district");
+            sets.Add("national_id=@nin"); sets.Add("entryyear=@entryyear"); sets.Add("intake=@intake");
+            sets.Add("entrymethod=@entrymethod");
+            if (session != "") sets.Add("studsesion=@session");
+            if (campusOk) sets.Add("studCampus=@campus");
+            sets.Add("gradSystemID=@gradsystem"); sets.Add("completion_date=@completion_date"); sets.Add("new_status=@newstatus");
+            string sql = "UPDATE acad_student SET " + string.Join(", ", sets.ToArray()) + " WHERE regno=@regno";
+
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.CommandTimeout = 30;
+                    cmd.Parameters.AddWithValue("@regno", regno);
+                    cmd.Parameters.AddWithValue("@firstname", firstname);
+                    cmd.Parameters.AddWithValue("@othername", othername);
+                    cmd.Parameters.AddWithValue("@gender", gender);
+                    cmd.Parameters.AddWithValue("@dob", pDob);
+                    cmd.Parameters.AddWithValue("@nationality", nationality);
+                    cmd.Parameters.AddWithValue("@religion", religion);
+                    cmd.Parameters.AddWithValue("@phone", phone);
+                    cmd.Parameters.AddWithValue("@email", email);
+                    cmd.Parameters.AddWithValue("@district", district);
+                    cmd.Parameters.AddWithValue("@nin", nin);
+                    cmd.Parameters.AddWithValue("@entryyear", pEntry);
+                    cmd.Parameters.AddWithValue("@intake", intake);
+                    cmd.Parameters.AddWithValue("@entrymethod", entrymethod);
+                    if (session != "") cmd.Parameters.AddWithValue("@session", session);
+                    if (campusOk) cmd.Parameters.AddWithValue("@campus", campusVal);
+                    cmd.Parameters.AddWithValue("@gradsystem", pGrad);
+                    cmd.Parameters.AddWithValue("@completion_date", pComp);
+                    cmd.Parameters.AddWithValue("@newstatus", newstatus);
+                    int rows = cmd.ExecuteNonQuery();
+                    if (rows == 0)
+                    {
+                        bool exists;
+                        using (var chk = new MySqlCommand("SELECT COUNT(*) FROM acad_student WHERE regno=@r", conn))
+                        { chk.Parameters.AddWithValue("@r", regno); exists = Convert.ToInt64(chk.ExecuteScalar()) > 0; }
+                        if (!exists) { WriteJsonAndComplete(js, new { success = false, message = "No student found with regno " + regno + "." }); return; }
+                    }
+                }
+            }
+            WriteJsonAndComplete(js, new { success = true, message = "Student " + regno + " updated successfully." });
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
+    }
+
     private void HandleChangeEntryYear()
     {
         var js = new JavaScriptSerializer();
