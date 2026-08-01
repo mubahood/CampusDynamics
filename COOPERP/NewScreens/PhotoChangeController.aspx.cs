@@ -75,7 +75,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             conn.Open();
             string outcome = ReviewOne(conn, id, approve, comment, GetCurrentUser());
             bool ok = outcome == "OK";
-            return "{\"success\":" + (ok ? "true" : "false") + ",\"message\":\"" + JsEnc(ok ? (approve ? "Photo approved." : "Photo rejected and removed from the student.") : outcome) + "\"}";
+            return "{\"success\":" + (ok ? "true" : "false") + ",\"message\":\"" + JsEnc(ok ? (approve ? "Photograph approved." : "Photograph rejected and removed from the student.") : outcome) + "\"}";
         }
     }
 
@@ -173,7 +173,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             }
 
             string who = name == "" ? regno : name + " (" + regno + ")";
-            return "{\"success\":true,\"message\":\"Photo status for " + JsEnc(who) + " set to " + status + ".\"}";
+            return "{\"success\":true,\"message\":\"Official-photograph status for " + JsEnc(who) + " set to " + status + ".\"}";
         }
     }
 
@@ -304,7 +304,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             sb.Append("<form method='get' class='pc-search'><input type='hidden' name='status' value='" + HE(status) + "'/>" +
                       "<input type='text' name='q' value='" + HE(q) + "' placeholder='Search reg no or name...' class='pc-search__in'/>" +
                       "<button class='pc-btn pc-btn--sm'>Search</button>" + (q != "" ? "<a class='pc-clear' href='PhotoChangeController.aspx?status=" + HE(status) + "'>clear</a>" : "") + "</form>");
-            sb.Append("<button type='button' class='pc-btn pc-btn--nav' onclick='pcOpenInit()'>&#43; Set a student&rsquo;s status</button>");
+            sb.Append("<button type='button' class='pc-btn pc-btn--nav' onclick='pcOpenInit()'>&#43; Set a student&rsquo;s photograph status</button>");
             sb.Append("</div>");
             sb.Append("</div>");
 

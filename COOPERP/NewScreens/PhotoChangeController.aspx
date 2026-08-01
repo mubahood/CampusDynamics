@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="PhotoChangeController.aspx.cs" Inherits="COOPERP_NewScreens_PhotoChangeController" Title="Photo Change Approvals - Campus Dynamics" %>
+<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="PhotoChangeController.aspx.cs" Inherits="COOPERP_NewScreens_PhotoChangeController" Title="Official Photograph Approvals - Campus Dynamics" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
@@ -76,15 +76,15 @@
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 <div class="pc-wrap">
     <div class="pc-head">
-        <h1>Student Photo Change Approvals</h1>
-        <p>Every student photo change starts as <strong>Pending</strong>. Approve it to keep the new photo, or reject it &mdash; a rejected photo is removed from the student, who must then upload a new one or delete it.</p>
+        <h1>Official Photograph Approvals</h1>
+        <p>Every student official-photograph change starts as <strong>Pending</strong>. Approve it to keep the new photograph, or reject it &mdash; a rejected photograph is removed from the student, who must then upload a new one or delete it.</p>
     </div>
     <asp:Literal ID="litBody" runat="server" />
 </div>
 <!-- Admin: initiate a record / set a student's photo status (any -> any) -->
 <div class="pc-mov" id="pcInitOv" onclick="if(event.target===this)pcCloseInit()">
     <div class="pc-modal">
-        <div class="pc-modal__h"><b>Set a student's photo status</b><button type="button" class="pc-modal__x" onclick="pcCloseInit()">&times;</button></div>
+        <div class="pc-modal__h"><b>Set a student's official-photograph status</b><button type="button" class="pc-modal__x" onclick="pcCloseInit()">&times;</button></div>
         <div class="pc-modal__b">
             <div class="pc-fld">
                 <label>Registration number</label>
@@ -93,9 +93,9 @@
             <div class="pc-fld">
                 <label>Set status to</label>
                 <select id="piStatus">
-                    <option value="APPROVED">APPROVED — photo is valid &amp; visible</option>
-                    <option value="PENDING">PENDING — awaiting review (photo stays visible)</option>
-                    <option value="REJECTED">REJECTED — block &amp; remove the photo (student must re-upload)</option>
+                    <option value="APPROVED">APPROVED — photograph is valid &amp; visible</option>
+                    <option value="PENDING">PENDING — awaiting review (photograph stays visible)</option>
+                    <option value="REJECTED">REJECTED — block &amp; remove the photograph (student must re-upload)</option>
                 </select>
             </div>
             <div class="pc-fld">
@@ -116,7 +116,7 @@
 <!-- Reject reason modal (per-row & batch) with clickable common reasons -->
 <div class="pc-mov" id="pcRejOv" onclick="if(event.target===this)pcRejClose()">
     <div class="pc-modal">
-        <div class="pc-modal__h"><b>Reject photo</b><button type="button" class="pc-modal__x" onclick="pcRejClose()">&times;</button></div>
+        <div class="pc-modal__h"><b>Reject official photograph</b><button type="button" class="pc-modal__x" onclick="pcRejClose()">&times;</button></div>
         <div class="pc-modal__b">
             <div class="pc-reject-who" id="pcRejWho"></div>
             <div class="pc-fld">
@@ -126,12 +126,12 @@
             <div class="pc-fld">
                 <label>Reason shown to the student</label>
                 <textarea id="pcRejReason" placeholder="Pick from above or type your own reason..."></textarea>
-                <div class="pc-hint">This message is shown to the student, and their photo is removed &mdash; they must upload a new one before they can use their dashboard.</div>
+                <div class="pc-hint">This message is shown to the student, and their photograph is removed &mdash; they must upload a new one before they can use their dashboard.</div>
             </div>
         </div>
         <div class="pc-modal__f">
             <button type="button" class="pc-btn" onclick="pcRejClose()">Cancel</button>
-            <button type="button" class="pc-btn pc-btn--danger" id="pcRejGo" onclick="pcRejConfirm()">Reject photo</button>
+            <button type="button" class="pc-btn pc-btn--danger" id="pcRejGo" onclick="pcRejConfirm()">Reject photograph</button>
         </div>
     </div>
 </div>
@@ -156,7 +156,7 @@
         var c = document.getElementById("piComment").value.trim();
         var m = document.getElementById("piMsg");
         if (!reg) { m.style.display = "block"; m.style.background = "#fdecec"; m.style.color = "#b3261e"; m.textContent = "Enter a registration number."; return; }
-        if (st === "REJECTED" && !confirm("Reject and REMOVE " + reg + "'s photo? They will be blocked from the dashboard until they re-upload.")) return;
+        if (st === "REJECTED" && !confirm("Reject and REMOVE " + reg + "'s photograph? They will be blocked from the dashboard until they re-upload.")) return;
         var go = document.getElementById("piGo"); go.disabled = true;
         fetch("PhotoChangeController.aspx", {
             method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Requested-With": "XMLHttpRequest" },
@@ -233,8 +233,8 @@
     };
 
     window.pcReview = function (id, approve) {
-        if (!approve) { openReject({ mode: "single", id: id }, "Rejecting <b>1</b> photo &mdash; it will be removed and the student asked to re-upload."); return; }
-        if (!confirm("Approve this photo?")) return;
+        if (!approve) { openReject({ mode: "single", id: id }, "Rejecting <b>1</b> photograph &mdash; it will be removed and the student asked to re-upload."); return; }
+        if (!confirm("Approve this photograph?")) return;
         post("action=review&id=" + encodeURIComponent(id) + "&decision=approve&comment=")
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 700); })
             .catch(function () { pcToast("Request failed.", true); });
@@ -243,8 +243,8 @@
         var ids = [];
         document.querySelectorAll(".pc-chk:checked").forEach(function (c) { ids.push(c.value); });
         if (ids.length === 0) { pcToast("Select at least one photo first.", true); return; }
-        if (!approve) { openReject({ mode: "batch", ids: ids }, "Rejecting <b>" + ids.length + "</b> selected photo(s) &mdash; each will be removed and the students asked to re-upload."); return; }
-        if (!confirm("Approve " + ids.length + " selected photo(s)?")) return;
+        if (!approve) { openReject({ mode: "batch", ids: ids }, "Rejecting <b>" + ids.length + "</b> selected photograph(s) &mdash; each will be removed and the students asked to re-upload."); return; }
+        if (!confirm("Approve " + ids.length + " selected photograph(s)?")) return;
         post("action=batch&ids=" + encodeURIComponent(ids.join(",")) + "&decision=approve&comment=")
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 800); })
             .catch(function () { pcToast("Request failed.", true); });
