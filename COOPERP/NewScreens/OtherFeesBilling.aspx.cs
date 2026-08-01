@@ -225,19 +225,20 @@ public partial class COOPERP_NewScreens_OtherFeesBilling : System.Web.UI.Page
                 using (MySqlConnection conn = new MySqlConnection(AcctConnStr))
                 {
                     conn.Open();
-                    string sql = String.Format(@"SELECT s.regno,
+                    // Canonical balance: read the materialised dual-source cache so the picker's
+                    // "balance" matches StudentLedgers / the portal exactly (all-time owing =
+                    // billed - paid). Previously this summed fin_studentfeestracking for @year only,
+                    // which contradicted the canonical figure shown elsewhere.
+                    string sql = String.Format(@"SELECT DISTINCT s.regno,
                                           CONCAT(s.firstname,' ',s.othername) AS student_name,
                                           IFNULL(s.progid,'') AS progcode,
-                                          COALESCE(SUM(CASE WHEN t.trans_type='Bill' THEN t.amount ELSE 0 END),0)
-                                        - COALESCE(SUM(CASE WHEN t.trans_type='Payment' THEN t.amount ELSE 0 END),0) AS balance
+                                          (IFNULL(c.total_billed,0) - IFNULL(c.total_paid,0)) AS balance
                                    FROM campus_dynamics.acad_registration r
                                    INNER JOIN campus_dynamics.acad_student s ON s.regno = r.regno
-                                   LEFT JOIN fin_studentfeestracking t
-                                        ON t.regno = r.regno AND t.acadyear = @year
+                                   LEFT JOIN fin_student_balance_cache c ON c.regno = r.regno
                                    WHERE r.acad_year = @year AND r.semester = @sem
                                      AND {0}
-                                   GROUP BY s.regno, s.firstname, s.othername, s.progid
-                                   HAVING balance > @th
+                                     AND (IFNULL(c.total_billed,0) - IFNULL(c.total_paid,0)) > @th
                                    ORDER BY balance DESC
                                    LIMIT 500", REG_STATUS_FILTER);
                     using (MySqlCommand cmd = new MySqlCommand(sql, conn))

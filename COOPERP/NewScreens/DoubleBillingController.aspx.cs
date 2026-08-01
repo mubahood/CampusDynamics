@@ -1063,23 +1063,19 @@ public partial class COOPERP_NewScreens_DoubleBillingController : System.Web.UI.
             "  SELECT transactionType, transaction_amount FROM fin_ledger " +
             "  WHERE accountcode=@reg AND account_type='Student' AND transaction_amount > 0 " +
             "  UNION ALL " +
-            "  SELECT 'DR' AS transactionType, t.amount AS transaction_amount " +
+            // Canonical dual-source: include unmirrored tracking BILLS (→DR) AND PAYMENTS (→CR),
+            // deduped by the 3-condition NOT EXISTS. Fix B: payments match on amount+date only
+            // (migration ledger rows carry the student name as particulars); bills stay strict.
+            "  SELECT CASE WHEN t.trans_type='Bill' THEN 'DR' ELSE 'CR' END AS transactionType, t.amount AS transaction_amount " +
             "  FROM fin_studentfeestracking t " +
-            "  WHERE t.regno=@reg AND t.trans_type='Bill' AND t.post_status='Posted' " +
+            "  WHERE t.regno=@reg AND t.post_status='Posted' " +
             "    AND NOT EXISTS ( " +
-            "      SELECT 1 FROM fin_ledger l WHERE l.accountcode=t.regno " +
-            "        AND l.account_type='Student' AND l.transactionType='DR' " +
-            "        AND l.voucherNo=CAST(t.TID AS CHAR)) " +
-            "    AND NOT EXISTS ( " +
-            "      SELECT 1 FROM fin_ledger l WHERE l.accountcode=t.regno " +
-            "        AND l.account_type='Student' AND l.transactionType='DR' " +
-            "        AND l.folio=CONCAT('BillNo:',t.TID)) " +
-            "    AND NOT EXISTS ( " +
-            "      SELECT 1 FROM fin_ledger l WHERE l.accountcode=t.regno " +
-            "        AND l.account_type='Student' AND l.transactionType='DR' " +
-            "        AND l.transaction_amount=t.amount " +
-            "        AND DATE(l.transactionDate)=DATE(t.trans_date) " +
-            "        AND (l.particulars=t.detail OR t.detail IS NULL OR t.detail='')) " +
+            "      SELECT 1 FROM fin_ledger l WHERE l.accountcode=t.regno AND l.account_type='Student' " +
+            "        AND ( l.voucherNo=CAST(t.TID AS CHAR) " +
+            "           OR l.folio=CONCAT('BillNo:',CAST(t.TID AS CHAR)) " +
+            "           OR ( l.transaction_amount=t.amount AND DATE(l.transactionDate)=DATE(t.trans_date) " +
+            "                AND l.transactionType=CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END " +
+            "                AND (t.trans_type='Payment' OR l.particulars=t.detail OR t.detail IS NULL OR t.detail='') ) ) ) " +
             ") combined";
 
         using (var cmd = new MySqlCommand(sql, conn))

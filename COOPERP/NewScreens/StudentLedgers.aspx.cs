@@ -16,6 +16,12 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
     private static DateTime _lookupExpiry = DateTime.MinValue;
     private static readonly object _lookupLock = new object();
 
+    // ── Balance-cache refresh throttle (see EnsureBalanceCache) ───────────
+    private static DateTime _balCacheNextCheck = DateTime.MinValue;
+    private static readonly object _balCacheGate = new object();
+    private const int BalCacheTtlSeconds = 300;       // rebuild when older than 5 min
+    private const int BalCacheThrottleSeconds = 30;   // don't re-check DB freshness more often than this
+
     private string AcctConnStr
     {
         get { return WebConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString; }
@@ -37,26 +43,34 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
 
         LoadLookups();
 
-        RestorePostedValue(ddlProgramme);
-        RestorePostedValue(ddlEntryYear);
-        RestorePostedValue(ddlAcadYear);
-        RestorePostedValue(ddlSemester);
-        RestorePostedValue(ddlBalanceState);
-        RestorePostedValue(ddlBalanceOp);
-        RestorePostedValue(ddlPageSize);
-        RestorePostedCheck(chkWithTransactions);
+        // ── All filters, sort and pagination state are read from the query
+        //    string (GET). This keeps the listing fully bookmarkable / shareable
+        //    and avoids WebForms POST postbacks for navigation.
+        SetDdlFromQuery(ddlProgramme, "prog");
+        SetDdlFromQuery(ddlEntryYear, "entry");
+        SetDdlFromQuery(ddlAcadYear, "acad");
+        SetDdlFromQuery(ddlSemester, "sem");
+        SetDdlFromQuery(ddlBalanceState, "bal");
+        SetDdlFromQuery(ddlBalanceOp, "balop");
+        SetDdlFromQuery(ddlPageSize, "rows");
 
-        if (!string.IsNullOrEmpty(Request.Form[txtBalanceFrom.UniqueID]))
-            txtBalanceFrom.Text = Request.Form[txtBalanceFrom.UniqueID];
-        if (!string.IsNullOrEmpty(Request.Form[txtBalanceTo.UniqueID]))
-            txtBalanceTo.Text = Request.Form[txtBalanceTo.UniqueID];
+        txtSearch.Text      = (Request.QueryString["q"]       ?? "").Trim();
+        txtBalanceFrom.Text = (Request.QueryString["balfrom"] ?? "").Trim();
+        txtBalanceTo.Text   = (Request.QueryString["balto"]   ?? "").Trim();
+        chkWithTransactions.Checked = (Request.QueryString["tx"] ?? "") == "1";
 
-        if (!IsPostBack)
-        {
-            hfSortField.Value = "balance";
-            hfSortDir.Value = "DESC";
-            hfPageIndex.Value = "0";
-        }
+        string sortField = (Request.QueryString["sort"] ?? "").Trim();
+        string sortDir   = (Request.QueryString["dir"]  ?? "").Trim().ToUpper();
+        hfSortField.Value = string.IsNullOrEmpty(sortField) ? "balance" : sortField;
+        // Default direction ASC: with the new sign convention the most negative
+        // balances are the biggest amounts OWING, so they surface first by default.
+        hfSortDir.Value   = sortDir == "DESC" ? "DESC" : "ASC";
+        hfPageIndex.Value = (Request.QueryString["page"] ?? "0").Trim();
+
+        // Export is also GET-driven (?export=csv|excel) so it honours the same filters.
+        string export = (Request.QueryString["export"] ?? "").Trim().ToLower();
+        if (export == "csv")   { ExportData("csv");   return; }
+        if (export == "excel") { ExportData("excel"); return; }
 
         LoadLedgers();
     }
@@ -115,9 +129,9 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
 
         ddlBalanceState.Items.Clear();
         ddlBalanceState.Items.Add(new ListItem("All Balances", ""));
-        ddlBalanceState.Items.Add(new ListItem("Has Outstanding Balance", "debit"));
+        ddlBalanceState.Items.Add(new ListItem("Owing School (-)", "owing"));
         ddlBalanceState.Items.Add(new ListItem("Cleared (Zero)", "zero"));
-        ddlBalanceState.Items.Add(new ListItem("Negative Balance", "credit"));
+        ddlBalanceState.Items.Add(new ListItem("Overpaid / Credit (+)", "overpaid"));
 
         ddlBalanceOp.Items.Clear();
         ddlBalanceOp.Items.Add(new ListItem("No amount filter", ""));
@@ -198,30 +212,204 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         }
     }
 
-    private void RestorePostedValue(DropDownList ddl)
+    /// <summary>Selects the list item matching the given query-string value, if present.</summary>
+    private void SetDdlFromQuery(DropDownList ddl, string key)
     {
-        string posted = Request.Form[ddl.UniqueID];
-        if (!string.IsNullOrEmpty(posted))
+        string v = (Request.QueryString[key] ?? "").Trim();
+        if (string.IsNullOrEmpty(v)) return;
+        ListItem item = ddl.Items.FindByValue(v);
+        if (item != null)
         {
-            ListItem item = ddl.Items.FindByValue(posted);
-            if (item != null)
-            {
-                ddl.ClearSelection();
-                item.Selected = true;
-            }
+            ddl.ClearSelection();
+            item.Selected = true;
         }
     }
 
-    private void RestorePostedCheck(CheckBox chk)
+    // ── Balance cache ─────────────────────────────────────────────────────
+    // Materialises the canonical per-student billed/paid/balance (the same
+    // dual-source dedup formula FinanceEngine / the fees statement uses) into
+    // fin_student_balance_cache so the grid can read accurate totals instantly.
+    // Rebuilt at most once per TTL, guarded by a server-wide named lock so only
+    // one request rebuilds at a time; the rebuild runs inside a transaction so
+    // concurrent readers never see an empty/partial table.
+    private void EnsureBalanceCache(MySqlConnection conn)
     {
-        string posted = Request.Form[chk.UniqueID];
-        chk.Checked = !string.IsNullOrEmpty(posted) && (posted == "on" || posted == "true");
+        // Cheap in-process throttle: skip the DB freshness probe if we checked recently.
+        lock (_balCacheGate)
+        {
+            if (DateTime.UtcNow < _balCacheNextCheck) return;
+        }
+
+        // Ensure the cache table exists.
+        using (MySqlCommand cmd = new MySqlCommand(
+            "CREATE TABLE IF NOT EXISTS campus_dynamics_accounts.fin_student_balance_cache (" +
+            "  regno VARCHAR(50) NOT NULL," +
+            "  total_billed DECIMAL(18,2) NOT NULL DEFAULT 0," +
+            "  total_paid DECIMAL(18,2) NOT NULL DEFAULT 0," +
+            "  total_balance DECIMAL(18,2) NOT NULL DEFAULT 0," +
+            "  tx_count INT NOT NULL DEFAULT 0," +
+            "  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+            "  PRIMARY KEY (regno)" +
+            ") ENGINE=InnoDB", conn))
+        {
+            cmd.CommandTimeout = 30;
+            cmd.ExecuteNonQuery();
+        }
+
+        if (!IsBalanceCacheStale(conn))
+        {
+            lock (_balCacheGate) { _balCacheNextCheck = DateTime.UtcNow.AddSeconds(BalCacheThrottleSeconds); }
+            return;
+        }
+
+        // Become the rebuilder. On first build (empty table) wait briefly for the
+        // lock so the user gets data; on a routine TTL refresh, don't wait — just
+        // serve the slightly-stale cache while another request refreshes.
+        bool empty = BalanceCacheRowCount(conn) == 0;
+        int lockTimeout = empty ? 30 : 0;
+        bool gotLock = false;
+        using (MySqlCommand cmd = new MySqlCommand("SELECT GET_LOCK('sl_bal_cache_refresh', @t)", conn))
+        {
+            cmd.Parameters.AddWithValue("@t", lockTimeout);
+            object v = cmd.ExecuteScalar();
+            gotLock = v != null && v != DBNull.Value && Convert.ToInt32(v) == 1;
+        }
+
+        if (!gotLock)
+        {
+            // Another request is already rebuilding — use existing data, retry soon.
+            lock (_balCacheGate) { _balCacheNextCheck = DateTime.UtcNow.AddSeconds(5); }
+            return;
+        }
+
+        try
+        {
+            // Re-check under the lock; another request may have just rebuilt.
+            if (IsBalanceCacheStale(conn))
+            {
+                using (MySqlTransaction tx = conn.BeginTransaction())
+                {
+                    using (MySqlCommand del = new MySqlCommand(
+                        "DELETE FROM campus_dynamics_accounts.fin_student_balance_cache", conn, tx))
+                    {
+                        del.CommandTimeout = 60;
+                        del.ExecuteNonQuery();
+                    }
+                    using (MySqlCommand ins = new MySqlCommand(GetBalanceCacheRebuildSql(), conn, tx))
+                    {
+                        ins.CommandTimeout = 180;
+                        ins.ExecuteNonQuery();
+                    }
+                    tx.Commit();
+                }
+            }
+        }
+        finally
+        {
+            using (MySqlCommand cmd = new MySqlCommand("SELECT RELEASE_LOCK('sl_bal_cache_refresh')", conn))
+            {
+                try { cmd.ExecuteScalar(); } catch { }
+            }
+            lock (_balCacheGate) { _balCacheNextCheck = DateTime.UtcNow.AddSeconds(BalCacheThrottleSeconds); }
+        }
+    }
+
+    private bool IsBalanceCacheStale(MySqlConnection conn)
+    {
+        using (MySqlCommand cmd = new MySqlCommand(
+            "SELECT COUNT(*) AS c, " +
+            "       COALESCE(TIMESTAMPDIFF(SECOND, MAX(updated_at), NOW()), 999999999) AS age " +
+            "FROM campus_dynamics_accounts.fin_student_balance_cache", conn))
+        {
+            cmd.CommandTimeout = 15;
+            using (MySqlDataReader rdr = cmd.ExecuteReader())
+            {
+                if (rdr.Read())
+                {
+                    long c = rdr["c"] != DBNull.Value ? Convert.ToInt64(rdr["c"]) : 0;
+                    long age = rdr["age"] != DBNull.Value ? Convert.ToInt64(rdr["age"]) : long.MaxValue;
+                    return c == 0 || age > BalCacheTtlSeconds;
+                }
+            }
+        }
+        return true;
+    }
+
+    private long BalanceCacheRowCount(MySqlConnection conn)
+    {
+        using (MySqlCommand cmd = new MySqlCommand(
+            "SELECT COUNT(*) FROM campus_dynamics_accounts.fin_student_balance_cache", conn))
+        {
+            cmd.CommandTimeout = 15;
+            object v = cmd.ExecuteScalar();
+            return v != null && v != DBNull.Value ? Convert.ToInt64(v) : 0;
+        }
+    }
+
+    /// <summary>
+    /// Canonical dual-source balance aggregation, restricted to real students.
+    /// Mirrors FinanceEngine.ComputePeriodBalance (all-time): fin_ledger GL plus
+    /// fin_studentfeestracking bills/payments that are NOT already mirrored in the
+    /// ledger (triple dedup on voucherNo / folio / amount+date+type+particulars).
+    /// </summary>
+    private string GetBalanceCacheRebuildSql()
+    {
+        return
+            "INSERT INTO campus_dynamics_accounts.fin_student_balance_cache " +
+            "(regno, total_billed, total_paid, total_balance, tx_count) " +
+            "SELECT u.regno, " +
+            "       SUM(u.dr) AS total_billed, " +
+            "       SUM(u.cr) AS total_paid, " +
+            // + overpaid (credit), - owing (debit); grid recomputes from the
+            // billed/paid columns so this stored value is informational only.
+            "       SUM(u.cr) - SUM(u.dr) AS total_balance, " +
+            "       COUNT(*) AS tx_count " +
+            "FROM ( " +
+            "  SELECT fl.accountcode AS regno, " +
+            "         CASE WHEN fl.transactionType='DR' THEN fl.transaction_amount ELSE 0 END AS dr, " +
+            "         CASE WHEN fl.transactionType='CR' THEN fl.transaction_amount ELSE 0 END AS cr " +
+            "  FROM campus_dynamics_accounts.fin_ledger fl " +
+            "  WHERE fl.transaction_amount > 0 " +
+            "  UNION ALL " +
+            "  SELECT t.regno AS regno, " +
+            "         CASE WHEN t.trans_type='Bill'    THEN t.amount ELSE 0 END AS dr, " +
+            "         CASE WHEN t.trans_type='Payment' THEN t.amount ELSE 0 END AS cr " +
+            "  FROM campus_dynamics_accounts.fin_studentfeestracking t " +
+            "  WHERE t.post_status = 'Posted' " +
+            "    AND NOT EXISTS ( " +
+            "      SELECT 1 FROM campus_dynamics_accounts.fin_ledger fl2 " +
+            "      WHERE fl2.accountcode = t.regno " +
+            "        AND ( fl2.voucherNo = CAST(t.TID AS CHAR) " +
+            "           OR fl2.folio = CONCAT('BillNo:', CAST(t.TID AS CHAR)) " +
+            "           OR ( fl2.transaction_amount = t.amount " +
+            "                AND DATE(fl2.transactionDate) = DATE(t.trans_date) " +
+            "                AND fl2.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END " +
+            "                AND (t.trans_type = 'Payment' OR fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '') ) ) " +
+            "    ) " +
+            ") u " +
+            "INNER JOIN campus_dynamics.acad_student s ON s.regno = u.regno " +
+            "GROUP BY u.regno";
     }
 
     // ── Performance-critical base query ───────────────────────────────────
-    // Previous version used UNION ALL + NOT EXISTS anti-join across fin_ledger
-    // and fin_studentfeestracking (O(n×m) complexity) and MAX(CONCAT(LPAD(...)))
-    // for latest registration. Both have been replaced with much faster alternatives.
+    // Per-student billed/paid/balance totals come from the canonical dual-source
+    // formula (fin_ledger GL + unmirrored fin_studentfeestracking, deduplicated) —
+    // identical to FinanceEngine.ComputePeriodBalance, which is what the student
+    // account and fees-statement pages use.
+    //
+    // An earlier version of this grid summed fin_ledger ONLY. That omitted the
+    // ~47% of billing/payment records that live solely in fin_studentfeestracking,
+    // so the grid balance was badly understated versus the fees statement.
+    //
+    // The canonical formula is too expensive (~15s anti-join) to run inline on
+    // every sort/page postback, so it is materialised once into
+    // fin_student_balance_cache (refreshed on a short TTL by EnsureBalanceCache).
+    // The grid just joins that cache for instant, accurate reads.
+    //
+    // SIGN CONVENTION: total_balance = total_paid - total_billed, so a POSITIVE
+    // balance = OVERPAID (credit) and a NEGATIVE balance = still OWING (debit).
+    // This matches FinanceEngine's public balance ( -(charges-payments) ) used by
+    // the student account and fees statement.
     private string BuildBaseSql()
     {
         // When the user is searching, include ALL students (any status)
@@ -245,7 +433,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
                 COALESCE(lr.studyyear, 0) AS current_study_year,
                 COALESCE(ft.total_billed, 0) AS total_billed,
                 COALESCE(ft.total_paid, 0) AS total_paid,
-                (COALESCE(ft.total_billed, 0) - COALESCE(ft.total_paid, 0)) AS total_balance,
+                (COALESCE(ft.total_paid, 0) - COALESCE(ft.total_billed, 0)) AS total_balance,
                 COALESCE(ft.tx_count, 0) AS tx_count
             FROM campus_dynamics.acad_student s
             LEFT JOIN campus_dynamics.acad_programme p ON p.progcode = s.progid
@@ -258,17 +446,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
                     GROUP BY regno
                 ) m ON m.regno = r.regno AND r.ID = m.max_id
             ) lr ON lr.regno = s.regno
-            LEFT JOIN (
-                SELECT 
-                    fl.accountcode AS regno,
-                    SUM(CASE WHEN fl.transactionType='DR' THEN fl.transaction_amount ELSE 0 END) AS total_billed,
-                    SUM(CASE WHEN fl.transactionType='CR' THEN fl.transaction_amount ELSE 0 END) AS total_paid,
-                    COUNT(*) AS tx_count
-                FROM campus_dynamics_accounts.fin_ledger fl
-                WHERE fl.account_type = 'Student'
-                  AND fl.transaction_amount > 0
-                GROUP BY fl.accountcode
-            ) ft ON ft.regno = s.regno
+            LEFT JOIN campus_dynamics_accounts.fin_student_balance_cache ft ON ft.regno = s.regno
             " + statusFilter;
     }
 
@@ -300,37 +478,48 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
             parameters.Add(new MySqlParameter("@sem", ddlSemester.SelectedValue));
         }
 
+        // ── Balance STATE filter — sets the DIRECTION (sign) of the balance ──
+        // Sign convention: POSITIVE balance = OVERPAID (credit); NEGATIVE balance
+        // = still OWING the school (debit). Zero = cleared.
         string bal = ddlBalanceState.SelectedValue;
-        if (bal == "debit") where.Append(" AND x.total_balance > 0");
+        if (bal == "owing") where.Append(" AND x.total_balance < 0");
         else if (bal == "zero") where.Append(" AND x.total_balance = 0");
-        else if (bal == "credit") where.Append(" AND x.total_balance < 0");
+        else if (bal == "overpaid") where.Append(" AND x.total_balance > 0");
 
+        // ── Balance AMOUNT filter — matches the SIZE (magnitude) of the balance ──
+        // Users type plain positive amounts, so the comparison runs against
+        // ABS(balance). That way a "Between 100 and 10,000" range correctly
+        // catches BOTH a 700 debit AND a 700 credit — the sign is no longer
+        // silently excluding the (majority) credit balances. Combine with the
+        // Balance State filter above to restrict to a single direction.
         string balOp = ddlBalanceOp.SelectedValue;
         decimal balFrom;
         decimal balTo;
         bool hasFrom = TryParseDecimal(txtBalanceFrom.Text, out balFrom);
         bool hasTo = TryParseDecimal(txtBalanceTo.Text, out balTo);
+        decimal magFrom = Math.Abs(balFrom);
+        decimal magTo = Math.Abs(balTo);
 
         if (balOp == "eq" && hasFrom)
         {
-            where.Append(" AND x.total_balance = @balFrom");
-            parameters.Add(new MySqlParameter("@balFrom", balFrom));
+            where.Append(" AND ABS(x.total_balance) = @balFrom");
+            parameters.Add(new MySqlParameter("@balFrom", magFrom));
         }
         else if (balOp == "lt" && hasFrom)
         {
-            where.Append(" AND x.total_balance < @balFrom");
-            parameters.Add(new MySqlParameter("@balFrom", balFrom));
+            where.Append(" AND ABS(x.total_balance) < @balFrom");
+            parameters.Add(new MySqlParameter("@balFrom", magFrom));
         }
         else if (balOp == "gt" && hasFrom)
         {
-            where.Append(" AND x.total_balance > @balFrom");
-            parameters.Add(new MySqlParameter("@balFrom", balFrom));
+            where.Append(" AND ABS(x.total_balance) > @balFrom");
+            parameters.Add(new MySqlParameter("@balFrom", magFrom));
         }
         else if (balOp == "between" && hasFrom && hasTo)
         {
-            decimal min = balFrom <= balTo ? balFrom : balTo;
-            decimal max = balFrom <= balTo ? balTo : balFrom;
-            where.Append(" AND x.total_balance BETWEEN @balMin AND @balMax");
+            decimal min = magFrom <= magTo ? magFrom : magTo;
+            decimal max = magFrom <= magTo ? magTo : magFrom;
+            where.Append(" AND ABS(x.total_balance) BETWEEN @balMin AND @balMax");
             parameters.Add(new MySqlParameter("@balMin", min));
             parameters.Add(new MySqlParameter("@balMax", max));
         }
@@ -367,7 +556,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
             case "balance": return "total_balance";
             default:
                 hfSortField.Value = "balance";
-                hfSortDir.Value = "DESC";
+                hfSortDir.Value = "ASC";
                 return "total_balance";
         }
     }
@@ -434,6 +623,9 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         {
             conn.Open();
 
+            // Make sure the per-student balance cache is fresh before we read it.
+            EnsureBalanceCache(conn);
+
             // Clean up any leftover temp table from a prior pooled-connection reuse
             using (MySqlCommand cmd = new MySqlCommand("DROP TEMPORARY TABLE IF EXISTS _sl_page", conn))
             {
@@ -479,7 +671,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
             litStatStudents.Text = totalRows.ToString("N0");
             litStatBilled.Text = FormatMoney(statBilled);
             litStatPaid.Text = FormatMoney(statPaid);
-            litStatBalance.Text = FormatMoney(statBalance);
+            litStatBalance.Text = FormatBalance(statBalance);
 
             // 3. Paginated data from temp table (instant)
             string dataSql = String.Format(
@@ -547,43 +739,6 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         return sb.ToString();
     }
 
-    protected void btnSearch_Click(object sender, EventArgs e)
-    {
-        hfPageIndex.Value = "0";
-        LoadLedgers();
-    }
-
-    protected void btnReset_Click(object sender, EventArgs e)
-    {
-        ddlProgramme.SelectedIndex = 0;
-        ddlEntryYear.SelectedIndex = 0;
-        ddlAcadYear.SelectedIndex = 0;
-        ddlSemester.SelectedIndex = 0;
-        ddlBalanceState.SelectedIndex = 0;
-        ddlBalanceOp.SelectedIndex = 0;
-        txtBalanceFrom.Text = "";
-        txtBalanceTo.Text = "";
-        ddlPageSize.SelectedValue = "50";
-        chkWithTransactions.Checked = false;
-        txtSearch.Text = "";
-
-        hfSortField.Value = "balance";
-        hfSortDir.Value = "DESC";
-        hfPageIndex.Value = "0";
-
-        LoadLedgers();
-    }
-
-    protected void btnExportCsv_Click(object sender, EventArgs e)
-    {
-        ExportData("csv");
-    }
-
-    protected void btnExportExcel_Click(object sender, EventArgs e)
-    {
-        ExportData("excel");
-    }
-
     private void ExportData(string format)
     {
         string baseSql = BuildBaseSql();
@@ -600,6 +755,10 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         using (MySqlConnection conn = new MySqlConnection(MainConnStr))
         {
             conn.Open();
+
+            // Make sure the per-student balance cache is fresh before we read it.
+            EnsureBalanceCache(conn);
+
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
                 cmd.CommandTimeout = 180;
@@ -747,7 +906,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
                 "          fl2.transaction_amount = t.amount" +
                 "          AND DATE(fl2.transactionDate) = DATE(t.trans_date)" +
                 "          AND fl2.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END" +
-                "          AND (fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '')" +
+                "          AND (t.trans_type = 'Payment' OR fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '')" +
                 "        )" +
                 "      )" +
                 "  ) " +
@@ -775,10 +934,13 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
             }
         }
 
+        // Running balance follows the institution convention: payments (credit)
+        // increase the balance, bills (debit) decrease it. So a POSITIVE running
+        // balance = overpaid (credit), NEGATIVE = still owing (debit).
         decimal runningBal = 0;
         for (int i = 0; i < lines.Count; i++)
         {
-            runningBal += lines[i].Debit - lines[i].Credit;
+            runningBal += lines[i].Credit - lines[i].Debit;
             balances.Add(runningBal);
         }
 
@@ -786,7 +948,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         {
             LedgerLine line = lines[i];
             decimal lineBal = balances[i];
-            string balStr = lineBal.ToString("N0");
+            string balStr = FormatBalance(lineBal);
             int displayNum = lines.Count - i;
 
             rows.Add(string.Format(
@@ -800,7 +962,7 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
                 JsEsc(balStr)));
         }
 
-        decimal netBalance = billed - paid;
+        decimal netBalance = paid - billed; // + overpaid (credit), - owing (debit)
         Response.Write(string.Format("{{\"ok\":true,\"regno\":\"{0}\",\"student_name\":\"{1}\",\"total_billed\":{2},\"total_paid\":{3},\"total_balance\":{4},\"rows\":[{5}]}}",
             JsEsc(regno), JsEsc(studentName), billed.ToString("F0"), paid.ToString("F0"), netBalance.ToString("F0"), string.Join(",", rows.ToArray())));
     }
@@ -937,6 +1099,12 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
             afterBalance = ComputeStudentBalance(conn, regno);
         }
 
+        // Keep registration status consistent with billing: any semester we just billed
+        // that was still UNREGISTERED is promoted to REGISTERED, so the fix never leaves a
+        // student billed-but-unregistered (best-effort; billing has already committed).
+        if (insertedUnbilled > 0)
+            PromoteBilledUnregistered(regno);
+
         Response.Write(string.Format(
             "{{\"ok\":true," +
             "\"inserted_unbilled\":{0},\"inserted_dr\":{1},\"inserted_cr\":{2}," +
@@ -944,8 +1112,47 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
             "\"before_balance\":\"{5}\",\"after_balance\":\"{6}\"}}",
             insertedUnbilled, insertedDr, insertedCr,
             aligned, normalised,
-            JsEsc(FormatMoney(beforeBalance)),
-            JsEsc(FormatMoney(afterBalance))));
+            JsEsc(FormatBalance(beforeBalance)),
+            JsEsc(FormatBalance(afterBalance))));
+    }
+
+    /// <summary>
+    /// After Fix Billing creates bills for a student, promote any of their UNREGISTERED
+    /// semesters that now carry a Bill to REGISTERED — so a billed student is never left
+    /// showing as unregistered. Best-effort and idempotent; runs on the main DB.
+    /// </summary>
+    private void PromoteBilledUnregistered(string regno)
+    {
+        try
+        {
+            string actor = (Session["username"] != null && Session["username"].ToString().Trim() != "")
+                ? Session["username"].ToString().Trim() : "FixBilling";
+
+            using (MySqlConnection conn = new MySqlConnection(MainConnStr))
+            {
+                conn.Open();
+                string sql = @"
+                    UPDATE acad_registration r
+                    SET r.regstatus = 'REGISTERED',
+                        r.examClearance = CASE WHEN IFNULL(TRIM(r.examClearance),'') = '' THEN 'UNCLEARED' ELSE r.examClearance END,
+                        r.registeredBy  = CASE WHEN IFNULL(TRIM(r.registeredBy),'')  = '' THEN @actor ELSE r.registeredBy END
+                    WHERE r.regno = @reg
+                      AND UPPER(TRIM(IFNULL(r.regstatus,''))) = 'UNREGISTERED'
+                      AND EXISTS (
+                          SELECT 1 FROM campus_dynamics_accounts.fin_studentfeestracking t
+                          WHERE t.regno = r.regno AND t.acadyear = r.acad_year
+                            AND t.semester = r.semester AND t.trans_type = 'Bill'
+                      )";
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.CommandTimeout = 60;
+                    cmd.Parameters.AddWithValue("@reg", regno);
+                    cmd.Parameters.AddWithValue("@actor", actor);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+        catch { /* non-fatal: billing already succeeded; status promotion is best-effort */ }
     }
 
     // ---- Detection ----
@@ -1084,7 +1291,12 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
                 FROM campus_dynamics.acad_registration r
                 INNER JOIN campus_dynamics.acad_student s ON s.regno = r.regno
                 WHERE r.regno = @reg
-                  AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                  -- A registration instance is billable whether or not the student has
+                  -- completed self-registration. Admin-enrolled students sit UNREGISTERED
+                  -- but still owe fees for that semester, so detect those too — only the
+                  -- terminal statuses (and graduated alumni) are genuinely non-billable.
+                  AND UPPER(TRIM(IFNULL(r.regstatus,''))) NOT IN ('DISCONTINUED','HALTED','DEAD YEAR')
+                  AND UPPER(TRIM(IFNULL(s.new_status,''))) <> 'ALUMNI'
             ) sub
             WHERE sub.has_tuition = 0 OR sub.has_functional = 0
             ORDER BY sub.acad_year, sub.semester";
@@ -1484,25 +1696,42 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         }
 
         Response.Write(string.Format("{{\"ok\":true,\"deleted\":{0},\"balance_before\":\"{1}\",\"balance_after\":\"{2}\"}}",
-            deleted, JsEsc(FormatMoney(balBefore)), JsEsc(FormatMoney(balAfter))));
+            deleted, JsEsc(FormatBalance(balBefore)), JsEsc(FormatBalance(balAfter))));
     }
 
     private decimal ComputeStudentBalance(MySqlConnection conn, string regno)
     {
+        // Canonical dual-source balance — same formula as FinanceEngine /
+        // the fees statement / the grid's fin_student_balance_cache. Must count
+        // unmirrored tracking PAYMENTS (CR) as well as bills (DR); a prior version
+        // only added bills, which overstated the balance for students with
+        // tracking-only payments.
+        // Sign convention: payments(CR) - bills(DR) => POSITIVE = overpaid (credit),
+        // NEGATIVE = still owing (debit). Matches the grid and the fees statement.
         const string sql =
-            "SELECT " +
-            "  IFNULL(SUM(CASE WHEN transactionType='DR' THEN transaction_amount ELSE 0 END),0) - " +
-            "  IFNULL(SUM(CASE WHEN transactionType='CR' THEN transaction_amount ELSE 0 END),0) AS bal " +
+            "SELECT IFNULL(SUM(cr),0) - IFNULL(SUM(dr),0) AS bal " +
             "FROM ( " +
-            "  SELECT transactionType, transaction_amount FROM fin_ledger " +
-            "  WHERE accountcode = @reg AND account_type='Student' AND transaction_amount > 0 " +
+            "  SELECT " +
+            "    CASE WHEN fl.transactionType='DR' THEN fl.transaction_amount ELSE 0 END AS dr, " +
+            "    CASE WHEN fl.transactionType='CR' THEN fl.transaction_amount ELSE 0 END AS cr " +
+            "  FROM fin_ledger fl " +
+            "  WHERE fl.accountcode = @reg AND fl.transaction_amount > 0 " +
             "  UNION ALL " +
-            "  SELECT 'DR' AS transactionType, t.amount AS transaction_amount " +
+            "  SELECT " +
+            "    CASE WHEN t.trans_type='Bill'    THEN t.amount ELSE 0 END AS dr, " +
+            "    CASE WHEN t.trans_type='Payment' THEN t.amount ELSE 0 END AS cr " +
             "  FROM fin_studentfeestracking t " +
-            "  WHERE t.regno = @reg AND t.trans_type='Bill' AND t.post_status='Posted' " +
-            "    AND NOT EXISTS (SELECT 1 FROM fin_ledger l WHERE l.accountcode=t.regno AND l.account_type='Student' AND l.transactionType='DR' AND l.voucherNo = CAST(t.TID AS CHAR)) " +
-            "    AND NOT EXISTS (SELECT 1 FROM fin_ledger l WHERE l.accountcode=t.regno AND l.account_type='Student' AND l.transactionType='DR' AND l.folio = CONCAT('BillNo:', t.TID)) " +
-            "    AND NOT EXISTS (SELECT 1 FROM fin_ledger l WHERE l.accountcode=t.regno AND l.account_type='Student' AND l.transactionType='DR' AND l.transaction_amount=t.amount AND DATE(l.transactionDate)=DATE(t.trans_date) AND (l.particulars=t.detail OR t.detail IS NULL OR t.detail='')) " +
+            "  WHERE t.regno = @reg AND t.post_status='Posted' " +
+            "    AND NOT EXISTS ( " +
+            "      SELECT 1 FROM fin_ledger fl2 " +
+            "      WHERE fl2.accountcode = t.regno " +
+            "        AND ( fl2.voucherNo = CAST(t.TID AS CHAR) " +
+            "           OR fl2.folio = CONCAT('BillNo:', CAST(t.TID AS CHAR)) " +
+            "           OR ( fl2.transaction_amount = t.amount " +
+            "                AND DATE(fl2.transactionDate) = DATE(t.trans_date) " +
+            "                AND fl2.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END " +
+            "                AND (t.trans_type = 'Payment' OR fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '') ) ) " +
+            "    ) " +
             ") c";
 
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
@@ -1602,13 +1831,28 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         return string.Join(",", items.ToArray());
     }
 
+    /// <summary>Plain money formatter for magnitudes (billed / paid totals).</summary>
     protected string FormatMoney(object value)
     {
         decimal amount = 0;
         if (value != null && value != DBNull.Value)
             amount = Convert.ToDecimal(value);
-        if (amount < 0) return string.Format("{0:N0} CR", Math.Abs(amount));
         return string.Format("{0:N0}", amount);
+    }
+
+    /// <summary>
+    /// Formats a SIGNED balance using the institution's convention:
+    /// POSITIVE = overpaid (credit → "CR"), NEGATIVE = still owing (debit → "DR"),
+    /// zero = cleared.
+    /// </summary>
+    protected string FormatBalance(object value)
+    {
+        decimal amount = 0;
+        if (value != null && value != DBNull.Value)
+            amount = Convert.ToDecimal(value);
+        if (amount > 0) return string.Format("{0:N0} CR", amount);
+        if (amount < 0) return string.Format("{0:N0} DR", Math.Abs(amount));
+        return "0";
     }
 
     protected string GetBalanceClass(object value)
@@ -1617,8 +1861,8 @@ public partial class COOPERP_NewScreens_StudentLedgers : System.Web.UI.Page
         if (value != null && value != DBNull.Value)
             amount = Convert.ToDecimal(value);
 
-        if (amount > 0) return "sl-balance--debit";
-        if (amount < 0) return "sl-balance--credit";
+        if (amount > 0) return "sl-balance--credit"; // overpaid
+        if (amount < 0) return "sl-balance--debit";  // owing
         return "sl-balance--zero";
     }
 

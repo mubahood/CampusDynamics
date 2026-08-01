@@ -1,0 +1,9 @@
+Warning: Using a password on the command line interface can be insecure.
+acad_year	semester	bill_status	student_count
+2025/2026	1	BILLED	15
+2025/2026	1	NOT_BILLED	23
+2025/2026	2	BILLED	424
+2025/2026	2	NOT_BILLED	77
+2025/2026	3	NOT_BILLED	3
+bills_created_today	first_tid	last_tid
+240	103694	103936

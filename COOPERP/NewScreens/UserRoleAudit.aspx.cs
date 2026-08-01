@@ -342,7 +342,10 @@ public partial class COOPERP_NewScreens_UserRoleAudit : System.Web.UI.Page
             "CREATE_ROLE",
             "UPDATE_ROLE",
             "DELETE_ROLE",
-            "UPDATE_PERMISSIONS"
+            "CLONE_ROLE",
+            "UPDATE_PERMISSIONS",
+            "ACCESS_DENIED",
+            "ACCESS_DENIED_REPORT"
         };
         var labels = new Dictionary<string, string>
         {
@@ -353,7 +356,10 @@ public partial class COOPERP_NewScreens_UserRoleAudit : System.Web.UI.Page
             {"CREATE_ROLE",            "Create Role"},
             {"UPDATE_ROLE",            "Update Role"},
             {"DELETE_ROLE",            "Delete Role"},
-            {"UPDATE_PERMISSIONS",     "Update Permissions"}
+            {"CLONE_ROLE",             "Clone Role"},
+            {"UPDATE_PERMISSIONS",     "Update Permissions"},
+            {"ACCESS_DENIED",          "Access Denied"},
+            {"ACCESS_DENIED_REPORT",   "Access Denied (report-only)"}
         };
         var sb = new StringBuilder();
         foreach (var a in actions)
@@ -378,7 +384,10 @@ public partial class COOPERP_NewScreens_UserRoleAudit : System.Web.UI.Page
             case "CREATE_ROLE":            cls = "at-create"; break;
             case "UPDATE_ROLE":            cls = "at-update"; break;
             case "DELETE_ROLE":            cls = "at-delete"; break;
+            case "CLONE_ROLE":             cls = "at-create"; break;
             case "UPDATE_PERMISSIONS":     cls = "at-perms";  break;
+            case "ACCESS_DENIED":          cls = "at-delete"; break;
+            case "ACCESS_DENIED_REPORT":   cls = "at-update"; break;
             default:                       cls = "at-other";  break;
         }
 
@@ -392,7 +401,10 @@ public partial class COOPERP_NewScreens_UserRoleAudit : System.Web.UI.Page
             case "CREATE_ROLE":            label = "Create Role";     break;
             case "UPDATE_ROLE":            label = "Update Role";     break;
             case "DELETE_ROLE":            label = "Delete Role";     break;
+            case "CLONE_ROLE":             label = "Clone Role";      break;
             case "UPDATE_PERMISSIONS":     label = "Permissions";     break;
+            case "ACCESS_DENIED":          label = "Access Denied";   break;
+            case "ACCESS_DENIED_REPORT":   label = "Denied (report)"; break;
             default:                       label = at.Replace("_"," "); break;
         }
 

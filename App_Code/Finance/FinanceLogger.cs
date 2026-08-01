@@ -163,6 +163,17 @@ public static class FinanceLogger
             userName);
     }
 
+    /// <summary>
+    /// Logs a report generation event with a free-form details string
+    /// (used by reports that include totals/period info in the message).
+    /// </summary>
+    public static void LogReportGenerated(string reportName, string details, string userName = null)
+    {
+        LogAction("REPORT_GENERATED",
+            string.IsNullOrEmpty(details) ? reportName : string.Format("{0} — {1}", reportName, details),
+            userName);
+    }
+
     // ───────────────────────── Private Helpers ────────────────────────────
 
     private static string GetClientIp()

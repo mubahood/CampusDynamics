@@ -30,10 +30,12 @@ public partial class UserControls_Inventory_SupplierLedger : System.Web.UI.UserC
         Exporter.WriteXlsxToResponse("Ledger_" + supplierName.Replace(" ", "_"),
             new XlsxExportOptions { ExportMode = XlsxExportMode.SingleFile });
     }
+
     protected void gvLedger_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
     {
         e.Cell.Height = 35;
     }
+
     protected void cmdInvoice_Click(object sender, EventArgs e)
     {
         // Check if the current date is in an open financial period
@@ -51,6 +53,7 @@ public partial class UserControls_Inventory_SupplierLedger : System.Web.UI.UserC
         pop_transactions.ShowOnPageLoad = true;
 
     }
+
     protected void cmdPayments_Click(object sender, EventArgs e)
     {
         // Check if the current date is in an open financial period
@@ -88,7 +91,13 @@ public partial class UserControls_Inventory_SupplierLedger : System.Web.UI.UserC
             string accCode      = txtAccountName.Value.ToString();    // account code
             string accName      = txtAccountName.Text;                // account name
             string user         = HttpContext.Current.User.Identity.Name ?? "SYSTEM";
-            DateTime txnDate    = Convert.ToDateTime(txtInvoiceDate.Text);
+
+            // Correct date handling:
+            // Entry Date / transactionDate = today's date
+            // InvoiceDate = date entered by user
+            DateTime entryDate   = DateTime.Today;
+            DateTime invoiceDate = Convert.ToDateTime(txtInvoiceDate.Text);
+
             string refNo        = txtRefNo.Text.Trim();
             DateTime timeLog    = DateTime.Now;
 
@@ -103,7 +112,7 @@ public partial class UserControls_Inventory_SupplierLedger : System.Web.UI.UserC
                     jCmd.Transaction  = tx;
                     jCmd.CommandType  = System.Data.CommandType.StoredProcedure;
                     jCmd.Parameters.AddWithValue("@typ",   "Supplier");
-                    jCmd.Parameters.AddWithValue("@JDate", txnDate.Date);
+                    jCmd.Parameters.AddWithValue("@JDate", invoiceDate.Date);
                     jCmd.Parameters.AddWithValue("@usr",   user);
                     jCmd.ExecuteNonQuery();
                 }
@@ -138,30 +147,31 @@ public partial class UserControls_Inventory_SupplierLedger : System.Web.UI.UserC
                     drParticulars  = particulars;
                     crAccount      = supplierCode;
                     crType         = "Supplier";
-                    crParticulars  = "Invoice from " + supplierName;
+                    crParticulars  = particulars;
                 }
                 else // BANK payment
                 {
                     drAccount      = supplierCode;
                     drType         = "Supplier";
-                    drParticulars  = "Payment to " + supplierName;
+                    drParticulars  = particulars;
                     crAccount      = accCode;
                     crType         = "Bank";
                     crParticulars  = particulars;
                 }
 
                 const string insertSql = @"INSERT INTO fin_ledger
-                    (transactionDate, accountcode, account_type, particulars, transactionType, transaction_amount,
+                    (transactionDate, InvoiceDate, accountcode, account_type, particulars, transactionType, transaction_amount,
                      voucherNo, RefNo, teller, timeLog, folio, journal_no, trans_currency, actual_amount, curr_balance, forex_rate, ugx_amount)
                     VALUES
-                    (@date, @account, @accType, @particulars, @typ, @amount,
+                    (@date, @invoiceDate, @account, @accType, @particulars, @typ, @amount,
                      @voucherNo, @refNo, @teller, @timeLog, @folio, @journalNo, 'UGX', @actualAmount, '-', 1, @ugxAmount)";
 
                 // DR row
                 using (var drCmd = new MySqlCommand(insertSql, conn))
                 {
                     drCmd.Transaction = tx;
-                    drCmd.Parameters.AddWithValue("@date",        txnDate);
+                    drCmd.Parameters.AddWithValue("@date",        entryDate);
+                    drCmd.Parameters.AddWithValue("@invoiceDate", invoiceDate);
                     drCmd.Parameters.AddWithValue("@account",     drAccount);
                     drCmd.Parameters.AddWithValue("@accType",     drType);
                     drCmd.Parameters.AddWithValue("@particulars", drParticulars);
@@ -182,7 +192,8 @@ public partial class UserControls_Inventory_SupplierLedger : System.Web.UI.UserC
                 using (var crCmd = new MySqlCommand(insertSql, conn))
                 {
                     crCmd.Transaction = tx;
-                    crCmd.Parameters.AddWithValue("@date",        txnDate);
+                    crCmd.Parameters.AddWithValue("@date",        entryDate);
+                    crCmd.Parameters.AddWithValue("@invoiceDate", invoiceDate);
                     crCmd.Parameters.AddWithValue("@account",     crAccount);
                     crCmd.Parameters.AddWithValue("@accType",     crType);
                     crCmd.Parameters.AddWithValue("@particulars", crParticulars);
@@ -210,6 +221,7 @@ public partial class UserControls_Inventory_SupplierLedger : System.Web.UI.UserC
 
         pop_msgbox.ShowOnPageLoad = true;
     }
+
     private bool IsInOpenFinancialPeriod(out string errorMessage)
     {
         errorMessage = "";

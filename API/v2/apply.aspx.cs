@@ -27,12 +27,32 @@ public partial class API_v2_apply : System.Web.UI.Page
             using (MySqlConnection conn = ApiHelper.GetConnection())
             {
                 conn.Open();
-                // acad_applicant_choices.stud_reg_no — added by migration but often missing
-                long n = Convert.ToInt64(new MySqlCommand(
+
+                // acad_applicant_choices needs a column to store the assigned reg no.
+                // Use 'choice_reg_no' to avoid ambiguity with acad_applications.stud_reg_no
+                // in the acad_GetApplicants stored procedure (which JOINs both tables).
+                long hasOld = Convert.ToInt64(new MySqlCommand(
                     "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
                     "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='acad_applicant_choices' AND COLUMN_NAME='stud_reg_no'", conn).ExecuteScalar());
-                if (n == 0)
-                    new MySqlCommand("ALTER TABLE acad_applicant_choices ADD COLUMN stud_reg_no VARCHAR(50) NULL", conn).ExecuteNonQuery();
+                long hasNew = Convert.ToInt64(new MySqlCommand(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
+                    "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='acad_applicant_choices' AND COLUMN_NAME='choice_reg_no'", conn).ExecuteScalar());
+
+                if (hasOld > 0 && hasNew == 0)
+                {
+                    // Rename the conflicting column — fixes the stored procedure ambiguity
+                    new MySqlCommand(
+                        "ALTER TABLE acad_applicant_choices CHANGE COLUMN stud_reg_no choice_reg_no VARCHAR(50) NULL",
+                        conn).ExecuteNonQuery();
+                }
+                else if (hasOld == 0 && hasNew == 0)
+                {
+                    // Fresh install — add with the correct name
+                    new MySqlCommand(
+                        "ALTER TABLE acad_applicant_choices ADD COLUMN choice_reg_no VARCHAR(50) NULL",
+                        conn).ExecuteNonQuery();
+                }
+                // If both exist somehow, leave as-is (safe)
             }
         }
         catch { /* best-effort: don't block the API if DDL fails */ }

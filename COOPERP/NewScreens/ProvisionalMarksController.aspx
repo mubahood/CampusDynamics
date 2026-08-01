@@ -4,16 +4,28 @@
 <style>
 *{box-sizing:border-box;}
 .pm-admin-wrap{max-width:1320px;margin:0 auto;padding:8px 10px 12px;}
-.pm-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:0;}
-.pm-stat{padding:8px 10px;border-radius:6px;border:1px solid #e3e9f2;background:#fff;min-height:60px;display:flex;flex-direction:column;justify-content:center;gap:3px;cursor:pointer;}
-.pm-stat__lbl{font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;line-height:1.25;}
+.pm-stats-wrap{padding:8px 10px 10px;border-bottom:1px solid #e0e5ed;}
+.pm-stats-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:7px;}
+.pm-stats-hdr__lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#1a1a2e;}
+.pm-stats-hdr__sub{font-size:9px;color:#94a3b8;margin-top:2px;font-weight:400;}
+.pm-stats-hdr__badge{display:inline-flex;align-items:center;padding:2px 9px;background:#e6f4ea;border:1px solid #a7d9b2;border-radius:10px;font-size:9px;font-weight:800;color:#2e7d32;letter-spacing:.2px;white-space:nowrap;flex-shrink:0;margin-top:1px;}
+.pm-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:5px;margin-bottom:0;}
+.pm-stat{padding:8px 9px;border-radius:4px;border:1px solid #e0e5ed;border-left:3px solid #e0e5ed;background:#fff;min-height:84px;display:flex;flex-direction:column;justify-content:flex-start;gap:0;}
+.pm-stat:hover{background:#f7f9fc;}
+.pm-stat__meta{display:flex;align-items:flex-start;justify-content:space-between;gap:4px;margin-bottom:3px;}
 .pm-stat__val{font-size:22px;line-height:1;font-weight:800;color:#05275C;letter-spacing:-.02em;}
-.pm-stat--pending .pm-stat__val{color:#b45309;}
-.pm-stat--rejected .pm-stat__val{color:#b42318;}
-.pm-stat--approved .pm-stat__val{color:#2e7d32;}
-.pm-stat--published .pm-stat__val{color:#174DA4;}
-.pm-stat--notentered .pm-stat__val{color:#6b7280;}
-.pm-card{background:#fff;border:1px solid #e3e9f2;border-radius:8px;overflow:visible;}
+.pm-stat__pct{font-size:10px;font-weight:800;color:#94a3b8;background:#f1f5f9;border-radius:3px;padding:2px 5px;white-space:nowrap;flex-shrink:0;line-height:1.2;margin-top:3px;}
+.pm-stat__lbl{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:700;line-height:1.2;}
+.pm-stat__cap{font-size:9px;color:#9ca3af;line-height:1.35;margin-top:2px;}
+.pm-insights-bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;padding:6px 0 0;border-top:1px solid #eef2f6;font-size:9px;font-weight:600;color:#64748b;}
+.pib-item{display:inline-flex;align-items:center;gap:2px;}
+.pib-pub strong{color:#174DA4;}.pib-ready strong{color:#059669;}.pib-pend strong{color:#b45309;}.pib-miss strong{color:#9ca3af;}.pib-sep{color:#e0e5ed;}
+.pm-stat--pending{border-left-color:#f59e0b;}.pm-stat--pending .pm-stat__val{color:#b45309;}
+.pm-stat--rejected{border-left-color:#ef4444;}.pm-stat--rejected .pm-stat__val{color:#b42318;}
+.pm-stat--approved{border-left-color:#22c55e;}.pm-stat--approved .pm-stat__val{color:#2e7d32;}
+.pm-stat--published{border-left-color:#3b82f6;}.pm-stat--published .pm-stat__val{color:#174DA4;}
+.pm-stat--notentered{border-left-color:#d1d5db;}.pm-stat--notentered .pm-stat__val{color:#6b7280;}
+.pm-card{background:#fff;border:1px solid #e0e5ed;border-radius:4px;overflow:visible;}
 .pm-card__head{padding:8px 10px;border-bottom:1px solid #edf1f6;background:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
 .pm-card__title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#05275C;}
 .pm-filters{padding:8px 10px;border-bottom:1px solid #eef2f6;background:#fff;display:grid;grid-template-columns:minmax(110px,.75fr) minmax(90px,.6fr) minmax(100px,.7fr) minmax(120px,.85fr) minmax(120px,.85fr) minmax(170px,1.2fr) minmax(80px,.5fr) auto;gap:6px;align-items:flex-end;}
@@ -117,7 +129,7 @@
 .pm-table tr.row--incomplete td{background:#fffbf5;}
 .pm-mark--missing{font-size:12px;color:#dc2626;font-weight:800;cursor:help;}
 .pm-row-menu__item--disabled{opacity:.45;cursor:not-allowed;}
-.pm-stat--ready .pm-stat__val{color:#059669;}
+.pm-stat--ready{border-left-color:#10b981;cursor:pointer;}.pm-stat--ready .pm-stat__val{color:#059669;}
 .pm-ready-banner{padding:7px 10px;background:#ecfdf5;border-bottom:1px solid #a7f3d0;font-size:11px;color:#065f46;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 </style>
 </asp:Content>
@@ -207,14 +219,73 @@
 		</div>
 	</div>
 
-<div class="pm-stats" style="padding:8px 10px;border-bottom:1px solid #edf1f6;">
-	<div class="pm-stat"><div class="pm-stat__lbl">Total</div><div class="pm-stat__val"><asp:Literal ID="litStatTotal" runat="server">0</asp:Literal></div></div>
-	<div class="pm-stat pm-stat--notentered"><div class="pm-stat__lbl">Not Entered</div><div class="pm-stat__val"><asp:Literal ID="litNotEntered" runat="server">0</asp:Literal></div></div>
-	<div class="pm-stat pm-stat--pending"><div class="pm-stat__lbl">Pending</div><div class="pm-stat__val"><asp:Literal ID="litPending" runat="server">0</asp:Literal></div></div>
-	<div class="pm-stat pm-stat--ready" onclick="filterReady()" title="View records with both CW and Exam submitted" style="cursor:pointer;"><div class="pm-stat__lbl">Ready to Publish</div><div class="pm-stat__val"><asp:Literal ID="litReady" runat="server">0</asp:Literal></div></div>
-	<div class="pm-stat pm-stat--approved"><div class="pm-stat__lbl">Approved</div><div class="pm-stat__val"><asp:Literal ID="litApproved" runat="server">0</asp:Literal></div></div>
-	<div class="pm-stat pm-stat--rejected"><div class="pm-stat__lbl">Rejected</div><div class="pm-stat__val"><asp:Literal ID="litRejected" runat="server">0</asp:Literal></div></div>
-	<div class="pm-stat pm-stat--published"><div class="pm-stat__lbl">Published</div><div class="pm-stat__val"><asp:Literal ID="litPublished" runat="server">0</asp:Literal></div></div>
+<div class="pm-stats-wrap">
+	<div class="pm-stats-hdr">
+		<div>
+			<div class="pm-stats-hdr__lbl">Provisional Marks Pipeline</div>
+			<div class="pm-stats-hdr__sub">Muteesa I Royal University &middot; Academic Records</div>
+		</div>
+		<span class="pm-stats-hdr__badge">&#10003; Active Students Only</span>
+	</div>
+	<div class="pm-stats">
+		<div class="pm-stat">
+			<div class="pm-stat__meta">
+				<div class="pm-stat__val"><asp:Literal ID="litStatTotal" runat="server">0</asp:Literal></div>
+				<div class="pm-stat__pct"><asp:Literal ID="litStatTotalPct" runat="server">—</asp:Literal></div>
+			</div>
+			<div class="pm-stat__lbl">Total Registrations</div>
+			<div class="pm-stat__cap">All active student–course enrolments</div>
+		</div>
+		<div class="pm-stat pm-stat--notentered">
+			<div class="pm-stat__meta">
+				<div class="pm-stat__val"><asp:Literal ID="litNotEntered" runat="server">0</asp:Literal></div>
+				<div class="pm-stat__pct"><asp:Literal ID="litNotEnteredPct" runat="server">—</asp:Literal></div>
+			</div>
+			<div class="pm-stat__lbl">No Marks Yet</div>
+			<div class="pm-stat__cap">Missing both CW &amp; Exam — needs attention</div>
+		</div>
+		<div class="pm-stat pm-stat--pending">
+			<div class="pm-stat__meta">
+				<div class="pm-stat__val"><asp:Literal ID="litPending" runat="server">0</asp:Literal></div>
+				<div class="pm-stat__pct"><asp:Literal ID="litPendingPct" runat="server">—</asp:Literal></div>
+			</div>
+			<div class="pm-stat__lbl">Pending Review</div>
+			<div class="pm-stat__cap">Coursework submitted, awaiting approval</div>
+		</div>
+		<div class="pm-stat pm-stat--ready" onclick="filterReady()" title="Click to filter — both CW &amp; Exam complete">
+			<div class="pm-stat__meta">
+				<div class="pm-stat__val"><asp:Literal ID="litReady" runat="server">0</asp:Literal></div>
+				<div class="pm-stat__pct"><asp:Literal ID="litReadyPct" runat="server">—</asp:Literal></div>
+			</div>
+			<div class="pm-stat__lbl">Ready to Publish</div>
+			<div class="pm-stat__cap">Both CW &amp; Exam complete &middot; click to filter</div>
+		</div>
+		<div class="pm-stat pm-stat--approved">
+			<div class="pm-stat__meta">
+				<div class="pm-stat__val"><asp:Literal ID="litApproved" runat="server">0</asp:Literal></div>
+				<div class="pm-stat__pct"><asp:Literal ID="litApprovedPct" runat="server">—</asp:Literal></div>
+			</div>
+			<div class="pm-stat__lbl">Approved</div>
+			<div class="pm-stat__cap">Reviewed &amp; cleared, awaiting final publish</div>
+		</div>
+		<div class="pm-stat pm-stat--rejected">
+			<div class="pm-stat__meta">
+				<div class="pm-stat__val"><asp:Literal ID="litRejected" runat="server">0</asp:Literal></div>
+				<div class="pm-stat__pct"><asp:Literal ID="litRejectedPct" runat="server">—</asp:Literal></div>
+			</div>
+			<div class="pm-stat__lbl">Rejected / Returned</div>
+			<div class="pm-stat__cap">Sent back to lecturer for correction</div>
+		</div>
+		<div class="pm-stat pm-stat--published">
+			<div class="pm-stat__meta">
+				<div class="pm-stat__val"><asp:Literal ID="litPublished" runat="server">0</asp:Literal></div>
+				<div class="pm-stat__pct"><asp:Literal ID="litPublishedPct" runat="server">—</asp:Literal></div>
+			</div>
+			<div class="pm-stat__lbl">Published to Results</div>
+			<div class="pm-stat__cap">Marks finalised in academic records</div>
+		</div>
+	</div>
+	<div class="pm-insights-bar"><asp:Literal ID="litInsights" runat="server" /></div>
 </div>
 	<div class="pm-top-controls">
 		<button type="button" class="pm-btn pm-btn--primary" onclick="openBatchWizard('published')">Wizard: Batch Publish</button>

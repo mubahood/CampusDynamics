@@ -1,0 +1,403 @@
+RECENT UNBILLED SEMESTER REGISTRATION REPORT (ID>=53668)
+Generated: 2026-05-05 12:04:42
+
+[Summary by Academic Year/Semester]
++-----------+----------+----------------+
+| acad_year | semester | unbilled_count |
++-----------+----------+----------------+
+| 2025/2026 |        3 |              3 |
+| 2025/2026 |        2 |            239 |
+| 2025/2026 |        1 |              7 |
+| 2013/2014 |        3 |              1 |
+| 2013/2014 |        2 |              1 |
+| 2013/2014 |        1 |              1 |
+| 2012/2013 |        3 |              1 |
+| 2012/2013 |        2 |              1 |
+| 2012/2013 |        1 |              1 |
++-----------+----------+----------------+
+
+[Top 500 Detail Rows]
++--------+--------------------------+----------------------------+----------+---------------------------------------------------+-----------+----------+-----------+------------+----------------------------+
+| reg_id | regno                    | student_name               | progcode | programme                                         | acad_year | semester | studyyear | regstatus  | conducted_new_registration |
++--------+--------------------------+----------------------------+----------+---------------------------------------------------+-----------+----------+-----------+------------+----------------------------+
+|  54668 | MRU2023001321            | John Paul BOSSA            | BED(P)   | BACHELOR OF EDUCATION (PRIMARY)                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54665 | MRU2024000048            | Samuel LUZZE               | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        1 |         3 | REGISTERED | No                         |
+|  54664 | MRU2023001449            | FALUKU NGOBI MUYODI        | BPA      | BACHELOR OF PUBLIC ADMINISTRATION                 | 2025/2026 |        3 |         3 | REGISTERED | Yes                        |
+|  54656 | MRU2024001300            | VANESSA S NABAGULANYI      | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54648 | MRU2025003900            | PATRICK SSANSA             | HEC      | HIGHER EDUCATION CERTIFICATE                      | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54635 | MRU2025004069            | OVULEEN AMANYA             | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54634 | MRU2025004203            | GEORGE WILLIAM EDWARU      | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54632 | MRU2025003769            | JOHN BAPTIST LUYINDA       | DCE      | DIPLOMA IN CIVIL ENGINEERING                      | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54619 | MRU2025004241            | SHARON NAMUYIGA            | BAED     | BACHELOR OF ARTS WITH EDUCATION                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54618 | MRU2023000004            | ZAHARAH NALUBULA           | BBA      | BACHELOR OF BUSINESS ADMINISTRATION               | 2025/2026 |        3 |         1 | REGISTERED | Yes                        |
+|  54617 | MRU1000201305            | Sarah BAAGALA              | DPE      | DIPLOMA IN PRIMARY EDUCATION                      | 2013/2014 |        3 |         2 | REGISTERED | Yes                        |
+|  54616 | MRU1000201305            | Sarah BAAGALA              | DPE      | DIPLOMA IN PRIMARY EDUCATION                      | 2013/2014 |        2 |         2 | REGISTERED | Yes                        |
+|  54615 | MRU1000201305            | Sarah BAAGALA              | DPE      | DIPLOMA IN PRIMARY EDUCATION                      | 2013/2014 |        1 |         2 | REGISTERED | Yes                        |
+|  54614 | MRU1000201305            | Sarah BAAGALA              | DPE      | DIPLOMA IN PRIMARY EDUCATION                      | 2012/2013 |        3 |         1 | REGISTERED | Yes                        |
+|  54613 | MRU1000201305            | Sarah BAAGALA              | DPE      | DIPLOMA IN PRIMARY EDUCATION                      | 2012/2013 |        2 |         1 | REGISTERED | Yes                        |
+|  54612 | MRU1000201305            | Sarah BAAGALA              | DPE      | DIPLOMA IN PRIMARY EDUCATION                      | 2012/2013 |        1 |         1 | REGISTERED | Yes                        |
+|  54598 | MRU2025004204            | NASIIMU NASSIMBWA          | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54587 | MRU2025002971            | Francis MUGANYI            | DMC      | DIPLOMA IN MASS COMMUNICATION                     | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54574 | MRU2024000561            | GEOFREY NSUBUGA            | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54573 | nakacwad24@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54572 | bikoberel25@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54571 | namukasal24@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54570 | kabandaa25@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54569 | nankabirwat24@mru.ac.ug  |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54568 | nabayindavv24@mru.ac.ug  |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54567 | mugishaj24@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54566 | kalemaab23@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54565 | katoak24@mru.ac.ug       |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54564 | nalumansis25@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54563 | namulindwaw24@mru.ac.ug  |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54562 | goloobaj25@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54561 | muhumuzagj23@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54560 | kemigishatm25@mru.ac.ug  |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54559 | sanyuk25@mru.ac.ug       |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54558 | nazziway25@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54557 | nalubulaz23@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54556 | muhumuzaj23@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54555 | kabengwah25@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        1 |         1 | REGISTERED | Yes                        |
+|  54554 | kabengwah25@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54553 | wanyenzebr25@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54552 | kamwesigaa@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54551 | lubyayim25@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54550 | nsambar24@mru.ac.ug      |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54549 | nsubugag24@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54548 | namatovus23@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54547 | kazibwea25@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54546 | kyabaggupw24@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        1 |         2 | REGISTERED | Yes                        |
+|  54545 | ainembabazij25@mru.ac.ug |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54544 | namandaj23@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54543 | isabiryem25@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54542 | kaluusik25@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54541 | kyabaggupw24@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54540 | kemirembep24@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54539 | apaliaj24@mru.ac.ug      |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54538 | kabongeb23@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54537 | moitidp24@mru.ac.ug      |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54536 | nakayondom23@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54535 | nasimbwan24@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54534 | ssenfumark23@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54533 | nandawulam25@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54532 | mulyantib24@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54531 | nagawall25@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54530 | nakalungis25@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54529 | ssentongom24@mru.ac.ug   |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54528 | nabiryof25@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54527 | kayizia25@mru.ac.ug      |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54526 | nansimbez25@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54525 | namulindwar25@mru.ac.ug  |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54524 | kyeyuner25@mru.ac.ug     |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54523 | ninsiimap23@mru.ac.ug    |                            |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54522 | jjagwem24@mru.ac.ug      |                            |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54521 | kizitop25@mru.ac.ug      |                            |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54520 | kizitop25@mru.ac.ug      |                            |          |                                                   | 2025/2026 |        1 |         1 | REGISTERED | Yes                        |
+|  54519 | MRU2024001874            | HENRY KANAKULYA            | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         4 | REGISTERED | Yes                        |
+|  54518 | MRU2024001870            | KEVIN AWORI                | BBA      | BACHELOR OF BUSINESS ADMINISTRATION               | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54517 | MRU2025003868            | PAUL MUSAASIZI             | BCE      | BACHELOR OF SCIENCE IN CIVIL ENGINEERING          | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54513 | MRU2024000750            | JOAN NAMBALIRWA            | DTHM     | DIPLOMA IN TOURISM AND HOTEL MANAGEMENT           | 2025/2026 |        3 |         2 | REGISTERED | Yes                        |
+|  54512 | MRU2025004245            | DEUS SSEGWANYI             | DBA      | DIPLOMA IN BUSINESS ADMINISTRATION                | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54511 | MRU2025004164            | GRACE NAGUJJA              | BAED     | BACHELOR OF ARTS WITH EDUCATION                   | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54502 | mru2021000758            | JUMA KATO                  | BAED     | BACHELOR OF ARTS WITH EDUCATION                   | 2025/2026 |        1 |         2 | REGISTERED | Yes                        |
+|  54501 | MRU2025004158            | FAZIRAH NDIWABEENE         | BIT      | BACHELOR OF INFORMATION TECHNOLOGY                | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54500 | Mru2022000565            | BENJAMIN BISASO            | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54499 | mru1800200073            | WALIRE RAPHAEL             | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54497 | MRU2025003909            | JOSHUA SSEMANDA            | BIT      | BACHELOR OF INFORMATION TECHNOLOGY                | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54494 | MRU2022000100            | KATEREGGA ARAFAT           | BCE      | BACHELOR OF SCIENCE IN CIVIL ENGINEERING          | 2025/2026 |        2 |         4 | REGISTERED | No                         |
+|  54486 | MRU2023000628            | Mathias SSAMULA            | DJ       | DIPLOMA IN JOURNALISM                             | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54460 | MRU2025004195            | BRENDA BALABA NANGOBI      | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54453 | mru2024002296            | BASHIRA SSENABULYA         | HEC      | HIGHER EDUCATION CERTIFICATE                      | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54440 | Mru2022000255            | EMMANUEL MUWANGUZI         | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54439 | MRU2022000602            | DELTON GGOBERA             | BPLM     | BACHELOR OF PROCUREMENT AND LOGISTICS MANAGEMENT  | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54438 | MRU2025004213            | PIUS MUGERWA               | BEICT    | BACHELOR OF EDUCATION WITH ICT                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54436 | MRU2025004193            | EDRINE AGASHA              | DAF      | DIPLOMA IN ACCOUNTING AND FINANCE                 | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54435 | MRU2023001370            | ANGEL NAMIREMBE            | DAF      | DIPLOMA IN ACCOUNTING AND FINANCE                 | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54409 | MRU2025003933            | JOSEPH BALABYE             | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54408 | MRU2024000221            | BYASALI BAZANYA            | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54406 | Mru2021001213            | MULONGO JIMMY              | BCE      | BACHELOR OF SCIENCE IN CIVIL ENGINEERING          | 2025/2026 |        2 |         4 | REGISTERED | Yes                        |
+|  54401 | Mru2023000600            | EDRINE KAKEETO             | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54338 | MRU2025004233            | ABDOURAHAMANE YASSER       | DME      | DIPLOMA IN MECHANICAL ENGINEERING                 | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54332 | MRU2025004161            | ROBINAH NAJJEMBA           | DFD      | DIPLOMA IN FASHION DESIGN                         | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54247 | MRU2025003918            | AKHISAM KAZIBWE            | BBA      | BACHELOR OF BUSINESS ADMINISTRATION               | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54243 | MRU2025004253            | STACY NAKACWA              | HEC      | HIGHER EDUCATION CERTIFICATE                      | 2025/2026 |        1 |         1 | REGISTERED | Yes                        |
+|  54237 | MRU2025004183            | ABDALLLAH KIYINGI          | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54216 | MRU2023001461            | BENARD KIGOZI              | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54213 | MRU2023001301            | MAYENGO ALEX               | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54211 | MRU2023001128            | NAGAWA ZAINAB              | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54210 | MRU2023001048            | KINOBE ROBERT              | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54209 | MRU2023001007            | MUTUMBA IBRAHIM            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54208 | MRU2023000964            | NAMATOVU JESCA             | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54205 | MRU2023000892            | NAMBASA HAIRAT             | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54201 | MRU2023000831            | NAJJINGO WINNIE            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54198 | MRU2023000794            | BYAMUKAMA SARAPIO ALBERT   | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54197 | MRU2023000770            | VICENT YIGA                | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54193 | MRU2023000641            | NALUTAAYA LILLIAN          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54191 | MRU2023000611            | NANYONGA PRIMROSE          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54189 | MRU2023000589            | NAKISEKKA TRANELLAH        | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54186 | MRU2023000538            | SSEKANKYA MZEE             | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54185 | MRU2023000525            | AYESIGA ARONE              | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54182 | MRU2023000507            | NAKIBUUKA SUZAN            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54181 | MRU2023000449            | KIBIRIGE MANISULU          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54176 | MRU2023000328            | SSENABULYA ROBERT          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54175 | MRU2023000316            | NYANZI ABRAHAM NJUBA       | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54173 | MRU2023000298            | NASSAAZI OLIVER MIREMBE    | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54171 | MRU2023000272            | LUBUULWA EMMANUEL          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54169 | MRU2023000230            | ATUKUNDA RITAH             | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54167 | MRU2023000186            | MUSIIMENTA MONICA          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54166 | MRU2023000116            | NANYONJO VANESSA           | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54164 | MRU2023000085            | MUGERWA JOHN               | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54163 | MRU2023000071            | AYEBARE GODWIN             | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54162 | MRU2023000010            | SSEKITENDE ELISA NICHOLAS  | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54161 | MRU2023000009            | NINSIIMA ANNAH MARY        | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54159 | MRU2025004221            | John KASOZI                | BEICT    | BACHELOR OF EDUCATION WITH ICT                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54157 | MRU2025003535            | ABRAHAM MPIIMA NADDULI     | BEICT    | BACHELOR OF EDUCATION WITH ICT                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54154 | MRU2025004128            | SOLOMON ITIAKORIT          | DEE      | DIPLOMA IN ELECTRICAL ENGINEERING                 | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54151 | MRU2024001676            | BENJAMIN SSENYONGA         | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54148 | MRU2024001623            | Salaamah NAKANJAKO         | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54139 | MRU2024001324            | KHARIM RASHAT              | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54138 | MRU2024001278            | ISLAM DDAMULIRA            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54134 | MRU2024001214            | JONATHAN WASAJJA           | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54133 | MRU2024001191            | STUART KAKOOZA             | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54129 | MRU2024000911            | CHRIZESTOM LUBYAYI         | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54128 | MRU2024000892            | WINNIE NAKALEMA            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54125 | MRU2024000851            | ESTHER NASSAAZI            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54123 | MRU2024000782            | CHRISTOPHER KITYAMUWEESI   | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54120 | MRU2024000585            | JESCA NAKATO NAKYANZI      | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54117 | MRU2024000289            | ADRIAN SSENTONGO           | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54114 | MRU2024000214            | JOAN NAMUTUNZI             | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54112 | MRU2024000124            | VERONICA MATEGA            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54111 | MRU2024000114            | MARY KUKKIRIZA             | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54107 | MRU2025002703            | PENINAH SANYU              | BEICT    | BACHELOR OF EDUCATION WITH ICT                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54101 | MRU2025004011            | NICHOLUS MOSUMANI          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54100 | MRU2025004010            | UMAR TENYWA                | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54099 | MRU2025004009            | HELLEN NAKIYEMBA           | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54098 | MRU2025004008            | WAISANKA JORDAN IDIBYA     | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54095 | MRU2025003805            | JOYCE AWORI                | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54088 | MRU2025003409            | JUSTINE JOAN NANTEZA       | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54084 | MRU2025003277            | ROSEMARY NANSALIRA         | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54081 | MRU2025003182            | BOAZ MUHUMUZA              | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54080 | MRU2025003158            | CATHERINE NAKIMBUGWE       | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54079 | MRU2025003116            | VICKY NAMATA               | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54074 | MRU2025002923            | GLORIA NAMUKASA            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54073 | MRU2025002903            | CAROLINE ZALWANGO          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54071 | MRU2025002895            | PAUL NDUGWA                | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54070 | MRU2025002893            | WINNIEFRED AJAMBO          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54067 | MRU2025002743            | HELLEN NAKIWEEWA           | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54066 | MRU2025002627            | JAMES MUKASA               | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54065 | MRU2025002607            | GRACE NAYIGA               | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54061 | MRU2025002302            | SUDAIS NUWABINE            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54056 | MRU2024002791            | WINNIEFRED AJAMBO          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54043 | MRU2025003899            | DAPHINE AKAMPULIRA         | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54042 | MRU2025003874            | MARK LWALANDA              | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54040 | MRU2025003554            | DUNCAN B MAYANJA           | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54037 | MRU2025003311            | HALIMAH NABISUBI           | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54036 | MRU2025003253            | TIMOTHY SSEKAMANYA         | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54034 | MRU2025003155            | ERICK KALEMA               | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54032 | MRU2025002830            | MAGDALENE NAMULEMA         | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54031 | MRU2025002795            | JONATHAN KIMBUGWE          | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54030 | MRU2025002794            | RONALD KITAVUJJA           | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54028 | MRU2025002665            | BENON KARUHANGA            | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54025 | MRU2025002410            | TREVOR SIMON KASOZI        | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54024 | MRU2025002185            | PARVIN MBALIIRE            | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54011 | MRU2025003604            | SHIBAH NIWASIIMA           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54003 | MRU2025003218            | AGNES KOMUGISHA            | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54002 | MRU2025003202            | RECHEAL NASSAAZI           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54001 | MRU2025003127            | VIVIAN NAGIRINYA           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53998 | MRU2025003011            | MUSA KIREMBWE KAJUMBA      | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53997 | MRU2025002922            | RACHEAL KISAKYE NAKIRANDA  | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53996 | MRU2025002921            | CHRISTINE NABAGULANYI      | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53995 | MRU2025002905            | LETICIA NAMUGERA           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53994 | MRU2025002792            | MARIA NAMWANGA             | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53993 | MRU2025002754            | MOUREEN NAKIMERA           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53989 | MRU2025002463            | KURAIBA MUGERWA            | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53986 | MRU2025002277            | JOSELYNE FAITH NAKAWOOYA   | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53983 | MRU2025002067            | GLADYS NAMAYANJA           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53982 | MRU2024002041            | FARIDAH NAMAGANDA          | BEICT    | BACHELOR OF EDUCATION WITH ICT                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53952 | MRU2025004247            | FREDRICK KISITU            | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53917 | MRU2025003335            | JONAH DDAMULIRA            | DCE      | DIPLOMA IN CIVIL ENGINEERING                      | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53911 | MRU2025004244            | JOHN SSENYONDO             | DCE      | DIPLOMA IN CIVIL ENGINEERING                      | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53867 | MRU2024001715            | NALUYIMA PATRICIA KATAMBA  | DMC      | DIPLOMA IN MASS COMMUNICATION                     | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53855 | MRU240179                | SHARON NAMANDA             | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53851 | MRU2024001570            | KOSEYA MALUNGU             | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53849 | MRU2024001405            | ABDU RAHMAN KABUUBI        | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53844 | MRU2024001257            | SUMAIAH NANTUMBWE          | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53842 | MRU2024001193            | FREDRICK GAGGAWALA NSUBUGA | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53839 | MRU2024001065            | MOUREEN NAKALIISA          | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53838 | MRU2024001064            | SHEIRAT NABUKALU           | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53835 | MRU2024000883            | AMINAH NALUBEGA            | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53834 | MRU2024000874            | SUMAYYAH NASSIMBWA         | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53831 | MRU2024000721            | JOAN GRACE NANSUBUGA       | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53830 | MRU2024000624            | GODFREY KAMAALA            | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53828 | MRU2024000540            | JANE NAKATO                | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53827 | MRU2024000488            | GORRETH NAMISAGGA          | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53826 | MRU2024000474            | GRACE NAMBOGGO             | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53824 | MRU2024000367            | CAROLINE MUKIIMBA          | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53820 | MRU2024000119            | MARTIN KITONE              | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53818 | MRU2024000092            | GETRUDE NALWEYISO          | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53816 | MRU2025004209            | JORAM BUGEMBE KAYANJA      | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53814 | MRU2023001393            | NUWASASIRA KATO            | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53813 | MRU2023001283            | MUGALU DICKENS             | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53811 | MRU2023001186            | KINENE JUDE                | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53809 | MRU2023001146            | ONYANGO JOHN PAUL          | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53806 | MRU2023001014            | NAMAKULA SHIFRAH           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53799 | MRU2023000838            | NASSOLO BELINDAH           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53798 | MRU2023000804            | NAKINTU TRACY CHRISTINE    | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53794 | MRU2023000627            | MBUGA DANIEL               | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53793 | MRU2023000551            | NAMUWAZI EDITH             | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53785 | MRU2023000381            | NAKAYEMBA TEOPISTER        | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53784 | MRU2023000369            | NALUNKUUMA SANDRA          | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53782 | MRU2023000306            | NAMPIIMA YASINTA           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53781 | MRU2023000235            | NAKAWEESI MARIA BIBIAN     | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53778 | MRU2023000162            | MASEMBE JOEL               | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53776 | MRU2023000060            | NAKYANJA FATUMAH           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53764 | MRU2024001387            | AUGUSTINE NYERERE          | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53761 | MRU2024001359            | VIOLET NAKALYANGO          | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53757 | MRU2024001316            | EARNEST MWESIGWA           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53756 | MRU2024001273            | IRENE NINAH NALWANGA       | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53755 | MRU2024001205            | EDITH NANTEZA              | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53752 | MRU2024001156            | EVELYNE KAGOYA             | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53750 | MRU2024001096            | MICHAEL JORDAN SSAKA       | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53749 | MRU2024001086            | AKRAM NSUBUGA              | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53747 | MRU2024001046            | ALLAN KISAKYE              | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53746 | MRU2024001041            | RONALD LUKWAGO             | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53741 | MRU2024000608            | CHARLES SSALI              | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53739 | MRU2024000563            | OLIVIA NAMUGENYI           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53737 | MRU2024000465            | GLORIA NALUBEGA            | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53736 | MRU2024000446            | VICENT DDUNGU              | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53735 | MRU2024000423            | MARIAM NASSOLO             | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53733 | MRU2024000236            | WINNIE NAKIGANDA           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53720 | MRU2025004199            | JOYEUSE UWIMBABAZI         | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53715 | MRU2024002033            | HASSAN BUSUULWA            | BAED     | BACHELOR OF ARTS WITH EDUCATION                   | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53702 | MRU2024002079            | OSBERT AHIMBISIBWE         | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  53696 | MRU2024001775            | MIKE JOSEPH WANDERA        | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53687 | MRU2025004237            | JOHN STEPHEN ICHOOT        | BCE      | BACHELOR OF SCIENCE IN CIVIL ENGINEERING          | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  53686 | MRU2025004236            | OSIRIA KICONCO             | BBA      | BACHELOR OF BUSINESS ADMINISTRATION               | 2025/2026 |        1 |         1 | REGISTERED | No                         |
+|  53684 | MRU2025004234            | FRED MUKISA                | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  53669 | MRU2024001792            | DESTINY BLESSING ASIANUT   | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         1 | REGISTERED | No                         |
++--------+--------------------------+----------------------------+----------+---------------------------------------------------+-----------+----------+-----------+------------+----------------------------+
+[Current AY 2025/2026 - Top 120 rows]
++--------+--------------------------+--------------------------+----------+---------------------------------------------------+-----------+----------+-----------+------------+----------------------------+
+| reg_id | regno                    | student_name             | progcode | programme                                         | acad_year | semester | studyyear | regstatus  | conducted_new_registration |
++--------+--------------------------+--------------------------+----------+---------------------------------------------------+-----------+----------+-----------+------------+----------------------------+
+|  54668 | MRU2023001321            | John Paul BOSSA          | BED(P)   | BACHELOR OF EDUCATION (PRIMARY)                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54665 | MRU2024000048            | Samuel LUZZE             | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        1 |         3 | REGISTERED | No                         |
+|  54664 | MRU2023001449            | FALUKU NGOBI MUYODI      | BPA      | BACHELOR OF PUBLIC ADMINISTRATION                 | 2025/2026 |        3 |         3 | REGISTERED | Yes                        |
+|  54656 | MRU2024001300            | VANESSA S NABAGULANYI    | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54648 | MRU2025003900            | PATRICK SSANSA           | HEC      | HIGHER EDUCATION CERTIFICATE                      | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54635 | MRU2025004069            | OVULEEN AMANYA           | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54634 | MRU2025004203            | GEORGE WILLIAM EDWARU    | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54632 | MRU2025003769            | JOHN BAPTIST LUYINDA     | DCE      | DIPLOMA IN CIVIL ENGINEERING                      | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54619 | MRU2025004241            | SHARON NAMUYIGA          | BAED     | BACHELOR OF ARTS WITH EDUCATION                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54618 | MRU2023000004            | ZAHARAH NALUBULA         | BBA      | BACHELOR OF BUSINESS ADMINISTRATION               | 2025/2026 |        3 |         1 | REGISTERED | Yes                        |
+|  54598 | MRU2025004204            | NASIIMU NASSIMBWA        | BMC      | BACHELOR OF MASS COMMUNICATION                    | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54587 | MRU2025002971            | Francis MUGANYI          | DMC      | DIPLOMA IN MASS COMMUNICATION                     | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54574 | MRU2024000561            | GEOFREY NSUBUGA          | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54573 | nakacwad24@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54572 | bikoberel25@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54571 | namukasal24@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54570 | kabandaa25@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54569 | nankabirwat24@mru.ac.ug  |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54568 | nabayindavv24@mru.ac.ug  |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54567 | mugishaj24@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54566 | kalemaab23@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54565 | katoak24@mru.ac.ug       |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54564 | nalumansis25@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54563 | namulindwaw24@mru.ac.ug  |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54562 | goloobaj25@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54561 | muhumuzagj23@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54560 | kemigishatm25@mru.ac.ug  |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54559 | sanyuk25@mru.ac.ug       |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54558 | nazziway25@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54557 | nalubulaz23@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54556 | muhumuzaj23@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54555 | kabengwah25@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        1 |         1 | REGISTERED | Yes                        |
+|  54554 | kabengwah25@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54553 | wanyenzebr25@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54552 | kamwesigaa@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54551 | lubyayim25@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54550 | nsambar24@mru.ac.ug      |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54549 | nsubugag24@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54548 | namatovus23@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54547 | kazibwea25@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54546 | kyabaggupw24@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        1 |         2 | REGISTERED | Yes                        |
+|  54545 | ainembabazij25@mru.ac.ug |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54544 | namandaj23@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54543 | isabiryem25@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54542 | kaluusik25@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54541 | kyabaggupw24@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54540 | kemirembep24@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54539 | apaliaj24@mru.ac.ug      |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54538 | kabongeb23@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54537 | moitidp24@mru.ac.ug      |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54536 | nakayondom23@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54535 | nasimbwan24@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54534 | ssenfumark23@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54533 | nandawulam25@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54532 | mulyantib24@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54531 | nagawall25@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54530 | nakalungis25@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54529 | ssentongom24@mru.ac.ug   |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54528 | nabiryof25@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54527 | kayizia25@mru.ac.ug      |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54526 | nansimbez25@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54525 | namulindwar25@mru.ac.ug  |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54524 | kyeyuner25@mru.ac.ug     |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54523 | ninsiimap23@mru.ac.ug    |                          |          |                                                   | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54522 | jjagwem24@mru.ac.ug      |                          |          |                                                   | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54521 | kizitop25@mru.ac.ug      |                          |          |                                                   | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54520 | kizitop25@mru.ac.ug      |                          |          |                                                   | 2025/2026 |        1 |         1 | REGISTERED | Yes                        |
+|  54519 | MRU2024001874            | HENRY KANAKULYA          | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         4 | REGISTERED | Yes                        |
+|  54518 | MRU2024001870            | KEVIN AWORI              | BBA      | BACHELOR OF BUSINESS ADMINISTRATION               | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54517 | MRU2025003868            | PAUL MUSAASIZI           | BCE      | BACHELOR OF SCIENCE IN CIVIL ENGINEERING          | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54513 | MRU2024000750            | JOAN NAMBALIRWA          | DTHM     | DIPLOMA IN TOURISM AND HOTEL MANAGEMENT           | 2025/2026 |        3 |         2 | REGISTERED | Yes                        |
+|  54512 | MRU2025004245            | DEUS SSEGWANYI           | DBA      | DIPLOMA IN BUSINESS ADMINISTRATION                | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54511 | MRU2025004164            | GRACE NAGUJJA            | BAED     | BACHELOR OF ARTS WITH EDUCATION                   | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54502 | mru2021000758            | JUMA KATO                | BAED     | BACHELOR OF ARTS WITH EDUCATION                   | 2025/2026 |        1 |         2 | REGISTERED | Yes                        |
+|  54501 | MRU2025004158            | FAZIRAH NDIWABEENE       | BIT      | BACHELOR OF INFORMATION TECHNOLOGY                | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54500 | Mru2022000565            | BENJAMIN BISASO          | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54499 | mru1800200073            | WALIRE RAPHAEL           | BTHM     | BACHELOR OF TOURISM AND HOTEL MANAGEMENT          | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54497 | MRU2025003909            | JOSHUA SSEMANDA          | BIT      | BACHELOR OF INFORMATION TECHNOLOGY                | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54494 | MRU2022000100            | KATEREGGA ARAFAT         | BCE      | BACHELOR OF SCIENCE IN CIVIL ENGINEERING          | 2025/2026 |        2 |         4 | REGISTERED | No                         |
+|  54486 | MRU2023000628            | Mathias SSAMULA          | DJ       | DIPLOMA IN JOURNALISM                             | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54460 | MRU2025004195            | BRENDA BALABA NANGOBI    | BSAF     | BACHELOR OF SCIENCE IN ACCOUNTING AND FINANCE     | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54453 | mru2024002296            | BASHIRA SSENABULYA       | HEC      | HIGHER EDUCATION CERTIFICATE                      | 2025/2026 |        2 |         1 | REGISTERED | Yes                        |
+|  54440 | Mru2022000255            | EMMANUEL MUWANGUZI       | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54439 | MRU2022000602            | DELTON GGOBERA           | BPLM     | BACHELOR OF PROCUREMENT AND LOGISTICS MANAGEMENT  | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54438 | MRU2025004213            | PIUS MUGERWA             | BEICT    | BACHELOR OF EDUCATION WITH ICT                    | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54436 | MRU2025004193            | EDRINE AGASHA            | DAF      | DIPLOMA IN ACCOUNTING AND FINANCE                 | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54435 | MRU2023001370            | ANGEL NAMIREMBE          | DAF      | DIPLOMA IN ACCOUNTING AND FINANCE                 | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54409 | MRU2025003933            | JOSEPH BALABYE           | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54408 | MRU2024000221            | BYASALI BAZANYA          | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54406 | Mru2021001213            | MULONGO JIMMY            | BCE      | BACHELOR OF SCIENCE IN CIVIL ENGINEERING          | 2025/2026 |        2 |         4 | REGISTERED | Yes                        |
+|  54401 | Mru2023000600            | EDRINE KAKEETO           | DIT      | DIPLOMA IN INFORMATION TECHNOLOGY                 | 2025/2026 |        2 |         2 | REGISTERED | Yes                        |
+|  54338 | MRU2025004233            | ABDOURAHAMANE YASSER     | DME      | DIPLOMA IN MECHANICAL ENGINEERING                 | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54332 | MRU2025004161            | ROBINAH NAJJEMBA         | DFD      | DIPLOMA IN FASHION DESIGN                         | 2025/2026 |        2 |         1 | REGISTERED | No                         |
+|  54247 | MRU2025003918            | AKHISAM KAZIBWE          | BBA      | BACHELOR OF BUSINESS ADMINISTRATION               | 2025/2026 |        2 |         2 | REGISTERED | No                         |
+|  54243 | MRU2025004253            | STACY NAKACWA            | HEC      | HIGHER EDUCATION CERTIFICATE                      | 2025/2026 |        1 |         1 | REGISTERED | Yes                        |
+|  54237 | MRU2025004183            | ABDALLLAH KIYINGI        | BEE      | BACHELOR OF SCIENCE IN ELECTRICAL ENGINEERING     | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54216 | MRU2023001461            | BENARD KIGOZI            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54213 | MRU2023001301            | MAYENGO ALEX             | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54211 | MRU2023001128            | NAGAWA ZAINAB            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54210 | MRU2023001048            | KINOBE ROBERT            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54209 | MRU2023001007            | MUTUMBA IBRAHIM          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54208 | MRU2023000964            | NAMATOVU JESCA           | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54205 | MRU2023000892            | NAMBASA HAIRAT           | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54201 | MRU2023000831            | NAJJINGO WINNIE          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54198 | MRU2023000794            | BYAMUKAMA SARAPIO ALBERT | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54197 | MRU2023000770            | VICENT YIGA              | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54193 | MRU2023000641            | NALUTAAYA LILLIAN        | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54191 | MRU2023000611            | NANYONGA PRIMROSE        | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54189 | MRU2023000589            | NAKISEKKA TRANELLAH      | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54186 | MRU2023000538            | SSEKANKYA MZEE           | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54185 | MRU2023000525            | AYESIGA ARONE            | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54182 | MRU2023000507            | NAKIBUUKA SUZAN          | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54181 | MRU2023000449            | KIBIRIGE MANISULU        | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54176 | MRU2023000328            | SSENABULYA ROBERT        | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | Yes                        |
+|  54175 | MRU2023000316            | NYANZI ABRAHAM NJUBA     | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54173 | MRU2023000298            | NASSAAZI OLIVER MIREMBE  | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54171 | MRU2023000272            | LUBUULWA EMMANUEL        | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54169 | MRU2023000230            | ATUKUNDA RITAH           | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54167 | MRU2023000186            | MUSIIMENTA MONICA        | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
+|  54166 | MRU2023000116            | NANYONJO VANESSA         | SWSA     | BACHELOR OF SOCIAL WORK AND SOCIAL ADMINISTRATION | 2025/2026 |        2 |         3 | REGISTERED | No                         |
++--------+--------------------------+--------------------------+----------+---------------------------------------------------+-----------+----------+-----------+------------+----------------------------+

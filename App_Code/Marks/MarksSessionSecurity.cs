@@ -125,21 +125,14 @@ public static class MarksSessionSecurity
             return "Session security check failed. Please log in again.";
         }
 
-        // Check 4: Idle timeout
-        if (ctx.Session[KEY_LAST_ACTIVE] != null)
-        {
-            DateTime lastActive = (DateTime)ctx.Session[KEY_LAST_ACTIVE];
-            double idleMinutes = (DateTime.Now - lastActive).TotalMinutes;
-
-            if (idleMinutes > SESSION_IDLE_MINUTES)
-            {
-                LogSecurityEvent("IDLE_TIMEOUT", screenName + "|" + username,
-                    GetClientIP(ctx),
-                    String.Format("Session idle for {0:F0} minutes (threshold: {1})",
-                        idleMinutes, SESSION_IDLE_MINUTES));
-                return "Your session has timed out due to inactivity. Please log in again.";
-            }
-        }
+        // Check 4: Idle timeout — DISABLED.
+        // The marks module previously imposed its own 120-minute idle window via
+        // KEY_LAST_ACTIVE. That timestamp is only refreshed when a marks page is hit,
+        // so legitimate users working elsewhere in the app (which keeps the real
+        // ASP.NET session alive) were falsely logged out. The actual session lifetime
+        // is governed by web.config (sessionState + forms auth); when it truly lapses,
+        // the session variables disappear and Check 1 handles re-login. We no longer
+        // impose a separate, stricter idle clock here.
 
         // Check 5: IP change detection (warning only — not blocking)
         if (ctx.Session[KEY_STAMP_IP] != null)

@@ -61,7 +61,7 @@ public static class FinanceEngine
         "          fl2.transaction_amount = t.amount " +
         "          AND DATE(fl2.transactionDate) = DATE(t.trans_date) " +
         "          AND fl2.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END " +
-        "          AND (fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '') " +
+        "          AND (t.trans_type = 'Payment' OR fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '') " +
         "        ) " +
         "      ) " +
         "  ) " +
@@ -176,7 +176,7 @@ public static class FinanceEngine
                 "          OR (fl2.transaction_amount = t.amount " +
                 "              AND DATE(fl2.transactionDate) = DATE(t.trans_date) " +
                 "              AND fl2.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END " +
-                "              AND (fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = ''))) " +
+                "              AND (t.trans_type = 'Payment' OR fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = ''))) " +
                 "    ) " +
                 ") AS combined";
         }

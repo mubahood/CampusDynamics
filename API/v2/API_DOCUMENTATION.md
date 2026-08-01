@@ -6,7 +6,7 @@
 > **Authentication:** Token-based (24-hour expiry)  
 > **Content-Type:** All responses are `application/json`  
 > **CORS:** Fully enabled (all origins, methods, headers allowed)  
-> **API Version:** 2.2 (ODEL Integration Release)
+> **API Version:** 2.7 (Lecturer Mark Requests workflow)
 
 ---
 
@@ -15,7 +15,7 @@
 1. [Response Format](#1-response-format)
 2. [Authentication (auth.aspx)](#2-authentication) — incl. 2.4 Ping (ODEL)
 3. [Student Endpoints (student.aspx)](#3-student-endpoints) — incl. 3.5-3.8 ODEL endpoints
-4. [Staff Endpoints (staff.aspx)](#4-staff-endpoints) — incl. 4.13-4.14 ODEL endpoints, 4.15-4.20 Mark Requests
+4. [Staff Endpoints (staff.aspx)](#4-staff-endpoints) — incl. 4.7 Filter Options, 4.7b All Courses, 4.13-4.14 ODEL, 4.15-4.20 Mark Requests, 4.21-4.28 Provisional Marks (bulk save, stats, class list), 4.29 Student Search, 4.30-4.32 Course Self-Allocation, 4.33-4.38 Course Registration, 4.39-4.41 Lecturer Mark Requests
 5. [Academic Endpoints (academic.aspx)](#5-academic-endpoints) — incl. 5.11-5.14 ODEL endpoints
 6. [Finance Endpoints (finance.aspx)](#6-finance-endpoints) — incl. 6.6-6.7 ODEL endpoints, 6.8 Fee Access Policy
 7. [Timetable Endpoints (timetable.aspx)](#7-timetable-endpoints)
@@ -1093,11 +1093,14 @@ curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=my_courses&token=f6e5d4c
 
 **Notes:**
 
-- The staff member's `EMP_CODE` is resolved from `hrm_employee` where `usernames = auth.UserId`.
-- Teaching allocations come from `acad_teaching_allocation` where `staffCode = EMP_CODE`.
-- Course names come from `acad_course` joined on `courseID`.
-- Programme names come from `acad_programme` joined on `progcode`.
-- `cyear` represents the year of study for that course.
+- Staff identity is resolved by matching `hrm_employee` on `usernames` OR `EMP_CODE` (whichever matches the token's UserId). This dual-match ensures staff whose portal username is their employee code are not missed.
+- Courses are merged from three sources, deduplicated by `course_code + programme_code`:
+  1. **`acad_programmecourses`** (primary) — rows where `lecturer_id = empID` and `is_lecturere_assigned = 'YES'`. Source = `"programme_assignment"`. These are courses set via self-allocation or admin assignment.
+  2. **`acad_teaching_assignments`** — newer marks-module assignments by `teacher_username`. Source = `"assignments"`.
+  3. **`acad_teaching_allocation`** — legacy allocations by `staffCode`. Source = `"allocation"`.
+- The `source` field in each row tells the frontend which table the record came from.
+- `acad_year` is empty string for `programme_assignment` rows (that table has no academic year column).
+- Use `course_allocation_search` + `course_allocation_submit` to let a lecturer add courses to source 1.
 
 **Error Response (not staff):**
 
@@ -1113,66 +1116,9 @@ curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=my_courses&token=f6e5d4c
 
 ### 4.4 Class List
 
-Returns the list of students registered for a specific course taught by the staff member.
+> **Superseded.** This section describes the legacy `class_list` implementation that sourced from `acad_registration`. The current implementation is documented in [Section 4.28 Class List (Enhanced)](#428-class-list-enhanced) — use that instead. The URL (`staff.aspx?action=class_list`) is the same; the parameter name changed from `course_code` to `course_id` and the data source is now `campus_dynamics_portal.acad_course_registration`, which includes provisional mark status per student.
 
-| Property | Value |
-|---|---|
-| **URL** | `staff.aspx?action=class_list` |
-| **Method** | `GET` or `POST` |
-| **Auth Required** | Yes (staff only) |
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `action` | string | Yes | Must be `class_list` |
-| `token` | string | Yes | Valid auth token |
-| `course_code` | string | Yes | The course ID (e.g., `CSC1101`) |
-| `acad_year` | string | Yes | Academic year (e.g., `2024/2025`) |
-| `semester` | string | No | Semester filter (e.g., `1` or `2`). If omitted, not filtered by semester. |
-| `study_year` | string | No | Study year filter (e.g., `1`). If omitted, not filtered by study year. |
-
-**Example Request:**
-
-```bash
-curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=class_list&token=f6e5d4c3b2a1...&course_code=CSC1101&acad_year=2024/2025&semester=1"
-```
-
-**Success Response:**
-
-```json
-{
-  "status": "success",
-  "data": [
-    {
-      "regno": "MRU2025003204",
-      "student_name": "RITAH NAKYESERO",
-      "progcode": "BAED",
-      "study_year": "1"
-    },
-    {
-      "regno": "MRU2025003100",
-      "student_name": "JOHN SSENTAMU",
-      "progcode": "BCS",
-      "study_year": "1"
-    }
-  ]
-}
-```
-
-**Notes:**
-
-- Sources from `acad_registration` joined with `acad_student`.
-- Student name is `CONCAT(s.firstname, ' ', s.othername)`.
-- If `acad_year` is missing, returns an error:
-
-```json
-{
-  "status": "error",
-  "message": "course_code and acad_year are required.",
-  "code": "MISSING_PARAMS"
-}
-```
+See **[4.28 Class List (Enhanced)](#428-class-list-enhanced)** for the current reference.
 
 ---
 
@@ -1349,13 +1295,13 @@ Fields written to `acad_results`:
 
 ---
 
-### 4.7 Teaching Assignments
+### 4.7 Filter Options
 
-Returns courses assigned to the authenticated teacher from the new `acad_teaching_assignments` table. Falls back to the legacy `acad_teaching_allocation` table when no assignments are found.
+Returns all filter dropdown data for the provisional marks interface, scoped to the authenticated teacher's assigned courses. Clients should call this once on page load to populate Year, Programme, Course, Status, and Page Size controls before calling `provisional_marks_list`.
 
 | Property | Value |
 |---|---|
-| **URL** | `staff.aspx?action=teaching_assignments` |
+| **URL** | `staff.aspx?action=filter_options` |
 | **Method** | `GET` or `POST` |
 | **Auth Required** | Yes (staff only) |
 
@@ -1363,15 +1309,15 @@ Returns courses assigned to the authenticated teacher from the new `acad_teachin
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `action` | string | Yes | Must be `teaching_assignments` |
+| `action` | string | Yes | Must be `filter_options` |
 | `token` | string | Yes | Valid auth token |
-| `acad_year` | string | No | Filter by academic year (e.g., `2024/2025`) |
-| `semester` | int | No | Filter by semester (e.g., `1` or `2`) |
+| `acad_year` | string | No | Scope programme/course lists to a specific academic year |
+| `semester` | int | No | Scope year/programme/course lists to a specific semester |
 
 **Example Request:**
 
 ```bash
-curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=teaching_assignments&token=f6e5d4c3b2a1...&acad_year=2024/2025&semester=2"
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=filter_options&token=f6e5d4c3b2a1..."
 ```
 
 **Success Response:**
@@ -1380,24 +1326,115 @@ curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=teaching_assignments&tok
 {
   "status": "success",
   "data": {
-    "total_assignments": 3,
-    "assignments": [
+    "years": [
+      { "value": "2024/2025", "label": "2024/2025" },
+      { "value": "2023/2024", "label": "2023/2024" }
+    ],
+    "semesters": [
+      { "value": 1, "label": "Semester 1" },
+      { "value": 2, "label": "Semester 2" },
+      { "value": 3, "label": "Semester 3" }
+    ],
+    "programmes": [
+      { "value": "BCS", "label": "Bachelor of Computer Science" },
+      { "value": "BBA", "label": "Bachelor of Business Administration" }
+    ],
+    "courses": [
       {
-        "assignment_id": "12",
-        "teacher_username": "muhindo",
-        "course_id": "CSC1201",
-        "course_name": "Programming Fundamentals",
+        "value": "CSC1201",
+        "label": "Programming Fundamentals",
         "programme_code": "BCS",
-        "programme_name": "Bachelor of Computer Science",
         "acad_year": "2024/2025",
-        "semester": "2",
-        "study_year": "1",
-        "campus_id": "1",
-        "session": "Day",
-        "is_active": "1",
-        "assigned_by": "admin",
-        "assigned_at": "2025-02-01 09:00",
-        "notes": ""
+        "semester": "2"
+      }
+    ],
+    "statuses": [
+      { "value": "",            "label": "All Statuses" },
+      { "value": "not_entered", "label": "Not Entered" },
+      { "value": "pending",     "label": "Pending Review" },
+      { "value": "approved",    "label": "Approved" },
+      { "value": "rejected",    "label": "Rejected" },
+      { "value": "published",   "label": "Published" }
+    ],
+    "page_sizes": [
+      { "value": 25,  "label": "25 per page" },
+      { "value": 50,  "label": "50 per page" },
+      { "value": 100, "label": "100 per page" },
+      { "value": 200, "label": "200 per page" }
+    ]
+  }
+}
+```
+
+**Notes:**
+
+- `years` is derived from `campus_dynamics_portal.acad_course_registration` rows where the teacher is authorized — only years that have actual student registrations for this teacher's courses are returned.
+- `programmes` is similarly scoped — only programmes with portal registrations for this teacher's courses appear.
+- `courses` comes from `acad_teaching_assignments` (new) merged with `acad_teaching_allocation` (legacy), deduplicated by `course_code|programme_code`.
+- `semesters`, `statuses`, and `page_sizes` are static lists identical to those in the portal UI.
+- Authorization uses triple-source: `acad_teaching_assignments`, `acad_programmecourses.lecturer_id`, and `acad_teaching_allocation.staffCode`.
+- Pass `acad_year` and/or `semester` to narrow the scope of `years`, `programmes`, and `courses` returned.
+
+---
+
+### 4.7b All Courses
+
+Returns the full catalogue of course codes and names from `acad_course`, joined to `acad_programmecourses` for programme context. **No assignment restriction** — any authenticated staff member can call this, including admins and ICT staff who are not lecturers. Use this to power a searchable course-code dropdown in mark-entry flows.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=all_courses` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (any staff token) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `action` | string | Yes | — | Must be `all_courses` |
+| `token` | string | Yes | — | Valid auth token |
+| `q` | string | No | — | Keyword search on course code or course name (partial match) |
+| `prog_code` | string | No | — | Filter to a single programme code (e.g., `BCS`) |
+| `page` | int | No | 1 | Page number |
+| `size` | int | No | 50 | Page size (max 200) |
+
+**Example Requests:**
+
+```bash
+# Browse all courses (first 50)
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=all_courses&token=..."
+
+# Search by keyword
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=all_courses&token=...&q=data+structures"
+
+# Filter by programme
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=all_courses&token=...&prog_code=BCS&size=200"
+```
+
+**Success Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 312,
+    "page": 1,
+    "size": 50,
+    "pages": 7,
+    "courses": [
+      {
+        "course_code": "CSC1201",
+        "course_name": "Programming Fundamentals",
+        "prog_code": "BCS",
+        "prog_name": "Bachelor of Computer Science",
+        "credit_units": "3"
+      },
+      {
+        "course_code": "CSC2101",
+        "course_name": "Data Structures and Algorithms",
+        "prog_code": "BCS",
+        "prog_name": "Bachelor of Computer Science",
+        "credit_units": "4"
       }
     ]
   }
@@ -1406,10 +1443,11 @@ curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=teaching_assignments&tok
 
 **Notes:**
 
-- First checks `acad_teaching_assignments` (new marks module table) for active assignments (`is_active = 1`).
-- If no results found, falls back to legacy `acad_teaching_allocation` table using the teacher's `EMP_CODE`.
-- Assignments from the legacy table return `assignment_id = 0` and empty `assigned_by`/`assigned_at`.
-- Course and programme names are resolved via joins to `acad_courses` / `acad_programme`.
+- Returns one row per `course_code + prog_code` combination. A course shared across multiple programmes appears once per programme.
+- When no `prog_code` filter is set, rows are ordered by `course_code` then `prog_code`.
+- `q` matches against both `courseID` and `courseName` using a `LIKE %keyword%` pattern — suitable for a live-search input.
+- Courses with a blank `courseName` are excluded from results.
+- Unlike `my_courses`, this endpoint applies **no** teaching-assignment restriction — it reflects the full academic course catalogue.
 
 ---
 
@@ -1743,84 +1781,6 @@ curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=sheet_status&token=f6e5d
 | `PROVISIONAL_PUBLISHED` | Marks published provisionally (visible to students) |
 | `FINAL_PUBLISHED` | Marks finalized and locked |
 | `REJECTED` | Dean rejected — returns to DRAFT for corrections |
-
----
-
-### 4.12 Deadlines
-
-Returns active mark submission deadlines. Useful for showing teachers when marks are due.
-
-| Property | Value |
-|---|---|
-| **URL** | `staff.aspx?action=deadlines` |
-| **Method** | `GET` or `POST` |
-| **Auth Required** | Yes (staff only) |
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `action` | string | Yes | Must be `deadlines` |
-| `token` | string | Yes | Valid auth token |
-| `acad_year` | string | No | Filter by academic year |
-| `semester` | int | No | Filter by semester |
-
-**Example Request:**
-
-```bash
-curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=deadlines&token=f6e5d4c3b2a1...&acad_year=2024/2025&semester=2"
-```
-
-**Success Response:**
-
-```json
-{
-  "status": "success",
-  "data": {
-    "total_deadlines": 2,
-    "deadlines": [
-      {
-        "deadline_type": "Marks Submission",
-        "deadline": "2025-07-15 23:59:59",
-        "campus_id": "1",
-        "acad_year": "2024/2025",
-        "semester": "2",
-        "session": "Day",
-        "is_active": "1",
-        "is_past_due": "0",
-        "hours_remaining": "216"
-      },
-      {
-        "deadline_type": "Late Marks Submission",
-        "deadline": "2025-07-22 23:59:59",
-        "campus_id": "1",
-        "acad_year": "2024/2025",
-        "semester": "2",
-        "session": "Day",
-        "is_active": "1",
-        "is_past_due": "0",
-        "hours_remaining": "384"
-      }
-    ]
-  }
-}
-```
-
-**Response Fields:**
-
-| Field | Description |
-|---|---|
-| `deadline_type` | The activity name (e.g., "Marks Submission", "Late Marks Submission") |
-| `deadline` | The deadline datetime |
-| `is_past_due` | `1` if the deadline has already passed, `0` otherwise |
-| `hours_remaining` | Hours until the deadline (negative if past due) |
-| `is_active` | Whether the deadline is currently enforced |
-
-**Notes:**
-
-- Deadlines come from the `acad_deadlines` table.
-- Only active deadlines (`is_active = 1`) are returned.
-- `hours_remaining` is computed server-side using `TIMESTAMPDIFF(HOUR, NOW(), deadline)`.
 
 ---
 
@@ -2232,6 +2192,1259 @@ Body: token=abc123&id=7&decision=APPROVED&admin_comment=Verified against origina
 | `INVALID_STATUS` | Request is not PENDING |
 | `NOT_FOUND` | Request ID not found |
 | `VALIDATION_ERROR` | `decision` value not `APPROVED` or `REJECTED` |
+
+---
+
+### 4.21 List Provisional Marks
+
+Returns a paginated list of provisional mark records. Any authenticated staff member can access all records. Filters are optional — omit any to get all records for that dimension.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=provisional_marks_list` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `acad_year` | string | No | all | Filter by academic year e.g. `2025/2026` |
+| `semester` | int | No | all | Filter by semester: `1`, `2`, or `3` |
+| `prog` | string | No | all | Filter by programme code e.g. `BAED` |
+| `course_id` | string | No | all | Filter by course code e.g. `ICT1108B` |
+| `student_regno` | string | No | — | Filter by exact student regno — use after `student_search` to show all marks for one student |
+| `status` | string | No | all | Filter by mark status: `not_entered`, `pending`, `approved`, `rejected`, `published` |
+| `ready` | int | No | 0 | `1` = only records where both CW and Exam are filled and not yet published |
+| `sq` | string | No | — | Live text search: matches student name, regno, or entry number |
+| `page` | int | No | 1 | Page number |
+| `size` | int | No | 50 | Page size (max 200) |
+
+> **Tip:** Call `student_search` first to let the user pick a student, then pass that student's `regno` as `student_regno` here to show all their marks across all courses.
+
+**Status values:**
+| Status | Meaning |
+|---|---|
+| `not_entered` | Both CW and Exam are NULL — no marks entered yet |
+| `pending` | At least one mark entered, awaiting dean review |
+| `approved` | Dean approved — locked from teacher edits |
+| `rejected` | Dean rejected — teacher must correct and resubmit |
+| `published` | Published to final results — permanently locked |
+
+**Example Requests:**
+```bash
+# All marks for a course in a given year/semester
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=provisional_marks_list&token=abc123&acad_year=2025/2026&semester=2&prog=BAED&course_id=ICT1108B"
+
+# All marks for a specific student across all courses
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=provisional_marks_list&token=abc123&student_regno=MRU2025002331"
+
+# Live text search (use with debounce)
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=provisional_marks_list&token=abc123&sq=Namubiru&course_id=ICT1108B"
+```
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "total": 42,
+    "page": 1,
+    "size": 50,
+    "pages": 1,
+    "rows": [
+      {
+        "id": 133168,
+        "entry_no": "25/U/BAED/0021/K/DAY",
+        "student_name": "ANGEL NAMUBIRU",
+        "course_code": "ICT1108B",
+        "acad_year": "2025/2026",
+        "semester": 2,
+        "programme_code": "BAED",
+        "cw_marks": null,
+        "exam_marks": null,
+        "total_marks": null,
+        "prov_status": "not_entered"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 4.22 Get Provisional Mark Detail
+
+Returns full details for a single provisional mark record including review and publication metadata.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=provisional_mark_detail` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `id` | int | Yes | — | Registration record ID (from `provisional_marks_list`) |
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 133168,
+    "regno": "MRU2025002331",
+    "entry_no": "25/U/BAED/0021/K/DAY",
+    "student_name": "ANGEL NAMUBIRU",
+    "gender": "FEMALE",
+    "session": "Day",
+    "course_code": "ICT1108B",
+    "course_name": "INFORMATION COMMUNICATION TECHNOLOGY",
+    "credit_units": 3,
+    "acad_year": "2025/2026",
+    "semester": 2,
+    "programme_code": "BAED",
+    "programme_name": "Bachelor of Arts in Education",
+    "cw_marks": null,
+    "exam_marks": null,
+    "total_marks": null,
+    "prov_status": "not_entered",
+    "review_comments": "",
+    "reviewed_by": "",
+    "review_date": null,
+    "submitted_by": "",
+    "published_by": "",
+    "published_date": null,
+    "ready_to_publish": 0
+  }
+}
+```
+
+> `entry_no` is the human-readable student identifier (e.g. `25/U/BAED/0021/K/DAY`). `regno` is the internal key used in save endpoints and `student_regno` filter.
+
+---
+
+### 4.23 Save Provisional Mark (Single Record)
+
+Saves CW and Exam marks for a single student registration record. Both fields are required.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=save_provisional_mark` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `id` | int | Yes | — | Registration record ID |
+| `cw` | decimal | Yes | — | Coursework marks (0–40) |
+| `exam` | decimal | Yes | — | Exam marks (0–60) |
+
+**Validation rules:**
+- `cw` must be a number in range 0–40
+- `exam` must be a number in range 0–60
+- `total` is auto-calculated as `cw + exam`
+- Records with `published` status are permanently locked — returns `MARKS_LOCKED`
+- Records with `approved` status are reset to `pending` when edited (teacher's edit invalidates the approval)
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Provisional marks saved",
+  "data": {
+    "id": 4521,
+    "cw_marks": 35,
+    "exam_marks": 52,
+    "total_marks": 87,
+    "grade": "A"
+  }
+}
+```
+
+**Error Codes:**
+| Code | Meaning |
+|---|---|
+| `MARKS_LOCKED` | Record is `published` — cannot be edited |
+| `VALIDATION_ERROR` | `cw` or `exam` out of range |
+| `NOT_FOUND` | Record ID does not exist |
+
+---
+
+### 4.24 Save Provisional Mark Inline (Single Field)
+
+Updates only CW or only Exam mark for a record — useful for inline grid editing without re-submitting both fields.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=save_provisional_mark_inline` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `id` | int | Yes | — | Registration record ID |
+| `field` | string | Yes | — | Which field: `cw` or `exam` |
+| `value` | decimal | Yes | — | New mark value (0–40 for CW, 0–60 for Exam) |
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Mark saved inline",
+  "data": {
+    "id": 4521,
+    "field": "exam",
+    "new_value": 52,
+    "total_marks": 87,
+    "grade": "A"
+  }
+}
+```
+
+**Error Codes:**
+| Code | Meaning |
+|---|---|
+| `MARKS_LOCKED` | Record is `published` — cannot be edited |
+| `VALIDATION_ERROR` | `value` out of range, or `field` is not `cw` or `exam` |
+| `NOT_FOUND` | Record ID does not exist |
+
+> The `field` parameter must be exactly `"cw"` or `"exam"` (case-sensitive); any other value returns `VALIDATION_ERROR`.
+
+---
+
+### 4.25 Bulk Save Marks
+
+Saves provisional marks for multiple students in a single request. Supports partial updates (supply only `cw` or only `exam` to update one component while keeping the other). The teacher only needs access to the courses the records belong to.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=bulk_save_marks` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Request Body (JSON array in `marks` param or raw POST body):**
+
+```json
+[
+  {"id": 4521, "cw": 35, "exam": 52},
+  {"id": 4522, "cw": 28, "exam": 44},
+  {"id": 4523, "exam": 58}
+]
+```
+
+**Parameters per item:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | int | Yes | Registration record ID |
+| `cw` | decimal | No | Coursework marks (0–40) — omit to keep existing value |
+| `exam` | decimal | No | Exam marks (0–60) — omit to keep existing value |
+
+**Limits:** Maximum 500 records per request.
+
+**Status behaviour:** Same as single-record save — editing resets `approved` → `pending`; `published` records are skipped.
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Bulk save complete: 3 saved, 0 skipped, 0 errors",
+  "data": {
+    "saved": 3,
+    "skipped": 0,
+    "errors": 0,
+    "total_submitted": 3,
+    "detail": [
+      {"id": 4521, "cw_marks": 35, "exam_marks": 52, "total_marks": 87, "grade": "A"},
+      {"id": 4522, "cw_marks": 28, "exam_marks": 44, "total_marks": 72, "grade": "B+"},
+      {"id": 4523, "cw_marks": 32, "exam_marks": 58, "total_marks": 90, "grade": "A"}
+    ]
+  }
+}
+```
+
+Each `detail` entry is one of:
+- `{ "id": ..., "cw_marks": ..., "exam_marks": ..., "total_marks": ..., "grade": ... }` — saved
+- `{ "id": ..., "skipped": "reason" }` — skipped (published, not found, or no data supplied)
+- `{ "id": ..., "error": "reason" }` — validation or DB error
+
+---
+
+### 4.26 Provisional Marks Summary (Per Course)
+
+Returns a per-course summary of mark entry progress and workflow status counts for all courses the teacher is assigned to.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=provisional_marks_summary` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `acad_year` | string | No | all | Filter by academic year |
+| `semester` | int | No | all | Filter by semester |
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "total_courses": 3,
+    "total_students": 120,
+    "totals": {
+      "not_entered": 10,
+      "pending": 80,
+      "approved": 20,
+      "rejected": 2,
+      "published": 8,
+      "ready_to_publish": 82
+    },
+    "courses": [
+      {
+        "course_code": "CSC1101",
+        "course_name": "Introduction to Computing",
+        "programme_name": "Bachelor of Computer Science",
+        "programme_code": "BCS",
+        "acad_year": "2024/2025",
+        "semester": 1,
+        "total_students": 45,
+        "not_entered": 3,
+        "partially_entered": 5,
+        "fully_entered": 42,
+        "pending": 30,
+        "approved": 10,
+        "rejected": 1,
+        "published": 4,
+        "ready_to_publish": 31
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 4.27 Mark Stats Dashboard
+
+Returns overall dashboard statistics for the teacher across all assigned courses, plus a per-course breakdown. Ideal for the app home screen.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=mark_stats` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `acad_year` | string | No | all | Filter by academic year |
+| `semester` | int | No | all | Filter by semester |
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "filter_acad_year": "2024/2025",
+    "filter_semester": 1,
+    "summary": {
+      "total_students": 120,
+      "total_courses": 3,
+      "total_programmes": 2,
+      "not_entered": 10,
+      "fully_entered": 110,
+      "pending_review": 80,
+      "approved": 20,
+      "rejected": 2,
+      "published": 8,
+      "ready_to_publish": 82
+    },
+    "courses": [
+      {
+        "course_code": "CSC1101",
+        "course_name": "Introduction to Computing",
+        "programme_name": "Bachelor of Computer Science",
+        "programme_code": "BCS",
+        "acad_year": "2024/2025",
+        "semester": 1,
+        "total_students": 45,
+        "not_entered": 3,
+        "fully_entered": 42,
+        "pending": 30,
+        "approved": 10,
+        "rejected": 1,
+        "published": 4,
+        "ready_to_publish": 31,
+        "avg_total": 71.4
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 4.28 Class List (Enhanced)
+
+Returns the student roster for a specific course with provisional mark status per student. Any authenticated staff member can call this — no course assignment required.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=class_list` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `course_id` | string | Yes | — | Course code |
+| `acad_year` | string | Yes | — | Academic year e.g. `2025/2026` |
+| `semester` | int | No | 1 | Semester |
+| `progid` | string | No | all | Narrow to a specific programme code |
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "course_id": "ICT1108B",
+    "course_name": "INFORMATION COMMUNICATION TECHNOLOGY",
+    "credit_units": 3,
+    "acad_year": "2025/2026",
+    "semester": 2,
+    "total_students": 45,
+    "marks_summary": {
+      "entered": 42,
+      "not_entered": 3,
+      "pending": 30,
+      "approved": 10,
+      "rejected": 1,
+      "published": 4
+    },
+    "students": [
+      {
+        "registration_id": 133168,
+        "regno": "MRU2025002331",
+        "entry_no": "25/U/BAED/0021/K/DAY",
+        "firstname": "ANGEL",
+        "othername": "NAMUBIRU",
+        "student_name": "ANGEL NAMUBIRU",
+        "gender": "FEMALE",
+        "session": "Day",
+        "programme_code": "BAED",
+        "cw_marks": null,
+        "exam_marks": null,
+        "total_marks": null,
+        "grade": null,
+        "mark_status": "not_entered",
+        "ready_to_publish": 0
+      }
+    ]
+  }
+}
+```
+
+**Note:** This endpoint queries the portal database (`acad_course_registration`) and will return 0 students if marks have not been initialized for this course/year/semester.
+
+---
+
+### 4.29 Student Search
+
+Live student search for use before filtering marks. Returns up to 100 students whose name, entry number, or registration number matches the query, ordered by closest match. Designed for a "pick a student" dialog before calling `provisional_marks_list?student_regno=...`.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=student_search` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `q` | string | No | — | Search query — matches name, entry number, or regno. If omitted, returns first `size` students alphabetically |
+| `prog` | string | No | all | Narrow to a specific programme code e.g. `BAED` |
+| `size` | int | No | 30 | Number of results (min 10, max 100) |
+
+**Result ordering (when `q` is provided):**
+1. Exact entry number or regno match
+2. Entry number or regno starts with `q`
+3. Full name starts with `q`
+4. Contains `q` anywhere
+
+**Response fields per student:**
+
+| Field | Description |
+|---|---|
+| `regno` | Internal registration number — use as `student_regno` in `provisional_marks_list` |
+| `entry_no` | Human-readable entry number e.g. `25/U/BAED/0021/K/DAY` |
+| `student_name` | Full name (firstname + othername) |
+| `firstname` | First name |
+| `othername` | Other names / surname |
+| `gender` | `MALE` or `FEMALE` |
+| `session` | `Day` or `Evening` |
+| `programme_code` | Programme code e.g. `BAED` |
+| `programme_name` | Full programme name |
+| `student_status` | `Active`, `Completed`, etc. |
+| `photo_url` | Relative path to the photo — prepend `https://eadmin.mru.ac.ug` for the full URL. `null` if no photo uploaded |
+
+**Example Requests:**
+```bash
+# Search by name (live search — debounce 300ms)
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=student_search&token=abc123&q=Angel"
+
+# Search by entry number prefix
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=student_search&token=abc123&q=25/U/BAED"
+
+# Narrow to one programme, first 30 students alphabetically
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=student_search&token=abc123&prog=BAED"
+```
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "count": 2,
+    "query": "Angel",
+    "results": [
+      {
+        "regno": "MRU2025002331",
+        "entry_no": "25/U/BAED/0021/K/DAY",
+        "student_name": "ANGEL NAMUBIRU",
+        "firstname": "ANGEL",
+        "othername": "NAMUBIRU",
+        "gender": "FEMALE",
+        "session": "Day",
+        "programme_code": "BAED",
+        "programme_name": "Bachelor of Arts in Education",
+        "student_status": "Active",
+        "photo_url": "/COOPERP/StudentInfo/photos/7391842.jpg"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 4.30 Course Allocation Search
+
+Search the full course catalogue to find which `acad_programmecourses` rows a lecturer can allocate themselves to. Use this as the **picker** before calling `course_allocation_submit`. Returns up to 100 rows showing current assignment state and whether the caller has already claimed a course.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=course_allocation_search` |
+| **Method** | `GET` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `q` | string | No | — | Free-text search — matches course code, course name, or programme name |
+| `semester` | int | No | all | Filter by semester (`1` or `2`) |
+| `size` | int | No | 50 | Max results (1–100) |
+
+**Response fields per course:**
+
+| Field | Type | Description |
+|---|---|---|
+| `programme_course_id` | string | Primary key of `acad_programmecourses` — required for submit and unassign |
+| `course_code` | string | Course code e.g. `ICT1108B` |
+| `course_name` | string | Full course name |
+| `programme_code` | string | Programme code e.g. `BAED` |
+| `programme_name` | string | Full programme name |
+| `specialisation` | string | Specialisation name (empty string if none) |
+| `study_year` | string | Year of study (`1`, `2`, etc.) |
+| `semester` | string | Semester (`1` or `2`) |
+| `is_assigned` | bool | `true` if this course context is currently assigned to any lecturer |
+| `current_lecturer` | string\|null | Name and code of currently assigned lecturer, or `null` if none |
+| `already_mine` | bool | `true` if this course is already allocated to the calling lecturer |
+| `can_allocate` | bool | `true` if the caller can allocate themselves (= `!already_mine`) |
+| `allocation_request_status` | string | `Yes` or `No` — whether a request was filed |
+| `allocation_request_admin_status` | string | `Approved`, `Pending`, or `Rejected` |
+
+**Example Request:**
+```bash
+# Search for courses matching "ICT"
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=course_allocation_search&token=abc123&q=ICT"
+
+# All semester-1 courses (first 50)
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=course_allocation_search&token=abc123&semester=1"
+```
+
+**Success Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 2,
+    "courses": [
+      {
+        "programme_course_id": "142",
+        "course_code": "ICT1108B",
+        "course_name": "Introduction to ICT",
+        "programme_code": "BAED",
+        "programme_name": "Bachelor of Arts in Education",
+        "specialisation": "",
+        "study_year": "1",
+        "semester": "1",
+        "is_assigned": false,
+        "current_lecturer": null,
+        "already_mine": false,
+        "can_allocate": true,
+        "allocation_request_status": "No",
+        "allocation_request_admin_status": "Pending"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 4.31 Course Allocation Submit (Self-Allocate)
+
+Allocate the calling lecturer to one or more course contexts. The allocation is **immediate and auto-approved** — no admin step is required. A lecturer can only allocate themselves; they cannot allocate another lecturer.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=course_allocation_submit` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `programme_course_ids` | string | Yes | — | Comma-separated list of `programme_course_id` values from `course_allocation_search` |
+| `message` | string | Yes | — | Brief reason for the allocation (max 1000 chars). Stored for audit. |
+
+**How it works:**
+- For each ID: the system checks the current `acad_programmecourses` row
+- If already allocated to the calling lecturer → counted as `already_mine`, skipped
+- If not found → counted as `not_found`, skipped
+- Otherwise → sets `lecturer_id`, `is_lecturere_assigned = 'Yes'`, and marks as `Approved`
+- All changes are committed in a single transaction
+
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `assigned_count` | int | How many course contexts were newly allocated |
+| `already_mine_count` | int | How many were skipped (already yours) |
+| `not_found_count` | int | How many IDs were not found in the database |
+| `skipped_count` | int | How many had no rows affected (edge case) |
+| `message` | string | Human-readable summary |
+
+**Example Request:**
+```bash
+curl -X POST "https://eadmin.mru.ac.ug/API/v2/staff.aspx" \
+  -d "action=course_allocation_submit" \
+  -d "token=abc123" \
+  -d "programme_course_ids=142,143" \
+  -d "message=I am the assigned lecturer for this course this semester"
+```
+
+**Success Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "assigned_count": 2,
+    "already_mine_count": 0,
+    "not_found_count": 0,
+    "skipped_count": 0,
+    "message": "2 courses allocated."
+  }
+}
+```
+
+**Error — already yours:**
+```json
+{
+  "status": "error",
+  "message": "All selected courses are already allocated to you.",
+  "code": "NO_CHANGE"
+}
+```
+
+---
+
+### 4.32 Course Unassign (Remove Self-Allocation)
+
+Remove the calling lecturer from a course they are currently assigned to. A lecturer can only unassign themselves from their own courses — they cannot unassign someone else.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=course_unassign` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid staff API token |
+| `programme_course_id` | int | Yes | The `programme_course_id` from `course_allocation_search` or `my_courses` |
+
+**What it clears:** `lecturer_id`, `is_lecturere_assigned`, `allocation_request_status`, `allocation_request_lecturer_id`, `allocation_request_date`, `allocation_request_message`, `allocation_request_admin_status`, `allocation_request_admin_message` are all reset to their default empty/NULL state.
+
+**Example Request:**
+```bash
+curl -X POST "https://eadmin.mru.ac.ug/API/v2/staff.aspx" \
+  -d "action=course_unassign" \
+  -d "token=abc123" \
+  -d "programme_course_id=142"
+```
+
+**Success Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "message": "Course unassigned successfully."
+  }
+}
+```
+
+**Error — not your course:**
+```json
+{
+  "status": "error",
+  "message": "This course is not currently assigned to you.",
+  "code": "NOT_FOUND"
+}
+```
+
+---
+
+### 4.33 Course Registration Summary (KPIs)
+
+Returns aggregate counts for student enrolments in the lecturer's courses. Use this for a dashboard-style header above the student list.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=course_reg_summary` |
+| **Method** | `GET` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `acad_year` | string | No | all | Filter by academic year e.g. `2024/2025` |
+| `semester` | int | No | all | `1` or `2` |
+| `programme_code` | string | No | all | Programme code e.g. `BAED` |
+| `course_code` | string | No | all | Single course code e.g. `ICT1108B` |
+
+**Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "total_registration_rows": 240,
+    "total_students": 198,
+    "total_unique_courses": 4,
+    "total_programmes": 3,
+    "pending_rows": 12,
+    "approved_rows": 228
+  }
+}
+```
+
+Results are automatically restricted to courses assigned to the calling lecturer. If the lecturer has no assigned courses, all counts return 0.
+
+---
+
+### 4.34 Course Registration List (Students)
+
+Paginated list of students registered in the lecturer's courses, grouped by student + year + semester.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=course_reg_list` |
+| **Method** | `GET` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `acad_year` | string | No | all | Filter by academic year |
+| `semester` | int | No | all | `1` or `2` |
+| `programme_code` | string | No | all | Filter by programme |
+| `course_code` | string | No | all | Show only students registered for this specific course |
+| `search` | string | No | — | Free text — matches regno, entry_no, name, or programme |
+| `page` | int | No | 1 | Page number |
+| `size` | int | No | 50 | Results per page (max 200) |
+
+**Response fields per student row:**
+
+| Field | Description |
+|---|---|
+| `regno` | Internal registration number |
+| `entry_no` | Human-readable entry number e.g. `25/U/BAED/0021/K/DAY` |
+| `student_name` | Full name |
+| `programme_code` | e.g. `BAED` |
+| `programme_name` | Full programme name |
+| `enrolled_courses` | Comma-separated list of course codes this student is enrolled in (within the lecturer's courses only) |
+| `course_count` | Number of the lecturer's courses this student is in |
+| `acad_year` | Academic year |
+| `semester` | Semester |
+| `study_year` | Year of study |
+| `pending_count` | How many of this student's enrolments have status `PENDING` |
+
+**Example:**
+```bash
+curl "https://eadmin.mru.ac.ug/API/v2/staff.aspx?action=course_reg_list&token=abc123&acad_year=2024/2025&semester=1&size=50"
+```
+
+**Success Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 198,
+    "page": 1,
+    "size": 50,
+    "pages": 4,
+    "students": [
+      {
+        "regno": "MRU2025002331",
+        "entry_no": "25/U/BAED/0021/K/DAY",
+        "student_name": "NAMUBIRU ANGEL",
+        "programme_code": "BAED",
+        "programme_name": "Bachelor of Arts in Education",
+        "enrolled_courses": "ICT1108B, ICT2201A",
+        "course_count": "2",
+        "acad_year": "2024/2025",
+        "semester": "1",
+        "study_year": "1",
+        "pending_count": "0"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 4.35 Validate Student (Before Enrolment)
+
+Look up a student by regno and return their name, programme, and list of semester registration records. Call this first to confirm the student exists and to pick which registration period to enrol them under.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=course_reg_validate_student` |
+| **Method** | `GET` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid staff API token |
+| `regno` | string | Yes | Student registration number |
+
+**Success Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "regno": "MRU2025002331",
+    "student_name": "NAMUBIRU ANGEL",
+    "entry_no": "25/U/BAED/0021/K/DAY",
+    "programme": "BAED - Bachelor of Arts in Education",
+    "programme_code": "BAED",
+    "registrations": [
+      {
+        "registration_id": 5892,
+        "acad_year": "2024/2025",
+        "semester": 1,
+        "study_year": 1,
+        "reg_status": "REGISTERED",
+        "programme_name": "Bachelor of Arts in Education",
+        "label": "2024/2025 — Sem 1, Year 1 [REGISTERED]"
+      }
+    ]
+  }
+}
+```
+
+**Error — not found:**
+```json
+{ "status": "error", "message": "Student not found.", "code": "NOT_FOUND" }
+```
+
+Pass the `registration_id` from this response into `course_reg_enroll` for the cleanest, safest enrolment.
+
+---
+
+### 4.36 Enrol Student to Course
+
+Enrol a student into one of the calling lecturer's assigned courses. The lecturer can only enrol students into their own allocated courses.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=course_reg_enroll` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters (two modes):**
+
+**Mode A — via registration_id (recommended):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid staff API token |
+| `regno` | string | Yes | Student registration number |
+| `course_id` | string | Yes | Course code e.g. `ICT1108B` |
+| `registration_id` | int | Yes | From `course_reg_validate_student` — auto-fills acad_year + semester |
+
+**Mode B — manual (if no registration record):**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid staff API token |
+| `regno` | string | Yes | Student registration number |
+| `course_id` | string | Yes | Course code |
+| `acad_year` | string | Yes | e.g. `2024/2025` |
+| `semester` | int | Yes | `1`, `2`, or `3` |
+
+**Business rules enforced:**
+1. The calling lecturer must be assigned to `course_id` for the specified semester (checked against `acad_programmecourses`)
+2. The course must exist in `acad_course`
+3. The student must not already be enrolled for this course + year + semester
+
+**Success Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "message": "Student enrolled successfully.",
+    "regno": "MRU2025002331",
+    "course_id": "ICT1108B",
+    "acad_year": "2024/2025",
+    "semester": 1
+  }
+}
+```
+
+**Error Examples:**
+```json
+{ "status": "error", "message": "You can only enroll students to your allocated course(s) for the selected semester.", "code": "ACCESS_DENIED" }
+{ "status": "error", "message": "Student is already enrolled for this course in the selected period.", "code": "DUPLICATE" }
+{ "status": "error", "message": "Registration record not found.", "code": "NOT_FOUND" }
+```
+
+**Example Request (Mode A):**
+```bash
+curl -X POST "https://eadmin.mru.ac.ug/API/v2/staff.aspx" \
+  -d "action=course_reg_enroll" \
+  -d "token=abc123" \
+  -d "regno=MRU2025002331" \
+  -d "course_id=ICT1108B" \
+  -d "registration_id=5892"
+```
+
+---
+
+### 4.37 Student's Registered Courses
+
+Get the full list of courses a specific student is registered for, optionally filtered by year/semester.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=course_reg_student_courses` |
+| **Method** | `GET` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid staff API token |
+| `regno` | string | Yes | Student registration number |
+| `acad_year` | string | No | Filter by year |
+| `semester` | int | No | Filter by semester |
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "regno": "MRU2025002331",
+    "total": 3,
+    "courses": [
+      {
+        "course_code": "ICT1108B",
+        "course_name": "Introduction to ICT",
+        "credit_units": "3",
+        "status": "REGULAR",
+        "acad_year": "2024/2025",
+        "semester": "1"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 4.38 Course Registration Popularity
+
+Returns the top N courses by enrolment count, restricted to the lecturer's assigned courses.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=course_reg_popularity` |
+| **Method** | `GET` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `acad_year` | string | No | all | Filter by year |
+| `semester` | int | No | all | Filter by semester |
+| `programme_code` | string | No | all | Filter by programme |
+| `top` | int | No | 20 | Max results (1–100) |
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "total": 4,
+    "courses": [
+      {
+        "course_code": "ICT1108B",
+        "course_name": "Introduction to ICT",
+        "registration_count": "98",
+        "student_count": "98"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 4.39 Lecturer Mark Requests — List
+
+Returns all mark-change and missing-mark requests assigned to the authenticated lecturer, sourced from the student portal's `acad_marks_requests` table.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=lmr_requests` |
+| **Method** | `GET` or `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `token` | string | Yes | — | Valid staff API token |
+| `status` | string | No | `ALL` | Filter by status: `PENDING_LECTURER`, `PENDING_SUPERVISOR`, `PENDING_ADMIN`, `APPROVED`, `REJECTED`, or `ALL` |
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "total": 2,
+    "lecturer_has_supervisor": true,
+    "requests": [
+      {
+        "id": 14,
+        "regno": "2021/BCS/001",
+        "entry_no": "E2021001",
+        "student_name": "John Doe",
+        "course_id": "ICT2201",
+        "course_name": "Database Systems",
+        "acad_year": "2024/2025",
+        "semester": 1,
+        "request_type": "MISSING_MARK",
+        "student_reason": "My marks were not recorded after the exam.",
+        "status": "PENDING_LECTURER",
+        "lecturer_response": "",
+        "supervisor_response": "",
+        "admin_response": "",
+        "proposed_cw": null,
+        "proposed_exam": null,
+        "proposed_total": null,
+        "original_cw": null,
+        "original_exam": null,
+        "original_total": null,
+        "original_grade": "",
+        "created_at": "2025-03-10 09:14",
+        "updated_at": "2025-03-10 09:14",
+        "can_review": true
+      }
+    ]
+  },
+  "timestamp": "2025-03-10T09:20:00Z"
+}
+```
+
+**Status values:**
+
+| Status | Meaning |
+|---|---|
+| `PENDING_LECTURER` | Awaiting lecturer action — use `lmr_respond` or `lmr_reject` |
+| `PENDING_SUPERVISOR` | Lecturer responded; awaiting supervisor sign-off |
+| `PENDING_ADMIN` | Awaiting registry/admin approval |
+| `APPROVED` | Fully approved; marks published |
+| `REJECTED` | Request rejected at some stage |
+
+**Request types:**
+
+| `request_type` | Meaning | Lecturer action |
+|---|---|---|
+| `MISSING_MARK` | Student says marks are absent from the system | Lecturer enters CW (required) + Exam (optional); request auto-approved on submit |
+| `MARK_CHANGE` | Student disputes an existing mark | Lecturer enters corrected CW + Exam; request forwards to supervisor |
+
+**Notes:**
+- `can_review: true` means the request is `PENDING_LECTURER` and the lecturer can act on it.
+- `lecturer_has_supervisor: true` means the lecturer's profile has a supervisor assigned. For `MARK_CHANGE` requests, this determines whether the next step is `PENDING_SUPERVISOR` or `PENDING_ADMIN`.
+- Marks fields: `original_*` = current marks on file; `proposed_*` = lecturer's proposed marks.
+
+---
+
+### 4.40 Lecturer Mark Requests — Respond
+
+Submits the lecturer's response to a mark request. For `MISSING_MARK`, the request is approved immediately and marks are published to `acad_results`. For `MARK_CHANGE`, the request advances to `PENDING_SUPERVISOR` (if supervisor assigned) or `PENDING_ADMIN`.
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=lmr_respond` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid staff API token |
+| `request_id` | int | Yes | ID of the mark request (from `lmr_requests`) |
+| `proposed_cw` | int | Conditional | Coursework mark (0–40). Required for `MISSING_MARK`; required for `MARK_CHANGE`. |
+| `proposed_exam` | int | Conditional | Exam mark (0–60). Required for `MARK_CHANGE`; optional for `MISSING_MARK` (some courses have no exam). |
+| `response` | string | No | Lecturer's comment/explanation (optional but recommended) |
+
+**Validation rules:**
+- `proposed_cw` must be 0–40 if provided.
+- `proposed_exam` must be 0–60 if provided.
+- For `MARK_CHANGE`: **both** `proposed_cw` and `proposed_exam` are required.
+- For `MISSING_MARK`: `proposed_cw` is required; `proposed_exam` is optional.
+
+**Response (MISSING_MARK — marks published):**
+```json
+{
+  "success": true,
+  "message": "Response submitted. Marks have been published and the request is now approved.",
+  "data": {
+    "request_id": 14,
+    "next_status": "APPROVED",
+    "marks_published": true,
+    "published_total": 72
+  }
+}
+```
+
+**Response (MARK_CHANGE — forwarded to supervisor):**
+```json
+{
+  "success": true,
+  "message": "Response submitted. The request has been forwarded to your supervisor for review.",
+  "data": {
+    "request_id": 7,
+    "next_status": "PENDING_SUPERVISOR"
+  }
+}
+```
+
+**Error codes:**
+
+| Error Code | Meaning |
+|---|---|
+| `NOT_FOUND` | Request does not exist, is not assigned to you, or is not in `PENDING_LECTURER` status |
+| `VALIDATION_ERROR` | Mark out of range, or required mark missing for request type |
+| `CONFLICT` | Concurrent update: request was already processed |
+| `ACCESS_DENIED` | Not a staff token, or staff profile not found |
+
+---
+
+### 4.41 Lecturer Mark Requests — Reject
+
+Rejects a mark request with a mandatory reason. Sets status to `REJECTED`. Requires the lecturer's staff profile to have a supervisor assigned (matching the portal's enforcement policy).
+
+| Property | Value |
+|---|---|
+| **URL** | `staff.aspx?action=lmr_reject` |
+| **Method** | `POST` |
+| **Auth Required** | Yes (staff only) |
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `token` | string | Yes | Valid staff API token |
+| `request_id` | int | Yes | ID of the mark request to reject |
+| `reason` | string | Yes | Rejection reason (minimum 10 characters) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Request rejected successfully.",
+  "data": {
+    "request_id": 14
+  }
+}
+```
+
+**Error codes:**
+
+| Error Code | Meaning |
+|---|---|
+| `NOT_FOUND` | Request not found, not assigned to you, or not in `PENDING_LECTURER` status |
+| `VALIDATION_ERROR` | `reason` is fewer than 10 characters |
+| `ACCESS_DENIED` | No supervisor assigned to staff profile (required for rejection) |
+| `MISSING_PARAM` | `request_id` not provided or 0 |
+
+**Notes:**
+- The rejection reason is stored in `lecturer_response` and is visible to the student and admin.
+- A supervisor must be assigned on the staff profile to reject. This is a policy constraint from the portal — if no supervisor is assigned, neither approval nor rejection can proceed through this workflow.
+- After rejection, the student sees the request as `REJECTED` with the provided reason.
 
 ---
 
@@ -4956,7 +6169,6 @@ Where:
 | `acad_teaching_assignments` | campus_dynamics | New marks-module teaching assignments (teacher_username, course_id, progid) |
 | `acad_examresults_faculty` | campus_dynamics | Entry-level marks (teacher working data before approval) |
 | `acad_results_status` | campus_dynamics | Marks workflow status (DRAFT → SUBMITTED → DEAN_APPROVED → PUBLISHED) |
-| `acad_deadlines` | campus_dynamics | Mark submission deadlines per activity/campus/session |
 | `acad_faculty` | campus_dynamics | Academic faculties (fax_code, faculty_name) |
 | `acad_calender` | campus_dynamics | Academic calendar (academic_year, is_current) |
 | `acad_campuses` | campus_dynamics | Campus locations |
@@ -5090,15 +6302,28 @@ The following stored procedures are used and must exist in the database:
 | `staff.aspx` | `profile` | GET/POST | Token | Staff full profile |
 | `staff.aspx` | `photo` | GET/POST | Token | Staff photo URL |
 | `staff.aspx` | `my_courses` | GET/POST | Token (staff) | Teaching allocations |
-| `staff.aspx` | `class_list` | GET/POST | Token (staff) | Students in a course |
+| `staff.aspx` | `class_list` | GET/POST | Token (staff) | Students in a course with mark status |
 | `staff.aspx` | `marks` | GET/POST | Token (staff) | View course marks |
 | `staff.aspx` | `submit_marks` | POST | Token (staff) | Submit/update marks |
-| `staff.aspx` | `teaching_assignments` | GET/POST | Token (staff) | Teaching assignments (new + legacy) |
+| `staff.aspx` | `filter_options` | GET/POST | Token (staff) | Filter dropdown data (years, programmes, courses, statuses) |
+| `staff.aspx` | `all_courses` | GET/POST | Token (staff) | Full course catalogue — searchable by ?q=, no assignment restriction |
+| `staff.aspx` | `student_search` | GET/POST | Token (staff) | Live student search by name / entry number / regno — returns photo, programme, entry_no |
+| `staff.aspx` | `course_allocation_search` | GET | Token (staff) | Search course catalogue to pick courses for self-allocation |
+| `staff.aspx` | `course_allocation_submit` | POST | Token (staff) | Self-allocate to one or more courses (immediate, auto-approved) |
+| `staff.aspx` | `course_unassign` | POST | Token (staff) | Remove self from a course allocation |
+| `staff.aspx` | `course_reg_summary` | GET | Token (staff) | KPI counts for students enrolled in lecturer's courses |
+| `staff.aspx` | `course_reg_list` | GET | Token (staff) | Paginated list of students enrolled in lecturer's courses |
+| `staff.aspx` | `course_reg_validate_student` | GET | Token (staff) | Look up student + get registration options before enrolment |
+| `staff.aspx` | `course_reg_enroll` | POST | Token (staff) | Enrol a student into one of the lecturer's courses |
+| `staff.aspx` | `course_reg_student_courses` | GET | Token (staff) | All courses a specific student is registered for |
+| `staff.aspx` | `course_reg_popularity` | GET | Token (staff) | Top N courses by enrolment count (lecturer's courses only) |
+| `staff.aspx` | `lmr_requests` | GET | Token (staff) | List all mark-change/missing-mark requests assigned to lecturer |
+| `staff.aspx` | `lmr_respond` | POST | Token (staff) | Respond to a PENDING_LECTURER request with proposed marks |
+| `staff.aspx` | `lmr_reject` | POST | Token (staff) | Reject a PENDING_LECTURER request with a reason |
 | `staff.aspx` | `mark_sheet` | GET/POST | Token (staff) | Entry-level mark sheet |
 | `staff.aspx` | `save_entry_marks` | POST | Token (staff) | Save marks to faculty table |
 | `staff.aspx` | `submit_for_approval` | POST | Token (staff) | Submit sheet for dean approval |
 | `staff.aspx` | `sheet_status` | GET/POST | Token (staff) | Marks workflow status |
-| `staff.aspx` | `deadlines` | GET/POST | Token (staff) | Submission deadlines |
 | `staff.aspx` | `lookup` | GET/POST | Token | 🆕 Find staff by email (ODEL) |
 | `staff.aspx` | `by_department` | GET/POST | Token | 🆕 Staff in a department (ODEL) |
 | `academic.aspx` | `results` | GET/POST | Token | Student results |
@@ -7125,6 +8350,116 @@ The API response fields use the semantic names (e.g. `olevel_year`, `alevel_poin
 
 ---
 
-*Last updated: May 2026*  
-*API Version: 2.3 (Application Lifecycle Release — 25 new applicant endpoints + 11 admissions management endpoints)*  
+## 15. ID Card Management (idcard.aspx)
+
+Complete control of the ID-card lifecycle: request → finance check → submit → approve/halt → printed → ready → collected. Every write flows through the **one audited state machine** (`IDCardService.Transition`) shared by the eportal wizard, the eadmin console, and this API — so all changes are validated and recorded in `idcard_request_events`.
+
+**Base URL:** `https://eadmin.mru.ac.ug/API/v2/idcard.aspx`
+**Auth:** `Authorization: Bearer <token>` on every call.
+**Envelope:** standard v2 — `{ "success", "message", "data", "error_code", "timestamp" }`. Payloads are under `data`.
+
+### 15.1 Authorisation
+
+| Group | Endpoints | Allowed token types |
+|---|---|---|
+| Read | `queue`, `detail`, `stats`, `windows`, `meta`, `export` | `staff`, `idcard_operator`, `admin` (students: own `detail` + self-service only) |
+| Write | `approve`, `halt`, `printed`, `ready`, `collected`, `cancel`, `batch` | `idcard_operator`, `admin` |
+| Windows | `window_create`, `window_activate`, `window_close` | `idcard_operator`, `admin` |
+| Self-service | `my`, `identity`, `finance`, `create`, `submit`, `cancel_own` | the token owner (student/staff) on their own record |
+
+Operator/admin token types are minted at login for accounts listed in web.config `appSettings`:
+```xml
+<add key="IDCard.OperatorUsers" value="xaxu_svc,registry_id" />
+<add key="IDCard.AdminUsers" value="idcard_admin" />
+```
+These should be **dedicated operator/service accounts** (e.g. the XAXU integration user). Human Registry staff manage cards through the eadmin console (session-authenticated). Unauthorised calls return `FORBIDDEN`.
+
+### 15.2 Statuses & transitions
+
+`REQUESTED → FINANCE_CHECK → (SUBMITTED | BLOCKED) → SUBMITTED → (APPROVED | HALTED) → PRINTED → READY → COLLECTED` (plus `CANCELLED`). Terminal: `COLLECTED`, `CANCELLED`. Call `action=meta` for the machine-readable status list, legal transition map, action→status map, and filter enums.
+
+### 15.3 Read endpoints
+
+**`GET ?action=queue`** — paginated, filterable, sortable list.
+
+| Param | Notes |
+|---|---|
+| `status` | single or CSV (e.g. `SUBMITTED,APPROVED`) → `IN` |
+| `type` | `STUDENT` \| `STAFF` |
+| `card_type` | `NEW` \| `REPLACEMENT` |
+| `q` | request no / student no / name search |
+| `date_from`, `date_to` | on `created_at` (`YYYY-MM-DD`) |
+| `window_id` | requests tied to a request window |
+| `finance` | `ok` \| `below` \| `flagged` |
+| `has_replacement_fee` | `1` \| `0` |
+| `page`, `page_size` | 1-based; `page_size` max 200 (default 50) |
+| `sort` | `created_at` \| `submitted_at` \| `updated_at` \| `status` \| `request_no` |
+| `order` | `asc` \| `desc` |
+
+```json
+{ "success": true, "message": "OK",
+  "data": {
+    "rows": [ { "requestNo":"IDR-2026-000003", "type":"STUDENT", "cardType":"NEW",
+                "status":"SUBMITTED", "number":"27/U/BAED/0001/K/DAY", "name":"SABIA BIIRA MUTHEKE",
+                "createdAt":"...", "submittedAt":"...", "updatedAt":"..." } ],
+    "total": 3, "page": 1, "pages": 1, "page_size": 50,
+    "has_prev": false, "has_next": false, "from": 1, "to": 3 } }
+```
+
+**`GET ?action=detail&request_no=IDR-2026-000003`** — `data:{ request, identity, finance, timeline }`.
+**`GET ?action=stats[&date_from=&date_to=]`** — funnel counts + `byType` + `byCard`.
+**`GET ?action=windows`** — request windows.
+**`GET ?action=meta`** — statuses, transitions, actions, filter enums.
+**`GET ?action=export[&<queue filters>]`** — CSV download of the filtered set (up to 10,000 rows).
+
+### 15.4 Single lifecycle operations (operator/admin)
+
+`POST ?action=<approve|halt|printed|ready|collected|cancel>&request_no=IDR-...`
+- `halt` requires `reason`.
+- `ready` accepts `collection_point`.
+- Illegal transitions return `INVALID_TRANSITION` (via the funnel); response `data:{ status }`.
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOK" \
+  "https://eadmin.mru.ac.ug/API/v2/idcard.aspx?action=approve&request_no=IDR-2026-000003"
+```
+
+### 15.5 Batch operations (operator/admin)
+
+`POST ?action=batch&batch_action=<approve|halt|printed|ready|collected|cancel>&request_nos=IDR-1,IDR-2,...`
+- `request_nos` accepts CSV **or** a JSON array. Max **500** per call (`BATCH_TOO_LARGE`).
+- Shared `reason` / `collection_point` apply to all. Each item runs independently through the funnel; incompatible states fail per-item (partial success allowed).
+
+```json
+{ "success": true, "message": "OK",
+  "data": { "ok": 8, "fail": 2, "total": 10,
+    "results": [ { "request_no":"IDR-2026-000123", "ok":true, "status":"APPROVED", "message":"" },
+                 { "request_no":"IDR-2026-000124", "ok":false, "status":"", "message":"Illegal transition ..." } ] } }
+```
+
+### 15.6 Windows management (operator/admin)
+
+- `POST ?action=window_create&title=&scope=BOTH|STUDENT|STAFF&opens_at=&closes_at=[&notes=]`
+- `POST ?action=window_activate&id=NN` · `POST ?action=window_close&id=NN`
+
+While no window exists, requests are open; once one exists, requests are only accepted inside an active window.
+
+### 15.7 Self-service (card owner)
+
+- `GET ?action=my` — the caller's current request + timeline.
+- `GET ?action=identity` · `GET ?action=finance` (students).
+- `POST ?action=create&card_type=NEW|REPLACEMENT&photo_confirmed=1&guidelines_ack=1`.
+- `POST ?action=submit&request_no=...[&repl_ref=&repl_date=&repl_method=&repl_notes=]` (finance gate; replacement-fee proof for replacements).
+- `POST ?action=cancel_own&request_no=...`.
+
+Self-service acts only on the caller's own record (verified server-side); acting on another's returns `FORBIDDEN`.
+
+### 15.8 Error codes
+
+`MISSING_PARAM`, `INVALID_ACTION`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_TRANSITION`, `WINDOW_CLOSED`, `FINANCE_BLOCKED`, `BATCH_TOO_LARGE`, `REQUEST_FAILED`, `RATE_LIMITED`, `SERVER_ERROR`.
+
+---
+
+*Last updated: July 2026*  
+*API Version: 2.4 (ID Card Management Release — full lifecycle: queue/detail/stats/meta/export, single + batch operations, windows, self-service)*  
 *Server: ASP.NET Web Forms on IIS — https://eadmin.mru.ac.ug/API/v2/*

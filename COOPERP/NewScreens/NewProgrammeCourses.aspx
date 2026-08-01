@@ -86,6 +86,24 @@
 .pc-mcard__actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
 .pc-mobile-list .pc-empty { grid-column:1 / -1; }
 
+/* ── Batch selection ────────────────────────────────────────── */
+.pc-check { display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+.pc-check input { width:16px; height:16px; cursor:pointer; accent-color:#174DA4; margin:0; }
+.pc-mcard__head { align-items:center; }
+.pc-mcard.is-sel { border-color:#174DA4; box-shadow:0 0 0 2px rgba(23,77,164,.18); background:#fbfcff; }
+.pc-selall { display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:700; color:#05275C; font-size:11px; }
+.pc-selall input { width:15px; height:15px; accent-color:#174DA4; cursor:pointer; margin:0; }
+
+/* ── Sticky bulk-action bar ─────────────────────────────────── */
+.pc-bulkbar { position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(20px); z-index:9500; display:flex; align-items:center; gap:10px; background:#05275C; color:#fff; padding:9px 13px; box-shadow:0 10px 34px rgba(0,0,0,.3); border-radius:6px; flex-wrap:wrap; max-width:96vw; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; }
+.pc-bulkbar.show { opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+.pc-bulkbar__count { font-size:12px; font-weight:800; background:rgba(255,255,255,.16); padding:5px 11px; border-radius:14px; white-space:nowrap; }
+.pc-bulkbar__sep { width:1px; height:22px; background:rgba(255,255,255,.22); }
+.pc-bulkbar .pc-btn { border-color:transparent; }
+.pc-bulkbar__x { background:none; border:none; color:#cdd8ee; cursor:pointer; font-size:12px; font-weight:700; text-decoration:underline; padding:4px 6px; }
+.pc-bulkbar__x:hover { color:#fff; }
+@media (max-width:640px){ .pc-bulkbar { left:8px; right:8px; bottom:8px; transform:none; max-width:none; justify-content:center; } .pc-bulkbar.show { transform:none; } }
+
 /* ── Pager ──────────────────────────────────────────────────── */
 .pc-pager { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 14px; border-top:1px solid #e0e5ed; background:#f8fafc; flex-wrap:wrap; font-size:11px; color:#4b5563; }
 .pc-pager__links { display:flex; gap:4px; flex-wrap:wrap; }
@@ -146,6 +164,31 @@
 .pc-sc-clear { margin-left:auto; background:none; border:none; color:#9ca3af; cursor:pointer; font-size:16px; line-height:1; padding:0 2px; }
 .pc-sc-clear:hover { color:#b42318; }
 
+/* ── Data Quality panel ─────────────────────────────────────── */
+.pc-btn--warn { background:#fff7e6; border-color:#f3d19a; color:#b45309; }
+.pc-btn--warn:hover { background:#fdeecb; }
+.dq-badge { display:inline-block; min-width:15px; padding:0 5px; margin-left:5px; font-size:10px; font-weight:800; color:#fff; background:#b42318; border-radius:9px; text-align:center; line-height:15px; }
+.dq-tabs { display:flex; gap:4px; border-bottom:2px solid #e0e5ed; margin-bottom:12px; }
+.dq-tab { padding:8px 14px; font-size:12px; font-weight:700; color:#6b7280; cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-2px; }
+.dq-tab.is-active { color:#05275C; border-bottom-color:#174DA4; }
+.dq-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+.dq-toolbar .pc-search { flex:1 1 220px; min-width:170px; }
+.dq-list { display:flex; flex-direction:column; gap:6px; }
+.dq-row { border:1px solid #e0e5ed; background:#fff; padding:9px 11px; display:flex; gap:10px; align-items:flex-start; font-size:12px; }
+.dq-row.is-sel { background:#eef3ff; border-color:#c7d8fb; }
+.dq-row__main { flex:1 1 auto; min-width:0; }
+.dq-code { font-family:Consolas,"Courier New",monospace; font-weight:700; color:#174DA4; }
+.dq-prog { display:inline-block; padding:1px 6px; background:#05275C; color:#fff; font-size:10px; font-weight:700; border-radius:2px; }
+.dq-muted { color:#6b7280; }
+.dq-warnrow { color:#b45309; font-size:11px; margin-top:3px; }
+.dq-usage { font-size:10px; font-weight:700; padding:1px 6px; border-radius:2px; margin-left:4px; }
+.dq-usage--live { background:#dcfce7; color:#166534; }
+.dq-usage--zero { background:#f3f4f6; color:#9ca3af; }
+.dq-row__actions { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.dq-repoint { display:flex; gap:4px; align-items:center; }
+.dq-slot { background:#f8fafc; border:1px solid #e0e5ed; padding:6px 10px; font-size:11px; font-weight:700; color:#05275C; margin-top:8px; }
+.dq-empty { padding:26px; text-align:center; color:#9ca3af; font-size:12px; }
+
 @media (max-width:900px) {
     .pc-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .pc-row-3 { grid-template-columns:1fr; }
@@ -204,7 +247,7 @@
         <asp:ListItem Value="4" /><asp:ListItem Value="5" /><asp:ListItem Value="6" />
     </asp:DropDownList>
     <asp:DropDownList ID="ddlSemester" runat="server" style="display:none">
-        <asp:ListItem Value="1" /><asp:ListItem Value="2" />
+        <asp:ListItem Value="1" /><asp:ListItem Value="2" /><asp:ListItem Value="3" />
     </asp:DropDownList>
     <asp:DropDownList ID="ddlCourseType" runat="server" style="display:none">
         <asp:ListItem Value="CORE" /><asp:ListItem Value="ELECTIVE" />
@@ -248,18 +291,22 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M2 12h20"/></svg>
                         Import from Allocations
                     </button>
-                    <input type="text" id="pcSearchInput" class="pc-search" placeholder="Search by programme, course code, name or specialisation&hellip;" oninput="filterPcTable(this.value)" />
-                    <select id="pcFilterYear" class="pc-select-sm" onchange="applyUrlFilter()" title="Filter by year">
+                    <button type="button" class="pc-btn pc-btn--warn pc-btn--sm" onclick="openDqPanel()" title="Review phantom &amp; duplicate course assignments">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        Data Quality<span class="dq-badge" id="dqTopBadge" style="display:none;">0</span>
+                    </button>
+                    <input type="text" id="pcSearchInput" class="pc-search" placeholder="Search by programme, course code, name or specialisation&hellip;" onkeydown="if(event.key==='Enter'){event.preventDefault();applyUrlFilter();}" />
+                    <select id="pcFilterYear" class="pc-select-sm" title="Filter by year">
                         <option value="">All Years</option>
                         <option value="1">Year 1</option><option value="2">Year 2</option>
                         <option value="3">Year 3</option><option value="4">Year 4</option>
                         <option value="5">Year 5</option><option value="6">Year 6</option>
                     </select>
-                    <select id="pcFilterSem" class="pc-select-sm" onchange="applyUrlFilter()" title="Filter by semester">
+                    <select id="pcFilterSem" class="pc-select-sm" title="Filter by semester">
                         <option value="">All Sem</option>
                         <option value="1">Sem 1</option><option value="2">Sem 2</option><option value="3">Sem 3</option>
                     </select>
-                    <select id="pcFilterAssigned" class="pc-select-sm" onchange="applyUrlFilter()" title="Filter by assignment">
+                    <select id="pcFilterAssigned" class="pc-select-sm" title="Filter by assignment">
                         <option value="">All Assigned</option>
                         <option value="Yes">Assigned = Yes</option>
                         <option value="No">Assigned = No</option>
@@ -275,24 +322,28 @@
                             <div class="sd-list" id="sdFLectList"></div>
                         </div>
                     </div>
-                    <select id="pcFilterType" class="pc-select-sm" onchange="applyUrlFilter()" title="Filter by type">
+                    <select id="pcFilterType" class="pc-select-sm" title="Filter by type">
                         <option value="">All Types</option>
                         <option value="CORE">Core</option><option value="ELECTIVE">Elective</option>
                     </select>
-                    <select id="pcFilterReq" class="pc-select-sm" onchange="applyUrlFilter()" title="Filter by allocation requests">
+                    <select id="pcFilterReq" class="pc-select-sm" title="Filter by allocation requests">
                         <option value="">All Requests</option>
                         <option value="pending">Pending Requests</option>
                         <option value="approved">Approved Requests</option>
                         <option value="rejected">Rejected Requests</option>
                         <option value="requested">Any Request</option>
                     </select>
+                    <button type="button" class="pc-btn pc-btn--primary pc-btn--sm" onclick="applyUrlFilter()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                        Apply Filters
+                    </button>
                     <button type="button" class="pc-btn pc-btn--sm" onclick="resetFilters()">Reset</button>
                 </div>
             </div>
         </div>
 
         <div class="pc-meta">
-            <span>Showing <strong><asp:Literal ID="litPageInfo" runat="server" Text="all records" /></strong></span>
+            <span><label class="pc-selall" title="Select all rows on this page"><input type="checkbox" id="pcSelectAll" onchange="pcToggleAll(this)"> Select page</label> &nbsp;&middot;&nbsp; Showing <strong><asp:Literal ID="litPageInfo" runat="server" Text="all records" /></strong></span>
             <span>Total: <strong><asp:Literal ID="litMetaTotal" runat="server" Text="0" /></strong></span>
         </div>
 
@@ -409,7 +460,7 @@
                 <div class="pc-fg">
                     <label>Semester <span class="req">*</span></label>
                     <select id="uiSemester" class="pc-ctrl" onchange="document.getElementById('<%= ddlSemester.ClientID %>').value=this.value">
-                        <option value="1">Semester 1</option><option value="2">Semester 2</option>
+                        <option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option>
                     </select>
                 </div>
                 <div class="pc-fg">
@@ -468,10 +519,15 @@
         </div>
         <div class="pc-modal__body">
             <div class="pc-alert pc-alert--error" id="batchResult"></div>
+            <input type="hidden" id="pcBulkSelectedIds" />
 
-            <div class="pc-fg">
+            <div class="pc-fg" id="batchIdsField">
                 <label>Programme Course IDs (comma/new line separated) <span class="req">*</span></label>
                 <textarea id="batchIds" class="pc-ctrl" style="height:100px;resize:vertical;" placeholder="Example: 101, 102, 120"></textarea>
+            </div>
+            <div class="pc-fg" id="batchSelSummary" style="display:none;">
+                <label>Selected Rows</label>
+                <div id="batchSelSummaryText" style="font-size:12px;background:#eef3ff;border:1px solid #c7d8fb;padding:9px 11px;color:#05275C;font-weight:600;"></div>
             </div>
 
             <div class="pc-row-3">
@@ -508,6 +564,56 @@
         <div class="pc-modal__foot">
             <button type="button" class="pc-btn pc-btn--sm" onclick="closeBatchModal()">Cancel</button>
             <button type="button" class="pc-btn pc-btn--primary pc-btn--sm" onclick="submitBatchAssignment()">Apply Batch Update</button>
+        </div>
+    </div>
+
+    <!-- ── Sticky bulk-action bar (appears when rows are selected) ── -->
+    <div class="pc-bulkbar" id="pcBulkBar">
+        <span class="pc-bulkbar__count" id="pcBulkCount">0 selected</span>
+        <span class="pc-bulkbar__sep"></span>
+        <button type="button" class="pc-btn pc-btn--primary pc-btn--sm" onclick="openBulkAssignModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            Assign lecturer
+        </button>
+        <button type="button" class="pc-btn pc-btn--danger pc-btn--sm" onclick="pcBulkUnassign()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="22" y2="13"/><line x1="22" y1="8" x2="17" y2="13"/></svg>
+            Unassign lecturer
+        </button>
+        <button type="button" class="pc-bulkbar__x" onclick="pcClearSelection()">Clear</button>
+    </div>
+
+    <!-- ── Data Quality Review ──────────────────────────────── -->
+    <div class="pc-overlay" id="pcDqOverlay"></div>
+    <div class="pc-modal" id="pcDqModal" style="max-width:1000px;max-height:92vh;">
+        <div class="pc-modal__head">
+            <h2 class="pc-modal__title">Data Quality Review</h2>
+            <button type="button" class="pc-modal__close" onclick="closeDqPanel()">&times;</button>
+        </div>
+        <div class="pc-modal__body">
+            <div class="pc-alert pc-alert--error" id="dqError"></div>
+            <p style="font-size:11px;color:#6b7280;margin:0 0 12px;">
+                Assignments with <strong>no students and no marks</strong>, or the <strong>same subject listed under several codes</strong> in one programme/year/semester.
+                <em>Safe-remove</em> is guarded &mdash; it never removes a row that has students, marks, or a lecturer, and every removal is kept in the quarantine table (reversible). <em>Re-point</em> moves a row to the programme where the course is really taken (also logged &amp; reversible).
+            </p>
+            <div class="dq-tabs">
+                <button type="button" class="dq-tab is-active" id="dqTabMis" onclick="dqSwitchTab('mis')">Mis-mapped <span class="dq-badge" id="dqBadgeMis">0</span></button>
+                <button type="button" class="dq-tab" id="dqTabSub" onclick="dqSwitchTab('sub')">Subject Duplicates <span class="dq-badge" id="dqBadgeSub">0</span></button>
+            </div>
+            <div class="dq-toolbar">
+                <input type="text" class="pc-search" id="dqSearch" placeholder="Search programme, course code or name&hellip;" onkeydown="if(event.key==='Enter'){event.preventDefault();dqReload();}" />
+                <button type="button" class="pc-btn pc-btn--sm" onclick="dqReload()">Search</button>
+                <button type="button" class="pc-btn pc-btn--danger pc-btn--sm" id="dqBulkRemove" style="display:none;" onclick="dqQuarantineSelected()">Safe-remove selected</button>
+                <span class="dq-muted" id="dqCount" style="margin-left:auto;"></span>
+            </div>
+            <div class="dq-list" id="dqList"><div class="dq-empty">Loading&hellip;</div></div>
+            <div class="pc-pager" id="dqPager" style="display:none;margin-top:12px;">
+                <button type="button" class="pc-btn pc-btn--sm" id="dqPrev" onclick="dqPage(-1)">Prev</button>
+                <span class="dq-muted" id="dqPageInfo" style="margin:0 10px;"></span>
+                <button type="button" class="pc-btn pc-btn--sm" id="dqNext" onclick="dqPage(1)">Next</button>
+            </div>
+        </div>
+        <div class="pc-modal__foot">
+            <button type="button" class="pc-btn pc-btn--sm" onclick="closeDqPanel()">Close</button>
         </div>
     </div>
 
@@ -1210,6 +1316,11 @@ function populateLecturerSelects(){
 /* ── Batch modal / ajax ───────────────────────────────────── */
 function openBatchModal(){
     var r=byId('batchResult'); r.innerHTML=''; r.classList.remove('show');
+    if(byId('pcBulkSelectedIds')) byId('pcBulkSelectedIds').value='';
+    if(byId('batchIdsField')) byId('batchIdsField').style.display='';
+    if(byId('batchSelSummary')) byId('batchSelSummary').style.display='none';
+    byId('batchIds').value='';
+    var t=document.querySelector('#pcBatchModal .pc-modal__title'); if(t) t.textContent='Batch Lecturer Assignment';
     byId('batchAssigned').value='No';
     byId('batchStatus').value='Active';
     if(SD&&SD['blect']) sdReset('blect'); byId('hdnBatchLecturerVal').value='';
@@ -1264,6 +1375,75 @@ function submitBatchAssignment(){
     .catch(function(err){ showBatchError('Batch update failed: '+(err&&err.message?err.message:'Unknown error')); });
 }
 
+/* ── Batch row selection + bulk actions ───────────────────── */
+var pcSel = {};
+function pcRowChks(){ return document.querySelectorAll('.pc-rowchk'); }
+function pcCardOf(cb){ return cb && cb.closest ? cb.closest('.pc-mcard') : null; }
+function pcToggleRow(cb){
+    var id=cb.getAttribute('data-id'); var card=pcCardOf(cb);
+    if(cb.checked){ pcSel[id]=cb.getAttribute('data-code')||id; if(card) card.classList.add('is-sel'); }
+    else { delete pcSel[id]; if(card) card.classList.remove('is-sel'); }
+    pcUpdateBulkBar();
+}
+function pcToggleAll(master){
+    var chks=pcRowChks();
+    for(var i=0;i<chks.length;i++){
+        chks[i].checked=master.checked;
+        var id=chks[i].getAttribute('data-id'); var card=pcCardOf(chks[i]);
+        if(master.checked){ pcSel[id]=chks[i].getAttribute('data-code')||id; if(card) card.classList.add('is-sel'); }
+        else { delete pcSel[id]; if(card) card.classList.remove('is-sel'); }
+    }
+    pcUpdateBulkBar();
+}
+function pcSelectedIds(){ var out=[]; for(var k in pcSel){ var n=parseInt(k,10); if(!isNaN(n)&&n>0) out.push(n); } return out; }
+function pcUpdateBulkBar(){
+    var ids=pcSelectedIds();
+    var bar=byId('pcBulkBar');
+    if(bar){ byId('pcBulkCount').textContent=ids.length+' selected'; if(ids.length>0) bar.classList.add('show'); else bar.classList.remove('show'); }
+    var m=byId('pcSelectAll');
+    if(m){ var total=pcRowChks().length; var checked=document.querySelectorAll('.pc-rowchk:checked').length; m.checked=total>0 && checked===total; m.indeterminate=checked>0 && checked<total; }
+}
+function pcClearSelection(){
+    pcSel={};
+    var chks=pcRowChks();
+    for(var i=0;i<chks.length;i++){ chks[i].checked=false; var card=pcCardOf(chks[i]); if(card) card.classList.remove('is-sel'); }
+    var m=byId('pcSelectAll'); if(m){ m.checked=false; m.indeterminate=false; }
+    pcUpdateBulkBar();
+}
+function openBulkAssignModal(){
+    var ids=pcSelectedIds();
+    if(ids.length===0){ showToast('Select at least one course row first.','warning'); return; }
+    byId('pcBulkSelectedIds').value=ids.join(',');
+    byId('batchIds').value=ids.join(',');
+    byId('batchIdsField').style.display='none';
+    byId('batchSelSummary').style.display='block';
+    byId('batchSelSummaryText').textContent='Applying to '+ids.length+' selected course row'+(ids.length===1?'':'s')+'.';
+    var t=document.querySelector('#pcBatchModal .pc-modal__title'); if(t) t.textContent='Assign Lecturer to Selected Rows';
+    var r=byId('batchResult'); r.innerHTML=''; r.classList.remove('show');
+    byId('batchAssigned').value='Yes'; onBatchAssignedFlagChange('Yes');
+    byId('batchStatus').value='Active';
+    if(SD&&SD['blect']) sdReset('blect'); byId('hdnBatchLecturerVal').value='';
+    byId('pcBatchOverlay').classList.add('show');
+    byId('pcBatchModal').classList.add('show');
+}
+function pcBulkUnassign(){
+    var ids=pcSelectedIds();
+    if(ids.length===0){ showToast('Select at least one course row first.','warning'); return; }
+    if(!confirm('Remove the lecturer from '+ids.length+' selected course assignment'+(ids.length===1?'':'s')+'?\n\nThe course rows are kept; only the lecturer is cleared.')) return;
+    fetch('NewProgrammeCourses.aspx/BatchAssignLecturers',{
+        method:'POST', headers:{'Content-Type':'application/json; charset=utf-8'},
+        body:JSON.stringify({request:{courseIds:ids, lecturerId:null, isAssigned:'No', status:'Active'}})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(payload){
+        var d=payload&&payload.d?payload.d:null;
+        if(!d || d.Success!==true){ showToast((d&&d.Message)||'Unassign failed.','danger'); return; }
+        showToast('Unassigned '+d.UpdatedCount+' record(s).','success');
+        setTimeout(function(){ window.location.reload(); }, 450);
+    })
+    .catch(function(){ showToast('Network error during unassign.','danger'); });
+}
+
 /* ── Helpers ──────────────────────────────────────────────── */
 function escH(s){var d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML;}
 function escA(s){return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
@@ -1290,6 +1470,130 @@ sdInit('prog',{toggleId:'sdProgToggle',panelId:'sdProgPanel',searchId:'sdProgSea
 sdInit('spec',{toggleId:'sdSpecToggle',panelId:'sdSpecPanel',searchId:'sdSpecSearch',listId:'sdSpecList',selectId:'<%= ddlSpecialisation.ClientID %>',data:[],placeholder:'-- Select Specialisation --'});
 sdInit('lect',{toggleId:'sdLectToggle',panelId:'sdLectPanel',searchId:'sdLectSearch',listId:'sdLectList',selectId:'<%= ddlLecturer.ClientID %>',data:[],placeholder:'-- Select Lecturer --',onChange:function(val){if(val){byId('<%= ddlIsLecturerAssigned.ClientID %>').value='Yes';if(byId('uiIsLecturerAssigned')) byId('uiIsLecturerAssigned').value='Yes';onAssignedFlagChange('Yes');}}});
 sdInit('blect',{toggleId:'sdBLectToggle',panelId:'sdBLectPanel',searchId:'sdBLectSearch',listId:'sdBLectList',selectId:'hdnBatchLecturerVal',data:[],placeholder:'-- Select Lecturer --'});
-sdInit('flect',{toggleId:'sdFLectToggle',panelId:'sdFLectPanel',searchId:'sdFLectSearch',listId:'sdFLectList',selectId:'pcFilterLecturer',data:[{v:'',t:'All Lecturers'}],placeholder:'All Lecturers',onChange:function(){applyUrlFilter();}});
+sdInit('flect',{toggleId:'sdFLectToggle',panelId:'sdFLectPanel',searchId:'sdFLectSearch',listId:'sdFLectList',selectId:'pcFilterLecturer',data:[{v:'',t:'All Lecturers'}],placeholder:'All Lecturers',onChange:null});
+
+/* ── Data Quality Review Panel ────────────────────────────── */
+var DQ={ tab:'mis', page:1, pageSize:25, total:0, sel:{}, subjRows:[] };
+function dqHtml(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function dqAttr(s){ return dqHtml(s).replace(/"/g,'&quot;'); }
+function dqShowError(m){ var e=byId('dqError'); if(!e) return; if(m){ e.textContent=m; e.classList.add('show'); } else { e.textContent=''; e.classList.remove('show'); } }
+function dqPost(method,body,cb){
+    fetch('NewProgrammeCourses.aspx/'+method,{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:body?JSON.stringify(body):'{}'})
+    .then(function(r){return r.json();})
+    .then(function(p){ cb(p&&typeof p.d!=='undefined'?p.d:null); })
+    .catch(function(err){ dqShowError('Request failed: '+(err&&err.message?err.message:'error')); cb(null); });
+}
+function openDqPanel(){
+    byId('pcDqOverlay').classList.add('show'); byId('pcDqModal').classList.add('show');
+    DQ.tab='mis'; DQ.page=1; DQ.sel={}; byId('dqSearch').value='';
+    dqSetActiveTab(); dqLoadStats(); dqLoadCurrent();
+}
+function closeDqPanel(){ byId('pcDqOverlay').classList.remove('show'); byId('pcDqModal').classList.remove('show'); }
+function dqSetActiveTab(){
+    byId('dqTabMis').classList.toggle('is-active', DQ.tab==='mis');
+    byId('dqTabSub').classList.toggle('is-active', DQ.tab==='sub');
+    byId('dqBulkRemove').style.display = DQ.tab==='mis' ? '' : 'none';
+    byId('dqPager').style.display='none';
+}
+function dqSwitchTab(t){ DQ.tab=t; DQ.page=1; DQ.sel={}; dqShowError(''); dqSetActiveTab(); dqLoadCurrent(); }
+function dqReload(){ DQ.page=1; DQ.sel={}; dqShowError(''); dqLoadCurrent(); }
+function dqLoadCurrent(){ if(DQ.tab==='mis') dqLoadMismapped(); else dqLoadSubject(); }
+function dqLoadStats(){
+    dqPost('DQ_Stats',{},function(d){
+        if(!d) return;
+        byId('dqBadgeMis').textContent=d.Mismapped||0;
+        byId('dqBadgeSub').textContent=d.SubjectSlots||0;
+        var top=byId('dqTopBadge'); var tot=(d.Mismapped||0)+(d.SubjectSlots||0);
+        if(top){ if(tot>0){ top.textContent=tot; top.style.display=''; } else top.style.display='none'; }
+    });
+}
+function dqLoadMismapped(){
+    byId('dqList').innerHTML='<div class="dq-empty">Loading&hellip;</div>';
+    var s=byId('dqSearch').value||'';
+    dqPost('DQ_ListMismapped',{page:DQ.page,pageSize:DQ.pageSize,search:s},function(d){
+        if(!d||d.Success!==true){ dqShowError(d&&d.Message?d.Message:'Failed to load mis-mapped rows.'); byId('dqList').innerHTML='<div class="dq-empty">Failed to load.</div>'; return; }
+        DQ.total=d.Total||0; dqRenderMismapped(d.Rows||[]); dqRenderPager();
+    });
+}
+function dqRenderMismapped(rows){
+    if(rows.length===0){ byId('dqList').innerHTML='<div class="dq-empty">No mis-mapped assignments found.</div>'; byId('dqCount').textContent=''; return; }
+    byId('dqCount').textContent=DQ.total+' mis-mapped';
+    var h='';
+    for(var i=0;i<rows.length;i++){
+        var r=rows[i], id=r.ID;
+        var targets=(r.UsedUnder||'').split(',').map(function(x){return x.trim();}).filter(function(x){return x;});
+        var opts=''; for(var t=0;t<targets.length;t++){ opts+='<option value="'+dqAttr(targets[t])+'">'+dqHtml(targets[t])+'</option>'; }
+        var warn=r.LecturerAssigned?'<div class="dq-warnrow">Has a lecturer assigned &mdash; re-point it (or unassign first). Safe-remove will skip it.</div>':'';
+        var repoint=targets.length?('<span class="dq-repoint"><select class="pc-ctrl" style="height:30px;width:auto;padding:4px 6px;" id="dqtgt'+id+'">'+opts+'</select><button type="button" class="pc-btn pc-btn--sm" onclick="dqRepoint('+id+')">Re-point</button></span>'):'';
+        h+='<div class="dq-row'+(DQ.sel[id]?' is-sel':'')+'" id="dqrow'+id+'">'+
+             '<input type="checkbox" '+(DQ.sel[id]?'checked':'')+' onchange="dqToggle('+id+',this)" style="margin-top:2px;" />'+
+             '<div class="dq-row__main">'+
+               '<div><span class="dq-prog">'+dqHtml(r.Progcode)+'</span> &nbsp;<span class="dq-code">'+dqHtml(r.CourseCode)+'</span> &nbsp;<span class="dq-muted">Y'+r.StudyYear+' S'+r.Semester+'</span></div>'+
+               '<div class="dq-muted" style="margin-top:2px;">'+dqHtml(r.CourseName||'(no catalogue name)')+'</div>'+
+               '<div style="margin-top:3px;">Actually taken under: '+(targets.length?'<strong>'+dqHtml(targets.join(', '))+'</strong>':'<span class="dq-muted">none</span>')+'</div>'+warn+
+             '</div>'+
+             '<div class="dq-row__actions">'+
+               '<button type="button" class="pc-btn pc-btn--danger pc-btn--sm" onclick="dqQuarantineOne('+id+')">Safe-remove</button>'+repoint+
+             '</div>'+
+           '</div>';
+    }
+    byId('dqList').innerHTML=h; dqUpdateBulkBtn();
+}
+function dqToggle(id,cb){ if(cb.checked) DQ.sel[id]=1; else delete DQ.sel[id]; var row=byId('dqrow'+id); if(row) row.classList.toggle('is-sel',cb.checked); dqUpdateBulkBtn(); }
+function dqUpdateBulkBtn(){ var n=0; for(var k in DQ.sel) n++; var b=byId('dqBulkRemove'); if(b) b.textContent=n>0?('Safe-remove selected ('+n+')'):'Safe-remove selected'; }
+function dqSelectedIds(){ var out=[]; for(var k in DQ.sel){ var n=parseInt(k,10); if(n>0) out.push(n); } return out; }
+function dqQuarantineOne(id){ if(!confirm('Safe-remove this assignment?\n\nIt is kept in the quarantine table and can be restored. Skipped if it has students, marks or a lecturer.')) return; dqDoQuarantine([id]); }
+function dqQuarantineSelected(){ var ids=dqSelectedIds(); if(ids.length===0){ showToast('Select at least one row first.','warning'); return; } if(!confirm('Safe-remove '+ids.length+' selected assignment(s)?\n\nRows with students, marks or a lecturer are skipped. All removals are reversible.')) return; dqDoQuarantine(ids); }
+function dqDoQuarantine(ids){
+    dqPost('DQ_QuarantineRows',{request:{ids:ids}},function(d){
+        if(!d){ dqShowError('No response from server.'); return; }
+        if(d.Success!==true){ dqShowError(d.Message||'Safe-remove failed.'); return; }
+        showToast(d.Message||'Done.', d.Removed>0?'success':'warning');
+        if(d.Skipped>0 && d.Detail){ dqShowError('Skipped '+d.Skipped+': '+d.Detail.split('\n').slice(0,4).join('; ')); }
+        DQ.sel={}; dqLoadStats(); dqLoadCurrent();
+    });
+}
+function dqRepoint(id){
+    var sel=byId('dqtgt'+id); if(!sel) return;
+    var target=sel.value; if(!target){ showToast('Pick a target programme.','warning'); return; }
+    if(!confirm('Re-point this assignment to "'+target+'"?\n\nThe change is logged and reversible.')) return;
+    dqPost('DQ_RepointRow',{request:{id:id,targetProgcode:target}},function(d){
+        if(!d){ dqShowError('No response from server.'); return; }
+        if(d.Success!==true){ dqShowError(d.Message||'Re-point failed.'); return; }
+        showToast(d.Message||'Re-pointed.','success'); dqLoadStats(); dqLoadCurrent();
+    });
+}
+function dqLoadSubject(){
+    byId('dqList').innerHTML='<div class="dq-empty">Loading&hellip;</div>'; byId('dqPager').style.display='none';
+    var s=byId('dqSearch').value||'';
+    dqPost('DQ_ListSubjectDups',{search:s},function(d){
+        if(!d||d.Success!==true){ dqShowError(d&&d.Message?d.Message:'Failed to load subject duplicates.'); byId('dqList').innerHTML='<div class="dq-empty">Failed to load.</div>'; return; }
+        DQ.subjRows=d.Rows||[]; dqRenderSubject(DQ.subjRows);
+    });
+}
+function dqRenderSubject(rows){
+    if(rows.length===0){ byId('dqList').innerHTML='<div class="dq-empty">No subject duplicates found.</div>'; byId('dqCount').textContent=''; return; }
+    var slots=0,h='',curKey='';
+    for(var i=0;i<rows.length;i++){
+        var r=rows[i], key=r.Prog+'|'+r.Yr+'|'+r.Sem+'|'+r.Subject;
+        if(key!==curKey){ curKey=key; slots++; h+='<div class="dq-slot"><span class="dq-prog">'+dqHtml(r.Prog)+'</span> &nbsp;Y'+r.Yr+' S'+r.Sem+' &nbsp;&middot;&nbsp; '+dqHtml(r.Subject)+'</div>'; }
+        var live=(r.Regs>0||r.Res>0);
+        var usage='<span class="dq-usage '+(r.Regs>0?'dq-usage--live':'dq-usage--zero')+'">'+r.Regs+' reg</span><span class="dq-usage '+(r.Res>0?'dq-usage--live':'dq-usage--zero')+'">'+r.Res+' marks</span>';
+        var ids=(r.Ids||'').split(',').map(function(x){return parseInt(x.trim(),10);}).filter(function(x){return x>0;});
+        var act=live?'<span class="dq-muted" title="Has students or marks; kept.">keep</span>':'<button type="button" class="pc-btn pc-btn--danger pc-btn--sm" onclick="dqDoQuarantine(['+ids.join(',')+'])">Safe-remove</button>';
+        h+='<div class="dq-row"><div class="dq-row__main"><span class="dq-code">'+dqHtml(r.Code)+'</span> '+usage+'</div><div class="dq-row__actions">'+act+'</div></div>';
+    }
+    byId('dqCount').textContent=slots+' duplicate slot'+(slots===1?'':'s');
+    byId('dqList').innerHTML=h;
+}
+function dqRenderPager(){
+    var pager=byId('dqPager'); if(DQ.tab!=='mis'){ pager.style.display='none'; return; }
+    var pages=Math.max(1,Math.ceil(DQ.total/DQ.pageSize));
+    pager.style.display=DQ.total>DQ.pageSize?'flex':'none';
+    byId('dqPageInfo').textContent='Page '+DQ.page+' of '+pages;
+    byId('dqPrev').disabled=DQ.page<=1; byId('dqNext').disabled=DQ.page>=pages;
+}
+function dqPage(delta){ var pages=Math.max(1,Math.ceil(DQ.total/DQ.pageSize)); DQ.page=Math.min(pages,Math.max(1,DQ.page+delta)); DQ.sel={}; dqLoadMismapped(); }
+(function(){ var ov=byId('pcDqOverlay'); if(ov) ov.addEventListener('click',function(e){ if(e.target===ov) closeDqPanel(); }); })();
 </script>
 </asp:Content>

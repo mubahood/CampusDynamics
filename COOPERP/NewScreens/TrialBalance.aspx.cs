@@ -32,6 +32,8 @@ public partial class COOPERP_NewScreens_TrialBalance : System.Web.UI.Page
 
     private void LoadTrialBalance()
     {
+        pnlError.Visible = false;
+        pnlReport.Visible = false;
         try
         {
             DateTime startDate, endDate;
@@ -39,10 +41,25 @@ public partial class COOPERP_NewScreens_TrialBalance : System.Web.UI.Page
                 startDate = new DateTime(DateTime.Today.Year, 1, 1);
             if (!DateTime.TryParse(txtEndDate.Text, out endDate))
                 endDate = DateTime.Today;
+            if (endDate < startDate)
+            {
+                ShowError("The end date cannot be earlier than the start date.");
+                return;
+            }
 
             DataTable dt = FinanceDB.ExecuteSP("fin_TrialBalance",
                 FinanceDB.P("@sDate", startDate.ToString("yyyy-MM-dd")),
                 FinanceDB.P("@eDate", endDate.ToString("yyyy-MM-dd")));
+
+            if (dt == null || !dt.Columns.Contains("DRBalance") || !dt.Columns.Contains("CRBalance"))
+            {
+                ShowError("The Trial Balance data source returned an unexpected format. Please contact ICT support.");
+                return;
+            }
+
+            // Drop any grand-total row the stored procedure may append, so the grid
+            // and the computed totals are not double-counted.
+            RemoveTotalRows(dt);
 
             gridTrialBalance.DataSource = dt;
             gridTrialBalance.DataBind();
@@ -90,6 +107,28 @@ public partial class COOPERP_NewScreens_TrialBalance : System.Web.UI.Page
         catch (Exception ex)
         {
             FinanceLogger.LogError(PAGE_NAME, "LoadTrialBalance", ex);
+            ShowError("The Trial Balance could not be generated: " + ex.Message);
+        }
+    }
+
+    private void ShowError(string message)
+    {
+        pnlReport.Visible = false;
+        pnlError.Visible = true;
+        litError.Text = "&#9888; " + Server.HtmlEncode(message);
+    }
+
+    /// <summary>Removes any stored-procedure grand-total / summary row (accountcode = TOTALS/TOTAL).</summary>
+    private static void RemoveTotalRows(DataTable dt)
+    {
+        if (dt == null || !dt.Columns.Contains("accountcode")) return;
+        for (int i = dt.Rows.Count - 1; i >= 0; i--)
+        {
+            string code = System.Convert.ToString(dt.Rows[i]["accountcode"]).Trim();
+            if (string.Equals(code, "TOTALS", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(code, "TOTAL",  StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(code, "GRAND TOTAL", StringComparison.OrdinalIgnoreCase))
+                dt.Rows.RemoveAt(i);
         }
     }
 }

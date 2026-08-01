@@ -68,7 +68,8 @@ public partial class COOPERP_NewScreens_AppraisalView : System.Web.UI.Page
     private void HandleAjax(string action)
     {
         if (action == "admin_return" || action == "admin_cancel" || action == "admin_reopen" || action == "hr_input" ||
-            action == "batch_return" || action == "batch_reopen" || action == "batch_cancel" || action == "batch_hr_input")
+            action == "batch_return" || action == "batch_reopen" || action == "batch_cancel" || action == "batch_hr_input" ||
+            action == "admin_change_supervisor")
         {
             if (!MarksAntiForgeryService.ValidateRequest())
             {
@@ -105,6 +106,12 @@ public partial class COOPERP_NewScreens_AppraisalView : System.Web.UI.Page
                 break;
             case "batch_hr_input":
                 AjaxBatchHrInput();
+                break;
+            case "get_employees":
+                AjaxGetEmployees();
+                break;
+            case "admin_change_supervisor":
+                AjaxChangeSupervisor();
                 break;
             default:
                 Response.Write("{\"error\":\"Unknown action\"}");
@@ -779,9 +786,11 @@ public partial class COOPERP_NewScreens_AppraisalView : System.Web.UI.Page
                                   ? Convert.ToDecimal(r["final_percentage"]).ToString("F1") : "";
                 string cls      = SafeStr(r["classification"]);
 
+                string reviewerName = SafeStr(r["reviewer_name"]);
+
                 // TR with data attributes for JS selection
                 html.AppendFormat(
-                    "<tr class='pa-row' data-rid='{0}' data-status='{1}' data-empname='{2}' data-dept='{3}' data-session='{4}' data-score='{5}' data-pct='{6}' data-cls='{7}'>",
+                    "<tr class='pa-row' data-rid='{0}' data-status='{1}' data-empname='{2}' data-dept='{3}' data-session='{4}' data-score='{5}' data-pct='{6}' data-cls='{7}' data-reviewer='{8}'>",
                     recId,
                     HttpUtility.HtmlAttributeEncode(statusUp),
                     HttpUtility.HtmlAttributeEncode(empName),
@@ -789,7 +798,8 @@ public partial class COOPERP_NewScreens_AppraisalView : System.Web.UI.Page
                     HttpUtility.HtmlAttributeEncode(session),
                     HttpUtility.HtmlAttributeEncode(rawScore),
                     HttpUtility.HtmlAttributeEncode(pctRaw),
-                    HttpUtility.HtmlAttributeEncode(cls));
+                    HttpUtility.HtmlAttributeEncode(cls),
+                    HttpUtility.HtmlAttributeEncode(reviewerName));
 
                 // Checkbox
                 html.AppendFormat("<td class='pa-col-chk' onclick='event.stopPropagation();'><input type='checkbox' class='pa-row-chk' value='{0}' onclick='onRowCheck(this,event)'></td>", recId);
@@ -870,6 +880,10 @@ public partial class COOPERP_NewScreens_AppraisalView : System.Web.UI.Page
                 // Print / PDF
                 html.AppendFormat("<a href='AppraisalPrint.aspx?rid={0}&amp;autoprint=1' target='_blank' class='pa-act-item'>", recId);
                 html.Append("<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><polyline points='6 9 6 2 18 2 18 9'/><path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2'/><rect x='6' y='14' width='12' height='8'/></svg> Print / PDF</a>");
+
+                // Change Supervisor
+                html.Append("<button type='button' class='pa-act-item' onclick='changeSupervisorFromRow(this)'>");
+                html.Append("<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg> Change Supervisor</button>");
 
                 // Cancel (danger, with separator)
                 if (statusUp != "CANCELLED")
@@ -1280,6 +1294,14 @@ public partial class COOPERP_NewScreens_AppraisalView : System.Web.UI.Page
 
         // ── Admin Actions ──
         html.Append("<div class='pa-actions'>");
+
+        // Change Supervisor — always available (any status)
+        html.AppendFormat("<button type='button' class='hr-btn hr-btn--outline' data-rid='{0}' data-reviewer='{1}' onclick='changeSupervisorFromDetailBtn(this)'>",
+            rid,
+            HttpUtility.HtmlAttributeEncode(SafeStr(rec["reviewer_name"])));
+        html.Append("<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>");
+        html.Append(" Change Supervisor</button>");
+
         if ((status == "COMPLETED" || status == "HR_REVIEWED") && HasHrAppraisalAccess())
         {
             string hrBtnLabel = status == "HR_REVIEWED" ? "Update HR Review" : "Submit HR Final Input";
@@ -1700,6 +1722,85 @@ public partial class COOPERP_NewScreens_AppraisalView : System.Web.UI.Page
                     foreach (MySqlParameter p in parms) cmd.Parameters.Add(p);
                 cmd.ExecuteNonQuery();
             }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  AJAX: GET EMPLOYEES (for Change Supervisor dropdown)
+    // ═══════════════════════════════════════════════════════════════════
+    private void AjaxGetEmployees()
+    {
+        try
+        {
+            DataTable dt = ExecuteQuery(
+                @"SELECT empID, emp_name, IFNULL(EMP_CODE,'') AS EMP_CODE
+                  FROM hrm_employee
+                  WHERE LOWER(IFNULL(employment_status,'')) IN ('active','active employee','')
+                     OR employment_status IS NULL
+                  ORDER BY emp_name
+                  LIMIT 2000");
+
+            StringBuilder sb = new StringBuilder("{\"employees\":[");
+            bool first = true;
+            foreach (DataRow r in dt.Rows)
+            {
+                if (!first) sb.Append(",");
+                sb.AppendFormat("{{\"id\":{0},\"name\":\"{1}\",\"code\":\"{2}\"}}",
+                    SafeInt(r["empID"]),
+                    EscapeJson(r["emp_name"]),
+                    EscapeJson(r["EMP_CODE"]));
+                first = false;
+            }
+            sb.Append("]}");
+            Response.Write(sb.ToString());
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"employees\":[],\"error\":\"" + EscapeJson(ex.Message) + "\"}");
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  AJAX: CHANGE SUPERVISOR
+    // ═══════════════════════════════════════════════════════════════════
+    private void AjaxChangeSupervisor()
+    {
+        try
+        {
+            string body;
+            using (var sr = new System.IO.StreamReader(Request.InputStream)) body = sr.ReadToEnd();
+            var jss = new System.Web.Script.Serialization.JavaScriptSerializer();
+            var data = jss.Deserialize<Dictionary<string, object>>(body);
+
+            int rid          = Convert.ToInt32(data["rid"]);
+            int newReviewerId = Convert.ToInt32(data["new_reviewer_id"]);
+
+            if (newReviewerId <= 0)
+            { Response.Write("{\"ok\":false,\"error\":\"Please select a valid supervisor.\"}"); return; }
+
+            DataTable dtEmp = ExecuteQuery(
+                "SELECT empID, emp_name FROM hrm_employee WHERE empID = @eid",
+                new MySqlParameter("@eid", newReviewerId));
+            if (dtEmp.Rows.Count == 0)
+            { Response.Write("{\"ok\":false,\"error\":\"Selected employee not found.\"}"); return; }
+            string newName = SafeStr(dtEmp.Rows[0]["emp_name"]);
+
+            DataTable dtRec = ExecuteQuery(
+                "SELECT record_id FROM appraisal_records WHERE record_id = @rid",
+                new MySqlParameter("@rid", rid));
+            if (dtRec.Rows.Count == 0)
+            { Response.Write("{\"ok\":false,\"error\":\"Appraisal record not found.\"}"); return; }
+
+            ExecuteNonQuery(
+                "UPDATE appraisal_records SET reviewer_id = @newrev WHERE record_id = @rid",
+                new MySqlParameter("@newrev", newReviewerId),
+                new MySqlParameter("@rid", rid));
+
+            Response.Write("{\"ok\":true,\"message\":\"Supervisor changed to " + EscapeJson(newName) + ".\"}");
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"ok\":false,\"error\":\"" + EscapeJson(ex.Message) + "\"}");
         }
     }
 }

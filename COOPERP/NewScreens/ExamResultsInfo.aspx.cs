@@ -64,7 +64,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
     private void CheckUserPermissions()
     {
         // Enable approve/cancel buttons only for Dean or Administrator
-        bool canApprove = HttpContext.Current.User.IsInRole("Dean") || HttpContext.Current.User.IsInRole("Administrator");
+        bool canApprove = RoleAccessService.IsInRoleCompat("Dean") || RoleAccessService.IsInRoleCompat("Administrator");
         btnApprove.Enabled = canApprove;
         btnCancelApproval.Enabled = canApprove;
     }
@@ -712,7 +712,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             ShowMessage("Results are LOCKED. The submission deadline has passed. No changes allowed.", "error");
             return;
         }
-        if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator"))
+        if (!RoleAccessService.IsInRoleCompat("Dean") && !RoleAccessService.IsInRoleCompat("Administrator"))
         {
             ShowMessage("Results approvals can only be done by the Dean.", "error");
             return;
@@ -776,7 +776,7 @@ public partial class COOPERP_NewScreens_ExamResultsInfo : System.Web.UI.Page
             ShowMessage("Results are LOCKED. The submission deadline has passed. No changes allowed.", "error");
             return;
         }
-        if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator"))
+        if (!RoleAccessService.IsInRoleCompat("Dean") && !RoleAccessService.IsInRoleCompat("Administrator"))
         {
             ShowMessage("Only the Dean can cancel approvals.", "error");
             return;

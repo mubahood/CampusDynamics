@@ -102,7 +102,36 @@ public static class FinancePeriod
     /// </summary>
     public static Tuple<DateTime, DateTime> GetCumulativeRange(DateTime asAtDate)
     {
-        return Tuple.Create(new DateTime(2000, 1, 1), asAtDate);
+        return Tuple.Create(GetEarliestPeriodStart(), asAtDate);
+    }
+
+    /// <summary>
+    /// Parameterless cumulative range: from the earliest financial-period start
+    /// (or a year-2000 historical floor if none) up to today. Used by the
+    /// Balance Sheet for an as-at-date position report.
+    /// </summary>
+    public static Tuple<DateTime, DateTime> GetCumulativeRange()
+    {
+        return Tuple.Create(GetEarliestPeriodStart(), DateTime.Today);
+    }
+
+    /// <summary>
+    /// Earliest financial-period start date, falling back to 2000-01-01 if the
+    /// table is empty or unavailable. Never throws.
+    /// </summary>
+    private static DateTime GetEarliestPeriodStart()
+    {
+        DateTime floor = new DateTime(2000, 1, 1);
+        try
+        {
+            DateTime earliest = FinanceDB.ExecuteScalar<DateTime>(
+                "SELECT MIN(start_date) FROM fin_financial_years");
+            return earliest.Year > 1900 ? earliest : floor;
+        }
+        catch
+        {
+            return floor;
+        }
     }
 
     // ───────────────────────── Period Listing ─────────────────────────────

@@ -117,6 +117,12 @@
     </div>
 </div>
 
+<!-- Error / info banner -->
+<asp:Panel ID="pnlError" runat="server" Visible="false"
+     style="padding:10px 16px;margin-bottom:14px;background:#fce4ec;border:1px solid #ef9a9a;color:#c62828;font-size:13px;font-weight:600;">
+    <asp:Literal ID="litError" runat="server" />
+</asp:Panel>
+
 <!-- Report Content -->
 <asp:Panel ID="pnlReport" runat="server" Visible="false">
 

@@ -3,6 +3,10 @@
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
 :root{--brand:#174DA4;--brand-dk:#05275C;--danger:#dc2626;--success:#16a34a;--warn:#b45309;--surf:#f5f7fa;--bdr:#e0e5ed;--txt:#1a1a2e;--muted:#64748b;}
+.acc-tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--bdr);padding:0 20px;overflow-x:auto;}
+.acc-tab{padding:11px 16px;font-size:12px;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;}
+.acc-tab:hover{color:var(--brand);}
+.acc-tab--active{color:var(--brand-dk);border-bottom-color:var(--brand-dk);}
 
 /* ── Header ──────────────────────────────────────────────────────────────────*/
 .urm-header{background:#fff;border-bottom:1px solid var(--bdr);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
@@ -89,10 +93,35 @@
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 .empty-state{grid-column:1/-1;text-align:center;padding:60px 24px;color:#94a3b8;font-size:13px;}
+.empty-state strong{color:var(--txt);}
+
+/* ── Modal live preview + colour swatches ────────────────────────────────── */
+.role-preview-wrap{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding:12px 14px;background:var(--surf);border:1px dashed var(--bdr);border-radius:4px;}
+.role-preview-wrap__lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
+.role-badge-preview{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:20px;background:#fff;border:1px solid var(--bdr);font-size:13px;font-weight:700;color:var(--txt);max-width:100%;}
+.role-badge-preview .rp-dot{width:11px;height:11px;border-radius:50%;background:var(--brand);flex-shrink:0;}
+.role-badge-preview .rp-code{font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);}
+.swatches{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px;}
+.swatch{width:24px;height:24px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--bdr);cursor:pointer;transition:transform .1s;padding:0;}
+.swatch:hover{transform:scale(1.18);}
+.swatch.sel{box-shadow:0 0 0 2px var(--brand-dk);}
+
+/* ── Card footer action grouping ─────────────────────────────────────────── */
+.role-card__foot{justify-content:flex-start;}
+.role-card__foot .spacer{flex:1;}
 </style>
 </asp:Content>
 
 <asp:Content ID="BodyContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+
+<!-- Access hub tabs -->
+<div class="acc-tabs">
+    <a href="AccessControlCenter.aspx" class="acc-tab">Overview</a>
+    <a href="UserRoleUsers.aspx" class="acc-tab">Users</a>
+    <a href="UserRoleRoles.aspx" class="acc-tab acc-tab--active">Roles</a>
+    <a href="UserRolePermissions.aspx" class="acc-tab">Permissions</a>
+    <a href="UserRoleAudit.aspx" class="acc-tab">Audit</a>
+</div>
 
 <!-- Header -->
 <div class="urm-header">
@@ -135,15 +164,26 @@
         </div>
         <div class="urm-modal__body">
             <input type="hidden" id="editRoleId" value="" />
+
+            <!-- Live preview -->
+            <div class="role-preview-wrap">
+                <span class="role-preview-wrap__lbl">Preview</span>
+                <span class="role-badge-preview" id="rolePreview">
+                    <span class="rp-dot" id="rpDot"></span>
+                    <span id="rpName">New Role</span>
+                    <span class="rp-code" id="rpCode"></span>
+                </span>
+            </div>
+
             <div class="urm-field">
                 <label>Role Name <span style="color:var(--danger)">*</span></label>
-                <input type="text" id="roleName" placeholder="e.g. Registrar" maxlength="80" />
+                <input type="text" id="roleName" placeholder="e.g. Registrar" maxlength="80" oninput="onRoleNameInput()" />
             </div>
             <div class="urm-field">
                 <label>Role Code <span style="color:var(--danger)">*</span>
-                    <span style="font-weight:400;color:#94a3b8"> — lowercase, underscores only, unique</span></label>
+                    <span style="font-weight:400;color:#94a3b8"> — auto-filled from the name; lowercase, unique</span></label>
                 <input type="text" id="roleCode" placeholder="e.g. registrar" maxlength="40"
-                       oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'')" />
+                       oninput="onRoleCodeInput(this)" />
                 <div class="urm-hint" id="codeHint"></div>
             </div>
             <div class="urm-field">
@@ -154,6 +194,7 @@
                            oninput="onHexChange()" placeholder="#174DA4" />
                     <div class="color-swatch" id="colorSwatch" style="background:#174DA4;"></div>
                 </div>
+                <div class="swatches" id="swatches"></div>
             </div>
             <div class="urm-field">
                 <label>Description <span style="font-weight:400;color:#94a3b8">(optional)</span></label>
@@ -199,6 +240,42 @@
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════
+     CLONE ROLE MODAL
+     ══════════════════════════════════════════ -->
+<div class="urm-overlay" id="modalClone">
+    <div class="urm-modal">
+        <div class="urm-modal__head">
+            <h3>Clone Role</h3>
+            <button type="button" class="urm-modal__close" onclick="closeModal('modalClone')">&times;</button>
+        </div>
+        <div class="urm-modal__body">
+            <input type="hidden" id="cloneSrcId" value="" />
+            <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.5;">
+                Creates a new role with the <strong>same permissions, colour and description</strong> as
+                <strong id="cloneSrcName" style="color:var(--brand-dk)"></strong>. You can adjust its permissions afterwards.
+            </p>
+            <div class="urm-field">
+                <label>New Role Name <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="cloneName" placeholder="e.g. Assistant Registrar" maxlength="80" />
+            </div>
+            <div class="urm-field">
+                <label>New Role Code <span style="color:var(--danger)">*</span>
+                    <span style="font-weight:400;color:#94a3b8"> — lowercase, underscores only, unique</span></label>
+                <input type="text" id="cloneCode" placeholder="e.g. asst_registrar" maxlength="40"
+                       oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'')" />
+            </div>
+        </div>
+        <div class="urm-modal__foot">
+            <button type="button" class="urm-btn urm-btn--outline" onclick="closeModal('modalClone')">Cancel</button>
+            <button type="button" class="urm-btn urm-btn--primary" id="btnSaveClone" onclick="saveClone()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Create Clone
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast -->
 <div class="pa-toast" id="paToast"></div>
 
@@ -222,17 +299,71 @@ filterCards();
 // ── Modal helpers ─────────────────────────────────────────────────────────────
 window.closeModal = function(id){ document.getElementById(id).classList.remove('active'); };
 
+// ── Live preview + auto-code + swatches ─────────────────────────────────────────
+var _codeTouched = false;
+var SWATCHES = ['#05275C','#174DA4','#2563eb','#0891b2','#0d9488','#16a34a',
+                '#ca8a04','#ea580c','#dc2626','#db2777','#7c3aed','#475569'];
+
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function slugify(s){
+    return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40);
+}
+
+function updateRolePreview(){
+    var name  = (document.getElementById('roleName').value||'').trim() || 'New Role';
+    var code  = (document.getElementById('roleCode').value||'').trim();
+    var color = document.getElementById('roleColorHex').value.trim() || '#174DA4';
+    document.getElementById('rpName').textContent = name;
+    document.getElementById('rpCode').textContent = code ? code : '';
+    document.getElementById('rpDot').style.background = color;
+    // mark matching swatch
+    var sw = document.querySelectorAll('#swatches .swatch');
+    for(var i=0;i<sw.length;i++)
+        sw[i].classList.toggle('sel', (sw[i].getAttribute('data-c')||'').toLowerCase() === color.toLowerCase());
+}
+
+function buildSwatches(){
+    var box = document.getElementById('swatches'); if(!box) return;
+    box.innerHTML = '';
+    for(var i=0;i<SWATCHES.length;i++){
+        var b = document.createElement('button');
+        b.type='button'; b.className='swatch'; b.style.background=SWATCHES[i];
+        b.setAttribute('data-c', SWATCHES[i]);
+        b.title = SWATCHES[i];
+        b.onclick = (function(c){ return function(){ pickSwatch(c); }; })(SWATCHES[i]);
+        box.appendChild(b);
+    }
+}
+
+window.pickSwatch = function(hex){ setColor(hex); };
+
+window.onRoleNameInput = function(){
+    if(!_codeTouched && !document.getElementById('roleCode').readOnly){
+        document.getElementById('roleCode').value = slugify(document.getElementById('roleName').value);
+    }
+    updateRolePreview();
+};
+
+window.onRoleCodeInput = function(el){
+    el.value = el.value.toLowerCase().replace(/[^a-z0-9_]/g,'');
+    _codeTouched = (el.value.length > 0);
+    updateRolePreview();
+};
+
 // ── Color sync ────────────────────────────────────────────────────────────────
 function setColor(hex){
     if(!hex) hex='#174DA4';
     document.getElementById('roleColorPicker').value = hex;
     document.getElementById('roleColorHex').value    = hex;
     document.getElementById('colorSwatch').style.background = hex;
+    updateRolePreview();
 }
 window.onPickerChange = function(){
     var v = document.getElementById('roleColorPicker').value;
     document.getElementById('roleColorHex').value = v;
     document.getElementById('colorSwatch').style.background = v;
+    updateRolePreview();
 };
 window.onHexChange = function(){
     var v = document.getElementById('roleColorHex').value.trim();
@@ -240,10 +371,12 @@ window.onHexChange = function(){
         document.getElementById('roleColorPicker').value = v;
         document.getElementById('colorSwatch').style.background = v;
     }
+    updateRolePreview();
 };
 
 // ── Create modal ──────────────────────────────────────────────────────────────
 window.openCreateModal = function(){
+    _codeTouched = false;
     document.getElementById('editRoleId').value = '';
     document.getElementById('roleName').value   = '';
     document.getElementById('roleCode').value   = '';
@@ -255,12 +388,14 @@ window.openCreateModal = function(){
     document.getElementById('modalRoleTitle').textContent = 'New Role';
     document.getElementById('btnSaveRole').textContent    = 'Save Role';
     document.getElementById('btnSaveRole').disabled       = false;
+    updateRolePreview();
     document.getElementById('modalRole').classList.add('active');
     setTimeout(function(){ document.getElementById('roleName').focus(); }, 80);
 };
 
 // ── Edit modal ────────────────────────────────────────────────────────────────
 window.openEditModal = function(id, name, code, color, desc){
+    _codeTouched = true;
     document.getElementById('editRoleId').value = id;
     document.getElementById('roleName').value   = name;
     document.getElementById('roleCode').value   = code;
@@ -272,6 +407,7 @@ window.openEditModal = function(id, name, code, color, desc){
     document.getElementById('modalRoleTitle').textContent = 'Edit Role';
     document.getElementById('btnSaveRole').textContent    = 'Save Changes';
     document.getElementById('btnSaveRole').disabled       = false;
+    updateRolePreview();
     document.getElementById('modalRole').classList.add('active');
     setTimeout(function(){ document.getElementById('roleName').focus(); }, 80);
 };
@@ -355,6 +491,50 @@ window.confirmDelete = function(){
     });
 };
 
+// ── Clone modal ───────────────────────────────────────────────────────────────
+window.openCloneModal = function(srcId, srcName, srcCode){
+    document.getElementById('cloneSrcId').value         = srcId;
+    document.getElementById('cloneSrcName').textContent = srcName;
+    document.getElementById('cloneName').value          = srcName + ' (copy)';
+    document.getElementById('cloneCode').value          = (srcCode + '_copy').toLowerCase().replace(/[^a-z0-9_]/g,'');
+    var btn = document.getElementById('btnSaveClone');
+    btn.disabled = false; btn.textContent = 'Create Clone';
+    document.getElementById('modalClone').classList.add('active');
+    setTimeout(function(){ document.getElementById('cloneName').focus(); }, 80);
+};
+
+window.saveClone = function(){
+    var srcId = document.getElementById('cloneSrcId').value.trim();
+    var name  = document.getElementById('cloneName').value.trim();
+    var code  = document.getElementById('cloneCode').value.trim();
+    if(!name){ showToast('New role name is required.','err'); return; }
+    if(!code){ showToast('New role code is required.','err'); return; }
+
+    var btn = document.getElementById('btnSaveClone');
+    btn.disabled = true; btn.textContent = 'Cloning…';
+
+    fetch('UserRoleRoles.aspx?ajax=clone', {
+        method: 'POST',
+        headers: {'Content-Type':'application/x-www-form-urlencoded'},
+        body: 'source_id=' + encodeURIComponent(srcId) +
+              '&name='     + encodeURIComponent(name)  +
+              '&code='     + encodeURIComponent(code)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+        btn.disabled = false; btn.textContent = 'Create Clone';
+        if(d.ok){
+            closeModal('modalClone');
+            showToast('Role cloned (' + (d.copied || 0) + ' permission(s) copied).', 'ok');
+            setTimeout(function(){ location.reload(); }, 1100);
+        } else showToast(d.error || 'Failed to clone.', 'err');
+    })
+    .catch(function(){
+        btn.disabled = false; btn.textContent = 'Create Clone';
+        showToast('Network error.', 'err');
+    });
+};
+
 // ── Toast ─────────────────────────────────────────────────────────────────────
 window.showToast = function(msg, type){
     var t = document.getElementById('paToast');
@@ -363,6 +543,9 @@ window.showToast = function(msg, type){
     clearTimeout(t._tmr);
     t._tmr = setTimeout(function(){ t.classList.remove('visible'); }, 3500);
 };
+
+// ── Init (runs after SWATCHES and all handlers are defined) ─────────────────────
+buildSwatches();
 })();
 </script>
 </asp:Content>

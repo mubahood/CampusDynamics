@@ -1,480 +1,291 @@
 using System;
 using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
+using System.Web.Configuration;
+using System.Web.Services;
 using System.Web.UI;
-using System.Web.UI.WebControls;
+using System.Web.Script.Serialization;
 using MySql.Data.MySqlClient;
-using DevExpress.Web;
 
-public partial class COOPERP_NewScreens_ResultsAnalytics : System.Web.UI.Page
+public partial class COOPERP_NewScreens_ResultsAnalytics : Page
 {
-    private string connStr = ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
-    
-    // Public properties for grade distribution percentages
-    public double FirstClassPct { get; set; } = 0;
-    public double UpperSecondPct { get; set; } = 0;
-    public double LowerSecondPct { get; set; } = 0;
-    public double PassPct { get; set; } = 0;
-    public double FailPct { get; set; } = 0;
+    private static readonly JavaScriptSerializer Json = new JavaScriptSerializer();
 
-    protected void Page_Load(object sender, EventArgs e)
+    protected void Page_Load(object sender, EventArgs e) { /* AJAX-powered */ }
+
+    private static string GetConnStr()
     {
-        // Security check
-        if (Session["UserID"] == null)
-        {
-            Response.Redirect("~/Default.aspx");
-            return;
-        }
-
-        if (!IsPostBack)
-        {
-            LoadAcademicYears();
-            LoadFaculties();
-            LoadAnalytics();
-        }
+        return WebConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
     }
 
-    #region Data Loading
+    // ── Approved/released results only ──
+    private const string APPROVED = " AND er.approved_by NOT IN ('-','HELD') ";
 
-    private void LoadAcademicYears()
+    [WebMethod(EnableSession = true)]
+    public static string GetInit()
     {
-        using (MySqlConnection conn = new MySqlConnection(connStr))
+        try
         {
-            string query = @"SELECT DISTINCT acad_year FROM acad_examresults_faculty 
-                            ORDER BY acad_year DESC LIMIT 10";
+            MarksScope scope = MarksScopeResolver.Resolve();
+            string sf = scope.ProgFilter("er", "progid");
 
-            MySqlDataAdapter da = new MySqlDataAdapter(query, conn);
-            DataTable dt = new DataTable();
-            da.Fill(dt);
-
-            ddlAcadYear.Items.Clear();
-            ddlAcadYear.Items.Add(new ListItem("All Years", ""));
-            
-            foreach (DataRow row in dt.Rows)
+            List<FilterOption> years = new List<FilterOption>();
+            using (MySqlConnection conn = new MySqlConnection(GetConnStr()))
             {
-                ddlAcadYear.Items.Add(new ListItem(row["acad_year"].ToString(), row["acad_year"].ToString()));
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT er.acadyear, COUNT(*) c FROM acad_examresults_faculty er " +
+                    "JOIN acad_programme p ON p.progcode = er.progid " +
+                    "WHERE er.acadyear REGEXP '^[0-9]{4}/[0-9]{4}$'" + APPROVED + sf +
+                    " GROUP BY er.acadyear ORDER BY er.acadyear DESC LIMIT 12", conn))
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                    while (rdr.Read())
+                    {
+                        string v = rdr.IsDBNull(0) ? "" : rdr.GetString(0);
+                        if (!string.IsNullOrEmpty(v)) years.Add(new FilterOption(v, v));
+                    }
             }
-            
-            // Default to current year if available
-            if (ddlAcadYear.Items.Count > 1)
-                ddlAcadYear.SelectedIndex = 1;
+
+            return Json.Serialize(new
+            {
+                success = true,
+                years = years,
+                scope = new { mode = scope.Mode, label = scope.Label, role = scope.RoleNote, isAdmin = scope.IsAdmin, hasAccess = scope.HasAccess }
+            });
+        }
+        catch (Exception ex)
+        {
+            return Json.Serialize(new { success = false, message = "Init failed: " + ex.Message });
         }
     }
 
-    private void LoadFaculties()
+    [WebMethod(EnableSession = true)]
+    public static string GetAnalytics(string year, string semester)
     {
-        using (MySqlConnection conn = new MySqlConnection(connStr))
+        try
         {
-            string query = @"SELECT DISTINCT f.faccode, f.facname 
-                            FROM acad_faculty f
-                            INNER JOIN acad_programme p ON p.faculty = f.faccode
-                            ORDER BY f.facname";
-
-            MySqlDataAdapter da = new MySqlDataAdapter(query, conn);
-            DataTable dt = new DataTable();
-            da.Fill(dt);
-
-            ddlFaculty.Items.Clear();
-            ddlFaculty.Items.Add(new ListItem("All Faculties", ""));
-            
-            foreach (DataRow row in dt.Rows)
+            MarksScope scope = MarksScopeResolver.Resolve();
+            using (MySqlConnection conn = new MySqlConnection(GetConnStr()))
             {
-                ddlFaculty.Items.Add(new ListItem(row["facname"].ToString(), row["faccode"].ToString()));
-            }
-        }
-    }
+                conn.Open();
+                string where = "WHERE 1=1" + APPROVED + scope.ProgFilter("er", "progid");
+                if (!string.IsNullOrEmpty(year))     where += " AND er.acadyear = @year";
+                if (!string.IsNullOrEmpty(semester)) where += " AND er.semester = @sem";
 
-    private void LoadProgrammes()
-    {
-        string faculty = ddlFaculty.SelectedValue;
-        
-        using (MySqlConnection conn = new MySqlConnection(connStr))
-        {
-            string query = @"SELECT progcode, progname FROM acad_programme WHERE status = 'Active'";
-            
-            if (!string.IsNullOrEmpty(faculty))
-            {
-                query += " AND faculty = @Faculty";
-            }
-            
-            query += " ORDER BY progname";
-
-            MySqlCommand cmd = new MySqlCommand(query, conn);
-            if (!string.IsNullOrEmpty(faculty))
-            {
-                cmd.Parameters.AddWithValue("@Faculty", faculty);
-            }
-            
-            MySqlDataAdapter da = new MySqlDataAdapter(cmd);
-            DataTable dt = new DataTable();
-            da.Fill(dt);
-
-            ddlProgramme.Items.Clear();
-            ddlProgramme.Items.Add(new ListItem("All Programmes", ""));
-            
-            foreach (DataRow row in dt.Rows)
-            {
-                ddlProgramme.Items.Add(new ListItem(row["progname"].ToString(), row["progcode"].ToString()));
-            }
-        }
-    }
-
-    private void LoadAnalytics()
-    {
-        LoadKPIStats();
-        LoadGradeDistribution();
-        LoadTopStudents();
-        LoadProgrammePerformance();
-        LoadTrendData();
-        LoadProblematicCourses();
-    }
-
-    private void LoadKPIStats()
-    {
-        string whereClause = BuildWhereClause();
-        
-        using (MySqlConnection conn = new MySqlConnection(connStr))
-        {
-            string query = $@"SELECT 
-                COUNT(DISTINCT er.reg_no) AS total_students,
-                COUNT(DISTINCT er.course_id) AS total_courses,
-                SUM(CASE WHEN er.finalmark >= 50 THEN 1 ELSE 0 END) AS pass_count,
-                SUM(CASE WHEN er.finalmark < 50 THEN 1 ELSE 0 END) AS fail_count,
-                AVG(er.finalmark) AS avg_mark
-                FROM acad_examresults_faculty er
-                INNER JOIN acad_course c ON c.courseid = er.course_id
-                INNER JOIN acad_programme p ON p.progcode = c.programme
-                WHERE er.approved_by != '-' AND er.approved_by != 'HELD'
-                {whereClause}";
-
-            MySqlCommand cmd = new MySqlCommand(query, conn);
-            AddWhereClauseParameters(cmd);
-            
-            conn.Open();
-            MySqlDataReader reader = cmd.ExecuteReader();
-            
-            if (reader.Read())
-            {
-                int totalStudents = reader.IsDBNull(0) ? 0 : reader.GetInt32(0);
-                int totalCourses = reader.IsDBNull(1) ? 0 : reader.GetInt32(1);
-                int passCount = reader.IsDBNull(2) ? 0 : Convert.ToInt32(reader.GetDecimal(2));
-                int failCount = reader.IsDBNull(3) ? 0 : Convert.ToInt32(reader.GetDecimal(3));
-                double avgMark = reader.IsDBNull(4) ? 0 : reader.GetDouble(4);
-                
-                int total = passCount + failCount;
-                double passRate = total > 0 ? (double)passCount / total * 100 : 0;
-                double failRate = total > 0 ? (double)failCount / total * 100 : 0;
-                
-                litTotalStudents.Text = totalStudents.ToString("N0");
-                litTotalCourses.Text = totalCourses.ToString("N0");
-                litPassRate.Text = passRate.ToString("F1") + "%";
-                litFailRate.Text = failRate.ToString("F1") + "%";
-                litAvgMark.Text = avgMark.ToString("F1");
-            }
-        }
-    }
-
-    private void LoadGradeDistribution()
-    {
-        string whereClause = BuildWhereClause();
-        
-        using (MySqlConnection conn = new MySqlConnection(connStr))
-        {
-            string query = $@"SELECT 
-                SUM(CASE WHEN er.finalmark >= 75 THEN 1 ELSE 0 END) AS first_class,
-                SUM(CASE WHEN er.finalmark >= 65 AND er.finalmark < 75 THEN 1 ELSE 0 END) AS upper_second,
-                SUM(CASE WHEN er.finalmark >= 55 AND er.finalmark < 65 THEN 1 ELSE 0 END) AS lower_second,
-                SUM(CASE WHEN er.finalmark >= 50 AND er.finalmark < 55 THEN 1 ELSE 0 END) AS pass,
-                SUM(CASE WHEN er.finalmark < 50 THEN 1 ELSE 0 END) AS fail,
-                COUNT(*) AS total
-                FROM acad_examresults_faculty er
-                INNER JOIN acad_course c ON c.courseid = er.course_id
-                INNER JOIN acad_programme p ON p.progcode = c.programme
-                WHERE er.approved_by != '-' AND er.approved_by != 'HELD'
-                {whereClause}";
-
-            MySqlCommand cmd = new MySqlCommand(query, conn);
-            AddWhereClauseParameters(cmd);
-            
-            conn.Open();
-            MySqlDataReader reader = cmd.ExecuteReader();
-            
-            if (reader.Read())
-            {
-                int firstClass = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetDecimal(0));
-                int upperSecond = reader.IsDBNull(1) ? 0 : Convert.ToInt32(reader.GetDecimal(1));
-                int lowerSecond = reader.IsDBNull(2) ? 0 : Convert.ToInt32(reader.GetDecimal(2));
-                int pass = reader.IsDBNull(3) ? 0 : Convert.ToInt32(reader.GetDecimal(3));
-                int fail = reader.IsDBNull(4) ? 0 : Convert.ToInt32(reader.GetDecimal(4));
-                int total = reader.IsDBNull(5) ? 0 : Convert.ToInt32(reader.GetInt64(5));
-                
-                // Calculate percentages
-                if (total > 0)
+                object result = new
                 {
-                    FirstClassPct = Math.Round((double)firstClass / total * 100, 1);
-                    UpperSecondPct = Math.Round((double)upperSecond / total * 100, 1);
-                    LowerSecondPct = Math.Round((double)lowerSecond / total * 100, 1);
-                    PassPct = Math.Round((double)pass / total * 100, 1);
-                    FailPct = Math.Round((double)fail / total * 100, 1);
-                }
-                
-                litFirstClass.Text = firstClass.ToString("N0");
-                litUpperSecond.Text = upperSecond.ToString("N0");
-                litLowerSecond.Text = lowerSecond.ToString("N0");
-                litPass.Text = pass.ToString("N0");
-                litFail.Text = fail.ToString("N0");
+                    kpis         = Kpis(conn, where, year, semester),
+                    grades       = Grades(conn, where, year, semester),
+                    byFaculty    = Groups(conn, where, year, semester, "fac"),
+                    byDepartment = Groups(conn, where, year, semester, "dept"),
+                    byProgramme  = Groups(conn, where, year, semester, "prog"),
+                    trend        = Trend(conn, scope),
+                    problematic  = Problematic(conn, where, year, semester),
+                    topStudents  = TopStudents(conn, where, year, semester)
+                };
+
+                return Json.Serialize(new
+                {
+                    success = true,
+                    data = result,
+                    scope = new { mode = scope.Mode, label = scope.Label, role = scope.RoleNote, isAdmin = scope.IsAdmin, hasAccess = scope.HasAccess }
+                });
             }
         }
-    }
-
-    private void LoadTopStudents()
-    {
-        string whereClause = BuildWhereClause();
-        
-        using (MySqlConnection conn = new MySqlConnection(connStr))
+        catch (Exception ex)
         {
-            string query = $@"SELECT 
-                er.reg_no AS regno,
-                CONCAT(s.firstname, ' ', s.lastname) AS student_name,
-                p.progname AS programme,
-                AVG(er.finalmark) AS gpa
-                FROM acad_examresults_faculty er
-                INNER JOIN acad_student s ON s.regno = er.reg_no
-                INNER JOIN acad_course c ON c.courseid = er.course_id
-                INNER JOIN acad_programme p ON p.progcode = c.programme
-                WHERE er.approved_by != '-' AND er.approved_by != 'HELD'
-                {whereClause}
-                GROUP BY er.reg_no, s.firstname, s.lastname, p.progname
-                ORDER BY gpa DESC
-                LIMIT 5";
-
-            MySqlCommand cmd = new MySqlCommand(query, conn);
-            AddWhereClauseParameters(cmd);
-            
-            MySqlDataAdapter da = new MySqlDataAdapter(cmd);
-            DataTable dt = new DataTable();
-            da.Fill(dt);
-            
-            rptTopStudents.DataSource = dt;
-            rptTopStudents.DataBind();
+            return Json.Serialize(new { success = false, message = "Analytics failed: " + ex.Message });
         }
     }
 
-    private void LoadProgrammePerformance()
+    private static void AddP(MySqlCommand cmd, string year, string sem)
     {
-        string whereClause = BuildWhereClause();
-        
-        using (MySqlConnection conn = new MySqlConnection(connStr))
-        {
-            string query = $@"SELECT 
-                p.progcode,
-                p.progname,
-                COUNT(DISTINCT er.reg_no) AS total_students,
-                SUM(CASE WHEN er.finalmark >= 50 THEN 1 ELSE 0 END) AS pass_count,
-                SUM(CASE WHEN er.finalmark < 50 THEN 1 ELSE 0 END) AS fail_count,
-                ROUND(SUM(CASE WHEN er.finalmark >= 50 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS pass_rate,
-                ROUND(AVG(er.finalmark), 1) AS avg_mark,
-                SUM(CASE WHEN er.finalmark >= 75 THEN 1 ELSE 0 END) AS first_class,
-                SUM(CASE WHEN er.finalmark >= 65 AND er.finalmark < 75 THEN 1 ELSE 0 END) AS upper_second
-                FROM acad_programme p
-                LEFT JOIN acad_course c ON c.programme = p.progcode
-                LEFT JOIN acad_examresults_faculty er ON er.course_id = c.courseid AND er.approved_by != '-' AND er.approved_by != 'HELD'
-                WHERE p.status = 'Active'
-                {whereClause}
-                GROUP BY p.progcode, p.progname
-                HAVING total_students > 0
-                ORDER BY pass_rate DESC";
-
-            MySqlCommand cmd = new MySqlCommand(query, conn);
-            AddWhereClauseParameters(cmd);
-            
-            MySqlDataAdapter da = new MySqlDataAdapter(cmd);
-            DataTable dt = new DataTable();
-            da.Fill(dt);
-            
-            gvProgrammePerformance.DataSource = dt;
-            gvProgrammePerformance.DataBind();
-        }
+        if (!string.IsNullOrEmpty(year)) cmd.Parameters.AddWithValue("@year", year);
+        if (!string.IsNullOrEmpty(sem))  cmd.Parameters.AddWithValue("@sem", sem);
     }
 
-    private void LoadTrendData()
+    private static object Kpis(MySqlConnection conn, string where, string year, string sem)
     {
-        using (MySqlConnection conn = new MySqlConnection(connStr))
+        string sql = "SELECT COUNT(DISTINCT er.regno) students, COUNT(DISTINCT er.course_id) courses, " +
+                     "COUNT(*) results, SUM(er.total_mark>=50) passes, " +
+                     "ROUND(AVG(er.total_mark),1) avg_mark, SUM(UPPER(TRIM(er.grade))='A') distinctions " +
+                     "FROM acad_examresults_faculty er JOIN acad_programme p ON p.progcode=er.progid " + where;
+        using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
-            string query = @"SELECT 
-                er.acad_year,
-                er.semester,
-                CONCAT(er.acad_year, ' S', er.semester) AS semester_label,
-                ROUND(SUM(CASE WHEN er.finalmark >= 50 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS pass_rate
-                FROM acad_examresults_faculty er
-                WHERE er.approved_by != '-' AND er.approved_by != 'HELD'
-                GROUP BY er.acad_year, er.semester
-                ORDER BY er.acad_year DESC, er.semester DESC
-                LIMIT 4";
-
-            MySqlDataAdapter da = new MySqlDataAdapter(query, conn);
-            DataTable dt = new DataTable();
-            da.Fill(dt);
-            
-            // Calculate height percentages based on pass rate
-            double maxRate = 100;
-            foreach (DataRow row in dt.Rows)
+            AddP(cmd, year, sem);
+            using (MySqlDataReader r = cmd.ExecuteReader())
             {
-                double rate = row["pass_rate"] != DBNull.Value ? Convert.ToDouble(row["pass_rate"]) : 0;
-                row["height"] = (rate / maxRate * 100).ToString("F0");
+                if (r.Read())
+                {
+                    int results = ToInt(r["results"]);
+                    int passes = ToInt(r["passes"]);
+                    int distinct = ToInt(r["distinctions"]);
+                    double passRate = results > 0 ? Math.Round((double)passes * 100 / results, 1) : 0;
+                    double distPct  = results > 0 ? Math.Round((double)distinct * 100 / results, 1) : 0;
+                    return new
+                    {
+                        students = ToInt(r["students"]),
+                        courses = ToInt(r["courses"]),
+                        results = results,
+                        passes = passes,
+                        passRate = passRate,
+                        failRate = results > 0 ? Math.Round(100 - passRate, 1) : 0,
+                        avgMark = r["avg_mark"] == DBNull.Value ? 0 : Convert.ToDouble(r["avg_mark"]),
+                        distinctions = distinct,
+                        distinctionPct = distPct
+                    };
+                }
             }
-            
-            // Reverse order for display (oldest to newest)
-            DataView dv = dt.DefaultView;
-            dv.Sort = "acad_year ASC, semester ASC";
-            
-            rptTrend.DataSource = dv.ToTable();
-            rptTrend.DataBind();
         }
+        return new { students = 0, courses = 0, results = 0, passes = 0, passRate = 0, failRate = 0, avgMark = 0, distinctions = 0, distinctionPct = 0 };
     }
 
-    private void LoadProblematicCourses()
+    private static List<object> Grades(MySqlConnection conn, string where, string year, string sem)
     {
-        string whereClause = BuildWhereClause();
-        
-        using (MySqlConnection conn = new MySqlConnection(connStr))
+        var list = new List<object>();
+        string sql = "SELECT UPPER(TRIM(er.grade)) g, COUNT(*) c " +
+                     "FROM acad_examresults_faculty er JOIN acad_programme p ON p.progcode=er.progid " +
+                     where + " AND TRIM(IFNULL(er.grade,''))<>'' GROUP BY g";
+        // Fixed display order for the standard grade ladder.
+        string[] order = { "A", "B+", "B", "C+", "C", "D+", "D", "F" };
+        var counts = new Dictionary<string, int>();
+        int total = 0;
+        using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
-            string query = $@"SELECT 
-                c.courseid AS course_id,
-                c.coursename AS course_name,
-                COUNT(*) AS total,
-                CONCAT(ROUND(SUM(CASE WHEN er.finalmark < 50 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1), '%') AS fail_rate
-                FROM acad_course c
-                INNER JOIN acad_examresults_faculty er ON er.course_id = c.courseid
-                INNER JOIN acad_programme p ON p.progcode = c.programme
-                WHERE er.approved_by != '-' AND er.approved_by != 'HELD'
-                {whereClause}
-                GROUP BY c.courseid, c.coursename
-                HAVING SUM(CASE WHEN er.finalmark < 50 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) > 30
-                ORDER BY SUM(CASE WHEN er.finalmark < 50 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) DESC
-                LIMIT 10";
-
-            MySqlCommand cmd = new MySqlCommand(query, conn);
-            AddWhereClauseParameters(cmd);
-            
-            MySqlDataAdapter da = new MySqlDataAdapter(cmd);
-            DataTable dt = new DataTable();
-            da.Fill(dt);
-            
-            gvProblematicCourses.DataSource = dt;
-            gvProblematicCourses.DataBind();
+            AddP(cmd, year, sem);
+            using (MySqlDataReader r = cmd.ExecuteReader())
+                while (r.Read())
+                {
+                    string g = r["g"].ToString();
+                    int c = ToInt(r["c"]);
+                    if (!counts.ContainsKey(g)) counts[g] = 0;
+                    counts[g] += c; total += c;
+                }
         }
+        for (int i = 0; i < order.Length; i++)
+        {
+            int c = counts.ContainsKey(order[i]) ? counts[order[i]] : 0;
+            list.Add(new { grade = order[i], count = c, pct = total > 0 ? Math.Round((double)c * 100 / total, 1) : 0 });
+        }
+        return list;
     }
 
-    #endregion
-
-    #region Helper Methods
-
-    private string BuildWhereClause()
+    // group: "fac" | "dept" | "prog"
+    private static List<object> Groups(MySqlConnection conn, string where, string year, string sem, string group)
     {
-        List<string> conditions = new List<string>();
-        
-        if (!string.IsNullOrEmpty(ddlAcadYear.SelectedValue))
+        string keyName, join;
+        if (group == "fac")
         {
-            conditions.Add("er.acad_year = @AcadYear");
+            keyName = "COALESCE(NULLIF(f.faculty_name,''),'(Unassigned)')";
+            join = "LEFT JOIN acad_faculty f ON f.faculty_code=p.faculty_code";
         }
-        
-        if (!string.IsNullOrEmpty(ddlSemester.SelectedValue))
+        else if (group == "dept")
         {
-            conditions.Add("er.semester = @Semester");
+            keyName = "COALESCE(NULLIF(d.dept_name,''),'(Unassigned)')";
+            join = "LEFT JOIN hrm_departments d ON d.ID=p.department_id";
         }
-        
-        if (!string.IsNullOrEmpty(ddlFaculty.SelectedValue))
+        else
         {
-            conditions.Add("p.faculty = @Faculty");
+            keyName = "COALESCE(NULLIF(p.progname,''),p.progcode)";
+            join = "";
         }
-        
-        if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))
+
+        string sql = "SELECT * FROM (" +
+            "SELECT " + keyName + " gname, COUNT(DISTINCT er.regno) students, COUNT(*) results, " +
+            "SUM(er.total_mark>=50) passes, ROUND(AVG(er.total_mark),1) avg_mark " +
+            "FROM acad_examresults_faculty er JOIN acad_programme p ON p.progcode=er.progid " + join + " " +
+            where + " GROUP BY gname) g ORDER BY results DESC LIMIT 40";
+
+        var list = new List<object>();
+        using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
-            conditions.Add("c.programme = @Programme");
+            AddP(cmd, year, sem);
+            using (MySqlDataReader r = cmd.ExecuteReader())
+                while (r.Read())
+                {
+                    int results = ToInt(r["results"]); int passes = ToInt(r["passes"]);
+                    list.Add(new
+                    {
+                        name = ToStr(r["gname"]),
+                        students = ToInt(r["students"]),
+                        results = results,
+                        passRate = results > 0 ? Math.Round((double)passes * 100 / results, 1) : 0,
+                        avgMark = r["avg_mark"] == DBNull.Value ? 0 : Convert.ToDouble(r["avg_mark"])
+                    });
+                }
         }
-        
-        if (conditions.Count > 0)
-        {
-            return " AND " + string.Join(" AND ", conditions);
-        }
-        
-        return "";
+        return list;
     }
 
-    private void AddWhereClauseParameters(MySqlCommand cmd)
+    private static List<object> Trend(MySqlConnection conn, MarksScope scope)
     {
-        if (!string.IsNullOrEmpty(ddlAcadYear.SelectedValue))
+        var list = new List<object>();
+        string sql = "SELECT * FROM (" +
+            "SELECT er.acadyear y, COUNT(*) results, SUM(er.total_mark>=50) passes " +
+            "FROM acad_examresults_faculty er JOIN acad_programme p ON p.progcode=er.progid " +
+            "WHERE er.acadyear REGEXP '^[0-9]{4}/[0-9]{4}$'" + APPROVED + scope.ProgFilter("er", "progid") +
+            " GROUP BY er.acadyear ORDER BY CAST(LEFT(er.acadyear,4) AS UNSIGNED) DESC LIMIT 6) t " +
+            "ORDER BY CAST(LEFT(y,4) AS UNSIGNED) ASC";
+        using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+        using (MySqlDataReader r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                int results = ToInt(r["results"]); int passes = ToInt(r["passes"]);
+                list.Add(new { label = ToStr(r["y"]), results = results,
+                    passRate = results > 0 ? Math.Round((double)passes * 100 / results, 1) : 0 });
+            }
+        return list;
+    }
+
+    private static List<object> Problematic(MySqlConnection conn, string where, string year, string sem)
+    {
+        var list = new List<object>();
+        string sql = "SELECT * FROM (" +
+            "SELECT er.course_id code, COALESCE(NULLIF(c.courseName,''),er.course_id) cname, " +
+            "COUNT(*) results, SUM(er.total_mark<50) fails, " +
+            "ROUND(SUM(er.total_mark<50)*100/COUNT(*),1) fail_rate " +
+            "FROM acad_examresults_faculty er JOIN acad_programme p ON p.progcode=er.progid " +
+            "LEFT JOIN acad_course c ON c.courseID=er.course_id " + where +
+            " GROUP BY er.course_id, cname HAVING results>=5 AND fail_rate>20) x " +
+            "ORDER BY fail_rate DESC, results DESC LIMIT 12";
+        using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
-            cmd.Parameters.AddWithValue("@AcadYear", ddlAcadYear.SelectedValue);
+            AddP(cmd, year, sem);
+            using (MySqlDataReader r = cmd.ExecuteReader())
+                while (r.Read())
+                    list.Add(new { code = ToStr(r["code"]), name = ToStr(r["cname"]),
+                        results = ToInt(r["results"]), fails = ToInt(r["fails"]),
+                        failRate = r["fail_rate"] == DBNull.Value ? 0 : Convert.ToDouble(r["fail_rate"]) });
         }
-        
-        if (!string.IsNullOrEmpty(ddlSemester.SelectedValue))
+        return list;
+    }
+
+    private static List<object> TopStudents(MySqlConnection conn, string where, string year, string sem)
+    {
+        var list = new List<object>();
+        string sql = "SELECT er.regno, MAX(TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,'')))) nm, MAX(COALESCE(NULLIF(p.progname,''),p.progcode)) prog, " +
+            "ROUND(AVG(er.total_mark),1) avg_mark, COUNT(*) results " +
+            "FROM acad_examresults_faculty er JOIN acad_programme p ON p.progcode=er.progid " +
+            "LEFT JOIN acad_student s ON s.regno=er.regno " + where +
+            " GROUP BY er.regno HAVING results>=3 ORDER BY avg_mark DESC LIMIT 10";
+        using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
-            cmd.Parameters.AddWithValue("@Semester", ddlSemester.SelectedValue);
+            AddP(cmd, year, sem);
+            using (MySqlDataReader r = cmd.ExecuteReader())
+                while (r.Read())
+                    list.Add(new { regno = ToStr(r["regno"]), name = ToStr(r["nm"]), prog = ToStr(r["prog"]),
+                        avgMark = r["avg_mark"] == DBNull.Value ? 0 : Convert.ToDouble(r["avg_mark"]),
+                        results = ToInt(r["results"]) });
         }
-        
-        if (!string.IsNullOrEmpty(ddlFaculty.SelectedValue))
-        {
-            cmd.Parameters.AddWithValue("@Faculty", ddlFaculty.SelectedValue);
-        }
-        
-        if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))
-        {
-            cmd.Parameters.AddWithValue("@Programme", ddlProgramme.SelectedValue);
-        }
+        return list;
     }
 
-    protected string GetPassRateBadge(object passRate)
+    private static int ToInt(object v) { return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v); }
+    private static string ToStr(object v) { return v == null || v == DBNull.Value ? "" : v.ToString(); }
+
+    private class FilterOption
     {
-        if (passRate == null || passRate == DBNull.Value)
-            return "<span class='rad-pass-rate rad-pass-rate--low'>N/A</span>";
-            
-        double rate = Convert.ToDouble(passRate);
-        string cssClass = rate >= 70 ? "rad-pass-rate--high" : (rate >= 50 ? "rad-pass-rate--medium" : "rad-pass-rate--low");
-        
-        return $"<span class='rad-pass-rate {cssClass}'>{rate:F1}%</span>";
+        public string value { get; set; }
+        public string text { get; set; }
+        public FilterOption(string v, string t) { value = v; text = t; }
     }
-
-    #endregion
-
-    #region Event Handlers
-
-    protected void Filter_Changed(object sender, EventArgs e)
-    {
-        LoadAnalytics();
-    }
-
-    protected void ddlFaculty_SelectedIndexChanged(object sender, EventArgs e)
-    {
-        LoadProgrammes();
-        LoadAnalytics();
-    }
-
-    protected void btnRefresh_Click(object sender, EventArgs e)
-    {
-        LoadAnalytics();
-    }
-
-    protected void btnExportProgrammes_Click(object sender, EventArgs e)
-    {
-        gvExporter.WriteXlsxToResponse("Programme_Performance_" + DateTime.Now.ToString("yyyyMMdd"));
-    }
-
-    protected void btnExportExcel_Click(object sender, EventArgs e)
-    {
-        // Export comprehensive Excel report
-        gvExporter.WriteXlsxToResponse("Results_Analytics_" + DateTime.Now.ToString("yyyyMMdd"));
-    }
-
-    protected void btnExportPDF_Click(object sender, EventArgs e)
-    {
-        // For PDF export, you might want to use a reporting tool like XtraReports
-        // This is a placeholder - implement based on your reporting infrastructure
-        ScriptManager.RegisterStartupScript(this, GetType(), "pdfAlert", 
-            "alert('PDF export feature coming soon. Please use Excel export for now.');", true);
-    }
-
-    #endregion
 }

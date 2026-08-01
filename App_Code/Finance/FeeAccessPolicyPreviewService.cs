@@ -31,17 +31,19 @@ public class FeeAccessPolicyPreviewService
             return result;
         }
 
+        // Canonical balances: read the materialised dual-source cache (fin_ledger + unmirrored
+        // fin_studentfeestracking, deduped) so policy pass/fail matches StudentLedgers / the portal
+        // exactly. (The old ledger-only aggregate double-counted migration credits and missed
+        // tracking-only students.)
         DataTable dtFin = FinanceDB.ExecuteDataTable(@"
-            SELECT fl.accountcode AS regno,
-                   COALESCE(SUM(CASE WHEN fl.transactionType='DR' THEN fl.transaction_amount ELSE 0 END),0) AS total_bill,
-                   COALESCE(SUM(CASE WHEN fl.transactionType='CR' THEN fl.transaction_amount ELSE 0 END),0) AS total_paid
-            FROM fin_ledger fl
-            WHERE fl.transaction_amount > 0
-            GROUP BY fl.accountcode");
+            SELECT regno,
+                   total_billed AS total_bill,
+                   total_paid   AS total_paid
+            FROM fin_student_balance_cache");
 
         if (dtFin.Rows.Count == 0)
         {
-            result.Message = "No students found with financial data in fin_ledger.";
+            result.Message = "No students found in the balance cache (fin_student_balance_cache).";
             return result;
         }
 

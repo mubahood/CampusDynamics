@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data;
 using System.Web;
 using System.Web.Security;
@@ -119,6 +120,11 @@ public partial class API_v2_auth : System.Web.UI.Page
             catch { /* Name lookup failure shouldn't block login */ }
         }
 
+        // ID Card role elevation: dedicated operator/service accounts (configured in
+        // web.config appSettings) receive an elevated token type so they can drive the
+        // ID card management API. Human Registry staff should use the eadmin console.
+        userType = ApplyIdCardRole(resolvedUsername, userType);
+
         // Create token using the resolved membership username
         string ipAddress = Request.UserHostAddress;
         TokenInfo tokenInfo = TokenManager.CreateToken(resolvedUsername, userType, fullName, ipAddress);
@@ -143,6 +149,24 @@ public partial class API_v2_auth : System.Web.UI.Page
     /// Students are checked in campus_dynamics_portal, staff in campus_dynamics.
     /// If the primary database fails, we also try the other one as fallback.
     /// </summary>
+    // Elevate dedicated ID-card operator/admin accounts (configured usernames) so their
+    // API token can manage the ID card lifecycle. Non-listed accounts keep their type.
+    private static string ApplyIdCardRole(string username, string userType)
+    {
+        if (string.IsNullOrEmpty(username)) return userType;
+        string u = username.Trim();
+        if (InCsv(ConfigurationManager.AppSettings["IDCard.AdminUsers"], u)) return "admin";
+        if (InCsv(ConfigurationManager.AppSettings["IDCard.OperatorUsers"], u)) return "idcard_operator";
+        return userType;
+    }
+    private static bool InCsv(string csv, string val)
+    {
+        if (string.IsNullOrEmpty(csv)) return false;
+        foreach (string part in csv.Split(','))
+            if (string.Equals(part.Trim(), val, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
     private bool ValidatePassword(string membershipUsername, string password, string userType)
     {
         // Try the primary database for this user type

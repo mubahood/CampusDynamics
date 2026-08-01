@@ -1,0 +1,181 @@
+========================================= 
+SYSTEM REPAIR - REGISTER + AUTOBILL RUN 
+Run date: Tue 05/05/2026 12:34:55.26 
+========================================= 
+ 
+=== SEMESTER 2 REPAIR === 
+Warning: Using a password on the command line interface can be insecure.
+section	acad_year	semester	candidate_count	billed_now	already_billed	no_bill_created	failed_rows
+SUMMARY	2025/2026	2	123	114	4	5	0
+reg_id	regno	old_status	old_conducted_new_registration	before_bill_count	after_bill_count	action_status	action_note	processed_at
+54519	MRU2024001874	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:35:18
+54494	MRU2022000100	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:35:21
+54486	MRU2023000628	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:35:21
+54435	MRU2023001370	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:35:21
+54406	Mru2021001213	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:35:24
+54138	MRU2024001278	REGISTERED	Yes	2	2	ALREADY_BILLED	Bill already existed after status sync	2026-05-05 12:35:26
+54134	MRU2024001214	REGISTERED	Yes	2	2	ALREADY_BILLED	Bill already existed after status sync	2026-05-05 12:35:31
+54133	MRU2024001191	REGISTERED	Yes	2	2	ALREADY_BILLED	Bill already existed after status sync	2026-05-05 12:35:37
+54129	MRU2024000911	REGISTERED	Yes	2	2	ALREADY_BILLED	Bill already existed after status sync	2026-05-05 12:35:39
+54128	MRU2024000892	REGISTERED	Yes	1	2	BILLED	Billing triggered successfully	2026-05-05 12:35:42
+54125	MRU2024000851	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:35:48
+54123	MRU2024000782	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:35:52
+54120	MRU2024000585	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:35:57
+54117	MRU2024000289	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:02
+54114	MRU2024000214	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:06
+54112	MRU2024000124	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:11
+54111	MRU2024000114	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:16
+54107	MRU2025002703	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:21
+54101	MRU2025004011	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:25
+54100	MRU2025004010	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:30
+54099	MRU2025004009	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:35
+54098	MRU2025004008	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:40
+54095	MRU2025003805	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:45
+54088	MRU2025003409	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:49
+54084	MRU2025003277	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:54
+54081	MRU2025003182	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:36:59
+54080	MRU2025003158	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:04
+54079	MRU2025003116	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:09
+54074	MRU2025002923	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:14
+54073	MRU2025002903	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:19
+54071	MRU2025002895	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:24
+54070	MRU2025002893	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:29
+54067	MRU2025002743	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:34
+54066	MRU2025002627	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:39
+54065	MRU2025002607	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:46
+54061	MRU2025002302	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:54
+54056	MRU2024002791	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:37:59
+54043	MRU2025003899	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:03
+54042	MRU2025003874	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:09
+54040	MRU2025003554	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:14
+54037	MRU2025003311	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:19
+54036	MRU2025003253	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:24
+54034	MRU2025003155	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:29
+54032	MRU2025002830	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:35
+54031	MRU2025002795	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:40
+54030	MRU2025002794	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:46
+54028	MRU2025002665	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:51
+54025	MRU2025002410	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:38:56
+54024	MRU2025002185	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:01
+54011	MRU2025003604	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:06
+54003	MRU2025003218	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:11
+54002	MRU2025003202	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:16
+54001	MRU2025003127	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:21
+53998	MRU2025003011	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:26
+53997	MRU2025002922	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:31
+53996	MRU2025002921	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:36
+53995	MRU2025002905	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:41
+53994	MRU2025002792	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:46
+53993	MRU2025002754	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:51
+53989	MRU2025002463	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:39:55
+53986	MRU2025002277	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:00
+53983	MRU2025002067	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:05
+53982	MRU2024002041	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:09
+53952	MRU2025004247	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:14
+53917	MRU2025003335	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:19
+53911	MRU2025004244	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:23
+53867	MRU2024001715	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:28
+53855	MRU240179	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:33
+53851	MRU2024001570	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:37
+53849	MRU2024001405	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:42
+53844	MRU2024001257	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:47
+53842	MRU2024001193	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:52
+53839	MRU2024001065	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:40:56
+53838	MRU2024001064	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:02
+53835	MRU2024000883	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:07
+53834	MRU2024000874	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:12
+53831	MRU2024000721	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:17
+53830	MRU2024000624	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:21
+53828	MRU2024000540	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:28
+53827	MRU2024000488	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:33
+53826	MRU2024000474	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:37
+53824	MRU2024000367	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:42
+53820	MRU2024000119	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:47
+53818	MRU2024000092	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:52
+53816	MRU2025004209	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:41:57
+53814	MRU2023001393	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:42:02
+53813	MRU2023001283	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:42:06
+53811	MRU2023001186	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:42:11
+53809	MRU2023001146	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:42:16
+53806	MRU2023001014	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:42:21
+53799	MRU2023000838	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:42:26
+53798	MRU2023000804	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:42:31
+53794	MRU2023000627	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:42:53
+53793	MRU2023000551	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:42:58
+53785	MRU2023000381	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:43:03
+53784	MRU2023000369	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:43:09
+53782	MRU2023000306	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:43:15
+53781	MRU2023000235	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:43:20
+53778	MRU2023000162	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:43:24
+53776	MRU2023000060	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:43:30
+53764	MRU2024001387	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:43:36
+53761	MRU2024001359	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:43:57
+53757	MRU2024001316	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:02
+53756	MRU2024001273	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:08
+53755	MRU2024001205	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:14
+53752	MRU2024001156	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:21
+53750	MRU2024001096	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:26
+53749	MRU2024001086	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:30
+53747	MRU2024001046	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:35
+53746	MRU2024001041	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:40
+53741	MRU2024000608	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:45
+53739	MRU2024000563	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:50
+53737	MRU2024000465	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:55
+53736	MRU2024000446	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:00
+53735	MRU2024000423	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:05
+53733	MRU2024000236	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:10
+53720	MRU2025004199	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:15
+53715	MRU2024002033	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:20
+53702	MRU2024002079	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:26
+53696	MRU2024001775	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:31
+53687	MRU2025004237	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:36
+53684	MRU2025004234	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:41
+53669	MRU2024001792	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:46
+ 
+=== SEMESTER 1 REPAIR === 
+Warning: Using a password on the command line interface can be insecure.
+section	acad_year	semester	candidate_count	billed_now	already_billed	no_bill_created	failed_rows
+SUMMARY	2025/2026	1	23	23	0	0	0
+reg_id	regno	old_status	old_conducted_new_registration	before_bill_count	after_bill_count	action_status	action_note	processed_at
+54665	MRU2024000048	REGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:56
+54502	mru2021000758	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:01
+54351	MRU2025004265	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:06
+54350	MRU2025004264	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:12
+54349	MRU2025004263	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:17
+54348	MRU2025004262	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:25
+54346	MRU2025004261	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:33
+54345	MRU2025004260	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:38
+54344	MRU2025004259	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:43
+54343	MRU2025004258	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:48
+54342	MRU2025004257	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:53
+54341	MRU2025004256	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:58
+54263	MRU2025004255	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:04
+54243	MRU2025004253	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:09
+54108	MRU2025004251	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:14
+54048	MRU2025004250	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:19
+54044	MRU2025004249	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:24
+53941	MRU2025004246	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:32
+53936	MRU2025004245	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:37
+53716	MRU2025004242	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:42
+53708	MRU2025004241	UNREGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:47
+53707	MRU2025004240	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:52
+53686	MRU2025004236	REGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:57
+ 
+=== SEMESTER 3 REPAIR === 
+Warning: Using a password on the command line interface can be insecure.
+section	acad_year	semester	candidate_count	billed_now	already_billed	no_bill_created	failed_rows
+SUMMARY	2025/2026	3	3	0	0	3	0
+reg_id	regno	old_status	old_conducted_new_registration	before_bill_count	after_bill_count	action_status	action_note	processed_at
+54664	MRU2023001449	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:47:58
+54618	MRU2023000004	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:47:58
+54513	MRU2024000750	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:47:58
+ 
+=== POST-REPAIR VERIFICATION === 
+Warning: Using a password on the command line interface can be insecure.
+acad_year	semester	bill_status	student_count
+2025/2026	1	BILLED	38
+2025/2026	2	BILLED	496
+2025/2026	2	NOT_BILLED	5
+2025/2026	3	NOT_BILLED	3
+ 
+=== DONE === 

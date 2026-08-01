@@ -1,620 +1,339 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="ResultsAnalytics.aspx.cs" Inherits="COOPERP_NewScreens_ResultsAnalytics" Title="Results Analytics Dashboard - Campus Dynamics" %>
-
-<%@ Register Assembly="DevExpress.Web.v16.1, Version=16.1.4.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" Namespace="DevExpress.Web" TagPrefix="dx" %>
+<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="ResultsAnalytics.aspx.cs" Inherits="COOPERP_NewScreens_ResultsAnalytics" Title="Results Analytics - Campus Dynamics" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
-    <style type="text/css">
-        /* ===============================================
-           RESULTS ANALYTICS DASHBOARD - STYLES
-           Prefix: rad- (Results Analytics Dashboard)
-        =============================================== */
-        
-        .rad-container { padding: 0; font-size: 11px; }
-        
-        /* Page Header */
-        .cd-page-header { background:#05275C; padding:14px 0 12px; margin-bottom:16px; border-bottom:3px solid #041d45; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-        .cd-page-header__left { display:flex; align-items:center; gap:12px; }
-        .cd-page-header__icon { width:38px; height:38px; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; border-radius:4px; flex-shrink:0; }
-        .cd-page-header__title { font-size:16px; font-weight:700; color:#fff; line-height:1.2; margin:0; }
-        .cd-page-header__sub { font-size:12px; color:rgba(255,255,255,.75); margin-top:2px; }
-        .cd-page-header__right { display:flex; gap:8px; align-items:center; }
-        
-        /* Filter Bar */
-        .rad-filter-bar {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            padding: 12px 15px;
-            background: #f5f7fa;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .rad-filter-group {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .rad-filter-group label {
-            font-size: 10px;
-            color: #6c757d;
-            font-weight: 600;
-        }
-        .rad-filter-select {
-            padding: 6px 10px;
-            font-size: 11px;
-            border: 1px solid #ced4da;
-            border-radius: 0;
-            background: #fff;
-        }
-        .rad-filter-select:focus { border-color: #174DA4; outline: none; }
-        
-        /* Buttons */
-        .rad-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 6px 14px;
-            font-size: 11px;
-            font-weight: 500;
-            border: 1px solid transparent;
-            border-radius: 0;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            text-decoration: none;
-        }
-        .rad-btn svg { width: 12px; height: 12px; }
-        .rad-btn--primary { background: #174DA4; color: #fff; border-color: #174DA4; }
-        .rad-btn--primary:hover { background: #0d3a7d; }
-        .rad-btn--outline { background: #fff; color: #495057; border-color: #ced4da; }
-        .rad-btn--outline:hover { background: #f8f9fa; }
-        
-        /* KPI Cards Row */
-        .rad-kpi-row {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        @media (max-width: 1200px) { .rad-kpi-row { grid-template-columns: repeat(3, 1fr); } }
-        @media (max-width: 768px) { .rad-kpi-row { grid-template-columns: repeat(2, 1fr); } }
-        
-        .rad-kpi-card {
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            padding: 16px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-        .rad-kpi-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-        }
-        .rad-kpi-card--pass::before { background: #28a745; }
-        .rad-kpi-card--fail::before { background: #dc3545; }
-        .rad-kpi-card--avg::before { background: #17a2b8; }
-        .rad-kpi-card--students::before { background: #174DA4; }
-        .rad-kpi-card--courses::before { background: #ffc107; }
-        
-        .rad-kpi-card__value { font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
-        .rad-kpi-card--pass .rad-kpi-card__value { color: #28a745; }
-        .rad-kpi-card--fail .rad-kpi-card__value { color: #dc3545; }
-        .rad-kpi-card--avg .rad-kpi-card__value { color: #17a2b8; }
-        .rad-kpi-card--students .rad-kpi-card__value { color: #174DA4; }
-        .rad-kpi-card--courses .rad-kpi-card__value { color: #fd7e14; }
-        
-        .rad-kpi-card__label { font-size: 10px; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; }
-        .rad-kpi-card__trend {
-            font-size: 10px;
-            margin-top: 6px;
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-        .rad-kpi-card__trend--up { background: #d4edda; color: #155724; }
-        .rad-kpi-card__trend--down { background: #f8d7da; color: #721c24; }
-        .rad-kpi-card__trend--neutral { background: #e2e3e5; color: #383d41; }
-        
-        /* Charts Grid */
-        .rad-charts-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        @media (max-width: 992px) { .rad-charts-grid { grid-template-columns: 1fr; } }
-        
-        .rad-chart-card {
-            background: #fff;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .rad-chart-card--full { grid-column: span 2; }
-        @media (max-width: 992px) { .rad-chart-card--full { grid-column: span 1; } }
-        
-        .rad-chart-card__header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background: #f5f7fa;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .rad-chart-card__title { font-size: 12px; font-weight: 600; color: #1a1a2e; }
-        .rad-chart-card__actions { display: flex; gap: 6px; }
-        .rad-chart-card__body { padding: 16px; min-height: 250px; }
-        
-        /* Grade Distribution Bars */
-        .rad-grade-dist {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .rad-grade-bar {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .rad-grade-bar__label {
-            width: 80px;
-            font-size: 11px;
-            font-weight: 600;
-            color: #495057;
-        }
-        .rad-grade-bar__track {
-            flex: 1;
-            height: 24px;
-            background: #e9ecef;
-            border-radius: 0;
-            overflow: hidden;
-            position: relative;
-        }
-        .rad-grade-bar__fill {
-            height: 100%;
-            border-radius: 0;
-            display: flex;
-            align-items: center;
-            padding-left: 8px;
-            color: #fff;
-            font-size: 10px;
-            font-weight: 600;
-            transition: width 0.5s ease;
-        }
-        .rad-grade-bar__fill--first { background: linear-gradient(90deg, #28a745, #20c997); }
-        .rad-grade-bar__fill--upper { background: linear-gradient(90deg, #17a2b8, #6f42c1); }
-        .rad-grade-bar__fill--lower { background: linear-gradient(90deg, #ffc107, #fd7e14); }
-        .rad-grade-bar__fill--pass { background: linear-gradient(90deg, #6c757d, #495057); }
-        .rad-grade-bar__fill--fail { background: linear-gradient(90deg, #dc3545, #e83e8c); }
-        .rad-grade-bar__value {
-            width: 60px;
-            text-align: right;
-            font-size: 11px;
-            font-weight: 600;
-            color: #495057;
-        }
-        
-        /* Programme Performance Table */
-        .rad-perf-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11px;
-        }
-        .rad-perf-table th {
-            text-align: left;
-            padding: 10px 8px;
-            background: #f5f7fa;
-            border-bottom: 2px solid #174DA4;
-            font-weight: 600;
-            color: #495057;
-            font-size: 10px;
-            text-transform: uppercase;
-        }
-        .rad-perf-table td {
-            padding: 10px 8px;
-            border-bottom: 1px solid #e9ecef;
-        }
-        .rad-perf-table tr:hover td { background: #f8f9fa; }
-        
-        /* Pass Rate Badge */
-        .rad-pass-rate {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 10px;
-            font-size: 10px;
-            font-weight: 600;
-            border-radius: 12px;
-        }
-        .rad-pass-rate--high { background: #d4edda; color: #155724; }
-        .rad-pass-rate--medium { background: #fff3cd; color: #856404; }
-        .rad-pass-rate--low { background: #f8d7da; color: #721c24; }
-        
-        /* Mini Progress */
-        .rad-mini-progress {
-            width: 100px;
-            height: 6px;
-            background: #e9ecef;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-        .rad-mini-progress__bar {
-            height: 100%;
-            border-radius: 3px;
-        }
-        
-        /* Trend Chart Area */
-        .rad-trend-chart {
-            height: 200px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-around;
-            padding: 15px;
-        }
-        .rad-trend-bar {
-            width: 40px;
-            background: linear-gradient(180deg, #174DA4, #0d3a7d);
-            border-radius: 4px 4px 0 0;
-            position: relative;
-        }
-        .rad-trend-bar__label {
-            position: absolute;
-            bottom: -20px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 9px;
-            color: #6c757d;
-        }
-        .rad-trend-bar__value {
-            position: absolute;
-            top: -18px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 10px;
-            font-weight: 600;
-            color: #174DA4;
-        }
-        
-        /* Top Performers Section */
-        .rad-top-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        .rad-top-list__item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 1px solid #e9ecef;
-        }
-        .rad-top-list__item:last-child { border-bottom: none; }
-        .rad-top-list__rank {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-        .rad-top-list__rank--1 { background: #ffd700; color: #5d4a00; }
-        .rad-top-list__rank--2 { background: #c0c0c0; color: #404040; }
-        .rad-top-list__rank--3 { background: #cd7f32; color: #fff; }
-        .rad-top-list__rank--other { background: #e9ecef; color: #495057; }
-        .rad-top-list__content { flex: 1; }
-        .rad-top-list__name { font-weight: 600; color: #1a1a2e; }
-        .rad-top-list__meta { font-size: 10px; color: #6c757d; }
-        .rad-top-list__score { font-size: 16px; font-weight: 700; color: #28a745; }
-        
-        /* Export Panel */
-        .rad-export-panel {
-            background: #05275C;
-            border-radius: 4px;
-            padding: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-        .rad-export-panel__info {
-            color: #fff;
-        }
-        .rad-export-panel__title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
-        .rad-export-panel__text { font-size: 10px; opacity: 0.8; }
-        .rad-export-panel__actions { display: flex; gap: 8px; }
-        .rad-export-btn {
-            padding: 8px 16px;
-            font-size: 11px;
-            font-weight: 500;
-            border-radius: 0;
-            border: none;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .rad-export-btn--excel { background: #28a745; color: #fff; }
-        .rad-export-btn--pdf { background: #dc3545; color: #fff; }
-        .rad-export-btn--print { background: #17a2b8; color: #fff; }
-    </style>
+<style>
+*{box-sizing:border-box;}
+.ra-wrap{max-width:1320px;margin:0 auto;padding:8px 10px 14px;}
+.ra-err{display:none;margin:0 0 8px;padding:8px 10px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:0;font-size:11px;}
+.ra-err.show{display:block;}
+.ra-loading{opacity:.55;pointer-events:none;}
+
+/* header / scope */
+.ra-head{background:#fff;border:1px solid #e0e5ed;margin-bottom:8px;}
+.ra-head__top{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #e0e5ed;}
+.ra-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#05275C;}
+.ra-sub{font-size:10px;color:#94a3b8;margin-top:2px;}
+.ra-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;background:#e6f4ea;border:1px solid #a7d9b2;color:#2e7d32;white-space:nowrap;}
+.ra-filters{padding:8px 12px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.ra-fg{display:flex;flex-direction:column;gap:2px;}
+.ra-fg label{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:700;}
+.ra-select{height:30px;border:1px solid #cdd8e6;padding:4px 8px;font-size:11px;background:#fff;border-radius:0;color:#1a1a2e;min-width:130px;}
+.ra-select:focus{outline:none;border-color:#174DA4;}
+.ra-btn{height:30px;display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:1px solid #05275C;background:#05275C;color:#fff;font-size:11px;font-weight:700;cursor:pointer;border-radius:0;}
+.ra-btn:hover{background:#174DA4;border-color:#174DA4;}
+.ra-btn--ghost{background:#fff;color:#05275C;}
+.ra-btn--ghost:hover{background:#f0f4fa;color:#174DA4;}
+
+/* KPIs */
+.ra-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:8px;}
+.ra-kpi{background:#fff;border:1px solid #e0e5ed;border-left:3px solid #174DA4;padding:10px 12px;}
+.ra-kpi__v{font-size:23px;font-weight:800;color:#05275C;line-height:1;letter-spacing:-.02em;}
+.ra-kpi__l{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:700;margin-top:5px;}
+.ra-kpi__s{font-size:9px;color:#9ca3af;margin-top:2px;}
+.ra-kpi--pass{border-left-color:#16a34a;}.ra-kpi--pass .ra-kpi__v{color:#15803d;}
+.ra-kpi--dist{border-left-color:#7c3aed;}.ra-kpi--dist .ra-kpi__v{color:#6d28d9;}
+.ra-kpi--avg{border-left-color:#f59e0b;}.ra-kpi--avg .ra-kpi__v{color:#b45309;}
+
+/* cards */
+.ra-grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+@media(max-width:900px){.ra-grid2{grid-template-columns:1fr;}}
+.ra-card{background:#fff;border:1px solid #e0e5ed;margin-bottom:8px;}
+.ra-card__h{padding:8px 12px;border-bottom:1px solid #e0e5ed;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.ra-card__t{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#05275C;}
+.ra-card__b{padding:10px 12px;}
+
+/* grade distribution bars */
+.ra-gd-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.ra-gd-lbl{width:28px;font-size:11px;font-weight:800;color:#05275C;text-align:center;}
+.ra-gd-track{flex:1;background:#f1f5f9;height:16px;border-radius:0;overflow:hidden;}
+.ra-gd-fill{height:100%;}
+.ra-gd-meta{width:120px;font-size:10px;color:#64748b;text-align:right;white-space:nowrap;}
+
+/* tabs */
+.ra-tabs{display:inline-flex;border:1px solid #cdd8e6;border-radius:0;overflow:hidden;}
+.ra-tab{padding:4px 12px;font-size:10px;font-weight:700;background:#fff;color:#64748b;border:none;cursor:pointer;border-right:1px solid #cdd8e6;}
+.ra-tab:last-child{border-right:none;}
+.ra-tab.active{background:#05275C;color:#fff;}
+
+/* tables */
+.ra-tw{overflow:auto;}
+.ra-table{width:100%;border-collapse:collapse;font-size:11px;}
+.ra-table th{background:#f8fafc;border-bottom:1px solid #e0e5ed;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:700;padding:6px 10px;text-align:left;white-space:nowrap;}
+.ra-table td{border-bottom:1px solid #eef2f6;padding:6px 10px;color:#1f2937;vertical-align:middle;}
+.ra-table tbody tr:last-child td{border-bottom:none;}
+.ra-table tbody tr:hover td{background:#fafcff;}
+.ra-bar{display:inline-block;height:6px;border-radius:0;vertical-align:middle;}
+.ra-bar-bg{background:#f1f5f9;height:6px;border-radius:0;width:90px;display:inline-block;overflow:hidden;vertical-align:middle;}
+.ra-rate{font-weight:800;}
+.ra-code{font-family:Consolas,monospace;font-size:10px;color:#174DA4;background:#f5f7fa;border:1px solid #e0e5ed;padding:1px 6px;}
+.ra-empty{text-align:center;color:#94a3b8;padding:18px;font-size:11px;}
+.ra-rank{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#eef2f8;color:#05275C;font-size:9px;font-weight:800;}
+</style>
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
-    <div class="rad-container">
-        <!-- Page Header -->
-        <div class="cd-page-header">
-            <div class="cd-page-header__left">
-                <div class="cd-page-header__icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-                </div>
-                <div>
-                    <div class="cd-page-header__title">Results Analytics</div>
-                    <div class="cd-page-header__sub">In-depth analysis of academic performance and grade distribution</div>
-                </div>
-            </div>
-            <div class="cd-page-header__right">
-                <asp:HyperLink ID="lnkBack" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsRelease.aspx" CssClass="rad-btn rad-btn--outline">
-                    ← Back to Results
-                </asp:HyperLink>
-            </div>
+<div class="ra-wrap">
+<div id="raErr" class="ra-err"></div>
+
+<!-- header + scope + filters -->
+<div class="ra-head" id="raHead">
+    <div class="ra-head__top">
+        <div>
+            <div class="ra-title">Results Analytics</div>
+            <div class="ra-sub" id="raScope">Resolving your access scope&hellip;</div>
         </div>
-        
-        <!-- Filter Bar -->
-        <div class="rad-filter-bar">
-            <div class="rad-filter-group">
-                <label>Academic Year:</label>
-                <asp:DropDownList ID="ddlAcadYear" runat="server" CssClass="rad-filter-select" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed"></asp:DropDownList>
-            </div>
-            <div class="rad-filter-group">
-                <label>Semester:</label>
-                <asp:DropDownList ID="ddlSemester" runat="server" CssClass="rad-filter-select" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed">
-                    <asp:ListItem Value="" Text="All Semesters"></asp:ListItem>
-                    <asp:ListItem Value="1" Text="Semester 1"></asp:ListItem>
-                    <asp:ListItem Value="2" Text="Semester 2"></asp:ListItem>
-                </asp:DropDownList>
-            </div>
-            <div class="rad-filter-group">
-                <label>Faculty:</label>
-                <asp:DropDownList ID="ddlFaculty" runat="server" CssClass="rad-filter-select" AutoPostBack="true" OnSelectedIndexChanged="ddlFaculty_SelectedIndexChanged"></asp:DropDownList>
-            </div>
-            <div class="rad-filter-group">
-                <label>Programme:</label>
-                <asp:DropDownList ID="ddlProgramme" runat="server" CssClass="rad-filter-select" AutoPostBack="true" OnSelectedIndexChanged="Filter_Changed"></asp:DropDownList>
-            </div>
-            <div style="margin-left: auto;">
-                <asp:Button ID="btnRefresh" runat="server" Text="↻ Refresh" CssClass="rad-btn rad-btn--primary" OnClick="btnRefresh_Click" />
-            </div>
+        <span class="ra-chip" id="raChip">&#10003; Approved results</span>
+    </div>
+    <div class="ra-filters">
+        <div class="ra-fg"><label>Academic Year</label><select id="raYear" class="ra-select"></select></div>
+        <div class="ra-fg"><label>Semester</label>
+            <select id="raSem" class="ra-select">
+                <option value="">All Semesters</option>
+                <option value="1">Semester 1</option>
+                <option value="2">Semester 2</option>
+                <option value="3">Semester 3</option>
+            </select>
         </div>
-        
-        <!-- KPI Cards Row -->
-        <div class="rad-kpi-row">
-            <div class="rad-kpi-card rad-kpi-card--pass">
-                <div class="rad-kpi-card__value"><asp:Literal ID="litPassRate" runat="server">0%</asp:Literal></div>
-                <div class="rad-kpi-card__label">Overall Pass Rate</div>
-                <span class="rad-kpi-card__trend rad-kpi-card__trend--up">
-                    ↑ <asp:Literal ID="litPassTrend" runat="server">+2.3%</asp:Literal> vs last sem
-                </span>
-            </div>
-            <div class="rad-kpi-card rad-kpi-card--fail">
-                <div class="rad-kpi-card__value"><asp:Literal ID="litFailRate" runat="server">0%</asp:Literal></div>
-                <div class="rad-kpi-card__label">Fail Rate</div>
-                <span class="rad-kpi-card__trend rad-kpi-card__trend--down">
-                    ↓ <asp:Literal ID="litFailTrend" runat="server">-1.2%</asp:Literal> vs last sem
-                </span>
-            </div>
-            <div class="rad-kpi-card rad-kpi-card--avg">
-                <div class="rad-kpi-card__value"><asp:Literal ID="litAvgMark" runat="server">0</asp:Literal></div>
-                <div class="rad-kpi-card__label">Average Mark</div>
-                <span class="rad-kpi-card__trend rad-kpi-card__trend--neutral">
-                    → <asp:Literal ID="litAvgTrend" runat="server">Same</asp:Literal>
-                </span>
-            </div>
-            <div class="rad-kpi-card rad-kpi-card--students">
-                <div class="rad-kpi-card__value"><asp:Literal ID="litTotalStudents" runat="server">0</asp:Literal></div>
-                <div class="rad-kpi-card__label">Students Examined</div>
-            </div>
-            <div class="rad-kpi-card rad-kpi-card--courses">
-                <div class="rad-kpi-card__value"><asp:Literal ID="litTotalCourses" runat="server">0</asp:Literal></div>
-                <div class="rad-kpi-card__label">Courses</div>
-            </div>
-        </div>
-        
-        <!-- Charts Grid -->
-        <div class="rad-charts-grid">
-            <!-- Grade Distribution Chart -->
-            <div class="rad-chart-card">
-                <div class="rad-chart-card__header">
-                    <span class="rad-chart-card__title">📈 Grade Distribution</span>
-                </div>
-                <div class="rad-chart-card__body">
-                    <div class="rad-grade-dist">
-                        <div class="rad-grade-bar">
-                            <span class="rad-grade-bar__label">First Class</span>
-                            <div class="rad-grade-bar__track">
-                                <div class="rad-grade-bar__fill rad-grade-bar__fill--first" style="width: <%=FirstClassPct%>%;">
-                                    <%=FirstClassPct%>%
-                                </div>
-                            </div>
-                            <span class="rad-grade-bar__value"><asp:Literal ID="litFirstClass" runat="server">0</asp:Literal></span>
-                        </div>
-                        <div class="rad-grade-bar">
-                            <span class="rad-grade-bar__label">2nd Upper</span>
-                            <div class="rad-grade-bar__track">
-                                <div class="rad-grade-bar__fill rad-grade-bar__fill--upper" style="width: <%=UpperSecondPct%>%;">
-                                    <%=UpperSecondPct%>%
-                                </div>
-                            </div>
-                            <span class="rad-grade-bar__value"><asp:Literal ID="litUpperSecond" runat="server">0</asp:Literal></span>
-                        </div>
-                        <div class="rad-grade-bar">
-                            <span class="rad-grade-bar__label">2nd Lower</span>
-                            <div class="rad-grade-bar__track">
-                                <div class="rad-grade-bar__fill rad-grade-bar__fill--lower" style="width: <%=LowerSecondPct%>%;">
-                                    <%=LowerSecondPct%>%
-                                </div>
-                            </div>
-                            <span class="rad-grade-bar__value"><asp:Literal ID="litLowerSecond" runat="server">0</asp:Literal></span>
-                        </div>
-                        <div class="rad-grade-bar">
-                            <span class="rad-grade-bar__label">Pass</span>
-                            <div class="rad-grade-bar__track">
-                                <div class="rad-grade-bar__fill rad-grade-bar__fill--pass" style="width: <%=PassPct%>%;">
-                                    <%=PassPct%>%
-                                </div>
-                            </div>
-                            <span class="rad-grade-bar__value"><asp:Literal ID="litPass" runat="server">0</asp:Literal></span>
-                        </div>
-                        <div class="rad-grade-bar">
-                            <span class="rad-grade-bar__label">Fail</span>
-                            <div class="rad-grade-bar__track">
-                                <div class="rad-grade-bar__fill rad-grade-bar__fill--fail" style="width: <%=FailPct%>%;">
-                                    <%=FailPct%>%
-                                </div>
-                            </div>
-                            <span class="rad-grade-bar__value"><asp:Literal ID="litFail" runat="server">0</asp:Literal></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Top Performing Students -->
-            <div class="rad-chart-card">
-                <div class="rad-chart-card__header">
-                    <span class="rad-chart-card__title">🏆 Top Performing Students</span>
-                    <asp:HyperLink ID="lnkViewAll" runat="server" NavigateUrl="#" CssClass="rad-btn rad-btn--outline" style="padding: 4px 10px; font-size: 10px;">View All</asp:HyperLink>
-                </div>
-                <div class="rad-chart-card__body">
-                    <ul class="rad-top-list">
-                        <asp:Repeater ID="rptTopStudents" runat="server">
-                            <ItemTemplate>
-                                <li class="rad-top-list__item">
-                                    <span class="rad-top-list__rank rad-top-list__rank--<%# Container.ItemIndex < 3 ? (Container.ItemIndex + 1).ToString() : "other" %>"><%# Container.ItemIndex + 1 %></span>
-                                    <div class="rad-top-list__content">
-                                        <div class="rad-top-list__name"><%# Eval("student_name") %></div>
-                                        <div class="rad-top-list__meta"><%# Eval("regno") %> • <%# Eval("programme") %></div>
-                                    </div>
-                                    <div class="rad-top-list__score"><%# Eval("gpa", "{0:F2}") %></div>
-                                </li>
-                            </ItemTemplate>
-                        </asp:Repeater>
-                    </ul>
-                </div>
-            </div>
-            
-            <!-- Programme Performance Table (Full Width) -->
-            <div class="rad-chart-card rad-chart-card--full">
-                <div class="rad-chart-card__header">
-                    <span class="rad-chart-card__title">📋 Programme Performance Summary</span>
-                    <asp:Button ID="btnExportProgrammes" runat="server" Text="📊 Export" CssClass="rad-btn rad-btn--outline" style="padding: 4px 10px; font-size: 10px;" OnClick="btnExportProgrammes_Click" />
-                </div>
-                <div class="rad-chart-card__body" style="padding: 0;">
-                    <dx:ASPxGridView ID="gvProgrammePerformance" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="progcode" CssClass="rad-perf-table">
-                        <SettingsPager PageSize="10" AlwaysShowPager="true" />
-                        <Settings ShowFilterRow="false" />
-                        <Columns>
-                            <dx:GridViewDataTextColumn FieldName="progname" Caption="Programme" VisibleIndex="0" Width="200px">
-                                <CellStyle Font-Bold="true" ForeColor="#174DA4" />
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="total_students" Caption="Students" VisibleIndex="1" Width="80px">
-                                <CellStyle HorizontalAlign="Center" />
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="pass_count" Caption="Passed" VisibleIndex="2" Width="70px">
-                                <CellStyle HorizontalAlign="Center" ForeColor="#28a745" />
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="fail_count" Caption="Failed" VisibleIndex="3" Width="70px">
-                                <CellStyle HorizontalAlign="Center" ForeColor="#dc3545" />
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="pass_rate" Caption="Pass Rate" VisibleIndex="4" Width="100px">
-                                <DataItemTemplate>
-                                    <%# GetPassRateBadge(Eval("pass_rate")) %>
-                                </DataItemTemplate>
-                                <CellStyle HorizontalAlign="Center" />
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="avg_mark" Caption="Avg Mark" VisibleIndex="5" Width="80px">
-                                <CellStyle HorizontalAlign="Center" Font-Bold="true" />
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="first_class" Caption="1st Class" VisibleIndex="6" Width="70px">
-                                <CellStyle HorizontalAlign="Center" />
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="upper_second" Caption="2nd Upper" VisibleIndex="7" Width="80px">
-                                <CellStyle HorizontalAlign="Center" />
-                            </dx:GridViewDataTextColumn>
-                        </Columns>
-                    </dx:ASPxGridView>
-                </div>
-            </div>
-            
-            <!-- Semester Trend Chart -->
-            <div class="rad-chart-card">
-                <div class="rad-chart-card__header">
-                    <span class="rad-chart-card__title">📊 Pass Rate Trend (Last 4 Semesters)</span>
-                </div>
-                <div class="rad-chart-card__body">
-                    <div class="rad-trend-chart">
-                        <asp:Repeater ID="rptTrend" runat="server">
-                            <ItemTemplate>
-                                <div class="rad-trend-bar" style="height: <%# Eval("height") %>%;">
-                                    <span class="rad-trend-bar__value"><%# Eval("pass_rate") %>%</span>
-                                    <span class="rad-trend-bar__label"><%# Eval("semester_label") %></span>
-                                </div>
-                            </ItemTemplate>
-                        </asp:Repeater>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Courses with Highest Fail Rate -->
-            <div class="rad-chart-card">
-                <div class="rad-chart-card__header">
-                    <span class="rad-chart-card__title">⚠️ Courses Requiring Attention</span>
-                </div>
-                <div class="rad-chart-card__body" style="padding: 0;">
-                    <dx:ASPxGridView ID="gvProblematicCourses" runat="server" Width="100%" AutoGenerateColumns="False" KeyFieldName="course_id" CssClass="rad-perf-table">
-                        <SettingsPager PageSize="5" />
-                        <Columns>
-                            <dx:GridViewDataTextColumn FieldName="course_id" Caption="Code" VisibleIndex="0" Width="80px">
-                                <CellStyle Font-Bold="true" ForeColor="#dc3545" />
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="course_name" Caption="Course" VisibleIndex="1">
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="fail_rate" Caption="Fail Rate" VisibleIndex="2" Width="80px">
-                                <CellStyle HorizontalAlign="Center" Font-Bold="true" ForeColor="#dc3545" />
-                            </dx:GridViewDataTextColumn>
-                            <dx:GridViewDataTextColumn FieldName="total" Caption="Students" VisibleIndex="3" Width="70px">
-                                <CellStyle HorizontalAlign="Center" />
-                            </dx:GridViewDataTextColumn>
-                        </Columns>
-                    </dx:ASPxGridView>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Export Panel -->
-        <div class="rad-export-panel">
-            <div class="rad-export-panel__info">
-                <div class="rad-export-panel__title">Export Analytics Report</div>
-                <div class="rad-export-panel__text">Generate comprehensive reports for academic review and board presentations</div>
-            </div>
-            <div class="rad-export-panel__actions">
-                <asp:Button ID="btnExportExcel" runat="server" Text="📊 Excel Report" CssClass="rad-export-btn rad-export-btn--excel" OnClick="btnExportExcel_Click" />
-                <asp:Button ID="btnExportPDF" runat="server" Text="📄 PDF Report" CssClass="rad-export-btn rad-export-btn--pdf" OnClick="btnExportPDF_Click" />
-                <button type="button" class="rad-export-btn rad-export-btn--print" onclick="window.print();">🖨 Print</button>
-            </div>
+        <div class="ra-fg"><label>&nbsp;</label><button type="button" class="ra-btn" id="raApply">Apply</button></div>
+        <div class="ra-fg"><label>&nbsp;</label><button type="button" class="ra-btn ra-btn--ghost" id="raReset">Reset</button></div>
+    </div>
+</div>
+
+<!-- KPIs -->
+<div class="ra-kpis">
+    <div class="ra-kpi"><div class="ra-kpi__v" id="kResults">—</div><div class="ra-kpi__l">Results</div><div class="ra-kpi__s">Approved entries in scope</div></div>
+    <div class="ra-kpi"><div class="ra-kpi__v" id="kStudents">—</div><div class="ra-kpi__l">Students</div><div class="ra-kpi__s">Distinct students</div></div>
+    <div class="ra-kpi ra-kpi--pass"><div class="ra-kpi__v" id="kPass">—</div><div class="ra-kpi__l">Pass Rate</div><div class="ra-kpi__s" id="kPassSub">mark &ge; 50</div></div>
+    <div class="ra-kpi ra-kpi--dist"><div class="ra-kpi__v" id="kDist">—</div><div class="ra-kpi__l">Distinctions</div><div class="ra-kpi__s" id="kDistSub">grade A</div></div>
+    <div class="ra-kpi ra-kpi--avg"><div class="ra-kpi__v" id="kAvg">—</div><div class="ra-kpi__l">Average Mark</div><div class="ra-kpi__s">across all results</div></div>
+</div>
+
+<div class="ra-grid2">
+    <!-- grade distribution -->
+    <div class="ra-card">
+        <div class="ra-card__h"><span class="ra-card__t">Grade Distribution</span></div>
+        <div class="ra-card__b" id="raGrades"><div class="ra-empty">Loading&hellip;</div></div>
+    </div>
+    <!-- pass-rate trend -->
+    <div class="ra-card">
+        <div class="ra-card__h"><span class="ra-card__t">Pass Rate Trend (by year)</span></div>
+        <div class="ra-card__b" id="raTrend"><div class="ra-empty">Loading&hellip;</div></div>
+    </div>
+</div>
+
+<!-- performance breakdown with role-aware tabs -->
+<div class="ra-card">
+    <div class="ra-card__h">
+        <span class="ra-card__t">Performance Breakdown</span>
+        <span class="ra-tabs">
+            <button type="button" class="ra-tab" data-g="fac">By Faculty</button>
+            <button type="button" class="ra-tab" data-g="dept">By Department</button>
+            <button type="button" class="ra-tab" data-g="prog">By Programme</button>
+        </span>
+    </div>
+    <div class="ra-tw">
+        <table class="ra-table">
+            <thead><tr>
+                <th id="raGroupHdr">Group</th>
+                <th style="width:80px;text-align:right;">Students</th>
+                <th style="width:80px;text-align:right;">Results</th>
+                <th style="width:70px;text-align:right;">Avg Mark</th>
+                <th style="width:70px;text-align:right;">Pass %</th>
+                <th style="width:160px;">Pass rate</th>
+            </tr></thead>
+            <tbody id="raGroupBody"><tr><td colspan="6" class="ra-empty">Loading&hellip;</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="ra-grid2">
+    <!-- problematic courses -->
+    <div class="ra-card">
+        <div class="ra-card__h"><span class="ra-card__t">Courses Needing Attention</span><span class="ra-sub">fail rate &gt; 20%</span></div>
+        <div class="ra-tw">
+            <table class="ra-table">
+                <thead><tr><th style="width:80px;">Code</th><th>Course</th><th style="width:60px;text-align:right;">Results</th><th style="width:80px;text-align:right;">Fail %</th></tr></thead>
+                <tbody id="raProblem"><tr><td colspan="4" class="ra-empty">Loading&hellip;</td></tr></tbody>
+            </table>
         </div>
     </div>
-    
-    <dx:ASPxGridViewExporter ID="gvExporter" runat="server" GridViewID="gvProgrammePerformance" />
+    <!-- top students -->
+    <div class="ra-card">
+        <div class="ra-card__h"><span class="ra-card__t">Top Performing Students</span><span class="ra-sub">&ge; 3 results</span></div>
+        <div class="ra-tw">
+            <table class="ra-table">
+                <thead><tr><th style="width:32px;">#</th><th>Student</th><th>Programme</th><th style="width:70px;text-align:right;">Avg</th></tr></thead>
+                <tbody id="raTop"><tr><td colspan="4" class="ra-empty">Loading&hellip;</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</div><!-- /.ra-wrap -->
+
+<script type="text/javascript">
+(function(){
+'use strict';
+var _data=null, _grp='fac';
+function qs(id){return document.getElementById(id);}
+function n(v){var x=parseFloat(v);return isNaN(x)?0:x;}
+function fmt(v){return n(v).toLocaleString('en-US');}
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'';}
+function rateColor(r){return r>=70?'#16a34a':(r>=50?'#f59e0b':'#ef4444');}
+function showErr(m){var e=qs('raErr');if(e){e.textContent=m||'Unable to load.';e.className='ra-err show';}}
+function hideErr(){var e=qs('raErr');if(e)e.className='ra-err';}
+function loading(on){var h=qs('raHead');if(h)h.className='ra-head'+(on?' ra-loading':'');}
+
+function callAJAX(method,params,cb){
+    var xhr=new XMLHttpRequest();
+    xhr.open('POST','ResultsAnalytics.aspx/'+method,true);
+    xhr.setRequestHeader('Content-Type','application/json; charset=utf-8');
+    xhr.onload=function(){try{var o=JSON.parse(xhr.responseText);cb(typeof o.d==='string'?JSON.parse(o.d):o.d);}catch(e){cb({success:false,message:'Parse error.'});}};
+    xhr.onerror=function(){cb({success:false,message:'Network error.'});};
+    xhr.send(JSON.stringify(params||{}));
+}
+
+function applyScope(sc){
+    if(!sc)return;
+    var b=qs('raScope'),c=qs('raChip');
+    if(b)b.innerHTML='Muteesa I Royal University &middot; <strong>'+esc(sc.label||'')+'</strong>';
+    if(c){
+        if(sc.isAdmin){c.textContent='Administrator · all faculties';c.style.background='#e8f0fc';c.style.borderColor='#9bbdf0';c.style.color='#174DA4';}
+        else if(sc.hasAccess){c.textContent=(sc.role||'Scoped');c.style.background='#e6f4ea';c.style.borderColor='#a7d9b2';c.style.color='#2e7d32';}
+        else{c.textContent='No data access';c.style.background='#fde8e8';c.style.borderColor='#f5b5b5';c.style.color='#b42318';}
+    }
+    // Default breakdown tab by role: admin→faculty, dean→department, HOD→programme.
+    if(sc.mode==='faculty')_grp='dept';
+    else if(sc.mode==='department')_grp='prog';
+    else _grp='fac';
+}
+
+function setKpis(k){
+    qs('kResults').textContent=fmt(k.results);
+    qs('kStudents').textContent=fmt(k.students);
+    qs('kPass').textContent=n(k.passRate).toFixed(1)+'%';
+    qs('kPass').style.color=rateColor(n(k.passRate));
+    qs('kPassSub').textContent=fmt(k.passes)+' of '+fmt(k.results)+' passed';
+    qs('kDist').textContent=fmt(k.distinctions);
+    qs('kDistSub').textContent='grade A · '+n(k.distinctionPct).toFixed(1)+'%';
+    qs('kAvg').textContent=n(k.avgMark).toFixed(1);
+}
+
+var GCOLOR={'A':'#15803d','B+':'#16a34a','B':'#22c55e','C+':'#84cc16','C':'#eab308','D+':'#f59e0b','D':'#f97316','F':'#ef4444'};
+function setGrades(g){
+    var box=qs('raGrades');
+    if(!g||!g.length){box.innerHTML='<div class="ra-empty">No graded results.</div>';return;}
+    var max=0;g.forEach(function(x){if(n(x.count)>max)max=n(x.count);});
+    var h='';
+    g.forEach(function(x){
+        var w=max>0?Math.round(n(x.count)*100/max):0;
+        h+='<div class="ra-gd-row"><div class="ra-gd-lbl">'+esc(x.grade)+'</div>'+
+           '<div class="ra-gd-track"><div class="ra-gd-fill" style="width:'+w+'%;background:'+(GCOLOR[x.grade]||'#94a3b8')+';"></div></div>'+
+           '<div class="ra-gd-meta">'+fmt(x.count)+' &middot; '+n(x.pct).toFixed(1)+'%</div></div>';
+    });
+    box.innerHTML=h;
+}
+
+function setTrend(t){
+    var box=qs('raTrend');
+    if(!t||!t.length){box.innerHTML='<div class="ra-empty">No trend data.</div>';return;}
+    var h='';
+    t.forEach(function(x){
+        var r=n(x.passRate);
+        h+='<div class="ra-gd-row"><div class="ra-gd-lbl" style="width:64px;font-size:9px;">'+esc(x.label)+'</div>'+
+           '<div class="ra-gd-track"><div class="ra-gd-fill" style="width:'+r+'%;background:'+rateColor(r)+';"></div></div>'+
+           '<div class="ra-gd-meta">'+r.toFixed(1)+'% &middot; '+fmt(x.results)+'</div></div>';
+    });
+    box.innerHTML=h;
+}
+
+function renderGroup(){
+    var rows = _data ? (_grp==='fac'?_data.byFaculty:_grp==='dept'?_data.byDepartment:_data.byProgramme) : [];
+    var hdr=qs('raGroupHdr'); if(hdr) hdr.textContent=_grp==='fac'?'Faculty':_grp==='dept'?'Department':'Programme';
+    var tb=qs('raGroupBody');
+    if(!rows||!rows.length){tb.innerHTML='<tr><td colspan="6" class="ra-empty">No data in scope for this view.</td></tr>';return;}
+    var h='';
+    rows.forEach(function(g){
+        var r=n(g.passRate);
+        h+='<tr>'+
+            '<td title="'+esc(g.name)+'" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(g.name)+'</td>'+
+            '<td style="text-align:right;font-weight:700;color:#05275C;">'+fmt(g.students)+'</td>'+
+            '<td style="text-align:right;color:#475569;">'+fmt(g.results)+'</td>'+
+            '<td style="text-align:right;color:#475569;">'+n(g.avgMark).toFixed(1)+'</td>'+
+            '<td style="text-align:right;" class="ra-rate"><span style="color:'+rateColor(r)+';">'+r.toFixed(1)+'%</span></td>'+
+            '<td><div class="ra-bar-bg" style="width:140px;"><div class="ra-bar" style="width:'+r+'%;background:'+rateColor(r)+';"></div></div></td>'+
+        '</tr>';
+    });
+    tb.innerHTML=h;
+    // sync active tab button
+    var tabs=document.querySelectorAll('.ra-tab');
+    for(var i=0;i<tabs.length;i++) tabs[i].className='ra-tab'+(tabs[i].getAttribute('data-g')===_grp?' active':'');
+}
+
+function setProblem(p){
+    var tb=qs('raProblem');
+    if(!p||!p.length){tb.innerHTML='<tr><td colspan="4" class="ra-empty">No courses above the fail-rate threshold. &#127881;</td></tr>';return;}
+    var h='';
+    p.forEach(function(c){
+        h+='<tr><td><span class="ra-code">'+esc(c.code)+'</span></td>'+
+           '<td title="'+esc(c.name)+'" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(c.name)+'</td>'+
+           '<td style="text-align:right;color:#475569;">'+fmt(c.results)+'</td>'+
+           '<td style="text-align:right;font-weight:800;color:#b42318;">'+n(c.failRate).toFixed(1)+'%</td></tr>';
+    });
+    tb.innerHTML=h;
+}
+
+function setTop(s){
+    var tb=qs('raTop');
+    if(!s||!s.length){tb.innerHTML='<tr><td colspan="4" class="ra-empty">No students with enough results.</td></tr>';return;}
+    var h='';
+    s.forEach(function(st,i){
+        h+='<tr><td><span class="ra-rank">'+(i+1)+'</span></td>'+
+           '<td title="'+esc(st.name)+'" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(st.name||st.regno)+'<div style="font-size:9px;color:#94a3b8;">'+esc(st.regno)+'</div></td>'+
+           '<td title="'+esc(st.prog)+'" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:#64748b;">'+esc(st.prog)+'</td>'+
+           '<td style="text-align:right;font-weight:800;color:#15803d;">'+n(st.avgMark).toFixed(1)+'</td></tr>';
+    });
+    tb.innerHTML=h;
+}
+
+function render(d){
+    _data=d;
+    setKpis(d.kpis||{});
+    setGrades(d.grades||[]);
+    setTrend(d.trend||[]);
+    renderGroup();
+    setProblem(d.problematic||[]);
+    setTop(d.topStudents||[]);
+}
+
+function load(){
+    hideErr(); loading(true);
+    callAJAX('GetAnalytics',{year:qs('raYear').value,semester:qs('raSem').value},function(d){
+        loading(false);
+        if(!d||!d.success){showErr((d&&d.message)||'Failed to load analytics.');return;}
+        if(d.scope) applyScope(d.scope);
+        render(d.data||{});
+    });
+}
+
+function init(){
+    var tabs=document.querySelectorAll('.ra-tab');
+    for(var i=0;i<tabs.length;i++) tabs[i].onclick=function(){_grp=this.getAttribute('data-g');renderGroup();};
+    qs('raApply').onclick=load;
+    qs('raReset').onclick=function(){qs('raSem').value='';if(qs('raYear').options.length>1)qs('raYear').selectedIndex=1;load();};
+    loading(true);
+    callAJAX('GetInit',{},function(d){
+        loading(false);
+        if(!d||!d.success){showErr((d&&d.message)||'Failed to initialise.');return;}
+        if(d.scope) applyScope(d.scope);
+        var y=qs('raYear');var h='<option value="">All Years</option>';
+        (d.years||[]).forEach(function(it){h+='<option value="'+esc(it.value)+'">'+esc(it.text)+'</option>';});
+        y.innerHTML=h;
+        if(y.options.length>1) y.selectedIndex=1; // default to latest year
+        load();
+    });
+}
+init();
+})();
+</script>
 </asp:Content>

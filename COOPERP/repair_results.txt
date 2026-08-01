@@ -1,0 +1,7 @@
+Warning: Using a password on the command line interface can be insecure.
++---------------+-----+
+| cat           | cnt |
++---------------+-----+
+| SEM2-BILLED   | 496 |
+| SEM2-UNBILLED |   5 |
++---------------+-----+

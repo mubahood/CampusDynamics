@@ -125,13 +125,21 @@ public partial class COOPERP_NewScreens_UserRoleUsers : System.Web.UI.Page
                 using (var conn = new MySqlConnection(ConnStr()))
                 {
                     conn.Open();
-                    string roleName = "";
-                    using (var cmd = new MySqlCommand("SELECT role_name FROM sys_roles WHERE id=@id LIMIT 1", conn))
+                    string roleName = "", roleCode = "";
+                    using (var cmd = new MySqlCommand("SELECT role_name, role_code FROM sys_roles WHERE id=@id LIMIT 1", conn))
                     {
                         cmd.Parameters.AddWithValue("@id", roleId);
-                        var r = cmd.ExecuteScalar();
-                        if (r != null && r != DBNull.Value) roleName = r.ToString();
+                        using (var dr = cmd.ExecuteReader())
+                            if (dr.Read()) { roleName = dr.GetString(0); roleCode = dr.GetString(1); }
                     }
+
+                    // D3: never let the last administrator be revoked.
+                    if (roleCode == "admin" && RoleAccessService.WouldRemoveLastAdmin(username))
+                    {
+                        Response.Write("{\"ok\":false,\"error\":\"This is the last active administrator — revoking it would lock everyone out of access management. Assign the admin role to another user first.\"}");
+                        Response.End(); return;
+                    }
+
                     using (var cmd = new MySqlCommand(
                         "UPDATE sys_user_roles SET is_active=0 WHERE username=@u AND role_id=@rid", conn))
                     {
@@ -228,12 +236,15 @@ public partial class COOPERP_NewScreens_UserRoleUsers : System.Web.UI.Page
                 if (usernames.Count == 0)
                 { Response.Write("{\"ok\":false,\"error\":\"No users specified.\"}"); Response.End(); return; }
 
-                int count = 0;
+                int count = 0, skippedAdmins = 0;
                 using (var conn = new MySqlConnection(ConnStr()))
                 {
                     conn.Open();
                     foreach (var uname in usernames)
                     {
+                        // D3: never strip roles from an active administrator in a bulk op.
+                        if (RoleAccessService.UserIsActiveAdmin(uname)) { skippedAdmins++; continue; }
+
                         using (var cmd = new MySqlCommand(
                             "UPDATE sys_user_roles SET is_active=0 WHERE username=@u", conn))
                         {
@@ -245,11 +256,119 @@ public partial class COOPERP_NewScreens_UserRoleUsers : System.Web.UI.Page
                 }
 
                 RoleAccessService.LogAudit("BATCH_REVOKE_ALL_ROLES", "user", "batch",
-                    "Batch revoked all roles from " + count + " user(s): " +
+                    "Batch revoked all roles from " + count + " user(s)" +
+                    (skippedAdmins > 0 ? " (skipped " + skippedAdmins + " administrator(s))" : "") + ": " +
                     string.Join(", ", usernames.Take(10)) + (usernames.Count > 10 ? "..." : ""),
                     actor, ip);
 
-                Response.Write("{\"ok\":true,\"count\":" + count + "}");
+                Response.Write("{\"ok\":true,\"count\":" + count +
+                    ",\"skipped_admins\":" + skippedAdmins + "}");
+            }
+            else if (action == "set_roles")
+            {
+                string username = (Request.Form["username"] ?? "").Trim();
+                string idsRaw   = (Request.Form["role_ids"] ?? "").Trim();   // may be empty (= remove all)
+                string expiry   = (Request.Form["expiry"]   ?? "").Trim();
+                string notes    = (Request.Form["notes"]    ?? "").Trim();
+
+                if (string.IsNullOrEmpty(username))
+                { Response.Write("{\"ok\":false,\"error\":\"Missing user.\"}"); Response.End(); return; }
+
+                var desired = new HashSet<int>(
+                    idsRaw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                          .Select(s => { int n; return int.TryParse(s.Trim(), out n) ? n : -1; })
+                          .Where(n => n > 0));
+
+                int added = 0, removed = 0;
+                using (var conn = new MySqlConnection(ConnStr()))
+                {
+                    conn.Open();
+
+                    // Valid active roles: id -> (code, name)
+                    var roleCode = new Dictionary<int, string>();
+                    var roleName = new Dictionary<int, string>();
+                    using (var cmd = new MySqlCommand("SELECT id, role_code, role_name FROM sys_roles WHERE is_active=1", conn))
+                    using (var dr = cmd.ExecuteReader())
+                        while (dr.Read())
+                        {
+                            int id = Convert.ToInt32(dr["id"]);
+                            roleCode[id] = dr["role_code"].ToString();
+                            roleName[id] = dr["role_name"].ToString();
+                        }
+                    desired.RemoveWhere(id => !roleCode.ContainsKey(id));   // ignore unknown/inactive
+
+                    // Current active, non-expired roles
+                    var current = new HashSet<int>();
+                    using (var cmd = new MySqlCommand(@"
+                        SELECT role_id FROM sys_user_roles
+                        WHERE username=@u AND is_active=1 AND (expires_at IS NULL OR expires_at>NOW())", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@u", username);
+                        using (var dr = cmd.ExecuteReader())
+                            while (dr.Read()) current.Add(Convert.ToInt32(dr["role_id"]));
+                    }
+
+                    var toAdd    = desired.Where(id => !current.Contains(id)).ToList();
+                    var toRemove = current.Where(id => !desired.Contains(id)).ToList();
+
+                    // Last-admin guard: never remove admin from the last active administrator
+                    foreach (var rid in toRemove)
+                    {
+                        string code; roleCode.TryGetValue(rid, out code);
+                        if (code == "admin" && RoleAccessService.WouldRemoveLastAdmin(username))
+                        {
+                            Response.Write("{\"ok\":false,\"error\":\"You cannot remove the Administrator role from the last active administrator. Assign admin to another user first.\"}");
+                            Response.End(); return;
+                        }
+                    }
+
+                    using (var tx = conn.BeginTransaction())
+                    {
+                        const string upsert = @"
+                            INSERT INTO sys_user_roles (username,role_id,expires_at,notes,assigned_by,is_active)
+                            VALUES (@u,@rid,@exp,@notes,@by,1)
+                            ON DUPLICATE KEY UPDATE
+                                is_active=1,expires_at=@exp,notes=@notes,assigned_by=@by,assigned_at=NOW()";
+                        foreach (var rid in toAdd)
+                        {
+                            using (var cmd = new MySqlCommand(upsert, conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@u",     username);
+                                cmd.Parameters.AddWithValue("@rid",   rid);
+                                cmd.Parameters.AddWithValue("@exp",   string.IsNullOrEmpty(expiry) ? (object)DBNull.Value : (object)expiry);
+                                cmd.Parameters.AddWithValue("@notes", string.IsNullOrEmpty(notes)  ? (object)DBNull.Value : (object)notes);
+                                cmd.Parameters.AddWithValue("@by",    actor);
+                                cmd.ExecuteNonQuery();
+                            }
+                            added++;
+                        }
+                        foreach (var rid in toRemove)
+                        {
+                            using (var cmd = new MySqlCommand(
+                                "UPDATE sys_user_roles SET is_active=0 WHERE username=@u AND role_id=@rid", conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@u",   username);
+                                cmd.Parameters.AddWithValue("@rid", rid);
+                                cmd.ExecuteNonQuery();
+                            }
+                            removed++;
+                        }
+                        tx.Commit();
+                    }
+
+                    foreach (var rid in toAdd)
+                        RoleAccessService.LogAudit("ASSIGN_ROLE", "user", username,
+                            "Assigned role '" + (roleName.ContainsKey(rid) ? roleName[rid] : rid.ToString()) + "' (manage roles)", actor, ip);
+                    foreach (var rid in toRemove)
+                        RoleAccessService.LogAudit("REVOKE_ROLE", "user", username,
+                            "Revoked role '" + (roleName.ContainsKey(rid) ? roleName[rid] : rid.ToString()) + "' (manage roles)", actor, ip);
+                }
+
+                Response.Write("{\"ok\":true,\"added\":" + added + ",\"removed\":" + removed + "}");
+            }
+            else if (action == "effective")
+            {
+                EffectiveAccess();
             }
             else
             {
@@ -263,26 +382,172 @@ public partial class COOPERP_NewScreens_UserRoleUsers : System.Web.UI.Page
         Response.End();
     }
 
+    // ── Effective-access drawer: the union of slugs a user actually gets ─────────
+    private void EffectiveAccess()
+    {
+        string username = (Request["username"] ?? "").Trim();
+        if (string.IsNullOrEmpty(username))
+        { Response.Write("{\"ok\":false,\"error\":\"No user specified.\"}"); return; }
+
+        using (var conn = new MySqlConnection(ConnStr()))
+        {
+            conn.Open();
+
+            // Active, non-expired roles for this user
+            var roles = new List<RoleEntry>();
+            bool isAdmin = false;
+            using (var cmd = new MySqlCommand(@"
+                SELECT r.id, r.role_name, r.role_code, r.color_hex
+                FROM sys_user_roles ur
+                JOIN sys_roles r ON ur.role_id = r.id AND r.is_active = 1
+                WHERE ur.username = @u AND ur.is_active = 1
+                  AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+                ORDER BY r.role_name", conn))
+            {
+                cmd.Parameters.AddWithValue("@u", username);
+                using (var dr = cmd.ExecuteReader())
+                    while (dr.Read())
+                    {
+                        if (dr["role_code"].ToString() == "admin") isAdmin = true;
+                        roles.Add(new RoleEntry
+                        {
+                            Id    = Convert.ToInt32(dr["id"]),
+                            Name  = dr["role_name"].ToString(),
+                            Color = dr["color_hex"] == DBNull.Value ? "#64748b" : dr["color_hex"].ToString()
+                        });
+                    }
+            }
+
+            var sb = new StringBuilder();
+            sb.Append("{\"ok\":true,\"username\":").Append(JsonStr(username));
+            sb.Append(",\"is_admin\":").Append(isAdmin ? "true" : "false");
+            sb.Append(",\"role_count\":").Append(roles.Count);
+            sb.Append(",\"roles\":[");
+            for (int i = 0; i < roles.Count; i++)
+            {
+                if (i > 0) sb.Append(",");
+                sb.Append("{\"name\":").Append(JsonStr(roles[i].Name))
+                  .Append(",\"color\":").Append(JsonStr(roles[i].Color)).Append("}");
+            }
+            sb.Append("]");
+
+            if (isAdmin || roles.Count == 0)
+            {
+                sb.Append(",\"total_slugs\":0,\"sections\":[]}");
+                Response.Write(sb.ToString());
+                return;
+            }
+
+            // Granted slugs joined to their menu item (section/label) + the role that granted each
+            var sections = new List<string>();
+            var secItems = new Dictionary<string, List<string>>();   // section -> list of item-JSON
+            var slugRoles = new Dictionary<string, List<string>>();  // "section|slug" -> role chip JSON
+            var slugLabel = new Dictionary<string, string>();        // "section|slug" -> label
+            int totalSlugs = 0;
+            var seenSlug = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            using (var cmd = new MySqlCommand(@"
+                SELECT DISTINCT mi.section, mi.menu_slug, mi.label, mi.sort_order,
+                       r.role_name, r.color_hex
+                FROM sys_user_roles ur
+                JOIN sys_roles r ON ur.role_id = r.id AND r.is_active = 1
+                JOIN sys_role_permissions rp ON rp.role_id = ur.role_id AND rp.can_view = 1
+                JOIN sys_menu_items mi ON mi.menu_slug = rp.menu_slug AND mi.is_active = 1
+                WHERE ur.username = @u AND ur.is_active = 1
+                  AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+                ORDER BY mi.section, mi.sort_order, mi.label", conn))
+            {
+                cmd.Parameters.AddWithValue("@u", username);
+                using (var dr = cmd.ExecuteReader())
+                    while (dr.Read())
+                    {
+                        string sec  = dr["section"] == DBNull.Value ? "(other)" : dr["section"].ToString();
+                        if (string.IsNullOrEmpty(sec)) sec = "(other)";
+                        string slug = dr["menu_slug"].ToString();
+                        string lbl  = dr["label"].ToString();
+                        string rn   = dr["role_name"].ToString();
+                        string rc   = dr["color_hex"] == DBNull.Value ? "#64748b" : dr["color_hex"].ToString();
+                        string key  = sec + "|" + slug;
+
+                        if (!secItems.ContainsKey(sec)) { secItems[sec] = new List<string>(); sections.Add(sec); }
+                        if (!slugRoles.ContainsKey(key))
+                        {
+                            slugRoles[key] = new List<string>();
+                            slugLabel[key] = lbl;
+                            secItems[sec].Add(key);
+                        }
+                        string chip = "{\"name\":" + JsonStr(rn) + ",\"color\":" + JsonStr(rc) + "}";
+                        if (!slugRoles[key].Contains(chip)) slugRoles[key].Add(chip);
+
+                        if (seenSlug.Add(slug)) totalSlugs++;
+                    }
+            }
+
+            sb.Append(",\"total_slugs\":").Append(totalSlugs);
+            sb.Append(",\"sections\":[");
+            for (int s = 0; s < sections.Count; s++)
+            {
+                string sec = sections[s];
+                if (s > 0) sb.Append(",");
+                sb.Append("{\"name\":").Append(JsonStr(sec)).Append(",\"items\":[");
+                var keys = secItems[sec];
+                for (int k = 0; k < keys.Count; k++)
+                {
+                    if (k > 0) sb.Append(",");
+                    string key = keys[k];
+                    string slug = key.Substring(key.IndexOf('|') + 1);
+                    sb.Append("{\"label\":").Append(JsonStr(slugLabel[key]))
+                      .Append(",\"slug\":").Append(JsonStr(slug))
+                      .Append(",\"roles\":[").Append(string.Join(",", slugRoles[key])).Append("]}");
+                }
+                sb.Append("]}");
+            }
+            sb.Append("]}");
+            Response.Write(sb.ToString());
+        }
+    }
+
     // ── Page render helpers ───────────────────────────────────────────────────
 
     private void LoadRoleOptions()
     {
-        var sb = new StringBuilder();
+        var sb  = new StringBuilder();   // <option> list (hidden select, used by batch modal)
+        var chk = new StringBuilder();   // checkbox list for the Manage-roles modal
         try
         {
             using (var conn = new MySqlConnection(ConnStr()))
             {
                 conn.Open();
                 using (var cmd = new MySqlCommand(
-                    "SELECT id, role_name FROM sys_roles WHERE is_active=1 ORDER BY role_name", conn))
+                    "SELECT id, role_name, role_code, color_hex FROM sys_roles WHERE is_active=1 ORDER BY role_name", conn))
                 using (var dr = cmd.ExecuteReader())
                     while (dr.Read())
-                        sb.AppendFormat("<option value=\"{0}\">{1}</option>",
-                            dr["id"], HttpUtility.HtmlEncode(dr["role_name"].ToString()));
+                    {
+                        string id    = dr["id"].ToString();
+                        string name  = dr["role_name"].ToString();
+                        string code  = dr["role_code"].ToString();
+                        string color = dr["color_hex"] == DBNull.Value || string.IsNullOrEmpty(dr["color_hex"].ToString())
+                                       ? "#64748b" : dr["color_hex"].ToString();
+
+                        sb.AppendFormat("<option value=\"{0}\">{1}</option>", id, HttpUtility.HtmlEncode(name));
+
+                        chk.AppendFormat(
+                            "<label class=\"role-check\" data-name=\"{0}\">" +
+                            "<input type=\"checkbox\" class=\"mr-box\" value=\"{1}\" data-code=\"{2}\" onchange=\"updateRoleSummary()\" />" +
+                            "<span class=\"role-check__dot\" style=\"background:{3}\"></span>" +
+                            "<span class=\"role-check__name\">{4}</span>{5}</label>",
+                            HttpUtility.HtmlAttributeEncode(name.ToLower()),
+                            id,
+                            HttpUtility.HtmlAttributeEncode(code),
+                            HttpUtility.HtmlAttributeEncode(color),
+                            HttpUtility.HtmlEncode(name),
+                            code == "admin" ? "<span class=\"role-check__sys\">SYSTEM</span>" : "");
+                    }
             }
         }
         catch { }
-        litRoleOptions.Text = sb.ToString();
+        litRoleOptions.Text   = sb.ToString();
+        litRoleChecklist.Text = chk.ToString();
     }
 
     private void LoadUserRows()
@@ -400,6 +665,10 @@ public partial class COOPERP_NewScreens_UserRoleUsers : System.Web.UI.Page
                     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>";
                 const string icoX =
                     "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>";
+                const string icoEye =
+                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>";
+                const string icoGear =
+                    "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"4\" y1=\"21\" x2=\"4\" y2=\"14\"/><line x1=\"4\" y1=\"10\" x2=\"4\" y2=\"3\"/><line x1=\"12\" y1=\"21\" x2=\"12\" y2=\"12\"/><line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"3\"/><line x1=\"20\" y1=\"21\" x2=\"20\" y2=\"16\"/><line x1=\"20\" y1=\"12\" x2=\"20\" y2=\"3\"/><line x1=\"1\" y1=\"14\" x2=\"7\" y2=\"14\"/><line x1=\"9\" y1=\"8\" x2=\"15\" y2=\"8\"/><line x1=\"17\" y1=\"16\" x2=\"23\" y2=\"16\"/></svg>";
 
                 // ── Build rows ───────────────────────────────────────────────
                 int rowNum = 0;
@@ -411,6 +680,7 @@ public partial class COOPERP_NewScreens_UserRoleUsers : System.Web.UI.Page
 
                     List<RoleEntry> roles;
                     bool hasRoles = roleMap.TryGetValue(user.Username, out roles) && roles.Count > 0;
+                    string roleIdsAttr = hasRoles ? string.Join(",", roles.Select(r => r.Id)) : "";
 
                     // Detect user type for filter
                     string userType = GetUserType(user.IsStaff, user.Username);
@@ -439,6 +709,7 @@ public partial class COOPERP_NewScreens_UserRoleUsers : System.Web.UI.Page
                     rows.AppendFormat(" data-search=\"{0}\"",  HttpUtility.HtmlEncode(searchVal));
                     rows.AppendFormat(" data-type=\"{0}\"",    userType);
                     rows.AppendFormat(" data-hasrole=\"{0}\"", hasRoles ? "1" : "0");
+                    rows.AppendFormat(" data-roleids=\"{0}\"", roleIdsAttr);
                     rows.AppendFormat(" data-status=\"{0}\"",  statusKey);
                     rows.Append(">");
 
@@ -557,22 +828,11 @@ public partial class COOPERP_NewScreens_UserRoleUsers : System.Web.UI.Page
                         icoChevron);
                     rows.Append("<div class=\"pa-act-drop\">");
                     rows.AppendFormat(
-                        "<button type=\"button\" class=\"pa-act-item\" data-action=\"assign\" data-uname=\"{0}\">{1} Assign Role</button>",
-                        uAttr, icoPlus);
-                    if (hasRoles)
-                    {
-                        rows.Append("<div class=\"pa-act-sep\"></div>");
-                        foreach (var role in roles)
-                        {
-                            rows.AppendFormat(
-                                "<button type=\"button\" class=\"pa-act-item pa-act-item--danger\" data-action=\"revoke\" data-uname=\"{0}\" data-rid=\"{1}\" data-rname=\"{2}\">{3} Revoke {4}</button>",
-                                uAttr,
-                                role.Id,
-                                HttpUtility.HtmlAttributeEncode(role.Name),
-                                icoX,
-                                HttpUtility.HtmlEncode(role.Name));
-                        }
-                    }
+                        "<button type=\"button\" class=\"pa-act-item\" data-action=\"manage\" data-uname=\"{0}\">{1} Manage roles</button>",
+                        uAttr, icoGear);
+                    rows.AppendFormat(
+                        "<button type=\"button\" class=\"pa-act-item\" data-action=\"effective\" data-uname=\"{0}\">{1} View access</button>",
+                        uAttr, icoEye);
                     rows.Append("</div></div></td>");
                     rows.Append("</tr>");
                 }

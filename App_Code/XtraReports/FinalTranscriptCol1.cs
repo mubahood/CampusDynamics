@@ -139,7 +139,7 @@ public class FinalTranscriptCol1 : DevExpress.XtraReports.UI.XtraReport
             this.xrTableCell2.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
             new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_acad_GetSingleStudentTranscript_Col1.coursename") });
             this.xrTableCell2.Dpi     = 100F;
-            this.xrTableCell2.Font    = new System.Drawing.Font("Calibri", 8.5F);
+            this.xrTableCell2.Font    = new System.Drawing.Font("Calibri", 8F);
             this.xrTableCell2.Name    = "xrTableCell2";
             this.xrTableCell2.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 1, 0, 0, 100F);
             this.xrTableCell2.Borders = (DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Right | DevExpress.XtraPrinting.BorderSide.Bottom);

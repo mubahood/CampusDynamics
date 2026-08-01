@@ -1,0 +1,89 @@
+=== SEM 2 REPAIR (3rd run) ===
+section	acad_year	semester	candidate_count	billed_now	already_billed	no_bill_created	failed_rows
+SUMMARY	2025/2026	2	26	19	2	5	0
+reg_id	regno	old_status	old_conducted_new_registration	before_bill_count	after_bill_count	action_status	action_note	processed_at
+54519	MRU2024001874	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:43:57
+54494	MRU2022000100	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:43:57
+54486	MRU2023000628	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:44:00
+54435	MRU2023001370	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:44:02
+54406	Mru2021001213	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:44:02
+53757	MRU2024001316	REGISTERED	Yes	2	2	ALREADY_BILLED	Bill already existed after status sync	2026-05-05 12:44:08
+53756	MRU2024001273	REGISTERED	Yes	2	2	ALREADY_BILLED	Bill already existed after status sync	2026-05-05 12:44:11
+53755	MRU2024001205	REGISTERED	Yes	1	2	BILLED	Billing triggered successfully	2026-05-05 12:44:14
+53752	MRU2024001156	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:21
+53750	MRU2024001096	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:26
+53749	MRU2024001086	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:30
+53747	MRU2024001046	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:35
+53746	MRU2024001041	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:40
+53741	MRU2024000608	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:45
+53739	MRU2024000563	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:50
+53737	MRU2024000465	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:44:55
+53736	MRU2024000446	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:00
+53735	MRU2024000423	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:05
+53733	MRU2024000236	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:10
+53720	MRU2025004199	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:15
+53715	MRU2024002033	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:20
+53702	MRU2024002079	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:26
+53696	MRU2024001775	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:31
+53687	MRU2025004237	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:36
+53684	MRU2025004234	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:41
+53669	MRU2024001792	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:47
+
+STDERR: Warning: Using a password on the command line interface can be insecure.
+
+=== SEM 1 REPAIR ===
+section	acad_year	semester	candidate_count	billed_now	already_billed	no_bill_created	failed_rows
+SUMMARY	2025/2026	1	23	23	0	0	0
+reg_id	regno	old_status	old_conducted_new_registration	before_bill_count	after_bill_count	action_status	action_note	processed_at
+54665	MRU2024000048	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:45:56
+54502	mru2021000758	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:01
+54351	MRU2025004265	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:06
+54350	MRU2025004264	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:12
+54349	MRU2025004263	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:17
+54348	MRU2025004262	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:25
+54346	MRU2025004261	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:32
+54345	MRU2025004260	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:38
+54344	MRU2025004259	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:43
+54343	MRU2025004258	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:48
+54342	MRU2025004257	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:53
+54341	MRU2025004256	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:46:58
+54263	MRU2025004255	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:04
+54243	MRU2025004253	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:09
+54108	MRU2025004251	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:14
+54048	MRU2025004250	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:19
+54044	MRU2025004249	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:25
+53941	MRU2025004246	REGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:32
+53936	MRU2025004245	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:37
+53716	MRU2025004242	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:42
+53708	MRU2025004241	UNREGISTERED	Yes	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:47
+53707	MRU2025004240	UNREGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:52
+53686	MRU2025004236	REGISTERED	No	0	2	BILLED	Billing triggered successfully	2026-05-05 12:47:57
+
+STDERR: Warning: Using a password on the command line interface can be insecure.
+
+=== SEM 3 REPAIR ===
+section	acad_year	semester	candidate_count	billed_now	already_billed	no_bill_created	failed_rows
+SUMMARY	2025/2026	3	3	0	0	3	0
+reg_id	regno	old_status	old_conducted_new_registration	before_bill_count	after_bill_count	action_status	action_note	processed_at
+54664	MRU2023001449	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:47:58
+54618	MRU2023000004	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:47:58
+54513	MRU2024000750	REGISTERED	Yes	0	0	NO_BILL_CREATED	No bill row present after system trigger	2026-05-05 12:47:58
+
+STDERR: Warning: Using a password on the command line interface can be insecure.
+
+=== FINAL VERIFICATION ===
+acad_year	semester	bill_status	students
+2025/2026	1	BILLED	38
+2025/2026	2	BILLED	496
+2025/2026	2	NOT_BILLED	5
+2025/2026	3	NOT_BILLED	3
+
+STDERR: Warning: Using a password on the command line interface can be insecure.
+
+=== BILLS CREATED TODAY ===
+total_bills_today	students_billed_today
+422	209
+
+STDERR: Warning: Using a password on the command line interface can be insecure.
+
+

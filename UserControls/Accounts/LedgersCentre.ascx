@@ -102,7 +102,7 @@
                     <tr>
                         <td class="auto-style1">Account Category:</td>
                         <td class="auto-style3">
-                            <dx:ASPxComboBox ID="txtPayeeCategory" runat="server" AutoPostBack="True" DataSourceID="dsLedgerCategories" Height="35px" TextField="LedgerTypeCategory" ValueField="LedgerTypeCategory" Width="250px">
+                            <dx:ASPxComboBox ID="txtPayeeCategory" runat="server" AutoPostBack="True" DataSourceID="dsLedgerCategories" Height="35px" TextField="LedgerTypeCategory" ValueField="LedgerTypeCategory" Width="250px" OnSelectedIndexChanged="txtPayeeCategory_SelectedIndexChanged">
                                 <Columns>
                                     <dx:ListBoxColumn Caption="Category" FieldName="LedgerTypeCategory" />
                                 </Columns>
@@ -110,7 +110,7 @@
                         </td>
                         <td class="auto-style5">Account Name:</td>
                         <td class="style4">
-                            <dx:ASPxComboBox ID="txtPayee" runat="server" AutoPostBack="True" DataSourceID="dsPayeeAccounts" Height="35px" TextField="accountName" TextFormatString="{1}" ValueField="accountCode" Width="250px">
+                            <dx:ASPxComboBox ID="txtPayee" runat="server" AutoPostBack="True" DataSourceID="dsPayeeAccounts" Height="35px" TextField="accountName" TextFormatString="{1}" ValueField="accountCode" Width="250px" OnSelectedIndexChanged="txtPayee_SelectedIndexChanged">
                                 <Columns>
                                     <dx:ListBoxColumn Caption="Code" FieldName="accountCode" Width="60px" />
                                     <dx:ListBoxColumn Caption="Payee" FieldName="accountName" Width="250px" />

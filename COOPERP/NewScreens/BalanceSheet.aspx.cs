@@ -35,6 +35,11 @@ public partial class COOPERP_NewScreens_BalanceSheet : System.Web.UI.Page
 
     private void LoadBalanceSheet()
     {
+        pnlError.Visible = false;
+        pnlReport.Visible = false;
+        _totalAssets = 0;
+        _totalLiabilities = 0;
+        _totalEquity = 0;
         try
         {
             DateTime asAtDate;
@@ -47,6 +52,16 @@ public partial class COOPERP_NewScreens_BalanceSheet : System.Web.UI.Page
             DataTable dt = FinanceDB.ExecuteSP("fin_BalanceSheet",
                 FinanceDB.P("@sDate", startDate.ToString("yyyy-MM-dd")),
                 FinanceDB.P("@eDate", asAtDate.ToString("yyyy-MM-dd")));
+
+            if (dt == null || !dt.Columns.Contains("DRBalance") || !dt.Columns.Contains("CRBalance"))
+            {
+                ShowError("The Balance Sheet data source returned an unexpected format. Please contact ICT support.");
+                return;
+            }
+
+            // Guarantee the display columns exist so data-binding never throws.
+            EnsureColumn(dt, "accountcode");
+            EnsureColumn(dt, "accountname");
 
             string docHeader = (dt.Rows.Count > 0 && dt.Columns.Contains("docHeader"))
                 ? dt.Rows[0]["docHeader"].ToString() : "";
@@ -62,6 +77,7 @@ public partial class COOPERP_NewScreens_BalanceSheet : System.Web.UI.Page
 
             foreach (DataRow row in dt.Rows)
             {
+                if (IsTotalRow(row)) continue; // skip SP grand-total row
                 string header = dt.Columns.Contains("header") ? row["header"].ToString().ToLower() : "";
                 decimal dr = 0, cr = 0;
                 decimal.TryParse(row["DRBalance"].ToString(), out dr);
@@ -142,7 +158,31 @@ public partial class COOPERP_NewScreens_BalanceSheet : System.Web.UI.Page
         catch (Exception ex)
         {
             FinanceLogger.LogError(PAGE_NAME, "LoadBalanceSheet", ex);
+            ShowError("The Balance Sheet could not be generated: " + ex.Message);
         }
+    }
+
+    private void ShowError(string message)
+    {
+        pnlReport.Visible = false;
+        pnlError.Visible = true;
+        litError.Text = "&#9888; " + Server.HtmlEncode(message);
+    }
+
+    private static void EnsureColumn(DataTable dt, string name)
+    {
+        if (dt != null && !dt.Columns.Contains(name))
+            dt.Columns.Add(name, typeof(string));
+    }
+
+    /// <summary>True for a stored-procedure grand-total / summary row.</summary>
+    private static bool IsTotalRow(DataRow row)
+    {
+        if (!row.Table.Columns.Contains("accountcode")) return false;
+        string code = System.Convert.ToString(row["accountcode"]).Trim();
+        return string.Equals(code, "TOTALS", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(code, "TOTAL",  StringComparison.OrdinalIgnoreCase)
+            || string.Equals(code, "GRAND TOTAL", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Ensures the cloned table has an Amount column.</summary>

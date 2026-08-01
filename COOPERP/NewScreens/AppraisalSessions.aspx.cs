@@ -537,7 +537,7 @@ public partial class COOPERP_NewScreens_AppraisalSessions : System.Web.UI.Page
         if (dtS.Rows.Count == 0) { Response.Write("{\"error\":\"Not found\"}"); return; }
         DataRow sess = dtS.Rows[0];
 
-        // Appraisal stats
+        // Appraisal stats — valid-contract employees only
         DataTable dtStats = ExecuteQuery(
             @"SELECT
                 COUNT(*) AS total,
@@ -546,7 +546,9 @@ public partial class COOPERP_NewScreens_AppraisalSessions : System.Web.UI.Page
                 COALESCE(SUM(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED') THEN 1 ELSE 0 END),0) AS completed,
                 COALESCE(SUM(CASE WHEN ar.status = 'CANCELLED' THEN 1 ELSE 0 END),0) AS cancelled
               FROM appraisal_records ar
-              WHERE ar.session_id = @id",
+              WHERE ar.session_id = @id
+                AND EXISTS (SELECT 1 FROM hrm_emp_contracts vc
+                            WHERE vc.empID = ar.employee_id AND vc.contractStatus = 'VALID')",
             new MySqlParameter("@id", id));
 
         DataRow st = dtStats.Rows[0];
@@ -1156,8 +1158,11 @@ public partial class COOPERP_NewScreens_AppraisalSessions : System.Web.UI.Page
         string dataSql = string.Format(
             @"SELECT s.*,
                      IFNULL(cr.emp_name, 'System') AS created_by_name,
-                     (SELECT COUNT(*) FROM appraisal_records ar WHERE ar.session_id = s.session_id) AS total_records,
-                     (SELECT COUNT(*) FROM appraisal_records ar WHERE ar.session_id = s.session_id AND ar.status IN ('COMPLETED','HR_REVIEWED')) AS completed_records
+                     (SELECT COUNT(*) FROM appraisal_records ar WHERE ar.session_id = s.session_id
+                      AND EXISTS (SELECT 1 FROM hrm_emp_contracts vc WHERE vc.empID = ar.employee_id AND vc.contractStatus = 'VALID')) AS total_records,
+                     (SELECT COUNT(*) FROM appraisal_records ar WHERE ar.session_id = s.session_id
+                      AND ar.status IN ('COMPLETED','HR_REVIEWED')
+                      AND EXISTS (SELECT 1 FROM hrm_emp_contracts vc WHERE vc.empID = ar.employee_id AND vc.contractStatus = 'VALID')) AS completed_records
               FROM appraisal_sessions s
               LEFT JOIN hrm_employee cr ON cr.empID = s.created_by
               {0}
@@ -1222,6 +1227,11 @@ public partial class COOPERP_NewScreens_AppraisalSessions : System.Web.UI.Page
         BuildPager(currentPage, totalPages);
     }
 
+    // Only count appraisals where the employee holds a VALID contract (mirrors AppraisalDashboard).
+    private const string ValidContractFilter =
+        " AND EXISTS (SELECT 1 FROM hrm_emp_contracts vc" +
+        "             WHERE vc.empID = ar.employee_id AND vc.contractStatus = 'VALID')";
+
     private void LoadStats()
     {
         DataTable dt = ExecuteQuery(
@@ -1229,8 +1239,13 @@ public partial class COOPERP_NewScreens_AppraisalSessions : System.Web.UI.Page
                 (SELECT COUNT(*) FROM appraisal_sessions) AS total_sessions,
                 (SELECT COUNT(*) FROM appraisal_sessions WHERE status = 'ACTIVE') AS active_sessions,
                 (SELECT COUNT(*) FROM appraisal_sessions WHERE status = 'DRAFT') AS draft_sessions,
-                (SELECT COUNT(*) FROM appraisal_records) AS total_appraisals,
-                (SELECT COUNT(*) FROM appraisal_records WHERE status IN ('COMPLETED','HR_REVIEWED')) AS completed_appraisals");
+                (SELECT COUNT(*) FROM appraisal_records ar
+                 WHERE EXISTS (SELECT 1 FROM hrm_emp_contracts vc
+                               WHERE vc.empID = ar.employee_id AND vc.contractStatus = 'VALID')) AS total_appraisals,
+                (SELECT COUNT(*) FROM appraisal_records ar
+                 WHERE ar.status IN ('COMPLETED','HR_REVIEWED')
+                   AND EXISTS (SELECT 1 FROM hrm_emp_contracts vc
+                               WHERE vc.empID = ar.employee_id AND vc.contractStatus = 'VALID')) AS completed_appraisals");
 
         if (dt.Rows.Count > 0)
         {

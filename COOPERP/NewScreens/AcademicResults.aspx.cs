@@ -104,7 +104,9 @@ public partial class COOPERP_NewScreens_AcademicResults : System.Web.UI.Page
             using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string sql = "SELECT DISTINCT acad FROM acad_results WHERE acad IS NOT NULL AND acad != '' ORDER BY acad DESC";
+                // Source years from the small canonical years table (26 rows) instead of a
+                // DISTINCT scan of acad_results (627k rows) on every page load (~2s -> instant).
+                string sql = "SELECT acadyear AS acad FROM acad_acadyears WHERE IFNULL(acadyear,'') <> '' ORDER BY acadyear DESC";
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
                     using (MySqlDataReader reader = cmd.ExecuteReader())

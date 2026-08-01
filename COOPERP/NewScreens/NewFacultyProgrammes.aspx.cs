@@ -56,24 +56,68 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
         }
     }
 
+    /// <summary>
+    /// Renames a programme code across ALL linked tables/databases via the atomic
+    /// stored procedure acad_RenameProgrammeCode. The SP is all-or-nothing (rolls back
+    /// on any error) and writes an audit row. A large programme can touch tens of
+    /// thousands of rows, so a generous timeout is used. Throws on any failure.
+    /// </summary>
+    private void RenameProgrammeCode(string oldCode, string newCode)
+    {
+        string actor = (Session["username"] != null && Session["username"].ToString().Trim() != "")
+            ? Session["username"].ToString().Trim() : "system";
+        using (MySqlConnection conn = new MySqlConnection(ConnStr))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand("CALL acad_RenameProgrammeCode(@o, @n, @a, 0)", conn))
+            {
+                cmd.CommandTimeout = 300;
+                cmd.Parameters.AddWithValue("@o", oldCode);
+                cmd.Parameters.AddWithValue("@n", newCode);
+                cmd.Parameters.AddWithValue("@a", actor);
+                cmd.ExecuteNonQuery();  // SP SIGNALs (throws) on any validation/data error
+            }
+        }
+    }
+
     // ---------------------------------------------------------------
     protected void Page_Load(object sender, EventArgs e)
     {
-        // Reload faculty dropdown on every request (not in ViewState)
+        // GET listing endpoint: NewFacultyProgrammes.aspx?act=list returns the
+        // programmes as JSON. The listing renders client-side from this (no postback).
+        if (!IsPostBack && string.Equals(Request.QueryString["act"], "list", StringComparison.OrdinalIgnoreCase))
+        {
+            EmitProgrammesJson();
+            return;
+        }
+
+        // POST endpoint: set a programme's online-application status (active / inactive).
+        if (string.Equals(Request["act"], "setappstatus", StringComparison.OrdinalIgnoreCase))
+        {
+            HandleSetAppStatus();
+            return;
+        }
+
+        // Reload dropdowns on every request (not in ViewState)
         LoadFacultyDropdown();
-        
+        LoadDepartmentDropdown();
+
         if (!IsPostBack)
         {
             EnsureColumns();
-            BindGrid();
         }
         else
         {
-            // On postback, restore the selected faculty from form data
+            // On postback, restore the selected faculty + department from form data
             string postedFaculty = Request.Form[ddlFaculty.UniqueID] ?? "";
             if (!string.IsNullOrEmpty(postedFaculty))
             {
                 TrySelect(ddlFaculty, postedFaculty);
+            }
+            string postedDept = Request.Form[ddlDepartment.UniqueID] ?? "";
+            if (!string.IsNullOrEmpty(postedDept))
+            {
+                TrySelect(ddlDepartment, postedDept);
             }
         }
     }
@@ -97,6 +141,42 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
                             alt.ExecuteNonQuery();
                     }
                 }
+                // online_app_active — whether this programme is open for online applications
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
+                    "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='acad_programme' AND COLUMN_NAME='online_app_active'", conn))
+                {
+                    if (Convert.ToInt32(cmd.ExecuteScalar()) == 0)
+                    {
+                        using (MySqlCommand alt = new MySqlCommand(
+                            "ALTER TABLE acad_programme ADD COLUMN online_app_active TINYINT(1) NOT NULL DEFAULT 1", conn))
+                            alt.ExecuteNonQuery();
+                    }
+                }
+                // department_id — every programme belongs to a department
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
+                    "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='acad_programme' AND COLUMN_NAME='department_id'", conn))
+                {
+                    if (Convert.ToInt32(cmd.ExecuteScalar()) == 0)
+                    {
+                        using (MySqlCommand alt = new MySqlCommand(
+                            "ALTER TABLE acad_programme ADD COLUMN department_id INT NULL AFTER faculty_code", conn))
+                            alt.ExecuteNonQuery();
+                    }
+                }
+                // hrm_departments.faculty_code — a department belongs to a faculty
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS " +
+                    "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='hrm_departments' AND COLUMN_NAME='faculty_code'", conn))
+                {
+                    if (Convert.ToInt32(cmd.ExecuteScalar()) == 0)
+                    {
+                        using (MySqlCommand alt = new MySqlCommand(
+                            "ALTER TABLE hrm_departments ADD COLUMN faculty_code CHAR(10) NULL", conn))
+                            alt.ExecuteNonQuery();
+                    }
+                }
             }
         }
         catch { }
@@ -111,9 +191,37 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
             ddlFaculty.Items.Add(new ListItem(r["faculty_name"].ToString(), r["faculty_code"].ToString()));
     }
 
-    private void BindGrid()
+    private void LoadDepartmentDropdown()
     {
-        string sql = @"
+        ddlDepartment.Items.Clear();
+        ddlDepartment.Items.Add(new ListItem("-- Select Department --", ""));
+        DataTable dt = null;
+        try
+        {
+            // Each option carries its faculty (data-fac) so the client can
+            // filter departments to the selected faculty.
+            dt = ExecuteQuery(
+                "SELECT ID, dept_name, IFNULL(faculty_code,'') AS fc " +
+                "FROM hrm_departments ORDER BY dept_name");
+        }
+        catch { dt = null; }
+        if (dt == null) return;
+        foreach (DataRow r in dt.Rows)
+        {
+            ListItem li = new ListItem(r["dept_name"].ToString(), r["ID"].ToString());
+            li.Attributes["data-fac"] = r["fc"].ToString();
+            ddlDepartment.Items.Add(li);
+        }
+    }
+
+    // The listing now loads via the GET endpoint (?act=list) and re-fetches on every
+    // page render, so server-side binding is no longer needed. Kept as a no-op so the
+    // existing post-action callers stay valid and always trigger a fresh client load.
+    private void BindGrid() { }
+
+    private static string ProgrammesSql()
+    {
+        return @"
             SELECT p.progcode, p.progname,
                    IFNULL(p.abbrev,'') AS abbrev,
                    IFNULL(p.couselength,0) AS couselength,
@@ -121,10 +229,13 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
                    IFNULL(p.mincredit,0) AS mincredit,
                    IFNULL(p.faculty_code,'') AS faculty_code,
                    IFNULL(f.faculty_name,'') AS faculty_name,
+                   IFNULL(d.dept_name,'') AS dept_name,
                    IFNULL(p.levelCode,0) AS levelCode,
                    IFNULL(p.study_system,'') AS study_system,
                    IFNULL(p.is_fully_set,'No') AS is_fully_set,
+                   IFNULL(p.online_app_active,1) AS online_app_active,
                    IFNULL(s.spec_count,0) AS spec_count,
+                   IFNULL(cc.course_count,0) AS course_count,
                    CASE IFNULL(p.levelCode,0)
                        WHEN 0 THEN 'Elementary'
                        WHEN 1 THEN 'Certificate'
@@ -136,87 +247,109 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
                        ELSE '' END AS level_label
             FROM acad_programme p
             LEFT JOIN acad_faculty f ON f.faculty_code = p.faculty_code
+            LEFT JOIN hrm_departments d ON d.ID = p.department_id
             LEFT JOIN (SELECT prog_id, COUNT(*) AS spec_count FROM acad_specialisation GROUP BY prog_id) s
                    ON p.progcode = s.prog_id
+            LEFT JOIN (SELECT pc.progcode, COUNT(*) AS course_count
+                       FROM acad_programmecourses pc
+                       INNER JOIN acad_course c ON pc.course_code = c.courseID
+                       GROUP BY pc.progcode) cc
+                   ON cc.progcode = p.progcode
             ORDER BY p.progname";
+    }
 
-        DataTable dt = ExecuteQuery(sql);
-        
-        // Build card HTML and JavaScript data array
-        StringBuilder sbCards = new StringBuilder();
-        StringBuilder sbJsonData = new StringBuilder("window.__fpData=[");
-        
-        if (dt.Rows.Count == 0)
+    // GET endpoint — emits the programmes list as a JSON array and ends the response.
+    private void EmitProgrammesJson()
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+        Response.Cache.SetCacheability(System.Web.HttpCacheability.NoCache);
+        try
         {
-            sbCards.Append("<div class='fp-card-list'><div class='fp-empty'><div class='fp-empty__icon'>📋</div><div class='fp-empty__text'>No programmes found</div><div class='fp-empty__hint'>Click 'Add New Programme' to create one</div></div></div>");
-        }
-        else
-        {
-            sbCards.Append("<div class='fp-card-list'>");
-            
+            EnsureColumns(); // guarantee department_id / faculty_code exist before the query
+            DataTable dt = ExecuteQuery(ProgrammesSql());
+            StringBuilder sb = new StringBuilder("[");
             for (int i = 0; i < dt.Rows.Count; i++)
             {
                 DataRow r = dt.Rows[i];
-                string progcode = r["progcode"].ToString();
-                string progname = r["progname"].ToString();
-                string faculty = r["faculty_name"].ToString();
-                string level_label = r["level_label"].ToString();
-                int levelCode = Convert.ToInt32(r["levelCode"]);
-                int duration = Convert.ToInt32(r["couselength"]);
-                string study_system = r["study_system"].ToString();
-                string is_fully_set = r["is_fully_set"].ToString();
-                int spec_count = Convert.ToInt32(r["spec_count"]);
-                
-                // Build card HTML
-                sbCards.Append("<div class='fp-card'>");
-                sbCards.Append("<div class='fp-card__header'>");
-                sbCards.AppendFormat("<div class='fp-card__title'>{0} — {1}</div>", HttpUtility.HtmlEncode(progcode), HttpUtility.HtmlEncode(progname));
-                sbCards.AppendFormat("<div class='fp-card__subtitle'>{0}</div>", HttpUtility.HtmlEncode(faculty));
-                sbCards.Append("</div>");
-                
-                sbCards.Append("<div class='fp-card__body'>");
-                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Level:</span><span class='fp-card__row__v'>{0}</span></div>", level_label);
-                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Duration:</span><span class='fp-card__row__v'>{0} year(s)</span></div>", duration);
-                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Study System:</span><span class='fp-card__row__v'>{0}</span></div>", HttpUtility.HtmlEncode(study_system));
-                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Specializations:</span><span class='fp-card__row__v'><strong>{0}</strong></span></div>", spec_count);
-                sbCards.AppendFormat("<div class='fp-card__row'><span class='fp-card__row__k'>Status:</span><span class='badge {0}'>{1}</span></div>", 
-                    (is_fully_set == "Yes" ? "badge-set-yes" : "badge-set-no"), is_fully_set);
-                sbCards.Append("</div>");
-                
-                sbCards.Append("<div class='fp-card__actions'>");
-                sbCards.AppendFormat("<button type='button' onclick=\"editProg('{0}')\">✎ Edit</button>", HttpUtility.JavaScriptStringEncode(progcode));
-                sbCards.AppendFormat("<button type='button' onclick=\"openStructure('{0}')\">≡ Structure</button>", HttpUtility.JavaScriptStringEncode(progcode));
-                sbCards.AppendFormat("<button type='button' onclick=\"openCourses('{0}')\">📖 Courses</button>", HttpUtility.JavaScriptStringEncode(progcode));
-                sbCards.AppendFormat("<button type='button' class='btn-danger' onclick=\"deleteProg('{0}','{1}')\">✕ Delete</button>", 
-                    HttpUtility.JavaScriptStringEncode(progcode), HttpUtility.JavaScriptStringEncode(progname));
-                sbCards.Append("</div>");
-                
-                sbCards.Append("</div>");
-                
-                // Build JSON data array for JavaScript filtering
-                if (i > 0) sbJsonData.Append(",");
-                sbJsonData.AppendFormat("{{code:'{0}',name:'{1}',faculty:'{2}',level:{3},level_label:'{4}',duration:{5},study_system:'{6}',fully:'{7}',spec_count:{8}}}",
-                    HttpUtility.JavaScriptStringEncode(progcode),
-                    HttpUtility.JavaScriptStringEncode(progname),
-                    HttpUtility.JavaScriptStringEncode(faculty),
-                    levelCode,
-                    level_label,
-                    duration,
-                    HttpUtility.JavaScriptStringEncode(study_system),
-                    is_fully_set,
-                    spec_count);
+                if (i > 0) sb.Append(",");
+                sb.Append("{")
+                  .Append("\"code\":").Append(JS(r["progcode"].ToString())).Append(",")
+                  .Append("\"name\":").Append(JS(r["progname"].ToString())).Append(",")
+                  .Append("\"faculty\":").Append(JS(r["faculty_name"].ToString())).Append(",")
+                  .Append("\"dept\":").Append(JS(r["dept_name"].ToString())).Append(",")
+                  .Append("\"level\":").Append(Convert.ToInt32(r["levelCode"])).Append(",")
+                  .Append("\"level_label\":").Append(JS(r["level_label"].ToString())).Append(",")
+                  .Append("\"duration\":").Append(Convert.ToInt32(r["couselength"])).Append(",")
+                  .Append("\"study_system\":").Append(JS(r["study_system"].ToString())).Append(",")
+                  .Append("\"fully\":").Append(JS(r["is_fully_set"].ToString())).Append(",")
+                  .Append("\"app_active\":").Append(Convert.ToInt32(r["online_app_active"])).Append(",")
+                  .Append("\"spec_count\":").Append(Convert.ToInt32(r["spec_count"])).Append(",")
+                  .Append("\"course_count\":").Append(Convert.ToInt32(r["course_count"]))
+                  .Append("}");
             }
-            
-            sbCards.Append("</div>");
+            sb.Append("]");
+            Response.Write(sb.ToString());
         }
-        
-        sbJsonData.Append("];");
-        
-        litProgrammesList.Text = sbCards.ToString();
-        
-        // Register the JavaScript initialization
-        ScriptManager.RegisterStartupScript(this, GetType(), "initCards",
-            sbJsonData.ToString() + "fpInitialize(window.__fpData);", true);
+        catch (Exception ex)
+        {
+            Response.Write("{\"error\":" + JS(ex.Message) + "}");
+        }
+        Response.End();
+    }
+
+    // JSON string literal (quoted + escaped).
+    private static string JS(string s) { return HttpUtility.JavaScriptStringEncode(s ?? "", true); }
+
+    // POST endpoint — set a programme's online-application status (active=1 / inactive=0).
+    // Inactive programmes are hidden from the eportal online-application dropdowns.
+    private void HandleSetAppStatus()
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+        Response.Cache.SetCacheability(System.Web.HttpCacheability.NoCache);
+        try
+        {
+            string code = (Request["code"] ?? "").Trim();
+            string activeRaw = (Request["active"] ?? "").Trim();
+            if (code.Length == 0)
+            {
+                Response.Write("{\"ok\":false,\"message\":" + JS("Programme code is required.") + "}");
+                Response.End();
+                return;
+            }
+            int active = (activeRaw == "1" || activeRaw.Equals("true", StringComparison.OrdinalIgnoreCase)) ? 1 : 0;
+
+            EnsureColumns(); // guarantee online_app_active exists
+            int rows;
+            using (MySqlConnection conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "UPDATE acad_programme SET online_app_active=@a WHERE TRIM(progcode)=TRIM(@c)", conn))
+                {
+                    cmd.Parameters.AddWithValue("@a", active);
+                    cmd.Parameters.AddWithValue("@c", code);
+                    rows = cmd.ExecuteNonQuery();
+                }
+            }
+            if (rows <= 0)
+            {
+                Response.Write("{\"ok\":false,\"message\":" + JS("Programme not found.") + "}");
+            }
+            else
+            {
+                string msg = active == 1
+                    ? "Online applications ENABLED for this programme."
+                    : "Online applications DISABLED — this programme is now hidden from the eportal application form.";
+                Response.Write("{\"ok\":true,\"active\":" + active + ",\"message\":" + JS(msg) + "}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"ok\":false,\"message\":" + JS(ex.Message) + "}");
+        }
+        Response.End();
     }
 
     // ---------------------------------------------------------------
@@ -240,6 +373,11 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
         string faculty  = ddlFaculty.SelectedValue;
         if (string.IsNullOrEmpty(faculty))
             faculty = Request.Form[ddlFaculty.UniqueID] ?? "";
+        string deptVal  = ddlDepartment.SelectedValue;
+        if (string.IsNullOrEmpty(deptVal))
+            deptVal = Request.Form[ddlDepartment.UniqueID] ?? "";
+        int deptId;
+        object deptParam = (int.TryParse(deptVal, out deptId) && deptId > 0) ? (object)deptId : (object)DBNull.Value;
         string levelVal = ddlLevel.SelectedValue;
         string durVal   = ddlDuration.SelectedValue;
         string studySys = ddlStudySystem.SelectedValue;
@@ -253,6 +391,8 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
         { ShowModalError("Programme Name is required."); return; }
         if (string.IsNullOrEmpty(faculty))
         { ShowModalError("Please select a Faculty."); return; }
+        if (deptParam == DBNull.Value)
+        { ShowModalError("Please select a Department. Every programme must belong to a department."); return; }
         if (string.IsNullOrEmpty(levelVal))
         { ShowModalError("Please select an Academic Level."); return; }
         if (string.IsNullOrEmpty(durVal))
@@ -279,9 +419,9 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
                 ExecuteNonQuery(@"
                     INSERT INTO acad_programme
                         (progcode, progname, abbrev, mincredit, couselength, maxduration,
-                         faculty_code, levelCode, study_system, is_fully_set)
+                         faculty_code, department_id, levelCode, study_system, is_fully_set)
                     VALUES (@code, @name, @abbrev, @mincredit, @dur, @maxdur,
-                            @faculty, @level, @study, @fully)",
+                            @faculty, @dept, @level, @study, @fully)",
                     new MySqlParameter("@code",    progcode),
                     new MySqlParameter("@name",    progname),
                     new MySqlParameter("@abbrev",  abbrev),
@@ -289,6 +429,7 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
                     new MySqlParameter("@dur",     duration),
                     new MySqlParameter("@maxdur",  maxDur),
                     new MySqlParameter("@faculty", faculty),
+                    new MySqlParameter("@dept",    deptParam),
                     new MySqlParameter("@level",   level),
                     new MySqlParameter("@study",   studySys),
                     new MySqlParameter("@fully",   isFullySet));
@@ -301,11 +442,30 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
             else // EDIT
             {
                 string original = hdnEditProgcode.Value.Trim().ToUpper();
+                bool codeChanged = !string.Equals(progcode, original, StringComparison.OrdinalIgnoreCase);
+
+                if (codeChanged)
+                {
+                    // The new code must not collide with an existing programme.
+                    DataTable dtChk = ExecuteQuery(
+                        "SELECT COUNT(*) AS cnt FROM acad_programme WHERE progcode=@c",
+                        new MySqlParameter("@c", progcode));
+                    if (dtChk.Rows.Count > 0 && Convert.ToInt32(dtChk.Rows[0]["cnt"]) > 0)
+                    { ShowModalError("Cannot change code: a programme with code '" + progcode + "' already exists."); return; }
+
+                    // Atomic cascade rename of the code across EVERY linked table/database
+                    // (students, results, fees, timetables, allocations, registrations, …).
+                    // All-or-nothing: the SP rolls back on any error and audits the change.
+                    RenameProgrammeCode(original, progcode);
+                }
+
+                // After a rename the row now carries the new code; key the field update on it.
+                string keyCode = codeChanged ? progcode : original;
                 ExecuteNonQuery(@"
                     UPDATE acad_programme SET
                         progname=@name, abbrev=@abbrev, mincredit=@mincredit,
                         couselength=@dur, maxduration=@maxdur,
-                        faculty_code=@faculty, levelCode=@level,
+                        faculty_code=@faculty, department_id=@dept, levelCode=@level,
                         study_system=@study, is_fully_set=@fully
                     WHERE progcode=@code",
                     new MySqlParameter("@name",    progname),
@@ -314,15 +474,19 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
                     new MySqlParameter("@dur",     duration),
                     new MySqlParameter("@maxdur",  maxDur),
                     new MySqlParameter("@faculty", faculty),
+                    new MySqlParameter("@dept",    deptParam),
                     new MySqlParameter("@level",   level),
                     new MySqlParameter("@study",   studySys),
                     new MySqlParameter("@fully",   isFullySet),
-                    new MySqlParameter("@code",    original));
+                    new MySqlParameter("@code",    keyCode));
 
                 BindGrid();
                 ResetModal();
+                string okMsg = codeChanged
+                    ? "Programme updated. Code changed from " + original + " to " + progcode + " across all linked records."
+                    : "Programme updated successfully.";
                 ScriptManager.RegisterStartupScript(this, GetType(), "saved",
-                    "closeProgModal();showToast('Programme updated successfully.','success');", true);
+                    "closeProgModal();showToast('" + HttpUtility.JavaScriptStringEncode(okMsg) + "','success');", true);
             }
         }
         catch (Exception ex)
@@ -349,7 +513,12 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
         txtMinCredit.Text   = r["mincredit"] != DBNull.Value ? r["mincredit"].ToString() : "";
         txtMaxDuration.Text = r["maxduration"] != DBNull.Value ? r["maxduration"].ToString() : "";
 
-        TrySelect(ddlFaculty,     r["faculty_code"] != DBNull.Value ? r["faculty_code"].ToString() : "");
+        string facCode = r["faculty_code"] != DBNull.Value ? r["faculty_code"].ToString().Trim() : "";
+        string deptId  = r.Table.Columns.Contains("department_id") && r["department_id"] != DBNull.Value ? r["department_id"].ToString().Trim() : "";
+
+        // Server-side selection (fallback) …
+        TrySelect(ddlFaculty,     facCode);
+        TrySelect(ddlDepartment,  deptId);
         TrySelect(ddlLevel,       r["levelCode"] != DBNull.Value ? r["levelCode"].ToString() : "");
         TrySelect(ddlDuration,    r["couselength"] != DBNull.Value ? r["couselength"].ToString() : "");
         TrySelect(ddlStudySystem, r["study_system"] != DBNull.Value ? r["study_system"].ToString() : "");
@@ -357,9 +526,11 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
 
         hdnModalMode.Value = "EDIT";
 
-        BindGrid(); // keep grid fresh
+        // … and pass Faculty + Department to the client so the modal shows them reliably.
         ScriptManager.RegisterStartupScript(this, GetType(), "openEdit",
-            "openProgModal('EDIT','" + HttpUtility.JavaScriptStringEncode(progcode) + "');", true);
+            "openProgModal('EDIT','" + HttpUtility.JavaScriptStringEncode(progcode) + "','"
+                + HttpUtility.JavaScriptStringEncode(facCode) + "','"
+                + HttpUtility.JavaScriptStringEncode(deptId) + "');", true);
     }
 
     private void TrySelect(DropDownList ddl, string value)
@@ -370,32 +541,6 @@ public partial class COOPERP_NewScreens_NewFacultyProgrammes : System.Web.UI.Pag
             item.Selected = true;
     }
 
-    // ---------------------------------------------------------------
-    // Delete
-    // ---------------------------------------------------------------
-    protected void btnDeleteProgramme_Click(object sender, EventArgs e)
-    {
-        string progcode = hdnEditProgcode.Value.Trim();
-        if (string.IsNullOrEmpty(progcode)) return;
-
-        try
-        {
-            // Delete specialisations first (FK constraint)
-            ExecuteNonQuery("DELETE FROM acad_specialisation WHERE prog_id=@code",
-                new MySqlParameter("@code", progcode));
-            ExecuteNonQuery("DELETE FROM acad_programme WHERE progcode=@code",
-                new MySqlParameter("@code", progcode));
-
-            BindGrid();
-            ScriptManager.RegisterStartupScript(this, GetType(), "deleted",
-                "showToast('Programme deleted.','danger');", true);
-        }
-        catch (Exception ex)
-        {
-            ScriptManager.RegisterStartupScript(this, GetType(), "delerr",
-                "showToast('Delete failed: " + HttpUtility.JavaScriptStringEncode(ex.Message) + "','danger');", true);
-        }
-    }
 
     // ---------------------------------------------------------------
     // Programme Structure popup

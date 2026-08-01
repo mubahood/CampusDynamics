@@ -272,7 +272,7 @@
                                         </tr>
                                         <tr>
                                             <td>
-                                                <asp:ObjectDataSource ID="dsCRData" runat="server" OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" TypeName="admission_dataTableAdapters.acad_GetConversionRateTableAdapter">
+                                                <asp:ObjectDataSource ID="dsCRData" runat="server" OldValuesParameterFormatString="original_{0}" SelectMethod="GetConversionRate" TypeName="AdmissionStatsBLL">
                                                     <SelectParameters>
                                                         <asp:ControlParameter ControlID="txtAcadYear" Name="acad" PropertyName="Value" Type="String" />
                                                         <asp:ControlParameter ControlID="txtCRType" Name="typ" PropertyName="Value" Type="String" />
@@ -367,7 +367,7 @@
                                         </tr>
                                         <tr>
                                             <td>
-                                                <asp:ObjectDataSource ID="ds_AdmnStats" runat="server" OldValuesParameterFormatString="original_{0}" SelectMethod="GetData" TypeName="admission_dataTableAdapters.acad_AdmissionStatisticsTableAdapter">
+                                                <asp:ObjectDataSource ID="ds_AdmnStats" runat="server" OldValuesParameterFormatString="original_{0}" SelectMethod="GetAdmissionStatistics" TypeName="AdmissionStatsBLL">
                                                     <SelectParameters>
                                                         <asp:ControlParameter ControlID="txtCampus" Name="camp" PropertyName="Value" Type="String" />
                                                         <asp:ControlParameter ControlID="txtAcadYear" Name="acad_year" PropertyName="Value" Type="String" />

@@ -33,6 +33,57 @@ public static class MarksControllerShared
         get { return WebConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
     }
 
+    // ── Role-based data scope (admin=all, dean=faculty, HOD=department) ──
+    // Resolved once per request and cached so every shared method enforces the
+    // same scope without re-querying. See MarksScopeResolver.
+    private static MarksScope CurrentScope()
+    {
+        HttpContext ctx = HttpContext.Current;
+        if (ctx != null && ctx.Items["__marksScope"] is MarksScope)
+            return (MarksScope)ctx.Items["__marksScope"];
+        MarksScope s = MarksScopeResolver.Resolve();
+        if (ctx != null) ctx.Items["__marksScope"] = s;
+        return s;
+    }
+
+    // SQL predicate restricting <alias>.prog_id to the current user's scope ("" for admin).
+    private static string ScopeFilter(string alias) { return CurrentScope().ProgFilter(alias); }
+
+    // True if a registration row (by id) is within the current user's scope. Mutations
+    // call this so a user cannot act on records outside their faculty/department.
+    private static bool RecordInScope(MySqlConnection conn, int id)
+    {
+        MarksScope s = CurrentScope();
+        if (s.IsAdmin || s.AllowedProgCodes == null) return true;
+        string prog = "";
+        using (MySqlCommand cmd = new MySqlCommand(
+            "SELECT COALESCE(prog_id,'') FROM campus_dynamics_portal.acad_course_registration WHERE id=@id LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@id", id);
+            object v = cmd.ExecuteScalar();
+            if (v != null && v != DBNull.Value) prog = v.ToString().Trim();
+        }
+        return s.AllowedProgCodes.Contains(prog);
+    }
+
+    // Transaction-aware variant for use inside the central action processors.
+    private static bool RecordInScope(MySqlConnection conn, MySqlTransaction tx, int id)
+    {
+        MarksScope s = CurrentScope();
+        if (s.IsAdmin || s.AllowedProgCodes == null) return true;
+        string prog = "";
+        using (MySqlCommand cmd = new MySqlCommand(
+            "SELECT COALESCE(prog_id,'') FROM campus_dynamics_portal.acad_course_registration WHERE id=@id LIMIT 1", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("@id", id);
+            object v = cmd.ExecuteScalar();
+            if (v != null && v != DBNull.Value) prog = v.ToString().Trim();
+        }
+        return s.AllowedProgCodes.Contains(prog);
+    }
+
+    private const string SCOPE_DENIED = "{\"success\":false,\"message\":\"You can only act on records within your faculty/department.\"}";
+
     public static void EnsureProvisionalColumns(MySqlConnection conn)
     {
         const string schema = "campus_dynamics_portal";
@@ -66,7 +117,7 @@ public static class MarksControllerShared
         ddlProg.Items.Clear();
         ddlProg.Items.Add(new ListItem("All Programmes", ""));
         using (MySqlCommand cmd = new MySqlCommand(
-            "SELECT DISTINCT p.progcode, COALESCE(p.progname, p.progcode) FROM acad_programme p INNER JOIN campus_dynamics_portal.acad_course_registration cr ON cr.prog_id = p.progcode ORDER BY 2", conn))
+            "SELECT DISTINCT p.progcode, COALESCE(p.progname, p.progcode) FROM acad_programme p INNER JOIN campus_dynamics_portal.acad_course_registration cr ON cr.prog_id = p.progcode WHERE 1=1" + ScopeFilter("cr") + " ORDER BY 2", conn))
         using (MySqlDataReader rdr = cmd.ExecuteReader())
         {
             while (rdr.Read())
@@ -125,7 +176,7 @@ public static class MarksControllerShared
                 SUM(CASE WHEN provisional_marks_status = 'approved' THEN 1 ELSE 0 END) AS cnt_approved,
                 SUM(CASE WHEN provisional_marks_status = 'rejected' THEN 1 ELSE 0 END) AS cnt_rejected,
                 SUM(CASE WHEN provisional_marks_status = 'published' THEN 1 ELSE 0 END) AS cnt_published
-            FROM campus_dynamics_portal.acad_course_registration";
+            FROM campus_dynamics_portal.acad_course_registration cr WHERE 1=1" + ScopeFilter("cr");
 
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         using (MySqlDataReader rdr = cmd.ExecuteReader())
@@ -177,6 +228,9 @@ public static class MarksControllerShared
         bool useStatusParam = false;
         StringBuilder where = BuildGridWhere(kind, status, ref useStatusParam);
 
+        // Role-based scope: dean → faculty, HOD → department, admin → all.
+        where.Append(ScopeFilter("cr"));
+
         if (!string.IsNullOrEmpty(year)) where.Append(" AND cr.acad_year = @year");
         if (!string.IsNullOrEmpty(sem)) where.Append(" AND cr.semester = @sem");
         if (!string.IsNullOrEmpty(prog)) where.Append(" AND cr.prog_id = @prog");
@@ -214,6 +268,7 @@ public static class MarksControllerShared
                    COALESCE(cr.prog_id,'') AS prog_id,
                    " + courseCol + @" AS courseID,
                    COALESCE(c.courseName, " + courseCol + @") AS course_name,
+                   COALESCE(cr.course_status,'') AS course_status,
                    cr.acad_year, cr.semester,
                    COALESCE((SELECT MAX(r2.studyyear) FROM acad_registration r2 WHERE r2.regno=cr.regno AND r2.acad_year=cr.acad_year AND r2.semester=cr.semester),1) AS study_year,
                    cr.provisional_course_work_marks,
@@ -222,6 +277,7 @@ public static class MarksControllerShared
                    (SELECT ar3.score FROM acad_results ar3 WHERE ar3.regno=cr.regno AND ar3.courseid=" + courseCol + @" AND ar3.semester=cr.semester AND ar3.acad=cr.acad_year ORDER BY ar3.ID DESC LIMIT 1) AS published_mark,
                    (SELECT ar4.grade FROM acad_results ar4 WHERE ar4.regno=cr.regno AND ar4.courseid=" + courseCol + @" AND ar4.semester=cr.semester AND ar4.acad=cr.acad_year ORDER BY ar4.ID DESC LIMIT 1) AS published_grade,
                    CASE
+                     WHEN COALESCE(cr.provisional_marks_status,'pending') = 'published' THEN 'published'
                      WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL THEN 'not_entered'
                      ELSE COALESCE(cr.provisional_marks_status,'pending')
                    END AS prov_status
@@ -244,6 +300,8 @@ public static class MarksControllerShared
                     string studentName = rdr["student_name"].ToString().Trim();
                     string courseID = rdr["courseID"].ToString();
                     string courseName = rdr["course_name"].ToString();
+                    bool isRetake = rdr["course_status"].ToString().Trim().ToUpperInvariant() == "RETAKE";
+                    string rtBadge = isRetake ? "<span title='Retake' style='display:inline-block;margin-left:6px;padding:0 5px;font-size:8.5px;font-weight:700;color:#b45309;background:#fff3e0;border-radius:8px;vertical-align:middle;'>RT</span>" : "";
                     string progId = rdr["prog_id"].ToString();
                     string acadYear = rdr["acad_year"].ToString();
                     string semester = rdr["semester"].ToString();
@@ -274,7 +332,7 @@ public static class MarksControllerShared
                     sb.AppendFormat("<td class='col-sel pm-center'><input type='checkbox' class='pm-row-chk pm-row-sel' value='{0}' title='Select for batch action' /></td>", id);
                     sb.AppendFormat("<td class='col-regno' title='{0}'><span class='pm-code pm-ellipsis'>{0}</span></td>", HtmlEnc(regno));
                     sb.AppendFormat("<td class='col-student' title='{0}'><span class='pm-ellipsis'>{0}</span></td>", HtmlEnc(studentName));
-                    sb.AppendFormat("<td class='col-course' title='{1}'><span class='pm-code pm-ellipsis'>{0}</span></td>", HtmlEnc(courseID), HtmlEnc(courseName));
+                    sb.AppendFormat("<td class='col-course' title='{1}'><span class='pm-code pm-ellipsis'>{0}</span>{2}</td>", HtmlEnc(courseID), HtmlEnc(courseName), rtBadge);
                     sb.AppendFormat("<td class='col-prog pm-muted'><span class='pm-ellipsis'>{0}</span></td>", HtmlEnc(progId));
                     sb.AppendFormat("<td class='col-yr pm-muted'>{0}</td>", HtmlEnc(acadYear));
                     sb.AppendFormat("<td class='col-sem pm-muted'><strong>Yr {0}, Sem {1}</strong></td>", HtmlEnc(studyYear), HtmlEnc(semester));
@@ -321,6 +379,7 @@ public static class MarksControllerShared
             using (MySqlConnection conn = new MySqlConnection(connStr))
             {
                 conn.Open();
+                if (!RecordInScope(conn, id)) return SCOPE_DENIED;
                 string courseCol = GetCourseColumnExpression(conn, "cr");
                 if (string.IsNullOrEmpty(courseCol))
                     return js.Serialize(new { success = false, message = "Course column not found on acad_course_registration." });
@@ -332,7 +391,8 @@ public static class MarksControllerShared
                            cr.provisional_course_work_marks,
                            cr.provisional_exam_marks,
                            cr.provisional_total_marks,
-                           CASE WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL THEN 'not_entered'
+                           CASE WHEN COALESCE(cr.provisional_marks_status,'pending') = 'published' THEN 'published'
+                                WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL THEN 'not_entered'
                                 ELSE COALESCE(cr.provisional_marks_status,'pending') END AS provisional_marks_status,
                            COALESCE(cr.provisional_marks_review_comments,'') AS provisional_marks_review_comments,
                            COALESCE(cr.provisional_marks_reviewed_by,'') AS provisional_marks_reviewed_by,
@@ -387,6 +447,7 @@ public static class MarksControllerShared
             using (MySqlConnection conn = new MySqlConnection(connStr))
             {
                 conn.Open();
+                if (!RecordInScope(conn, id)) return SCOPE_DENIED;
                 string courseCol = GetCourseColumnExpression(conn, "cr");
                 if (string.IsNullOrEmpty(courseCol))
                     return js.Serialize(new { success = false, message = "Course column not found on acad_course_registration." });
@@ -401,6 +462,7 @@ public static class MarksControllerShared
                            cr.provisional_exam_marks,
                            cr.provisional_total_marks,
                            CASE
+                             WHEN COALESCE(cr.provisional_marks_status,'pending') = 'published' THEN 'published'
                              WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL THEN 'not_entered'
                              ELSE COALESCE(cr.provisional_marks_status,'pending')
                            END AS provisional_marks_status,
@@ -589,6 +651,17 @@ public static class MarksControllerShared
         return PublishMarks(id);
     }
 
+    /// <summary>
+    /// Publish a single provisional row to acad_results within an existing transaction.
+    /// Used by the staged workflow's PUBLISH stage (StageAdvanceService) so final
+    /// results are produced by the exact same engine as the legacy publish path.
+    /// </summary>
+    public static bool PublishSingle(MySqlConnection conn, MySqlTransaction tx, int id, string actor)
+    {
+        ProvisionalActionResult r = ProcessProvisionalAction(conn, tx, id, StatusPublished, actor, "");
+        return r != null && r.Success;
+    }
+
     public static string SaveAdminMarks(int id, int? cw, int? exam, int? total, string note)
     {
         string connStr = ConnectionString;
@@ -608,6 +681,7 @@ public static class MarksControllerShared
             using (MySqlConnection conn = new MySqlConnection(connStr))
             {
                 conn.Open();
+                if (!RecordInScope(conn, id)) return SCOPE_DENIED;
                 string sql = @"UPDATE campus_dynamics_portal.acad_course_registration
                                SET provisional_course_work_marks = @cw,
                                    provisional_exam_marks = @exam,
@@ -648,6 +722,7 @@ public static class MarksControllerShared
             using (MySqlConnection conn = new MySqlConnection(connStr))
             {
                 conn.Open();
+                if (!RecordInScope(conn, id)) return SCOPE_DENIED;
                 string sql = @"UPDATE campus_dynamics_portal.acad_course_registration
                                SET provisional_marks_status = @pending,
                                    provisional_marks_review_comments = CONCAT(COALESCE(provisional_marks_review_comments,''), ' [Reset by admin: ', @actor, ']'),
@@ -671,6 +746,192 @@ public static class MarksControllerShared
         }
     }
 
+    /// <summary>
+    /// Force-set a single provisional record to any status.
+    /// 'published' → full pipeline (writes to acad_results, recomputes GPA).
+    /// 'approved' / 'rejected' / 'pending' → direct status UPDATE only.
+    /// </summary>
+    public static string ForceSetStatus(int id, string newStatus, string comment)
+    {
+        string connStr = ConnectionString;
+        JavaScriptSerializer js = new JavaScriptSerializer();
+        string normalizedStatus = NormalizeStatus(newStatus);
+
+        if (normalizedStatus != StatusPending && normalizedStatus != StatusApproved &&
+            normalizedStatus != StatusRejected && normalizedStatus != StatusPublished)
+            return js.Serialize(new { success = false, message = "Invalid status. Choose: pending, approved, rejected, or published." });
+        if (normalizedStatus == StatusRejected && string.IsNullOrWhiteSpace(comment))
+            return js.Serialize(new { success = false, message = "A comment is required when setting status to Rejected." });
+
+        try
+        {
+            string actor = MarksAuthorizationService.GetCurrentUser();
+
+            if (normalizedStatus == StatusPublished)
+            {
+                using (MySqlConnection conn = new MySqlConnection(connStr))
+                {
+                    conn.Open();
+                    using (MySqlTransaction tx = conn.BeginTransaction())
+                    {
+                        ProvisionalActionResult result = ProcessProvisionalAction(conn, tx, id, StatusPublished, actor, "");
+                        if (!result.Success) { tx.Rollback(); return js.Serialize(new { success = false, message = result.Message }); }
+                        tx.Commit();
+                        return js.Serialize(new { success = true, message = result.Message });
+                    }
+                }
+            }
+
+            // pending / approved / rejected — direct UPDATE
+            string sql;
+            if (normalizedStatus == StatusPending)
+                sql = @"UPDATE campus_dynamics_portal.acad_course_registration
+                        SET provisional_marks_status           = @status,
+                            provisional_marks_reviewed_by      = @actor,
+                            provisional_marks_review_date      = NOW(),
+                            provisional_marks_review_comments  = CONCAT(COALESCE(provisional_marks_review_comments,''), ' [Forced to pending by ', @actor, CASE WHEN @comment<>'' THEN CONCAT(': ',@comment) ELSE '' END, ']')
+                        WHERE id = @id";
+            else if (normalizedStatus == StatusApproved)
+                sql = @"UPDATE campus_dynamics_portal.acad_course_registration
+                        SET provisional_marks_status           = @status,
+                            provisional_marks_reviewed_by      = @actor,
+                            provisional_marks_review_date      = NOW(),
+                            provisional_marks_review_comments  = CASE WHEN @comment<>'' THEN @comment ELSE COALESCE(provisional_marks_review_comments,'') END
+                        WHERE id = @id";
+            else // rejected
+                sql = @"UPDATE campus_dynamics_portal.acad_course_registration
+                        SET provisional_marks_status           = @status,
+                            provisional_marks_reviewed_by      = @actor,
+                            provisional_marks_review_date      = NOW(),
+                            provisional_marks_review_comments  = @comment
+                        WHERE id = @id";
+
+            using (MySqlConnection conn = new MySqlConnection(connStr))
+            {
+                conn.Open();
+                if (!RecordInScope(conn, id)) return SCOPE_DENIED;
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@status",  normalizedStatus);
+                    cmd.Parameters.AddWithValue("@actor",   actor);
+                    cmd.Parameters.AddWithValue("@comment", string.IsNullOrWhiteSpace(comment) ? "" : comment.Trim());
+                    cmd.Parameters.AddWithValue("@id",      id);
+                    if (cmd.ExecuteNonQuery() == 0)
+                        return js.Serialize(new { success = false, message = "Record not found." });
+                }
+                // Status moved OFF 'published' → clear the stale publication stamps so the
+                // record's fields stay consistent with its new status (cascade completeness).
+                using (MySqlCommand clr = new MySqlCommand(
+                    "UPDATE campus_dynamics_portal.acad_course_registration " +
+                    "SET provisional_published_by=NULL, provisional_published_date=NULL WHERE id=@id", conn))
+                { clr.Parameters.AddWithValue("@id", id); clr.ExecuteNonQuery(); }
+            }
+            return js.Serialize(new { success = true, message = "Status updated to " + normalizedStatus + "." });
+        }
+        catch (Exception ex)
+        {
+            return js.Serialize(new { success = false, message = "Error: " + ex.Message });
+        }
+    }
+
+    /// <summary>Bulk version of ForceSetStatus.</summary>
+    public static string BulkForceSetStatus(int[] ids, string newStatus, string comment)
+    {
+        string connStr = ConnectionString;
+        JavaScriptSerializer js = new JavaScriptSerializer();
+
+        if (ids == null || ids.Length == 0)
+            return js.Serialize(new { success = false, message = "No records supplied." });
+
+        string normalizedStatus = NormalizeStatus(newStatus);
+        if (normalizedStatus != StatusPending && normalizedStatus != StatusApproved &&
+            normalizedStatus != StatusRejected && normalizedStatus != StatusPublished)
+            return js.Serialize(new { success = false, message = "Invalid status." });
+        if (normalizedStatus == StatusRejected && string.IsNullOrWhiteSpace(comment))
+            return js.Serialize(new { success = false, message = "Comment required when setting status to Rejected." });
+
+        try
+        {
+            string actor = MarksAuthorizationService.GetCurrentUser();
+            int affected = 0, failed = 0;
+            string firstError = string.Empty;
+
+            // Build the direct-update SQL once (reused for all non-publish statuses)
+            string directSql = string.Empty;
+            if (normalizedStatus == StatusPending)
+                directSql = @"UPDATE campus_dynamics_portal.acad_course_registration
+                              SET provisional_marks_status           = @status,
+                                  provisional_marks_reviewed_by      = @actor,
+                                  provisional_marks_review_date      = NOW(),
+                                  provisional_marks_review_comments  = CONCAT(COALESCE(provisional_marks_review_comments,''), ' [Bulk forced to pending by ', @actor, ']')
+                              WHERE id = @id";
+            else if (normalizedStatus == StatusApproved)
+                directSql = @"UPDATE campus_dynamics_portal.acad_course_registration
+                              SET provisional_marks_status           = @status,
+                                  provisional_marks_reviewed_by      = @actor,
+                                  provisional_marks_review_date      = NOW(),
+                                  provisional_marks_review_comments  = CASE WHEN @comment<>'' THEN @comment ELSE COALESCE(provisional_marks_review_comments,'') END
+                              WHERE id = @id";
+            else if (normalizedStatus == StatusRejected)
+                directSql = @"UPDATE campus_dynamics_portal.acad_course_registration
+                              SET provisional_marks_status           = @status,
+                                  provisional_marks_reviewed_by      = @actor,
+                                  provisional_marks_review_date      = NOW(),
+                                  provisional_marks_review_comments  = @comment
+                              WHERE id = @id";
+
+            using (MySqlConnection conn = new MySqlConnection(connStr))
+            {
+                conn.Open();
+                foreach (int id in ids)
+                {
+                    if (id <= 0) continue;
+                    if (!RecordInScope(conn, id)) { failed++; if (string.IsNullOrEmpty(firstError)) firstError = "Some records are outside your faculty/department."; continue; }
+                    using (MySqlTransaction tx = conn.BeginTransaction())
+                    {
+                        try
+                        {
+                            if (normalizedStatus == StatusPublished)
+                            {
+                                ProvisionalActionResult r = ProcessProvisionalAction(conn, tx, id, StatusPublished, actor, "");
+                                if (r.Success) { tx.Commit(); affected++; }
+                                else { tx.Rollback(); failed++; if (string.IsNullOrEmpty(firstError)) firstError = r.Message; }
+                            }
+                            else
+                            {
+                                using (MySqlCommand cmd = new MySqlCommand(directSql, conn, tx))
+                                {
+                                    cmd.Parameters.AddWithValue("@status",  normalizedStatus);
+                                    cmd.Parameters.AddWithValue("@actor",   actor);
+                                    cmd.Parameters.AddWithValue("@comment", string.IsNullOrWhiteSpace(comment) ? "" : comment.Trim());
+                                    cmd.Parameters.AddWithValue("@id",      id);
+                                    cmd.ExecuteNonQuery();
+                                }
+                                tx.Commit();
+                                affected++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            try { tx.Rollback(); } catch { }
+                            failed++;
+                            if (string.IsNullOrEmpty(firstError)) firstError = ex.Message;
+                        }
+                    }
+                }
+            }
+
+            string msg = string.Format("{0} record(s) set to {1}.", affected, normalizedStatus);
+            if (failed > 0) msg += string.Format(" {0} skipped (errors).", failed);
+            if (!string.IsNullOrEmpty(firstError)) msg += " First error: " + firstError;
+            return js.Serialize(new { success = affected > 0, message = msg, affected = affected, failed = failed });
+        }
+        catch (Exception ex)
+        {
+            return js.Serialize(new { success = false, message = "Error: " + ex.Message });
+        }
+    }
+
     public static string BulkAction(int[] ids, string action, string comment)
     {
         string connStr = ConnectionString;
@@ -680,7 +941,8 @@ public static class MarksControllerShared
             return js.Serialize(new { success = false, message = "No records supplied." });
 
         string normalizedAction = NormalizeStatus(action);
-        if (normalizedAction != StatusRejected && normalizedAction != StatusPublished && normalizedAction != ActionUnpublish && normalizedAction != ActionReprocess)
+        if (normalizedAction != StatusApproved && normalizedAction != StatusRejected &&
+            normalizedAction != StatusPublished && normalizedAction != ActionUnpublish && normalizedAction != ActionReprocess)
             return js.Serialize(new { success = false, message = "Invalid action." });
         if (normalizedAction == StatusRejected && string.IsNullOrWhiteSpace(comment))
             return js.Serialize(new { success = false, message = "Comment required for bulk rejection." });
@@ -699,6 +961,7 @@ public static class MarksControllerShared
                 for (int i = 0; i < ids.Length; i++)
                 {
                     if (ids[i] <= 0) continue;
+                    if (!RecordInScope(conn, ids[i])) { failed++; if (string.IsNullOrEmpty(firstError)) firstError = "Some records are outside your faculty/department."; continue; }
                     using (MySqlTransaction tx = conn.BeginTransaction())
                     {
                         ProvisionalActionResult result;
@@ -706,6 +969,26 @@ public static class MarksControllerShared
                             result = ProcessUnpublishAction(conn, tx, ids[i], actor, comment);
                         else if (normalizedAction == ActionReprocess)
                             result = ProcessProvisionalAction(conn, tx, ids[i], StatusPublished, actor, comment);
+                        else if (normalizedAction == StatusApproved)
+                        {
+                            // approved is a simple status stamp — not handled by ProcessProvisionalAction
+                            using (MySqlCommand cmd = new MySqlCommand(@"
+                                UPDATE campus_dynamics_portal.acad_course_registration
+                                SET provisional_marks_status      = 'approved',
+                                    provisional_marks_reviewed_by = @actor,
+                                    provisional_marks_review_date = NOW(),
+                                    provisional_marks_review_comments = CASE WHEN @comment<>'' THEN @comment ELSE COALESCE(provisional_marks_review_comments,'') END
+                                WHERE id = @id", conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@actor",   actor);
+                                cmd.Parameters.AddWithValue("@comment", string.IsNullOrWhiteSpace(comment) ? "" : comment.Trim());
+                                cmd.Parameters.AddWithValue("@id",      ids[i]);
+                                cmd.ExecuteNonQuery();
+                            }
+                            tx.Commit();
+                            affected++;
+                            continue;
+                        }
                         else
                             result = ProcessProvisionalAction(conn, tx, ids[i], normalizedAction, actor, comment);
                         if (result.Success)
@@ -991,12 +1274,13 @@ public static class MarksControllerShared
             if (ids != null)
             {
                 for (int i = 0; i < ids.Length; i++)
-                    if (ids[i] > 0) targetIds.Add(ids[i]);
+                    if (ids[i] > 0 && RecordInScope(conn, ids[i])) targetIds.Add(ids[i]);
             }
             return targetIds;
         }
 
         StringBuilder sql = new StringBuilder("SELECT cr.id FROM campus_dynamics_portal.acad_course_registration cr WHERE 1=1");
+        sql.Append(ScopeFilter("cr")); // role-based scope
 
         switch (kind)
         {
@@ -1047,13 +1331,21 @@ public static class MarksControllerShared
             <button type='button' class='pm-row-menu__item act--reset' onclick='closeMenuThen(this,function(){{unpublishMark({0});}})'>&#8634; Unpublish</button>", id);
                 }
 
-                return string.Format(@"
+                string baseItems = string.Format(@"
             <button type='button' class='pm-row-menu__item act--edit' onclick='closeMenuThen(this,function(){{openEdit({0});}})'>&#9998; Edit Marks</button>
             <button type='button' class='pm-row-menu__item act--approve' onclick='closeMenuThen(this,function(){{openDetails({0});}})'>&#9432; View Details</button>
             <button type='button' class='pm-row-menu__item act--approve' onclick='closeMenuThen(this,function(){{openReview({0});}})'>&#10003; Review</button>
             <div class='pm-row-menu__sep'></div>
             <button type='button' class='pm-row-menu__item act--publish' onclick='closeMenuThen(this,function(){{openPublish({0});}})'>&#8679; Publish</button>
             <button type='button' class='pm-row-menu__item act--reset' onclick='closeMenuThen(this,function(){{resetToPending({0});}})'>&#8635; Reset</button>", id);
+
+                if (kind == AdminMarksPageKind.AllMarks)
+                    baseItems += string.Format(@"
+            <div class='pm-row-menu__sep'></div>
+            <button type='button' class='pm-row-menu__item' style='color:#7c3aed;' onclick='closeMenuThen(this,function(){{openSetStatus({0});}})'>&#9654; Set Status&hellip;</button>
+            <button type='button' class='pm-row-menu__item' style='color:#c62828;' onclick='closeMenuThen(this,function(){{openDeleteReg({0});}})'>&#10006; Delete Registration</button>", id);
+
+                return baseItems;
         }
 
     /// <summary>
@@ -1067,6 +1359,13 @@ public static class MarksControllerShared
         if (normalizedAction != StatusRejected && normalizedAction != StatusPublished)
         {
             result.Message = "Invalid action.";
+            return result;
+        }
+
+        // Role-based scope: a dean/HOD cannot act on records outside their faculty/department.
+        if (!RecordInScope(conn, tx, id))
+        {
+            result.Message = "Out of scope: this record is not in your faculty/department.";
             return result;
         }
 
@@ -1165,18 +1464,16 @@ public static class MarksControllerShared
         // - Grade points + Credit Units are written to acad_results
         // - Semester GPA is recalculated and propagated to all rows of that semester context
         // - CGPA is recomputed cumulatively for messaging/classification context
-        if (!(cw.HasValue && exam.HasValue))
+        // Require at least one mark value to publish; individual components are optional
+        if (!cw.HasValue && !exam.HasValue && !total.HasValue)
         {
-            result.Message = "Coursework and exam marks must both be present before publish.";
+            result.Message = "At least one mark value must be present before publishing.";
             return result;
         }
-        if (!(provStatus == StatusPending || provStatus == StatusApproved || provStatus == StatusPublished))
-        {
-            result.Message = "Only pending, approved, or published records with complete marks can be published.";
-            return result;
-        }
+        // No status gate — admin may publish from any state (pending, approved, rejected, or republish)
 
-        int finalTotal = cw.Value + exam.Value;
+        // Use stored total if available; otherwise sum whatever components exist
+        int finalTotal = total.HasValue ? total.Value : (cw ?? 0) + (exam ?? 0);
         total = finalTotal;
 
         string grade = ComputeGrade(total.Value);
@@ -1202,56 +1499,91 @@ public static class MarksControllerShared
         string resultsCreditCol = ResolveResultsCreditUnitsColumn(conn);
 
         EnsureResultCommentTextNullable(conn);
-        string finalComment = "Published from provisional marks by " + actor;
 
-        int updateCount;
-        using (MySqlCommand upd = new MySqlCommand(@"
-            UPDATE acad_results
-            SET score = @score,
-                grade = @grade,
-                gradept = @gradept,
-                " + resultsCreditCol + @" = @cu,
-                studyyear = @studyyear,
-                result_comment = @comment
-            WHERE regno = @regno
-              AND courseid = @courseid
-              AND acad = @acad
-              AND semester = @semester", conn, tx))
-        {
-            upd.Parameters.AddWithValue("@score", total.Value);
-            upd.Parameters.AddWithValue("@grade", grade);
-            upd.Parameters.AddWithValue("@gradept", gradePt);
-            upd.Parameters.AddWithValue("@cu", creditUnits);
-            upd.Parameters.AddWithValue("@studyyear", studyYear <= 0 ? (object)DBNull.Value : studyYear);
-            upd.Parameters.AddWithValue("@comment", finalComment);
-            upd.Parameters.AddWithValue("@regno", regno);
-            upd.Parameters.AddWithValue("@courseid", courseId);
-            upd.Parameters.AddWithValue("@acad", acadYear);
-            upd.Parameters.AddWithValue("@semester", ParseIntSafe(semester, 0));
-            updateCount = upd.ExecuteNonQuery();
-        }
+        // ── Step 1: Read any existing result for (regno, courseid) ──────────────────
+        // We must do this BEFORE writing so we can:
+        //   (a) preserve original acad/semester/studyyear placement — the index only covers
+        //       (regno, courseid), so without this the UPDATE would silently relocate the
+        //       result to the provisional record's semester, corrupting the transcript;
+        //   (b) detect when a mark is being reduced (overwrite guard);
+        //   (c) write a proper audit trail in result_comment.
+        int? priorScore = null;
+        string priorGrade = null;
+        string effectiveAcad     = acadYear;
+        int    effectiveSemester = ParseIntSafe(semester, 0);
+        int    effectiveStudyYr  = studyYear;
 
-        if (updateCount == 0)
+        using (MySqlCommand chk = new MySqlCommand(@"
+            SELECT score, grade, acad, semester, COALESCE(studyyear,0) AS studyyear
+            FROM acad_results
+            WHERE regno = @regno AND UPPER(TRIM(courseid)) = UPPER(TRIM(@courseid))
+            LIMIT 1", conn, tx))
         {
-            using (MySqlCommand ins = new MySqlCommand(@"
-                INSERT INTO acad_results
-                    (regno, courseid, acad, semester, studyyear, score, grade, gradept, " + resultsCreditCol + @", result_comment)
-                VALUES
-                    (@regno, @courseid, @acad, @semester, @studyyear, @score, @grade, @gradept, @cu, @comment)", conn, tx))
+            chk.Parameters.AddWithValue("@regno",    regno);
+            chk.Parameters.AddWithValue("@courseid", courseId);
+            using (MySqlDataReader rdr = chk.ExecuteReader(CommandBehavior.SingleRow))
             {
-                ins.Parameters.AddWithValue("@regno", regno);
-                ins.Parameters.AddWithValue("@courseid", courseId);
-                ins.Parameters.AddWithValue("@acad", acadYear);
-                ins.Parameters.AddWithValue("@semester", ParseIntSafe(semester, 0));
-                ins.Parameters.AddWithValue("@studyyear", studyYear <= 0 ? (object)DBNull.Value : studyYear);
-                ins.Parameters.AddWithValue("@score", total.Value);
-                ins.Parameters.AddWithValue("@grade", grade);
-                ins.Parameters.AddWithValue("@gradept", gradePt);
-                ins.Parameters.AddWithValue("@cu", creditUnits);
-                ins.Parameters.AddWithValue("@comment", finalComment);
-                ins.ExecuteNonQuery();
+                if (rdr.Read())
+                {
+                    priorScore = rdr.IsDBNull(0) ? (int?)null : Convert.ToInt32(rdr[0]);
+                    priorGrade = rdr.IsDBNull(1) ? null : rdr.GetString(1);
+                    // Preserve original academic placement — never relocate an existing result
+                    if (!rdr.IsDBNull(2) && !string.IsNullOrEmpty(rdr.GetString(2)))
+                        effectiveAcad = rdr.GetString(2);
+                    if (!rdr.IsDBNull(3))
+                        effectiveSemester = Convert.ToInt32(rdr[3]);
+                    int sy = rdr.IsDBNull(4) ? 0 : Convert.ToInt32(rdr[4]);
+                    if (sy > 0) effectiveStudyYr = sy;
+                }
             }
         }
+
+        // ── Step 2: Build audit comment ──────────────────────────────────────────────
+        string overwriteNote = "";
+        if (priorScore.HasValue)
+        {
+            if (priorScore.Value != total.Value)
+                overwriteNote = string.Format(" [Overwrite: was {0}/{1}]", priorScore.Value, priorGrade ?? "?");
+            else
+                overwriteNote = " [Re-publish: score unchanged]";
+        }
+        string finalComment = "Published from provisional marks by " + actor + overwriteNote;
+
+        // Attribute this final-result change for the acad_results audit trigger (who changed what).
+        SetMarkAuditContext(conn, tx, actor, "ProvisionalMarks:publish", finalComment);
+
+        // ── Step 3: Atomic UPSERT — acad/semester/studyyear NOT in UPDATE clause ─────
+        // This means existing rows keep their original placement in the transcript.
+        // Only score/grade/gradept/CU/comment are ever updated.
+        using (MySqlCommand upsert = new MySqlCommand(@"
+            INSERT INTO acad_results
+                (regno, courseid, acad, semester, studyyear, score, grade, gradept, " + resultsCreditCol + @", result_comment)
+            VALUES
+                (@regno, @courseid, @acad, @semester, @studyyear, @score, @grade, @gradept, @cu, @comment)
+            ON DUPLICATE KEY UPDATE
+                score          = VALUES(score),
+                grade          = VALUES(grade),
+                gradept        = VALUES(gradept),
+                " + resultsCreditCol + @" = VALUES(" + resultsCreditCol + @"),
+                result_comment = VALUES(result_comment)", conn, tx))
+        {
+            upsert.Parameters.AddWithValue("@regno",    regno);
+            upsert.Parameters.AddWithValue("@courseid", courseId);
+            upsert.Parameters.AddWithValue("@acad",     effectiveAcad);
+            upsert.Parameters.AddWithValue("@semester", effectiveSemester);
+            upsert.Parameters.AddWithValue("@studyyear",effectiveStudyYr <= 0 ? (object)DBNull.Value : effectiveStudyYr);
+            upsert.Parameters.AddWithValue("@score",    total.Value);
+            upsert.Parameters.AddWithValue("@grade",    grade);
+            upsert.Parameters.AddWithValue("@gradept",  gradePt);
+            upsert.Parameters.AddWithValue("@cu",       creditUnits);
+            upsert.Parameters.AddWithValue("@comment",  finalComment);
+            upsert.ExecuteNonQuery();
+        }
+
+        // Carry overwrite note through to the caller's success message
+        string overwriteWarning = (priorScore.HasValue && priorScore.Value != total.Value)
+            ? string.Format(" WARNING: previous score {0} ({1}) overwritten with {2}.", priorScore.Value, priorGrade ?? "?", total.Value)
+            : "";
 
         decimal semesterGpa = ComputeSemesterGpa(conn, tx, regno, acadYear, ParseIntSafe(semester, 0));
         decimal cgpa = ComputeStudentCgpa(conn, tx, regno);
@@ -1290,17 +1622,62 @@ public static class MarksControllerShared
             }
         }
 
+        // ── Retake handling (best-effort; never blocks a publish) ────────────────────
+        // If this registration is a RETAKE, flag the published result as a retake (so the
+        // transcript marks it RT) and complete the independent retake tracking record with
+        // the new marks. The original attempt is preserved in the retake snapshot + audit.
+        try
+        {
+            bool isRetakeReg = false;
+            using (MySqlCommand rcmd = new MySqlCommand(
+                @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration
+                  WHERE id=@id AND (UPPER(TRIM(IFNULL(course_status,'')))='RETAKE'
+                                 OR UPPER(TRIM(IFNULL(registration_type,'')))='RT')", conn, tx))
+            {
+                rcmd.Parameters.AddWithValue("@id", id);
+                isRetakeReg = Convert.ToInt32(rcmd.ExecuteScalar()) > 0;
+            }
+            if (isRetakeReg)
+            {
+                using (MySqlCommand f = new MySqlCommand(
+                    "UPDATE acad_results SET is_retake=1 WHERE regno=@r AND UPPER(TRIM(courseid))=UPPER(TRIM(@c))", conn, tx))
+                {
+                    f.Parameters.AddWithValue("@r", regno);
+                    f.Parameters.AddWithValue("@c", courseId);
+                    f.ExecuteNonQuery();
+                }
+                using (MySqlCommand u = new MySqlCommand(
+                    @"UPDATE campus_dynamics_portal.acad_retake_registrations
+                      SET status='COMPLETED', new_total=@t, new_grade=@g, new_gradept=@gp
+                      WHERE course_reg_id=@id", conn, tx))
+                {
+                    u.Parameters.AddWithValue("@t", total.Value);
+                    u.Parameters.AddWithValue("@g", grade);
+                    u.Parameters.AddWithValue("@gp", gradePt);
+                    u.Parameters.AddWithValue("@id", id);
+                    u.ExecuteNonQuery();
+                }
+            }
+        }
+        catch { /* retake bookkeeping is non-critical to the result write */ }
+
         result.Success = true;
         result.SemesterGpa = semesterGpa;
         result.Cgpa = cgpa;
         result.AwardClass = awardClass;
-        result.Message = "Marks published to final results. Semester GPA " + semesterGpa.ToString("F2") + ", CGPA " + cgpa.ToString("F2") + " (" + awardClass + ").";
+        result.Message = "Marks published to final results. Semester GPA " + semesterGpa.ToString("F2") + ", CGPA " + cgpa.ToString("F2") + " (" + awardClass + ")." + overwriteWarning;
         return result;
     }
 
     private static ProvisionalActionResult ProcessUnpublishAction(MySqlConnection conn, MySqlTransaction tx, int id, string actor, string comment)
     {
         ProvisionalActionResult result = new ProvisionalActionResult { Success = false, Message = "Unable to unpublish record." };
+
+        if (!RecordInScope(conn, tx, id))
+        {
+            result.Message = "Out of scope: this record is not in your faculty/department.";
+            return result;
+        }
 
         string courseCol = GetCourseColumnExpression(conn, "cr");
         if (string.IsNullOrEmpty(courseCol))
@@ -1347,6 +1724,10 @@ public static class MarksControllerShared
             result.Message = "Only published records can be unpublished.";
             return result;
         }
+
+        // Attribute this final-result deletion for the acad_results audit trigger.
+        SetMarkAuditContext(conn, tx, actor, "ProvisionalMarks:unpublish",
+            "Unpublished by " + actor + (string.IsNullOrEmpty(comment) ? "" : (": " + comment)));
 
         using (MySqlCommand del = new MySqlCommand(@"
             DELETE FROM acad_results
@@ -1472,6 +1853,28 @@ public static class MarksControllerShared
         return parsed;
     }
 
+    // Records who/where/why for the acad_results audit trigger, keyed by CONNECTION_ID().
+    // Connector-safe (normal params). Best-effort — must never break the mark write.
+    private static void SetMarkAuditContext(MySqlConnection conn, MySqlTransaction tx, string actor, string source, string reason)
+    {
+        try
+        {
+            string ip;
+            try { ip = MarksAuthorizationService.GetClientIP(); } catch { ip = "unknown"; }
+            using (MySqlCommand cmd = new MySqlCommand(
+                "REPLACE INTO campus_dynamics.mark_audit_context (conn_id, actor, source, reason, ip, set_at) " +
+                "VALUES (CONNECTION_ID(), @a, @s, @r, @ip, NOW())", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@a", (actor ?? "").Length > 90 ? actor.Substring(0, 90) : (actor ?? ""));
+                cmd.Parameters.AddWithValue("@s", (source ?? "").Length > 100 ? source.Substring(0, 100) : (source ?? ""));
+                cmd.Parameters.AddWithValue("@r", (reason ?? "").Length > 200 ? reason.Substring(0, 200) : (reason ?? ""));
+                cmd.Parameters.AddWithValue("@ip", ip);
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch { /* attribution is best-effort */ }
+    }
+
     private static string ComputeGrade(int score)
     {
         if (score >= 80) return "A";
@@ -1560,6 +1963,308 @@ public static class MarksControllerShared
             "ALTER TABLE " + schema + "." + table + " ADD COLUMN " + column + " " + sqlType, conn))
         {
             cmd.ExecuteNonQuery();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  ADMIN COURSE-REGISTRATION MANAGEMENT (AllMarksController)
+    //  Register a student to a course, or delete a registration — mirroring EXACTLY
+    //  the eportal lecturer/admin procedure (CampusDynamics_Portal
+    //  AdminCourseRegistrationController.EnrollStudentToLecturerCourse / RunInsert):
+    //  same table, same course_status='REGULAR', same schema-aware columns, same
+    //  duplicate + course-exists guards, relying on the DB defaults so a new row
+    //  auto-starts mark_stage=NOT_ENTERED / provisional_marks_status=not_entered.
+    //  All actions are scope-gated (admin=all, dean=faculty, HOD=department) and the
+    //  controller logs every create/delete into acad_marks_action_log.
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Register a student to a course for a given academic year + semester.
+    public static string CreateRegistration(string regno, string courseID, string acadYear, int semester)
+    {
+        JavaScriptSerializer js = new JavaScriptSerializer();
+        regno = (regno ?? "").Trim();
+        courseID = (courseID ?? "").Trim().ToUpperInvariant();
+        acadYear = (acadYear ?? "").Trim();
+        if (string.IsNullOrEmpty(regno) || string.IsNullOrEmpty(courseID) || string.IsNullOrEmpty(acadYear) || semester < 1 || semester > 3)
+            return js.Serialize(new { success = false, message = "Reg No, Course, Academic Year and a valid Semester (1-3) are required." });
+
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+
+            // Resolve the student + their programme (the registration is stamped with prog_id, exactly like eportal).
+            string progId = "", studName = "";
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT COALESCE(progid,'') AS prog_id, NULLIF(TRIM(CONCAT(COALESCE(firstname,''),' ',COALESCE(othername,''))),'') AS nm FROM acad_student WHERE regno=@r LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    if (!rdr.Read()) return js.Serialize(new { success = false, message = "Student not found: " + regno + "." });
+                    progId = rdr["prog_id"].ToString().Trim();
+                    studName = rdr["nm"] == DBNull.Value ? "" : rdr["nm"].ToString();
+                }
+            }
+
+            // Scope: a dean/HOD may only register students within their faculty/department; admin = any.
+            MarksScope scope = CurrentScope();
+            if (!scope.AllowsProg(progId))
+                return js.Serialize(new { success = false, message = "This student's programme is outside your faculty/department scope." });
+
+            // Course must exist (eportal check; TRIM-tolerant because some acad_course.courseID rows carry stray spaces).
+            using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_course WHERE TRIM(courseID)=@c", conn))
+            {
+                cmd.Parameters.AddWithValue("@c", courseID);
+                if (Convert.ToInt32(cmd.ExecuteScalar()) <= 0)
+                    return js.Serialize(new { success = false, message = "Course not found: " + courseID + "." });
+            }
+
+            string courseCol = GetCourseColumnExpression(conn, "");
+            if (string.IsNullOrEmpty(courseCol))
+                return js.Serialize(new { success = false, message = "Course column not found on acad_course_registration." });
+
+            // No duplicate registration for the same period (TRIM-tolerant for the same reason).
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno=@r AND TRIM(" + courseCol + ")=@c AND acad_year=@a AND semester=@s", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                cmd.Parameters.AddWithValue("@c", courseID);
+                cmd.Parameters.AddWithValue("@a", acadYear);
+                cmd.Parameters.AddWithValue("@s", semester);
+                if (Convert.ToInt32(cmd.ExecuteScalar()) > 0)
+                    return js.Serialize(new { success = false, message = "Student is already registered for this course in the selected period." });
+            }
+
+            // Schema-aware INSERT — identical shape to eportal RunInsert. mark_stage / provisional_marks_status
+            // are intentionally omitted so the column defaults (NOT_ENTERED / not_entered) apply.
+            bool hasCreatedDate = ColumnExists(conn, "campus_dynamics_portal", "acad_course_registration", "created_date");
+            bool hasStudSession = ColumnExists(conn, "campus_dynamics_portal", "acad_course_registration", "stud_session");
+            string cols = "regno," + courseCol + ",prog_id,acad_year,semester,course_status";
+            string vals = "@r,@c,@p,@a,@s,'REGULAR'";
+            if (hasStudSession) { cols += ",stud_session"; vals += ",@ss"; }
+            if (hasCreatedDate) { cols += ",created_date"; vals += ",NOW()"; }
+            string sql = "INSERT INTO campus_dynamics_portal.acad_course_registration (" + cols + ") VALUES(" + vals + ")";
+
+            long newId;
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                cmd.Parameters.AddWithValue("@c", courseID);
+                cmd.Parameters.AddWithValue("@p", progId);
+                cmd.Parameters.AddWithValue("@a", acadYear);
+                cmd.Parameters.AddWithValue("@s", semester);
+                if (hasStudSession) cmd.Parameters.AddWithValue("@ss", "Day");
+                cmd.ExecuteNonQuery();
+                newId = cmd.LastInsertedId;
+            }
+
+            return js.Serialize(new
+            {
+                success = true,
+                message = "Registered " + regno + (studName != "" ? " (" + studName + ")" : "") + " to " + courseID + " for " + acadYear + ", Semester " + semester + ".",
+                id = newId,
+                regno = regno,
+                courseID = courseID
+            });
+        }
+    }
+
+    // Delete a single course-registration row. Blocked when the record is already PUBLISHED /
+    // has a row in acad_results (final results + GPA are derived from acad_results, so deleting the
+    // registration alone would orphan the transcript). Scope-gated like every other mutation.
+    public static string DeleteRegistration(int id)
+    {
+        JavaScriptSerializer js = new JavaScriptSerializer();
+        if (id <= 0) return js.Serialize(new { success = false, message = "Invalid record id." });
+
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            if (!RecordInScope(conn, id)) return SCOPE_DENIED;
+
+            string courseCol = GetCourseColumnExpression(conn, "");
+            if (string.IsNullOrEmpty(courseCol))
+                return js.Serialize(new { success = false, message = "Course column not found on acad_course_registration." });
+
+            string regno = "", courseID = "", acadYear = "", provStatus = "", markStage = "";
+            int semester = 0;
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT regno, " + courseCol + " AS courseID, COALESCE(acad_year,'') AS acad_year, COALESCE(semester,0) AS semester, " +
+                "LOWER(COALESCE(provisional_marks_status,'')) AS pstat, UPPER(COALESCE(mark_stage,'')) AS mstage " +
+                "FROM campus_dynamics_portal.acad_course_registration WHERE id=@id LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    if (!rdr.Read()) return js.Serialize(new { success = false, message = "Registration record not found (id " + id + ")." });
+                    regno = rdr["regno"].ToString().Trim();
+                    courseID = rdr["courseID"].ToString().Trim();
+                    acadYear = rdr["acad_year"].ToString().Trim();
+                    semester = Convert.ToInt32(rdr["semester"]);
+                    provStatus = rdr["pstat"].ToString().Trim();
+                    markStage = rdr["mstage"].ToString().Trim();
+                }
+            }
+
+            bool isPublished = provStatus == StatusPublished || markStage == "PUBLISHED";
+            bool hasResult = false;
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM acad_results WHERE TRIM(regno)=@r AND TRIM(courseid)=@c AND TRIM(acad)=@a AND semester=@s", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                cmd.Parameters.AddWithValue("@c", courseID);
+                cmd.Parameters.AddWithValue("@a", acadYear);
+                cmd.Parameters.AddWithValue("@s", semester);
+                hasResult = Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+            }
+            if (isPublished || hasResult)
+                return js.Serialize(new { success = false, message = "This registration has PUBLISHED / final results in acad_results and cannot be deleted here. Unpublish it (or use the results / mark-change workflow) first." });
+
+            int rows;
+            using (MySqlCommand cmd = new MySqlCommand("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE id=@id", conn))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                rows = cmd.ExecuteNonQuery();
+            }
+            if (rows <= 0) return js.Serialize(new { success = false, message = "No record was deleted (it may already have been removed)." });
+
+            return js.Serialize(new
+            {
+                success = true,
+                message = "Deleted registration: " + regno + " - " + courseID + " (" + acadYear + ", Semester " + semester + ").",
+                regno = regno,
+                courseID = courseID
+            });
+        }
+    }
+
+    // Student search for the "Register Student to Course" picker (scope-filtered). Mirrors eportal SearchStudents.
+    public static string RegSearchStudents(string q)
+    {
+        JavaScriptSerializer js = new JavaScriptSerializer();
+        q = (q ?? "").Trim();
+        List<object> list = new List<object>();
+        if (q.Length < 2) return js.Serialize(new { success = true, students = list });
+
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            string scopeFilter = CurrentScope().ProgFilter("s", "progid");
+            string sql =
+                "SELECT s.regno, IFNULL(s.entryno,'') AS entryno, " +
+                "NULLIF(TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))),'') AS stud_name, " +
+                "IFNULL(s.stud_status,'') AS stud_status, IFNULL(s.progid,'') AS prog_id, " +
+                "CONCAT(IFNULL(s.progid,''), CASE WHEN p.progname IS NOT NULL THEN CONCAT(' - ', p.progname) ELSE '' END) AS prog_name " +
+                "FROM acad_student s LEFT JOIN acad_programme p ON p.progcode=s.progid " +
+                "WHERE (s.regno LIKE @q OR s.entryno LIKE @q " +
+                "  OR CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,'')) LIKE @q " +
+                "  OR CONCAT(IFNULL(s.othername,''),' ',IFNULL(s.firstname,'')) LIKE @q " +
+                "  OR s.email LIKE @q OR s.national_id LIKE @q)" + scopeFilter +
+                " ORDER BY CASE WHEN UPPER(s.regno)=@qx THEN 0 WHEN UPPER(IFNULL(s.entryno,''))=@qx THEN 1 " +
+                "               WHEN UPPER(s.regno) LIKE @qstart THEN 2 ELSE 3 END, s.regno ASC LIMIT 15";
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@q", "%" + q + "%");
+                cmd.Parameters.AddWithValue("@qx", q.ToUpperInvariant());
+                cmd.Parameters.AddWithValue("@qstart", q.ToUpperInvariant() + "%");
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                        list.Add(new
+                        {
+                            regno = rdr["regno"].ToString(),
+                            entryno = rdr["entryno"].ToString(),
+                            name = rdr["stud_name"] == DBNull.Value ? "" : rdr["stud_name"].ToString(),
+                            status = rdr["stud_status"].ToString(),
+                            prog_id = rdr["prog_id"].ToString(),
+                            prog = rdr["prog_name"].ToString()
+                        });
+                }
+            }
+        }
+        return js.Serialize(new { success = true, students = list });
+    }
+
+    // Course search for the "Register Student to Course" picker. Mirrors eportal SearchCourses.
+    public static string RegSearchCourses(string q)
+    {
+        JavaScriptSerializer js = new JavaScriptSerializer();
+        q = (q ?? "").Trim();
+        List<object> list = new List<object>();
+        if (q.Length < 2) return js.Serialize(new { success = true, courses = list });
+
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT UPPER(TRIM(courseID)) AS course_code, IFNULL(courseName,'') AS course_name " +
+                "FROM acad_course WHERE courseID LIKE @q OR courseName LIKE @q " +
+                "ORDER BY CASE WHEN UPPER(TRIM(courseID)) LIKE @qstart THEN 0 ELSE 1 END, courseID ASC LIMIT 30", conn))
+            {
+                cmd.Parameters.AddWithValue("@q", "%" + q + "%");
+                cmd.Parameters.AddWithValue("@qstart", q.ToUpperInvariant() + "%");
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                        list.Add(new { code = rdr["course_code"].ToString(), name = rdr["course_name"].ToString() });
+                }
+            }
+        }
+        return js.Serialize(new { success = true, courses = list });
+    }
+
+    // Student context for the register modal: name, programme, scope flag + existing registrations by period.
+    public static string GetStudentRegSummary(string regno)
+    {
+        JavaScriptSerializer js = new JavaScriptSerializer();
+        regno = (regno ?? "").Trim();
+        if (string.IsNullOrEmpty(regno)) return js.Serialize(new { success = false, message = "Registration number required." });
+
+        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            string name = "", prog = "", progId = "";
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT NULLIF(TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))),'') AS nm, IFNULL(s.progid,'') AS prog_id, " +
+                "CONCAT(IFNULL(p.progcode,''),' - ',IFNULL(p.progname,'')) AS prog_name " +
+                "FROM acad_student s LEFT JOIN acad_programme p ON p.progcode=s.progid WHERE s.regno=@r LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                using (MySqlDataReader rdr = cmd.ExecuteReader())
+                {
+                    if (!rdr.Read()) return js.Serialize(new { success = false, message = "Student not found." });
+                    name = rdr["nm"] == DBNull.Value ? "" : rdr["nm"].ToString();
+                    progId = rdr["prog_id"].ToString().Trim();
+                    prog = rdr["prog_name"].ToString().Trim();
+                }
+            }
+
+            bool inScope = CurrentScope().AllowsProg(progId);
+            List<object> existing = new List<object>();
+            string courseCol = GetCourseColumnExpression(conn, "cr");
+            if (!string.IsNullOrEmpty(courseCol))
+            {
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT COALESCE(cr.acad_year,'') AS acad_year, COALESCE(cr.semester,0) AS semester, " +
+                    "GROUP_CONCAT(DISTINCT " + courseCol + " ORDER BY " + courseCol + " SEPARATOR ', ') AS courses, COUNT(*) AS n " +
+                    "FROM campus_dynamics_portal.acad_course_registration cr WHERE cr.regno=@r " +
+                    "GROUP BY cr.acad_year, cr.semester ORDER BY cr.acad_year DESC, cr.semester DESC LIMIT 40", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (MySqlDataReader rdr = cmd.ExecuteReader())
+                    {
+                        while (rdr.Read())
+                            existing.Add(new
+                            {
+                                acad_year = rdr["acad_year"].ToString(),
+                                semester = rdr["semester"].ToString(),
+                                courses = rdr["courses"] == DBNull.Value ? "" : rdr["courses"].ToString(),
+                                n = Convert.ToInt32(rdr["n"])
+                            });
+                    }
+                }
+            }
+            return js.Serialize(new { success = true, regno = regno, name = name, prog = prog, prog_id = progId, in_scope = inScope, existing = existing });
         }
     }
 

@@ -1740,7 +1740,9 @@ public partial class COOPERP_NewScreens_BillWaivers : System.Web.UI.Page
             "            fl2.transaction_amount = t.amount" +
             "            AND DATE(fl2.transactionDate) = DATE(t.trans_date)" +
             "            AND fl2.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END" +
-            "            AND (fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '')" +
+            // Fix B: payments dedup on amount+date only (migration ledger rows carry the
+            // student name as particulars, so a strict match double-counts the payment).
+            "            AND (t.trans_type = 'Payment' OR fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '')" +
             "          )" +
             "        )" +
             "    )" +

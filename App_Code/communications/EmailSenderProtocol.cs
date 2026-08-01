@@ -41,7 +41,8 @@ public class EmailSenderProtocol
 
     private static string MailPassword
     {
-        get { return ConfigurationManager.AppSettings["MAIL_PASSWORD"] ?? ""; }
+        // Google App Passwords are displayed with spaces (e.g. "xxxx xxxx xxxx xxxx") but SMTP auth requires no spaces
+        get { return (ConfigurationManager.AppSettings["MAIL_PASSWORD"] ?? "").Replace(" ", ""); }
     }
 
     private static string MailFromAddress
@@ -60,35 +61,64 @@ public class EmailSenderProtocol
         }
     }
 
-     public string SendMail(string senderEmail, string receiverEmail,string subjectText,string senderName, string message, string password)
+    /// <summary>
+    /// Delivers a plain-text message via the edusaterp relay API.
+    /// Returns true on success. Safe to call from any thread — no HttpContext needed.
+    /// </summary>
+    public static bool SendViaApi(string toEmail, string messageText, string sender = "Campus Dynamics")
     {
         try
         {
-            if (receiverEmail.StartsWith("-")) receiverEmail = receiverEmail.TrimStart('-');
+            string url = string.Format(
+                "https://erp.edusaterp.com/api/SecureOTP/sendotp?msg={0}&email={1}&sender={2}",
+                Uri.EscapeDataString(messageText),
+                Uri.EscapeDataString(toEmail),
+                Uri.EscapeDataString(sender));
+            var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(url);
+            req.Timeout = 18000;
+            req.Method = "GET";
+            using (var resp = (System.Net.HttpWebResponse)req.GetResponse())
+            using (var reader = new System.IO.StreamReader(resp.GetResponseStream()))
+            {
+                return reader.ReadToEnd().IndexOf("successfully", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+        }
+        catch { return false; }
+    }
+
+     public string SendMail(string senderEmail, string receiverEmail,string subjectText,string senderName, string message, string password)
+    {
+        if (receiverEmail != null && receiverEmail.StartsWith("-")) receiverEmail = receiverEmail.TrimStart('-');
+        Exception smtpException = null;
+        try
+        {
             var fromAddress = string.IsNullOrWhiteSpace(senderEmail) ? MailFromAddress : senderEmail;
-            var toAddress = receiverEmail;
-            // Always authenticate with the configured MAIL_USERNAME (the actual mailbox owner)
             string authUser = MailUsername;
             string authPass = string.IsNullOrWhiteSpace(password) ? MailPassword : password;
-            string subject = subjectText;
-            string body = message;
             var smtp = new System.Net.Mail.SmtpClient();
-            {
-                smtp.Host = MailHost;
-                smtp.Port = MailPort;
-                smtp.EnableSsl = MailSsl;
-                smtp.DeliveryMethod = System.Net.Mail.SmtpDeliveryMethod.Network;
-                smtp.Credentials = new NetworkCredential(authUser, authPass);
-                smtp.Timeout = 20000;
-            }
-            smtp.Send(fromAddress, toAddress, subject, body);
+            smtp.Host = MailHost;
+            smtp.Port = MailPort;
+            smtp.EnableSsl = MailSsl;
+            smtp.DeliveryMethod = System.Net.Mail.SmtpDeliveryMethod.Network;
+            smtp.Credentials = new NetworkCredential(authUser, authPass);
+            smtp.Timeout = 20000;
+            smtp.Send(fromAddress, receiverEmail, subjectText, message);
             return "Email Sent Successfully";
         }
-        catch(Exception ex)
-        {
-            return "Error! "+ex.Message;
-        }
+        catch(Exception ex) { smtpException = ex; }
 
+        // SMTP failed — fall back to API relay
+        try
+        {
+            string apiMsg = string.IsNullOrWhiteSpace(subjectText)
+                ? message
+                : subjectText + ": " + message;
+            if (SendViaApi(receiverEmail, apiMsg, string.IsNullOrWhiteSpace(senderName) ? MailFromName : senderName))
+                return "Email Sent Successfully";
+        }
+        catch { }
+
+        return "Error! " + (smtpException != null ? smtpException.Message : "Unknown error");
    }
      public static string SendAttachedMail(string receiverEmail, string subjectText, string senderName, string message, string attachmentpath)
      {

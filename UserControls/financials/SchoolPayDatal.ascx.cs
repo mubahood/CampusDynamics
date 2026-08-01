@@ -50,7 +50,7 @@ public partial class UserControls_financials_SchoolPayDatal : System.Web.UI.User
                     SCHPAY.UpdateCaptureStatus("Captured", long.Parse(tid));
                     try
                     {
-                        smscomm = MESSAGE.SMSSending("YCI Accounts Dept", string.Format("{0}, YMCA Institute has received your payment of UGX {1}, Thanks", stud_name, amount_paid.ToString("0,0")),
+                        smscomm = MESSAGE.SMSSending("MRU Accounts", string.Format("{0}, Muteesa I Royal University has received your payment of UGX {1}, Thanks", stud_name, amount_paid.ToString("0,0")),
                             STUD.GetStudPhone(regno).ToString());
                     }
                     catch (Exception ex)

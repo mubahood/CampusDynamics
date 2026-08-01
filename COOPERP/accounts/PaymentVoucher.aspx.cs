@@ -13,12 +13,23 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
 {
     protected void Page_Load(object sender, EventArgs e)
     {
+        // Prevent popup/browser from showing old cached voucher data
+        Response.Cache.SetCacheability(HttpCacheability.NoCache);
+        Response.Cache.SetNoStore();
+        Response.Cache.SetExpires(DateTime.UtcNow.AddMinutes(-1));
+
         if (!IsPostBack)
         {
             txtType.Text = Session["JournalType"].ToString();
+
+            // Force fresh data from database when the voucher popup/page opens
+            gvParticulars.DataBind();
+            gvDetails.DataBind();
         }
+
         ButtonManager();
     }
+
     protected void CreateReceipt()
     {
         fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
@@ -28,6 +39,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
         gvDetails.DataBind();
         lbl_msg.Text = "New Voucher Created Successfully. Add Details to proceed";
     }
+
     protected void cmdAddItem_Click(object sender, EventArgs e)
     {
         if (gvParticulars.GetRowValues(0, "journalParticulars").ToString() == "-")
@@ -40,12 +52,14 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             pop_NewDetail.ShowOnPageLoad = true;
         }
     }
+
     protected void gvParticulars_DataBound(object sender, EventArgs e)
     {
         Session["jno"] = gvParticulars.GetRowValues(0, "JournalNo");
         //gvDetails.DataBind();
         UpdateBalanceIndicator();
     }
+
     protected void AddNewItem_Click(object sender, EventArgs e)
     {
         try
@@ -92,32 +106,55 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
 
             // B1 FIX: CR entry must ALWAYS be created (double-entry rule: every DR must have a CR)
             // Previously skipped CR when rb_payeetype.SelectedIndex != 0 (Multiple Payee)
-            LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtAccount.Value.ToString(),
-            "Chart Account", gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text, "CR", refNo);
+            LEDGER.AddJournalDetails(
+                int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()),
+                Session["username"].ToString(),
+                txtAccount.Value.ToString(),
+                "Chart Account",
+                gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid to " + txtPayees.Text,
+                "CR",
+                refNo
+            );
 
-            LEDGER.AddJournalDetails(int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()), Session["username"].ToString(), txtPayees.Value.ToString(),
-            txtPayees.SelectedItem.GetValue("category").ToString(), gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid thru " + txtAccount.Text, "DR", refNo);
+            LEDGER.AddJournalDetails(
+                int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()),
+                Session["username"].ToString(),
+                txtPayees.Value.ToString(),
+                txtPayees.SelectedItem.GetValue("category").ToString(),
+                gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid thru " + txtAccount.Text,
+                "DR",
+                refNo
+            );
 
             string Particulars = gvParticulars.GetRowValues(0, "journalParticulars").ToString() + " Paid Thru " + txtAccount.Text;
             int JNO = int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString());
 
-            JN.UpdateJournalAmounts(decimal.Parse(txtAmount.Text.Replace(",", "")), decimal.Parse(txtAmount.Text.Replace(",", "")), JNO.ToString());
+            JN.UpdateJournalAmounts(
+                decimal.Parse(txtAmount.Text.Replace(",", "")),
+                decimal.Parse(txtAmount.Text.Replace(",", "")),
+                JNO.ToString()
+            );
 
             gvParticulars.DataBind();
             gvDetails.DataBind();
             UpdateBalanceIndicator();
+
             lbl_msg.Text = "Voucher Details Added Successfully";
+
             // F6: Audit log - payment voucher created
-            AuditLogger.Log("VOUCHER_CREATED",
+            AuditLogger.Log(
+                "VOUCHER_CREATED",
                 string.Format("PaymentAccount={0}, Payee={1}", txtAccount.Value, txtPayees.Value),
                 int.Parse(gvParticulars.GetRowValues(0, "JournalNo").ToString()),
-                amount);
+                amount
+            );
         }
         catch (Exception ex)
         {
             // B6 FIX: Show actual error instead of generic message
             lbl_msg.Text = "Error: " + ex.Message;
         }
+
         pop_messagebox.ShowOnPageLoad = true;
     }
 
@@ -126,33 +163,32 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
         //txtAccount.DataBind();
         //txtAccount.SelectedIndex = 0;
     }
+
     protected void gvParticulars_CustomErrorText(object sender, DevExpress.Web.ASPxGridViewCustomErrorTextEventArgs e)
     {
         e.ErrorText = e.Exception.InnerException.Message;
     }
+
     protected void gvDetails_RowUpdated(object sender, DevExpress.Web.Data.ASPxDataUpdatedEventArgs e)
     {
         fin_ledgerTableAdapter LEDGER = new fin_ledgerTableAdapter();
         int noRows = gvDetails.VisibleRowCount;
+
         for (int i = 0; i < noRows; i++)
         {
             LEDGER.ClearBalance(int.Parse(gvDetails.GetRowValues(i, "TID").ToString()));
             LEDGER.fin_UpdateAllLedgerBalances();
         }
+
         gvDetails.DataBind();
-
-
-
     }
+
     protected void cmdPrintJournal_Click(object sender, EventArgs e)
     {
-
         Session["Report"] = "Payment Voucher";
         Session["accno"] = gvParticulars.GetRowValues(0, "JournalNo");
         Response.Redirect("~/COOPERP/accounts/xtraReports/xtraReportCentre.aspx");
-
     }
-
 
     protected void cmdCurrencyInfo_Click(object sender, EventArgs e)
     {
@@ -161,10 +197,12 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
         pop_messagebox.ContentUrl = "~/ERP/accounts/CurrencyData.aspx";
         pop_messagebox.ShowOnPageLoad = true;
     }
+
     protected void gvDetails_CustomErrorText(object sender, DevExpress.Web.ASPxGridViewCustomErrorTextEventArgs e)
     {
         e.ErrorText = e.Exception.InnerException.Message;
     }
+
     protected void cmdApproveJournal_Click(object sender, EventArgs e)
     {
         int batchId = -1;
@@ -194,7 +232,8 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                             "PaymentVoucher",
                             currentUser,
                             "Payment Voucher #" + journalNo,
-                            "PaymentVoucher");
+                            "PaymentVoucher"
+                        );
 
                         string validationMessage;
                         bool isReadyForApproval = FinanceSystemRealignmentHelper.TryPrepareBatchForVoucher(
@@ -206,7 +245,8 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                             out transactionCount,
                             out totalDebit,
                             out totalCredit,
-                            out validationMessage);
+                            out validationMessage
+                        );
 
                         if (!isReadyForApproval)
                         {
@@ -231,13 +271,17 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                                 batchId,
                                 currentUser,
                                 "POST_APPROVAL",
-                                "Payment voucher passed pre-posting double-entry validation and was approved.");
+                                "Payment voucher passed pre-posting double-entry validation and was approved."
+                            );
 
                             FinanceSystemRealignmentHelper.MarkBatchComplete(conn, batchId, transactionCount, totalDebit, totalCredit);
                         }
                     }
                 }
+
+                // Rebind both grids after approval/create so status and GL voucher number refresh
                 gvParticulars.DataBind();
+                gvDetails.DataBind();
                 ButtonManager();
             }
             else
@@ -265,6 +309,7 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             // B6 FIX: Show approval error instead of swallowing silently
             lbl_msg.Text = "Approval Error: " + ex.Message;
         }
+
         pop_messagebox.ShowOnPageLoad = true;
     }
 
@@ -272,19 +317,14 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
     {
         try
         {
-
             fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
             Session["jno"] = gvParticulars.GetRowValues(0, "JournalNo");
             string ApprovalStat = JN.GetApprovalStatus(int.Parse(Session["jno"].ToString()));
 
             if (txtType.Text == "Receipt")
             {
-
                 cmdPrintJournal.Text = "Print Receipt";
-
             }
-
-
 
             if (ApprovalStat == "Posted" || ApprovalStat == null)
             {
@@ -294,7 +334,6 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                 gvParticulars.SettingsContextMenu.Enabled = false;
                 gvDetails.SettingsEditing.Mode = DevExpress.Web.GridViewEditingMode.Inline;
                 gvParticulars.SettingsEditing.Mode = DevExpress.Web.GridViewEditingMode.Inline;
-
             }
             else
             {
@@ -312,19 +351,23 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             cmdApproveJournal.Text = "Create New";
         }
     }
+
     protected void gvParticulars_HtmlDataCellPrepared(object sender, DevExpress.Web.ASPxGridViewTableDataCellEventArgs e)
     {
         e.Cell.Height = 30;
     }
+
     protected void gvParticulars_RowUpdated(object sender, DevExpress.Web.Data.ASPxDataUpdatedEventArgs e)
     {
 
     }
+
     protected void gvParticulars_RowUpdating(object sender, DevExpress.Web.Data.ASPxDataUpdatingEventArgs e)
     {
         fin_journalnumbersTableAdapter JN = new fin_journalnumbersTableAdapter();
 
         string journal_currency = e.NewValues["journal_currency"].ToString();
+
         if (journal_currency != "UGX")
         {
             fin_currencyTableAdapter CURR = new fin_currencyTableAdapter();
@@ -338,11 +381,9 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             }
 
             gvParticulars.DataBind();
-
         }
         else
         {
-
             if (IsPostBack)
             {
                 JN.UpdateForexRate(1, int.Parse(Session["jno"].ToString()));
@@ -350,12 +391,14 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
             }
         }
     }
+
     // G3: DR/CR balance indicator
     private void UpdateBalanceIndicator()
     {
         try
         {
             if (Session["jno"] == null || Session["jno"].ToString() == "0") return;
+
             int jno = int.Parse(Session["jno"].ToString());
 
             string sql = @"SELECT
@@ -365,13 +408,17 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                 FROM fin_ledger WHERE voucherNo = @jno";
 
             string connStr = ConfigurationManager.ConnectionStrings["accountsConnectionString"].ConnectionString;
-            decimal dr = 0, cr = 0; int lines = 0;
+            decimal dr = 0, cr = 0;
+            int lines = 0;
+
             using (var conn = new MySqlConnection(connStr))
             {
                 conn.Open();
+
                 using (var cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@jno", jno);
+
                     using (var reader = cmd.ExecuteReader())
                     {
                         if (reader.Read() && reader["total_dr"] != DBNull.Value)
@@ -384,11 +431,16 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                 }
             }
 
-            if (lines == 0) { litBalance.Text = ""; return; }
+            if (lines == 0)
+            {
+                litBalance.Text = "";
+                return;
+            }
 
             bool balanced = (dr == cr) && lines >= 2;
             string balColor = balanced ? "#28a745" : "#dc3545";
-            string balText  = balanced ? "BALANCED ✓" : string.Format("IMBALANCE: {0:N0}", Math.Abs(dr - cr));
+            string balText = balanced ? "BALANCED ✓" : string.Format("IMBALANCE: {0:N0}", Math.Abs(dr - cr));
+
             litBalance.Text = string.Format(
                 "<div style='background:#f8f9fa;border:1px solid {0};border-radius:4px;padding:8px 14px;margin:4px 0;font-size:12px;font-family:Segoe UI,Arial'>" +
                 "<strong>Journal Balance</strong> &nbsp;|&nbsp; " +
@@ -396,31 +448,40 @@ public partial class UserControls_Accounts_PaymentVoucher : System.Web.UI.Page
                 "CR: <strong>{2:N0}</strong> &nbsp;|&nbsp; " +
                 "<span style='color:{0};font-weight:700'>{3}</span>" +
                 "</div>",
-                balColor, dr, cr, balText);
+                balColor, dr, cr, balText
+            );
         }
-        catch { litBalance.Text = ""; }
+        catch
+        {
+            litBalance.Text = "";
+        }
     }
 
     // B11 FIX: Financial period validation
     private bool IsInOpenFinancialPeriod(out string errorMessage)
     {
         errorMessage = "";
+
         fin_financial_yearsTableAdapter FY = new fin_financial_yearsTableAdapter();
         var dtOpen = FY.GetFinicalPeriodStatus();
+
         if (dtOpen.Rows.Count == 0)
         {
             errorMessage = "Error! No financial year is currently Open. Cannot create transactions.";
             return false;
         }
+
         DateTime periodStart = Convert.ToDateTime(dtOpen.Rows[0]["start_date"]);
         DateTime periodEnd = Convert.ToDateTime(dtOpen.Rows[0]["end_date"]);
         DateTime today = DateTime.Today;
+
         if (today < periodStart || today > periodEnd)
         {
             errorMessage = "Error! Cannot Add Transaction. Accounting Period Closed. The Date Ranges are: "
                            + periodStart.ToString("dd/MM/yyyy") + " - " + periodEnd.ToString("dd/MM/yyyy") + ".";
             return false;
         }
+
         return true;
     }
 }

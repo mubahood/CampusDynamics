@@ -51,11 +51,11 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
     {
         string username = HttpContext.Current.User.Identity.Name;
         string role = "";
-        if (HttpContext.Current.User.IsInRole("Dean"))
+        if (RoleAccessService.IsInRoleCompat("Dean"))
             role = "Dean";
-        else if (HttpContext.Current.User.IsInRole("Administrator"))
+        else if (RoleAccessService.IsInRoleCompat("Administrator"))
             role = "Admin";
-        else if (HttpContext.Current.User.IsInRole("Lecturer"))
+        else if (RoleAccessService.IsInRoleCompat("Lecturer"))
             role = "Lecturer";
         else
             role = "User";
@@ -66,7 +66,7 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
     private void CheckUserPermissions()
     {
         // Enable approve/cancel buttons only for Dean or Administrator
-        bool canApprove = HttpContext.Current.User.IsInRole("Dean") || HttpContext.Current.User.IsInRole("Administrator");
+        bool canApprove = RoleAccessService.IsInRoleCompat("Dean") || RoleAccessService.IsInRoleCompat("Administrator");
         btnApproveSelected.Enabled = canApprove;
         btnApproveAll.Enabled = canApprove;
         btnCancelApproval.Enabled = canApprove;
@@ -577,7 +577,7 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
     
     protected void btnApproveSelected_Click(object sender, EventArgs e)
     {
-        if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator"))
+        if (!RoleAccessService.IsInRoleCompat("Dean") && !RoleAccessService.IsInRoleCompat("Administrator"))
         {
             ShowMessage("Only Dean or Administrator can approve results.");
             return;
@@ -641,7 +641,7 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
     
     protected void btnApproveAll_Click(object sender, EventArgs e)
     {
-        if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator"))
+        if (!RoleAccessService.IsInRoleCompat("Dean") && !RoleAccessService.IsInRoleCompat("Administrator"))
         {
             ShowMessage("Only Dean or Administrator can approve results.");
             return;
@@ -712,7 +712,7 @@ public partial class COOPERP_NewScreens_ExamApproval : System.Web.UI.Page
     
     protected void btnCancelApproval_Click(object sender, EventArgs e)
     {
-        if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator"))
+        if (!RoleAccessService.IsInRoleCompat("Dean") && !RoleAccessService.IsInRoleCompat("Administrator"))
         {
             ShowMessage("Only Dean or Administrator can cancel approval.");
             return;

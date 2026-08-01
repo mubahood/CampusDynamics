@@ -96,6 +96,11 @@
         <button type="button" class="tb-btn-print" onclick="window.print();">&#128424; Print</button>
     </div>
 
+    <!-- Error / info banner -->
+    <asp:Panel ID="pnlError" runat="server" Visible="false" CssClass="tb-status-banner tb-status-err">
+        <asp:Literal ID="litError" runat="server" />
+    </asp:Panel>
+
     <!-- Report Header (visible after generation) -->
     <asp:Panel ID="pnlReport" runat="server" Visible="false">
         <div class="tb-report-header">

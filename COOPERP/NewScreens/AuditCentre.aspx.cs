@@ -102,10 +102,10 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
 
                 sb.Append("{\"users\":[");
                 using (MySqlCommand cmd = new MySqlCommand(
-                    @"SELECT DISTINCT changed_by
+                    @"SELECT DISTINCT performed_by
                       FROM acad_marks_audit
-                      WHERE changed_by IS NOT NULL AND changed_by <> ''
-                      ORDER BY changed_by", conn))
+                      WHERE performed_by IS NOT NULL AND performed_by <> ''
+                      ORDER BY performed_by", conn))
                 {
                     bool first = true;
                     using (MySqlDataReader rdr = cmd.ExecuteReader())
@@ -114,7 +114,7 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
                         {
                             if (!first) sb.Append(",");
                             first = false;
-                            sb.Append("\""); sb.Append(JsEsc(rdr["changed_by"].ToString())); sb.Append("\"");
+                            sb.Append("\""); sb.Append(JsEsc(rdr["performed_by"].ToString())); sb.Append("\"");
                         }
                     }
                 }
@@ -167,14 +167,14 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
                 conn.Open();
 
                 // ── Build WHERE clause (reused for count, summary, and data) ────
-                StringBuilder where = new StringBuilder("WHERE change_date >= @from AND change_date <= @to");
+                StringBuilder where = new StringBuilder("WHERE created_at >= @from AND created_at <= @to");
                 List<MySqlParameter> parms = new List<MySqlParameter>();
                 parms.Add(new MySqlParameter("@from", dtFrom));
                 parms.Add(new MySqlParameter("@to", dtTo));
 
                 if (!string.IsNullOrEmpty(user))
                 {
-                    where.Append(" AND changed_by = @user");
+                    where.Append(" AND performed_by = @user");
                     parms.Add(new MySqlParameter("@user", user));
                 }
                 if (!string.IsNullOrEmpty(course))
@@ -184,12 +184,12 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
                 }
                 if (!string.IsNullOrEmpty(student))
                 {
-                    where.Append(" AND student_id LIKE @student");
+                    where.Append(" AND regno LIKE @student");
                     parms.Add(new MySqlParameter("@student", "%" + student + "%"));
                 }
                 if (!string.IsNullOrEmpty(action))
                 {
-                    where.Append(" AND (action_type = @action OR action_type_ext = @action)");
+                    where.Append(" AND action_type = @action");
                     parms.Add(new MySqlParameter("@action", action));
                 }
 
@@ -237,15 +237,15 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
                 // ── Paginated data ──────────────────────────────────────────
                 int offset = (page - 1) * pageSize;
 
-                string dataSql = @"SELECT student_id, course_id, progid, acadyear, semester,
-                                          old_cw_entered, new_cw_entered,
-                                          old_test_entered, new_test_entered,
-                                          old_exam_entered, new_exam_entered,
-                                          action_type, action_type_ext,
-                                          changed_by, ip_address, change_reason,
-                                          change_date
+                string dataSql = @"SELECT regno, course_id, progid, acad_year, semester,
+                                          old_cw_mark, new_cw_mark,
+                                          old_test_mark, new_test_mark,
+                                          old_exam_mark, new_exam_mark,
+                                          action_type,
+                                          performed_by, ip_address, change_reason,
+                                          created_at
                                    FROM acad_marks_audit " + whereStr + @"
-                                   ORDER BY change_date DESC
+                                   ORDER BY created_at DESC
                                    LIMIT @offset, @limit";
 
                 sb.Append("{\"totalCount\":"); sb.Append(totalCount);
@@ -277,30 +277,29 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
                             first = false;
 
                             sb.Append("{");
-                            sb.Append("\"studentId\":\""); sb.Append(JsEsc(rdr["student_id"].ToString())); sb.Append("\"");
+                            sb.Append("\"studentId\":\""); sb.Append(JsEsc(rdr["regno"].ToString())); sb.Append("\"");
                             sb.Append(",\"courseId\":\""); sb.Append(JsEsc(rdr["course_id"].ToString())); sb.Append("\"");
                             sb.Append(",\"progId\":\""); sb.Append(JsEsc(rdr["progid"].ToString())); sb.Append("\"");
-                            sb.Append(",\"acadYear\":\""); sb.Append(JsEsc(rdr["acadyear"].ToString())); sb.Append("\"");
+                            sb.Append(",\"acadYear\":\""); sb.Append(JsEsc(rdr["acad_year"].ToString())); sb.Append("\"");
                             sb.Append(",\"semester\":"); sb.Append(ToInt(rdr["semester"].ToString(), 0));
 
-                            AppendNullableDecimal(sb, ",\"oldCwEntered\":", rdr["old_cw_entered"]);
-                            AppendNullableDecimal(sb, ",\"newCwEntered\":", rdr["new_cw_entered"]);
-                            AppendNullableDecimal(sb, ",\"oldTestEntered\":", rdr["old_test_entered"]);
-                            AppendNullableDecimal(sb, ",\"newTestEntered\":", rdr["new_test_entered"]);
-                            AppendNullableDecimal(sb, ",\"oldExamEntered\":", rdr["old_exam_entered"]);
-                            AppendNullableDecimal(sb, ",\"newExamEntered\":", rdr["new_exam_entered"]);
+                            AppendNullableDecimal(sb, ",\"oldCwEntered\":", rdr["old_cw_mark"]);
+                            AppendNullableDecimal(sb, ",\"newCwEntered\":", rdr["new_cw_mark"]);
+                            AppendNullableDecimal(sb, ",\"oldTestEntered\":", rdr["old_test_mark"]);
+                            AppendNullableDecimal(sb, ",\"newTestEntered\":", rdr["new_test_mark"]);
+                            AppendNullableDecimal(sb, ",\"oldExamEntered\":", rdr["old_exam_mark"]);
+                            AppendNullableDecimal(sb, ",\"newExamEntered\":", rdr["new_exam_mark"]);
 
                             sb.Append(",\"actionType\":\""); sb.Append(JsEsc(rdr["action_type"].ToString())); sb.Append("\"");
-                            string actionTypeExt = rdr["action_type_ext"] != DBNull.Value ? rdr["action_type_ext"].ToString() : rdr["action_type"].ToString();
-                            sb.Append(",\"actionTypeExt\":\""); sb.Append(JsEsc(actionTypeExt)); sb.Append("\"");
+                            sb.Append(",\"actionTypeExt\":\""); sb.Append(JsEsc(rdr["action_type"].ToString())); sb.Append("\"");
 
-                            sb.Append(",\"changedBy\":\""); sb.Append(JsEsc(rdr["changed_by"].ToString())); sb.Append("\"");
+                            sb.Append(",\"changedBy\":\""); sb.Append(JsEsc(rdr["performed_by"].ToString())); sb.Append("\"");
                             string ip = rdr["ip_address"] != DBNull.Value ? rdr["ip_address"].ToString() : "";
                             sb.Append(",\"ipAddress\":\""); sb.Append(JsEsc(ip)); sb.Append("\"");
                             string reason = rdr["change_reason"] != DBNull.Value ? rdr["change_reason"].ToString() : "";
                             sb.Append(",\"changeReason\":\""); sb.Append(JsEsc(reason)); sb.Append("\"");
 
-                            DateTime dt = Convert.ToDateTime(rdr["change_date"]);
+                            DateTime dt = Convert.ToDateTime(rdr["created_at"]);
                             sb.Append(",\"changeDate\":\""); sb.Append(JsEsc(dt.ToString("yyyy-MM-dd HH:mm:ss"))); sb.Append("\"");
 
                             sb.Append("}");
@@ -344,37 +343,86 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
 
         try
         {
-            // Use MarksAuditService.GetAuditTrail for the drilldown
-            List<MarksAuditService.AuditEntry> entries =
-                MarksAuditService.GetAuditTrail(studentId, courseId, progId, acadYear, semester, 200);
-
-            sb.Append("{\"entries\":[");
-
-            for (int i = 0; i < entries.Count; i++)
+            using (MySqlConnection conn = new MySqlConnection(ConnStr))
             {
-                MarksAuditService.AuditEntry ae = entries[i];
-                if (i > 0) sb.Append(",");
+                conn.Open();
 
-                sb.Append("{");
-                sb.Append("\"studentId\":\""); sb.Append(JsEsc(ae.StudentId)); sb.Append("\"");
-                sb.Append(",\"courseId\":\""); sb.Append(JsEsc(ae.CourseId)); sb.Append("\"");
-                sb.Append(",\"actionType\":\""); sb.Append(JsEsc(ae.ActionType)); sb.Append("\"");
-                sb.Append(",\"actionTypeExt\":\""); sb.Append(JsEsc(ae.ActionTypeExt ?? ae.ActionType)); sb.Append("\"");
-                sb.Append(",\"changedBy\":\""); sb.Append(JsEsc(ae.ChangedBy)); sb.Append("\"");
+                // Build the per-student/course timeline filter. course_id is required;
+                // the rest narrow the context when supplied.
+                StringBuilder where = new StringBuilder("WHERE course_id = @cid");
+                List<MySqlParameter> parms = new List<MySqlParameter>();
+                parms.Add(new MySqlParameter("@cid", courseId));
 
-                AppendNullableDecimal(sb, ",\"oldCwEntered\":", (object)ae.OldCwEntered ?? DBNull.Value);
-                AppendNullableDecimal(sb, ",\"newCwEntered\":", (object)ae.NewCwEntered ?? DBNull.Value);
-                AppendNullableDecimal(sb, ",\"oldTestEntered\":", (object)ae.OldTestEntered ?? DBNull.Value);
-                AppendNullableDecimal(sb, ",\"newTestEntered\":", (object)ae.NewTestEntered ?? DBNull.Value);
-                AppendNullableDecimal(sb, ",\"oldExamEntered\":", (object)ae.OldExamEntered ?? DBNull.Value);
-                AppendNullableDecimal(sb, ",\"newExamEntered\":", (object)ae.NewExamEntered ?? DBNull.Value);
+                if (!string.IsNullOrEmpty(studentId))
+                {
+                    where.Append(" AND regno = @sid");
+                    parms.Add(new MySqlParameter("@sid", studentId));
+                }
+                if (!string.IsNullOrEmpty(progId))
+                {
+                    where.Append(" AND progid = @prog");
+                    parms.Add(new MySqlParameter("@prog", progId));
+                }
+                if (!string.IsNullOrEmpty(acadYear))
+                {
+                    where.Append(" AND acad_year = @year");
+                    parms.Add(new MySqlParameter("@year", acadYear));
+                }
+                if (semester > 0)
+                {
+                    where.Append(" AND semester = @sem");
+                    parms.Add(new MySqlParameter("@sem", semester));
+                }
 
-                sb.Append(",\"changeReason\":\""); sb.Append(JsEsc(ae.ChangeReason)); sb.Append("\"");
-                sb.Append(",\"changeDate\":\""); sb.Append(JsEsc(ae.ChangeDate.ToString("yyyy-MM-dd HH:mm:ss"))); sb.Append("\"");
-                sb.Append("}");
+                string sql = @"SELECT regno, course_id, action_type, performed_by,
+                                      old_cw_mark, new_cw_mark,
+                                      old_test_mark, new_test_mark,
+                                      old_exam_mark, new_exam_mark,
+                                      change_reason, created_at
+                               FROM acad_marks_audit " + where.ToString() + @"
+                               ORDER BY created_at DESC
+                               LIMIT 200";
+
+                sb.Append("{\"entries\":[");
+
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    foreach (MySqlParameter p in parms) cmd.Parameters.AddWithValue(p.ParameterName, p.Value);
+
+                    bool first = true;
+                    using (MySqlDataReader rdr = cmd.ExecuteReader())
+                    {
+                        while (rdr.Read())
+                        {
+                            if (!first) sb.Append(",");
+                            first = false;
+
+                            string at = rdr["action_type"].ToString();
+                            sb.Append("{");
+                            sb.Append("\"studentId\":\""); sb.Append(JsEsc(rdr["regno"].ToString())); sb.Append("\"");
+                            sb.Append(",\"courseId\":\""); sb.Append(JsEsc(rdr["course_id"].ToString())); sb.Append("\"");
+                            sb.Append(",\"actionType\":\""); sb.Append(JsEsc(at)); sb.Append("\"");
+                            sb.Append(",\"actionTypeExt\":\""); sb.Append(JsEsc(at)); sb.Append("\"");
+                            sb.Append(",\"changedBy\":\""); sb.Append(JsEsc(rdr["performed_by"].ToString())); sb.Append("\"");
+
+                            AppendNullableDecimal(sb, ",\"oldCwEntered\":", rdr["old_cw_mark"]);
+                            AppendNullableDecimal(sb, ",\"newCwEntered\":", rdr["new_cw_mark"]);
+                            AppendNullableDecimal(sb, ",\"oldTestEntered\":", rdr["old_test_mark"]);
+                            AppendNullableDecimal(sb, ",\"newTestEntered\":", rdr["new_test_mark"]);
+                            AppendNullableDecimal(sb, ",\"oldExamEntered\":", rdr["old_exam_mark"]);
+                            AppendNullableDecimal(sb, ",\"newExamEntered\":", rdr["new_exam_mark"]);
+
+                            string reason = rdr["change_reason"] != DBNull.Value ? rdr["change_reason"].ToString() : "";
+                            sb.Append(",\"changeReason\":\""); sb.Append(JsEsc(reason)); sb.Append("\"");
+                            DateTime dt = Convert.ToDateTime(rdr["created_at"]);
+                            sb.Append(",\"changeDate\":\""); sb.Append(JsEsc(dt.ToString("yyyy-MM-dd HH:mm:ss"))); sb.Append("\"");
+                            sb.Append("}");
+                        }
+                    }
+                }
+
+                sb.Append("]}");
             }
-
-            sb.Append("]}");
         }
         catch (Exception ex)
         {
@@ -414,14 +462,14 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
             {
                 conn.Open();
 
-                StringBuilder where = new StringBuilder("WHERE change_date >= @from AND change_date <= @to");
+                StringBuilder where = new StringBuilder("WHERE created_at >= @from AND created_at <= @to");
                 List<MySqlParameter> parms = new List<MySqlParameter>();
                 parms.Add(new MySqlParameter("@from", dtFrom));
                 parms.Add(new MySqlParameter("@to", dtTo));
 
                 if (!string.IsNullOrEmpty(user))
                 {
-                    where.Append(" AND changed_by = @user");
+                    where.Append(" AND performed_by = @user");
                     parms.Add(new MySqlParameter("@user", user));
                 }
                 if (!string.IsNullOrEmpty(course))
@@ -431,24 +479,24 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
                 }
                 if (!string.IsNullOrEmpty(student))
                 {
-                    where.Append(" AND student_id LIKE @student");
+                    where.Append(" AND regno LIKE @student");
                     parms.Add(new MySqlParameter("@student", "%" + student + "%"));
                 }
                 if (!string.IsNullOrEmpty(action))
                 {
-                    where.Append(" AND (action_type = @action OR action_type_ext = @action)");
+                    where.Append(" AND action_type = @action");
                     parms.Add(new MySqlParameter("@action", action));
                 }
 
-                string sql = @"SELECT student_id, course_id,
-                                      old_cw_entered, new_cw_entered,
-                                      old_test_entered, new_test_entered,
-                                      old_exam_entered, new_exam_entered,
-                                      action_type, action_type_ext,
-                                      changed_by, ip_address, change_reason,
-                                      change_date
+                string sql = @"SELECT regno, course_id,
+                                      old_cw_mark, new_cw_mark,
+                                      old_test_mark, new_test_mark,
+                                      old_exam_mark, new_exam_mark,
+                                      action_type,
+                                      performed_by, ip_address, change_reason,
+                                      created_at
                                FROM acad_marks_audit " + where.ToString() + @"
-                               ORDER BY change_date DESC
+                               ORDER BY created_at DESC
                                LIMIT 10000";
 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
@@ -462,20 +510,20 @@ public partial class COOPERP_NewScreens_AuditCentre : System.Web.UI.Page
                     {
                         while (rdr.Read())
                         {
-                            DateTime dt = Convert.ToDateTime(rdr["change_date"]);
+                            DateTime dt = Convert.ToDateTime(rdr["created_at"]);
                             csv.Append(CsvEsc(dt.ToString("yyyy-MM-dd HH:mm:ss"))); csv.Append(",");
-                            csv.Append(CsvEsc(rdr["changed_by"].ToString())); csv.Append(",");
+                            csv.Append(CsvEsc(rdr["performed_by"].ToString())); csv.Append(",");
                             csv.Append(CsvEsc(rdr["ip_address"] != DBNull.Value ? rdr["ip_address"].ToString() : "")); csv.Append(",");
                             csv.Append(CsvEsc(rdr["action_type"].ToString())); csv.Append(",");
-                            csv.Append(CsvEsc(rdr["action_type_ext"] != DBNull.Value ? rdr["action_type_ext"].ToString() : "")); csv.Append(",");
+                            csv.Append(CsvEsc(rdr["action_type"].ToString())); csv.Append(",");
                             csv.Append(CsvEsc(rdr["course_id"].ToString())); csv.Append(",");
-                            csv.Append(CsvEsc(rdr["student_id"].ToString())); csv.Append(",");
-                            csv.Append(DecStr(rdr["old_cw_entered"])); csv.Append(",");
-                            csv.Append(DecStr(rdr["new_cw_entered"])); csv.Append(",");
-                            csv.Append(DecStr(rdr["old_test_entered"])); csv.Append(",");
-                            csv.Append(DecStr(rdr["new_test_entered"])); csv.Append(",");
-                            csv.Append(DecStr(rdr["old_exam_entered"])); csv.Append(",");
-                            csv.Append(DecStr(rdr["new_exam_entered"])); csv.Append(",");
+                            csv.Append(CsvEsc(rdr["regno"].ToString())); csv.Append(",");
+                            csv.Append(DecStr(rdr["old_cw_mark"])); csv.Append(",");
+                            csv.Append(DecStr(rdr["new_cw_mark"])); csv.Append(",");
+                            csv.Append(DecStr(rdr["old_test_mark"])); csv.Append(",");
+                            csv.Append(DecStr(rdr["new_test_mark"])); csv.Append(",");
+                            csv.Append(DecStr(rdr["old_exam_mark"])); csv.Append(",");
+                            csv.Append(DecStr(rdr["new_exam_mark"])); csv.Append(",");
                             csv.Append(CsvEsc(rdr["change_reason"] != DBNull.Value ? rdr["change_reason"].ToString() : ""));
                             csv.AppendLine();
                         }

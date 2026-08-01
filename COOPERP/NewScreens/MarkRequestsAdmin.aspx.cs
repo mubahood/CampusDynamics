@@ -169,14 +169,61 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
         litYearOpts.Text = sb.ToString();
     }
 
+    // ── Role-based data scope (admin=all, dean=faculty, HOD=department) ──
+    // A mark request has no prog_id of its own, so its programme is derived from its
+    // course registration (course_reg_id → acad_course_registration.prog_id), falling
+    // back to the student's programme. Aliased as `r` on the requests table.
+    private const string ProgExpr =
+        "COALESCE((SELECT cr2.prog_id FROM campus_dynamics_portal.acad_course_registration cr2 WHERE cr2.id=r.course_reg_id LIMIT 1)," +
+        "(SELECT s2.progid FROM acad_student s2 WHERE s2.regno=r.regno LIMIT 1))";
+
+    private const string SCOPE_DENIED = "{\"success\":false,\"message\":\"You can only act on requests within your faculty/department.\"}";
+
+    private static MarksScope CurrentScope()
+    {
+        HttpContext ctx = HttpContext.Current;
+        if (ctx != null && ctx.Items["__mraScope"] is MarksScope) return (MarksScope)ctx.Items["__mraScope"];
+        MarksScope s = MarksScopeResolver.Resolve();
+        if (ctx != null) ctx.Items["__mraScope"] = s;
+        return s;
+    }
+
+    // Who may MANAGE (approve/reject/etc.) mark requests: super admin, a Dean (faculty),
+    // or a Head of Department. General departmental staff get read-only (scoped) access.
+    private static bool CanManageRequests()
+    {
+        MarksScope s = CurrentScope();
+        if (s.IsAdmin) return true;
+        if (s.Mode == "faculty") return true;                                          // Dean
+        if (s.Mode == "department" && s.RoleNote == "Head of Department") return true;  // HOD
+        return false;
+    }
+
+    // True if a mark request (by id) belongs to a programme within the user's scope.
+    private static bool RequestInScope(MySqlConnection conn, int id)
+    {
+        MarksScope s = CurrentScope();
+        if (s.IsAdmin || s.AllowedProgCodes == null) return true;
+        string prog = "";
+        using (var cmd = new MySqlCommand(
+            "SELECT " + ProgExpr + " FROM campus_dynamics_portal.acad_marks_requests r WHERE r.id=@id LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@id", id);
+            object v = cmd.ExecuteScalar();
+            if (v != null && v != DBNull.Value) prog = v.ToString().Trim();
+        }
+        return s.AllowsProg(prog);
+    }
+
     // ── Stats bar (scoped to year/sem/type only — NOT filtered by status/search) ──
     private void LoadStats(MySqlConnection conn)
     {
         var where = new StringBuilder("WHERE 1=1");
         var parms = new List<MySqlParameter>();
-        if (!string.IsNullOrEmpty(FilterYear)) { where.Append(" AND acad_year=@ay");    parms.Add(new MySqlParameter("@ay",  FilterYear)); }
-        if (!string.IsNullOrEmpty(FilterSem))  { where.Append(" AND semester=@sem");   parms.Add(new MySqlParameter("@sem", FilterSem));  }
-        if (!string.IsNullOrEmpty(FilterType)) { where.Append(" AND request_type=@rt"); parms.Add(new MySqlParameter("@rt", FilterType)); }
+        if (!string.IsNullOrEmpty(FilterYear)) { where.Append(" AND r.acad_year=@ay");    parms.Add(new MySqlParameter("@ay",  FilterYear)); }
+        if (!string.IsNullOrEmpty(FilterSem))  { where.Append(" AND r.semester=@sem");   parms.Add(new MySqlParameter("@sem", FilterSem));  }
+        if (!string.IsNullOrEmpty(FilterType)) { where.Append(" AND r.request_type=@rt"); parms.Add(new MySqlParameter("@rt", FilterType)); }
+        where.Append(CurrentScope().ProgFilterExpr(ProgExpr)); // role-based scope
 
         int tot = 0, pl = 0, ps = 0, pa = 0, ap = 0, rj = 0, cn = 0;
         try
@@ -190,7 +237,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
                     SUM(CASE WHEN status='APPROVED'           THEN 1 ELSE 0 END) AS ap,
                     SUM(CASE WHEN status='REJECTED'           THEN 1 ELSE 0 END) AS rj,
                     SUM(CASE WHEN status='CANCELLED'          THEN 1 ELSE 0 END) AS cn
-                FROM campus_dynamics_portal.acad_marks_requests " + where, conn))
+                FROM campus_dynamics_portal.acad_marks_requests r " + where, conn))
             {
                 AddParams(cmd, parms);
                 using (var rdr = cmd.ExecuteReader())
@@ -227,6 +274,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
         if (!string.IsNullOrEmpty(FilterSem))    { where.Append(" AND r.semester=@sem");    parms.Add(new MySqlParameter("@sem", FilterSem));    }
         if (!string.IsNullOrEmpty(FilterType))   { where.Append(" AND r.request_type=@rt"); parms.Add(new MySqlParameter("@rt",  FilterType));   }
         if (!string.IsNullOrEmpty(FilterStatus)) { where.Append(" AND r.status=@sf");       parms.Add(new MySqlParameter("@sf",  FilterStatus)); }
+        where.Append(CurrentScope().ProgFilterExpr(ProgExpr)); // role-based scope (admin=all, dean=faculty, HOD=dept)
         bool hasQ = !string.IsNullOrEmpty(FilterQ);
         if (hasQ) parms.Add(new MySqlParameter("@q", "%" + FilterQ + "%"));
 
@@ -269,6 +317,8 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
                 cr.provisional_exam_marks         AS orig_exam,
                 IFNULL(cr.provisional_total_marks, r.proposed_total) AS orig_total,
                 IFNULL(le.emp_name,'')            AS lecturer_name,
+                IFNULL(r.assigned_lecturer_id,0)  AS assigned_lid,
+                IFNULL(r.lecturer_id,0)           AS default_lid,
                 IFNULL(se.emp_name,'')            AS supervisor_name,
                 DATE_FORMAT(r.created_at,'%d %b %Y %H:%i') AS created_at,
                 DATE_FORMAT(r.updated_at,'%d %b %Y %H:%i') AS updated_at,
@@ -277,7 +327,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             + studentJoin + @"
             LEFT JOIN acad_course c   ON c.courseID  = r.course_id
             LEFT JOIN campus_dynamics_portal.acad_course_registration cr ON cr.id = r.course_reg_id
-            LEFT JOIN hrm_employee le ON le.empID = r.lecturer_id
+            LEFT JOIN hrm_employee le ON le.empID = COALESCE(r.assigned_lecturer_id, r.lecturer_id)
             LEFT JOIN hrm_employee se ON se.empID = r.supervisor_id
             " + fullWhere + @"
             ORDER BY
@@ -342,6 +392,10 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
         string lecName  = S(rdr, "lecturer_name");
         string supName  = S(rdr, "supervisor_name");
         string admName  = S(rdr, "admin_username");
+        string assignedLid = S(rdr, "assigned_lid");
+        string defaultLid  = S(rdr, "default_lid");
+        bool   isAssigned  = assignedLid.Length > 0 && assignedLid != "0";
+        string effLid      = isAssigned ? assignedLid : defaultLid;
         string origCw   = S(rdr, "orig_cw");
         string origEx   = S(rdr, "orig_exam");
         string origTot  = S(rdr, "orig_total");
@@ -363,10 +417,11 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
 
         var sb = new StringBuilder();
         sb.AppendFormat(
-            "<tr data-id=\"{0}\" data-status=\"{1}\" data-name=\"{2}\" data-regno=\"{3}\" data-course=\"{4}\" data-search=\"{5}\" data-pcw=\"{6}\" data-pex=\"{7}\" data-ocw=\"{8}\" data-oex=\"{9}\">",
+            "<tr data-id=\"{0}\" data-status=\"{1}\" data-name=\"{2}\" data-regno=\"{3}\" data-course=\"{4}\" data-search=\"{5}\" data-pcw=\"{6}\" data-pex=\"{7}\" data-ocw=\"{8}\" data-oex=\"{9}\" data-courseid=\"{10}\" data-year=\"{11}\" data-sem=\"{12}\" data-lecturerid=\"{13}\">",
             HE(id), HE(status), HE(name.Length > 0 ? name : regno), HE(regno),
             HE(courseN.Length > 0 ? courseN : courseI),
-            HE(searchVal), HE(propCw), HE(propEx), HE(origCw), HE(origEx));
+            HE(searchVal), HE(propCw), HE(propEx), HE(origCw), HE(origEx),
+            HE(courseI), HE(year), HE(sem), HE(effLid));
 
         // col 1: checkbox
         sb.AppendFormat("<td style=\"text-align:center;\"><input type=\"checkbox\" class=\"mra-row-chk mra-chk\" value=\"{0}\"/></td>", HE(id));
@@ -386,7 +441,16 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             "<div class=\"mra-note\">Yr {2} / Sem {3}</div></td>",
             HE(courseN.Length > 0 ? courseN : courseI), HE(courseI), HE(year), HE(sem));
 
-        // col 5: Type chip + status pill
+        // col 5: Lecturer — the effective (assigned overrides the course default) lecturer
+        string lecCell  = lecName.Length > 0 ? HE(lecName) : "&mdash;";
+        string lecBadge = isAssigned
+            ? "<span class=\"mra-lec-badge mra-lec-badge--assigned\">assigned</span>"
+            : (lecName.Length > 0 ? "<span class=\"mra-lec-badge\">course default</span>" : "");
+        sb.AppendFormat(
+            "<td><div class=\"mra-strong\" style=\"font-size:11px;line-height:1.3;\">{0}</div><div style=\"margin-top:3px;\">{1}</div></td>",
+            lecCell, lecBadge);
+
+        // col 6: Type chip + status pill
         sb.AppendFormat(
             "<td><div style=\"margin-bottom:3px;\"><span class=\"{0}\">{1}</span></div>" +
             "<div><span class=\"{2}\">{3}</span></div>" +
@@ -427,7 +491,6 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             sb.Append("<div class=\"mra-note\">-</div>");
         // actors line
         var actors = new System.Collections.Generic.List<string>();
-        if (lecName.Length > 0) actors.Add("Lec: " + lecName);
         if (supName.Length > 0) actors.Add("Sup: " + supName);
         if (admName.Length > 0) actors.Add("Admin: " + admName);
         if (actors.Count > 0)
@@ -438,12 +501,15 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
         sb.AppendFormat("<td style=\"text-align:right;\"><div class=\"mra-menu-wrap\" id=\"mw-{0}\">", HE(id));
         sb.AppendFormat("<button type=\"button\" class=\"mra-btn mra-btn--sm\" onclick=\"toggleMenu('mw-{0}')\">Actions &#9660;</button>", HE(id));
         sb.Append("<div class=\"mra-menu\">");
+        sb.AppendFormat("<button type=\"button\" class=\"mra-menu-item\" onclick=\"openDetail('{0}')\">&#128065; View Details</button>", HE(id));
         if (canAct)
         {
             sb.AppendFormat("<button type=\"button\" class=\"mra-menu-item\" onclick=\"openModal('approve','{0}')\">&#10003; Approve</button>", HE(id));
             sb.AppendFormat("<button type=\"button\" class=\"mra-menu-item\" onclick=\"openModal('reject','{0}')\">&#10007; Reject</button>", HE(id));
         }
         sb.AppendFormat("<button type=\"button\" class=\"mra-menu-item mra-menu-item--warn\" onclick=\"openModal('marks','{0}')\">&#9998; Update Marks</button>", HE(id));
+        sb.AppendFormat("<button type=\"button\" class=\"mra-menu-item\" onclick=\"openLecturerModal('{0}')\">&#128100; Change Lecturer</button>", HE(id));
+        sb.AppendFormat("<button type=\"button\" class=\"mra-menu-item\" onclick=\"openModal('status','{0}')\">&#8646; Change Status</button>", HE(id));
         if (canReopen)
         {
             sb.AppendFormat("<button type=\"button\" class=\"mra-menu-item\" onclick=\"openModal('reopen','{0}')\">&#8635; Reopen</button>", HE(id));
@@ -503,6 +569,26 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             return ip.Trim();
         }
         catch { return "unknown"; }
+    }
+
+    // Records who/where/why for the acad_results audit trigger, keyed by CONNECTION_ID().
+    // Connector-safe (normal params, no user vars). Best-effort — never breaks the write.
+    private static void SetMarkAuditContext(MySqlConnection conn, MySqlTransaction tx, string actor, string source, string reason)
+    {
+        try
+        {
+            using (var cmd = new MySqlCommand(
+                "REPLACE INTO campus_dynamics.mark_audit_context (conn_id, actor, source, reason, ip, set_at) " +
+                "VALUES (CONNECTION_ID(), @a, @s, @r, @ip, NOW())", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@a", (actor ?? "").Length > 90 ? actor.Substring(0, 90) : (actor ?? ""));
+                cmd.Parameters.AddWithValue("@s", (source ?? "").Length > 100 ? source.Substring(0, 100) : (source ?? ""));
+                cmd.Parameters.AddWithValue("@r", (reason ?? "").Length > 200 ? reason.Substring(0, 200) : (reason ?? ""));
+                cmd.Parameters.AddWithValue("@ip", GetClientIp());
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch { /* attribution is best-effort; must never break the mark write */ }
     }
 
     // Best-effort write to acad_activity_log — uses a separate connection so it
@@ -605,6 +691,174 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     }
 
     // ════════════════════════════════════════════════════════════════════════════
+    //  VIEW DETAILS — full record for the detail modal
+    // ════════════════════════════════════════════════════════════════════════════
+    [WebMethod(EnableSession = true)]
+    public static string AdminGetRequestDetail(int requestId)
+    {
+        try
+        {
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — outside your faculty/department." });
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                if (!RequestInScope(conn, requestId)) return Json.Serialize(new { success = false, message = "This request is outside your faculty/department." });
+                EnsureNameCol(conn);
+                string sJoin = NeedStudentJoin ? " LEFT JOIN acad_student s ON s.regno = r.regno" : "";
+                using (var cmd = new MySqlCommand(
+                    "SELECT r.id, r.regno, " + NameExpr + " AS student_name, r.course_id, " +
+                    "IFNULL(c.courseName, r.course_id) AS course_name, r.acad_year, r.semester, r.request_type, r.status, " +
+                    "IFNULL(r.student_reason,'') student_reason, IFNULL(r.lecturer_response,'') lecturer_response, " +
+                    "IFNULL(r.supervisor_response,'') supervisor_response, IFNULL(r.admin_response,'') admin_response, " +
+                    "r.proposed_cw, r.proposed_exam, r.proposed_total, " +
+                    "cr.provisional_course_work_marks orig_cw, cr.provisional_exam_marks orig_exam, " +
+                    "IFNULL(cr.provisional_total_marks, r.proposed_total) orig_total, " +
+                    "IFNULL(r.assigned_lecturer_id,0) assigned_lid, " +
+                    "IFNULL(le.emp_name,'') lecturer_name, IFNULL(le.emp_email,'') lecturer_email, " +
+                    "IFNULL(dl.emp_name,'') default_name, IFNULL(se.emp_name,'') supervisor_name, IFNULL(r.admin_username,'') admin_username, " +
+                    "DATE_FORMAT(r.created_at,'%d %b %Y %H:%i') created_at, DATE_FORMAT(r.updated_at,'%d %b %Y %H:%i') updated_at, " +
+                    "DATE_FORMAT(r.lecturer_responded_at,'%d %b %Y %H:%i') lec_at, " +
+                    "DATE_FORMAT(r.supervisor_responded_at,'%d %b %Y %H:%i') sup_at, " +
+                    "DATE_FORMAT(r.admin_responded_at,'%d %b %Y %H:%i') adm_at " +
+                    "FROM campus_dynamics_portal.acad_marks_requests r" + sJoin + " " +
+                    "LEFT JOIN acad_course c ON c.courseID = r.course_id " +
+                    "LEFT JOIN campus_dynamics_portal.acad_course_registration cr ON cr.id = r.course_reg_id " +
+                    "LEFT JOIN hrm_employee le ON le.empID = COALESCE(r.assigned_lecturer_id, r.lecturer_id) " +
+                    "LEFT JOIN hrm_employee dl ON dl.empID = r.lecturer_id " +
+                    "LEFT JOIN hrm_employee se ON se.empID = r.supervisor_id " +
+                    "WHERE r.id=@id LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", requestId);
+                    using (var rd = cmd.ExecuteReader())
+                    {
+                        if (!rd.Read()) return Json.Serialize(new { success = false, message = "Request not found." });
+                        string aLid = S(rd, "assigned_lid");
+                        bool isAssigned = aLid.Length > 0 && aLid != "0";
+                        int pt; string propTot = S(rd, "proposed_total"); string propGr = int.TryParse(propTot, out pt) && pt > 0 ? CalcGrade(pt) : "";
+                        int ot; string origTot = S(rd, "orig_total"); string origGr = int.TryParse(origTot, out ot) && ot > 0 ? CalcGrade(ot) : "";
+                        return Json.Serialize(new
+                        {
+                            success = true,
+                            id = S(rd, "id"), regno = S(rd, "regno"), student = S(rd, "student_name"),
+                            course = S(rd, "course_id"), course_name = S(rd, "course_name"),
+                            year = S(rd, "acad_year"), sem = S(rd, "semester"),
+                            type = S(rd, "request_type"), status = S(rd, "status"),
+                            student_reason = S(rd, "student_reason"), lecturer_response = S(rd, "lecturer_response"),
+                            supervisor_response = S(rd, "supervisor_response"), admin_response = S(rd, "admin_response"),
+                            orig_cw = S(rd, "orig_cw"), orig_exam = S(rd, "orig_exam"), orig_total = origTot, orig_grade = origGr,
+                            prop_cw = S(rd, "proposed_cw"), prop_exam = S(rd, "proposed_exam"), prop_total = propTot, prop_grade = propGr,
+                            lecturer_name = S(rd, "lecturer_name"), lecturer_email = S(rd, "lecturer_email"),
+                            default_name = S(rd, "default_name"), is_assigned = isAssigned,
+                            supervisor_name = S(rd, "supervisor_name"), admin_username = S(rd, "admin_username"),
+                            created_at = S(rd, "created_at"), updated_at = S(rd, "updated_at"),
+                            lec_at = S(rd, "lec_at"), sup_at = S(rd, "sup_at"), adm_at = S(rd, "adm_at")
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex) { return Json.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  LECTURER DIRECTORY — assigned + course-taught flagged, then all academic staff
+    // ════════════════════════════════════════════════════════════════════════════
+    [WebMethod(EnableSession = true)]
+    public static string AdminGetLecturers(string courseId, string acadYear, int semester)
+    {
+        try
+        {
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied." });
+            courseId = (courseId ?? "").Trim();
+            var list = new System.Collections.Generic.List<object>();
+            var seen = new System.Collections.Generic.HashSet<int>();
+            int defaultId = 0;
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                if (courseId.Length > 0)
+                {
+                    using (var cmd = new MySqlCommand(
+                        "SELECT IFNULL(pc.lecturer_id,0) lid FROM acad_programmecourses pc " +
+                        "WHERE pc.course_code=@c AND UPPER(IFNULL(pc.is_lecturere_assigned,'NO'))='YES' AND IFNULL(pc.lecturer_id,0)>0 LIMIT 1", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@c", courseId);
+                        using (var rd = cmd.ExecuteReader()) if (rd.Read()) int.TryParse(S(rd, "lid"), out defaultId);
+                    }
+                    using (var cmd = new MySqlCommand(
+                        "SELECT ta.staffCode lid, IFNULL(e.emp_name, CONCAT('Staff #', ta.staffCode)) nm, " +
+                        "MAX(CASE WHEN ta.acad_year=@ay AND ta.semester=@sem THEN 1 ELSE 0 END) st " +
+                        "FROM acad_teaching_allocation ta LEFT JOIN hrm_employee e ON e.empID=ta.staffCode " +
+                        "WHERE ta.courseID=@c AND IFNULL(ta.staffCode,'')<>'' GROUP BY ta.staffCode, nm ORDER BY st DESC, nm ASC LIMIT 100", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@c", courseId);
+                        cmd.Parameters.AddWithValue("@ay", acadYear ?? "");
+                        cmd.Parameters.AddWithValue("@sem", semester);
+                        using (var rd = cmd.ExecuteReader())
+                            while (rd.Read())
+                            {
+                                int lid; if (!int.TryParse(S(rd, "lid"), out lid) || lid <= 0 || !seen.Add(lid)) continue;
+                                list.Add(new { id = lid, name = S(rd, "nm"), is_default = (lid == defaultId), is_taught = true });
+                            }
+                    }
+                }
+                using (var cmd = new MySqlCommand(
+                    "SELECT empID lid, IFNULL(emp_name, CONCAT('Staff #', empID)) nm FROM hrm_employee " +
+                    "WHERE IFNULL(emp_name,'')<>'' ORDER BY emp_name ASC LIMIT 2000", conn))
+                using (var rd = cmd.ExecuteReader())
+                    while (rd.Read())
+                    {
+                        int lid; if (!int.TryParse(S(rd, "lid"), out lid) || lid <= 0 || !seen.Add(lid)) continue;
+                        list.Add(new { id = lid, name = S(rd, "nm"), is_default = (lid == defaultId), is_taught = false });
+                    }
+            }
+            return Json.Serialize(new { success = true, lecturers = list });
+        }
+        catch (Exception ex) { return Json.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  SET / CHANGE the assigned lecturer (admin override → assigned_lecturer_id)
+    // ════════════════════════════════════════════════════════════════════════════
+    [WebMethod(EnableSession = true)]
+    public static string AdminSetLecturer(int requestId, int lecturerId)
+    {
+        try
+        {
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — outside your faculty/department." });
+            if (lecturerId <= 0) return Json.Serialize(new { success = false, message = "Please pick a lecturer." });
+            string adminUser = AdminUser();
+            string lecName = "";
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                if (!RequestInScope(conn, requestId)) return Json.Serialize(new { success = false, message = "This request is outside your faculty/department." });
+                using (var cmd = new MySqlCommand("SELECT IFNULL(emp_name,'') n, COUNT(*) c FROM hrm_employee WHERE empID=@e", conn))
+                {
+                    cmd.Parameters.AddWithValue("@e", lecturerId);
+                    using (var rd = cmd.ExecuteReader())
+                        if (rd.Read()) { if (Convert.ToInt64(S(rd, "c")) == 0) return Json.Serialize(new { success = false, message = "That lecturer was not found." }); lecName = S(rd, "n"); }
+                }
+                int n;
+                using (var cmd = new MySqlCommand(
+                    "UPDATE campus_dynamics_portal.acad_marks_requests SET assigned_lecturer_id=@lid, admin_username=@au, updated_at=NOW() WHERE id=@id", conn))
+                {
+                    cmd.Parameters.AddWithValue("@lid", lecturerId);
+                    cmd.Parameters.AddWithValue("@au", adminUser);
+                    cmd.Parameters.AddWithValue("@id", requestId);
+                    n = cmd.ExecuteNonQuery();
+                }
+                if (n == 0) return Json.Serialize(new { success = false, message = "Request not found." });
+            }
+            WriteAuditLog(adminUser, "Mark Request Set Lecturer",
+                "Request#: " + requestId + " Lecturer: " + lecturerId + " (" + lecName + ")",
+                "Assigned lecturer set to " + (lecName.Length > 0 ? lecName : ("#" + lecturerId)) + " by " + adminUser + ". IP: " + GetClientIp());
+            return Json.Serialize(new { success = true, lecturer_id = lecturerId, lecturer_name = lecName, message = "Lecturer set to " + (lecName.Length > 0 ? lecName : ("#" + lecturerId)) + " — the request now routes to them." });
+        }
+        catch (Exception ex) { return Json.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
     //  ADMIN APPROVE
     // ════════════════════════════════════════════════════════════════════════════
 
@@ -613,7 +867,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     {
         try
         {
-            if (!IsAdmin()) return Json.Serialize(new { success = false, message = "Access denied." });
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — you can only manage requests within your faculty/department." });
 
             note = (note ?? "").Trim();
             string adminUser = AdminUser();
@@ -628,6 +882,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             using (var conn = new MySqlConnection(ConnStr))
             {
                 conn.Open();
+                if (!RequestInScope(conn, requestId)) return SCOPE_DENIED;
                 using (var tx = conn.BeginTransaction())
                 {
                     using (var cmd = new MySqlCommand(@"
@@ -747,7 +1002,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     {
         try
         {
-            if (!IsAdmin()) return Json.Serialize(new { success = false, message = "Access denied." });
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — you can only manage requests within your faculty/department." });
 
             reason = (reason ?? "").Trim();
             if (reason.Length < 5) return Json.Serialize(new { success = false, message = "Please provide a reason (min 5 characters)." });
@@ -757,6 +1012,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             using (var conn = new MySqlConnection(ConnStr))
             {
                 conn.Open();
+                if (!RequestInScope(conn, requestId)) return SCOPE_DENIED;
                 FetchRequestContext(conn, requestId, out logRegno, out logCourse, out logYear, out logSem);
                 using (var cmd = new MySqlCommand(@"
                     UPDATE campus_dynamics_portal.acad_marks_requests
@@ -794,7 +1050,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     {
         try
         {
-            if (!IsAdmin()) return Json.Serialize(new { success = false, message = "Access denied." });
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — you can only manage requests within your faculty/department." });
 
             reason = (reason ?? "").Trim();
             if (reason.Length < 5) return Json.Serialize(new { success = false, message = "Please provide a reason (min 5 characters)." });
@@ -804,6 +1060,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             using (var conn = new MySqlConnection(ConnStr))
             {
                 conn.Open();
+                if (!RequestInScope(conn, requestId)) return SCOPE_DENIED;
                 FetchRequestContext(conn, requestId, out fcRegno, out fcCourse, out fcYear, out fcSem);
                 using (var cmd = new MySqlCommand(@"
                     UPDATE campus_dynamics_portal.acad_marks_requests
@@ -841,37 +1098,174 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     {
         try
         {
-            if (!IsAdmin()) return Json.Serialize(new { success = false, message = "Access denied." });
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — you can only manage requests within your faculty/department." });
             note = (note ?? "").Trim();
             string adminUser = AdminUser();
-            string roRegno = "", roCourse = "", roYear = ""; int roSem = 0;
+            string roRegno = "", roCourse = "", roYear = "", curStatus = ""; int roSem = 0;
+            bool reverted = false; string sideMsg = ""; decimal semGpa = 0m, cgpa = 0m;
             using (var conn = new MySqlConnection(ConnStr))
             {
                 conn.Open();
-                FetchRequestContext(conn, requestId, out roRegno, out roCourse, out roYear, out roSem);
-                using (var cmd = new MySqlCommand(@"
-                    UPDATE campus_dynamics_portal.acad_marks_requests
-                    SET status             = 'PENDING_ADMIN',
-                        admin_username     = @au,
-                        admin_response     = @note,
-                        admin_responded_at = NOW(),
-                        updated_at         = NOW()
-                    WHERE id = @id", conn))
+                if (!RequestInScope(conn, requestId)) return SCOPE_DENIED;
+                using (var tx = conn.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@au",   adminUser);
-                    cmd.Parameters.AddWithValue("@note", note.Length > 0 ? note : "Reopened by admin.");
-                    cmd.Parameters.AddWithValue("@id",   requestId);
-                    int n = cmd.ExecuteNonQuery();
-                    if (n == 0) return Json.Serialize(new { success = false, message = "Request not found." });
+                    using (var cmd = new MySqlCommand(
+                        "SELECT status, regno, course_id, acad_year, semester " +
+                        "FROM campus_dynamics_portal.acad_marks_requests WHERE id=@id LIMIT 1 FOR UPDATE", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@id", requestId);
+                        using (var rdr = cmd.ExecuteReader())
+                        {
+                            if (!rdr.Read()) { tx.Rollback(); return Json.Serialize(new { success = false, message = "Request not found." }); }
+                            curStatus = S(rdr, "status").ToUpperInvariant();
+                            roRegno = S(rdr, "regno"); roCourse = S(rdr, "course_id"); roYear = S(rdr, "acad_year");
+                            int.TryParse(S(rdr, "semester"), out roSem);
+                        }
+                    }
+
+                    // Reopening an APPROVED request must undo its published mark, or the
+                    // transcript/GPA silently drifts. Auto-revert first (comment-based, safe).
+                    if (curStatus == "APPROVED")
+                        RevertPublishedResult(conn, tx, requestId, roRegno, roCourse, roYear, roSem,
+                            "Admin: " + adminUser, out reverted, out sideMsg, out semGpa, out cgpa);
+
+                    using (var cmd = new MySqlCommand(@"
+                        UPDATE campus_dynamics_portal.acad_marks_requests
+                        SET status='PENDING_ADMIN', admin_username=@au, admin_response=@note,
+                            admin_responded_at=NOW(), updated_at=NOW()
+                        WHERE id=@id", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@au", adminUser);
+                        cmd.Parameters.AddWithValue("@note", note.Length > 0 ? note : "Reopened by admin.");
+                        cmd.Parameters.AddWithValue("@id", requestId);
+                        cmd.ExecuteNonQuery();
+                    }
+                    tx.Commit();
                 }
             }
             WriteAuditLog(adminUser, "Mark Request Reopen",
                 BuildAuditPar(roRegno, roCourse, roYear, roSem,
                     null, null, null, null, null, null, null, null,
                     requestId, "REOPENED", note),
-                string.Format("Request #{0} reopened by {1}. Note: {2}. IP: {3}",
-                    requestId, adminUser, note, GetClientIp()));
-            return Json.Serialize(new { success = true, message = "Request reopened as Pending Admin." });
+                string.Format("Request #{0} reopened by {1}. Reverted:{2}. Note: {3}. IP: {4}",
+                    requestId, adminUser, reverted, note, GetClientIp()));
+            string rmsg = "Request reopened as Pending Admin.";
+            if (curStatus == "APPROVED")
+                rmsg += reverted ? " Prior mark auto-reverted; GPA/CGPA recalculated."
+                                 : (" NOTE: " + (sideMsg.Length > 0 ? sideMsg : "published mark was not auto-reverted — verify manually."));
+            return Json.Serialize(new { success = true, marks_reverted = reverted, semester_gpa = semGpa, cgpa = cgpa, message = rmsg });
+        }
+        catch (Exception ex) { return Json.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  ADMIN CHANGE STATUS — full manual override (any of the 6 states), robust:
+    //    • → APPROVED  publishes proposed marks (if available) + recomputes GPA/CGPA
+    //    • leaving APPROVED  auto-reverts the previously published mark + recomputes
+    //    • every transition is audited
+    // ════════════════════════════════════════════════════════════════════════════
+
+    [WebMethod(EnableSession = true)]
+    public static string AdminChangeStatus(int requestId, string newStatus, string note)
+    {
+        try
+        {
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — you can only manage requests within your faculty/department." });
+
+            newStatus = (newStatus ?? "").Trim().ToUpperInvariant();
+            string[] valid = { "PENDING_LECTURER", "PENDING_SUPERVISOR", "PENDING_ADMIN", "APPROVED", "REJECTED", "CANCELLED" };
+            if (Array.IndexOf(valid, newStatus) < 0)
+                return Json.Serialize(new { success = false, message = "Invalid target status." });
+
+            note = (note ?? "").Trim();
+            if (note.Length < 3) return Json.Serialize(new { success = false, message = "Please provide a short reason/note (min 3 characters)." });
+
+            string adminUser = AdminUser();
+            string curStatus = "", regno = "", courseId = "", acadYear = "";
+            int semester = 0, courseRegId = 0;
+            int? pcw = null, pex = null, ptot = null;
+            bool published = false, reverted = false;
+            int publishedTotal = 0;
+            decimal semGpa = 0m, cgpa = 0m;
+            string sideMsg = "";
+
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                if (!RequestInScope(conn, requestId)) return SCOPE_DENIED;
+                using (var tx = conn.BeginTransaction())
+                {
+                    using (var cmd = new MySqlCommand(@"
+                        SELECT status, regno, course_id, acad_year, semester, course_reg_id,
+                               proposed_cw, proposed_exam, proposed_total
+                        FROM campus_dynamics_portal.acad_marks_requests WHERE id=@id LIMIT 1 FOR UPDATE", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@id", requestId);
+                        using (var rdr = cmd.ExecuteReader())
+                        {
+                            if (!rdr.Read()) { tx.Rollback(); return Json.Serialize(new { success = false, message = "Request not found." }); }
+                            curStatus = S(rdr, "status").ToUpperInvariant();
+                            regno = S(rdr, "regno"); courseId = S(rdr, "course_id"); acadYear = S(rdr, "acad_year");
+                            int.TryParse(S(rdr, "semester"), out semester);
+                            int.TryParse(S(rdr, "course_reg_id"), out courseRegId);
+                            pcw = NI(rdr, "proposed_cw"); pex = NI(rdr, "proposed_exam"); ptot = NI(rdr, "proposed_total");
+                        }
+                    }
+
+                    if (curStatus == newStatus) { tx.Rollback(); return Json.Serialize(new { success = false, message = "Request is already " + Pretty(newStatus) + "." }); }
+
+                    if (newStatus == "APPROVED")
+                    {
+                        bool canPublish = regno != "" && courseId != "" && (ptot.HasValue || (pcw.HasValue && pex.HasValue));
+                        if (canPublish)
+                        {
+                            PublishToResults(conn, tx, requestId, regno, courseId, acadYear, semester, courseRegId,
+                                pcw, pex, ptot, "Admin: " + adminUser, note, out publishedTotal, out semGpa, out cgpa);
+                            published = true;
+                        }
+                    }
+                    else if (curStatus == "APPROVED")
+                    {
+                        RevertPublishedResult(conn, tx, requestId, regno, courseId, acadYear, semester,
+                            "Admin: " + adminUser, out reverted, out sideMsg, out semGpa, out cgpa);
+                    }
+
+                    using (var cmd = new MySqlCommand(@"
+                        UPDATE campus_dynamics_portal.acad_marks_requests
+                        SET status=@st, admin_username=@au, admin_response=@note,
+                            admin_responded_at=NOW(), updated_at=NOW()
+                        WHERE id=@id", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@st", newStatus);
+                        cmd.Parameters.AddWithValue("@au", adminUser);
+                        cmd.Parameters.AddWithValue("@note", note);
+                        cmd.Parameters.AddWithValue("@id", requestId);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    tx.Commit();
+                }
+            }
+
+            WriteAuditLog(adminUser, "Mark Request Status Change",
+                BuildAuditPar(regno, courseId, acadYear, semester, null, null, null, null,
+                    null, published ? (int?)publishedTotal : null, null, null,
+                    requestId, "STATUS " + curStatus + "->" + newStatus, note),
+                string.Format("Request #{0} status {1} -> {2} by {3}. Published:{4} Reverted:{5}. IP: {6}",
+                    requestId, curStatus, newStatus, adminUser, published, reverted, GetClientIp()));
+
+            string msg = "Status changed: " + Pretty(curStatus) + " → " + Pretty(newStatus) + ".";
+            if (published) msg += " Proposed marks published; GPA/CGPA recalculated.";
+            if (curStatus == "APPROVED" && newStatus != "APPROVED")
+                msg += reverted ? " Prior mark auto-reverted; GPA/CGPA recalculated."
+                                : (" NOTE: " + (sideMsg.Length > 0 ? sideMsg : "published mark was not auto-reverted — verify manually."));
+
+            return Json.Serialize(new
+            {
+                success = true, from = curStatus, to = newStatus,
+                marks_published = published, marks_reverted = reverted,
+                semester_gpa = semGpa, cgpa = cgpa, message = msg
+            });
         }
         catch (Exception ex) { return Json.Serialize(new { success = false, message = ex.Message }); }
     }
@@ -885,12 +1279,13 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     {
         try
         {
-            if (!IsAdmin()) return Json.Serialize(new { success = false, message = "Access denied." });
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — you can only manage requests within your faculty/department." });
             note = (note ?? "").Trim();
             string adminUser = AdminUser();
             using (var conn = new MySqlConnection(ConnStr))
             {
                 conn.Open();
+                if (!RequestInScope(conn, requestId)) return SCOPE_DENIED;
                 using (var cmd = new MySqlCommand(@"
                     UPDATE campus_dynamics_portal.acad_marks_requests
                     SET status             = 'PENDING_ADMIN',
@@ -922,7 +1317,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     {
         try
         {
-            if (!IsAdmin()) return Json.Serialize(new { success = false, message = "Access denied." });
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — you can only manage requests within your faculty/department." });
             note = (note ?? "").Trim();
             string adminUser = AdminUser();
 
@@ -944,6 +1339,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             using (var conn = new MySqlConnection(ConnStr))
             {
                 conn.Open();
+                if (!RequestInScope(conn, requestId)) return SCOPE_DENIED;
                 // Lock order: acad_marks_requests first (FOR UPDATE), then acad_results
                 // — same order as AdminApprove, preventing circular deadlock.
                 using (var tx = conn.BeginTransaction())
@@ -1061,7 +1457,7 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
     {
         try
         {
-            if (!IsAdmin()) return Json.Serialize(new { success = false, message = "Access denied." });
+            if (!CanManageRequests()) return Json.Serialize(new { success = false, message = "Access denied — you can only manage requests within your faculty/department." });
 
             action = (action ?? "").Trim().ToLowerInvariant();
             note   = (note   ?? "").Trim();
@@ -1087,6 +1483,16 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
             using (var conn = new MySqlConnection(ConnStr))
             {
                 conn.Open();
+
+                // Role-based scope: drop any ids outside the user's faculty/department.
+                if (!CurrentScope().IsAdmin)
+                {
+                    var scoped = new System.Collections.Generic.List<int>();
+                    foreach (int rid in intIds) if (RequestInScope(conn, rid)) scoped.Add(rid);
+                    intIds = scoped;
+                    if (intIds.Count == 0)
+                        return Json.Serialize(new { success = false, message = "None of the selected requests are within your faculty/department." });
+                }
 
                 if (action == "approve")
                 {
@@ -1342,6 +1748,9 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
         string actorLabel, string adminNote,
         out int publishedTotal, out decimal semGpa, out decimal cgpa)
     {
+        // Attribute this final-result change for the acad_results audit trigger (who changed what).
+        SetMarkAuditContext(conn, tx, actorLabel, "MarkRequestsAdmin",
+            "Request #" + requestId + (string.IsNullOrEmpty(adminNote) ? "" : (": " + adminNote)));
         int? finalCw = proposedCw, finalExam = proposedExam;
         if ((!finalCw.HasValue || !finalExam.HasValue) && courseRegId > 0)
         {
@@ -1524,5 +1933,135 @@ public partial class COOPERP_NewScreens_MarkRequestsAdmin : Page
                 oldScore.HasValue ? oldScore.Value.ToString() : "-", publishedTotal,
                 string.IsNullOrEmpty(oldGrade) ? "-" : oldGrade, grade,
                 GetClientIp()));
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    //  REVERSE a mark this request previously published to acad_results
+    //
+    //  Schema-free + robust: the approval stamped result_comment as
+    //    "Request #<id> approved by <actor>; Score <old>→<new>, Grade <old>→<new>; ..."
+    //  so we restore <old>. If <old> is "-" the approval INSERTED the row → we delete
+    //  it. If the current row's comment references a DIFFERENT request (i.e. it was
+    //  superseded by a later approval) we refuse and tell the caller — never guess.
+    // ════════════════════════════════════════════════════════════════════════════
+    private static void RevertPublishedResult(
+        MySqlConnection conn, MySqlTransaction tx, int requestId,
+        string regno, string courseId, string acadYear, int semester, string actorLabel,
+        out bool reverted, out string message, out decimal semGpa, out decimal cgpa)
+    {
+        reverted = false; message = ""; semGpa = 0m; cgpa = 0m;
+
+        // Attribute this reversal for the acad_results audit trigger.
+        SetMarkAuditContext(conn, tx, actorLabel, "MarkRequestsAdmin:revert", "Revert request #" + requestId);
+
+        long rowId = -1; string comment = "";
+        using (var cmd = new MySqlCommand(@"
+            SELECT id, IFNULL(result_comment,'') AS rc FROM acad_results
+            WHERE regno=@r AND courseid=@cid AND acad=@ay AND semester=@sem
+            ORDER BY id DESC LIMIT 1", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@cid", courseId);
+            cmd.Parameters.AddWithValue("@ay", acadYear); cmd.Parameters.AddWithValue("@sem", semester);
+            using (var rdr = cmd.ExecuteReader())
+                if (rdr.Read()) { rowId = Convert.ToInt64(rdr.GetValue(0)); comment = rdr.GetValue(1).ToString(); }
+        }
+
+        if (rowId < 0) { message = "No published result found for this course — nothing to revert."; return; }
+
+        if (comment.IndexOf("Request #" + requestId + " approved", StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            message = "The published result was changed by a later action — not auto-reverted. Please verify the mark manually.";
+            return;
+        }
+
+        string oldScoreTok = ExtractArrowOld(comment, "Score ");
+        string oldGradeTok = ExtractArrowOld(comment, "Grade ");
+        if (oldScoreTok == null)
+        {
+            message = "Couldn't read the prior mark from the record — not auto-reverted. Please verify manually.";
+            return;
+        }
+
+        if (oldScoreTok == "-")
+        {
+            using (var cmd = new MySqlCommand("DELETE FROM acad_results WHERE id=@id", conn, tx))
+            { cmd.Parameters.AddWithValue("@id", rowId); cmd.ExecuteNonQuery(); }
+        }
+        else
+        {
+            int oldScore; int.TryParse(oldScoreTok, out oldScore);
+            string oldGrade = (!string.IsNullOrEmpty(oldGradeTok) && oldGradeTok != "-") ? oldGradeTok : CalcGrade(oldScore);
+            decimal oldPt = GradeToPoint(oldGrade);
+            string rc = "Reverted request #" + requestId + " by " + actorLabel + "; restored Score " + oldScore + ", Grade " + oldGrade;
+            using (var cmd = new MySqlCommand(
+                "UPDATE acad_results SET score=@sc, grade=@gr, gradept=@gp, result_comment=@cm WHERE id=@id", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@sc", oldScore); cmd.Parameters.AddWithValue("@gr", oldGrade);
+                cmd.Parameters.AddWithValue("@gp", oldPt); cmd.Parameters.AddWithValue("@cm", rc);
+                cmd.Parameters.AddWithValue("@id", rowId); cmd.ExecuteNonQuery();
+            }
+        }
+
+        semGpa = CalcGpa(conn, tx, regno, acadYear, semester);
+        cgpa   = CalcCgpa(conn, tx, regno);
+        using (var cmd = new MySqlCommand(
+            "UPDATE acad_results SET gpa=@gpa WHERE regno=@r AND acad=@ay AND semester=@sem", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("@gpa", semGpa); cmd.Parameters.AddWithValue("@r", regno);
+            cmd.Parameters.AddWithValue("@ay", acadYear); cmd.Parameters.AddWithValue("@sem", semester);
+            cmd.ExecuteNonQuery();
+        }
+
+        // best-effort: flip provisional back so it can be re-published cleanly later
+        try
+        {
+            using (var cmd = new MySqlCommand(@"
+                UPDATE campus_dynamics_portal.acad_course_registration cr
+                JOIN campus_dynamics_portal.acad_marks_requests r ON r.course_reg_id = cr.id
+                SET cr.provisional_marks_status = 'submitted',
+                    cr.provisional_marks_review_comments = CONCAT('Reverted by ', @actor, ' on ', NOW())
+                WHERE r.id=@rid", conn, tx))
+            { cmd.Parameters.AddWithValue("@actor", actorLabel); cmd.Parameters.AddWithValue("@rid", requestId); cmd.ExecuteNonQuery(); }
+        }
+        catch { /* non-fatal */ }
+
+        reverted = true;
+        message = "Prior mark restored and GPA/CGPA recalculated.";
+
+        WriteAuditLog(actorLabel, "Marks Reverted from Results",
+            BuildAuditPar(regno, courseId, acadYear, semester, null, null, null, null,
+                null, null, null, null, requestId, "REVERTED", message),
+            string.Format("Result reverted for {0}/{1} by {2}. {3} IP: {4}",
+                regno, courseId, actorLabel, message, GetClientIp()));
+    }
+
+    // From "...Score 65→85, ..." with prefix "Score " returns "65" (part before → or ->).
+    private static string ExtractArrowOld(string text, string prefix)
+    {
+        if (string.IsNullOrEmpty(text)) return null;
+        int i = text.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
+        if (i < 0) return null;
+        i += prefix.Length;
+        int a1 = text.IndexOf('→', i);              // '→'
+        int a2 = text.IndexOf("->", i, StringComparison.Ordinal);
+        int end;
+        if (a1 >= 0 && (a2 < 0 || a1 < a2)) end = a1;
+        else if (a2 >= 0) end = a2;
+        else return null;
+        return text.Substring(i, end - i).Trim().TrimEnd(',', ';', ' ');
+    }
+
+    private static string Pretty(string status)
+    {
+        switch ((status ?? "").ToUpperInvariant())
+        {
+            case "PENDING_LECTURER":   return "Pending Lecturer";
+            case "PENDING_SUPERVISOR": return "Pending Supervisor";
+            case "PENDING_ADMIN":      return "Pending Admin";
+            case "APPROVED":           return "Approved";
+            case "REJECTED":           return "Rejected";
+            case "CANCELLED":          return "Cancelled";
+            default:                   return status;
+        }
     }
 }

@@ -562,8 +562,8 @@ public partial class COOPERP_NewScreens_NewProgrammeCourses : System.Web.UI.Page
                 sb.Append("</tr>");
 
                 string compactLecturer = lecturerDisp == "-" ? "Unassigned" : lecturerDisp;
-                sbMobile.Append("<div class=\"pc-mcard\"" + rowStyle + ">");
-                sbMobile.Append("<div class=\"pc-mcard__head\"><div><div class=\"pc-mcard__title\"><span class=\"pc-code\">" + courseCode + "</span> - " + courseName + "</div><div class=\"pc-mcard__sub\">" + progname + "</div></div><span class=\"pc-pill " + reqStatusCls + "\">" + reqStatusDisp + "</span></div>");
+                sbMobile.Append("<div class=\"pc-mcard\" data-id=\"" + id + "\"" + rowStyle + ">");
+                sbMobile.Append("<div class=\"pc-mcard__head\"><label class=\"pc-check\" title=\"Select this row\"><input type=\"checkbox\" class=\"pc-rowchk\" data-id=\"" + id + "\" data-code=\"" + jsCode + "\" onchange=\"pcToggleRow(this)\"></label><div style=\"flex:1;min-width:0;\"><div class=\"pc-mcard__title\"><span class=\"pc-code\">" + courseCode + "</span> - " + courseName + "</div><div class=\"pc-mcard__sub\">" + progname + "</div></div><span class=\"pc-pill " + reqStatusCls + "\">" + reqStatusDisp + "</span></div>");
                 sbMobile.Append("<div class=\"pc-mcard__meta\">");
                 sbMobile.Append("<div class=\"pc-mline\"><span class=\"pc-mline__k\">Programme:</span><span class=\"pc-mline__v\"><span class=\"pc-code\">" + progcode + "</span> • " + (string.IsNullOrEmpty(specName) ? "Default" : specName) + "</span></div>");
                 sbMobile.Append("<div class=\"pc-mline\"><span class=\"pc-mline__k\">Study Slot:</span><span class=\"pc-mline__v\">Year " + yr2 + " / Semester " + sem2 + "</span></div>");
@@ -746,6 +746,59 @@ public partial class COOPERP_NewScreens_NewProgrammeCourses : System.Web.UI.Page
     // ---------------------------------------------------------------
     // Save (Insert or Update)
     // ---------------------------------------------------------------
+    /// <summary>
+    /// Ensures the unique key on acad_programmecourses reflects the screen's real
+    /// natural key (course_code, progcode, CurriculumID, specialisation_id,
+    /// study_year, semester). An older deployment created a unique index that omitted
+    /// study_year and semester, which wrongly rejected the same course in a different
+    /// year/semester as a "Duplicate entry". This self-heals at save time and is a
+    /// no-op once the index is already correct. Safe: the new index is a superset of
+    /// the old columns, so it never conflicts with existing rows.
+    /// </summary>
+    private void EnsureProgrammeCourseUniqueIndex()
+    {
+        try
+        {
+            DataTable dt = ExecuteQuery(@"
+                SELECT index_name,
+                       GROUP_CONCAT(LOWER(column_name) ORDER BY seq_in_index SEPARATOR ',') AS cols
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'acad_programmecourses'
+                  AND non_unique = 0
+                  AND index_name <> 'PRIMARY'
+                GROUP BY index_name");
+
+            string targetIndex = null;
+            string targetCols = null;
+            foreach (DataRow r in dt.Rows)
+            {
+                string cols = r["cols"] != DBNull.Value ? r["cols"].ToString() : "";
+                if (cols.Contains("course_code") && cols.Contains("progcode"))
+                {
+                    targetIndex = r["index_name"].ToString();
+                    targetCols = cols;
+                    break;
+                }
+            }
+
+            // No course/programme unique index found, or it already covers
+            // study_year + semester → nothing to do.
+            if (string.IsNullOrEmpty(targetIndex)) return;
+            if (targetCols.Contains("study_year") && targetCols.Contains("semester")) return;
+
+            ExecuteNonQuery("ALTER TABLE acad_programmecourses DROP INDEX `" + targetIndex.Replace("`", "``") + "`");
+            ExecuteNonQuery(@"ALTER TABLE acad_programmecourses
+                ADD UNIQUE INDEX `FK_acad_programmecourses_2`
+                (course_code, progcode, CurriculumID, specialisation_id, study_year, semester)");
+        }
+        catch
+        {
+            // Non-fatal: if ALTER privileges are unavailable, the pre-save duplicate
+            // check and the duplicate-key handler still keep saving safe.
+        }
+    }
+
     protected void btnSave_Click(object sender, EventArgs e)
     {
         if (!HasLecturerAssignmentColumns())
@@ -753,6 +806,12 @@ public partial class COOPERP_NewScreens_NewProgrammeCourses : System.Web.UI.Page
             ShowModalError("Database migration is required before saving. Run NewScreens/migration_programme_course_lecturer_assignment.sql then retry.");
             return;
         }
+
+        // Prepare the schema: make sure the uniqueness rule matches how the screen
+        // actually identifies a course assignment (programme + course + specialisation
+        // + study year + semester). A legacy index that ignored year/semester blocked
+        // the same course from being offered in different year/semester slots.
+        EnsureProgrammeCourseUniqueIndex();
 
         string mode       = hdnModalMode.Value.Trim().ToUpper();
         string progcode   = Request.Form[ddlProgramme.UniqueID] ?? "";
@@ -836,6 +895,17 @@ public partial class COOPERP_NewScreens_NewProgrammeCourses : System.Web.UI.Page
                 if (dtDup.Rows.Count > 0 && Convert.ToInt32(dtDup.Rows[0]["cnt"]) > 0)
                 { ShowModalError("This exact course assignment already exists."); return; }
 
+                // Prevent SUBJECT-level duplication: a different course code carrying the
+                // same subject must not also be offered in this programme/year/semester.
+                string dupSubjEdit = FindDuplicateSubjectCode(progcode, courseCode, year, sem, editId);
+                if (dupSubjEdit != null)
+                {
+                    string[] p = dupSubjEdit.Split(new string[] { "~|~" }, StringSplitOptions.None);
+                    ShowModalError("This programme already offers this subject in Year " + year + " Semester " + sem +
+                        " as course " + p[0] + " (" + p[1] + "). A subject may appear only once per programme, year and semester — reuse that course, or archive it first.");
+                    return;
+                }
+
                 ExecuteNonQuery(
                     @"UPDATE acad_programmecourses SET
                         progcode=@p, specialisation_id=@sp,
@@ -867,6 +937,17 @@ public partial class COOPERP_NewScreens_NewProgrammeCourses : System.Web.UI.Page
                 if (dtDup.Rows.Count > 0 && Convert.ToInt32(dtDup.Rows[0]["cnt"]) > 0)
                 { ShowModalError("This course is already assigned to this programme/specialisation/year/semester."); return; }
 
+                // Prevent SUBJECT-level duplication: a different course code carrying the
+                // same subject must not also be offered in this programme/year/semester.
+                string dupSubj = FindDuplicateSubjectCode(progcode, courseCode, year, sem, 0);
+                if (dupSubj != null)
+                {
+                    string[] p = dupSubj.Split(new string[] { "~|~" }, StringSplitOptions.None);
+                    ShowModalError("This programme already offers this subject in Year " + year + " Semester " + sem +
+                        " as course " + p[0] + " (" + p[1] + "). A subject may appear only once per programme, year and semester — reuse that course, or archive it first.");
+                    return;
+                }
+
                 ExecuteNonQuery(
                     @"INSERT INTO acad_programmecourses
                                                 (progcode, course_code, study_year, semester, CurriculumID, specialisation_id, course_type,
@@ -885,10 +966,52 @@ public partial class COOPERP_NewScreens_NewProgrammeCourses : System.Web.UI.Page
                     "closeModal();showToast('Course added successfully.','success');", true);
             }
         }
+        catch (MySqlException mex)
+        {
+            // 1062 = duplicate unique key. Translate to the screen's own language
+            // rather than leaking a raw "Duplicate entry ... for key" message.
+            if (mex.Number == 1062)
+                ShowModalError("This course is already assigned to this programme, specialisation, study year and semester.");
+            else
+                ShowModalError("Error: " + mex.Message);
+        }
         catch (Exception ex)
         {
             ShowModalError("Error: " + ex.Message);
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Duplicate-subject guard (Phase 7 prevention). Returns "code~|~name" of an
+    // existing DIFFERENT course carrying the same subject already offered in this
+    // programme/year/semester, or null if none. Soft-fails (never blocks a save)
+    // and matches on course name only, so it works even where the dedup columns
+    // (subject_id/course_state) have not been added yet.
+    // ---------------------------------------------------------------
+    private string FindDuplicateSubjectCode(string progcode, string courseCode, int year, int sem, int excludeId)
+    {
+        try
+        {
+            DataTable dt = ExecuteQuery(
+                @"SELECT pc.course_code, IFNULL(c.courseName,'') AS courseName
+                  FROM acad_programmecourses pc
+                  JOIN acad_course c  ON TRIM(c.courseID)  = TRIM(pc.course_code)
+                  JOIN acad_course nc ON TRIM(nc.courseID) = TRIM(@c)
+                  WHERE pc.progcode = @p
+                    AND pc.study_year = @y AND pc.semester = @s
+                    AND TRIM(pc.course_code) <> TRIM(@c)
+                    AND (@id = 0 OR pc.ID <> @id)
+                    AND TRIM(UPPER(c.courseName)) = TRIM(UPPER(nc.courseName))
+                    AND TRIM(IFNULL(c.courseName,'')) <> ''
+                  LIMIT 1",
+                new MySqlParameter("@p", progcode), new MySqlParameter("@c", courseCode),
+                new MySqlParameter("@y", year), new MySqlParameter("@s", sem),
+                new MySqlParameter("@id", excludeId));
+            if (dt.Rows.Count > 0)
+                return dt.Rows[0]["course_code"].ToString().Trim() + "~|~" + dt.Rows[0]["courseName"].ToString().Trim();
+        }
+        catch { /* soft guard: never block a legitimate save on guard failure */ }
+        return null;
     }
 
     // ---------------------------------------------------------------
@@ -948,7 +1071,9 @@ public partial class COOPERP_NewScreens_NewProgrammeCourses : System.Web.UI.Page
             "sdSetData('spec',getSpecsForProg(" + JsEncode(progcode2) + "));" +
             "sdSetValue('spec','" + HttpUtility.JavaScriptStringEncode(specId) + "');" +
             "document.getElementById('" + ddlYear.ClientID + "').value='" + HttpUtility.JavaScriptStringEncode(studyYear) + "';" +
+            "document.getElementById('uiYear').value='" + HttpUtility.JavaScriptStringEncode(studyYear) + "';" +
             "document.getElementById('" + ddlSemester.ClientID + "').value='" + HttpUtility.JavaScriptStringEncode(semester2) + "';" +
+            "document.getElementById('uiSemester').value='" + HttpUtility.JavaScriptStringEncode(semester2) + "';" +
             "document.getElementById('" + ddlCourseType.ClientID + "').value=" + JsEncode(courseType) + ";" +
             "document.getElementById('" + ddlIsLecturerAssigned.ClientID + "').value=" + JsEncode(isAssigned) + ";" +
             "document.getElementById('uiIsLecturerAssigned').value=" + JsEncode(isAssigned) + ";" +
@@ -1804,4 +1929,440 @@ public partial class COOPERP_NewScreens_NewProgrammeCourses : System.Web.UI.Page
             return resp;
         }
     }
+
+    // ===============================================================
+    // DATA QUALITY REVIEW PANEL
+    //   Surfaces + safely resolves phantom / duplicate programme-course
+    //   rows. Every write is guarded (never removes a row that has
+    //   students, marks, or a lecturer), backed up into
+    //   acad_programmecourses_quarantine, and logged in
+    //   acad_programmecourses_dq_audit. Fully reversible.
+    // ===============================================================
+
+    private static string REG_TABLE = "campus_dynamics_portal.acad_course_registration";
+
+    private static void DqExec(MySqlConnection conn, MySqlTransaction tx, string sql)
+    {
+        using (MySqlCommand c = new MySqlCommand(sql, conn, tx)) c.ExecuteNonQuery();
+    }
+
+    private static int DqScalar(MySqlConnection conn, MySqlTransaction tx, string sql, params MySqlParameter[] ps)
+    {
+        using (MySqlCommand c = new MySqlCommand(sql, conn, tx))
+        {
+            if (ps != null) foreach (MySqlParameter p in ps) c.Parameters.Add(p);
+            object o = c.ExecuteScalar();
+            return (o == null || o == DBNull.Value) ? 0 : Convert.ToInt32(o);
+        }
+    }
+
+    private static string DqUser()
+    {
+        try
+        {
+            if (HttpContext.Current != null && HttpContext.Current.Session != null)
+            {
+                object u = HttpContext.Current.Session["username"];
+                if (u != null) return u.ToString();
+            }
+        }
+        catch { }
+        return "system";
+    }
+
+    // Build usage aggregates. MySQL forbids referencing a TEMPORARY table more
+    // than once in one query, so each table below is referenced at most once per
+    // query: _dq_pc = (prog,course)->regs/res ; _dq_course = course->prog list.
+    private static void DqBuildAggregates(MySqlConnection conn)
+    {
+        DqExec(conn, null, "SET SESSION group_concat_max_len=100000");
+        DqExec(conn, null, "DROP TEMPORARY TABLE IF EXISTS _dq_pc");
+        DqExec(conn, null, "CREATE TEMPORARY TABLE _dq_pc (p VARCHAR(40) NOT NULL, c VARCHAR(40) NOT NULL, regs INT NOT NULL DEFAULT 0, res INT NOT NULL DEFAULT 0, PRIMARY KEY(p,c)) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+        DqExec(conn, null, "INSERT INTO _dq_pc (p,c,regs) SELECT IFNULL(TRIM(prog_id),''), IFNULL(TRIM(courseID),''), COUNT(*) FROM " + REG_TABLE + " GROUP BY IFNULL(TRIM(prog_id),''), IFNULL(TRIM(courseID),'') ON DUPLICATE KEY UPDATE regs=VALUES(regs)");
+        DqExec(conn, null, "INSERT INTO _dq_pc (p,c,res) SELECT IFNULL(TRIM(progid),''), IFNULL(TRIM(courseid),''), COUNT(*) FROM acad_results GROUP BY IFNULL(TRIM(progid),''), IFNULL(TRIM(courseid),'') ON DUPLICATE KEY UPDATE res=VALUES(res)");
+        DqExec(conn, null, "DROP TEMPORARY TABLE IF EXISTS _dq_course");
+        DqExec(conn, null, "CREATE TEMPORARY TABLE _dq_course (c VARCHAR(40) NOT NULL, progs TEXT, PRIMARY KEY(c)) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+        DqExec(conn, null, "INSERT INTO _dq_course (c,progs) SELECT c, GROUP_CONCAT(DISTINCT p ORDER BY p SEPARATOR ',') FROM _dq_pc GROUP BY c");
+    }
+
+    // Provision quarantine + audit tables (DDL -> implicit commit; call OUTSIDE any txn).
+    private static void DqEnsureTables(MySqlConnection conn)
+    {
+        DqExec(conn, null, "CREATE TABLE IF NOT EXISTS acad_programmecourses_quarantine LIKE acad_programmecourses");
+        DqAddCol(conn, "acad_programmecourses_quarantine", "q_reason", "VARCHAR(40) NULL");
+        DqAddCol(conn, "acad_programmecourses_quarantine", "q_batch", "VARCHAR(40) NULL");
+        DqAddCol(conn, "acad_programmecourses_quarantine", "q_at", "DATETIME NULL");
+        DqExec(conn, null, "CREATE TABLE IF NOT EXISTS acad_programmecourses_dq_audit (" +
+            "audit_id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, pc_id INT UNSIGNED NULL, " +
+            "action VARCHAR(20) NULL, old_progcode VARCHAR(20) NULL, new_progcode VARCHAR(20) NULL, " +
+            "snapshot TEXT NULL, performed_by VARCHAR(80) NULL, performed_at DATETIME NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8");
+    }
+
+    private static void DqAddCol(MySqlConnection conn, string table, string col, string def)
+    {
+        int has = DqScalar(conn, null,
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@t AND column_name=@c",
+            new MySqlParameter("@t", table), new MySqlParameter("@c", col));
+        if (has == 0) DqExec(conn, null, "ALTER TABLE " + table + " ADD COLUMN " + col + " " + def);
+    }
+
+    private static string DqSnapshot(MySqlConnection conn, MySqlTransaction tx, int id)
+    {
+        using (MySqlCommand c = new MySqlCommand(
+            "SELECT CONCAT_WS('|',ID,progcode,course_code,study_year,semester,CurriculumID," +
+            "IFNULL(specialisation_id,''),course_type,is_lecturere_assigned,IFNULL(lecturer_id,''),status) " +
+            "FROM acad_programmecourses WHERE ID=@id", conn, tx))
+        {
+            c.Parameters.AddWithValue("@id", id);
+            object o = c.ExecuteScalar();
+            return o == null || o == DBNull.Value ? "" : o.ToString();
+        }
+    }
+
+    [WebMethod]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static DqStatsResp DQ_Stats()
+    {
+        DqStatsResp r = new DqStatsResp();
+        r.Success = false; r.Message = "";
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnStrStatic))
+            {
+                conn.Open();
+                DqBuildAggregates(conn);
+                r.Mismapped = DqScalar(conn, null,
+                    "SELECT COUNT(*) FROM acad_programmecourses pc " +
+                    "LEFT JOIN _dq_pc j ON j.p=TRIM(pc.progcode) AND j.c=TRIM(pc.course_code) " +
+                    "LEFT JOIN _dq_course cc ON cc.c=TRIM(pc.course_code) " +
+                    "WHERE j.p IS NULL AND cc.c IS NOT NULL AND TRIM(IFNULL(pc.course_code,''))<>''");
+                r.SubjectSlots = DqScalar(conn, null,
+                    "SELECT COUNT(*) FROM (SELECT 1 FROM acad_programmecourses pc " +
+                    "JOIN acad_course c ON TRIM(c.courseID)=TRIM(pc.course_code) " +
+                    "GROUP BY TRIM(pc.progcode),pc.study_year,pc.semester,TRIM(UPPER(c.courseName)) " +
+                    "HAVING COUNT(DISTINCT TRIM(pc.course_code))>1) x");
+                r.Success = true;
+            }
+        }
+        catch (Exception ex) { r.Message = ex.Message; }
+        return r;
+    }
+
+    [WebMethod]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static DqListResp DQ_ListMismapped(int page, int pageSize, string search)
+    {
+        DqListResp r = new DqListResp();
+        r.Success = false; r.Rows = new List<DqRow>();
+        try
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 200) pageSize = 25;
+            string s = (search ?? "").Trim();
+            using (MySqlConnection conn = new MySqlConnection(ConnStrStatic))
+            {
+                conn.Open();
+                DqBuildAggregates(conn);
+                string baseFrom =
+                    "FROM acad_programmecourses pc " +
+                    "LEFT JOIN _dq_pc j ON j.p=TRIM(pc.progcode) AND j.c=TRIM(pc.course_code) " +
+                    "LEFT JOIN _dq_course cc ON cc.c=TRIM(pc.course_code) " +
+                    "LEFT JOIN acad_course c ON TRIM(c.courseID)=TRIM(pc.course_code) " +
+                    "WHERE j.p IS NULL AND cc.c IS NOT NULL AND TRIM(IFNULL(pc.course_code,''))<>'' ";
+                string sc = s == "" ? "" : "AND (pc.progcode LIKE @s OR pc.course_code LIKE @s OR c.courseName LIKE @s) ";
+                r.Total = DqScalar(conn, null, "SELECT COUNT(*) " + baseFrom + sc,
+                    s == "" ? new MySqlParameter[0] : new MySqlParameter[] { new MySqlParameter("@s", "%" + s + "%") });
+                int off = (page - 1) * pageSize;
+                string sql =
+                    "SELECT pc.ID, TRIM(pc.progcode) progcode, TRIM(pc.course_code) course_code, pc.study_year, pc.semester, " +
+                    "UPPER(IFNULL(pc.is_lecturere_assigned,'No')) la, IFNULL(c.courseName,'') cname, IFNULL(cc.progs,'') used_all " +
+                    baseFrom + sc +
+                    "ORDER BY pc.progcode, pc.study_year, pc.semester, pc.course_code LIMIT " + pageSize + " OFFSET " + off;
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    if (s != "") cmd.Parameters.AddWithValue("@s", "%" + s + "%");
+                    using (MySqlDataReader rd = cmd.ExecuteReader())
+                    {
+                        while (rd.Read())
+                        {
+                            DqRow row = new DqRow();
+                            row.ID = Convert.ToInt32(rd["ID"]);
+                            row.Progcode = ToStrSafe(rd["progcode"]);
+                            row.CourseCode = ToStrSafe(rd["course_code"]);
+                            row.StudyYear = ToIntSafe(rd["study_year"], 0);
+                            row.Semester = ToIntSafe(rd["semester"], 0);
+                            row.LecturerAssigned = string.Equals(ToStrSafe(rd["la"]), "YES", StringComparison.OrdinalIgnoreCase);
+                            row.CourseName = ToStrSafe(rd["cname"]);
+                            row.UsedUnder = DqMergeCodes(ToStrSafe(rd["used_all"]), "", row.Progcode);
+                            r.Rows.Add(row);
+                        }
+                    }
+                }
+                r.Success = true;
+            }
+        }
+        catch (Exception ex) { r.Message = ex.Message; }
+        return r;
+    }
+
+    private static string DqMergeCodes(string a, string b, string exclude)
+    {
+        List<string> outp = new List<string>();
+        string[] parts = (a + "," + b).Split(',');
+        foreach (string raw in parts)
+        {
+            string t = (raw ?? "").Trim();
+            if (t == "" || string.Equals(t, exclude, StringComparison.OrdinalIgnoreCase)) continue;
+            bool dup = false;
+            foreach (string e in outp) if (string.Equals(e, t, StringComparison.OrdinalIgnoreCase)) { dup = true; break; }
+            if (!dup) outp.Add(t);
+        }
+        outp.Sort(StringComparer.OrdinalIgnoreCase);
+        return string.Join(", ", outp.ToArray());
+    }
+
+    [WebMethod]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static DqSubjectResp DQ_ListSubjectDups(string search)
+    {
+        DqSubjectResp r = new DqSubjectResp();
+        r.Success = false; r.Rows = new List<DqSubjectRow>();
+        try
+        {
+            string s = (search ?? "").Trim().ToUpperInvariant();
+            using (MySqlConnection conn = new MySqlConnection(ConnStrStatic))
+            {
+                conn.Open();
+                DqBuildAggregates(conn);
+                string sql =
+                    "SELECT TRIM(pc.progcode) prog, pc.study_year yr, pc.semester sem, TRIM(UPPER(c.courseName)) subject, " +
+                    "TRIM(pc.course_code) code, GROUP_CONCAT(pc.ID ORDER BY pc.ID) ids, " +
+                    "IFNULL(j.regs,0) regs, IFNULL(j.res,0) res " +
+                    "FROM acad_programmecourses pc " +
+                    "JOIN acad_course c ON TRIM(c.courseID)=TRIM(pc.course_code) " +
+                    "JOIN (SELECT TRIM(p2.progcode) p, p2.study_year y, p2.semester s, TRIM(UPPER(c2.courseName)) nm " +
+                    "      FROM acad_programmecourses p2 JOIN acad_course c2 ON TRIM(c2.courseID)=TRIM(p2.course_code) " +
+                    "      GROUP BY p,y,s,nm HAVING COUNT(DISTINCT TRIM(p2.course_code))>1) dup " +
+                    "  ON dup.p=TRIM(pc.progcode) AND dup.y=pc.study_year AND dup.s=pc.semester AND dup.nm=TRIM(UPPER(c.courseName)) " +
+                    "LEFT JOIN _dq_pc j ON j.p=TRIM(pc.progcode) AND j.c=TRIM(pc.course_code) " +
+                    "GROUP BY prog,yr,sem,subject,code,j.regs,j.res " +
+                    "ORDER BY prog,yr,sem,subject,code";
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                using (MySqlDataReader rd = cmd.ExecuteReader())
+                {
+                    while (rd.Read())
+                    {
+                        DqSubjectRow row = new DqSubjectRow();
+                        row.Prog = ToStrSafe(rd["prog"]);
+                        row.Yr = ToIntSafe(rd["yr"], 0);
+                        row.Sem = ToIntSafe(rd["sem"], 0);
+                        row.Subject = ToStrSafe(rd["subject"]);
+                        row.Code = ToStrSafe(rd["code"]);
+                        row.Ids = ToStrSafe(rd["ids"]);
+                        row.Regs = ToIntSafe(rd["regs"], 0);
+                        row.Res = ToIntSafe(rd["res"], 0);
+                        if (s != "" &&
+                            row.Prog.ToUpperInvariant().IndexOf(s) < 0 &&
+                            row.Subject.IndexOf(s) < 0 &&
+                            row.Code.ToUpperInvariant().IndexOf(s) < 0) continue;
+                        r.Rows.Add(row);
+                    }
+                }
+                r.Success = true;
+            }
+        }
+        catch (Exception ex) { r.Message = ex.Message; }
+        return r;
+    }
+
+    [WebMethod(EnableSession = true)]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static DqActionResp DQ_QuarantineRows(DqIdsReq request)
+    {
+        DqActionResp resp = new DqActionResp();
+        resp.Success = false; resp.Removed = 0; resp.Skipped = 0; resp.Message = "";
+        List<string> notes = new List<string>();
+        try
+        {
+            if (request == null || request.ids == null || request.ids.Count == 0)
+            { resp.Message = "No rows selected."; return resp; }
+            HashSet<int> ids = new HashSet<int>();
+            foreach (int id in request.ids) if (id > 0) ids.Add(id);
+            if (ids.Count == 0) { resp.Message = "No valid rows selected."; return resp; }
+            if (ids.Count > 2000) { resp.Message = "Too many rows in one batch (max 2000)."; return resp; }
+
+            string user = DqUser();
+            using (MySqlConnection conn = new MySqlConnection(ConnStrStatic))
+            {
+                conn.Open();
+                DqEnsureTables(conn);
+                using (MySqlTransaction tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        foreach (int id in ids)
+                        {
+                            string prog = null, course = null, la = "No";
+                            using (MySqlCommand c = new MySqlCommand(
+                                "SELECT TRIM(progcode), TRIM(course_code), UPPER(IFNULL(is_lecturere_assigned,'No')) FROM acad_programmecourses WHERE ID=@id", conn, tx))
+                            {
+                                c.Parameters.AddWithValue("@id", id);
+                                using (MySqlDataReader rd = c.ExecuteReader())
+                                {
+                                    if (rd.Read()) { prog = rd.IsDBNull(0) ? "" : rd.GetString(0); course = rd.IsDBNull(1) ? "" : rd.GetString(1); la = rd.IsDBNull(2) ? "No" : rd.GetString(2); }
+                                }
+                            }
+                            if (prog == null) { resp.Skipped++; notes.Add(id + ": not found"); continue; }
+                            if (string.Equals(la, "YES", StringComparison.OrdinalIgnoreCase))
+                            { resp.Skipped++; notes.Add(id + ": has a lecturer assigned (re-point or unassign first)"); continue; }
+                            int regs = DqScalar(conn, tx, "SELECT COUNT(*) FROM " + REG_TABLE + " WHERE TRIM(prog_id)=@p AND TRIM(courseID)=@c",
+                                new MySqlParameter("@p", prog), new MySqlParameter("@c", course));
+                            if (regs > 0) { resp.Skipped++; notes.Add(id + ": has " + regs + " registration(s) here"); continue; }
+                            int res = DqScalar(conn, tx, "SELECT COUNT(*) FROM acad_results WHERE TRIM(progid)=@p AND TRIM(courseid)=@c",
+                                new MySqlParameter("@p", prog), new MySqlParameter("@c", course));
+                            if (res > 0) { resp.Skipped++; notes.Add(id + ": has " + res + " result(s) here"); continue; }
+
+                            string snap = DqSnapshot(conn, tx, id);
+                            using (MySqlCommand qc = new MySqlCommand(
+                                "INSERT INTO acad_programmecourses_quarantine " +
+                                "SELECT pc.*, 'DQ_PANEL', 'dq_panel', NOW() FROM acad_programmecourses pc WHERE pc.ID=@id", conn, tx))
+                            { qc.Parameters.AddWithValue("@id", id); qc.ExecuteNonQuery(); }
+                            using (MySqlCommand ac = new MySqlCommand(
+                                "INSERT INTO acad_programmecourses_dq_audit (pc_id,action,old_progcode,new_progcode,snapshot,performed_by,performed_at) " +
+                                "VALUES (@id,'QUARANTINE',@op,NULL,@snap,@u,NOW())", conn, tx))
+                            {
+                                ac.Parameters.AddWithValue("@id", id);
+                                ac.Parameters.AddWithValue("@op", prog);
+                                ac.Parameters.AddWithValue("@snap", snap);
+                                ac.Parameters.AddWithValue("@u", user);
+                                ac.ExecuteNonQuery();
+                            }
+                            using (MySqlCommand dc = new MySqlCommand("DELETE FROM acad_programmecourses WHERE ID=@id", conn, tx))
+                            { dc.Parameters.AddWithValue("@id", id); dc.ExecuteNonQuery(); }
+                            resp.Removed++;
+                        }
+                        tx.Commit();
+                        resp.Success = true;
+                        resp.Message = "Safe-removed " + resp.Removed + " row(s); skipped " + resp.Skipped + ".";
+                        resp.Detail = string.Join("\n", notes.ToArray());
+                        return resp;
+                    }
+                    catch (Exception exi) { try { tx.Rollback(); } catch { } resp.Message = "Transaction failed: " + exi.Message; return resp; }
+                }
+            }
+        }
+        catch (Exception ex) { resp.Message = "Request failed: " + ex.Message; return resp; }
+    }
+
+    [WebMethod(EnableSession = true)]
+    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
+    public static DqActionResp DQ_RepointRow(DqRepointReq request)
+    {
+        DqActionResp resp = new DqActionResp();
+        resp.Success = false; resp.Message = "";
+        try
+        {
+            if (request == null || request.id <= 0 || string.IsNullOrEmpty(request.targetProgcode))
+            { resp.Message = "Row and target programme are required."; return resp; }
+            string target = request.targetProgcode.Trim();
+            string user = DqUser();
+
+            using (MySqlConnection conn = new MySqlConnection(ConnStrStatic))
+            {
+                conn.Open();
+                DqEnsureTables(conn);
+
+                string prog = null, course = null; int cur = 0, spec = 0, yr = 0, sem = 0;
+                using (MySqlCommand c = new MySqlCommand(
+                    "SELECT TRIM(progcode),TRIM(course_code),CurriculumID,IFNULL(specialisation_id,0),study_year,semester FROM acad_programmecourses WHERE ID=@id", conn))
+                {
+                    c.Parameters.AddWithValue("@id", request.id);
+                    using (MySqlDataReader rd = c.ExecuteReader())
+                    {
+                        if (rd.Read())
+                        {
+                            prog = rd.IsDBNull(0) ? "" : rd.GetString(0);
+                            course = rd.IsDBNull(1) ? "" : rd.GetString(1);
+                            cur = rd.IsDBNull(2) ? 0 : Convert.ToInt32(rd.GetValue(2));
+                            spec = rd.IsDBNull(3) ? 0 : Convert.ToInt32(rd.GetValue(3));
+                            yr = rd.IsDBNull(4) ? 0 : Convert.ToInt32(rd.GetValue(4));
+                            sem = rd.IsDBNull(5) ? 0 : Convert.ToInt32(rd.GetValue(5));
+                        }
+                    }
+                }
+                if (prog == null) { resp.Message = "Row not found."; return resp; }
+                if (string.Equals(prog, target, StringComparison.OrdinalIgnoreCase))
+                { resp.Message = "Row is already under that programme."; return resp; }
+
+                // Target must be a programme where this course is actually taken.
+                int usedThere = DqScalar(conn, null, "SELECT COUNT(*) FROM " + REG_TABLE + " WHERE TRIM(prog_id)=@t AND TRIM(courseID)=@c",
+                    new MySqlParameter("@t", target), new MySqlParameter("@c", course));
+                usedThere += DqScalar(conn, null, "SELECT COUNT(*) FROM acad_results WHERE TRIM(progid)=@t AND TRIM(courseid)=@c",
+                    new MySqlParameter("@t", target), new MySqlParameter("@c", course));
+                if (usedThere == 0)
+                { resp.Message = "The course is not taken under '" + target + "', so re-pointing there is not allowed."; return resp; }
+
+                // Collision guard: target must not already list this course in the same slot.
+                int clash = DqScalar(conn, null,
+                    "SELECT COUNT(*) FROM acad_programmecourses WHERE TRIM(course_code)=@c AND TRIM(progcode)=@t " +
+                    "AND CurriculumID=@cur AND IFNULL(specialisation_id,0)=@spec AND study_year=@y AND semester=@s AND ID<>@id",
+                    new MySqlParameter("@c", course), new MySqlParameter("@t", target), new MySqlParameter("@cur", cur),
+                    new MySqlParameter("@spec", spec), new MySqlParameter("@y", yr), new MySqlParameter("@s", sem),
+                    new MySqlParameter("@id", request.id));
+                if (clash > 0)
+                { resp.Message = "'" + target + "' already lists this course in the same slot. Use Safe-remove instead (this row is redundant)."; return resp; }
+
+                using (MySqlTransaction tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        string snap = DqSnapshot(conn, tx, request.id);
+                        using (MySqlCommand ac = new MySqlCommand(
+                            "INSERT INTO acad_programmecourses_dq_audit (pc_id,action,old_progcode,new_progcode,snapshot,performed_by,performed_at) " +
+                            "VALUES (@id,'REPOINT',@op,@np,@snap,@u,NOW())", conn, tx))
+                        {
+                            ac.Parameters.AddWithValue("@id", request.id);
+                            ac.Parameters.AddWithValue("@op", prog);
+                            ac.Parameters.AddWithValue("@np", target);
+                            ac.Parameters.AddWithValue("@snap", snap);
+                            ac.Parameters.AddWithValue("@u", user);
+                            ac.ExecuteNonQuery();
+                        }
+                        using (MySqlCommand uc = new MySqlCommand("UPDATE acad_programmecourses SET progcode=@t WHERE ID=@id", conn, tx))
+                        {
+                            uc.Parameters.AddWithValue("@t", target);
+                            uc.Parameters.AddWithValue("@id", request.id);
+                            uc.ExecuteNonQuery();
+                        }
+                        tx.Commit();
+                        resp.Success = true;
+                        resp.Removed = 1;
+                        resp.Message = "Re-pointed to '" + target + "'.";
+                        return resp;
+                    }
+                    catch (Exception exi) { try { tx.Rollback(); } catch { } resp.Message = "Re-point failed: " + exi.Message; return resp; }
+                }
+            }
+        }
+        catch (Exception ex) { resp.Message = "Request failed: " + ex.Message; return resp; }
+    }
+
+    public class DqStatsResp { public bool Success { get; set; } public string Message { get; set; } public int Mismapped { get; set; } public int SubjectSlots { get; set; } }
+    public class DqRow
+    {
+        public int ID { get; set; } public string Progcode { get; set; } public string CourseCode { get; set; }
+        public string CourseName { get; set; } public int StudyYear { get; set; } public int Semester { get; set; }
+        public bool LecturerAssigned { get; set; } public string UsedUnder { get; set; }
+    }
+    public class DqListResp { public bool Success { get; set; } public string Message { get; set; } public int Total { get; set; } public List<DqRow> Rows { get; set; } }
+    public class DqSubjectRow
+    {
+        public string Prog { get; set; } public int Yr { get; set; } public int Sem { get; set; }
+        public string Subject { get; set; } public string Code { get; set; } public string Ids { get; set; }
+        public int Regs { get; set; } public int Res { get; set; }
+    }
+    public class DqSubjectResp { public bool Success { get; set; } public string Message { get; set; } public List<DqSubjectRow> Rows { get; set; } }
+    public class DqIdsReq { public List<int> ids { get; set; } }
+    public class DqRepointReq { public int id { get; set; } public string targetProgcode { get; set; } }
+    public class DqActionResp { public bool Success { get; set; } public string Message { get; set; } public int Removed { get; set; } public int Skipped { get; set; } public string Detail { get; set; } }
 }

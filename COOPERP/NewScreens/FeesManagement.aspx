@@ -95,6 +95,20 @@
 .fd-kpi__sub svg { flex-shrink: 0; }
 .fd-kpi__currency { font-size: 11px; font-weight: 600; color: #999; margin-right: 2px; }
 
+/* ---- Bursary section ---- */
+.fd-bursary-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+@media(max-width:900px){.fd-bursary-kpis{grid-template-columns:repeat(2,1fr);}}
+.fd-bursary-kpi{background:#fff;border:1px solid #e0e5ed;padding:14px 16px;position:relative;overflow:hidden;}
+.fd-bursary-kpi::before{content:'';position:absolute;left:0;top:0;width:3px;height:100%;}
+.fd-bursary-kpi--credited::before{background:#1d4ed8;}
+.fd-bursary-kpi--coverage::before{background:#15803d;}
+.fd-bursary-kpi--schemes::before{background:#7c3aed;}
+.fd-bursary-kpi--beneficiaries::before{background:#0891b2;}
+.fd-bursary-kpi__icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;}
+.fd-bursary-kpi__label{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#888;font-weight:700;margin-bottom:4px;}
+.fd-bursary-kpi__val{font-size:20px;font-weight:800;color:#1a1a2e;line-height:1.1;margin-bottom:4px;font-variant-numeric:tabular-nums;}
+.fd-bursary-kpi__sub{font-size:10px;color:#aaa;line-height:1.4;}
+
 /* ---- Section headers ---- */
 .fd-section-hdr {
     display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
@@ -330,6 +344,46 @@
     .fd-sem-grid { grid-template-columns: repeat(3,1fr) !important; }
     canvas { max-width: 100% !important; }
 }
+/* ---- Recent Transactions (rtx) ---- */
+.rtx__bar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:10px 12px; border-bottom:1px solid #e0e5ed; }
+.rtx__chips { display:flex; gap:4px; }
+.rtx-chip { padding:5px 12px; font-size:12px; font-weight:600; border:1px solid #cdd5e1; background:#fff; color:#334155; cursor:pointer; border-radius:0; }
+.rtx-chip.is-active { background:#05275C; color:#fff; border-color:#05275C; }
+.rtx-chip:hover { border-color:#174DA4; }
+.rtx__refresh { font-size:14px; line-height:1; padding:5px 10px; }
+.rtx__search { flex:1 1 200px; min-width:150px; padding:6px 10px; font-size:12px; border:1px solid #cdd5e1; border-radius:0; }
+.rtx__sel { padding:6px 8px; font-size:12px; border:1px solid #cdd5e1; background:#fff; border-radius:0; }
+.rtx__auto { font-size:11px; color:#555; display:inline-flex; align-items:center; gap:4px; cursor:pointer; }
+.rtx__updated { font-size:11px; color:#94a3b8; margin-left:auto; }
+.rtx__wrap { overflow-x:auto; max-height:520px; overflow-y:auto; }
+.rtx__tbl { width:100%; }
+.rtx__tbl tbody tr:nth-child(even) { background:#f6f8fb; }
+.rtx-click { cursor:pointer; }
+.rtx-click:hover { background:#e8f0fd !important; }
+.rtx-when { white-space:nowrap; font-size:11px; color:#475569; }
+.rtx-reg { font-weight:600; color:#05275C; white-space:nowrap; }
+.rtx-prog { font-size:11px; color:#64748b; max-width:180px; }
+.rtx-item { font-size:12px; }
+.rtx-det { display:block; font-size:10px; color:#94a3b8; margin-top:1px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rtx-b { display:inline-block; padding:1px 7px; font-size:10px; font-weight:600; border-radius:2px; background:#eef1f6; color:#475569; }
+.rtx-b--pay { background:#e7f6ec; color:#15803d; }
+.rtx-b--bill { background:#eaf1fc; color:#174DA4; }
+.rtx-empty { text-align:center; color:#aaa; padding:26px; font-size:12px; }
+.rtx-ovl { display:none; position:fixed; inset:0; background:rgba(10,20,40,.5); z-index:10000; align-items:center; justify-content:center; padding:20px; }
+.rtx-ovl.open { display:flex; }
+.rtx-modal { background:#fff; width:560px; max-width:96vw; max-height:88vh; display:flex; flex-direction:column; border-radius:2px; box-shadow:0 16px 48px rgba(0,0,0,.28); }
+.rtx-modal__hd { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #e0e5ed; }
+.rtx-modal__hd h3 { margin:0; font-size:14px; color:#05275C; }
+.rtx-modal__x { background:none; border:none; font-size:22px; line-height:1; color:#888; cursor:pointer; }
+.rtx-modal__x:hover { color:#dc3545; }
+.rtx-modal__bd { padding:14px 16px; overflow-y:auto; }
+.rtx-sec { margin-bottom:14px; }
+.rtx-sec__t { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#05275C; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.rtx-kv { display:grid; grid-template-columns:130px 1fr; gap:4px 10px; font-size:12px; }
+.rtx-k { color:#64748b; }
+.rtx-v { color:#1a1a2e; font-weight:500; word-break:break-word; }
+.rtx-lnk { font-size:11px; font-weight:600; color:#174DA4; text-decoration:none; }
+.rtx-lnk:hover { text-decoration:underline; }
 </style>
 </asp:Content>
 
@@ -593,47 +647,53 @@
 <!-- ======= LATEST TRANSACTIONS ==================================== -->
 <div class="fd-section-hdr">
     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-    Latest Transactions
+    Recent Transactions
     <span class="fd-section-hdr__line"></span>
 </div>
-<div class="fd-latest-row">
-    <!-- Latest 20 Payments -->
-    <div class="fs-card">
-        <div class="fs-card__header">
-            <div class="fs-card__title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                Latest 20 Payments
-            </div>
-            <div class="fs-card__meta" style="color:#16a34a;">income</div>
+<div class="fs-card rtx">
+    <div class="rtx__bar">
+        <div class="rtx__chips">
+            <button type="button" class="rtx-chip is-active" data-type="all" onclick="rtxType('all',this)">All</button>
+            <button type="button" class="rtx-chip" data-type="payment" onclick="rtxType('payment',this)">Payments</button>
+            <button type="button" class="rtx-chip" data-type="bill" onclick="rtxType('bill',this)">Bills</button>
         </div>
-        <div style="overflow-x:auto; max-height:420px; overflow-y:auto;">
-            <table class="fs-table">
-                <thead><tr>
-                    <th>Reg No</th><th>Student</th><th>Item</th>
-                    <th style="text-align:right">Amount</th><th>Date</th>
-                </tr></thead>
-                <tbody><asp:Literal ID="litLatestPayRows" runat="server" /></tbody>
-            </table>
-        </div>
+        <input type="text" id="rtxQ" class="rtx__search" placeholder="Search reg no, name or detail…" onkeydown="if(event.key==='Enter')rtxLoad();" />
+        <select id="rtxScope" class="rtx__sel" onchange="rtxLoad()" title="Scope">
+            <option value="all">All years</option>
+            <option value="year">Selected year</option>
+        </select>
+        <select id="rtxLimit" class="rtx__sel" onchange="rtxLoad()" title="Rows">
+            <option value="25">25</option>
+            <option value="50" selected="selected">50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+        </select>
+        <button type="button" class="rtx-chip rtx__refresh" onclick="rtxLoad()" title="Refresh">&#8635;</button>
+        <label class="rtx__auto"><input type="checkbox" id="rtxAuto" onchange="rtxToggleAuto()" /> Live</label>
+        <span class="rtx__updated" id="rtxUpdated"></span>
     </div>
-    <!-- Latest 20 Billings -->
-    <div class="fs-card">
-        <div class="fs-card__header">
-            <div class="fs-card__title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/></svg>
-                Latest 20 Billings
-            </div>
-            <div class="fs-card__meta" style="color:#174DA4;">invoices</div>
-        </div>
-        <div style="overflow-x:auto; max-height:420px; overflow-y:auto;">
-            <table class="fs-table">
-                <thead><tr>
-                    <th>Reg No</th><th>Student</th><th>Item</th>
-                    <th style="text-align:right">Amount</th><th>Date</th>
-                </tr></thead>
-                <tbody><asp:Literal ID="litLatestBillRows" runat="server" /></tbody>
-            </table>
-        </div>
+    <div class="rtx__wrap">
+        <table class="fs-table rtx__tbl">
+            <thead><tr>
+                <th>When</th><th>Reg No</th><th>Student</th><th>Programme</th>
+                <th>Item / detail</th><th style="text-align:right">Amount</th><th>Type</th>
+            </tr></thead>
+            <tbody id="rtxRows"><tr><td colspan="7" class="rtx-empty">Loading&hellip;</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- legacy "Latest" literals kept (hidden) so the server-side dashboard snapshot stays intact -->
+<div style="display:none;">
+    <asp:Literal ID="litLatestPayRows" runat="server" />
+    <asp:Literal ID="litLatestBillRows" runat="server" />
+</div>
+
+<!-- transaction detail modal -->
+<div class="rtx-ovl" id="rtxOvl" onclick="if(event.target===this)rtxClose()">
+    <div class="rtx-modal">
+        <div class="rtx-modal__hd"><h3 id="rtxTitle">Transaction</h3><button type="button" class="rtx-modal__x" onclick="rtxClose()">&times;</button></div>
+        <div class="rtx-modal__bd" id="rtxBody"></div>
     </div>
 </div>
 
@@ -648,6 +708,14 @@
         <asp:Literal ID="litAnomalyCards" runat="server" />
     </div>
 </div>
+
+<!-- ======= BURSARY SCHEMES & BENEFICIARIES ====================== -->
+<div class="fd-section-hdr" style="margin-top:4px;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    Bursary Schemes &amp; Beneficiaries
+    <span class="fd-section-hdr__line"></span>
+</div>
+<asp:Literal ID="litBursarySection" runat="server" />
 
 <!-- ======= PAID BUT UNREGISTERED ================================ -->
 <asp:Panel ID="pnlPaidUnregistered" runat="server" Visible="false">
@@ -1241,6 +1309,76 @@
         setTimeout(initAll, 50);
     }
 }());
+
+/* ============ Recent Transactions (dynamic + clickable) ============ */
+var _rtx = { type:'all', auto:null };
+function _rq(id){ return document.getElementById(id); }
+function rtxEsc(s){ s=(s==null?'':''+s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function rtxMoney(n){ n=Number(n)||0; return 'UGX '+n.toLocaleString('en-US',{maximumFractionDigits:0}); }
+function rtxYear(){ var d=document.getElementById('<%= ddlAcadYear.ClientID %>'); return d?d.value:''; }
+function rtxType(t, el){ _rtx.type=t; var c=el.parentNode.children; for(var i=0;i<c.length;i++) c[i].classList.remove('is-active'); el.classList.add('is-active'); rtxLoad(); }
+function rtxToggleAuto(){ if(_rtx.auto){ clearInterval(_rtx.auto); _rtx.auto=null; } if(_rq('rtxAuto').checked){ _rtx.auto=setInterval(rtxLoad,20000); rtxLoad(); } }
+function rtxLoad(){
+    var tb=_rq('rtxRows'); if(!tb) return;
+    var url='FeesManagement.aspx?act=recenttx'
+        +'&type='+encodeURIComponent(_rtx.type)
+        +'&q='+encodeURIComponent(_rq('rtxQ').value)
+        +'&scope='+encodeURIComponent(_rq('rtxScope').value)
+        +'&limit='+encodeURIComponent(_rq('rtxLimit').value)
+        +'&year='+encodeURIComponent(rtxYear());
+    fetch(url,{credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(function(r){return r.json();})
+      .then(function(d){
+          if(!d.ok){ tb.innerHTML='<tr><td colspan="7" class="rtx-empty">Failed to load transactions.</td></tr>'; return; }
+          if(!d.rows.length){ tb.innerHTML='<tr><td colspan="7" class="rtx-empty">No transactions match your filters.</td></tr>'; }
+          else {
+              tb.innerHTML=d.rows.map(function(x){
+                  var badge = x.type==='Payment' ? '<span class="rtx-b rtx-b--pay">Payment</span>'
+                            : x.type==='Bill' ? '<span class="rtx-b rtx-b--bill">Bill</span>'
+                            : '<span class="rtx-b">'+rtxEsc(x.type||'—')+'</span>';
+                  var col = x.type==='Payment' ? '#15803d' : '#174DA4';
+                  var det = x.detail ? '<span class="rtx-det" title="'+rtxEsc(x.detail)+'">'+rtxEsc(x.detail)+'</span>' : '';
+                  return '<tr class="rtx-click" title="Click for full details" onclick="rtxDetail('+x.tid+')">'
+                      +'<td class="rtx-when">'+rtxEsc(x.date)+'</td>'
+                      +'<td class="rtx-reg">'+rtxEsc(x.regno)+'</td>'
+                      +'<td>'+rtxEsc(x.name||'—')+'</td>'
+                      +'<td class="rtx-prog">'+rtxEsc(x.prog||'—')+'</td>'
+                      +'<td class="rtx-item">'+rtxEsc(x.item)+det+'</td>'
+                      +'<td style="text-align:right;font-weight:600;color:'+col+'">'+rtxMoney(x.amount)+'</td>'
+                      +'<td>'+badge+'</td></tr>';
+              }).join('');
+          }
+          var u=_rq('rtxUpdated'); if(u) u.textContent='Updated '+new Date().toLocaleTimeString()+' · '+(d.count||0)+' shown';
+      })
+      .catch(function(){ tb.innerHTML='<tr><td colspan="7" class="rtx-empty">Network error — try Refresh.</td></tr>'; });
+}
+function rtxKv(k,v){ return '<div class="rtx-k">'+rtxEsc(k)+'</div><div class="rtx-v">'+(v==null||v===''?'—':rtxEsc(v))+'</div>'; }
+function rtxDetail(tid){
+    _rq('rtxTitle').textContent='Transaction #'+tid;
+    _rq('rtxBody').innerHTML='<div class="rtx-empty">Loading…</div>';
+    _rq('rtxOvl').classList.add('open');
+    fetch('FeesManagement.aspx?act=txdetail&tid='+tid,{credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(function(r){return r.json();})
+      .then(function(d){
+          if(!d.ok||!d.txn){ _rq('rtxBody').innerHTML='<div class="rtx-empty">'+rtxEsc((d&&d.message)||'Not found.')+'</div>'; return; }
+          var t=d.txn, s=d.student, b=d.balance, l=d.links;
+          var h='';
+          h+='<div class="rtx-sec"><div class="rtx-sec__t"><span>Transaction</span></div><div class="rtx-kv">';
+          h+=rtxKv('Type',t.type)+rtxKv('Amount',rtxMoney(t.amount))+rtxKv('Date',t.date)+rtxKv('Item',t.item)+rtxKv('Detail',t.detail)+rtxKv('Period',t.year+'  ·  Sem '+t.sem)+rtxKv('Status',t.status);
+          h+='</div></div>';
+          if(s){ h+='<div class="rtx-sec"><div class="rtx-sec__t"><span>Student</span>'+(l?'<a class="rtx-lnk" href="'+rtxEsc(l.profile)+'" target="_blank" rel="noopener">Open profile ↗</a>':'')+'</div><div class="rtx-kv">';
+              h+=rtxKv('Reg No',t.regno)+rtxKv('Name',s.name)+rtxKv('Programme',s.programme)+rtxKv('Status',s.status)+rtxKv('Gender',s.gender)+rtxKv('Phone',s.phone)+rtxKv('Email',s.email)+rtxKv('Entry year',s.entryyear);
+              h+='</div></div>'; }
+          if(b){ h+='<div class="rtx-sec"><div class="rtx-sec__t"><span>Account</span>'+(l?'<a class="rtx-lnk" href="'+rtxEsc(l.ledger)+'" target="_blank" rel="noopener">Open ledger ↗</a>':'')+'</div><div class="rtx-kv">';
+              h+=rtxKv('Total billed',rtxMoney(b.billed))+rtxKv('Total paid',rtxMoney(b.paid))+rtxKv('Balance',rtxMoney(b.balance));
+              h+='</div></div>'; }
+          _rq('rtxBody').innerHTML=h;
+      })
+      .catch(function(){ _rq('rtxBody').innerHTML='<div class="rtx-empty">Failed to load detail.</div>'; });
+}
+function rtxClose(){ _rq('rtxOvl').classList.remove('open'); }
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') rtxClose(); });
+rtxLoad();
 </script>
 
 </asp:Content>

@@ -167,6 +167,94 @@ public partial class COOPERP_NewScreens_UserRoleRoles : System.Web.UI.Page
                     "Deleted role '" + roleName + "'", actor, ip);
                 Response.Write("{\"ok\":true}");
             }
+            else if (action == "clone")
+            {
+                string srcRaw = (Request.Form["source_id"] ?? "").Trim();
+                string name   = (Request.Form["name"] ?? "").Trim();
+                string code   = (Request.Form["code"] ?? "").Trim().ToLower();
+
+                int srcId;
+                if (!int.TryParse(srcRaw, out srcId) || string.IsNullOrEmpty(name) || string.IsNullOrEmpty(code))
+                {
+                    Response.Write("{\"ok\":false,\"error\":\"Source role, name and code are required.\"}");
+                    Response.End(); return;
+                }
+                if (!System.Text.RegularExpressions.Regex.IsMatch(code, @"^[a-z0-9_]+$"))
+                {
+                    Response.Write("{\"ok\":false,\"error\":\"Role code may only contain lowercase letters, digits and underscores.\"}");
+                    Response.End(); return;
+                }
+
+                int copied = 0;
+                using (var conn = new MySqlConnection(ConnStr()))
+                {
+                    conn.Open();
+
+                    // Load source role
+                    string srcColor = "#174DA4", srcDesc = null, srcName = "";
+                    using (var cmd = new MySqlCommand(
+                        "SELECT role_name, color_hex, description FROM sys_roles WHERE id=@s AND is_active=1", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@s", srcId);
+                        using (var dr = cmd.ExecuteReader())
+                        {
+                            if (!dr.Read())
+                            {
+                                Response.Write("{\"ok\":false,\"error\":\"Source role not found.\"}");
+                                Response.End(); return;
+                            }
+                            srcName  = dr.GetString(0);
+                            srcColor = dr["color_hex"] == DBNull.Value ? "#174DA4" : dr["color_hex"].ToString();
+                            srcDesc  = dr["description"] == DBNull.Value ? null : dr["description"].ToString();
+                        }
+                    }
+
+                    // Unique code check
+                    using (var chk = new MySqlCommand("SELECT COUNT(*) FROM sys_roles WHERE role_code=@c", conn))
+                    {
+                        chk.Parameters.AddWithValue("@c", code);
+                        if (Convert.ToInt32(chk.ExecuteScalar()) > 0)
+                        {
+                            Response.Write("{\"ok\":false,\"error\":\"A role with that code already exists.\"}");
+                            Response.End(); return;
+                        }
+                    }
+
+                    using (var tx = conn.BeginTransaction())
+                    {
+                        long newId;
+                        using (var cmd = new MySqlCommand(
+                            @"INSERT INTO sys_roles (role_name, role_code, color_hex, description, is_active)
+                              VALUES (@n, @c, @col, @d, 1)", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@n",   name);
+                            cmd.Parameters.AddWithValue("@c",   code);
+                            cmd.Parameters.AddWithValue("@col", string.IsNullOrEmpty(srcColor) ? "#174DA4" : srcColor);
+                            cmd.Parameters.AddWithValue("@d",   srcDesc == null ? (object)DBNull.Value : (object)srcDesc);
+                            cmd.ExecuteNonQuery();
+                            newId = cmd.LastInsertedId;
+                        }
+
+                        using (var cmd = new MySqlCommand(
+                            @"INSERT INTO sys_role_permissions (role_id, menu_slug, can_view, can_edit, can_delete)
+                              SELECT @new, menu_slug, can_view, can_edit, can_delete
+                              FROM sys_role_permissions WHERE role_id=@s", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@new", newId);
+                            cmd.Parameters.AddWithValue("@s",   srcId);
+                            copied = cmd.ExecuteNonQuery();
+                        }
+
+                        tx.Commit();
+                    }
+
+                    RoleAccessService.LogAudit("CLONE_ROLE", "role", code,
+                        "Cloned role '" + srcName + "' → '" + name + "' (" + copied + " permission(s) copied)",
+                        actor, ip);
+                }
+
+                Response.Write("{\"ok\":true,\"copied\":" + copied + "}");
+            }
             else
             {
                 Response.Write("{\"ok\":false,\"error\":\"Unknown action.\"}");
@@ -315,6 +403,23 @@ public partial class COOPERP_NewScreens_UserRoleRoles : System.Web.UI.Page
                             "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\" ry=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg>" +
                             "Permissions</a>",
                             id);
+
+                        // Members link (Users tab filtered to this role)
+                        cardsSb.AppendFormat(
+                            "<a href=\"UserRoleUsers.aspx?role_id={0}\" class=\"urm-btn urm-btn--ghost urm-btn--sm\" title=\"View the {2} user(s) with this role\">" +
+                            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M23 21v-2a4 4 0 0 0-3-3.87\"/><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"/></svg>" +
+                            "Members</a>",
+                            id, JsStr(name), userCount);
+
+                        // Clone button (base a new role on this one)
+                        if (!isAdmin)
+                        {
+                            cardsSb.AppendFormat(
+                                "<button type=\"button\" class=\"urm-btn urm-btn--ghost urm-btn--sm\" onclick=\"openCloneModal({0},'{1}','{2}')\">" +
+                                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"11\" height=\"11\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\" ry=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg>" +
+                                "Clone</button>",
+                                id, JsStr(name), JsStr(code));
+                        }
 
                         // Delete button (not for admin)
                         if (!isAdmin)

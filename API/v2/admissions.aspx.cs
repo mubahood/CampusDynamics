@@ -396,7 +396,7 @@ public partial class API_v2_admissions : System.Web.UI.Page
         }
 
         // Link regno back to choice row
-        ApiHelper.Execute("UPDATE acad_applicant_choices SET stud_reg_no=@r WHERE id=@id",
+        ApiHelper.Execute("UPDATE acad_applicant_choices SET choice_reg_no=@r WHERE id=@id",
             new MySqlParameter("@r",  regno),
             new MySqlParameter("@id", choiceId));
 

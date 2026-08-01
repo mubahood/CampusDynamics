@@ -74,9 +74,10 @@ public class JournalPrint : DevExpress.XtraReports.UI.XtraReport
 	public JournalPrint()
 	{
 		InitializeComponent();
-		//
-		// TODO: Add constructor logic here
-		//
+
+        this.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.JournalPrint_BeforePrint);
+        this.Detail.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.Detail_BeforePrint);
+        this.ReportFooter.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.ReportFooter_BeforePrint);
 	}
 	
 	/// <summary> 
@@ -89,10 +90,74 @@ public class JournalPrint : DevExpress.XtraReports.UI.XtraReport
 		}
 		base.Dispose(disposing);
 	}
-    private void txt_total_amount_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    private double _journalTotalAmount = 0D;
+    private string _journalCurrency = "UGX";
+
+    private void JournalPrint_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        _journalTotalAmount = 0D;
+        _journalCurrency = "UGX";
+    }
+
+    private void Detail_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        object transTypeObj = GetCurrentColumnValue("transactionType");
+        object amountObj = GetCurrentColumnValue("transaction_amount");
+        object currencyObj = GetCurrentColumnValue("trans_currency");
+
+        if (currencyObj != null && !String.IsNullOrWhiteSpace(currencyObj.ToString()))
+        {
+            _journalCurrency = currencyObj.ToString().Trim();
+        }
+
+        if (transTypeObj == null || amountObj == null)
+        {
+            return;
+        }
+
+        string transType = transTypeObj.ToString().Trim();
+
+        if (!transType.Equals("DR", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        double amount = 0D;
+
+        try
+        {
+            amount = Convert.ToDouble(amountObj);
+        }
+        catch
+        {
+            double.TryParse(
+                amountObj.ToString().Replace(",", "").Trim(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out amount
+            );
+        }
+
+        _journalTotalAmount += amount;
+    }
+
+    private void ReportFooter_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
         NumericToEnglish num = new NumericToEnglish();
-        txt_amount_words.Text = txt_trans_currency.Text + " " + num.changeNumericToWords(double.Parse(txt_total_amount.Text)) + "Only";
+
+        string currency = _journalCurrency;
+        if (String.IsNullOrWhiteSpace(currency))
+        {
+            currency = "UGX";
+        }
+
+        string words = num.changeNumericToWords(_journalTotalAmount);
+        if (words == null)
+        {
+            words = "";
+        }
+
+        txt_amount_words.Text = currency.Trim() + " " + words.Trim() + " Only";
     }
 
 	#region Designer generated code
@@ -775,17 +840,17 @@ public class JournalPrint : DevExpress.XtraReports.UI.XtraReport
             this.txt_amount_words.SizeF = new System.Drawing.SizeF(585.4286F, 44.99998F);
             this.txt_amount_words.StylePriority.UseFont = false;
             this.txt_amount_words.Text = "Amount In Words";
-            this.txt_amount_words.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.txt_total_amount_BeforePrint);
             // 
             // txt_total_amount
             // 
             this.txt_total_amount.DataBindings.AddRange(new DevExpress.XtraReports.UI.XRBinding[] {
-            new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_accounts_fin_GetJournalDetails.transaction_amount")});
+            new DevExpress.XtraReports.UI.XRBinding("Text", null, "campus_dynamics_accounts_fin_GetJournalDetails.DR_Amount")});
             this.txt_total_amount.Dpi = 100F;
             this.txt_total_amount.LocationFloat = new DevExpress.Utils.PointFloat(24.5759F, 52.85368F);
             this.txt_total_amount.Name = "txt_total_amount";
             this.txt_total_amount.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.txt_total_amount.SizeF = new System.Drawing.SizeF(39.78571F, 25F);
+            xrSummary3.FormatString = "{0:0}";
             xrSummary3.Running = DevExpress.XtraReports.UI.SummaryRunning.Report;
             this.txt_total_amount.Summary = xrSummary3;
             this.txt_total_amount.Visible = false;

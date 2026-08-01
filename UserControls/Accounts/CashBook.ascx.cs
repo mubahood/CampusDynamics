@@ -32,11 +32,12 @@ public partial class UserControls_Accounts_CashBook : System.Web.UI.UserControl
         pop_msgbox.Width = 1000;
         pop_msgbox.Height = 600;
         pop_msgbox.ContentUrl = "~/COOPERP/accounts/xtraReports/xtraReportCentre.aspx";
-        Session["accno"] = txtPayee.Value;
+        Session["accno"] = txtPayee.Value == null ? string.Empty : txtPayee.Value.ToString();
         Session["startDate"] = txtStartDate.Text;
         Session["endDate"] = txtEndDate.Text;
         Session["Report"] = "Legder";
         Session["typ"] = "Chart Account";
+        Session["disp_curr"] = "UGX";
         pop_msgbox.ShowOnPageLoad = true;
         gvLedger.DataBind();
     }

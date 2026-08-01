@@ -46,30 +46,31 @@
 }
 .hr-btn--addblend:hover { background: #041d45; color: #fff; }
 
-/* ---- Card grid ---- */
-.fp-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
-.fp-card { background: #fff; border: 1px solid #e0e5ed; border-radius: 2px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow 0.2s; }
-.fp-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-
-.fp-card__header { background: #f5f7fa; border-bottom: 1px solid #e0e5ed; padding: 12px; }
-.fp-card__title { font-size: 13px; font-weight: 700; color: #05275C; margin: 0; line-height: 1.3; }
-.fp-card__subtitle { font-size: 11px; color: #666; margin-top: 3px; }
-
-.fp-card__body { padding: 12px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.fp-card__row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
-.fp-card__row__k { color: #666; font-weight: 600; min-width: 80px; }
-.fp-card__row__v { color: #1a1a2e; text-align: right; }
-.fp-card__row__v.badge { font-weight: 700; padding: 2px 8px; display: inline-block; }
-
-.fp-card__actions { padding: 10px 12px; border-top: 1px solid #e0e5ed; display: flex; gap: 6px; flex-wrap: wrap; }
-.fp-card__actions button { flex: 1; min-width: 90px; padding: 6px 10px; font-size: 11px; font-weight: 600; border: 1px solid #cdd3de; background: #f5f7fa; color: #05275C; cursor: pointer; border-radius: 0; transition: background 0.15s; }
-.fp-card__actions button:hover { background: #dce4f0; }
-.fp-card__actions button.btn-danger { color: #dc3545; border-color: #f5a5a5; }
-.fp-card__actions button.btn-danger:hover { background: #fef5f5; }
+/* ---- Programmes list ---- */
+.fp-list-wrap { background: #fff; border: 1px solid #e0e5ed; overflow-x: auto; }
+.fp-list { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fp-list thead th { background: #f5f7fa; border-bottom: 1px solid #e0e5ed; padding: 9px 12px; text-align: left; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #555; white-space: nowrap; }
+.fp-list tbody td { border-bottom: 1px solid #eef1f5; padding: 8px 12px; vertical-align: middle; color: #1a1a2e; }
+.fp-list tbody tr:hover { background: #f8fafd; }
+.fp-list tbody tr:last-child td { border-bottom: none; }
+.fp-code { font-weight: 700; color: #05275C; }
+.fp-name { font-weight: 600; color: #1a1a2e; line-height: 1.3; }
+.fp-sub { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+.fp-center { text-align: center; }
+.fp-actions { white-space: nowrap; text-align: right; }
+.fp-act { padding: 3px 9px; font-size: 11px; font-weight: 600; border: 1px solid #cdd3de; background: #fff; color: #05275C; cursor: pointer; border-radius: 0; margin-left: 4px; transition: background .15s; }
+.fp-act:hover { background: #eef2f8; }
+.fp-act--danger { color: #dc3545; border-color: #f0b8bd; }
+.fp-act--danger:hover { background: #fef5f5; }
+.fp-loading, .fp-empty-row { text-align: center; padding: 28px 16px; color: #94a3b8; font-size: 12px; }
 
 /* ---- Badge styles ---- */
 .badge-set-yes { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; font-size: 10px; font-weight: 700; }
 .badge-set-no { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; padding: 3px 8px; font-size: 10px; font-weight: 700; }
+.badge-app-on { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; font-size: 10px; font-weight: 700; }
+.badge-app-off { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; padding: 3px 8px; font-size: 10px; font-weight: 700; }
+.fp-act--status { color: #174DA4; border-color: #b9cdf0; }
+.fp-act--status:hover { background: #eef4fd; }
 
 /* ---- Empty state ---- */
 .fp-empty { text-align: center; padding: 40px 20px; color: #999; }
@@ -180,7 +181,6 @@
     <asp:HiddenField ID="hdnModalMode"    runat="server" />   <%-- NEW or EDIT --%>
     <asp:HiddenField ID="hdnStructureCode" runat="server" />
     <asp:Button ID="btnSaveProgramme"  runat="server" style="display:none" OnClick="btnSaveProgramme_Click" />
-    <asp:Button ID="btnDeleteProgramme" runat="server" style="display:none" OnClick="btnDeleteProgramme_Click" />
     <asp:Button ID="btnOpenStructure"  runat="server" style="display:none" OnClick="btnOpenStructure_Click" />
     <asp:HiddenField ID="hdnCourseProgcode" runat="server" />
     <asp:HiddenField ID="hdnSelectedCourse" runat="server" />
@@ -201,6 +201,10 @@
         <div class="stat-box">
             <div class="stat-box__value" id="statFaculties">0</div>
             <div class="stat-box__label">Faculties</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-box__value" id="statCourses">0</div>
+            <div class="stat-box__label">Total Courses</div>
         </div>
         <div class="stat-box">
             <div class="stat-box__value" id="statSpecializations">0</div>
@@ -237,8 +241,27 @@
         </button>
     </div>
 
-    <!-- Card list -->
-    <asp:Literal ID="litProgrammesList" runat="server" />
+    <!-- Programmes list (loaded via GET) -->
+    <div class="fp-list-wrap">
+        <table class="fp-list">
+            <thead>
+                <tr>
+                    <th style="width:110px;">Code</th>
+                    <th>Programme</th>
+                    <th style="width:140px;">Level</th>
+                    <th style="width:78px;text-align:center;">Duration</th>
+                    <th style="width:66px;text-align:center;">Courses</th>
+                    <th style="width:62px;text-align:center;">Specs</th>
+                    <th style="width:110px;">Status</th>
+                    <th style="width:120px;">Applications</th>
+                    <th style="width:315px;text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="fpListBody">
+                <tr><td colspan="9" class="fp-loading">Loading programmes…</td></tr>
+            </tbody>
+        </table>
+    </div>
 
     <!-- ===== Create / Edit Modal ===== -->
     <div id="progModal" class="hr-modal-overlay" style="display:none">
@@ -256,6 +279,15 @@
                         <asp:TextBox ID="txtProgcode" runat="server" CssClass="hr-input"
                             placeholder="e.g. BSC-CS" MaxLength="20" />
                         <div class="hr-form-hint">Short unique identifier (e.g. BSC-CS, DIPL-ACC)</div>
+                        <%-- Toggle to unlock the code for editing (shown only when editing an existing programme) --%>
+                        <label id="codeToggleWrap" style="display:none;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#b45309;cursor:pointer;user-select:none;">
+                            <input type="checkbox" id="chkEditCode" onclick="toggleCodeEdit()" style="margin:0;" /> Change programme code
+                        </label>
+                        <div id="codeChangeWarn" style="display:none;margin-top:6px;font-size:11px;color:#b91c1c;background:#fee2e2;border:1px solid #fecaca;padding:6px 8px;line-height:1.4;">
+                            &#9888; The code is a key used across the whole system. Changing it will update it on
+                            <strong>every</strong> linked record &mdash; students, results, fees, timetables, allocations, registrations, etc.
+                            This runs as one all-or-nothing operation. Proceed only if you are sure.
+                        </div>
                     </div>
                     <div class="hr-form-group">
                         <label>Abbreviation</label>
@@ -287,6 +319,14 @@
                             <asp:ListItem Value="5" Text="Masters Degree" />
                             <asp:ListItem Value="6" Text="Doctorate" />
                         </asp:DropDownList>
+                    </div>
+                </div>
+
+                <div class="hr-form-row">
+                    <div class="hr-form-group" style="flex:1;">
+                        <label>Department <span class="req">*</span></label>
+                        <asp:DropDownList ID="ddlDepartment" runat="server" CssClass="hr-select" />
+                        <div style="font-size:10px;color:#94a3b8;margin-top:3px;">The department this programme belongs to. The list filters to the selected faculty's departments — manage these under Programmes &amp; Courses &rsaquo; Departments.</div>
                     </div>
                 </div>
 
@@ -400,6 +440,37 @@
         </div>
     </div>
 
+    <!-- Online-Application Status Modal (dedicated, separate from the edit form) -->
+    <div id="appStatusModal" class="hr-modal-overlay" style="display:none">
+        <div class="hr-modal" style="width:460px">
+            <div class="hr-modal-header">
+                <h4>Online Application Status</h4>
+                <button type="button" class="hr-modal-close" onclick="closeAppStatusModal()">&times;</button>
+            </div>
+            <div class="hr-modal-body">
+                <div id="appStatusResult" class="form-result" style="display:none"></div>
+                <p style="margin:0 0 6px;font-size:13px;color:#1a1a2e;font-weight:700;" id="appStatusProgName"></p>
+                <p style="margin:0 0 16px;font-size:11px;color:#6b7280;" id="appStatusProgCode"></p>
+                <p style="margin:0 0 14px;font-size:12px;color:#374151;line-height:1.5;">
+                    Control whether this programme is offered on the <strong>eportal online-application form</strong>.
+                    When <strong>closed</strong>, applicants will not see this programme in the application dropdowns.
+                </p>
+                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e5ed;cursor:pointer;margin-bottom:8px;">
+                    <input type="radio" name="appStatusRadio" value="1" id="appStatusOn">
+                    <span><span class="badge badge-app-on">Open</span> &nbsp;Accepting online applications</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e5ed;cursor:pointer;">
+                    <input type="radio" name="appStatusRadio" value="0" id="appStatusOff">
+                    <span><span class="badge badge-app-off">Closed</span> &nbsp;Hidden from the application form</span>
+                </label>
+            </div>
+            <div class="hr-modal-footer">
+                <button type="button" class="hr-btn hr-btn--outline" onclick="closeAppStatusModal()">Cancel</button>
+                <button type="button" class="hr-btn" id="appStatusSaveBtn" onclick="saveAppStatus()">Save Status</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Programme Structure Popup -->
     <dx:ASPxPopupControl ID="popStructure" runat="server"
         HeaderText="Programme Structure"
@@ -428,12 +499,72 @@
 /* ---- Filter functionality ---- */
 var _fpAllData = [];
 
-function fpInitialize(data) {
-    _fpAllData = data || [];
+function fpInitialize() {
     document.getElementById('fpSearchInput').addEventListener('input', fpApplyFilters);
     document.getElementById('fpFilterLevel').addEventListener('change', fpApplyFilters);
     document.getElementById('fpFilterFully').addEventListener('change', fpApplyFilters);
-    fpUpdateStats();
+    fpInitDeptFilter();
+    fpLoadList();
+}
+
+/* ---- Load the listing via GET ---- */
+function fpLoadList() {
+    var body = document.getElementById('fpListBody');
+    if (body) body.innerHTML = '<tr><td colspan="9" class="fp-loading">Loading programmes…</td></tr>';
+    fetch(location.pathname + '?act=list', { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data && data.error) {
+                if (body) body.innerHTML = '<tr><td colspan="9" class="fp-empty-row" style="color:#dc2626">Error: ' + _escH(data.error) + '</td></tr>';
+                return;
+            }
+            _fpAllData = data || [];
+            fpUpdateStats();
+            fpApplyFilters();
+        })
+        .catch(function () {
+            if (body) body.innerHTML = '<tr><td colspan="9" class="fp-empty-row" style="color:#dc2626">Failed to load programmes. Please refresh.</td></tr>';
+        });
+}
+
+/* ---- Department-by-faculty filter ---- */
+var _fpAllDepts = [];
+function fpInitDeptFilter() {
+    var facEl = document.getElementById('<%= ddlFaculty.ClientID %>');
+    var depEl = document.getElementById('<%= ddlDepartment.ClientID %>');
+    if (!facEl || !depEl) return;
+    // Snapshot every department option with the faculty it belongs to.
+    _fpAllDepts = [];
+    for (var i = 0; i < depEl.options.length; i++) {
+        var o = depEl.options[i];
+        if (o.value === '') continue;
+        _fpAllDepts.push({ id: o.value, name: o.text, fac: o.getAttribute('data-fac') || '' });
+    }
+    facEl.onchange = fpFilterDepts;
+}
+function fpFilterDepts() {
+    var facEl = document.getElementById('<%= ddlFaculty.ClientID %>');
+    var depEl = document.getElementById('<%= ddlDepartment.ClientID %>');
+    if (!facEl || !depEl) return;
+    var fac = facEl.value;
+    var cur = depEl.value;
+    depEl.innerHTML = '';
+    var o0 = document.createElement('option');
+    o0.value = ''; o0.text = '-- Select Department --';
+    depEl.appendChild(o0);
+    for (var i = 0; i < _fpAllDepts.length; i++) {
+        var d = _fpAllDepts[i];
+        // Show the selected faculty's departments, plus any not yet
+        // assigned to a faculty (so legacy departments remain pickable).
+        if (!fac || d.fac === fac || d.fac === '') {
+            var o = document.createElement('option');
+            o.value = d.id; o.text = d.name;
+            o.setAttribute('data-fac', d.fac);
+            depEl.appendChild(o);
+        }
+    }
+    depEl.value = cur;
+    if (depEl.value !== cur) depEl.value = '';
 }
 
 function fpApplyFilters() {
@@ -445,44 +576,45 @@ function fpApplyFilters() {
         var matchSearch = !searchTerm || 
             p.code.toLowerCase().indexOf(searchTerm) !== -1 ||
             p.name.toLowerCase().indexOf(searchTerm) !== -1 ||
-            p.faculty.toLowerCase().indexOf(searchTerm) !== -1;
+            p.faculty.toLowerCase().indexOf(searchTerm) !== -1 ||
+            (p.dept && p.dept.toLowerCase().indexOf(searchTerm) !== -1);
         var matchLevel = !levelFilter || p.level.toString() === levelFilter;
         var matchFully = !fullyFilter || p.fully === fullyFilter;
         return matchSearch && matchLevel && matchFully;
     });
     
-    fpRenderCards(filtered);
+    fpRenderList(filtered);
 }
 
-function fpRenderCards(programmes) {
-    var container = document.querySelector('.fp-card-list');
-    if (!container) return;
-    
-    if (programmes.length === 0) {
-        container.innerHTML = '<div class="fp-empty"><div class="fp-empty__icon">📋</div><div class="fp-empty__text">No programmes match your filters</div><div class="fp-empty__hint">Try adjusting your search or filter criteria</div></div>';
+function fpRenderList(programmes) {
+    var body = document.getElementById('fpListBody');
+    if (!body) return;
+
+    if (!programmes.length) {
+        body.innerHTML = '<tr><td colspan="9" class="fp-empty-row">No programmes match your filters.</td></tr>';
         return;
     }
-    
-    container.innerHTML = programmes.map(function(p) {
-        return '<div class="fp-card">' +
-            '<div class="fp-card__header">' +
-                '<div class="fp-card__title">' + _escH(p.code) + ' — ' + _escH(p.name) + '</div>' +
-                '<div class="fp-card__subtitle">' + _escH(p.faculty) + '</div>' +
-            '</div>' +
-            '<div class="fp-card__body">' +
-                '<div class="fp-card__row"><span class="fp-card__row__k">Level:</span><span class="fp-card__row__v">' + _escH(p.level_label) + '</span></div>' +
-                '<div class="fp-card__row"><span class="fp-card__row__k">Duration:</span><span class="fp-card__row__v">' + p.duration + ' year(s)</span></div>' +
-                '<div class="fp-card__row"><span class="fp-card__row__k">Study System:</span><span class="fp-card__row__v">' + _escH(p.study_system) + '</span></div>' +
-                '<div class="fp-card__row"><span class="fp-card__row__k">Specializations:</span><span class="fp-card__row__v"><strong>' + p.spec_count + '</strong></span></div>' +
-                '<div class="fp-card__row"><span class="fp-card__row__k">Status:</span><span class="badge ' + (p.fully === 'Yes' ? 'badge-set-yes' : 'badge-set-no') + '">' + p.fully + '</span></div>' +
-            '</div>' +
-            '<div class="fp-card__actions">' +
-                '<button type="button" onclick="editProg(\'' + _escA(p.code) + '\')">✎ Edit</button>' +
-                '<button type="button" onclick="openStructure(\'' + _escA(p.code) + '\')">≡ Structure</button>' +
-                '<button type="button" onclick="openCourses(\'' + _escA(p.code) + '\')">📖 Courses</button>' +
-                '<button type="button" class="btn-danger" onclick="deleteProg(\'' + _escA(p.code) + '\',\'' + _escA(p.name) + '\')">✕ Delete</button>' +
-            '</div>' +
-        '</div>';
+
+    body.innerHTML = programmes.map(function (p) {
+        var sub = (p.faculty || p.dept)
+            ? '<div class="fp-sub">' + _escH(p.faculty || '') + (p.dept ? ' &middot; ' + _escH(p.dept) : '') + '</div>'
+            : '';
+        return '<tr>' +
+            '<td><span class="fp-code">' + _escH(p.code) + '</span></td>' +
+            '<td><div class="fp-name">' + _escH(p.name) + '</div>' + sub + '</td>' +
+            '<td>' + _escH(p.level_label || '') + '</td>' +
+            '<td class="fp-center">' + p.duration + ' yr</td>' +
+            '<td class="fp-center">' + (p.course_count || 0) + '</td>' +
+            '<td class="fp-center">' + p.spec_count + '</td>' +
+            '<td><span class="badge ' + (p.fully === 'Yes' ? 'badge-set-yes' : 'badge-set-no') + '">' + (p.fully === 'Yes' ? 'Configured' : 'Pending') + '</span></td>' +
+            '<td><span class="badge ' + (p.app_active ? 'badge-app-on' : 'badge-app-off') + '">' + (p.app_active ? 'Open' : 'Closed') + '</span></td>' +
+            '<td class="fp-actions">' +
+                '<button type="button" class="fp-act fp-act--status" onclick="openAppStatusModal(\'' + _escA(p.code) + '\',\'' + _escA(p.name) + '\',' + (p.app_active ? 1 : 0) + ')">Applications</button>' +
+                '<button type="button" class="fp-act" onclick="editProg(\'' + _escA(p.code) + '\')">Edit</button>' +
+                '<button type="button" class="fp-act" onclick="openStructure(\'' + _escA(p.code) + '\')">Structure</button>' +
+                '<button type="button" class="fp-act" onclick="openCourses(\'' + _escA(p.code) + '\')">Courses</button>' +
+            '</td>' +
+        '</tr>';
     }).join('');
 }
 
@@ -493,50 +625,142 @@ function fpResetFilters() {
     fpApplyFilters();
 }
 
+/* ---- Online-application status (dedicated modal) ---- */
+var _appStatusCode = '';
+function openAppStatusModal(code, name, active) {
+    _appStatusCode = code;
+    document.getElementById('appStatusProgName').textContent = name || code;
+    document.getElementById('appStatusProgCode').textContent = code;
+    document.getElementById('appStatusOn').checked = (active === 1 || active === '1' || active === true);
+    document.getElementById('appStatusOff').checked = !document.getElementById('appStatusOn').checked;
+    var res = document.getElementById('appStatusResult');
+    res.style.display = 'none'; res.textContent = '';
+    document.getElementById('appStatusSaveBtn').disabled = false;
+    document.getElementById('appStatusModal').style.display = 'flex';
+}
+function closeAppStatusModal() {
+    document.getElementById('appStatusModal').style.display = 'none';
+}
+function saveAppStatus() {
+    var on = document.getElementById('appStatusOn').checked ? 1 : 0;
+    var res = document.getElementById('appStatusResult');
+    var btn = document.getElementById('appStatusSaveBtn');
+    btn.disabled = true;
+    res.style.display = 'block';
+    res.style.color = '#374151';
+    res.textContent = 'Saving…';
+    var body = 'act=setappstatus&code=' + encodeURIComponent(_appStatusCode) + '&active=' + on;
+    fetch(location.pathname, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+        body: body
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data && data.ok) {
+            // update the in-memory row so the table badge refreshes without a full reload
+            for (var i = 0; i < _fpAllData.length; i++) {
+                if (_fpAllData[i].code === _appStatusCode) { _fpAllData[i].app_active = on; break; }
+            }
+            fpApplyFilters();
+            res.style.color = '#15803d';
+            res.textContent = data.message || 'Saved.';
+            setTimeout(closeAppStatusModal, 900);
+        } else {
+            res.style.color = '#dc2626';
+            res.textContent = (data && data.message) ? data.message : 'Save failed.';
+            btn.disabled = false;
+        }
+    })
+    .catch(function () {
+        res.style.color = '#dc2626';
+        res.textContent = 'Network error. Please try again.';
+        btn.disabled = false;
+    });
+}
+
 function fpUpdateStats() {
     var total = _fpAllData.length;
     var fullySet = _fpAllData.filter(function(p) { return p.fully === 'Yes'; }).length;
     var totalSpecs = _fpAllData.reduce(function(sum, p) { return sum + (p.spec_count || 0); }, 0);
+    var totalCourses = _fpAllData.reduce(function(sum, p) { return sum + (p.course_count || 0); }, 0);
     var faculties = new Set(_fpAllData.map(function(p) { return p.faculty; })).size;
-    
+
     document.getElementById('statTotalProgs').textContent = total;
     document.getElementById('statFullySet').textContent = fullySet;
     document.getElementById('statFaculties').textContent = faculties;
+    document.getElementById('statCourses').textContent = totalCourses.toLocaleString();
     document.getElementById('statSpecializations').textContent = totalSpecs;
 }
 
 /* ---- Modal ---- */
-function openProgModal(mode, progcode) {
+function openProgModal(mode, progcode, facultyCode, deptId) {
     document.getElementById('modalResult').style.display = 'none';
     document.getElementById('<%= hdnModalMode.ClientID %>').value = mode || 'NEW';
     document.getElementById('<%= hdnEditProgcode.ClientID %>').value = progcode || '';
     document.getElementById('modalTitle').textContent = (mode === 'EDIT') ? 'Edit Programme' : 'New Programme';
 
     var codeBox = document.getElementById('<%= txtProgcode.ClientID %>');
+    var toggleWrap = document.getElementById('codeToggleWrap');
+    var chkCode = document.getElementById('chkEditCode');
+    var codeWarn = document.getElementById('codeChangeWarn');
+    if (chkCode) chkCode.checked = false;
+    if (codeWarn) codeWarn.style.display = 'none';
     if (mode === 'EDIT') {
+        // Code is locked by default when editing; a deliberate toggle unlocks it.
         codeBox.readOnly = true;
         codeBox.style.background = '#f5f7fa';
         codeBox.style.color = '#666';
+        if (toggleWrap) toggleWrap.style.display = 'inline-flex';
     } else {
+        // New programme: code is always editable, no toggle needed.
         codeBox.readOnly = false;
         codeBox.style.background = '';
         codeBox.style.color = '';
+        if (toggleWrap) toggleWrap.style.display = 'none';
     }
+
+    // Set Faculty + Department client-side (authoritative — independent of the
+    // server postback lifecycle, so the selection always shows on edit).
+    var facEl = document.getElementById('<%= ddlFaculty.ClientID %>');
+    if (facEl) facEl.value = (mode === 'EDIT' && facultyCode != null) ? facultyCode : '';
+    fpFilterDepts(); // rebuild the department list for the chosen faculty
+    var depEl = document.getElementById('<%= ddlDepartment.ClientID %>');
+    if (depEl) depEl.value = (mode === 'EDIT' && deptId) ? deptId : '';
+
     document.getElementById('progModal').style.display = 'flex';
 }
 function closeProgModal() {
     document.getElementById('progModal').style.display = 'none';
 }
 
+/* Toggle the programme-code field between locked and editable (edit mode only). */
+function toggleCodeEdit() {
+    var chk = document.getElementById('chkEditCode');
+    var codeBox = document.getElementById('<%= txtProgcode.ClientID %>');
+    var warn = document.getElementById('codeChangeWarn');
+    if (chk && chk.checked) {
+        codeBox.readOnly = false;
+        codeBox.style.background = '';
+        codeBox.style.color = '';
+        if (warn) warn.style.display = 'block';
+        codeBox.focus();
+        codeBox.select();
+    } else {
+        codeBox.readOnly = true;
+        codeBox.style.background = '#f5f7fa';
+        codeBox.style.color = '#666';
+        if (warn) warn.style.display = 'none';
+        // Revert any typed change back to the original code when re-locking.
+        codeBox.value = document.getElementById('<%= hdnEditProgcode.ClientID %>').value;
+    }
+}
+
 function editProg(code) {
     document.getElementById('<%= hdnEditProgcode.ClientID %>').value = code;
     document.getElementById('<%= hdnModalMode.ClientID %>').value = 'LOAD';
     document.getElementById('<%= btnSaveProgramme.ClientID %>').click();
-}
-function deleteProg(code, name) {
-    if (!confirm('Delete programme "' + name + '" (' + code + ')?\n\nThis will also remove all associated specialisations. This cannot be undone.')) return;
-    document.getElementById('<%= hdnEditProgcode.ClientID %>').value = code;
-    document.getElementById('<%= btnDeleteProgramme.ClientID %>').click();
 }
 function openStructure(code) {
     document.getElementById('<%= hdnStructureCode.ClientID %>').value = code;
@@ -636,6 +860,13 @@ function removeCourse(id) {
 }
 function _escH(s) { var d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML; }
 function _escA(s) { return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+/* ---- Boot ----
+   This <script> sits AFTER all the markup it touches (filter bar, modal dropdowns,
+   list body), so we initialise synchronously. This guarantees the dropdown snapshot
+   is ready BEFORE any server-emitted startup script (e.g. openProgModal('EDIT',…))
+   runs further down the page. */
+fpInitialize();
 </script>
 
 </asp:Content>

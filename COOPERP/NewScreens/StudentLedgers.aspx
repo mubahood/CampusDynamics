@@ -30,6 +30,10 @@
 .sl-fg--search { min-width:240px; flex:1; }
 .sl-balance-range { display:flex; gap:6px; align-items:center; }
 .sl-balance-range .sl-input { width:110px; }
+.sl-hint { display:block; margin-top:3px; font-size:9px; color:#8a93a3; line-height:1.3; max-width:300px; }
+.sl-hint b { color:#536178; font-weight:700; }
+.sl-fg--actions { min-width:auto; }
+.sl-actions-row { display:flex; gap:6px; flex-wrap:wrap; }
 
 .sl-table-wrap { overflow:auto; max-height:620px; }
 .sl-table { width:100%; border-collapse:collapse; min-width:1220px; font-size:11px; }
@@ -181,20 +185,15 @@
         <div class="sl-stat sl-stat--students"><div class="sl-stat__v"><asp:Literal ID="litStatStudents" runat="server" Text="0"></asp:Literal></div><div class="sl-stat__l">Active Students (Filtered)</div></div>
         <div class="sl-stat sl-stat--billed"><div class="sl-stat__v"><asp:Literal ID="litStatBilled" runat="server" Text="0"></asp:Literal></div><div class="sl-stat__l">Total Billed</div></div>
         <div class="sl-stat sl-stat--paid"><div class="sl-stat__v"><asp:Literal ID="litStatPaid" runat="server" Text="0"></asp:Literal></div><div class="sl-stat__l">Total Paid / Credits</div></div>
-        <div class="sl-stat sl-stat--balance"><div class="sl-stat__v"><asp:Literal ID="litStatBalance" runat="server" Text="0"></asp:Literal></div><div class="sl-stat__l">Outstanding Net Balance</div></div>
+        <div class="sl-stat sl-stat--balance"><div class="sl-stat__v"><asp:Literal ID="litStatBalance" runat="server" Text="0"></asp:Literal></div><div class="sl-stat__l">Net Balance (CR = overpaid / DR = owing)</div></div>
     </div>
 
     <div class="sl-card">
         <div class="sl-card__header">
-            <div class="sl-card__title">Student Ledgers Controller</div>
-            <div>
-                <button type="button" class="sl-btn sl-btn--ghost" onclick="toggleFilters()">Toggle Filters</button>
-                <asp:Button ID="btnExportCsv" runat="server" CssClass="sl-btn sl-btn--ghost" Text="Export CSV" OnClick="btnExportCsv_Click" />
-                <asp:Button ID="btnExportExcel" runat="server" CssClass="sl-btn sl-btn--success" Text="Export Excel" OnClick="btnExportExcel_Click" />
-            </div>
+            <button type="button" class="sl-btn sl-btn--ghost" onclick="toggleFilters()">Toggle Filters</button>
         </div>
 
-        <div id="slFilters" class="sl-filters">
+        <div id="slFilters" class="sl-filters sl-filters--open">
             <div class="sl-frow">
                 <div class="sl-fg sl-fg--search">
                     <label>Search</label>
@@ -209,15 +208,21 @@
                     <label>Balance Amount</label>
                     <div class="sl-balance-range">
                         <asp:DropDownList ID="ddlBalanceOp" runat="server" CssClass="sl-select"></asp:DropDownList>
-                        <asp:TextBox ID="txtBalanceFrom" runat="server" CssClass="sl-input" placeholder="Value"></asp:TextBox>
+                        <asp:TextBox ID="txtBalanceFrom" runat="server" CssClass="sl-input" placeholder="Amount"></asp:TextBox>
                         <asp:TextBox ID="txtBalanceTo" runat="server" CssClass="sl-input" placeholder="To"></asp:TextBox>
                     </div>
+                    <span class="sl-hint">Balance size only (sign ignored). Use <b>Balance State</b> for owing vs credit.</span>
                 </div>
-                <div class="sl-fg"><label>Rows</label><asp:DropDownList ID="ddlPageSize" runat="server" CssClass="sl-select"></asp:DropDownList></div>
+                <div class="sl-fg"><label>Rows</label><asp:DropDownList ID="ddlPageSize" runat="server" CssClass="sl-select" onchange="applyFilters()"></asp:DropDownList></div>
                 <div class="sl-fg"><label>Options</label><asp:CheckBox ID="chkWithTransactions" runat="server" Text="Only with transactions" /></div>
-                <div class="sl-fg">
-                    <asp:Button ID="btnSearch" runat="server" CssClass="sl-btn sl-btn--primary" Text="Apply" OnClick="btnSearch_Click" />
-                    <asp:Button ID="btnReset" runat="server" CssClass="sl-btn sl-btn--ghost" Text="Reset" OnClick="btnReset_Click" />
+                <div class="sl-fg sl-fg--actions">
+                    <label>&nbsp;</label>
+                    <div class="sl-actions-row">
+                        <button type="button" id="btnSearch" class="sl-btn sl-btn--primary" onclick="applyFilters()">Apply</button>
+                        <button type="button" id="btnReset" class="sl-btn sl-btn--ghost" onclick="resetFilters()">Reset</button>
+                        <button type="button" class="sl-btn sl-btn--ghost" onclick="exportLedgers('csv')">Export CSV</button>
+                        <button type="button" class="sl-btn sl-btn--success" onclick="exportLedgers('excel')">Export Excel</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -260,7 +265,7 @@
                                 <td><%# FormatSemester(Eval("current_semester")) %></td>
                                 <td class="sl-money sl-money--billed"><%# FormatMoney(Eval("total_billed")) %></td>
                                 <td class="sl-money sl-money--paid"><%# FormatMoney(Eval("total_paid")) %></td>
-                                <td class="sl-money <%# GetBalanceClass(Eval("total_balance")) %>"><%# FormatMoney(Eval("total_balance")) %></td>
+                                <td class="sl-money <%# GetBalanceClass(Eval("total_balance")) %>"><%# FormatBalance(Eval("total_balance")) %></td>
                                 <td>
                                     <div class="sl-actions">
                                         <button type="button" class="sl-actions__btn" onclick="toggleActionMenu(this)" title="Open actions" aria-label="Open actions menu">
@@ -409,38 +414,8 @@
 
 <script type="text/javascript">
 (function(){
-    function hasSelectedFilters(){
-        var txt = document.getElementById('<%= txtSearch.ClientID %>');
-        var prog = document.getElementById('<%= ddlProgramme.ClientID %>');
-        var entry = document.getElementById('<%= ddlEntryYear.ClientID %>');
-        var acad = document.getElementById('<%= ddlAcadYear.ClientID %>');
-        var sem = document.getElementById('<%= ddlSemester.ClientID %>');
-        var bal = document.getElementById('<%= ddlBalanceState.ClientID %>');
-        var balOp = document.getElementById('<%= ddlBalanceOp.ClientID %>');
-        var balFrom = document.getElementById('<%= txtBalanceFrom.ClientID %>');
-        var balTo = document.getElementById('<%= txtBalanceTo.ClientID %>');
-        var withTx = document.getElementById('<%= chkWithTransactions.ClientID %>');
-
-        if (txt && txt.value.replace(/^\s+|\s+$/g, '') !== '') return true;
-        if (prog && prog.value !== '') return true;
-        if (entry && entry.value !== '') return true;
-        if (acad && acad.value !== '') return true;
-        if (sem && sem.value !== '') return true;
-        if (bal && bal.value !== '') return true;
-        if (balOp && balOp.value !== '') return true;
-        if (balFrom && balFrom.value.replace(/^\s+|\s+$/g, '') !== '') return true;
-        if (balTo && balTo.value.replace(/^\s+|\s+$/g, '') !== '') return true;
-        if (withTx && withTx.checked) return true;
-        return false;
-    }
-
-    function applyInitialFilterState(){
-        var box = document.getElementById('slFilters');
-        if (!box) return;
-        box.className = hasSelectedFilters() ? 'sl-filters sl-filters--open' : 'sl-filters';
-    }
-
-    applyInitialFilterState();
+    // Filters are visible by default (markup ships with sl-filters--open);
+    // the Toggle Filters button lets the user collapse them to see more rows.
 
     window.toggleFilters = function(){
         var box = document.getElementById('slFilters');
@@ -451,21 +426,80 @@
             box.className = 'sl-filters sl-filters--open';
     };
 
+    // ── GET-based navigation ────────────────────────────────────────────────
+    // Every filter / sort / pagination / export action rebuilds the query string
+    // and navigates (GET). No WebForms POST postback is used, so the listing is
+    // fully bookmarkable and shareable.
+    var SL_BASE = '<%= ResolveUrl("~/COOPERP/NewScreens/StudentLedgers.aspx") %>';
+
+    function slEl(id){ return document.getElementById(id); }
+    function slVal(id){ var e = slEl(id); return e ? String(e.value || '').replace(/^\s+|\s+$/g,'') : ''; }
+
+    function slCurrentState(){
+        var tx = slEl('<%= chkWithTransactions.ClientID %>');
+        return {
+            q:       slVal('<%= txtSearch.ClientID %>'),
+            prog:    slVal('<%= ddlProgramme.ClientID %>'),
+            entry:   slVal('<%= ddlEntryYear.ClientID %>'),
+            acad:    slVal('<%= ddlAcadYear.ClientID %>'),
+            sem:     slVal('<%= ddlSemester.ClientID %>'),
+            bal:     slVal('<%= ddlBalanceState.ClientID %>'),
+            balop:   slVal('<%= ddlBalanceOp.ClientID %>'),
+            balfrom: slVal('<%= txtBalanceFrom.ClientID %>'),
+            balto:   slVal('<%= txtBalanceTo.ClientID %>'),
+            rows:    slVal('<%= ddlPageSize.ClientID %>'),
+            tx:      (tx && tx.checked) ? '1' : '',
+            sort:    slVal('<%= hfSortField.ClientID %>'),
+            dir:     slVal('<%= hfSortDir.ClientID %>'),
+            page:    slVal('<%= hfPageIndex.ClientID %>')
+        };
+    }
+
+    function slBuildUrl(overrides){
+        var p = slCurrentState();
+        if (overrides) for (var k in overrides) if (overrides.hasOwnProperty(k)) p[k] = overrides[k];
+        var parts = [];
+        for (var key in p){
+            if (!p.hasOwnProperty(key)) continue;
+            var v = p[key];
+            if (v === null || v === undefined || v === '') continue;
+            parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(v));
+        }
+        return parts.length ? (SL_BASE + '?' + parts.join('&')) : SL_BASE;
+    }
+
+    function slNavigate(overrides){ window.location.href = slBuildUrl(overrides); }
+
+    window.applyFilters = function(){ slNavigate({ page: '0' }); };
+    window.resetFilters = function(){ window.location.href = SL_BASE; };
+    window.exportLedgers = function(fmt){ window.location.href = slBuildUrl({ export: fmt }); };
+
     window.setSort = function(field){
-        var sf = document.getElementById('<%= hfSortField.ClientID %>');
-        var sd = document.getElementById('<%= hfSortDir.ClientID %>');
-        var pg = document.getElementById('<%= hfPageIndex.ClientID %>');
-        if (sf.value === field) sd.value = (sd.value === 'ASC' ? 'DESC' : 'ASC');
-        else { sf.value = field; sd.value = 'ASC'; }
-        pg.value = '0';
-        document.forms[0].submit();
+        var curField = slVal('<%= hfSortField.ClientID %>');
+        var curDir = slVal('<%= hfSortDir.ClientID %>').toUpperCase();
+        var dir = (curField === field) ? (curDir === 'ASC' ? 'DESC' : 'ASC') : 'ASC';
+        slNavigate({ sort: field, dir: dir, page: '0' });
     };
 
-    window.goPage = function(page){
-        var pg = document.getElementById('<%= hfPageIndex.ClientID %>');
-        pg.value = String(page);
-        document.forms[0].submit();
-    };
+    window.goPage = function(page){ slNavigate({ page: String(page) }); };
+
+    // Pressing Enter anywhere in the filter panel applies the filters (it never
+    // submits the page / exports). Standalone dropdown filters apply on change.
+    (function(){
+        var panel = document.getElementById('slFilters');
+        if (panel){
+            panel.addEventListener('keydown', function(ev){
+                if (ev.key === 'Enter' || ev.keyCode === 13){ ev.preventDefault(); applyFilters(); }
+            });
+        }
+        // Standalone dropdowns auto-apply (NOT the balance operator, which pairs
+        // with the amount inputs and is applied via the Apply button / Enter).
+        var ddlIds = ['<%= ddlProgramme.ClientID %>','<%= ddlEntryYear.ClientID %>','<%= ddlAcadYear.ClientID %>','<%= ddlSemester.ClientID %>','<%= ddlBalanceState.ClientID %>'];
+        for (var j=0;j<ddlIds.length;j++){
+            var d = slEl(ddlIds[j]);
+            if (d) d.addEventListener('change', function(){ applyFilters(); });
+        }
+    })();
 
     window.toggleActionMenu = function(btn){
         var host = btn && btn.parentNode;
@@ -496,6 +530,17 @@
         try { txt = n.toLocaleString(); }
         catch(ex){ txt = '' + n; }
         return isCredit ? (txt + ' CR') : txt;
+    }
+
+    // Signed balance: POSITIVE = overpaid (credit "CR"), NEGATIVE = owing (debit "DR").
+    function balanceFmt(v){
+        var n = Number(v || 0);
+        var txt;
+        try { txt = Math.abs(n).toLocaleString(); }
+        catch(ex){ txt = '' + Math.abs(n); }
+        if (n > 0) return txt + ' CR';
+        if (n < 0) return txt + ' DR';
+        return '0';
     }
 
     function balClass(v){
@@ -548,13 +593,14 @@
                     document.getElementById('slModalTitle').innerHTML = 'Ledger Details - ' + esc(d.regno) + ' (' + esc(d.student_name) + ')';
                     document.getElementById('slKpiBilled').innerHTML = money(d.total_billed);
                     document.getElementById('slKpiPaid').innerHTML = money(d.total_paid);
-                    document.getElementById('slKpiBalance').innerHTML = money(d.total_balance);
+                    document.getElementById('slKpiBalance').innerHTML = balanceFmt(d.total_balance);
 
                     var kpiBalCard = document.getElementById('slKpiCardBalance');
                     if (kpiBalCard){
                         var balVal = Number(d.total_balance || 0);
-                        if (balVal > 0) kpiBalCard.className = 'sl-modal__kpi sl-modal__kpi--bal-debit';
-                        else if (balVal < 0) kpiBalCard.className = 'sl-modal__kpi sl-modal__kpi--bal-credit';
+                        // + overpaid (credit / green), - owing (debit / red)
+                        if (balVal > 0) kpiBalCard.className = 'sl-modal__kpi sl-modal__kpi--bal-credit';
+                        else if (balVal < 0) kpiBalCard.className = 'sl-modal__kpi sl-modal__kpi--bal-debit';
                         else kpiBalCard.className = 'sl-modal__kpi sl-modal__kpi--bal-zero';
                     }
 
@@ -800,7 +846,7 @@
         var ov = document.getElementById('slFixOverlay');
         ov.className = 'sl-fx-overlay';
         if (_fx && _fx.result) {
-            document.forms[0].submit();
+            slNavigate({});
         }
     };
 
@@ -813,7 +859,7 @@
             .then(function(d){
                 if (!d || !d.ok){ alert((d && d.error) ? d.error : 'Duplicate removal failed.'); return; }
                 alert('Removed ' + d.deleted + ' duplicate ledger rows for ' + regno + '. Balance before: ' + d.balance_before + ', after: ' + d.balance_after + '.');
-                document.forms[0].submit();
+                slNavigate({});
             })
             .catch(function(){ alert('Unable to remove double billing.'); });
         return false;
@@ -1148,7 +1194,7 @@
     window.closeBatchWizard = function(){
         if (_bx.running){ if(!confirm('Processing is in progress. Close anyway?')) return; }
         document.getElementById('slBxOverlay').className = 'sl-bx-overlay';
-        if (_bx.execDone > 0) document.forms[0].submit();
+        if (_bx.execDone > 0) slNavigate({});
     };
 })();
 </script>

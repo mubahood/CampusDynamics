@@ -36,6 +36,10 @@ public partial class COOPERP_NewScreens_IncomeStatement : System.Web.UI.Page
 
     private void LoadIncomeStatement()
     {
+        pnlError.Visible = false;
+        pnlReport.Visible = false;
+        _totalIncome = 0;
+        _totalExpense = 0;
         try
         {
             DateTime startDate, endDate;
@@ -43,10 +47,25 @@ public partial class COOPERP_NewScreens_IncomeStatement : System.Web.UI.Page
                 startDate = new DateTime(DateTime.Today.Year, 1, 1);
             if (!DateTime.TryParse(txtEndDate.Text, out endDate))
                 endDate = DateTime.Today;
+            if (endDate < startDate)
+            {
+                ShowError("The end date cannot be earlier than the start date.");
+                return;
+            }
 
             DataTable dt = FinanceDB.ExecuteSP("fin_IncomeStatement",
                 FinanceDB.P("@sDate", startDate.ToString("yyyy-MM-dd")),
                 FinanceDB.P("@eDate", endDate.ToString("yyyy-MM-dd")));
+
+            if (dt == null || !dt.Columns.Contains("DRBalance") || !dt.Columns.Contains("CRBalance"))
+            {
+                ShowError("The Income Statement data source returned an unexpected format. Please contact ICT support.");
+                return;
+            }
+
+            // Guarantee the display columns exist so data-binding never throws.
+            EnsureColumn(dt, "accountcode");
+            EnsureColumn(dt, "accountname");
 
             string docHeader = (dt.Rows.Count > 0 && dt.Columns.Contains("docHeader"))
                 ? dt.Rows[0]["docHeader"].ToString() : "";
@@ -58,6 +77,7 @@ public partial class COOPERP_NewScreens_IncomeStatement : System.Web.UI.Page
 
             foreach (DataRow row in dt.Rows)
             {
+                if (IsTotalRow(row)) continue; // skip SP grand-total row
                 string header = dt.Columns.Contains("header") ? row["header"].ToString().ToLower() : "";
                 decimal dr = 0, cr = 0;
                 decimal.TryParse(row["DRBalance"].ToString(), out dr);
@@ -123,7 +143,31 @@ public partial class COOPERP_NewScreens_IncomeStatement : System.Web.UI.Page
         catch (Exception ex)
         {
             FinanceLogger.LogError(PAGE_NAME, "LoadIncomeStatement", ex);
+            ShowError("The Income Statement could not be generated: " + ex.Message);
         }
+    }
+
+    private void ShowError(string message)
+    {
+        pnlReport.Visible = false;
+        pnlError.Visible = true;
+        litError.Text = "&#9888; " + Server.HtmlEncode(message);
+    }
+
+    private static void EnsureColumn(DataTable dt, string name)
+    {
+        if (dt != null && !dt.Columns.Contains(name))
+            dt.Columns.Add(name, typeof(string));
+    }
+
+    /// <summary>True for a stored-procedure grand-total / summary row.</summary>
+    private static bool IsTotalRow(DataRow row)
+    {
+        if (!row.Table.Columns.Contains("accountcode")) return false;
+        string code = System.Convert.ToString(row["accountcode"]).Trim();
+        return string.Equals(code, "TOTALS", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(code, "TOTAL",  StringComparison.OrdinalIgnoreCase)
+            || string.Equals(code, "GRAND TOTAL", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void EnsureAmountColumn(DataTable dt)

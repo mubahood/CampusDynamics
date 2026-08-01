@@ -8,6 +8,10 @@
     --danger:#dc3545;--success:#28a745;--warning:#ffc107;
     --grey:#6c757d;--border:#dee2e6;--radius:6px;
 }
+.acc-tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid #e0e5ed;padding:0 20px;overflow-x:auto;}
+.acc-tab{padding:11px 16px;font-size:12px;font-weight:600;color:#64748b;text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;}
+.acc-tab:hover{color:#174DA4;}
+.acc-tab--active{color:#05275C;border-bottom-color:#05275C;}
 
 /* ── Page header ── */
 .pa-page-header{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap;}
@@ -169,6 +173,15 @@
 
 <asp:Content ID="BodyContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 
+<!-- Access hub tabs -->
+<div class="acc-tabs">
+    <a href="AccessControlCenter.aspx" class="acc-tab">Overview</a>
+    <a href="UserRoleUsers.aspx" class="acc-tab acc-tab--active">Users</a>
+    <a href="UserRoleRoles.aspx" class="acc-tab">Roles</a>
+    <a href="UserRolePermissions.aspx" class="acc-tab">Permissions</a>
+    <a href="UserRoleAudit.aspx" class="acc-tab">Audit</a>
+</div>
+
 <!-- Page Header -->
 <div class="pa-page-header">
     <div class="pa-page-header__icon">
@@ -289,44 +302,76 @@
 </div>
 
 <!-- ══════════════════════════════════════════
-     ASSIGN ROLE MODAL
+     MANAGE ROLES MODAL (multi-select)
      ══════════════════════════════════════════ -->
+<style>
+.mr-user{font-size:12px;color:#374151;margin:0 0 12px;}
+.mr-user b{color:#05275C;}
+.mr-tools{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.mr-tools input{flex:1;height:30px;border:1px solid #e0e5ed;font-size:12px;padding:0 9px;outline:none;border-radius:0;}
+.mr-tools input:focus{border-color:#174DA4;}
+.mr-tools button{font-size:11px;font-weight:600;border:1px solid #e0e5ed;background:#fff;padding:5px 11px;cursor:pointer;color:#374151;border-radius:0;white-space:nowrap;}
+.mr-tools button:hover{background:#f5f7fa;}
+.mr-checklist{max-height:46vh;overflow-y:auto;border:1px solid #e0e5ed;border-radius:4px;}
+.role-check{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:13px;color:#1a1a2e;}
+.role-check:last-child{border-bottom:none;}
+.role-check:hover{background:#f8fafc;}
+.role-check input{width:16px;height:16px;cursor:pointer;accent-color:#174DA4;flex-shrink:0;}
+.role-check__dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.role-check__name{flex:1;font-weight:600;}
+.role-check.was-assigned .role-check__name::after{content:'current';font-size:9px;font-weight:600;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;padding:1px 6px;border-radius:10px;margin-left:8px;vertical-align:middle;}
+.role-check__sys{font-size:9px;font-weight:700;color:#fff;background:#7c3aed;padding:1px 6px;border-radius:2px;}
+.mr-summary{font-size:12px;color:#64748b;margin-top:10px;min-height:18px;}
+.mr-summary .add{color:#16a34a;font-weight:700;}
+.mr-summary .rem{color:#dc2626;font-weight:700;}
+.mr-none{padding:18px;text-align:center;color:#94a3b8;font-size:12px;}
+</style>
 <div class="pa-modal-overlay" id="modalAssign">
     <div class="pa-modal">
         <div class="pa-modal__head">
-            <span class="pa-modal__title">Assign Role</span>
+            <span class="pa-modal__title">Manage Roles</span>
             <button type="button" class="pa-modal__close" onclick="closeModal('modalAssign')">&times;</button>
         </div>
         <div class="pa-modal__body">
-            <div class="urm-field">
-                <label>User</label>
-                <input type="text" id="assignUsername" readonly />
+            <input type="hidden" id="mrUsername" />
+            <div class="mr-user" id="mrUserLabel"></div>
+
+            <div class="mr-tools">
+                <input type="text" id="mrFilter" placeholder="&#x1F50D; Filter roles…" oninput="filterRoleChecklist()" autocomplete="off" />
+                <button type="button" onclick="setAllRoles(true)">Select all</button>
+                <button type="button" onclick="setAllRoles(false)">Clear all</button>
             </div>
-            <div class="urm-field">
-                <label>Role <span style="color:var(--danger)">*</span></label>
-                <select id="assignRoleId">
-                    <option value="">— select a role —</option>
-                    <asp:Literal ID="litRoleOptions" runat="server"></asp:Literal>
-                </select>
+
+            <div class="mr-checklist" id="roleChecklist">
+                <asp:Literal ID="litRoleChecklist" runat="server"></asp:Literal>
+                <div class="mr-none" id="mrNone" style="display:none;">No roles match your filter.</div>
             </div>
-            <div class="urm-field">
-                <label>Expires On</label>
+
+            <div class="mr-summary" id="mrSummary"></div>
+
+            <div class="urm-field" style="margin-top:12px;">
+                <label>Expires on <span style="color:#aaa;font-weight:400">(optional — applies to newly added roles)</span></label>
                 <input type="date" id="assignExpiry" />
-                <div class="urm-hint">Leave blank for a permanent role assignment.</div>
             </div>
             <div class="urm-field">
                 <label>Notes <span style="color:#aaa;font-weight:400">(optional)</span></label>
-                <textarea id="assignNotes" placeholder="Reason for assignment…"></textarea>
+                <textarea id="assignNotes" placeholder="Reason for this change…"></textarea>
             </div>
+
+            <!-- hidden: kept so the batch-assign modal can clone the role options -->
+            <select id="assignRoleId" style="display:none;">
+                <option value="">— select a role —</option>
+                <asp:Literal ID="litRoleOptions" runat="server"></asp:Literal>
+            </select>
         </div>
         <div class="pa-modal__foot">
             <button type="button" class="hr-btn hr-btn--outline" onclick="closeModal('modalAssign')">Cancel</button>
-            <button type="button" class="hr-btn hr-btn--primary" id="btnSaveAssign" onclick="saveAssign()">
+            <button type="button" class="hr-btn hr-btn--primary" id="btnSaveAssign" onclick="saveRoles()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
                      fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                Assign Role
+                Save Roles
             </button>
         </div>
     </div>
@@ -425,6 +470,45 @@
     </div>
 </div>
 
+<!-- ══════════════════════════════════════════
+     EFFECTIVE-ACCESS DRAWER
+     ══════════════════════════════════════════ -->
+<style>
+.eff-scrim{position:fixed;inset:0;background:rgba(15,23,42,.45);opacity:0;visibility:hidden;transition:opacity .2s;z-index:1200;}
+.eff-scrim.is-open{opacity:1;visibility:visible;}
+.eff-drawer{position:fixed;top:0;right:0;height:100%;width:440px;max-width:92vw;background:#fff;box-shadow:-6px 0 28px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .22s ease;z-index:1201;display:flex;flex-direction:column;}
+.eff-drawer.is-open{transform:translateX(0);}
+.eff-drawer__head{padding:16px 20px;border-bottom:1px solid #e0e5ed;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.eff-drawer__title{font-size:15px;font-weight:700;color:#05275C;margin:0;}
+.eff-drawer__sub{font-size:11px;color:#64748b;margin:3px 0 0;}
+.eff-drawer__close{background:none;border:none;font-size:22px;line-height:1;color:#94a3b8;cursor:pointer;}
+.eff-drawer__body{padding:16px 20px;overflow-y:auto;flex:1;}
+.eff-roles{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.eff-rolechip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;color:#fff;font-size:11px;font-weight:600;}
+.eff-summary{font-size:12px;color:#1a1a2e;background:#f5f7fa;border:1px solid #e0e5ed;padding:8px 12px;border-radius:4px;margin-bottom:14px;}
+.eff-sec{margin-bottom:14px;}
+.eff-sec__hd{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#174DA4;padding-bottom:5px;border-bottom:1px solid #eef1f6;margin-bottom:6px;}
+.eff-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed #f0f2f7;}
+.eff-item:last-child{border-bottom:none;}
+.eff-item__lbl{font-size:12px;color:#1a1a2e;}
+.eff-item__slug{font-family:monospace;font-size:9px;color:#94a3b8;}
+.eff-item__roles{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;}
+.eff-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.eff-empty{font-size:12px;color:#64748b;text-align:center;padding:30px 0;}
+.eff-admin{font-size:13px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:14px;text-align:center;}
+</style>
+<div class="eff-scrim" id="effScrim" onclick="closeDrawer()"></div>
+<div class="eff-drawer" id="effDrawer" role="dialog" aria-label="Effective access">
+    <div class="eff-drawer__head">
+        <div>
+            <div class="eff-drawer__title" id="effTitle">Effective access</div>
+            <div class="eff-drawer__sub" id="effSub"></div>
+        </div>
+        <button type="button" class="eff-drawer__close" onclick="closeDrawer()">&times;</button>
+    </div>
+    <div class="eff-drawer__body" id="effBody"></div>
+</div>
+
 <!-- Toast -->
 <div class="pa-toast" id="paToast"></div>
 
@@ -443,6 +527,8 @@ function escHtml(s) {
 // ═══════════════════════════════════════════════════════
 //  FILTER
 // ═══════════════════════════════════════════════════════
+var _roleIdFilter = '';   // set via ?role_id=… (Members link from Roles tab)
+
 function urmFilter() {
     var q      = (document.getElementById('txtSearch').value  || '').toLowerCase().trim();
     var type   = (document.getElementById('selType').value    || '');
@@ -463,6 +549,10 @@ function urmFilter() {
         if (type   && rType  !== type)       show = false;
         if (role   && rRole  !== role)       show = false;
         if (status && rStat  !== status)     show = false;
+        if (_roleIdFilter) {
+            var rids = ('' + (row.getAttribute('data-roleids') || '')).split(',');
+            if (rids.indexOf(_roleIdFilter) < 0) show = false;
+        }
 
         row.style.display = show ? '' : 'none';
         if (show) {
@@ -475,6 +565,29 @@ function urmFilter() {
     document.getElementById('lblCount').textContent = n + ' user' + (n !== 1 ? 's' : '');
     updateSelectAllState();
 }
+
+// Apply deep-link filters from the hub (?filter=norole, ?role_id=N from Members)
+(function applyDeepLinkFilter(){
+    try {
+        var qs = new URLSearchParams(window.location.search);
+        var f  = (qs.get('filter') || '').toLowerCase();
+        if (f === 'norole') { document.getElementById('selRole').value = '0'; }
+
+        var rid = (qs.get('role_id') || '').trim();
+        if (rid && /^[0-9]+$/.test(rid)) {
+            _roleIdFilter = rid;
+            var card = document.querySelector('.cd-card');
+            if (card && card.parentNode) {
+                var banner = document.createElement('div');
+                banner.className = 'pa-rolefilter-banner';
+                banner.style.cssText = 'display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:9px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;font-size:12px;color:#05275C;';
+                banner.innerHTML = '<span style="flex:1;">Showing only users assigned to the selected role.</span>' +
+                    '<a href="UserRoleUsers.aspx" style="color:#174DA4;font-weight:600;text-decoration:none;">Show all users &times;</a>';
+                card.parentNode.insertBefore(banner, card);
+            }
+        }
+    } catch (e) { /* older browsers: ignore */ }
+})();
 urmFilter();
 
 function filterByChip(typeVal, roleVal) {
@@ -611,8 +724,8 @@ document.addEventListener('click', function (e) {
     closeAllMenus();
     var action = item.getAttribute('data-action');
     var uname  = item.getAttribute('data-uname') || '';
-    if      (action === 'assign') { openAssignModal(uname); }
-    else if (action === 'revoke') { openRevokeModal(uname, parseInt(item.getAttribute('data-rid') || '0', 10), item.getAttribute('data-rname') || ''); }
+    if      (action === 'manage')    { var tr = findParentTr(item); openManageRoles(uname, tr ? (tr.getAttribute('data-roleids') || '') : ''); }
+    else if (action === 'effective') { openEffectiveDrawer(uname); }
 });
 
 document.addEventListener('keydown', function (e) {
@@ -622,6 +735,7 @@ document.addEventListener('keydown', function (e) {
         closeModal('modalRevoke');
         closeModal('modalBatchAssign');
         closeModal('modalBatchRevoke');
+        closeDrawer();
     }
 });
 
@@ -631,38 +745,114 @@ document.addEventListener('keydown', function (e) {
 function closeModal(id) { document.getElementById(id).classList.remove('is-open'); }
 
 // ═══════════════════════════════════════════════════════
-//  SINGLE ASSIGN ROLE
+//  MANAGE ROLES (multi-select: assign + remove in one go)
 // ═══════════════════════════════════════════════════════
-function openAssignModal(username) {
-    document.getElementById('assignUsername').value = username;
-    document.getElementById('assignRoleId').value   = '';
-    document.getElementById('assignExpiry').value   = '';
-    document.getElementById('assignNotes').value    = '';
+function openManageRoles(username, currentCsv) {
+    document.getElementById('mrUsername').value = username;
+    document.getElementById('mrUserLabel').innerHTML = 'Tick the roles for <b>' + escHtml(username) + '</b>. Unticking a current role removes it.';
+
+    var current = {};
+    (currentCsv || '').split(',').forEach(function(x){ x = x.trim(); if (x) current[x] = 1; });
+
+    var boxes = document.querySelectorAll('#roleChecklist .mr-box');
+    for (var i = 0; i < boxes.length; i++) {
+        var on  = !!current[boxes[i].value];
+        boxes[i].checked = on;
+        boxes[i].setAttribute('data-orig', on ? '1' : '0');
+        var lbl = boxes[i].closest('.role-check');
+        if (lbl) lbl.classList.toggle('was-assigned', on);
+    }
+
+    document.getElementById('assignExpiry').value = '';
+    document.getElementById('assignNotes').value  = '';
+    document.getElementById('mrFilter').value     = '';
+    filterRoleChecklist();
+    updateRoleSummary();
+
     var btn = document.getElementById('btnSaveAssign');
-    btn.disabled = false; btn.textContent = 'Assign Role';
+    btn.disabled = false; btn.textContent = 'Save Roles';
     document.getElementById('modalAssign').classList.add('is-open');
+    setTimeout(function(){ document.getElementById('mrFilter').focus(); }, 80);
 }
 
-function saveAssign() {
-    var username = document.getElementById('assignUsername').value;
-    var roleId   = document.getElementById('assignRoleId').value;
+function filterRoleChecklist() {
+    var q = (document.getElementById('mrFilter').value || '').toLowerCase().trim();
+    var rows = document.querySelectorAll('#roleChecklist .role-check');
+    var shown = 0;
+    for (var i = 0; i < rows.length; i++) {
+        var name = (rows[i].getAttribute('data-name') || '');
+        var show = !q || name.indexOf(q) >= 0;
+        rows[i].style.display = show ? '' : 'none';
+        if (show) shown++;
+    }
+    document.getElementById('mrNone').style.display = (shown === 0) ? 'block' : 'none';
+}
+
+function setAllRoles(on) {
+    var boxes = document.querySelectorAll('#roleChecklist .role-check');
+    for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].style.display === 'none') continue;       // only affect visible (filtered) rows
+        var cb = boxes[i].querySelector('.mr-box');
+        if (cb) cb.checked = on;
+    }
+    updateRoleSummary();
+}
+
+function updateRoleSummary() {
+    var boxes = document.querySelectorAll('#roleChecklist .mr-box');
+    var add = 0, rem = 0;
+    for (var i = 0; i < boxes.length; i++) {
+        var orig = boxes[i].getAttribute('data-orig') === '1';
+        if (boxes[i].checked && !orig) add++;
+        else if (!boxes[i].checked && orig) rem++;
+    }
+    var el = document.getElementById('mrSummary');
+    if (!add && !rem) el.innerHTML = 'No changes yet.';
+    else el.innerHTML = '<span class="add">+' + add + ' to add</span> &nbsp;·&nbsp; <span class="rem">&minus;' + rem + ' to remove</span>';
+}
+
+function saveRoles() {
+    var username = document.getElementById('mrUsername').value;
     var expiry   = document.getElementById('assignExpiry').value;
     var notes    = document.getElementById('assignNotes').value;
-    if (!roleId) { showToast('Please select a role.', 'err'); return; }
+
+    var ids = [], add = 0, rem = 0;
+    var boxes = document.querySelectorAll('#roleChecklist .mr-box');
+    for (var i = 0; i < boxes.length; i++) {
+        var orig = boxes[i].getAttribute('data-orig') === '1';
+        if (boxes[i].checked) ids.push(boxes[i].value);
+        if (boxes[i].checked && !orig) add++;
+        else if (!boxes[i].checked && orig) rem++;
+    }
+
+    if (!add && !rem) { showToast('No changes to save.', 'err'); return; }
+    if (rem > 0 && !confirm('This will remove ' + rem + ' role' + (rem !== 1 ? 's' : '') + ' from this user. Continue?')) return;
+
     var btn = document.getElementById('btnSaveAssign');
-    btn.disabled = true; btn.textContent = 'Assigning…';
-    fetch('UserRoleUsers.aspx?ajax=assign', {
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    fetch('UserRoleUsers.aspx?ajax=set_roles', {
         method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'username=' + encodeURIComponent(username) + '&role_id=' + encodeURIComponent(roleId) +
-              '&expiry='  + encodeURIComponent(expiry)   + '&notes='   + encodeURIComponent(notes)
+        body: 'username=' + encodeURIComponent(username) +
+              '&role_ids=' + encodeURIComponent(ids.join(',')) +
+              '&expiry='   + encodeURIComponent(expiry) +
+              '&notes='    + encodeURIComponent(notes)
     })
-    .then(function(r){return r.json();})
+    .then(function(r){ return r.json(); })
     .then(function(d){
-        btn.disabled=false; btn.textContent='Assign Role';
-        if(d.ok){closeModal('modalAssign');showToast('Role assigned.','ok');setTimeout(function(){location.reload();},1100);}
-        else showToast(d.error||'Failed.','err');
+        btn.disabled = false; btn.textContent = 'Save Roles';
+        if (d.ok) {
+            closeModal('modalAssign');
+            var msg = 'Roles updated';
+            var parts = [];
+            if (d.added)   parts.push('+' + d.added + ' added');
+            if (d.removed) parts.push('−' + d.removed + ' removed');
+            if (parts.length) msg += ' (' + parts.join(', ') + ')';
+            showToast(msg + '.', 'ok');
+            setTimeout(function(){ location.reload(); }, 1100);
+        } else showToast(d.error || 'Failed to save.', 'err');
     })
-    .catch(function(){btn.disabled=false;btn.textContent='Assign Role';showToast('Network error.','err');});
+    .catch(function(){ btn.disabled = false; btn.textContent = 'Save Roles'; showToast('Network error.', 'err'); });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -812,6 +1002,93 @@ function confirmBatchRevoke() {
         } else showToast(d.error||'Failed.','err');
     })
     .catch(function(){btn.disabled=false;btn.textContent='Revoke All Roles';showToast('Network error.','err');});
+}
+
+// ═══════════════════════════════════════════════════════
+//  EFFECTIVE-ACCESS DRAWER
+// ═══════════════════════════════════════════════════════
+function closeDrawer() {
+    document.getElementById('effDrawer').classList.remove('is-open');
+    document.getElementById('effScrim').classList.remove('is-open');
+}
+
+function openEffectiveDrawer(username) {
+    document.getElementById('effTitle').textContent = 'Access for ' + username;
+    document.getElementById('effSub').textContent   = 'Loading…';
+    document.getElementById('effBody').innerHTML     = '<div class="eff-empty">Loading…</div>';
+    document.getElementById('effDrawer').classList.add('is-open');
+    document.getElementById('effScrim').classList.add('is-open');
+
+    fetch('UserRoleUsers.aspx?ajax=effective&username=' + encodeURIComponent(username))
+    .then(function(r){return r.json();})
+    .then(function(d){ renderEffective(d); })
+    .catch(function(){
+        document.getElementById('effSub').textContent = '';
+        document.getElementById('effBody').innerHTML  = '<div class="eff-empty" style="color:#dc2626;">Network error loading access.</div>';
+    });
+}
+
+function renderEffective(d) {
+    if (!d || !d.ok) {
+        document.getElementById('effSub').textContent = '';
+        document.getElementById('effBody').innerHTML  = '<div class="eff-empty" style="color:#dc2626;">' + escHtml((d && d.error) || 'Could not load access.') + '</div>';
+        return;
+    }
+
+    // Role chips header
+    var sub = '';
+    if (d.role_count > 0) {
+        sub = d.role_count + ' role' + (d.role_count !== 1 ? 's' : '');
+        if (!d.is_admin) sub += ' · ' + d.total_slugs + ' page' + (d.total_slugs !== 1 ? 's' : '');
+    } else {
+        sub = 'No active roles';
+    }
+    document.getElementById('effSub').textContent = sub;
+
+    var html = '';
+    if (d.roles && d.roles.length) {
+        html += '<div class="eff-roles">';
+        for (var i = 0; i < d.roles.length; i++) {
+            var r = d.roles[i];
+            html += '<span class="eff-rolechip" style="background:' + escHtml(r.color || '#64748b') + '">' + escHtml(r.name) + '</span>';
+        }
+        html += '</div>';
+    }
+
+    if (d.is_admin) {
+        html += '<div class="eff-admin"><strong>Full system access</strong><br>This user holds the Administrator role and can open every screen.</div>';
+        document.getElementById('effBody').innerHTML = html;
+        return;
+    }
+
+    if (d.role_count === 0) {
+        html += '<div class="eff-empty">This user has no active role, so they currently have no granted screens.</div>';
+        document.getElementById('effBody').innerHTML = html;
+        return;
+    }
+
+    if (!d.sections || !d.sections.length) {
+        html += '<div class="eff-empty">This user\'s role(s) grant no page permissions yet.</div>';
+        document.getElementById('effBody').innerHTML = html;
+        return;
+    }
+
+    html += '<div class="eff-summary">Showing every screen this user can open, grouped by area, with the role that grants each.</div>';
+    for (var s = 0; s < d.sections.length; s++) {
+        var sec = d.sections[s];
+        html += '<div class="eff-sec"><div class="eff-sec__hd">' + escHtml(sec.name) + '</div>';
+        for (var k = 0; k < sec.items.length; k++) {
+            var it = sec.items[k];
+            html += '<div class="eff-item"><div><div class="eff-item__lbl">' + escHtml(it.label) + '</div>' +
+                    '<div class="eff-item__slug">' + escHtml(it.slug) + '</div></div><div class="eff-item__roles">';
+            for (var rr = 0; rr < it.roles.length; rr++) {
+                html += '<span class="eff-dot" style="background:' + escHtml(it.roles[rr].color || '#64748b') + '" title="' + escHtml(it.roles[rr].name) + '"></span>';
+            }
+            html += '</div></div>';
+        }
+        html += '</div>';
+    }
+    document.getElementById('effBody').innerHTML = html;
 }
 
 // ═══════════════════════════════════════════════════════

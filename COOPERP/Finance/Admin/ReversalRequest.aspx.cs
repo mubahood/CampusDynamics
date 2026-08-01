@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Web.UI.WebControls;
 using MySql.Data.MySqlClient;
@@ -71,26 +71,29 @@ public partial class COOPERP_Finance_Admin_ReversalRequest : System.Web.UI.Page
                 conn.Open();
 
                 // Determine the correct voucher/account columns via schema guard
+                string ledgerIdCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(
+                    conn, "fin_ledger", new[] { "TID", "tid", "ledger_id", "id" });
+
                 string voucherCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(
-                    conn, "fin_ledger", new[] { "voucherno", "voucher_no", "voucher_number", "ref_no", "narration" });
+                    conn, "fin_ledger", new[] { "voucherNo", "voucherno", "voucher_no", "voucher_number", "RefNo", "ref_no", "journal_no", "narration", "particulars" });
 
                 string accountCodeCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(
-                    conn, "fin_ledger", new[] { "account_code", "acc_code", "code" });
+                    conn, "fin_ledger", new[] { "accountcode", "AccountCode", "account_code", "acc_code", "code" });
 
                 string accountNameCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(
-                    conn, "fin_ledger", new[] { "account_name", "acc_name", "name" });
+                    conn, "fin_ledger", new[] { "acc_name", "accountname", "AccountName", "account_name", "name" });
 
                 string drcrCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(
-                    conn, "fin_ledger", new[] { "dr_cr", "entry_type", "drcr", "type" });
+                    conn, "fin_ledger", new[] { "transactionType", "transactiontype", "dr_cr", "entry_type", "drcr", "type" });
 
                 string amountCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(
-                    conn, "fin_ledger", new[] { "amount", "entry_amount", "value" });
+                    conn, "fin_ledger", new[] { "actual_amount", "transaction_amount", "amount", "entry_amount", "value" });
 
                 string narrationCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(
-                    conn, "fin_ledger", new[] { "narration", "description", "remarks", "memo" });
+                    conn, "fin_ledger", new[] { "particulars", "narration", "description", "remarks", "memo" });
 
                 string dateCol = FinanceSystemRealignmentHelper.GetFirstExistingColumn(
-                    conn, "fin_ledger", new[] { "entry_date", "trans_date", "date", "posting_date" });
+                    conn, "fin_ledger", new[] { "transactionDate", "transactiondate", "entry_date", "trans_date", "date", "posting_date" });
 
                 if (voucherCol == null || amountCol == null)
                 {
@@ -100,23 +103,27 @@ public partial class COOPERP_Finance_Admin_ReversalRequest : System.Web.UI.Page
 
                 string sql = string.Format(
                     @"SELECT
-                        l.ledger_id                                             AS LedgerId,
-                        {0}                                                     AS AccountCode,
-                        {1}                                                     AS AccountName,
-                        {2}                                                     AS EntryType,
-                        l.{3}                                                   AS Amount,
-                        {4}                                                     AS Narration,
-                        {5}                                                     AS EntryDate
+                        {0}                                                     AS LedgerId,
+                        {1}                                                     AS AccountCode,
+                        {2}                                                     AS AccountName,
+                        {3}                                                     AS EntryType,
+                        {4}                                                     AS Amount,
+                        {5}                                                     AS Narration,
+                        {6}                                                     AS EntryDate
                     FROM fin_ledger l
-                    WHERE l.{6} = @voucherNo
-                    ORDER BY l.ledger_id;",
+                    WHERE l.{7} = @voucherNo
+                    ORDER BY {8};",
+                    ledgerIdCol    != null ? "l." + ledgerIdCol    : "0",
                     accountCodeCol != null ? "l." + accountCodeCol : "NULL",
                     accountNameCol != null ? "l." + accountNameCol : "''",
                     drcrCol        != null ? "l." + drcrCol        : "''",
-                    amountCol,
+                    amountCol == "actual_amount" && FinanceSystemRealignmentHelper.GetFirstExistingColumn(conn, "fin_ledger", new[] { "transaction_amount" }) != null
+                        ? "COALESCE(NULLIF(l.actual_amount,0), l.transaction_amount, 0)"
+                        : "l." + amountCol,
                     narrationCol   != null ? "l." + narrationCol   : "''",
                     dateCol        != null ? string.Format("DATE_FORMAT(l.{0}, '%Y-%m-%d')", dateCol) : "''",
-                    voucherCol);
+                    voucherCol,
+                    ledgerIdCol    != null ? "l." + ledgerIdCol    : "l." + voucherCol);
 
                 using (MySqlCommand cmd = new MySqlCommand(sql, conn))
                 {
@@ -201,6 +208,8 @@ public partial class COOPERP_Finance_Admin_ReversalRequest : System.Web.UI.Page
         }
 
         decimal reversalAmount = 0m;
+        decimal orig = 0m;
+
         if (!string.IsNullOrEmpty(amountRaw))
         {
             if (!decimal.TryParse(amountRaw, out reversalAmount) || reversalAmount <= 0)
@@ -209,7 +218,7 @@ public partial class COOPERP_Finance_Admin_ReversalRequest : System.Web.UI.Page
                 return;
             }
         }
-        else if (decimal.TryParse(hdnVoucherAmount.Value, out decimal orig) && orig > 0)
+        else if (decimal.TryParse(hdnVoucherAmount.Value, out orig) && orig > 0)
         {
             reversalAmount = orig;
         }

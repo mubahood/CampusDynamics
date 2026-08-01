@@ -604,6 +604,41 @@
     </div>
 </div>
 
+<!-- Change Supervisor Modal -->
+<div class="pa-modal-overlay" id="supModal">
+    <div class="pa-modal" style="width:500px;max-width:94vw;">
+        <div class="pa-modal__head">
+            <span class="pa-modal__title">Change Supervisor</span>
+            <button type="button" class="pa-modal__close" onclick="closeSupModal()">&times;</button>
+        </div>
+        <div class="pa-modal__body">
+            <div style="margin-bottom:14px;padding:10px 14px;background:#f0f4f8;border:1px solid #c5d3e8;border-radius:4px;font-size:13px;color:#333;">
+                Current supervisor: <strong id="supCurrentLabel">—</strong>
+            </div>
+            <div class="hw-field-group">
+                <div class="hw-field-label">Search &amp; Select New Supervisor</div>
+                <input type="text" id="supSearchInput"
+                    placeholder="Type name or staff code to filter..."
+                    oninput="filterSupOptions()"
+                    autocomplete="off"
+                    style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;margin-bottom:8px;box-sizing:border-box;" />
+                <select id="supSelect" size="9"
+                    style="width:100%;border:1px solid var(--border);border-radius:var(--radius);font-size:12px;padding:4px;box-sizing:border-box;">
+                    <option disabled value="">Loading employees...</option>
+                </select>
+                <div id="supMatchCount" style="font-size:11px;color:#888;margin-top:5px;"></div>
+            </div>
+        </div>
+        <div class="pa-modal__foot">
+            <button type="button" class="hr-btn hr-btn--outline" onclick="closeSupModal()">Cancel</button>
+            <button type="button" class="hr-btn hr-btn--primary" id="btnSupConfirm" onclick="confirmChangeSupervisor()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>
+                Confirm Change
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Batch Action Modal (return / reopen / cancel) -->
 <div class="pa-modal-overlay" id="batchModal">
     <div class="pa-modal" style="width:520px;max-width:94vw;">
@@ -1131,6 +1166,98 @@ function hrSubmit() {
             showPaToast(res.message || 'HR review submitted', 'ok');
             setTimeout(function() { location.reload(); }, 1500);
         } else showPaToast(res.error || 'Failed', 'err');
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHANGE SUPERVISOR
+// ═══════════════════════════════════════════════════════
+var _supRid    = 0;
+var _supBusy   = false;
+var _supAll    = [];   // [{id, name, code}]
+
+function changeSupervisorFromRow(btn) {
+    var tr = findParentTr(btn);
+    if (!tr) return;
+    closeAllMenus();
+    _supRid = parseInt(tr.getAttribute('data-rid') || '0', 10);
+    var reviewer = tr.getAttribute('data-reviewer') || '—';
+    _openSupModal(reviewer);
+}
+
+function changeSupervisorFromDetailBtn(btn) {
+    _supRid  = parseInt(btn.getAttribute('data-rid')      || '0', 10);
+    var reviewer = btn.getAttribute('data-reviewer') || '—';
+    _openSupModal(reviewer);
+}
+
+function _openSupModal(currentSup) {
+    _supBusy = false;
+    document.getElementById('supCurrentLabel').textContent = currentSup || '—';
+    document.getElementById('supSearchInput').value = '';
+    document.getElementById('supSelect').innerHTML = '<option disabled value="">Loading…</option>';
+    document.getElementById('supMatchCount').textContent = '';
+    document.getElementById('supModal').classList.add('is-open');
+
+    adminAjax('get_employees', {}, function(res) {
+        _supAll = res.employees || [];
+        _renderSupOptions(_supAll);
+        document.getElementById('supSearchInput').focus();
+    });
+}
+
+function closeSupModal() {
+    if (_supBusy) return;
+    document.getElementById('supModal').classList.remove('is-open');
+}
+
+function _renderSupOptions(list) {
+    var sel = document.getElementById('supSelect');
+    var cnt = document.getElementById('supMatchCount');
+    if (!list || !list.length) {
+        sel.innerHTML = '<option disabled value="">No employees found</option>';
+        if (cnt) cnt.textContent = '';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < list.length; i++) {
+        var e = list[i];
+        var label = escHtml(e.name) + (e.code ? ' (' + escHtml(e.code) + ')' : '');
+        html += '<option value="' + e.id + '">' + label + '</option>';
+    }
+    sel.innerHTML = html;
+    if (cnt) cnt.textContent = list.length + ' employee' + (list.length === 1 ? '' : 's') + ' shown';
+}
+
+function filterSupOptions() {
+    var q = (document.getElementById('supSearchInput').value || '').toLowerCase().trim();
+    if (!q) { _renderSupOptions(_supAll); return; }
+    var filtered = [];
+    for (var i = 0; i < _supAll.length; i++) {
+        var e = _supAll[i];
+        if ((e.name || '').toLowerCase().indexOf(q) >= 0 ||
+            (e.code || '').toLowerCase().indexOf(q) >= 0)
+            filtered.push(e);
+    }
+    _renderSupOptions(filtered);
+}
+
+function confirmChangeSupervisor() {
+    if (_supBusy) return;
+    var sel = document.getElementById('supSelect');
+    var newId = sel && sel.value ? parseInt(sel.value, 10) : 0;
+    if (!newId) { showPaToast('Please select a supervisor from the list', 'err'); return; }
+    _supBusy = true;
+    var btn = document.getElementById('btnSupConfirm');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    adminAjax('admin_change_supervisor', { rid: _supRid, new_reviewer_id: newId }, function(res) {
+        _supBusy = false;
+        if (btn) { btn.disabled = false; btn.textContent = 'Confirm Change'; }
+        if (res.ok) {
+            closeSupModal();
+            showPaToast(res.message || 'Supervisor updated', 'ok');
+            setTimeout(function() { location.reload(); }, 1400);
+        } else { showPaToast(res.error || 'Failed', 'err'); }
     });
 }
 

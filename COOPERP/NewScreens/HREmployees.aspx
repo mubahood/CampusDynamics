@@ -94,6 +94,22 @@
 .emp-code{font-family:'Consolas','Courier New',monospace;font-size:12px;color:var(--brand);font-weight:600;background:var(--brand-light);padding:2px 8px;border-radius:4px;white-space:nowrap;}
 .emp-scale{font-size:10px;color:#888;margin-top:1px;}
 
+/* ── Duplicate code flag ── */
+.emp-dup-flag{display:inline-flex;align-items:center;gap:3px;margin-left:5px;padding:1px 6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;background:#fff3cd;color:#92400e;border:1px solid #fde68a;vertical-align:middle;cursor:help;}
+
+/* ── EMP_CODE edit lock/unlock ── */
+.ec-section{background:#fafbfc;border:1px solid #e0e5ed;border-left:3px solid var(--brand);padding:10px 14px;margin-bottom:14px;}
+.ec-section__label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--brand);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.ec-section__badge{background:var(--brand);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;letter-spacing:.4px;}
+.ec-wrap{display:flex;gap:6px;align-items:stretch;}
+.ec-wrap .hr-form-input{flex:1;font-family:'Consolas','Courier New',monospace;font-weight:600;background:#f5f7fa;color:#555;border-color:#d0d8e4;}
+.ec-wrap .hr-form-input:not([readonly]),.ec-wrap .hr-form-input.ec-input--editing:not([readonly]){background:#fff;color:var(--text);border-color:#f59e0b;box-shadow:0 0 0 2px rgba(245,158,11,.15);}
+.ec-wrap .hr-form-input.ec-input--editing{border-color:#f59e0b;}
+.ec-lock-btn{display:inline-flex;align-items:center;gap:5px;padding:0 12px;font-size:11px;font-weight:600;border:1px solid #d0d8e4;background:#fff;color:#555;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.ec-lock-btn:hover{border-color:var(--brand);color:var(--brand);}
+.ec-lock-btn--active{border-color:#f59e0b;color:#92400e;background:#fffbeb;}
+.ec-warning{display:none;align-items:center;gap:6px;margin-top:7px;padding:6px 10px;background:#fffbeb;border:1px solid #fde68a;font-size:11px;color:#92400e;}
+
 /* ── Pagination ── */
 .em-grid-footer{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-top:1px solid #eee;flex-wrap:wrap;gap:8px;}
 .em-pager-info{font-size:12px;color:#888;}
@@ -287,10 +303,11 @@
 <asp:Content ID="MainContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
 
 <!-- ═══ Hidden fields & server buttons ════════════════════════════════════ -->
-<asp:HiddenField ID="hdnEditEmpID"   runat="server" />
-<asp:HiddenField ID="hdnDeleteEmpID" runat="server" />
-<asp:HiddenField ID="hdnPwdEmpID"    runat="server" />
-<asp:HiddenField ID="hfSupervisorID" runat="server" />
+<asp:HiddenField ID="hdnEditEmpID"      runat="server" />
+<asp:HiddenField ID="hdnDeleteEmpID"   runat="server" />
+<asp:HiddenField ID="hdnPwdEmpID"      runat="server" />
+<asp:HiddenField ID="hfSupervisorID"   runat="server" />
+<asp:HiddenField ID="hfOriginalEmpCode" runat="server" />
 
 <asp:Button ID="btnAddEmployee"    runat="server" OnClick="btnAddEmployee_Click"    style="display:none" />
 <asp:Button ID="btnEditEmployee"   runat="server" OnClick="btnEditEmployee_Click"   style="display:none" />
@@ -517,6 +534,27 @@
         </div>
         <div class="hr-modal__body">
             <div id="empFormResult" class="hr-result"></div>
+
+            <!-- EMP_CODE — shown only in Edit mode; hidden for New Employee -->
+            <div id="fgEmpCode" class="ec-section" style="display:none;">
+                <div class="ec-section__label">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Staff Code (ID)
+                    <span class="ec-section__badge">UNIQUE</span>
+                </div>
+                <div class="ec-wrap">
+                    <asp:TextBox ID="txtEmpCodeDisplay" runat="server" CssClass="hr-form-input" MaxLength="25"
+                                 placeholder="e.g. MRU/2025/0001" />
+                    <button type="button" class="ec-lock-btn" id="btnEcLock" onclick="toggleEmpCodeLock()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span id="btnEcLockText">Change Code</span>
+                    </button>
+                </div>
+                <div class="ec-warning" id="ecWarning">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Changing this code affects payroll, reports and all linked records — verify carefully before saving.
+                </div>
+            </div>
 
             <div class="hr-modal__section">Personal Information</div>
             <div class="hr-form-row3">
@@ -1521,8 +1559,20 @@ function resetEmpForm() {
     document.getElementById('<%= hdnEditEmpID.ClientID %>').value = '';
     document.getElementById('<%= hfSupervisorID.ClientID %>').value = '';
     document.getElementById('<%= hfReviewerID.ClientID %>').value = '';
+    document.getElementById('<%= hfOriginalEmpCode.ClientID %>').value = '';
     var r = document.getElementById('empFormResult');
     if (r) { r.innerHTML = ''; r.className = 'hr-result'; }
+    // Hide and re-lock the EMP_CODE section
+    var fg = document.getElementById('fgEmpCode');
+    if (fg) fg.style.display = 'none';
+    var codeInp = document.getElementById('<%= txtEmpCodeDisplay.ClientID %>');
+    if (codeInp) { codeInp.value = ''; codeInp.readOnly = true; codeInp.classList.remove('ec-input--editing'); }
+    var lockText = document.getElementById('btnEcLockText');
+    if (lockText) lockText.textContent = 'Change Code';
+    var lockBtn = document.getElementById('btnEcLock');
+    if (lockBtn) lockBtn.classList.remove('ec-lock-btn--active');
+    var warn = document.getElementById('ecWarning');
+    if (warn) warn.style.display = 'none';
 }
 
 function openAddModal() {
@@ -1618,11 +1668,47 @@ function openEditModal(empID) {
             if (data.reviewer_id && data.reviewer_id !== '0' && data.reviewer_name) {
                 RevAC.setSelected(data.reviewer_id, data.reviewer_name, data.reviewer_code || '', '');
             }
+
+            // EMP_CODE — show locked panel with current code
+            var fg = document.getElementById('fgEmpCode');
+            if (fg) fg.style.display = 'block';
+            var codeInp = document.getElementById('<%= txtEmpCodeDisplay.ClientID %>');
+            if (codeInp) {
+                codeInp.value = data.EMP_CODE || '';
+                codeInp.readOnly = true;
+                codeInp.classList.remove('ec-input--editing');
+            }
+            document.getElementById('<%= hfOriginalEmpCode.ClientID %>').value = data.EMP_CODE || '';
         } catch(ex) {
             r.innerHTML = '<span style="color:red;">Error parsing employee data.</span>';
         }
     };
     xhr.send();
+}
+
+function toggleEmpCodeLock() {
+    var inp  = document.getElementById('<%= txtEmpCodeDisplay.ClientID %>');
+    var btn  = document.getElementById('btnEcLock');
+    var text = document.getElementById('btnEcLockText');
+    var warn = document.getElementById('ecWarning');
+    if (!inp) return;
+
+    if (inp.readOnly) {
+        if (!confirm('Changing the staff code will update it across payroll, reports and all linked records.\n\nAre you sure you want to edit it?')) return;
+        inp.readOnly = false;
+        inp.classList.add('ec-input--editing');
+        if (btn)  btn.classList.add('ec-lock-btn--active');
+        if (text) text.textContent = 'Re-lock';
+        if (warn) warn.style.display = 'flex';
+        inp.focus();
+        inp.select();
+    } else {
+        inp.readOnly = true;
+        inp.classList.remove('ec-input--editing');
+        if (btn)  btn.classList.remove('ec-lock-btn--active');
+        if (text) text.textContent = 'Change Code';
+        if (warn) warn.style.display = 'none';
+    }
 }
 
 function setVal(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; }
@@ -1652,18 +1738,17 @@ function submitEmpForm() {
     // Email validation
     if (email.value.indexOf('@') === -1) { r.innerHTML = 'Please enter a valid email address.'; r.className = 'hr-result hr-result--err'; return; }
 
-    // Supervisor is required
+    // Supervisor: required for new employees only (not pre-populated on edit — loaded via AJAX)
     var supId = document.getElementById('<%= hfSupervisorID.ClientID %>').value;
     var supMsg = document.getElementById('supRequiredMsg');
-    var supGroup = document.getElementById('supAcGroup');
-    if (!supId || supId === '0' || supId === '') {
+    if (supMsg) supMsg.style.display = 'none';
+    if (!editMode && (!supId || supId === '0' || supId === '')) {
+        var supGroup = document.getElementById('supAcGroup');
         if (supMsg) { supMsg.style.display = 'block'; }
         if (supGroup) { supGroup.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-        r.innerHTML = 'Supervisor is required. Please select a supervisor before saving.';
+        r.innerHTML = 'Supervisor is required. Please search and select a supervisor.';
         r.className = 'hr-result hr-result--err';
         return;
-    } else {
-        if (supMsg) supMsg.style.display = 'none';
     }
 
     if (editMode) {
@@ -1956,9 +2041,29 @@ function copyFixLoginPassword() {
 /* ===== DELETE EMPLOYEE ================================================= */
 function confirmDelete(empID, empName) {
     closeAllActionPopovers();
-    if (!confirm('Are you sure you want to permanently delete "' + empName + '"?\n\nThis action cannot be undone.')) return;
+    if (!confirm('Permanently DELETE the account for "' + empName + '"?\n\nThis removes the employee record AND their linked login account.\nThis action cannot be undone.')) return;
     document.getElementById('<%= hdnDeleteEmpID.ClientID %>').value = empID;
     document.getElementById('<%= btnDeleteEmployee.ClientID %>').click();
+}
+
+// Floating result banner shown after a delete postback (called from the code-behind).
+function hrDeleteToast(ok, msg) {
+    var wrap = document.getElementById('hrToastWrap');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'hrToastWrap';
+        wrap.style.cssText = 'position:fixed;top:16px;right:16px;z-index:2147483647;display:flex;flex-direction:column;gap:8px;max-width:380px;';
+        document.body.appendChild(wrap);
+    }
+    var t = document.createElement('div');
+    t.setAttribute('role', 'alert');
+    t.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:11px 14px;border-radius:6px;font:600 12.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;transform:translateY(-6px);transition:opacity .18s ease,transform .18s ease;'
+        + (ok ? 'background:#15803d;' : 'background:#b91c1c;');
+    t.innerHTML = '<span style="font-size:14px;font-weight:800;line-height:1.1;">' + (ok ? '✓' : '!') + '</span><span style="line-height:1.4;">'
+        + String(msg).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+    wrap.appendChild(t);
+    requestAnimationFrame(function () { t.style.opacity = '1'; t.style.transform = 'translateY(0)'; });
+    setTimeout(function () { t.style.opacity = '0'; t.style.transform = 'translateY(-6px)'; setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 240); }, ok ? 4500 : 8000);
 }
 
 /* ===== EMPLOYEE PROFILE SIDE PANEL ===================================== */

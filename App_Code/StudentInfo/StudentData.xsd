@@ -1110,8 +1110,13 @@ ORDER BY spec</CommandText>
               </xs:element>
               <xs:element name="progname" msprop:Generator_ColumnVarNameInTable="columnprogname" msprop:Generator_ColumnPropNameInRow="progname" msprop:Generator_ColumnPropNameInTable="prognameColumn" msprop:Generator_UserColumnName="progname" type="xs:string" minOccurs="0" />
               <xs:element name="gradSystem" msprop:Generator_ColumnVarNameInTable="columngradSystem" msprop:Generator_ColumnPropNameInRow="gradSystem" msprop:Generator_ColumnPropNameInTable="gradSystemColumn" msprop:Generator_UserColumnName="gradSystem" type="xs:string" minOccurs="0" />
-              <xs:element name="specialisation" msprop:Generator_ColumnVarNameInTable="columnspecialisation" msprop:Generator_ColumnPropNameInRow="specialisation" msprop:Generator_ColumnPropNameInTable="specialisationColumn" msprop:Generator_UserColumnName="specialisation" type="xs:int" />
-              <xs:element name="signfile" msprop:Generator_ColumnVarNameInTable="columnsignfile" msprop:Generator_ColumnPropNameInRow="signfile" msprop:Generator_ColumnPropNameInTable="signfileColumn" msprop:Generator_UserColumnName="signfile" type="xs:string" minOccurs="0" />
+<xs:element name="specialisation" msprop:Generator_ColumnVarNameInTable="columnspecialisation" msprop:Generator_ColumnPropNameInRow="specialisation" msprop:Generator_ColumnPropNameInTable="specialisationColumn" msprop:Generator_UserColumnName="specialisation" minOccurs="0">
+  <xs:simpleType>
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="150" />
+    </xs:restriction>
+  </xs:simpleType>
+</xs:element>              <xs:element name="signfile" msprop:Generator_ColumnVarNameInTable="columnsignfile" msprop:Generator_ColumnPropNameInRow="signfile" msprop:Generator_ColumnPropNameInTable="signfileColumn" msprop:Generator_UserColumnName="signfile" type="xs:string" minOccurs="0" />
               <xs:element name="studCampus" msprop:Generator_ColumnVarNameInTable="columnstudCampus" msprop:Generator_ColumnPropNameInRow="studCampus" msprop:Generator_ColumnPropNameInTable="studCampusColumn" msprop:Generator_UserColumnName="studCampus" type="xs:int" minOccurs="0" />
               <xs:element name="StudentHall" msprop:Generator_ColumnVarNameInTable="columnStudentHall" msprop:Generator_ColumnPropNameInRow="StudentHall" msprop:Generator_ColumnPropNameInTable="StudentHallColumn" msprop:Generator_UserColumnName="StudentHall" type="xs:string" minOccurs="0" />
               <xs:element name="regstatus" msprop:Generator_ColumnVarNameInTable="columnregstatus" msprop:Generator_ColumnPropNameInRow="regstatus" msprop:Generator_ColumnPropNameInTable="regstatusColumn" msprop:Generator_UserColumnName="regstatus" type="xs:string" minOccurs="0" />
@@ -1784,7 +1789,7 @@ ORDER BY spec</CommandText>
               <xs:element name="abbrev" msprop:Generator_ColumnVarNameInTable="columnabbrev" msprop:Generator_ColumnPropNameInRow="abbrev" msprop:Generator_ColumnPropNameInTable="abbrevColumn" msprop:Generator_UserColumnName="abbrev">
                 <xs:simpleType>
                   <xs:restriction base="xs:string">
-                    <xs:maxLength value="15" />
+                    <xs:maxLength value="50" />
                   </xs:restriction>
                 </xs:simpleType>
               </xs:element>

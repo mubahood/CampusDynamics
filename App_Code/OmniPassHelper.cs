@@ -314,6 +314,10 @@ public static class OmniPassHelper
         }
         finally { if (opened) acadConn.Close(); }
 
+        // Ongoing backfill: auto-create a PRINTED ID-card request for every student
+        // now reported PRINTED who does not have one yet (idempotent, capped, no emails).
+        try { IDCardService.SyncPrintedRequests("OMNIPASS-SYNC", 2000); } catch { }
+
         return updated;
     }
 

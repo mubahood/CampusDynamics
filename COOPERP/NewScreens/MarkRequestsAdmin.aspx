@@ -59,6 +59,26 @@
 .mra-note{font-size:10px;color:#6b7280;line-height:1.35}
 .mra-strong{font-weight:800;color:#05275C}
 .mra-code{font-family:monospace;font-size:10px;color:#374151}
+.mra-lec-badge{display:inline-block;padding:1px 6px;border-radius:2px;font-size:8px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;background:#eef1f6;color:#64748b}
+.mra-lec-badge--assigned{background:#eaf1fc;color:#174DA4}
+/* detail + lecturer overlays */
+.mrx-ovl{position:fixed;inset:0;background:rgba(10,20,40,.5);z-index:100000;display:none;align-items:center;justify-content:center;padding:20px}
+.mrx-ovl.open{display:flex}
+.mrx-modal{background:#fff;width:560px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;border-radius:4px;box-shadow:0 16px 48px rgba(0,0,0,.3);overflow:visible}
+.mrx-modal--wide{width:640px}
+.mrx-hd{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid #e5e7eb;font-weight:800;color:#05275C;font-size:14px}
+.mrx-x{background:none;border:none;font-size:22px;line-height:1;color:#888;cursor:pointer}
+.mrx-bd{padding:16px 18px;overflow-y:auto}
+.mrx-ft{padding:12px 18px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:8px}
+.mrx-sec{margin-bottom:14px}
+.mrx-sec__t{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#05275C;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+.mrx-kv{display:grid;grid-template-columns:130px 1fr;gap:5px 10px;font-size:12px}
+.mrx-kv .k{color:#64748b}
+.mrx-kv .v{color:#1a1a2e;font-weight:500;word-break:break-word}
+.mrx-quote{background:#f8fafc;border-left:3px solid #cbd5e1;padding:8px 10px;font-size:12px;color:#334155;border-radius:2px;margin-bottom:6px}
+.mrx-btn{padding:8px 14px;font-size:12px;font-weight:600;border:1px solid #cdd5e1;background:#fff;color:#05275C;border-radius:4px;cursor:pointer}
+.mrx-btn--primary{background:#05275C;color:#fff;border-color:#05275C}
+.lc-opt:hover{background:#eef4fd !important}
 .mra-action-wrap{display:flex;gap:3px;justify-content:flex-end;flex-wrap:wrap}
 .mra-menu-wrap{position:relative;display:inline-block;}
 .mra-menu{display:none;position:absolute;right:0;top:100%;min-width:130px;background:#fff;border:1px solid #d5dce8;box-shadow:0 4px 16px rgba(5,39,92,.13);z-index:200;margin-top:1px;}
@@ -92,6 +112,12 @@
 .mra-modal__marks{display:none;border:1px solid #e5eaf3;padding:6px}
 .mra-modal__marks.show{display:block}
 .mra-modal__marks-hint{font-size:9px;color:#64748b;margin-bottom:5px}
+.mra-modal__status{border:1px solid #e5eaf3;padding:8px;margin-bottom:8px}
+.mra-modal__slabel{display:block;font-size:9px;color:#64748b;margin:6px 0 3px;text-transform:uppercase;letter-spacing:.4px}
+.mra-modal__select{width:100%;padding:7px 8px;font-size:12px;border:1px solid #cdd5e1;background:#fff}
+.mra-modal__warn{margin-top:8px;padding:8px 10px;font-size:11px;line-height:1.5;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}
+.mra-modal__warn.danger{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.mra-modal__warn.info{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
 .mra-modal__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .mra-modal__mark{display:flex;flex-direction:column;gap:3px}
 .mra-modal__mark label{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800}
@@ -210,6 +236,7 @@
                         <th style="width:38px;">ID</th>
                         <th style="width:160px;">Student</th>
                         <th style="width:155px;">Course</th>
+                        <th style="width:130px;">Lecturer</th>
                         <th style="width:95px;">Type / Status</th>
                         <th style="width:130px;">Marks</th>
                         <th>Trail</th>
@@ -250,6 +277,19 @@
                             <input type="number" id="mraApproveTotal" readonly="readonly" placeholder="Auto"/>
                         </div>
                     </div>
+                </div>
+                <div class="mra-modal__status" id="mraStatusWrap" style="display:none;">
+                    <div class="mra-modal__marks-hint">Current status: <b id="mraCurStatus">—</b></div>
+                    <label class="mra-modal__slabel" for="mraStatusSelect">Change status to</label>
+                    <select id="mraStatusSelect" class="mra-modal__select">
+                        <option value="PENDING_LECTURER">Pending Lecturer</option>
+                        <option value="PENDING_SUPERVISOR">Pending Supervisor</option>
+                        <option value="PENDING_ADMIN">Pending Admin</option>
+                        <option value="APPROVED">Approved</option>
+                        <option value="REJECTED">Rejected</option>
+                        <option value="CANCELLED">Cancelled</option>
+                    </select>
+                    <div class="mra-modal__warn" id="mraStatusWarn" style="display:none;"></div>
                 </div>
                 <textarea id="mraModalNote" class="mra-modal__textarea" placeholder="Enter note..."></textarea>
                 <div class="mra-modal__error" id="mraModalError"></div>
@@ -383,6 +423,29 @@ function modalOk(msg){
     else{e.textContent='';e.className='mra-modal__ok';}
 }
 
+// ── Status-change helpers ─────────────────────────────────────────────────────
+function prettyStatus(s){
+    var m={PENDING_LECTURER:'Pending Lecturer',PENDING_SUPERVISOR:'Pending Supervisor',PENDING_ADMIN:'Pending Admin',APPROVED:'Approved',REJECTED:'Rejected',CANCELLED:'Cancelled'};
+    return m[(s||'').toUpperCase()]||s||'—';
+}
+function defaultTarget(cur){
+    cur=(cur||'').toUpperCase();
+    if(cur==='APPROVED')return 'PENDING_ADMIN';
+    if(cur==='PENDING_ADMIN')return 'APPROVED';
+    return 'PENDING_ADMIN';
+}
+function updateStatusWarn(cur){
+    var sel=byId('mraStatusSelect'),warn=byId('mraStatusWarn');
+    if(!sel||!warn)return;
+    cur=(cur||'').toUpperCase();
+    var tgt=sel.value,html='',cls='info';
+    if(tgt===cur){html='This is already the current status — pick a different one.';cls='danger';}
+    else if(tgt==='APPROVED'){html='<b>Approving:</b> the proposed marks will be published to the student’s results and GPA/CGPA recalculated.';cls='info';}
+    else if(cur==='APPROVED'){html='<b>Heads up:</b> this request is <b>Approved</b> and its mark is live. Changing it will <b>auto-revert the published mark</b> and recalculate GPA/CGPA.';cls='danger';}
+    else{html='Moves this request to <b>'+prettyStatus(tgt)+'</b>. No marks are published or changed.';cls='info';}
+    warn.innerHTML=html;warn.className='mra-modal__warn '+cls;warn.style.display='block';
+}
+
 // ── Open modal — single item ──────────────────────────────────────────────────
 function openModal(action,id){
     modalState.action=action;
@@ -416,6 +479,7 @@ function _showModal(action,id){
     if(cw)cw.value='';if(ex)ex.value='';if(tot)tot.value='';
     if(marksWrap)marksWrap.className='mra-modal__marks';
     if(ctx)ctx.style.display='none';
+    var statusWrap0=byId('mraStatusWrap'); if(statusWrap0)statusWrap0.style.display='none';
 
     var isBatch=modalState.isBatch;
     var batchN=isBatch?modalState.batchIds.length:0;
@@ -474,6 +538,21 @@ function _showModal(action,id){
         if(row&&cw){cw.value=row.getAttribute('data-pcw')||row.getAttribute('data-ocw')||'';}
         if(row&&ex){ex.value=row.getAttribute('data-pex')||row.getAttribute('data-oex')||'';}
         calcTotal();
+    } else if(action==='status'){
+        title.textContent='Change Status — Request #'+id;
+        hint.textContent='Set this request to any state. Unusual moves are allowed but flagged below.';
+        note.placeholder='Reason for this status change (required)';
+        submit.textContent='Change Status';
+        submit.className='mra-btn mra-btn--primary';
+        var curStatus=(row?row.getAttribute('data-status'):'')||'';
+        var sw=byId('mraStatusWrap'),sel=byId('mraStatusSelect'),cur=byId('mraCurStatus');
+        if(cur)cur.textContent=prettyStatus(curStatus);
+        if(sw)sw.style.display='block';
+        if(sel){
+            sel.value=defaultTarget(curStatus);
+            sel.onchange=function(){updateStatusWarn(curStatus);};
+        }
+        updateStatusWarn(curStatus);
     }
 
     if(!isBatch&&row&&ctx&&action!=='approve'){
@@ -566,6 +645,13 @@ function submitAction(){
             if(exVal!==null&&(exVal<0||exVal>60)){modalError('Exam mark must be 0–60.');return;}
             method='AdminUpdateMarks';
             payload={requestId:id,cw:cwVal,exam:exVal,note:txtVal};
+        } else if(action==='status'){
+            var stSel=byId('mraStatusSelect');
+            var tgt=stSel?stSel.value:'';
+            if(!tgt){modalError('Pick a target status.');return;}
+            if(txtVal.length<3){modalError('Please provide a reason (min 3 characters).');return;}
+            method='AdminChangeStatus';
+            payload={requestId:id,newStatus:tgt,note:txtVal};
         } else {
             modalError('Unknown action.');return;
         }
@@ -613,7 +699,118 @@ document.addEventListener('click',function(e){
 document.addEventListener('keydown',function(e){
     if(e.key==='Escape') closeAllMenus();
 },{capture:true});
+/* ── View Details + Change Lecturer (self-contained overlays) ── */
+function mrxEsc(s){ s=(s==null?'':''+s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function mrxDash(v){ return (v==null||v==='')?'—':v; }
+function mrxClose(ov){ if(ov&&ov.parentNode) ov.parentNode.removeChild(ov); }
+
+/* Searchable lecturer combobox (no library). items:[{id,name,is_default,is_taught}]. Returns {value:fn}.
+   Uses mousedown+preventDefault so a click registers before the input's blur hides the list. */
+function lecCombo(mount, items, preselectId){
+    var selId = preselectId || 0;
+    mount.innerHTML =
+        '<div style="position:relative;">'
+        + '<input type="text" class="lc-inp" autocomplete="off" placeholder="Type a name to search all lecturers&hellip;" '
+        +   'style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;box-sizing:border-box;" />'
+        + '<div class="lc-list" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:60;background:#fff;border:1px solid #cbd5e1;border-top:none;max-height:220px;overflow-y:auto;box-shadow:0 8px 22px rgba(0,0,0,.14);"></div>'
+        + '</div>';
+    var inp = mount.querySelector('.lc-inp'), listEl = mount.querySelector('.lc-list');
+    function tag(it){ return it.is_default ? ' · default' : (it.is_taught ? ' · taught this course' : ''); }
+    function render(f){
+        f=(f||'').toLowerCase().trim(); var html='', shown=0;
+        for(var i=0;i<items.length && shown<250;i++){
+            var it=items[i], nm=(it.name||('Staff #'+it.id));
+            if(f && nm.toLowerCase().indexOf(f)<0) continue;
+            var bg=(it.is_default||it.is_taught)?'#f0f7ff':'#fff';
+            html+='<div class="lc-opt" data-id="'+it.id+'" data-nm="'+mrxEsc(nm)+'" style="padding:8px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid #f0f2f6;background:'+bg+';">'
+                + mrxEsc(nm) + (tag(it)?'<span style="color:#94a3b8;font-size:11px;">'+mrxEsc(tag(it))+'</span>':'') + '</div>';
+            shown++;
+        }
+        listEl.innerHTML = html || '<div style="padding:10px;color:#94a3b8;font-size:12px;">No lecturer matches.</div>';
+        var opts=listEl.querySelectorAll('.lc-opt');
+        for(var j=0;j<opts.length;j++){
+            opts[j].onmousedown=function(e){ e.preventDefault(); selId=parseInt(this.getAttribute('data-id'),10)||0; inp.value=this.getAttribute('data-nm'); listEl.style.display='none'; };
+        }
+    }
+    inp.oninput=function(){ selId=0; render(inp.value); listEl.style.display='block'; };
+    inp.onfocus=function(){ render(inp.value); listEl.style.display='block'; };
+    inp.onblur=function(){ setTimeout(function(){ listEl.style.display='none'; },150); };
+    if(preselectId){ for(var k=0;k<items.length;k++){ if(items[k].id===preselectId){ inp.value=(items[k].name||('Staff #'+preselectId)); break; } } }
+    return { value: function(){ return selId; } };
+}
+
+function openDetail(id){
+    closeAllMenus();
+    var ov=document.createElement('div'); ov.className='mrx-ovl open';
+    ov.innerHTML='<div class="mrx-modal mrx-modal--wide"><div class="mrx-hd"><span>Request #'+mrxEsc(id)+'</span><button type="button" class="mrx-x">&times;</button></div>'
+        +'<div class="mrx-bd" id="mrxDetBody"><div class="mra-note" style="padding:20px;text-align:center;">Loading&hellip;</div></div>'
+        +'<div class="mrx-ft"><button type="button" class="mrx-btn mrx-cancel">Close</button></div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('.mrx-x').onclick=function(){ mrxClose(ov); };
+    ov.querySelector('.mrx-cancel').onclick=function(){ mrxClose(ov); };
+    ov.addEventListener('click',function(e){ if(e.target===ov) mrxClose(ov); });
+    ajax('AdminGetRequestDetail',{requestId:parseInt(id,10)},function(d){
+        var body=document.getElementById('mrxDetBody'); if(!body) return;
+        if(!d||!d.success){ body.innerHTML='<div class="mra-note" style="padding:20px;color:#b91c1c;">'+mrxEsc((d&&d.message)||'Failed to load.')+'</div>'; return; }
+        function kv(k,v){ return '<div class="k">'+mrxEsc(k)+'</div><div class="v">'+(v==null||v===''?'—':mrxEsc(v))+'</div>'; }
+        var h='';
+        h+='<div class="mrx-sec"><div class="mrx-sec__t"><span>Student &amp; course</span><span class="mra-pill mra-pill--'+mrxEsc(d.status)+'">'+mrxEsc((d.status||'').replace(/_/g,' '))+'</span></div><div class="mrx-kv">'
+            +kv('Student',(d.student||d.regno)+' ('+d.regno+')')+kv('Course',d.course+(d.course_name&&d.course_name!==d.course?(' — '+d.course_name):''))+kv('Period',d.year+' · Sem '+d.sem)+kv('Type',d.type==='MISSING_MARK'?'Missing mark':'Mark change')+'</div></div>';
+        h+='<div class="mrx-sec"><div class="mrx-sec__t"><span>Lecturer</span></div><div class="mrx-kv">'
+            +kv(d.is_assigned?'Assigned lecturer':'Course lecturer', d.lecturer_name)
+            +(d.lecturer_email?kv('Email',d.lecturer_email):'')
+            +((d.is_assigned && d.default_name && d.default_name!==d.lecturer_name)?kv('Course default',d.default_name):'')
+            +(d.supervisor_name?kv('Supervisor',d.supervisor_name):'')+'</div></div>';
+        h+='<div class="mrx-sec"><div class="mrx-sec__t"><span>Marks</span></div><div class="mrx-kv">'
+            +kv('Original','CW '+mrxDash(d.orig_cw)+' · Ex '+mrxDash(d.orig_exam)+' · Tot '+mrxDash(d.orig_total)+(d.orig_grade?(' · '+d.orig_grade):''))
+            +kv('Proposed','CW '+mrxDash(d.prop_cw)+' · Ex '+mrxDash(d.prop_exam)+' · Tot '+mrxDash(d.prop_total)+(d.prop_grade?(' · '+d.prop_grade):''))+'</div></div>';
+        h+='<div class="mrx-sec"><div class="mrx-sec__t"><span>Trail</span></div>';
+        if(d.student_reason) h+='<div class="mrx-quote"><b>Student:</b> '+mrxEsc(d.student_reason)+'</div>';
+        if(d.lecturer_response) h+='<div class="mrx-quote"><b>Lecturer'+(d.lec_at?(' · '+d.lec_at):'')+':</b> '+mrxEsc(d.lecturer_response)+'</div>';
+        if(d.supervisor_response) h+='<div class="mrx-quote"><b>Supervisor'+(d.sup_at?(' · '+d.sup_at):'')+':</b> '+mrxEsc(d.supervisor_response)+'</div>';
+        if(d.admin_response) h+='<div class="mrx-quote"><b>Admin'+(d.admin_username?(' · '+d.admin_username):'')+(d.adm_at?(' · '+d.adm_at):'')+':</b> '+mrxEsc(d.admin_response)+'</div>';
+        if(!d.student_reason && !d.lecturer_response && !d.supervisor_response && !d.admin_response) h+='<div class="mra-note">No responses yet.</div>';
+        h+='</div>';
+        h+='<div class="mrx-sec"><div class="mrx-sec__t"><span>Timeline</span></div><div class="mrx-kv">'+kv('Created',d.created_at)+kv('Last updated',d.updated_at)+'</div></div>';
+        body.innerHTML=h;
+    });
+}
+
+function openLecturerModal(id){
+    closeAllMenus();
+    var row=document.querySelector('tr[data-id="'+id+'"]');
+    var courseId=row?(row.getAttribute('data-courseid')||''):'', year=row?(row.getAttribute('data-year')||''):'',
+        sem=row?(parseInt(row.getAttribute('data-sem'),10)||0):0, curLid=row?(parseInt(row.getAttribute('data-lecturerid'),10)||0):0;
+    var ov=document.createElement('div'); ov.className='mrx-ovl open';
+    ov.innerHTML='<div class="mrx-modal"><div class="mrx-hd"><span>Change assigned lecturer</span><button type="button" class="mrx-x">&times;</button></div>'
+        +'<div class="mrx-bd"><p style="font-size:12px;color:#6b7280;margin:0 0 10px;">Search and pick the lecturer this request should route to &mdash; you can choose <strong>any</strong> lecturer.</p>'
+        +'<div id="mrxLecCombo"><input type="text" disabled placeholder="Loading lecturers&hellip;" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:4px;font-size:13px;box-sizing:border-box;background:#f8fafc;" /></div>'
+        +'<div id="mrxLecMsg" style="font-size:12px;margin-top:8px;"></div></div>'
+        +'<div class="mrx-ft"><button type="button" class="mrx-btn mrx-cancel">Cancel</button><button type="button" class="mrx-btn mrx-btn--primary mrx-save">Save</button></div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('.mrx-x').onclick=function(){ mrxClose(ov); };
+    ov.querySelector('.mrx-cancel').onclick=function(){ mrxClose(ov); };
+    ov.addEventListener('click',function(e){ if(e.target===ov) mrxClose(ov); });
+    var combo=null, mount=document.getElementById('mrxLecCombo');
+    ajax('AdminGetLecturers',{courseId:courseId,acadYear:year,semester:sem},function(d){
+        if(d && d.success && d.lecturers && d.lecturers.length){ combo=lecCombo(mount, d.lecturers, curLid); }
+        else { mount.innerHTML='<div class="mra-note" style="padding:8px;">'+mrxEsc((d&&d.message)||'No lecturers available.')+'</div>'; }
+    });
+    ov.querySelector('.mrx-save').onclick=function(){
+        var lid=combo?combo.value():0, msg=document.getElementById('mrxLecMsg');
+        if(lid<=0){ msg.style.color='#dc3545'; msg.textContent='Please search and pick a lecturer.'; return; }
+        var btn=this; btn.disabled=true; btn.textContent='Saving…';
+        ajax('AdminSetLecturer',{requestId:parseInt(id,10),lecturerId:lid},function(d){
+            if(d && d.success){ mrxClose(ov); location.reload(); }
+            else { btn.disabled=false; btn.textContent='Save'; msg.style.color='#dc3545'; msg.textContent=(d&&d.message)||'Failed.'; }
+        });
+    };
+}
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ var o=document.querySelector('.mrx-ovl.open'); if(o) mrxClose(o); } });
+
 // expose required functions to global scope (onclick attrs in server-rendered HTML)
+window.openDetail=openDetail;
+window.openLecturerModal=openLecturerModal;
 window.openModal=openModal;
 window.openBatchModal=openBatchModal;
 window.selectAll=selectAll;

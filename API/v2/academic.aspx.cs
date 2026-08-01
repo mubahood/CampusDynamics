@@ -544,7 +544,23 @@ public partial class API_v2_academic : System.Web.UI.Page
             if (existCount > 0)
             {
                 alreadyRegistered = true;
-                regResult = "Already registered for " + acad_year + " Semester " + semester;
+                // Forward-enforce the rule: a pre-existing stub row (e.g. created as
+                // UNREGISTERED by admission/promotion) must be promoted to REGISTERED so a
+                // student is never left billed-but-unregistered. Billing runs unconditionally
+                // below. Guard preserves an already-active status and the original registrar.
+                ApiHelper.Execute(
+                    @"UPDATE acad_registration
+                      SET regstatus = 'REGISTERED',
+                          examClearance = CASE WHEN IFNULL(TRIM(examClearance),'') = '' THEN 'UNCLEARED' ELSE examClearance END,
+                          registeredBy  = CASE WHEN IFNULL(TRIM(registeredBy),'')  = '' THEN @user ELSE registeredBy END
+                      WHERE regno = @r AND acad_year = @ay AND semester = @sem
+                        AND UPPER(TRIM(IFNULL(regstatus,''))) NOT IN ('REGISTERED','LATE REGISTERED','CLEARED')",
+                    new MySqlParameter("@r",    regno),
+                    new MySqlParameter("@ay",   acad_year),
+                    new MySqlParameter("@sem",  semester),
+                    new MySqlParameter("@user", regno)
+                );
+                regResult = "Registered for " + acad_year + " Semester " + semester;
             }
             else
             {

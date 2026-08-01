@@ -1102,6 +1102,28 @@ public partial class COOPERP_NewScreens_BursaryBeneficiaries : System.Web.UI.Pag
             string schemeName, double amount, string acadYear, int semester, int itemCode, string notes)
         {
             var result = new Result();
+
+            // GUARD: a student with active retake(s) is not eligible for a bursary while a
+            // retake is in progress. Checked before any write so all-or-nothing holds.
+            try
+            {
+                using (MySqlCommand g = new MySqlCommand(
+                    @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_retake_registrations
+                      WHERE TRIM(regno)=TRIM(@r) AND status NOT IN ('COMPLETED','CANCELLED')", conn))
+                {
+                    g.Parameters.AddWithValue("@r", regNo);
+                    long activeRetakes = Convert.ToInt64(g.ExecuteScalar());
+                    if (activeRetakes > 0)
+                    {
+                        result.Success = false;
+                        result.Message = "Student " + regNo + " has " + activeRetakes +
+                            " active retake(s) and is not eligible for a bursary while a retake is in progress.";
+                        return result;
+                    }
+                }
+            }
+            catch { /* retake table unavailable — do not block bursary on a transient error */ }
+
             MySqlTransaction tx = conn.BeginTransaction();
             try
             {

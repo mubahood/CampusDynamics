@@ -103,6 +103,10 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        // Dynamic Recent-Transactions endpoints (GET JSON) — served before any page/postback work.
+        string act = (Request["act"] ?? "").Trim().ToLowerInvariant();
+        if (act != "") { HandleRecentAjax(act); return; }
+
         LoadAcademicYears();
 
         string postedYear = Request.Form[ddlAcadYear.UniqueID];
@@ -135,21 +139,30 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
 
     private void LoadAcademicYears()
     {
-        using (var conn = new MySqlConnection(MainConnStr))
+        // Cache the year list for 15 min — it changes at most once per academic cycle
+        const string cacheKey = "FeesManagement_AcadYears";
+        var years = System.Web.HttpRuntime.Cache[cacheKey] as List<string>;
+        if (years == null)
         {
-            conn.Open();
-            using (var cmd = new MySqlCommand(
-                "SELECT DISTINCT acad_year FROM acad_registration ORDER BY acad_year DESC", conn))
-            using (var rdr = cmd.ExecuteReader())
+            years = new List<string>();
+            using (var conn = new MySqlConnection(MainConnStr))
             {
-                ddlAcadYear.Items.Clear();
-                while (rdr.Read())
-                {
-                    string y = rdr["acad_year"].ToString();
-                    ddlAcadYear.Items.Add(new ListItem(y, y));
-                }
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    "SELECT DISTINCT acad_year FROM acad_registration ORDER BY acad_year DESC", conn))
+                using (var rdr = cmd.ExecuteReader())
+                    while (rdr.Read())
+                        years.Add(rdr["acad_year"].ToString());
             }
+            System.Web.HttpRuntime.Cache.Insert(cacheKey, years, null,
+                System.Web.Caching.Cache.NoAbsoluteExpiration,
+                TimeSpan.FromMinutes(15),
+                System.Web.Caching.CacheItemPriority.Normal, null);
         }
+
+        ddlAcadYear.Items.Clear();
+        foreach (string y in years)
+            ddlAcadYear.Items.Add(new ListItem(y, y));
     }
 
     private void SetDefaultYear()
@@ -186,6 +199,9 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
             "<span class='fs-badge fs-badge--primary'>{0}{1}</span>",
             Server.HtmlEncode(yearFilter), semLabel);
 
+        // Serve from 3-minute in-process cache — avoids re-running ~16 cross-database queries
+        if (TryApplySnapshot(yearFilter, semFilter)) return;
+
         // Each section loads independently — one failure must not cascade to others
         try { LoadHeroStats(yearFilter, semFilter); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadHeroStats error: " + ex.Message); }
@@ -220,8 +236,200 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
         try { LoadPaymentChannels(yearFilter, semFilter); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadPaymentChannels error: " + ex.Message); }
 
+        try { LoadBursaryStats(yearFilter, semFilter); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("LoadBursaryStats error: " + ex.Message); }
+
         LoadPaidButUnregistered();
+
+        SaveSnapshot(yearFilter, semFilter);
     }
+
+    // ===================================================================
+    // RECENT TRANSACTIONS — dynamic, accurate, clickable  (AJAX: ?act=recenttx|txdetail)
+    //   Accuracy: LEFT joins (nothing dropped like the old enrolled-only tables),
+    //   true chronological order (trans_date DESC), all-years by default.
+    // ===================================================================
+    private const string RTX_NAME_EXPR =
+        "TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,'')))";
+
+    private void HandleRecentAjax(string act)
+    {
+        Response.Clear();
+        Response.ContentType = "application/json";
+        Response.Cache.SetCacheability(System.Web.HttpCacheability.NoCache);
+        try
+        {
+            if (act == "recenttx") WriteRecentTx();
+            else if (act == "txdetail") WriteTxDetail();
+            else Response.Write("{\"ok\":false,\"message\":\"Unknown action\"}");
+        }
+        catch (Exception ex)
+        {
+            Response.Write("{\"ok\":false,\"message\":" + JsEnc(ex.Message) + "}");
+        }
+        try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
+    }
+
+    private void WriteRecentTx()
+    {
+        string type  = (Request["type"] ?? "all").Trim().ToLowerInvariant();
+        string q     = (Request["q"] ?? "").Trim();
+        string scope = (Request["scope"] ?? "all").Trim().ToLowerInvariant();
+        string year  = (Request["year"] ?? "").Trim();
+        int limit; if (!int.TryParse(Request["limit"], out limit)) limit = 50;
+        if (limit != 25 && limit != 50 && limit != 100 && limit != 200) limit = 50;
+
+        string typeCond = type == "payment" ? " AND ft.trans_type='Payment'"
+                        : type == "bill"    ? " AND ft.trans_type='Bill'" : "";
+        string yearCond = (scope == "year" && year != "") ? " AND ft.acadyear=@ay" : "";
+        string searchCond = q == "" ? "" :
+            " AND (ft.regno LIKE @q OR " + RTX_NAME_EXPR + " LIKE @q OR ft.detail LIKE @q)";
+
+        string sql =
+            "SELECT ft.TID, ft.regno, ft.trans_type, ft.amount, ft.trans_date, ft.detail, ft.semester, ft.acadyear, ft.post_status, " +
+            RTX_NAME_EXPR + " AS student_name, s.progid, COALESCE(p.progname, s.progid, '') AS programme, " +
+            "COALESCE(b.ItemName, CAST(ft.item_code AS CHAR)) AS item_name " +
+            "FROM fin_studentfeestracking ft " +
+            "LEFT JOIN campus_dynamics.acad_student s ON s.regno = ft.regno " +
+            "LEFT JOIN campus_dynamics.acad_programme p ON p.progcode = s.progid " +
+            "LEFT JOIN academicbillingitems b ON b.ItemCode = ft.item_code " +
+            "WHERE 1=1" + typeCond + yearCond + searchCond + " " +
+            "ORDER BY ft.trans_date DESC, ft.TID DESC LIMIT " + limit;
+
+        var sb = new StringBuilder("{\"ok\":true,\"rows\":[");
+        int cnt = 0;
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                if (yearCond != "") cmd.Parameters.AddWithValue("@ay", year);
+                if (searchCond != "") cmd.Parameters.AddWithValue("@q", "%" + q + "%");
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    while (rdr.Read())
+                    {
+                        if (cnt++ > 0) sb.Append(",");
+                        double amt = rdr["amount"] == DBNull.Value ? 0 : Convert.ToDouble(rdr["amount"]);
+                        string dt = rdr["trans_date"] == DBNull.Value ? ""
+                                  : Convert.ToDateTime(rdr["trans_date"]).ToString("dd MMM yyyy · HH:mm");
+                        sb.Append("{\"tid\":").Append(rdr["TID"].ToString());
+                        sb.Append(",\"regno\":").Append(JsEnc(rdr["regno"].ToString()));
+                        sb.Append(",\"name\":").Append(JsEnc(rdr["student_name"].ToString()));
+                        sb.Append(",\"prog\":").Append(JsEnc(rdr["programme"].ToString()));
+                        sb.Append(",\"item\":").Append(JsEnc(rdr["item_name"].ToString()));
+                        sb.Append(",\"detail\":").Append(JsEnc(rdr["detail"].ToString()));
+                        sb.Append(",\"amount\":").Append(amt.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        sb.Append(",\"type\":").Append(JsEnc(rdr["trans_type"].ToString().Trim()));
+                        sb.Append(",\"date\":").Append(JsEnc(dt));
+                        sb.Append(",\"status\":").Append(JsEnc(rdr["post_status"].ToString().Trim()));
+                        sb.Append(",\"sem\":").Append(JsEnc(rdr["semester"].ToString()));
+                        sb.Append(",\"year\":").Append(JsEnc(rdr["acadyear"].ToString().Trim()));
+                        sb.Append("}");
+                    }
+                }
+            }
+        }
+        sb.Append("],\"count\":").Append(cnt).Append("}");
+        Response.Write(sb.ToString());
+    }
+
+    private void WriteTxDetail()
+    {
+        long tid;
+        if (!long.TryParse((Request["tid"] ?? "").Trim(), out tid))
+        { Response.Write("{\"ok\":false,\"message\":\"Bad id\"}"); return; }
+
+        var sb = new StringBuilder("{\"ok\":true");
+        string regno = "";
+        bool found = false;
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(
+                "SELECT ft.TID, ft.regno, ft.trans_type, ft.amount, ft.trans_date, ft.detail, ft.semester, ft.acadyear, ft.post_status, " +
+                "COALESCE(b.ItemName, CAST(ft.item_code AS CHAR)) AS item_name " +
+                "FROM fin_studentfeestracking ft LEFT JOIN academicbillingitems b ON b.ItemCode = ft.item_code WHERE ft.TID=@t LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@t", tid);
+                using (var rdr = cmd.ExecuteReader())
+                {
+                    if (rdr.Read())
+                    {
+                        found = true;
+                        regno = rdr["regno"].ToString();
+                        double amt = rdr["amount"] == DBNull.Value ? 0 : Convert.ToDouble(rdr["amount"]);
+                        string dt = rdr["trans_date"] == DBNull.Value ? ""
+                                  : Convert.ToDateTime(rdr["trans_date"]).ToString("dd MMM yyyy HH:mm:ss");
+                        sb.Append(",\"txn\":{\"tid\":").Append(rdr["TID"].ToString());
+                        sb.Append(",\"regno\":").Append(JsEnc(regno));
+                        sb.Append(",\"type\":").Append(JsEnc(rdr["trans_type"].ToString().Trim()));
+                        sb.Append(",\"amount\":").Append(amt.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        sb.Append(",\"date\":").Append(JsEnc(dt));
+                        sb.Append(",\"detail\":").Append(JsEnc(rdr["detail"].ToString()));
+                        sb.Append(",\"item\":").Append(JsEnc(rdr["item_name"].ToString()));
+                        sb.Append(",\"sem\":").Append(JsEnc(rdr["semester"].ToString()));
+                        sb.Append(",\"year\":").Append(JsEnc(rdr["acadyear"].ToString().Trim()));
+                        sb.Append(",\"status\":").Append(JsEnc(rdr["post_status"].ToString().Trim()));
+                        sb.Append("}");
+                    }
+                }
+            }
+
+            if (found && regno != "")
+            {
+                using (var cmd = new MySqlCommand(
+                    "SELECT " + RTX_NAME_EXPR + " AS nm, COALESCE(p.progname, s.progid, '') AS programme, " +
+                    "s.new_status, s.gender, s.studPhone, s.email, s.entryyear " +
+                    "FROM campus_dynamics.acad_student s LEFT JOIN campus_dynamics.acad_programme p ON p.progcode = s.progid " +
+                    "WHERE s.regno=@r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (rdr.Read())
+                        {
+                            sb.Append(",\"student\":{\"name\":").Append(JsEnc(rdr["nm"].ToString()));
+                            sb.Append(",\"programme\":").Append(JsEnc(rdr["programme"].ToString()));
+                            sb.Append(",\"status\":").Append(JsEnc(rdr["new_status"].ToString()));
+                            sb.Append(",\"gender\":").Append(JsEnc(rdr["gender"] == DBNull.Value ? "" : rdr["gender"].ToString()));
+                            sb.Append(",\"phone\":").Append(JsEnc(rdr["studPhone"] == DBNull.Value ? "" : rdr["studPhone"].ToString()));
+                            sb.Append(",\"email\":").Append(JsEnc(rdr["email"] == DBNull.Value ? "" : rdr["email"].ToString()));
+                            sb.Append(",\"entryyear\":").Append(JsEnc(rdr["entryyear"] == DBNull.Value ? "" : rdr["entryyear"].ToString()));
+                            sb.Append("}");
+                        }
+                    }
+                }
+
+                using (var cmd = new MySqlCommand(
+                    "SELECT total_billed, total_paid, total_balance FROM fin_student_balance_cache WHERE regno=@r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        if (rdr.Read())
+                        {
+                            sb.Append(",\"balance\":{\"billed\":").Append(Convert.ToDouble(rdr["total_billed"]).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                            sb.Append(",\"paid\":").Append(Convert.ToDouble(rdr["total_paid"]).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                            sb.Append(",\"balance\":").Append(Convert.ToDouble(rdr["total_balance"]).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                            sb.Append("}");
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!found) { Response.Write("{\"ok\":false,\"message\":\"Transaction not found\"}"); return; }
+
+        string prof = ResolveUrl("~/COOPERP/NewScreens/StudentProfile.aspx?regno=" + Server.UrlEncode(regno));
+        string led  = ResolveUrl("~/COOPERP/NewScreens/StudentLedgers.aspx?q=" + Server.UrlEncode(regno));
+        sb.Append(",\"links\":{\"profile\":").Append(JsEnc(prof)).Append(",\"ledger\":").Append(JsEnc(led)).Append("}");
+        sb.Append("}");
+        Response.Write(sb.ToString());
+    }
+
+    private static string JsEnc(string s) { return System.Web.HttpUtility.JavaScriptStringEncode(s ?? "", true); }
 
     // ===================================================================
     // 1. HERO KPI STATS + YEAR-OVER-YEAR
@@ -562,138 +770,162 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
 
     private void LoadMonthlyPayments(string yearFilter, string semFilter)
     {
-        string semSql   = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
-        string semSqlNc = string.IsNullOrEmpty(semFilter) ? "" : " AND fnc.semester = @sem";
-        string semSql2  = string.IsNullOrEmpty(semFilter) ? "" : " AND ft2.semester = @sem";
-        var labels       = new List<string>();
-        var cashValues   = new List<string>();
-        var nonCashValues= new List<string>();
-        var billValues   = new List<string>();
+        string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
 
+        // Pre-build ordered 12-month slot dictionaries (oldest → newest)
+        var keyOrder = new List<string>(12);
+        var labelMap = new Dictionary<string, string>(12);
+        var dataMap  = new Dictionary<string, double[]>(12); // [cash, nonCash, billed]
+
+        for (int i = 11; i >= 0; i--)
+        {
+            DateTime m = DateTime.Today.AddMonths(-i);
+            string key = m.ToString("yyyy-MM");
+            if (!dataMap.ContainsKey(key))
+            {
+                keyOrder.Add(key);
+                labelMap[key] = m.ToString("MMM-yy");   // e.g. "May-26"
+                dataMap[key]  = new double[3];
+            }
+        }
+
+        // One single GROUP BY replaces 36 correlated-subquery executions
+        string cutoff = DateTime.Today.AddMonths(-11).ToString("yyyy-MM-01");
         using (var conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
             string sql = @"
-                SELECT DATE_FORMAT(m.month_start, '%b-%y') AS month_label,
-                       m.month_start,
-                       (SELECT COALESCE(SUM(ft.amount),0)
-                        FROM fin_studentfeestracking ft
-                        INNER JOIN campus_dynamics.acad_student s ON s.regno = ft.regno AND s.new_status = 'ACTIVE'
-                        INNER JOIN campus_dynamics.acad_registration r ON r.regno = ft.regno AND r.acad_year = ft.acadyear
-                            AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
-                        WHERE ft.trans_type = 'Payment'
-                          AND ft.item_code != 75
-                          AND ft.detail NOT LIKE 'Bill Waiver%'
-                          AND ft.detail NOT LIKE 'Balance Fix%'
-                          AND DATE_FORMAT(ft.trans_date, '%Y-%m') = DATE_FORMAT(m.month_start, '%Y-%m')
-                          AND ft.trans_date IS NOT NULL" + semSql + @"
-                       ) AS cash_received,
-                       (SELECT COALESCE(SUM(fnc.amount),0)
-                        FROM fin_studentfeestracking fnc
-                        INNER JOIN campus_dynamics.acad_student snc ON snc.regno = fnc.regno AND snc.new_status = 'ACTIVE'
-                        INNER JOIN campus_dynamics.acad_registration rnc ON rnc.regno = fnc.regno AND rnc.acad_year = fnc.acadyear
-                            AND rnc.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
-                        WHERE fnc.trans_type = 'Payment'
-                          AND (fnc.item_code = 75 OR fnc.detail LIKE 'Bill Waiver%' OR fnc.detail LIKE 'Balance Fix%')
-                          AND DATE_FORMAT(fnc.trans_date, '%Y-%m') = DATE_FORMAT(m.month_start, '%Y-%m')
-                          AND fnc.trans_date IS NOT NULL" + semSqlNc + @"
-                       ) AS non_cash,
-                       (SELECT COALESCE(SUM(ft2.amount),0)
-                        FROM fin_studentfeestracking ft2
-                        INNER JOIN campus_dynamics.acad_student s2 ON s2.regno = ft2.regno AND s2.new_status = 'ACTIVE'
-                        INNER JOIN campus_dynamics.acad_registration r2 ON r2.regno = ft2.regno AND r2.acad_year = ft2.acadyear
-                            AND r2.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
-                        WHERE ft2.trans_type = 'Bill'
-                          AND DATE_FORMAT(ft2.trans_date, '%Y-%m') = DATE_FORMAT(m.month_start, '%Y-%m')
-                          AND ft2.trans_date IS NOT NULL" + semSql2 + @"
-                       ) AS total_billed
-                FROM (
-                    SELECT DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL n MONTH), '%Y-%m-01') AS month_start
-                    FROM (SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3
-                          UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7
-                          UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11) nums
-                ) m
-                ORDER BY m.month_start";
+                SELECT DATE_FORMAT(ft.trans_date, '%Y-%m') AS month_key,
+                    COALESCE(SUM(CASE WHEN ft.trans_type='Payment'
+                                     AND ft.item_code != 75
+                                     AND ft.detail NOT LIKE 'Bill Waiver%'
+                                     AND ft.detail NOT LIKE 'Balance Fix%'
+                                     THEN ft.amount ELSE 0 END),0) AS cash_received,
+                    COALESCE(SUM(CASE WHEN ft.trans_type='Payment'
+                                     AND (ft.item_code = 75
+                                       OR ft.detail LIKE 'Bill Waiver%'
+                                       OR ft.detail LIKE 'Balance Fix%')
+                                     THEN ft.amount ELSE 0 END),0) AS non_cash,
+                    COALESCE(SUM(CASE WHEN ft.trans_type='Bill' THEN ft.amount ELSE 0 END),0) AS total_billed
+                FROM fin_studentfeestracking ft
+                INNER JOIN campus_dynamics.acad_student s
+                    ON s.regno = ft.regno AND s.new_status = 'ACTIVE'
+                INNER JOIN campus_dynamics.acad_registration r
+                    ON r.regno = ft.regno AND r.acad_year = ft.acadyear
+                    AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                WHERE ft.trans_date >= @cutoff
+                  AND ft.trans_date IS NOT NULL" + semSql + @"
+                GROUP BY DATE_FORMAT(ft.trans_date, '%Y-%m')";
 
             using (var cmd = new MySqlCommand(sql, conn))
             {
                 cmd.CommandTimeout = 120;
+                cmd.Parameters.AddWithValue("@cutoff", cutoff);
                 AddSemParam(cmd, semFilter);
                 using (var rdr = cmd.ExecuteReader())
                 {
                     while (rdr.Read())
                     {
-                        labels.Add(rdr["month_label"].ToString());
-                        cashValues.Add(Convert.ToDouble(rdr["cash_received"]).ToString("F0"));
-                        nonCashValues.Add(Convert.ToDouble(rdr["non_cash"]).ToString("F0"));
-                        billValues.Add(Convert.ToDouble(rdr["total_billed"]).ToString("F0"));
+                        string key = rdr["month_key"].ToString();
+                        if (dataMap.ContainsKey(key))
+                        {
+                            dataMap[key][0] = Convert.ToDouble(rdr["cash_received"]);
+                            dataMap[key][1] = Convert.ToDouble(rdr["non_cash"]);
+                            dataMap[key][2] = Convert.ToDouble(rdr["total_billed"]);
+                        }
                     }
                 }
             }
         }
 
+        var labels    = new List<string>(12);
+        var cashVals  = new List<string>(12);
+        var ncVals    = new List<string>(12);
+        var billVals  = new List<string>(12);
+
+        foreach (string key in keyOrder)
+        {
+            double[] d = dataMap[key];
+            labels.Add(labelMap[key]);
+            cashVals.Add(d[0].ToString("F0"));
+            ncVals.Add(d[1].ToString("F0"));
+            billVals.Add(d[2].ToString("F0"));
+        }
+
         hfMonthLabels.Value     = string.Join(",", labels.ToArray());
-        hfMonthValues.Value     = string.Join(",", cashValues.ToArray());
-        hfMonthBillValues.Value = string.Join(",", billValues.ToArray());
-        hfMonthNonCash.Value    = string.Join(",", nonCashValues.ToArray());
+        hfMonthValues.Value     = string.Join(",", cashVals.ToArray());
+        hfMonthBillValues.Value = string.Join(",", billVals.ToArray());
+        hfMonthNonCash.Value    = string.Join(",", ncVals.ToArray());
     }
 
     // ===================================================================
-    // 5. DAILY PAYMENTS (Past 15 Days — line chart data)
+    // 5. DAILY PAYMENTS (Past 30 Days — line chart data)
     // ===================================================================
 
     private void LoadDailyPayments(string yearFilter, string semFilter)
     {
         string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
-        var labels = new List<string>();
-        var values = new List<string>();
 
+        // Pre-build ordered 30-day slot dictionaries (oldest → newest)
+        var keyOrder = new List<string>(30);
+        var labelMap = new Dictionary<string, string>(30);
+        var dataMap  = new Dictionary<string, double>(30);
+
+        for (int i = 29; i >= 0; i--)
+        {
+            DateTime d = DateTime.Today.AddDays(-i);
+            string key = d.ToString("yyyy-MM-dd");
+            keyOrder.Add(key);
+            labelMap[key] = d.ToString("dd MMM (ddd)");  // e.g. "29 May (Thu)"
+            dataMap[key]  = 0;
+        }
+
+        // One single GROUP BY replaces 30 correlated-subquery executions
+        string cutoff = DateTime.Today.AddDays(-29).ToString("yyyy-MM-dd");
         using (var conn = new MySqlConnection(AcctConnStr))
         {
             conn.Open();
-            // Daily payment totals for past 30 days (enrolled students only)
             string sql = @"
-                SELECT DATE_FORMAT(d.date, '%d %b (%a)') AS day_label,
-                       d.date,
-                       (SELECT COALESCE(SUM(ft.amount),0)
-                        FROM fin_studentfeestracking ft
-                        INNER JOIN campus_dynamics.acad_student s ON s.regno = ft.regno AND s.new_status = 'ACTIVE'
-                        INNER JOIN campus_dynamics.acad_registration r ON r.regno = ft.regno AND r.acad_year = ft.acadyear
-                            AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
-                        WHERE ft.trans_type = 'Payment'
-                          AND ft.item_code != 75
-                          AND ft.detail NOT LIKE 'Bill Waiver%'
-                          AND ft.detail NOT LIKE 'Balance Fix%'
-                          AND DATE(ft.trans_date) = d.date
-                          AND ft.trans_date IS NOT NULL" + semSql + @"
-                       ) AS daily_paid
-                FROM (
-                    SELECT DATE_SUB(CURDATE(), INTERVAL n DAY) AS date
-                    FROM (SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 
-                          UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7
-                          UNION SELECT 8 UNION SELECT 9 UNION SELECT 10 UNION SELECT 11
-                          UNION SELECT 12 UNION SELECT 13 UNION SELECT 14 UNION SELECT 15
-                          UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
-                          UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23
-                          UNION SELECT 24 UNION SELECT 25 UNION SELECT 26 UNION SELECT 27
-                          UNION SELECT 28 UNION SELECT 29) nums
-                    ORDER BY n
-                ) d
-                ORDER BY d.date ASC";
+                SELECT DATE_FORMAT(ft.trans_date, '%Y-%m-%d') AS pay_date,
+                       COALESCE(SUM(ft.amount), 0) AS daily_paid
+                FROM fin_studentfeestracking ft
+                INNER JOIN campus_dynamics.acad_student s
+                    ON s.regno = ft.regno AND s.new_status = 'ACTIVE'
+                INNER JOIN campus_dynamics.acad_registration r
+                    ON r.regno = ft.regno AND r.acad_year = ft.acadyear
+                    AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')
+                WHERE ft.trans_type = 'Payment'
+                  AND ft.item_code != 75
+                  AND ft.detail NOT LIKE 'Bill Waiver%'
+                  AND ft.detail NOT LIKE 'Balance Fix%'
+                  AND ft.trans_date >= @cutoff
+                  AND ft.trans_date IS NOT NULL" + semSql + @"
+                GROUP BY DATE_FORMAT(ft.trans_date, '%Y-%m-%d')";
 
             using (var cmd = new MySqlCommand(sql, conn))
             {
                 cmd.CommandTimeout = 60;
+                cmd.Parameters.AddWithValue("@cutoff", cutoff);
                 AddSemParam(cmd, semFilter);
                 using (var rdr = cmd.ExecuteReader())
                 {
                     while (rdr.Read())
                     {
-                        labels.Add(rdr["day_label"].ToString());
-                        values.Add(Convert.ToDouble(rdr["daily_paid"]).ToString("F0"));
+                        string key = rdr["pay_date"].ToString();
+                        if (dataMap.ContainsKey(key))
+                            dataMap[key] = Convert.ToDouble(rdr["daily_paid"]);
                     }
                 }
             }
+        }
+
+        var labels = new List<string>(30);
+        var values = new List<string>(30);
+
+        foreach (string key in keyOrder)
+        {
+            labels.Add(labelMap[key]);
+            values.Add(dataMap[key].ToString("F0"));
         }
 
         hfDailyLabels.Value = string.Join(",", labels.ToArray());
@@ -790,20 +1022,22 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
 
     private void LoadTopDebtors(string yearFilter, string semFilter)
     {
-        string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
+        // Canonical top debtors: rank active students by the materialised dual-source balance
+        // (fin_student_balance_cache) so each student's billed/paid/owing matches StudentLedgers
+        // and the portal exactly. (Previously summed fin_studentfeestracking for one year only,
+        // which contradicted the canonical figure shown elsewhere.) total_balance = paid - billed,
+        // so owing = total_balance < 0, most-owing first = ORDER BY total_balance ASC.
         string sql = @"
-            SELECT ft.regno,
+            SELECT c.regno,
                 TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
                 COALESCE(s.progid,'') AS progid,
-                SUM(CASE WHEN ft.trans_type='Bill' THEN ft.amount ELSE 0 END) AS billed,
-                SUM(CASE WHEN ft.trans_type='Payment' THEN ft.amount ELSE 0 END) AS paid
-            FROM fin_studentfeestracking ft" + ENROLLED_JOIN + @"
-            WHERE ft.acadyear = @ay" + ENROLLED_WHERE + semSql + @"
-            GROUP BY ft.regno
-            HAVING SUM(CASE WHEN ft.trans_type='Bill' THEN ft.amount ELSE 0 END)
-                 > SUM(CASE WHEN ft.trans_type='Payment' THEN ft.amount ELSE 0 END)
-            ORDER BY (SUM(CASE WHEN ft.trans_type='Bill' THEN ft.amount ELSE 0 END)
-                    - SUM(CASE WHEN ft.trans_type='Payment' THEN ft.amount ELSE 0 END)) DESC
+                c.total_billed AS billed,
+                c.total_paid   AS paid
+            FROM fin_student_balance_cache c
+            INNER JOIN campus_dynamics.acad_student s
+                ON s.regno = c.regno AND UPPER(COALESCE(s.new_status,'')) = 'ACTIVE'
+            WHERE c.total_balance < 0
+            ORDER BY c.total_balance ASC
             LIMIT 15";
 
         var rows = new StringBuilder();
@@ -814,8 +1048,6 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
             using (var cmd = new MySqlCommand(sql, conn))
             {
                 cmd.CommandTimeout = 60;
-                cmd.Parameters.AddWithValue("@ay", yearFilter);
-                AddSemParam(cmd, semFilter);
                 using (var rdr = cmd.ExecuteReader())
                 {
                     int cnt = 0;
@@ -859,18 +1091,17 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
         {
             conn.Open();
 
-            // (a) Registered but NOT billed
+            // (a) Registered but NOT billed — LEFT JOIN IS NULL is faster than NOT EXISTS
             string sql1 = @"
                 SELECT COUNT(DISTINCT r.regno)
                 FROM campus_dynamics.acad_registration r
                 INNER JOIN campus_dynamics.acad_student s ON s.regno = r.regno AND s.new_status = 'ACTIVE'
+                LEFT JOIN fin_studentfeestracking ft
+                    ON ft.regno = r.regno AND ft.acadyear = r.acad_year
+                    AND ft.semester = r.semester AND ft.trans_type = 'Bill'
                 WHERE r.acad_year = @ay
                   AND r.regstatus IN ('REGISTERED','LATE REGISTERED')" + semSqlR + @"
-                  AND NOT EXISTS(
-                      SELECT 1 FROM fin_studentfeestracking ft
-                      WHERE ft.regno = r.regno AND ft.acadyear = r.acad_year
-                        AND ft.semester = r.semester AND ft.trans_type = 'Bill'
-                  )";
+                  AND ft.TID IS NULL";
             using (var cmd = new MySqlCommand(sql1, conn))
             {
                 cmd.CommandTimeout = 60;
@@ -880,14 +1111,13 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                 regNotBilled = val != null && val != DBNull.Value ? Convert.ToInt64(val) : 0;
             }
 
-            // (b) Bills without GL entries
+            // (b) Bills without GL entries — LEFT JOIN IS NULL is faster than NOT EXISTS
             string sql2 = @"
-                SELECT COUNT(*) FROM fin_studentfeestracking ft
+                SELECT COUNT(*)
+                FROM fin_studentfeestracking ft
+                LEFT JOIN fin_ledger l ON l.folio = CONCAT('BillNo:', ft.TID)
                 WHERE ft.trans_type = 'Bill' AND ft.acadyear = @ay" + semSqlFT + @"
-                  AND NOT EXISTS(
-                      SELECT 1 FROM fin_ledger l
-                      WHERE l.folio = CONCAT('BillNo:', ft.TID)
-                  )";
+                  AND l.folio IS NULL";
             using (var cmd2 = new MySqlCommand(sql2, conn))
             {
                 cmd2.CommandTimeout = 60;
@@ -1098,11 +1328,14 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
                     COALESCE(r.regstatus, 'NO RECORD') AS reg_status
                 FROM fin_studentfeestracking ft
                 LEFT JOIN campus_dynamics.acad_student s ON s.regno = ft.regno
+                LEFT JOIN (
+                    SELECT regno, MAX(semester) AS max_sem
+                    FROM campus_dynamics.acad_registration
+                    WHERE acad_year = @ay
+                    GROUP BY regno
+                ) rm ON rm.regno = ft.regno
                 LEFT JOIN campus_dynamics.acad_registration r
-                    ON r.regno = ft.regno AND r.acad_year = @ay
-                    AND r.semester = (SELECT MAX(r2.semester)
-                        FROM campus_dynamics.acad_registration r2
-                        WHERE r2.regno = ft.regno AND r2.acad_year = @ay)
+                    ON r.regno = ft.regno AND r.acad_year = @ay AND r.semester = rm.max_sem
                 WHERE ft.trans_type = 'Payment'
                   AND ft.acadyear = @ay
                   AND ft.trans_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
@@ -1284,5 +1517,337 @@ public partial class COOPERP_NewScreens_FeesManagement : System.Web.UI.Page
             }
         }
         litLatestBillRows.Text = rows.ToString();
+    }
+
+    // ===================================================================
+    // BURSARY SCHEMES & BENEFICIARIES
+    // ===================================================================
+
+    private void LoadBursaryStats(string yearFilter, string semFilter)
+    {
+        string semSql = string.IsNullOrEmpty(semFilter) ? "" : " AND ft.semester = @sem";
+        string yearPfx = yearFilter.Length >= 4 ? yearFilter.Substring(0, 4) : yearFilter;
+
+        // Part 1: Financial bursary credits (item_code = 75) for enrolled students
+        long   creditedStudents = 0;
+        double totalCredited    = 0;
+        long   creditTxns       = 0;
+
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            string sql = @"
+                SELECT COUNT(DISTINCT ft.regno) AS credited_students,
+                       COALESCE(SUM(ft.amount),0) AS total_credited,
+                       COUNT(*) AS txn_count
+                FROM fin_studentfeestracking ft" + ENROLLED_JOIN + @"
+                WHERE ft.trans_type='Payment' AND ft.item_code=75
+                  AND ft.acadyear=@ay" + ENROLLED_WHERE + semSql;
+            using (var cmd = new MySqlCommand(sql, conn))
+            {
+                cmd.CommandTimeout = 60;
+                cmd.Parameters.AddWithValue("@ay", yearFilter);
+                AddSemParam(cmd, semFilter);
+                using (var rdr = cmd.ExecuteReader())
+                    if (rdr.Read())
+                    {
+                        creditedStudents = rdr["credited_students"] == DBNull.Value ? 0 : Convert.ToInt64(rdr["credited_students"]);
+                        totalCredited    = rdr["total_credited"]    == DBNull.Value ? 0 : Convert.ToDouble(rdr["total_credited"]);
+                        creditTxns       = rdr["txn_count"]         == DBNull.Value ? 0 : Convert.ToInt64(rdr["txn_count"]);
+                    }
+            }
+        }
+
+        // Part 2: Scheme master + beneficiary summary + per-scheme breakdown
+        int    schemeCount              = 0;
+        long   registeredBeneficiaries  = 0;
+        double totalOffered             = 0;
+        var    schemeRows               = new StringBuilder();
+
+        try
+        {
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+
+                // Auto-detect which database holds the scholarship tables
+                long inAcct = Convert.ToInt64(new MySqlCommand(
+                    "SELECT COUNT(*) FROM information_schema.TABLES " +
+                    "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='scholarships'", conn).ExecuteScalar());
+                string pfx = inAcct > 0 ? "" : "campus_dynamics.";
+
+                // Total scheme count
+                schemeCount = Convert.ToInt32(
+                    new MySqlCommand("SELECT COUNT(*) FROM " + pfx + "scholarships", conn).ExecuteScalar());
+
+                // Approved beneficiaries + offered amount for this academic year
+                string sumSql = @"
+                    SELECT COUNT(DISTINCT ss.adm_no) AS total_reg,
+                           COALESCE(SUM(ss.amount_offered),0) AS total_offered
+                    FROM " + pfx + @"scholarshipstudents ss
+                    WHERE (ss.scholarhipYear=@ay OR ss.scholarhipYear LIKE CONCAT(@ypfx,'%'))
+                      AND LOWER(ss.status)='approved'";
+                using (var cmd = new MySqlCommand(sumSql, conn))
+                {
+                    cmd.CommandTimeout = 60;
+                    cmd.Parameters.AddWithValue("@ay",   yearFilter);
+                    cmd.Parameters.AddWithValue("@ypfx", yearPfx);
+                    using (var rdr = cmd.ExecuteReader())
+                        if (rdr.Read())
+                        {
+                            registeredBeneficiaries = rdr["total_reg"]    == DBNull.Value ? 0 : Convert.ToInt64(rdr["total_reg"]);
+                            totalOffered            = rdr["total_offered"] == DBNull.Value ? 0 : Convert.ToDouble(rdr["total_offered"]);
+                        }
+                }
+
+                // Per-scheme breakdown; ft_agg pre-aggregates so there's no correlated subquery
+                string brkSql = @"
+                    SELECT sc.scholarshipName,
+                           COUNT(DISTINCT ss.adm_no)          AS beneficiaries,
+                           COALESCE(SUM(ss.amount_offered),0)  AS offered,
+                           COALESCE(SUM(ft_agg.credited),0)    AS credited
+                    FROM " + pfx + @"scholarships sc
+                    LEFT JOIN " + pfx + @"scholarshipstudents ss
+                           ON ss.scholarshipID=sc.scholarshipID
+                          AND (ss.scholarhipYear=@ay OR ss.scholarhipYear LIKE CONCAT(@ypfx,'%'))
+                          AND LOWER(ss.status)='approved'
+                    LEFT JOIN (
+                        SELECT regno, SUM(amount) AS credited
+                        FROM fin_studentfeestracking
+                        WHERE trans_type='Payment' AND item_code=75 AND acadyear=@ay
+                        GROUP BY regno
+                    ) ft_agg ON ft_agg.regno=ss.adm_no
+                    GROUP BY sc.scholarshipID, sc.scholarshipName
+                    HAVING COUNT(DISTINCT ss.adm_no)>0
+                    ORDER BY offered DESC
+                    LIMIT 20";
+                using (var cmd = new MySqlCommand(brkSql, conn))
+                {
+                    cmd.CommandTimeout = 60;
+                    cmd.Parameters.AddWithValue("@ay",   yearFilter);
+                    cmd.Parameters.AddWithValue("@ypfx", yearPfx);
+                    using (var rdr = cmd.ExecuteReader())
+                    {
+                        while (rdr.Read())
+                        {
+                            string name    = rdr["scholarshipName"].ToString();
+                            long   bens    = Convert.ToInt64(rdr["beneficiaries"]);
+                            double offered = Convert.ToDouble(rdr["offered"]);
+                            double credited= Convert.ToDouble(rdr["credited"]);
+                            double pct     = offered > 0 ? (credited / offered * 100) : 0;
+                            string pctCol  = pct >= 90 ? "#15803d" : pct >= 60 ? "#b45309" : "#dc3545";
+                            string barW    = Math.Min(pct, 100).ToString("F0");
+
+                            schemeRows.AppendFormat(
+                                "<tr>" +
+                                "<td style='font-weight:600;'>{0}</td>" +
+                                "<td style='text-align:center;font-variant-numeric:tabular-nums;'>{1:N0}</td>" +
+                                "<td style='text-align:right;'>{2}</td>" +
+                                "<td style='text-align:right;color:#155724;font-weight:600;'>{3}</td>" +
+                                "<td><div class='fd-prog-bar'><div class='fd-prog-bar__fill' style='width:{4}%;background:{5};'></div></div></td>" +
+                                "<td style='text-align:right;color:{5};font-weight:700;white-space:nowrap;'>{6:F1}%</td>" +
+                                "</tr>",
+                                Server.HtmlEncode(name), bens,
+                                FormatCurrency(offered), FormatCurrency(credited),
+                                barW, pctCol, pct);
+                        }
+                    }
+                }
+            }
+        }
+        catch { /* scholarship tables unavailable — financial stats still display */ }
+
+        // Build HTML
+        var sb = new StringBuilder();
+        double coveragePct = totalOffered > 0 ? (totalCredited / totalOffered * 100) : 0;
+        double disbGap     = totalOffered > totalCredited ? totalOffered - totalCredited : 0;
+        string covColor    = coveragePct >= 90 ? "#15803d" : coveragePct >= 60 ? "#b45309" : "#dc3545";
+
+        // KPI mini-cards
+        sb.Append("<div class='fs-card' style='margin-bottom:14px;'><div style='padding:14px 16px;'>");
+        sb.Append("<div class='fd-bursary-kpis'>");
+
+        sb.AppendFormat(
+            "<div class='fd-bursary-kpi fd-bursary-kpi--credited'>" +
+            "<div class='fd-bursary-kpi__icon' style='background:rgba(29,78,216,.08);'>" +
+              "<svg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='#1d4ed8' stroke-width='2'><path d='M22 12h-4l-3 9L9 3l-3 9H2'/></svg>" +
+            "</div>" +
+            "<div class='fd-bursary-kpi__label'>Bursary Credited</div>" +
+            "<div class='fd-bursary-kpi__val' style='color:#1d4ed8;'>{0}</div>" +
+            "<div class='fd-bursary-kpi__sub'>{1:N0} transactions &middot; {2:N0} students</div></div>",
+            FormatCurrency(totalCredited), creditTxns, creditedStudents);
+
+        sb.AppendFormat(
+            "<div class='fd-bursary-kpi fd-bursary-kpi--coverage'>" +
+            "<div class='fd-bursary-kpi__icon' style='background:rgba(21,128,61,.08);'>" +
+              "<svg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='{0}' stroke-width='2'><polyline points='23 6 13.5 15.5 8.5 10.5 1 18'/><polyline points='17 6 23 6 23 12'/></svg>" +
+            "</div>" +
+            "<div class='fd-bursary-kpi__label'>Disbursement Coverage</div>" +
+            "<div class='fd-bursary-kpi__val' style='color:{0};'>{1:F1}%</div>" +
+            "<div class='fd-bursary-kpi__sub'>of {2} offered &mdash; gap {3}</div></div>",
+            covColor, coveragePct, FormatCurrency(totalOffered), FormatCurrency(disbGap));
+
+        sb.AppendFormat(
+            "<div class='fd-bursary-kpi fd-bursary-kpi--schemes'>" +
+            "<div class='fd-bursary-kpi__icon' style='background:rgba(124,58,237,.08);'>" +
+              "<svg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='#7c3aed' stroke-width='2'><rect x='3' y='3' width='18' height='18' rx='2'/><line x1='3' y1='9' x2='21' y2='9'/><line x1='9' y1='21' x2='9' y2='3'/></svg>" +
+            "</div>" +
+            "<div class='fd-bursary-kpi__label'>Bursary Schemes</div>" +
+            "<div class='fd-bursary-kpi__val' style='color:#7c3aed;'>{0:N0}</div>" +
+            "<div class='fd-bursary-kpi__sub'>registered scholarship &amp; bursary programmes</div></div>",
+            schemeCount);
+
+        sb.AppendFormat(
+            "<div class='fd-bursary-kpi fd-bursary-kpi--beneficiaries'>" +
+            "<div class='fd-bursary-kpi__icon' style='background:rgba(8,145,178,.08);'>" +
+              "<svg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='#0891b2' stroke-width='2'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>" +
+            "</div>" +
+            "<div class='fd-bursary-kpi__label'>Registered Beneficiaries</div>" +
+            "<div class='fd-bursary-kpi__val' style='color:#0891b2;'>{0:N0}</div>" +
+            "<div class='fd-bursary-kpi__sub'>approved for {1}</div></div>",
+            registeredBeneficiaries, yearFilter);
+
+        sb.Append("</div></div></div>");
+
+        // Per-scheme breakdown table
+        if (schemeRows.Length > 0)
+        {
+            sb.Append("<div class='fs-card'>");
+            sb.Append(
+                "<div class='fs-card__header'>" +
+                "<div class='fs-card__title'>" +
+                "<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='#1d4ed8' stroke-width='2'><path d='M22 12h-4l-3 9L9 3l-3 9H2'/></svg>" +
+                " Scheme-by-Scheme Breakdown</div>" +
+                "<div class='fs-card__meta'>Offered vs credited &mdash; approved beneficiaries only</div></div>");
+            sb.Append(
+                "<div style='overflow-x:auto;'><table class='fs-table'><thead><tr>" +
+                "<th>Scheme / Programme</th>" +
+                "<th style='text-align:center;'>Beneficiaries</th>" +
+                "<th style='text-align:right;'>Total Offered</th>" +
+                "<th style='text-align:right;'>Credited to Accounts</th>" +
+                "<th style='width:90px;'>Disbursed</th>" +
+                "<th style='text-align:right;'>%</th>" +
+                "</tr></thead><tbody>");
+            sb.Append(schemeRows);
+            sb.Append("</tbody></table></div></div>");
+        }
+
+        litBursarySection.Text = sb.ToString();
+    }
+
+    // ===================================================================
+    // SNAPSHOT CACHE — 3-minute in-process cache that eliminates all
+    // re-queries when the same year+semester is viewed repeatedly.
+    // First load is still slow (all queries run); every subsequent hit
+    // within the TTL window is served entirely from memory (~0 ms).
+    // ===================================================================
+
+    private sealed class DashboardSnapshot
+    {
+        public string StatEnrolled, StatBilled, StatPaid, StatBalance;
+        public string StatBillCount, StatPayCount, StatCollRate;
+        public string DonutPaid, DonutBal, CashBreakdown;
+        public string TrendEnrolled, TrendBilled, TrendPaid, TrendBalance;
+        public string FeeTypeBars, SemesterCards;
+        public string MonthLabels, MonthValues, MonthBillValues, MonthNonCash;
+        public string DailyLabels, DailyValues;
+        public string ProgRows, ProgCount, DebtorRows, AnomalyCards;
+        public string LatestPayRows, LatestBillRows;
+        public string ChannelLabels, ChannelValues;
+        public bool   ShowPaidUnreg;
+        public string PaidUnregCount, PaidUnregRows;
+        public string BursarySection;
+    }
+
+    private bool TryApplySnapshot(string year, string sem)
+    {
+        var snap = System.Web.HttpRuntime.Cache["FeesDash_" + year + "_" + sem] as DashboardSnapshot;
+        if (snap == null) return false;
+
+        litStatEnrolled.Text  = snap.StatEnrolled;
+        litStatBilled.Text    = snap.StatBilled;
+        litStatPaid.Text      = snap.StatPaid;
+        litStatBalance.Text   = snap.StatBalance;
+        litStatBillCount.Text = snap.StatBillCount;
+        litStatPayCount.Text  = snap.StatPayCount;
+        litStatCollRate.Text  = snap.StatCollRate;
+        hfDonutPaid.Value     = snap.DonutPaid;
+        hfDonutBal.Value      = snap.DonutBal;
+        litCashBreakdown.Text = snap.CashBreakdown;
+        litTrendEnrolled.Text = snap.TrendEnrolled;
+        litTrendBilled.Text   = snap.TrendBilled;
+        litTrendPaid.Text     = snap.TrendPaid;
+        litTrendBalance.Text  = snap.TrendBalance;
+        litFeeTypeBars.Text   = snap.FeeTypeBars;
+        litSemesterCards.Text = snap.SemesterCards;
+        hfMonthLabels.Value     = snap.MonthLabels;
+        hfMonthValues.Value     = snap.MonthValues;
+        hfMonthBillValues.Value = snap.MonthBillValues;
+        hfMonthNonCash.Value    = snap.MonthNonCash;
+        hfDailyLabels.Value   = snap.DailyLabels;
+        hfDailyValues.Value   = snap.DailyValues;
+        litProgRows.Text      = snap.ProgRows;
+        litProgCount.Text     = snap.ProgCount;
+        litDebtorRows.Text    = snap.DebtorRows;
+        litAnomalyCards.Text  = snap.AnomalyCards;
+        litLatestPayRows.Text  = snap.LatestPayRows;
+        litLatestBillRows.Text = snap.LatestBillRows;
+        hfChannelLabels.Value  = snap.ChannelLabels;
+        hfChannelValues.Value  = snap.ChannelValues;
+        litBursarySection.Text = snap.BursarySection;
+        pnlPaidUnregistered.Visible = snap.ShowPaidUnreg;
+        if (snap.ShowPaidUnreg)
+        {
+            litPaidUnregCount.Text = snap.PaidUnregCount;
+            litPaidUnregRows.Text  = snap.PaidUnregRows;
+        }
+        return true;
+    }
+
+    private void SaveSnapshot(string year, string sem)
+    {
+        var snap = new DashboardSnapshot
+        {
+            StatEnrolled  = litStatEnrolled.Text,
+            StatBilled    = litStatBilled.Text,
+            StatPaid      = litStatPaid.Text,
+            StatBalance   = litStatBalance.Text,
+            StatBillCount = litStatBillCount.Text,
+            StatPayCount  = litStatPayCount.Text,
+            StatCollRate  = litStatCollRate.Text,
+            DonutPaid     = hfDonutPaid.Value,
+            DonutBal      = hfDonutBal.Value,
+            CashBreakdown = litCashBreakdown.Text,
+            TrendEnrolled = litTrendEnrolled.Text,
+            TrendBilled   = litTrendBilled.Text,
+            TrendPaid     = litTrendPaid.Text,
+            TrendBalance  = litTrendBalance.Text,
+            FeeTypeBars   = litFeeTypeBars.Text,
+            SemesterCards = litSemesterCards.Text,
+            MonthLabels     = hfMonthLabels.Value,
+            MonthValues     = hfMonthValues.Value,
+            MonthBillValues = hfMonthBillValues.Value,
+            MonthNonCash    = hfMonthNonCash.Value,
+            DailyLabels   = hfDailyLabels.Value,
+            DailyValues   = hfDailyValues.Value,
+            ProgRows      = litProgRows.Text,
+            ProgCount     = litProgCount.Text,
+            DebtorRows    = litDebtorRows.Text,
+            AnomalyCards  = litAnomalyCards.Text,
+            LatestPayRows  = litLatestPayRows.Text,
+            LatestBillRows = litLatestBillRows.Text,
+            ChannelLabels  = hfChannelLabels.Value,
+            ChannelValues  = hfChannelValues.Value,
+            BursarySection = litBursarySection.Text,
+            ShowPaidUnreg  = pnlPaidUnregistered.Visible,
+            PaidUnregCount = pnlPaidUnregistered.Visible ? litPaidUnregCount.Text : "",
+            PaidUnregRows  = pnlPaidUnregistered.Visible ? litPaidUnregRows.Text  : ""
+        };
+
+        System.Web.HttpRuntime.Cache.Insert(
+            "FeesDash_" + year + "_" + sem, snap, null,
+            System.Web.Caching.Cache.NoAbsoluteExpiration,
+            TimeSpan.FromMinutes(3),
+            System.Web.Caching.CacheItemPriority.Normal, null);
     }
 }

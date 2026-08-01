@@ -3,6 +3,10 @@
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
 :root{--brand:#174DA4;--brand-dk:#05275C;--danger:#dc2626;--success:#16a34a;--warn:#b45309;--surf:#f5f7fa;--bdr:#e0e5ed;--txt:#1a1a2e;--muted:#64748b;}
+.acc-tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--bdr);padding:0 20px;overflow-x:auto;}
+.acc-tab{padding:11px 16px;font-size:12px;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;}
+.acc-tab:hover{color:var(--brand);}
+.acc-tab--active{color:var(--brand-dk);border-bottom-color:var(--brand-dk);}
 
 /* ── Header ──────────────────────────────────────────────────────────────────*/
 .urm-header{background:#fff;border-bottom:1px solid var(--bdr);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
@@ -79,6 +83,15 @@ table.urm-table{width:100%;border-collapse:collapse;font-size:11px;}
 </asp:Content>
 
 <asp:Content ID="BodyContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+
+<!-- Access hub tabs -->
+<div class="acc-tabs">
+    <a href="AccessControlCenter.aspx" class="acc-tab">Overview</a>
+    <a href="UserRoleUsers.aspx" class="acc-tab">Users</a>
+    <a href="UserRoleRoles.aspx" class="acc-tab">Roles</a>
+    <a href="UserRolePermissions.aspx" class="acc-tab">Permissions</a>
+    <a href="UserRoleAudit.aspx" class="acc-tab acc-tab--active">Audit</a>
+</div>
 
 <!-- Header -->
 <div class="urm-header">

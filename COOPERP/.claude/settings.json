@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($csc=\"C:\\\\Windows\\\\Microsoft.NET\\\\Framework64\\\\v4.0.30319\\\\csc.exe\"; $mysql=\\(Get-ChildItem \"C:\\\\Windows\\\\Microsoft.NET\\\\assembly\\\\GAC_MSIL\\\\MySql.Data\" -Recurse -Filter MySql.Data.dll | Select-Object -First 1\\).FullName; & $csc /nologo /t:library /r:System.Web.dll /r:System.Data.dll /r:System.Configuration.dll /r:\"$mysql\" /out:\"$env:TEMP\\\\ft_check.dll\" \"e:\\\\OneDrive\\\\Campus Dynamics MRU\\\\CampusDynamics\\\\COOPERP\\\\NewScreens\\\\FeesTransactions.aspx.cs\" 2>&1 | Select-String -Pattern \"error CS\" | Where-Object { $_ -notmatch \"CS0246|CS0234|DevExpress|CS0103\" } | Select-Object -First 20)"
+    ]
+  }
+}

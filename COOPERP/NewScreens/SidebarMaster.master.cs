@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Web.UI;
 using System.Data;
 using MySql.Data.MySqlClient;
@@ -34,6 +35,118 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
             LoadSemesters();
             LoadCampuses();
         }
+
+        // RBAC: inject the slug data the sidebar JS uses to hide menu items the
+        // user has no access to. ON by default; fail-safe (admins and users with
+        // no role see the full menu). Disable with appSetting RbacSlugMenu="false".
+        RegisterRbacMenuScript();
+    }
+
+    private void RegisterRbacMenuScript()
+    {
+        try
+        {
+            // Menu access filtering is ON by default. Disable only with the
+            // appSetting RbacSlugMenu = "false" (or "off"). Even when on it is
+            // fail-safe: admins and users with no role always see the full menu.
+            string mf = (ConfigurationManager.AppSettings["RbacSlugMenu"] ?? "").Trim().ToLower();
+            bool menuFilter = mf != "false" && mf != "off";
+
+            // Ensure the user's access set is loaded AND fresh. We reload when it is
+            // null (never loaded) OR empty (loaded as "no access") so that roles
+            // granted/changed after the user logged in take effect on the next page
+            // load — no re-login needed. A genuinely role-less user simply reloads to
+            // empty again. Admins ("*") and users with slugs are left as-is.
+            object slugObj = Session[RoleAccessService.SESSION_SLUGS];
+            string username = Session["username"] != null ? Session["username"].ToString() : "";
+            if (!string.IsNullOrEmpty(username))
+            {
+                if (slugObj == null || string.IsNullOrEmpty(slugObj as string))
+                    RoleAccessService.LoadUserAccess(username);     // never loaded / no access → load now
+                else
+                    RoleAccessService.MaybeRefresh(username);       // already loaded → refresh if stale, so role/permission changes propagate without re-login
+                slugObj = Session[RoleAccessService.SESSION_SLUGS];
+            }
+
+            // Allowed slugs for the current user:
+            //   "'*'"  → admin (full access)
+            //   "[..]" → an array of granted slugs ([] = loaded, NO role → menu hidden)
+            //   "null" → genuinely not loaded (not logged in) → fail-safe show all
+            string raw = slugObj as string ?? "";
+            string allowedJs;
+            if (raw.Contains(RoleAccessService.ADMIN_WILDCARD))
+            {
+                allowedJs = "'*'";
+            }
+            else if (slugObj == null)
+            {
+                allowedJs = "null";
+            }
+            else
+            {
+                var parts = raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                var arr = new StringBuilder("[");
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    if (i > 0) arr.Append(",");
+                    arr.Append("'").Append(parts[i].Trim().Replace("'", "")).Append("'");
+                }
+                arr.Append("]");
+                allowedJs = arr.ToString();   // [] when the user has no role
+            }
+
+            string script = "window.cdMenuFilter=" + (menuFilter ? "true" : "false") +
+                            ";window.cdAllowedSlugs=" + allowedJs +
+                            ";window.cdUrlSlugMap=" + GetUrlSlugMapJs() + ";";
+
+            Page.ClientScript.RegisterStartupScript(GetType(), "rbacMenuData", script, true);
+        }
+        catch
+        {
+            // Never let RBAC wiring break the master page — fail open (show all).
+            Page.ClientScript.RegisterStartupScript(GetType(), "rbacMenuData",
+                "window.cdMenuFilter=false;window.cdAllowedSlugs=null;window.cdUrlSlugMap={};", true);
+        }
+    }
+
+    // Builds the url-filename -> slug map the sidebar filter needs. Cached for
+    // 10 minutes (shared across all users) so it is one query, not per-request.
+    private string GetUrlSlugMapJs()
+    {
+        var cache = System.Web.HttpRuntime.Cache;
+        var cached = cache["rbac_menu_map_js"] as string;
+        if (cached != null) return cached;
+
+        var map = new StringBuilder("{");
+        bool first = true;
+        using (var conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(
+                "SELECT url, menu_slug FROM sys_menu_items WHERE is_active=1 AND IFNULL(url,'')<>''", conn))
+            using (var dr = cmd.ExecuteReader())
+            {
+                while (dr.Read())
+                {
+                    string url  = dr["url"].ToString();
+                    string slug = dr["menu_slug"].ToString();
+                    string file = url.Split('?')[0].TrimEnd('/');
+                    int slash = file.LastIndexOf('/');
+                    if (slash >= 0) file = file.Substring(slash + 1);
+                    file = file.ToLowerInvariant();
+                    if (string.IsNullOrEmpty(file)) continue;
+                    if (!first) map.Append(",");
+                    first = false;
+                    map.Append("'").Append(file.Replace("'", "")).Append("':'")
+                       .Append(slug.Replace("'", "")).Append("'");
+                }
+            }
+        }
+        map.Append("}");
+        string js = map.ToString();
+        cache.Insert("rbac_menu_map_js", js, null,
+            DateTime.UtcNow.AddMinutes(10), System.Web.Caching.Cache.NoSlidingExpiration);
+        return js;
     }
     
     private void SetPageTitle()
@@ -361,6 +474,9 @@ public partial class COOPERP_NewScreens_SidebarMaster : System.Web.UI.MasterPage
                 break;
             case "knowledgebasemanagement":
                 title = "Knowledgebase Management";
+                break;
+            case "knowledgebase":
+                title = "Knowledge Base";
                 break;
             default:
                 title = pageName.Replace("New", "").Replace("_", " ");

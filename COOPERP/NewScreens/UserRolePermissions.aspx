@@ -3,6 +3,10 @@
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
 :root{--brand:#174DA4;--brand-dk:#05275C;--danger:#dc2626;--success:#16a34a;--warn:#b45309;--surf:#f5f7fa;--bdr:#e0e5ed;--txt:#1a1a2e;--muted:#64748b;}
+.acc-tabs{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--bdr);padding:0 20px;overflow-x:auto;}
+.acc-tab{padding:11px 16px;font-size:12px;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;}
+.acc-tab:hover{color:var(--brand);}
+.acc-tab--active{color:var(--brand-dk);border-bottom-color:var(--brand-dk);}
 
 /* ── Header ──────────────────────────────────────────────────────────────────*/
 .urm-header{background:#fff;border-bottom:1px solid var(--bdr);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
@@ -81,12 +85,53 @@ table.perm-table{width:100%;border-collapse:collapse;font-size:11px;}
 .pa-toast--err{border-left-color:var(--danger);}
 
 /* ── Empty / placeholder ─────────────────────────────────────────────────── */
-.perm-placeholder{padding:60px 28px;text-align:center;color:#94a3b8;font-size:13px;}
+.perm-placeholder{padding:56px 28px;text-align:center;color:#94a3b8;font-size:13px;}
+.perm-placeholder strong{color:var(--txt);}
 .perm-no-match{text-align:center;padding:24px;color:#94a3b8;font-size:12px;font-style:italic;}
+
+/* ── Role pill selector (A5) ─────────────────────────────────────────────── */
+.perm-pillbar{background:#fff;border-bottom:1px solid var(--bdr);padding:14px 28px;}
+.perm-pillbar__lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:9px;display:block;}
+.perm-pills{display:flex;flex-wrap:wrap;gap:8px;}
+.perm-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border:1px solid var(--bdr);background:#fff;border-radius:20px;font-size:12px;font-weight:600;color:var(--txt);cursor:pointer;transition:border-color .12s,background .12s,box-shadow .12s;}
+.perm-pill:hover{border-color:var(--brand);background:#f5f8ff;}
+.perm-pill.active{border-color:var(--brand-dk);background:var(--brand-dk);color:#fff;box-shadow:0 2px 10px rgba(5,39,92,.22);}
+.perm-pill__dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.perm-pill.active .perm-pill__dot{box-shadow:0 0 0 2px rgba(255,255,255,.55);}
+.perm-pill__count{font-size:10px;font-weight:600;opacity:.65;}
+.perm-pill.active .perm-pill__count{opacity:.9;}
+
+/* ── Section counts + collapse ───────────────────────────────────────────── */
+.section-hd{cursor:pointer;}
+.section-hd__caret{flex-shrink:0;transition:transform .15s;opacity:.85;}
+.perm-table tr.section-header.collapsed .section-hd__caret{transform:rotate(-90deg);}
+.section-hd__count{font-size:10px;font-weight:700;background:rgba(255,255,255,.22);padding:2px 9px;border-radius:10px;white-space:nowrap;}
+.section-hd__count.full{background:var(--success);}
+.section-hd__spacer{flex:1;}
+.perm-table tr.is-collapsed{display:none!important;}
+.group-hd__count{font-size:10px;color:var(--muted);font-weight:600;margin-left:8px;}
+
+/* ── Toolbar grouping polish ─────────────────────────────────────────────── */
+.urm-toolbar .tb-sep{width:1px;height:22px;background:var(--bdr);margin:0 2px;}
+.urm-toolbar select.tb-aux{min-width:0;width:auto;max-width:170px;height:34px;border:1px solid var(--bdr);background:#fff;font-size:12px;padding:0 8px;}
+@media(max-width:720px){
+  .urm-header,.perm-pillbar,.role-info-bar,.perm-progress-wrap,.urm-toolbar,.perm-statusbar{padding-left:16px;padding-right:16px;}
+  .perm-search-wrap{margin-left:0;width:100%;}
+  .perm-search-wrap input{width:100%;}
+}
 </style>
 </asp:Content>
 
 <asp:Content ID="BodyContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+
+<!-- Access hub tabs -->
+<div class="acc-tabs">
+    <a href="AccessControlCenter.aspx" class="acc-tab">Overview</a>
+    <a href="UserRoleUsers.aspx" class="acc-tab">Users</a>
+    <a href="UserRoleRoles.aspx" class="acc-tab">Roles</a>
+    <a href="UserRolePermissions.aspx" class="acc-tab acc-tab--active">Permissions</a>
+    <a href="UserRoleAudit.aspx" class="acc-tab">Audit</a>
+</div>
 
 <!-- Header -->
 <div class="urm-header">
@@ -98,6 +143,12 @@ table.perm-table{width:100%;border-collapse:collapse;font-size:11px;}
         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         Back to Roles
     </a>
+</div>
+
+<!-- Role pill selector -->
+<div class="perm-pillbar">
+    <span class="perm-pillbar__lbl">Select a role to configure</span>
+    <div class="perm-pills" id="rolePills"></div>
 </div>
 
 <!-- Role info bar (shown after loading) -->
@@ -121,13 +172,16 @@ table.perm-table{width:100%;border-collapse:collapse;font-size:11px;}
 </div>
 
 <!-- Toolbar -->
-<div class="urm-toolbar">
-    <label for="ddlRole">Role:</label>
-    <select id="ddlRole" onchange="loadMatrix()">
+<div class="urm-toolbar" id="permToolbar" style="display:none;">
+    <select id="ddlRole" onchange="loadMatrix()" style="display:none;">
         <option value="">— select a role —</option>
         <asp:Literal ID="litRoleOptions" runat="server"></asp:Literal>
     </select>
 
+    <button type="button" class="urm-btn urm-btn--ghost" id="btnExpandToggle" onclick="toggleAllSections()" style="display:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+        <span id="expandToggleLbl">Collapse all</span>
+    </button>
     <button type="button" class="urm-btn urm-btn--ghost" id="btnSelectAll" onclick="selectAllVisible()" style="display:none;">
         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         Grant All
@@ -137,6 +191,14 @@ table.perm-table{width:100%;border-collapse:collapse;font-size:11px;}
         Revoke All
     </button>
 
+    <span class="tb-sep" id="tbSep1" style="display:none;"></span>
+    <select id="ddlCopyFrom" class="tb-aux" onchange="copyFromRole(this.value)" title="Copy all grants from another role into this matrix (review, then Save)" style="display:none;">
+        <option value="">Copy from role…</option>
+    </select>
+    <select id="ddlCompare" class="tb-aux" onchange="compareRole(this.value)" title="Highlight differences against another role" style="display:none;">
+        <option value="">Compare with…</option>
+    </select>
+
     <div class="perm-search-wrap">
         <svg class="perm-search-ico" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="permSearch" placeholder="Filter menu items…"
@@ -144,11 +206,28 @@ table.perm-table{width:100%;border-collapse:collapse;font-size:11px;}
     </div>
 </div>
 
+<style>
+.perm-leaf.perm-diff-add td.perm-item-name{box-shadow:inset 3px 0 0 #16a34a;background:#f0fdf4;}
+.perm-leaf.perm-diff-rem td.perm-item-name{box-shadow:inset 3px 0 0 #dc2626;background:#fef2f2;}
+.perm-cmp-legend{display:none;align-items:center;gap:16px;margin:0 0 10px;padding:8px 14px;background:#f5f7fa;border:1px solid #e0e5ed;border-radius:4px;font-size:11px;color:#1a1a2e;}
+.perm-cmp-legend.visible{display:flex;}
+.perm-cmp-legend b{font-weight:600;}
+.perm-cmp-swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+</style>
+<div class="perm-cmp-legend" id="cmpLegend">
+    <span id="cmpLegendTitle"></span>
+    <span><span class="perm-cmp-swatch" style="background:#16a34a;"></span>This role has it, <b id="cmpOther1"></b> doesn't</span>
+    <span><span class="perm-cmp-swatch" style="background:#dc2626;"></span><b id="cmpOther2"></b> has it, this role doesn't</span>
+    <a href="javascript:void(0)" onclick="compareRole('')" style="margin-left:auto;color:#174DA4;font-weight:600;text-decoration:none;">Clear comparison &times;</a>
+</div>
+
 <!-- Permission matrix -->
 <div class="perm-wrap" id="matrixWrap">
     <div class="perm-placeholder" id="permPlaceholder">
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        Select a role above to view and edit its permissions.
+        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;display:block;margin-left:auto;margin-right:auto;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <div style="font-size:14px;font-weight:600;color:#475569;margin-bottom:4px;">Pick a role above to begin</div>
+        Tick the pages and features that role may open, then <strong>Save Changes</strong>.<br>
+        Use <strong>Copy from role</strong> to start from a template, or <strong>Compare</strong> to see the difference between two roles.
     </div>
     <table class="perm-table" id="permTable" style="display:none;">
         <thead>
@@ -184,22 +263,10 @@ var currentRoleColor= '#174DA4';
 var originalChecked = {};
 var dirty           = false;
 var _totalLeafs     = 0;
+var _allCollapsed   = false;
 
-// ── URL param pre-selection ──────────────────────────────────────────────────
-(function(){
-    var m = window.location.search.match(/[?&]role_id=([^&]+)/);
-    if(m){
-        var sel = document.getElementById('ddlRole');
-        var v   = decodeURIComponent(m[1]);
-        for(var i=0;i<sel.options.length;i++){
-            if(sel.options[i].value === v){
-                sel.selectedIndex = i;
-                loadMatrix();
-                break;
-            }
-        }
-    }
-})();
+// Role pills + URL pre-selection run from the init block at the very end of this
+// IIFE, so every handler (loadMatrix, markActivePill, …) already exists.
 
 // ── Load matrix ───────────────────────────────────────────────────────────────
 window.loadMatrix = function(){
@@ -215,6 +282,7 @@ window.loadMatrix = function(){
     }
 
     currentRoleId = roleId;
+    markActivePill(roleId);
 
     // Get selected option meta
     var sel = document.getElementById('ddlRole');
@@ -248,6 +316,13 @@ function reset(){
     document.getElementById('btnSelectAll').style.display = 'none';
     document.getElementById('btnClearAll').style.display  = 'none';
     document.getElementById('permSearch').style.display   = 'none';
+    document.getElementById('ddlCopyFrom').style.display  = 'none';
+    document.getElementById('ddlCompare').style.display   = 'none';
+    document.getElementById('btnExpandToggle').style.display = 'none';
+    document.getElementById('tbSep1').style.display       = 'none';
+    document.getElementById('permToolbar').style.display  = 'none';
+    clearCompareHighlights();
+    markActivePill(null);
     if(history.replaceState) history.replaceState(null,'','UserRolePermissions.aspx');
 }
 
@@ -272,13 +347,16 @@ function renderMatrix(items, granted, isAdmin, total, grantedCount){
             tr.className = 'section-header';
             tr.setAttribute('data-section', sectionIdx);
 
-            var inner = '<div class="section-hd">';
+            var inner = '<div class="section-hd" onclick="onSectionHeaderClick(event,'+sectionIdx+')" title="Click to expand / collapse">';
+            inner += '<svg class="section-hd__caret" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
             inner += '<span class="section-hd__label">' + escHtml(item.label) + '</span>';
+            inner += '<span class="section-hd__count" id="seccount_'+sectionIdx+'"></span>';
+            inner += '<span class="section-hd__spacer"></span>';
             if(!isAdmin){
                 inner += '<input type="checkbox" class="section-hd__chk perm-section-chk" '+
                          'data-section="'+sectionIdx+'" '+
-                         'onclick="toggleSection(this,'+sectionIdx+')" '+
-                         'title="Toggle all permissions in this section" />';
+                         'onclick="event.stopPropagation();toggleSection(this,'+sectionIdx+')" '+
+                         'title="Grant / revoke this whole section" />';
             }
             inner += '</div>';
             tr.innerHTML = '<td colspan="2">'+inner+'</td>';
@@ -336,9 +414,19 @@ function renderMatrix(items, granted, isAdmin, total, grantedCount){
     document.getElementById('btnSelectAll').style.display  = isAdmin ? 'none' : '';
     document.getElementById('btnClearAll').style.display   = isAdmin ? 'none' : '';
     document.getElementById('permSearch').style.display    = '';
+    document.getElementById('ddlCopyFrom').style.display   = isAdmin ? 'none' : '';
+    document.getElementById('ddlCompare').style.display    = isAdmin ? 'none' : '';
+    document.getElementById('permToolbar').style.display   = '';
+    document.getElementById('btnExpandToggle').style.display = '';
+    document.getElementById('tbSep1').style.display        = isAdmin ? 'none' : '';
+    _allCollapsed = false;
+    document.getElementById('expandToggleLbl').textContent = 'Collapse all';
+    populateAuxRoleDropdowns();
+    clearCompareHighlights();
 
     updateRoleInfoBar(isAdmin, grantedCount, total);
     updateProgress(isAdmin ? total : grantedCount, total);
+    updateSectionCounts();
     dirty = false;
     updateDirty();
 }
@@ -444,6 +532,12 @@ window.savePermissions = function(){
         if(checks[i].checked) slugs.push(checks[i].getAttribute('data-slug'));
     }
 
+    // Change summary vs the loaded state (+added / −removed)
+    var added = 0, removed = 0, nowSet = {};
+    for(var a=0;a<slugs.length;a++){ nowSet[slugs[a]] = true; if(!originalChecked[slugs[a]]) added++; }
+    for(var k in originalChecked){ if(originalChecked[k] && !nowSet[k]) removed++; }
+    var summary = (added||removed) ? ' (+' + added + ' / −' + removed + ')' : '';
+
     var btn = document.getElementById('btnSave');
     btn.disabled = true;
     btn.textContent = 'Saving…';
@@ -460,7 +554,7 @@ window.savePermissions = function(){
         if(d.ok){
             dirty = false;
             updateDirty();
-            showToast('Permissions saved — ' + slugs.length + ' access grant' + (slugs.length!==1?'s':'') + ' active.','ok');
+            showToast('Permissions saved — ' + slugs.length + ' access grant' + (slugs.length!==1?'s':'') + ' active' + summary + '.','ok');
             loadMatrix();
         } else {
             btn.disabled = false;
@@ -522,7 +616,96 @@ function updateProgressFromDOM(){
     var checked = 0;
     for(var i=0;i<checks.length;i++) if(checks[i].checked) checked++;
     updateProgress(checked, _totalLeafs);
+    updateSectionCounts();
 }
+
+// ── Copy from / Compare with another role ───────────────────────────────────────
+function populateAuxRoleDropdowns(){
+    var src  = document.getElementById('ddlRole');
+    var copy = document.getElementById('ddlCopyFrom');
+    var cmp  = document.getElementById('ddlCompare');
+    copy.innerHTML = '<option value="">Copy from role…</option>';
+    cmp.innerHTML  = '<option value="">Compare with…</option>';
+    for(var i=0;i<src.options.length;i++){
+        var o = src.options[i];
+        if(!o.value || o.value === currentRoleId) continue;
+        copy.appendChild(new Option(o.text, o.value));
+        cmp.appendChild(new Option(o.text, o.value));
+    }
+}
+
+function fetchRoleGrants(roleId, cb){
+    fetch('UserRolePermissions.aspx?ajax=matrix&role_id=' + encodeURIComponent(roleId))
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if(!d.ok){ showToast(d.error||'Failed to load role.','err'); cb(null,false); return; }
+            cb(d.granted || [], !!d.is_admin);
+        })
+        .catch(function(){ showToast('Network error.','err'); cb(null,false); });
+}
+
+function roleNameById(id){
+    var src = document.getElementById('ddlRole');
+    for(var i=0;i<src.options.length;i++) if(src.options[i].value===id) return src.options[i].getAttribute('data-name')||src.options[i].text;
+    return 'role';
+}
+
+window.copyFromRole = function(srcId){
+    document.getElementById('ddlCopyFrom').value = '';
+    if(!srcId || !currentRoleId) return;
+    var nm = roleNameById(srcId);
+    if(!confirm('Copy all grants from "' + nm + '" into this matrix?\n\nThis replaces the current ticks on screen. Nothing is saved until you click Save Changes.')) return;
+    fetchRoleGrants(srcId, function(grants, isAdmin){
+        if(grants===null) return;
+        if(isAdmin){ showToast('Cannot copy from the admin role (wildcard access).','err'); return; }
+        var gset = {}; for(var i=0;i<grants.length;i++) gset[grants[i]] = true;
+        var rows = document.querySelectorAll('#permBody tr.perm-leaf');
+        for(var r=0;r<rows.length;r++){
+            var cb = rows[r].querySelector('.perm-check:not(:disabled)');
+            if(cb) cb.checked = !!gset[cb.getAttribute('data-slug')];
+        }
+        syncAllSectionChks();
+        dirty = true; updateDirty(); updateProgressFromDOM();
+        showToast('Copied ' + grants.length + ' grant' + (grants.length!==1?'s':'') + ' from "' + nm + '". Review, then Save.','ok');
+    });
+};
+
+window.compareRole = function(srcId){
+    if(!srcId){ clearCompareHighlights(); document.getElementById('ddlCompare').value=''; return; }
+    if(!currentRoleId) return;
+    var nm = roleNameById(srcId);
+    fetchRoleGrants(srcId, function(grants, isAdmin){
+        if(grants===null) return;
+        var gset = {}; for(var i=0;i<grants.length;i++) gset[grants[i]] = true;
+        var rows = document.querySelectorAll('#permBody tr.perm-leaf');
+        for(var r=0;r<rows.length;r++){
+            var cb = rows[r].querySelector('.perm-check');
+            rows[r].classList.remove('perm-diff-add','perm-diff-rem');
+            if(!cb) continue;
+            var cur = cb.checked, other = isAdmin || !!gset[cb.getAttribute('data-slug')];
+            if(cur && !other) rows[r].classList.add('perm-diff-add');
+            else if(!cur && other) rows[r].classList.add('perm-diff-rem');
+        }
+        document.getElementById('cmpOther1').textContent = nm;
+        document.getElementById('cmpOther2').textContent = nm;
+        document.getElementById('cmpLegendTitle').innerHTML = '<b>Comparing</b> ' + escHtml(currentRoleName) + ' vs ' + escHtml(nm);
+        document.getElementById('cmpLegend').classList.add('visible');
+    });
+};
+
+function clearCompareHighlights(){
+    var rows = document.querySelectorAll('#permBody tr.perm-diff-add, #permBody tr.perm-diff-rem');
+    for(var i=0;i<rows.length;i++) rows[i].classList.remove('perm-diff-add','perm-diff-rem');
+    var lg = document.getElementById('cmpLegend');
+    if(lg) lg.classList.remove('visible');
+    var cmp = document.getElementById('ddlCompare');
+    if(cmp) cmp.value = '';
+}
+
+// ── Unsaved-changes guard ───────────────────────────────────────────────────────
+window.addEventListener('beforeunload', function(e){
+    if(dirty){ e.preventDefault(); e.returnValue = ''; return ''; }
+});
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function escHtml(s){
@@ -537,6 +720,97 @@ window.showToast = function(msg, type){
     clearTimeout(t._tmr);
     t._tmr = setTimeout(function(){ t.classList.remove('visible'); }, 3500);
 };
+
+// ── Role pill selector ─────────────────────────────────────────────────────────
+window.buildRolePills = function(){
+    var sel = document.getElementById('ddlRole');
+    var box = document.getElementById('rolePills');
+    if(!sel || !box) return;
+    box.innerHTML = '';
+    var n = 0;
+    for(var i=0;i<sel.options.length;i++){
+        var o = sel.options[i];
+        if(!o.value) continue;
+        n++;
+        var color = o.getAttribute('data-color') || '#174DA4';
+        var users = o.getAttribute('data-users') || '0';
+        var name  = o.getAttribute('data-name')  || o.text;
+        var code  = (o.getAttribute('data-code') || '').toLowerCase();
+        var pill  = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'perm-pill';
+        pill.setAttribute('data-id', o.value);
+        pill.title = (code === 'admin')
+            ? 'Administrator has full (wildcard) access'
+            : users + ' user(s) assigned';
+        pill.onclick = (function(id){ return function(){ selectRolePill(id); }; })(o.value);
+        pill.innerHTML = '<span class="perm-pill__dot" style="background:' + escHtml(color) + '"></span>' +
+                         escHtml(name) + '<span class="perm-pill__count">' + escHtml(String(users)) + '</span>';
+        box.appendChild(pill);
+    }
+    if(n === 0) box.innerHTML = '<span style="font-size:12px;color:#94a3b8;">No active roles. Create one in the Roles tab.</span>';
+};
+
+window.selectRolePill = function(id){
+    if(dirty && !confirm('You have unsaved changes that will be lost. Switch role anyway?')) return;
+    dirty = false;
+    var sel = document.getElementById('ddlRole');
+    sel.value = String(id);
+    markActivePill(id);
+    loadMatrix();
+};
+
+window.markActivePill = function(id){
+    var pills = document.querySelectorAll('#rolePills .perm-pill');
+    for(var i=0;i<pills.length;i++)
+        pills[i].classList.toggle('active', pills[i].getAttribute('data-id') === String(id));
+};
+
+// ── Section counts + collapse ──────────────────────────────────────────────────
+window.updateSectionCounts = function(){
+    var secs = document.querySelectorAll('#permBody tr.section-header');
+    for(var s=0;s<secs.length;s++){
+        var idx = secs[s].getAttribute('data-section');
+        var leaves = document.querySelectorAll('#permBody tr.perm-leaf[data-section="'+idx+'"] .perm-check');
+        var tot=0, g=0;
+        for(var i=0;i<leaves.length;i++){ tot++; if(leaves[i].checked) g++; }
+        var el = document.getElementById('seccount_'+idx);
+        if(el){ el.textContent = g+'/'+tot; el.classList.toggle('full', tot>0 && g===tot); }
+    }
+};
+
+window.onSectionHeaderClick = function(evt, idx){
+    if(evt && evt.target && evt.target.classList && evt.target.classList.contains('perm-section-chk')) return;
+    var hdr = document.querySelector('#permBody tr.section-header[data-section="'+idx+'"]');
+    if(!hdr) return;
+    var collapsed = hdr.classList.toggle('collapsed');
+    var rows = document.querySelectorAll('#permBody tr[data-section="'+idx+'"]:not(.section-header)');
+    for(var i=0;i<rows.length;i++) rows[i].classList.toggle('is-collapsed', collapsed);
+};
+
+window.toggleAllSections = function(){
+    _allCollapsed = !_allCollapsed;
+    var secs = document.querySelectorAll('#permBody tr.section-header');
+    for(var s=0;s<secs.length;s++){
+        var idx = secs[s].getAttribute('data-section');
+        secs[s].classList.toggle('collapsed', _allCollapsed);
+        var rows = document.querySelectorAll('#permBody tr[data-section="'+idx+'"]:not(.section-header)');
+        for(var i=0;i<rows.length;i++) rows[i].classList.toggle('is-collapsed', _allCollapsed);
+    }
+    document.getElementById('expandToggleLbl').textContent = _allCollapsed ? 'Expand all' : 'Collapse all';
+};
+
+// ── Init (everything above is now defined) ─────────────────────────────────────
+buildRolePills();
+(function preselectRole(){
+    var m = window.location.search.match(/[?&]role_id=([^&]+)/);
+    if(!m) return;
+    var sel = document.getElementById('ddlRole');
+    var v   = decodeURIComponent(m[1]);
+    for(var i=0;i<sel.options.length;i++){
+        if(sel.options[i].value === v){ sel.selectedIndex = i; loadMatrix(); break; }
+    }
+})();
 })();
 </script>
 </asp:Content>

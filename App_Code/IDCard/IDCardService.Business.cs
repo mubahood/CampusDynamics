@@ -1,0 +1,837 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+using System.Web.Script.Serialization;
+using MySql.Data.MySqlClient;
+
+/// <summary>
+/// ID Card module — business layer (identity, finance gate, windows, submit,
+/// list/detail/stats, action dispatch, email). Every public method returns a JSON
+/// string ready for a WebMethod / API endpoint, and is context-free: the caller
+/// (eadmin / eportal / XAXU API) supplies the actor + channel. All state changes
+/// go through IDCardService.Transition (the funnel in IDCardService.cs).
+///
+/// Decisions locked in COOPERP/IDCARD_WORKFLOW_DESIGN.md §14a.
+/// </summary>
+public static partial class IDCardService
+{
+    private static readonly JavaScriptSerializer J = new JavaScriptSerializer();
+    private const int PASS_PCT = 10;   // student must have paid >= 10% of the semester fee
+
+    // ==================================================================
+    // IDENTITY  (Step 1 display)
+    // ==================================================================
+    public static string IdentityJson(string type, string regno, int empId)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                object idn = Identity(conn, type, regno, empId);
+                if (idn == null) return J.Serialize(new { success = false, message = "Record not found." });
+                object win = WindowState(conn, type);
+                string active = ActiveRequestNo(conn, type, regno, empId);
+                return J.Serialize(new { success = true, identity = idn, window = win, activeRequest = active });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    private static Dictionary<string, object> Identity(MySqlConnection conn, string type, string regno, int empId)
+    {
+        var d = new Dictionary<string, object>();
+        if (Norm(type) == "STAFF")
+        {
+            using (var cmd = new MySqlCommand(
+                "SELECT e.empID, TRIM(e.emp_name) nm, IFNULL(e.emp_email,'') email, IFNULL(e.photo_file,'') photo," +
+                " IFNULL((SELECT dept_name FROM hrm_departments dd WHERE dd.dept_headID=e.empID LIMIT 1),'') dept" +
+                " FROM hrm_employee e WHERE e.empID=@e LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@e", empId);
+                using (var r = cmd.ExecuteReader())
+                {
+                    if (!r.Read()) return null;
+                    d["type"] = "STAFF"; d["number"] = S(r["empID"]); d["name"] = S(r["nm"]);
+                    d["email"] = S(r["email"]); d["photo"] = S(r["photo"]); d["subtitle"] = S(r["dept"]);
+                    d["hasPhoto"] = !string.IsNullOrEmpty(S(r["photo"])) && S(r["photo"]) != "-";
+                }
+            }
+        }
+        else
+        {
+            using (var cmd = new MySqlCommand(
+                "SELECT s.regno, IFNULL(NULLIF(TRIM(s.entryno),''),s.regno) studno," +
+                " TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) nm, IFNULL(s.email,'') email," +
+                " IFNULL(s.photofile,'') photo, s.progid, IFNULL(p.progname,s.progid) pn, IFNULL(s.studsesion,'') sess" +
+                " FROM acad_student s LEFT JOIN acad_programme p ON p.progcode=s.progid WHERE s.regno=@r LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno ?? "");
+                using (var r = cmd.ExecuteReader())
+                {
+                    if (!r.Read()) return null;
+                    d["type"] = "STUDENT"; d["number"] = S(r["studno"]); d["regno"] = S(r["regno"]);
+                    d["name"] = S(r["nm"]); d["email"] = S(r["email"]); d["photo"] = S(r["photo"]);
+                    d["subtitle"] = S(r["pn"]) + " (" + S(r["sess"]) + ")";
+                    string ph = S(r["photo"]);
+                    d["hasPhoto"] = !string.IsNullOrEmpty(ph) && ph != "-";
+                }
+            }
+        }
+        return d;
+    }
+
+    private static string RecipientEmail(MySqlConnection conn, string type, string regno, int empId)
+    {
+        string sql = Norm(type) == "STAFF"
+            ? "SELECT emp_email FROM hrm_employee WHERE empID=@k LIMIT 1"
+            : "SELECT email FROM acad_student WHERE regno=@k LIMIT 1";
+        using (var cmd = new MySqlCommand(sql, conn))
+        {
+            cmd.Parameters.AddWithValue("@k", Norm(type) == "STAFF" ? (object)empId : (regno ?? ""));
+            object v = cmd.ExecuteScalar();
+            return (v == null || v == DBNull.Value) ? "" : v.ToString().Trim();
+        }
+    }
+
+    // ==================================================================
+    // WINDOWS
+    // ==================================================================
+    private static Dictionary<string, object> WindowState(MySqlConnection conn, string type)
+    {
+        var d = new Dictionary<string, object>();
+        int total = 0;
+        using (var c = new MySqlCommand("SELECT COUNT(*) FROM idcard_windows", conn)) total = Convert.ToInt32(c.ExecuteScalar());
+        if (total == 0) { d["open"] = true; d["id"] = 0; d["message"] = "Requests are open."; return d; }  // bootstrap: no windows = open
+
+        using (var cmd = new MySqlCommand(
+            "SELECT id, title, closes_at FROM idcard_windows WHERE is_active=1 AND (requester_scope='BOTH' OR requester_scope=@t)" +
+            " AND NOW() BETWEEN opens_at AND closes_at ORDER BY closes_at DESC LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@t", Norm(type));
+            using (var r = cmd.ExecuteReader())
+            {
+                if (r.Read()) { d["open"] = true; d["id"] = ToI(r["id"]); d["title"] = S(r["title"]); d["closesAt"] = S(r["closes_at"]); d["message"] = "Window open: " + S(r["title"]); return d; }
+            }
+        }
+        // find the next upcoming window for a friendly message
+        string next = "";
+        using (var cmd = new MySqlCommand(
+            "SELECT title, opens_at FROM idcard_windows WHERE is_active=1 AND (requester_scope='BOTH' OR requester_scope=@t)" +
+            " AND opens_at>NOW() ORDER BY opens_at ASC LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@t", Norm(type));
+            using (var r = cmd.ExecuteReader()) if (r.Read()) next = S(r["title"]) + " opens " + S(r["opens_at"]);
+        }
+        d["open"] = false; d["id"] = 0;
+        d["message"] = "ID card requests are currently closed." + (next != "" ? (" Next: " + next) : "");
+        return d;
+    }
+
+    public static string WindowsJson()
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                var list = new List<object>();
+                using (var cmd = new MySqlCommand("SELECT id,title,requester_scope,opens_at,closes_at,is_active,IFNULL(notes,'') notes," +
+                    " CASE WHEN is_active=1 AND NOW() BETWEEN opens_at AND closes_at THEN 1 ELSE 0 END is_open" +
+                    " FROM idcard_windows ORDER BY opens_at DESC LIMIT 200", conn))
+                using (var r = cmd.ExecuteReader())
+                    while (r.Read()) list.Add(new { id = ToI(r["id"]), title = S(r["title"]), scope = S(r["requester_scope"]),
+                        opensAt = S(r["opens_at"]), closesAt = S(r["closes_at"]), active = ToI(r["is_active"]) == 1, open = ToI(r["is_open"]) == 1, notes = S(r["notes"]) });
+                return J.Serialize(new { success = true, windows = list });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    public static string CreateWindowJson(string title, string scope, string opensAt, string closesAt, string notes, string actor)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty((title ?? "").Trim())) return Bad("A window title is required.");
+            DateTime o, c;
+            if (!DateTime.TryParse(opensAt, out o) || !DateTime.TryParse(closesAt, out c)) return Bad("Valid open and close dates are required.");
+            if (c <= o) return Bad("The close date must be after the open date.");
+            string sc = Norm(scope); if (sc != "STUDENT" && sc != "STAFF") sc = "BOTH";
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                using (var cmd = new MySqlCommand("INSERT INTO idcard_windows (title,requester_scope,opens_at,closes_at,is_active,notes,created_by,created_at)" +
+                    " VALUES (@t,@s,@o,@c,1,@n,@by,NOW())", conn))
+                {
+                    cmd.Parameters.AddWithValue("@t", title.Trim());
+                    cmd.Parameters.AddWithValue("@s", sc);
+                    cmd.Parameters.AddWithValue("@o", o);
+                    cmd.Parameters.AddWithValue("@c", c);
+                    cmd.Parameters.AddWithValue("@n", (object)(notes ?? ""));
+                    cmd.Parameters.AddWithValue("@by", actor ?? "");
+                    cmd.ExecuteNonQuery();
+                }
+                return J.Serialize(new { success = true, message = "Window created." });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    public static string SetWindowActiveJson(int id, bool active)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand("UPDATE idcard_windows SET is_active=@a WHERE id=@id", conn))
+                { cmd.Parameters.AddWithValue("@a", active ? 1 : 0); cmd.Parameters.AddWithValue("@id", id); cmd.ExecuteNonQuery(); }
+                return J.Serialize(new { success = true, message = active ? "Window activated." : "Window closed." });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    // ==================================================================
+    // FINANCE GATE (students only; 10% of current-semester fee)
+    // ==================================================================
+    private class Finance { public double Fee; public double Paid; public double Required; public bool Eligible; public bool Flagged;
+        public string AcadYear = ""; public int Semester; public int StudyYear; public string Prog = ""; }
+
+    private static Finance RunFinance(MySqlConnection conn, string regno)
+    {
+        var f = new Finance();
+        // latest enrolled registration + programme/study year
+        using (var cmd = new MySqlCommand(
+            "SELECT r.acad_year, r.semester, r.studyyear, s.progid FROM acad_registration r" +
+            " JOIN acad_student s ON s.regno=r.regno" +
+            " WHERE r.regno=@r AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')" +
+            " ORDER BY r.acad_year DESC, r.semester DESC LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@r", regno ?? "");
+            using (var r = cmd.ExecuteReader())
+            {
+                if (!r.Read()) { f.Flagged = true; f.Eligible = false; return f; }   // no active registration
+                f.AcadYear = S(r["acad_year"]); f.Semester = ToI(r["semester"]); f.StudyYear = ToI(r["studyyear"]); f.Prog = S(r["progid"]);
+            }
+        }
+        // semester fee via the accounts DB procedure
+        double tuition = 0, functional = 0;
+        try
+        {
+            using (var ac = new MySqlConnection(AccountsConnStr))
+            {
+                ac.Open();
+                // Read the fee cells directly from fin_programme_fees (same cells fin_GetProgrammeFee
+                // uses) — avoids stored-proc OUT-param handling. yN_sM columns; N/M are validated ints.
+                if (f.StudyYear >= 1 && f.StudyYear <= 4 && f.Semester >= 1 && f.Semester <= 3)
+                {
+                    string yc = "y" + f.StudyYear + "_s" + f.Semester;
+                    using (var cmd = new MySqlCommand("SELECT IFNULL(" + yc + "_tuition,0), IFNULL(" + yc + "_functional,0)" +
+                        " FROM fin_programme_fees WHERE progcode=@p AND is_active='Yes' LIMIT 1", ac))
+                    {
+                        cmd.Parameters.AddWithValue("@p", f.Prog);
+                        using (var r = cmd.ExecuteReader())
+                            if (r.Read()) { tuition = r[0] == DBNull.Value ? 0 : Convert.ToDouble(r[0]); functional = r[1] == DBNull.Value ? 0 : Convert.ToDouble(r[1]); }
+                    }
+                }
+                // paid toward this semester (sub-ledger Payment rows)
+                using (var cmd = new MySqlCommand("SELECT IFNULL(SUM(Amount),0) FROM fin_studentfeestracking" +
+                    " WHERE regno=@r AND acadyear=@ay AND semester=@sm AND trans_type='Payment'", ac))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno ?? "");
+                    cmd.Parameters.AddWithValue("@ay", f.AcadYear);
+                    cmd.Parameters.AddWithValue("@sm", f.Semester);
+                    object v = cmd.ExecuteScalar(); f.Paid = v == null || v == DBNull.Value ? 0 : Convert.ToDouble(v);
+                }
+            }
+        }
+        catch { f.Flagged = true; }
+
+        f.Fee = tuition + functional;
+        f.Required = Math.Round(f.Fee * PASS_PCT / 100.0, 0);
+        if (f.Fee <= 0) { f.Eligible = true; f.Flagged = true; }   // no fee structure -> do not hard-block; flag
+        else f.Eligible = f.Paid >= f.Required;
+        return f;
+    }
+
+    private static object FinanceObj(Finance f)
+    {
+        return new { fee = f.Fee, paid = f.Paid, requiredPct = PASS_PCT, required = f.Required, eligible = f.Eligible,
+            flagged = f.Flagged, acadYear = f.AcadYear, semester = f.Semester, studyYear = f.StudyYear, prog = f.Prog,
+            shortfall = f.Eligible ? 0 : Math.Max(0, f.Required - f.Paid) };
+    }
+
+    public static string FinanceJson(string regno)
+    {
+        try { using (var conn = new MySqlConnection(ConnStr)) { conn.Open(); return J.Serialize(new { success = true, finance = FinanceObj(RunFinance(conn, regno)) }); } }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    // ==================================================================
+    // CREATE  (Step 1 complete → REQUESTED)
+    // ==================================================================
+    public static string CreateJson(string type, string regno, int empId, string cardType,
+        string photoRef, bool photoConfirmed, bool guidelinesAck, string actor)
+    {
+        try
+        {
+            if (!photoConfirmed) return Bad("Please confirm your photo before continuing.");
+            if (!guidelinesAck) return Bad("Please confirm you have read the photo guidelines.");
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                var w = (Dictionary<string, object>)WindowState(conn, type);
+                if (!(bool)w["open"]) return Bad(S(w["message"]));
+            }
+            int wid = 0;
+            using (var conn2 = new MySqlConnection(ConnStr)) { conn2.Open(); var w2 = (Dictionary<string, object>)WindowState(conn2, type); wid = ToI(w2["id"]); }
+            CreateResult cr = CreateRequest(type, regno, empId, cardType, photoRef, photoConfirmed, guidelinesAck, wid, actor);
+            return J.Serialize(new { success = cr.Ok, requestNo = cr.RequestNo, message = cr.Message });
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    // ==================================================================
+    // SUBMIT  (Step 2: finance gate + replacement fee → SUBMITTED / BLOCKED)
+    // ==================================================================
+    public static string SubmitJson(string requestNo, string replRef, string replDate, string replMethod, string replNotes, string actor)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                string type, regno, cardType, status; int empId;
+                if (!LoadBasics(conn, requestNo, out type, out regno, out empId, out cardType, out status))
+                    return Bad("Request not found.");
+                if (status != REQUESTED && status != BLOCKED && status != HALTED)
+                    return Bad("This request can no longer be submitted (status " + status + ").");
+
+                // replacement fee proof (both students and staff replacements)
+                if (cardType == "REPLACEMENT")
+                {
+                    if (string.IsNullOrEmpty((replRef ?? "").Trim())) return Bad("Enter the replacement-fee payment reference (UGX 30,000 to XAXU).");
+                    string m = Norm(replMethod); if (m != "DFCU" && m != "AIRTEL") return Bad("Select the payment method (DFCU Bank or Airtel Money).");
+                    DateTime pd; if (!DateTime.TryParse(replDate, out pd)) return Bad("Enter a valid payment date.");
+                    using (var up = new MySqlCommand("UPDATE idcard_requests SET replacement_fee_ref=@r, replacement_fee_date=@d," +
+                        " replacement_fee_method=@m, replacement_fee_notes=@n, updated_at=NOW() WHERE request_no=@rn", conn))
+                    {
+                        up.Parameters.AddWithValue("@r", replRef.Trim());
+                        up.Parameters.AddWithValue("@d", pd);
+                        up.Parameters.AddWithValue("@m", m);
+                        up.Parameters.AddWithValue("@n", (object)(replNotes ?? ""));
+                        up.Parameters.AddWithValue("@rn", requestNo);
+                        up.ExecuteNonQuery();
+                    }
+                }
+
+                // HALTED resubmit -> straight back to SUBMITTED (fixes already made)
+                if (status == HALTED)
+                {
+                    TransitionResult t0 = Transition(requestNo, SUBMITTED, actor, "requester", "eportal", "Resubmitted after halt", null);
+                    return J.Serialize(new { success = t0.Ok, status = t0.Status, message = t0.Ok ? "Resubmitted." : t0.Message });
+                }
+
+                // STAFF: no finance gate
+                if (Norm(type) == "STAFF")
+                {
+                    TransitionResult ts = Transition(requestNo, SUBMITTED, actor, "staff", "eportal", "Submitted", null);
+                    return J.Serialize(new { success = ts.Ok, status = ts.Status, message = ts.Ok ? "Submitted for approval." : ts.Message });
+                }
+
+                // STUDENT: run finance, persist snapshot, gate
+                Finance f = RunFinance(conn, regno);
+                using (var up = new MySqlCommand("UPDATE idcard_requests SET finance_ok=@ok, finance_snapshot_json=@snap, updated_at=NOW() WHERE request_no=@rn", conn))
+                {
+                    up.Parameters.AddWithValue("@ok", f.Eligible ? 1 : 0);
+                    up.Parameters.AddWithValue("@snap", J.Serialize(FinanceObj(f)));
+                    up.Parameters.AddWithValue("@rn", requestNo);
+                    up.ExecuteNonQuery();
+                }
+                // move through FINANCE_CHECK, then SUBMITTED or BLOCKED
+                Transition(requestNo, FINANCE_CHECK, actor, "student", "eportal", "Finance check", null);
+                if (f.Eligible)
+                {
+                    TransitionResult ts = Transition(requestNo, SUBMITTED, actor, "student", "eportal",
+                        f.Flagged ? "Submitted (fee structure unresolved — flagged)" : "Submitted (finance cleared)", null);
+                    return J.Serialize(new { success = ts.Ok, status = ts.Status, finance = FinanceObj(f), message = ts.Ok ? "Submitted for approval." : ts.Message });
+                }
+                else
+                {
+                    Transition(requestNo, BLOCKED, actor, "student", "eportal", "Below 10% of semester fee", null);
+                    return J.Serialize(new { success = false, blocked = true, status = BLOCKED, finance = FinanceObj(f),
+                        message = "You must pay at least " + PASS_PCT + "% of your semester fee (" + f.Required.ToString("N0") + ") first. Paid so far: " + f.Paid.ToString("N0") + "." });
+                }
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    // ==================================================================
+    // ACTIONS  (eadmin / API) → the Transition funnel
+    // ==================================================================
+    public static string ActionJson(string requestNo, string action, string reason, string collectionPoint,
+        string actor, string role, string channel)
+    {
+        try
+        {
+            string a = (action ?? "").Trim().ToUpperInvariant();
+            string to;
+            switch (a)
+            {
+                case "APPROVE":   to = APPROVED;  break;
+                case "HALT":      to = HALTED;    break;
+                case "PRINTED":   to = PRINTED;   break;
+                case "READY":     to = READY;     break;
+                case "COLLECTED": to = COLLECTED; break;
+                case "CANCEL":    to = CANCELLED; break;
+                default: return Bad("Unknown action.");
+            }
+            if (to == READY && !string.IsNullOrEmpty((collectionPoint ?? "").Trim()))
+                using (var conn = new MySqlConnection(ConnStr)) { conn.Open();
+                    using (var up = new MySqlCommand("UPDATE idcard_requests SET collection_point=@cp, updated_at=NOW() WHERE request_no=@rn", conn))
+                    { up.Parameters.AddWithValue("@cp", collectionPoint.Trim()); up.Parameters.AddWithValue("@rn", requestNo); up.ExecuteNonQuery(); } }
+
+            TransitionResult t = Transition(requestNo, to, actor, role, channel ?? "eadmin", null, reason);
+            return J.Serialize(new { success = t.Ok, status = t.Status, message = t.Message });
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    // ==================================================================
+    // LIST / DETAIL / STATS / MY-REQUEST
+    // ==================================================================
+    // Back-compat thin wrapper (WebMethods / XAXU queue). Delegates to ListJsonEx.
+    public static string ListJson(string status, string type, string cardType, string q, int page, int pageSize)
+    {
+        var f = new Dictionary<string, string>();
+        if (!string.IsNullOrEmpty(status)) f["status"] = status;
+        if (!string.IsNullOrEmpty(type)) f["type"] = type;
+        if (!string.IsNullOrEmpty(cardType)) f["card_type"] = cardType;
+        if (!string.IsNullOrEmpty(q)) f["q"] = q;
+        return ListJsonEx(f, page, pageSize, "created_at", "desc");
+    }
+
+    /// <summary>
+    /// Rich, paginated, sortable listing. Filter keys (all optional):
+    /// status (single or CSV -> IN), type, card_type, q, date_from, date_to (on created_at),
+    /// window_id, finance (ok|below|flagged), has_replacement_fee (0|1).
+    /// sort: created_at|submitted_at|updated_at|status|request_no. order: asc|desc.
+    /// </summary>
+    public static string ListJsonEx(Dictionary<string, string> f, int page, int pageSize, string sort, string order)
+    {
+        try
+        {
+            if (f == null) f = new Dictionary<string, string>();
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 200) pageSize = 50;
+
+            string sortCol;
+            switch ((sort ?? "").Trim().ToLowerInvariant())
+            {
+                case "submitted_at": sortCol = "req.submitted_at"; break;
+                case "updated_at":   sortCol = "req.updated_at";   break;
+                case "status":       sortCol = "req.status";       break;
+                case "request_no":   sortCol = "req.request_no";   break;
+                case "created_at":   sortCol = "req.created_at";   break;
+                default:             sortCol = "req.id";           break;
+            }
+            string ord = ((order ?? "").Trim().ToLowerInvariant() == "asc") ? "ASC" : "DESC";
+
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                var where = new StringBuilder(" WHERE 1=1");
+                var ps = new List<MySqlParameter>();
+
+                string status = Get(f, "status");
+                if (!string.IsNullOrEmpty(status))
+                {
+                    string[] sts = status.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (sts.Length == 1) { where.Append(" AND req.status=@st"); ps.Add(new MySqlParameter("@st", sts[0].Trim().ToUpperInvariant())); }
+                    else
+                    {
+                        var names = new List<string>();
+                        for (int i = 0; i < sts.Length; i++) { string pn = "@st" + i; names.Add(pn); ps.Add(new MySqlParameter(pn, sts[i].Trim().ToUpperInvariant())); }
+                        where.Append(" AND req.status IN (" + string.Join(",", names.ToArray()) + ")");
+                    }
+                }
+                string type = Get(f, "type");
+                if (!string.IsNullOrEmpty(type)) { where.Append(" AND req.requester_type=@ty"); ps.Add(new MySqlParameter("@ty", Norm(type))); }
+                string cardType = Get(f, "card_type");
+                if (!string.IsNullOrEmpty(cardType)) { where.Append(" AND req.card_type=@ct"); ps.Add(new MySqlParameter("@ct", Norm(cardType))); }
+                string q = Get(f, "q");
+                if (!string.IsNullOrEmpty(q)) { where.Append(" AND (req.request_no LIKE @q OR req.regno LIKE @q OR EXISTS(SELECT 1 FROM acad_student s2 WHERE s2.regno=req.regno AND (s2.entryno LIKE @q OR CONCAT(IFNULL(s2.firstname,''),' ',IFNULL(s2.othername,'')) LIKE @q)) OR EXISTS(SELECT 1 FROM hrm_employee e2 WHERE e2.empID=req.emp_id AND e2.emp_name LIKE @q))"); ps.Add(new MySqlParameter("@q", "%" + q + "%")); }
+                string df = Get(f, "date_from");
+                if (!string.IsNullOrEmpty(df)) { where.Append(" AND DATE(req.created_at) >= @df"); ps.Add(new MySqlParameter("@df", df)); }
+                string dt = Get(f, "date_to");
+                if (!string.IsNullOrEmpty(dt)) { where.Append(" AND DATE(req.created_at) <= @dt"); ps.Add(new MySqlParameter("@dt", dt)); }
+                string wid = Get(f, "window_id");
+                if (!string.IsNullOrEmpty(wid)) { int wi; if (int.TryParse(wid, out wi) && wi > 0) { where.Append(" AND req.window_id=@wid"); ps.Add(new MySqlParameter("@wid", wi)); } }
+                string fin = Get(f, "finance").ToLowerInvariant();
+                if (fin == "ok") where.Append(" AND req.finance_ok=1");
+                else if (fin == "below") where.Append(" AND req.finance_ok=0");
+                else if (fin == "flagged") where.Append(" AND req.finance_snapshot_json LIKE '%\"flagged\":true%'");
+                string hrf = Get(f, "has_replacement_fee");
+                if (hrf == "1") where.Append(" AND req.replacement_fee_ref IS NOT NULL AND TRIM(req.replacement_fee_ref)<>''");
+                else if (hrf == "0") where.Append(" AND (req.replacement_fee_ref IS NULL OR TRIM(req.replacement_fee_ref)='')");
+
+                int total;
+                using (var cnt = new MySqlCommand("SELECT COUNT(*) FROM idcard_requests req" + where, conn))
+                { foreach (var p in ps) cnt.Parameters.AddWithValue(p.ParameterName, p.Value); total = Convert.ToInt32(cnt.ExecuteScalar()); }
+
+                var rows = new List<object>();
+                using (var cmd = new MySqlCommand(
+                    "SELECT req.request_no, req.requester_type, req.card_type, req.status, req.created_at, req.submitted_at, req.updated_at," +
+                    " COALESCE(NULLIF(TRIM(s.entryno),''), req.regno) studno, TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) sname," +
+                    " e.empID, TRIM(e.emp_name) ename FROM idcard_requests req" +
+                    " LEFT JOIN acad_student s ON s.regno=req.regno LEFT JOIN hrm_employee e ON e.empID=req.emp_id" +
+                    where + " ORDER BY " + sortCol + " " + ord + ", req.id " + ord + " LIMIT @off,@ps", conn))
+                {
+                    foreach (var p in ps) cmd.Parameters.AddWithValue(p.ParameterName, p.Value);
+                    cmd.Parameters.AddWithValue("@off", (page - 1) * pageSize);
+                    cmd.Parameters.AddWithValue("@ps", pageSize);
+                    using (var r = cmd.ExecuteReader())
+                        while (r.Read())
+                        {
+                            bool staff = S(r["requester_type"]) == "STAFF";
+                            rows.Add(new { requestNo = S(r["request_no"]), type = S(r["requester_type"]), cardType = S(r["card_type"]),
+                                status = S(r["status"]), createdAt = S(r["created_at"]), submittedAt = S(r["submitted_at"]), updatedAt = S(r["updated_at"]),
+                                number = staff ? S(r["empID"]) : S(r["studno"]), name = staff ? S(r["ename"]) : S(r["sname"]) });
+                        }
+                }
+                int pages = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize));
+                int fromN = total == 0 ? 0 : (page - 1) * pageSize + 1;
+                int toN = (int)Math.Min((long)total, (long)page * pageSize);
+                return J.Serialize(new { success = true, rows = rows, total = total, page = page, pages = pages,
+                    page_size = pageSize, has_prev = page > 1, has_next = page < pages, from = fromN, to = toN });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    public static string DetailJson(string requestNo)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                Dictionary<string, object> req = null; string type = "", regno = null; int empId = 0;
+                using (var cmd = new MySqlCommand("SELECT * FROM idcard_requests WHERE request_no=@rn LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@rn", requestNo ?? "");
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        if (!r.Read()) return Bad("Request not found.");
+                        req = new Dictionary<string, object>();
+                        for (int i = 0; i < r.FieldCount; i++) req[r.GetName(i)] = r.IsDBNull(i) ? null : r.GetValue(i).ToString();
+                        type = S(req.ContainsKey("requester_type") ? req["requester_type"] : ""); regno = req.ContainsKey("regno") ? (string)req["regno"] : null;
+                        int.TryParse(S(req.ContainsKey("emp_id") ? req["emp_id"] : ""), out empId);
+                    }
+                }
+                object identity = Identity(conn, type, regno, empId);
+                object finance = null;
+                if (req.ContainsKey("finance_snapshot_json") && req["finance_snapshot_json"] != null)
+                    try { finance = J.DeserializeObject((string)req["finance_snapshot_json"]); } catch { }
+                var events = new List<object>();
+                using (var cmd = new MySqlCommand("SELECT from_status,to_status,IFNULL(actor,'') actor,IFNULL(actor_role,'') role,IFNULL(channel,'') channel,IFNULL(note,'') note,created_at FROM idcard_request_events WHERE request_id=@id ORDER BY id ASC", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", req["id"]);
+                    using (var r = cmd.ExecuteReader())
+                        while (r.Read()) events.Add(new { from = S(r["from_status"]), to = S(r["to_status"]), actor = S(r["actor"]), role = S(r["role"]), channel = S(r["channel"]), note = S(r["note"]), at = S(r["created_at"]) });
+                }
+                return J.Serialize(new { success = true, request = req, identity = identity, finance = finance, timeline = events });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    public static string MyRequestJson(string type, string regno, int empId)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                string active = ActiveRequestNo(conn, type, regno, empId);
+                if (active == null) return J.Serialize(new { success = true, hasRequest = false });
+            }
+            string active2;
+            using (var conn2 = new MySqlConnection(ConnStr)) { conn2.Open(); active2 = ActiveRequestNo(conn2, type, regno, empId); }
+            string detail = DetailJson(active2);
+            var d = (Dictionary<string, object>)J.DeserializeObject(detail);
+            d["hasRequest"] = true;
+            return J.Serialize(d);
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    public static string StatsJson() { return StatsJson(null, null); }
+
+    /// <summary>Funnel counts (optionally within a created_at date range) + type/card breakdowns.</summary>
+    public static string StatsJson(string dateFrom, string dateTo)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                var where = new StringBuilder(" WHERE 1=1"); var ps = new List<MySqlParameter>();
+                if (!string.IsNullOrEmpty(dateFrom)) { where.Append(" AND DATE(created_at) >= @df"); ps.Add(new MySqlParameter("@df", dateFrom)); }
+                if (!string.IsNullOrEmpty(dateTo)) { where.Append(" AND DATE(created_at) <= @dt"); ps.Add(new MySqlParameter("@dt", dateTo)); }
+
+                var counts = new Dictionary<string, int>();
+                using (var cmd = new MySqlCommand("SELECT status, COUNT(*) c FROM idcard_requests" + where + " GROUP BY status", conn))
+                { foreach (var p in ps) cmd.Parameters.AddWithValue(p.ParameterName, p.Value);
+                  using (var r = cmd.ExecuteReader()) while (r.Read()) counts[S(r["status"])] = ToI(r["c"]); }
+                int total = 0; foreach (var v in counts.Values) total += v;
+
+                int stu = 0, stf = 0, cnew = 0, crep = 0;
+                using (var cmd = new MySqlCommand("SELECT requester_type, COUNT(*) c FROM idcard_requests" + where + " GROUP BY requester_type", conn))
+                { foreach (var p in ps) cmd.Parameters.AddWithValue(p.ParameterName, p.Value);
+                  using (var r = cmd.ExecuteReader()) while (r.Read()) { if (S(r["requester_type"]) == "STAFF") stf = ToI(r["c"]); else stu = ToI(r["c"]); } }
+                using (var cmd = new MySqlCommand("SELECT card_type, COUNT(*) c FROM idcard_requests" + where + " GROUP BY card_type", conn))
+                { foreach (var p in ps) cmd.Parameters.AddWithValue(p.ParameterName, p.Value);
+                  using (var r = cmd.ExecuteReader()) while (r.Read()) { if (S(r["card_type"]) == "REPLACEMENT") crep = ToI(r["c"]); else cnew = ToI(r["c"]); } }
+
+                return J.Serialize(new { success = true, total = total,
+                    requested = G(counts, REQUESTED), finance_check = G(counts, FINANCE_CHECK), blocked = G(counts, BLOCKED), submitted = G(counts, SUBMITTED),
+                    approved = G(counts, APPROVED), halted = G(counts, HALTED), printed = G(counts, PRINTED),
+                    ready = G(counts, READY), collected = G(counts, COLLECTED), cancelled = G(counts, CANCELLED),
+                    byType = new { student = stu, staff = stf }, byCard = new { newCard = cnew, replacement = crep } });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    /// <summary>
+    /// Apply one action to many requests (CSV request_nos). Each runs through the same
+    /// Transition funnel as ActionJson; incompatible states fail per-item. Cap defaults 500.
+    /// </summary>
+    public static string BatchActionJson(string requestNos, string action, string reason, string collectionPoint,
+        string actor, string role, string channel, int cap)
+    {
+        try
+        {
+            if (cap < 1) cap = 500;
+            string[] raws = (requestNos ?? "").Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            var list = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string raw in raws) { string rn = raw.Trim(); if (rn.Length > 0 && seen.Add(rn)) list.Add(rn); }
+            if (list.Count == 0) return Bad("No request numbers supplied.");
+            if (list.Count > cap) return J.Serialize(new { success = false, error_code = "BATCH_TOO_LARGE", message = "Too many requests in one batch (max " + cap + ")." });
+
+            int ok = 0, fail = 0;
+            var results = new List<object>();
+            foreach (string rn in list)
+            {
+                string res = ActionJson(rn, action, reason, collectionPoint, actor, role, channel);
+                bool success = false; string status = ""; string msg = "";
+                try
+                {
+                    var o = J.Deserialize<Dictionary<string, object>>(res);
+                    if (o != null)
+                    {
+                        if (o.ContainsKey("success") && o["success"] != null) success = Convert.ToBoolean(o["success"]);
+                        if (o.ContainsKey("status") && o["status"] != null) status = o["status"].ToString();
+                        if (o.ContainsKey("message") && o["message"] != null) msg = o["message"].ToString();
+                    }
+                }
+                catch { }
+                if (success) ok++; else fail++;
+                results.Add(new { request_no = rn, ok = success, status = status, message = msg });
+            }
+            return J.Serialize(new { success = true, ok = ok, fail = fail, total = ok + fail, results = results });
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    /// <summary>Static metadata for building generic UIs/clients: statuses, legal transitions, action map, filter enums.</summary>
+    public static string MetaJson()
+    {
+        try
+        {
+            string[] statuses = new string[] { REQUESTED, FINANCE_CHECK, BLOCKED, SUBMITTED, APPROVED, HALTED, PRINTED, READY, COLLECTED, CANCELLED };
+            var transitions = new Dictionary<string, object>();
+            foreach (var kv in Allowed) { var arr = new List<string>(); foreach (var to in kv.Value) arr.Add(to); transitions[kv.Key] = arr; }
+            var terminal = new List<string>(); foreach (var s in statuses) if (IsTerminal(s)) terminal.Add(s);
+            var actions = new Dictionary<string, string>();
+            actions["approve"] = APPROVED; actions["halt"] = HALTED; actions["printed"] = PRINTED;
+            actions["ready"] = READY; actions["collected"] = COLLECTED; actions["cancel"] = CANCELLED;
+            return J.Serialize(new { success = true, statuses = statuses, terminal = terminal, transitions = transitions, actions = actions,
+                filters = new {
+                    type = new string[] { "STUDENT", "STAFF" },
+                    card_type = new string[] { "NEW", "REPLACEMENT" },
+                    finance = new string[] { "ok", "below", "flagged" },
+                    sort = new string[] { "created_at", "submitted_at", "updated_at", "status", "request_no" },
+                    order = new string[] { "asc", "desc" } } });
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    // ==================================================================
+    // OMNIPASS SYNC — auto-create PRINTED requests for students whose card
+    // OmniPass reports as printed but who have no request yet. Direct inserts
+    // (no funnel, so no emails); mirrors sql/idcard_backfill_omnipass_printed.sql.
+    // Called after each OmniPass BatchSync. Idempotent + capped per run.
+    // ==================================================================
+    public static int SyncPrintedRequests(string actor, int limit)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr)) { conn.Open(); return SyncPrintedRequests(conn, actor, limit); }
+        }
+        catch { return 0; }
+    }
+
+    public static int SyncPrintedRequests(MySqlConnection conn, string actor, int limit)
+    {
+        int created = 0;
+        try
+        {
+            if (limit <= 0) limit = 500;
+            if (string.IsNullOrEmpty(actor)) actor = "OMNIPASS-SYNC";
+            EnsureSchema(conn);
+
+            int year = DateTime.Now.Year;
+            string prefix = "IDR-" + year + "-";
+            long maxSeq = 0;
+            using (var c = new MySqlCommand("SELECT IFNULL(MAX(CAST(SUBSTRING(request_no,10) AS UNSIGNED)),0) FROM idcard_requests WHERE request_no LIKE @p", conn))
+            { c.Parameters.AddWithValue("@p", prefix + "%"); object v = c.ExecuteScalar(); maxSeq = (v == null || v == DBNull.Value) ? 0 : Convert.ToInt64(v); }
+
+            var cand = new List<object[]>();
+            using (var c = new MySqlCommand(
+                "SELECT a.regno, IFNULL(a.photofile,'') photo, IFNULL(a.id_card_checked_at, NOW()) c " +
+                "FROM acad_student a WHERE a.id_card_status='PRINTED' " +
+                "AND NOT EXISTS (SELECT 1 FROM idcard_requests r WHERE TRIM(r.regno)=TRIM(a.regno)) " +
+                "ORDER BY a.id_card_checked_at LIMIT " + limit, conn))
+            using (var r = c.ExecuteReader())
+                while (r.Read()) cand.Add(new object[] { S(r["regno"]), S(r["photo"]), r["c"] });
+
+            foreach (var row in cand)
+            {
+                maxSeq++;
+                string rn = prefix + maxSeq.ToString("D6");
+                long rid;
+                using (var ins = new MySqlCommand(
+                    "INSERT INTO idcard_requests (request_no, requester_type, regno, card_type, status, photo_ref, photo_confirmed, guidelines_ack," +
+                    " submitted_at, approved_at, printed_at, approved_by, printed_by, notes, created_by, created_at, updated_at)" +
+                    " VALUES (@rn,'STUDENT',@r,'NEW','PRINTED',@ph,1,1,@c,@c,@c,@ac,@ac,@note,@cb,NOW(),NOW())", conn))
+                {
+                    ins.Parameters.AddWithValue("@rn", rn);
+                    ins.Parameters.AddWithValue("@r", (string)row[0]);
+                    ins.Parameters.AddWithValue("@ph", (string)row[1]);
+                    ins.Parameters.AddWithValue("@c", row[2]);
+                    ins.Parameters.AddWithValue("@ac", "OMNIPASS-SYNC");
+                    ins.Parameters.AddWithValue("@note", "Auto-created from OmniPass PRINTED status");
+                    ins.Parameters.AddWithValue("@cb", "OMNIPASS-SYNC");
+                    try { ins.ExecuteNonQuery(); }
+                    catch (MySqlException mex) { if (mex.Number == 1062) continue; throw; }
+                    rid = ins.LastInsertedId;
+                }
+                using (var ev = new MySqlCommand(
+                    "INSERT INTO idcard_request_events (request_id, from_status, to_status, actor, actor_role, channel, note, created_at) VALUES " +
+                    "(@id,NULL,'REQUESTED',@a,'system','omnipass',@n,@c)," +
+                    "(@id,'REQUESTED','FINANCE_CHECK',@a,'system','omnipass',@n,@c)," +
+                    "(@id,'FINANCE_CHECK','SUBMITTED',@a,'system','omnipass',@n,@c)," +
+                    "(@id,'SUBMITTED','APPROVED',@a,'system','omnipass',@n,@c)," +
+                    "(@id,'APPROVED','PRINTED',@a,'system','omnipass',@n,@c)", conn))
+                {
+                    ev.Parameters.AddWithValue("@id", rid);
+                    ev.Parameters.AddWithValue("@a", actor);
+                    ev.Parameters.AddWithValue("@n", "Auto-created from OmniPass PRINTED status");
+                    ev.Parameters.AddWithValue("@c", row[2]);
+                    ev.ExecuteNonQuery();
+                }
+                created++;
+            }
+        }
+        catch { /* never break the OmniPass sync */ }
+        return created;
+    }
+
+    // ==================================================================
+    // EMAIL (best-effort; called from Transition)
+    // ==================================================================
+    private static void TryNotify(MySqlConnection conn, int requestId, string toStatus)
+    {
+        try
+        {
+            string subject, body; if (!Template(toStatus, out subject, out body)) return;   // silent stages
+            string type = "", regno = null, requestNo = ""; int empId = 0; string collect = "", halt = "";
+            using (var cmd = new MySqlCommand("SELECT request_no, requester_type, regno, IFNULL(emp_id,0) emp_id, IFNULL(collection_point,'') cp, IFNULL(halt_reason,'') hr FROM idcard_requests WHERE id=@id LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@id", requestId);
+                using (var r = cmd.ExecuteReader())
+                {
+                    if (!r.Read()) return;
+                    requestNo = S(r["request_no"]); type = S(r["requester_type"]); regno = r["regno"] == DBNull.Value ? null : S(r["regno"]);
+                    empId = ToI(r["emp_id"]); collect = S(r["cp"]); halt = S(r["hr"]);
+                }
+            }
+            string email = RecipientEmail(conn, type, regno, empId);
+            if (string.IsNullOrEmpty(email) || email.IndexOf('@') < 0) return;
+
+            body = body.Replace("{REQ}", requestNo).Replace("{COLLECT}", collect == "" ? "the ID Card office" : collect).Replace("{REASON}", halt);
+            string html = Wrap(subject, body, requestNo);
+            bool ok = false;
+            try { if (Mailer != null) { Mailer(email, subject, html); ok = true; } } catch { ok = false; }
+            using (var up = new MySqlCommand("UPDATE idcard_request_events SET email_sent=@e WHERE request_id=@id AND to_status=@t ORDER BY id DESC LIMIT 1", conn))
+            { up.Parameters.AddWithValue("@e", ok ? 1 : 0); up.Parameters.AddWithValue("@id", requestId); up.Parameters.AddWithValue("@t", toStatus); up.ExecuteNonQuery(); }
+        }
+        catch { /* email must never break a transition */ }
+    }
+
+    private static bool Template(string status, out string subject, out string body)
+    {
+        subject = ""; body = "";
+        switch ((status ?? "").ToUpperInvariant())
+        {
+            case SUBMITTED: subject = "ID Card request received"; body = "Your ID card request <b>{REQ}</b> has been received and submitted for approval. We will notify you at each step."; return true;
+            case APPROVED:  subject = "ID Card request approved"; body = "Good news — your ID card request <b>{REQ}</b> has been <b>approved</b> and is queued for printing."; return true;
+            case HALTED:    subject = "ID Card request halted"; body = "Your ID card request <b>{REQ}</b> has been <b>halted</b>.<br/>Reason: <b>{REASON}</b><br/>Please address this and resubmit from the portal."; return true;
+            case PRINTED:   subject = "ID Card printed"; body = "Your ID card for request <b>{REQ}</b> has been <b>printed</b>. You will be notified when it is ready for collection."; return true;
+            case READY:     subject = "ID Card ready for collection"; body = "Your ID card (<b>{REQ}</b>) is <b>ready for collection</b> at <b>{COLLECT}</b>.<br/>Please bring your Request ID and a valid identification document."; return true;
+            case COLLECTED: subject = "ID Card collected"; body = "This confirms your ID card for request <b>{REQ}</b> has been <b>collected</b>. Thank you."; return true;
+            default: return false;   // REQUESTED / FINANCE_CHECK / BLOCKED / CANCELLED = no email
+        }
+    }
+
+    private static string Wrap(string subject, string body, string reqNo)
+    {
+        return "<div style='font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:auto;border:1px solid #e0e5ed;'>" +
+            "<div style='background:#05275C;color:#fff;padding:16px 20px;font-size:16px;font-weight:700;'>Muteesa I Royal University</div>" +
+            "<div style='padding:20px;color:#1a1a2e;font-size:14px;line-height:1.6;'>" +
+            "<div style='font-size:15px;font-weight:700;margin-bottom:10px;'>" + subject + "</div>" + body +
+            "<div style='margin-top:18px;font-size:12px;color:#5a6472;'>Request reference: <b>" + reqNo + "</b></div></div>" +
+            "<div style='background:#f5f7fa;padding:12px 20px;font-size:11px;color:#8a94a6;'>Automated message from the Campus Dynamics ID Card system. Do not reply.</div></div>";
+    }
+
+    // ==================================================================
+    // small helpers
+    // ==================================================================
+    private static bool LoadBasics(MySqlConnection conn, string requestNo, out string type, out string regno, out int empId, out string cardType, out string status)
+    {
+        type = ""; regno = null; empId = 0; cardType = ""; status = "";
+        using (var cmd = new MySqlCommand("SELECT requester_type, regno, IFNULL(emp_id,0), card_type, status FROM idcard_requests WHERE request_no=@rn LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@rn", requestNo ?? "");
+            using (var r = cmd.ExecuteReader())
+            {
+                if (!r.Read()) return false;
+                type = r.GetString(0); regno = r.IsDBNull(1) ? null : r.GetString(1); empId = r.GetInt32(2);
+                cardType = r.GetString(3); status = r.GetString(4); return true;
+            }
+        }
+    }
+
+    private static int G(Dictionary<string, int> d, string k) { return d.ContainsKey(k) ? d[k] : 0; }
+    private static string Get(Dictionary<string, string> d, string k) { return d != null && d.ContainsKey(k) && d[k] != null ? d[k] : ""; }
+    private static int ToI(object v) { return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v); }
+    private static string S(object v) { return v == null || v == DBNull.Value ? "" : v.ToString(); }
+    private static string Bad(string m) { return J.Serialize(new { success = false, message = m }); }
+    private static string Err(Exception ex) { return J.Serialize(new { success = false, message = ex.Message }); }
+}

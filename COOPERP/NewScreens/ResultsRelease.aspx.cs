@@ -404,7 +404,7 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
     protected void btnReleaseSelected_Click(object sender, EventArgs e)
     {
         // Check permissions
-        if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator") && !HttpContext.Current.User.IsInRole("Registrar"))
+        if (!RoleAccessService.IsInRoleCompat("Dean") && !RoleAccessService.IsInRoleCompat("Administrator") && !RoleAccessService.IsInRoleCompat("Registrar"))
         {
             ShowMessage("Only Dean, Registrar or Administrator can release results.", "error");
             return;
@@ -481,7 +481,7 @@ public partial class COOPERP_NewScreens_ResultsRelease : System.Web.UI.Page
     protected void btnHoldSelected_Click(object sender, EventArgs e)
     {
         // Check permissions
-        if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator") && !HttpContext.Current.User.IsInRole("Registrar"))
+        if (!RoleAccessService.IsInRoleCompat("Dean") && !RoleAccessService.IsInRoleCompat("Administrator") && !RoleAccessService.IsInRoleCompat("Registrar"))
         {
             ShowMessage("Only Dean, Registrar or Administrator can hold results.", "error");
             return;

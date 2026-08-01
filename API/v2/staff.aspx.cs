@@ -37,8 +37,11 @@ public partial class API_v2_staff : System.Web.UI.Page
                 case "submit_marks":
                     HandleSubmitMarks();
                     break;
-                case "teaching_assignments":
-                    HandleTeachingAssignments();
+                case "filter_options":
+                    HandleFilterOptions();
+                    break;
+                case "all_courses":
+                    HandleAllCourses();
                     break;
                 case "mark_sheet":
                     HandleMarkSheet();
@@ -51,9 +54,6 @@ public partial class API_v2_staff : System.Web.UI.Page
                     break;
                 case "sheet_status":
                     HandleSheetStatus();
-                    break;
-                case "deadlines":
-                    HandleDeadlines();
                     break;
                 case "lookup":
                     HandleLookup();
@@ -76,6 +76,58 @@ public partial class API_v2_staff : System.Web.UI.Page
                     break;
                 case "provisional_marks_summary":
                     HandleProvisionalMarksSummary();
+                    break;
+                case "bulk_save_marks":
+                    HandleBulkSaveMarks();
+                    break;
+                case "mark_stats":
+                    HandleMarkStats();
+                    break;
+                case "student_search":
+                    HandleStudentSearch();
+                    break;
+                // ── Course Self-Allocation ──
+                case "course_allocation_search":
+                    HandleCourseAllocationSearch();
+                    break;
+                case "course_allocation_submit":
+                    HandleCourseAllocationSubmit();
+                    break;
+                case "course_unassign":
+                    HandleCourseUnassign();
+                    break;
+                // ── Course Registration (enroll students) ──
+                case "course_reg_summary":
+                    HandleCourseRegSummary();
+                    break;
+                case "course_reg_list":
+                    HandleCourseRegList();
+                    break;
+                case "course_reg_validate_student":
+                    HandleCourseRegValidateStudent();
+                    break;
+                case "course_reg_enroll":
+                    HandleCourseRegEnroll();
+                    break;
+                case "course_reg_student_courses":
+                    HandleCourseRegStudentCourses();
+                    break;
+                case "course_reg_popularity":
+                    HandleCourseRegPopularity();
+                    break;
+                // ── Dashboard ──
+                case "dashboard_stats":
+                    HandleDashboardStats();
+                    break;
+                // ── Lecturer Mark Requests (portal workflow) ──
+                case "lmr_requests":
+                    HandleLmrRequests();
+                    break;
+                case "lmr_respond":
+                    HandleLmrRespond();
+                    break;
+                case "lmr_reject":
+                    HandleLmrReject();
                     break;
                 // ── HR Employees ──
                 case "employees":
@@ -117,11 +169,16 @@ public partial class API_v2_staff : System.Web.UI.Page
                     break;
                 default:
                     ApiHelper.Error(Response,
-                        "Unknown action: " + action + ". Valid actions: profile, photo, my_courses, class_list, marks, submit_marks, " +
-                        "teaching_assignments, mark_sheet, save_entry_marks, submit_for_approval, sheet_status, deadlines, lookup, by_department, " +
-                        "provisional_marks_list, provisional_mark_detail, save_provisional_mark, save_provisional_mark_inline, provisional_marks_summary, " +
-                        "employees, employee, create_employee, update_employee, update_contract, departments, " +
-                        "mark_requests_list, create_mark_request, mark_request_detail, cancel_mark_request, admin_mark_requests, decide_mark_request",
+                        "Unknown action '" + action + "'. Valid actions — " +
+                        "Core: profile, photo, my_courses, class_list, filter_options, all_courses, lookup, by_department, dashboard_stats | " +
+                        "Course Allocation: course_allocation_search, course_allocation_submit, course_unassign | " +
+                        "Course Registration: course_reg_summary, course_reg_list, course_reg_validate_student, course_reg_enroll, course_reg_student_courses, course_reg_popularity | " +
+                        "Lecturer Mark Requests: lmr_requests, lmr_respond, lmr_reject | " +
+                        "Mark Sheet: mark_sheet, save_entry_marks, submit_for_approval, sheet_status | " +
+                        "Provisional Marks: provisional_marks_list, provisional_mark_detail, save_provisional_mark, save_provisional_mark_inline, bulk_save_marks, provisional_marks_summary, mark_stats | " +
+                        "Student: student_search | " +
+                        "Mark Requests: mark_requests_list, create_mark_request, mark_request_detail, cancel_mark_request, admin_mark_requests, decide_mark_request | " +
+                        "HR: employees, employee, create_employee, update_employee, update_contract, departments",
                         "INVALID_ACTION");
                     break;
             }
@@ -239,49 +296,916 @@ public partial class API_v2_staff : System.Web.UI.Page
             return;
         }
 
-        string acad_year = ApiHelper.Param(Request, "acad_year", "");
-        int semester = ApiHelper.ParamInt(Request, "semester", 0);
+        string acadYear  = ApiHelper.Param(Request, "acad_year", "");
+        int    semester  = ApiHelper.ParamInt(Request, "semester", 0);
 
-        // Get staff code (EMP_CODE) from username
+        // Resolve all staff identifiers — match usernames OR EMP_CODE (mirrors portal's ResolveStaffContext)
         DataTable empDt = ApiHelper.Query(
-            "SELECT EMP_CODE FROM hrm_employee WHERE usernames = @uid",
-            new MySqlParameter("@uid", auth.UserId)
-        );
+            @"SELECT EMP_CODE, empID FROM hrm_employee
+              WHERE (NULLIF(TRIM(IFNULL(usernames,'')),'-') IS NOT NULL AND UPPER(TRIM(usernames)) = UPPER(@uid))
+                 OR UPPER(TRIM(IFNULL(EMP_CODE,''))) = UPPER(@uid2)
+              LIMIT 1",
+            new MySqlParameter("@uid",  auth.UserId),
+            new MySqlParameter("@uid2", auth.UserId));
 
-        if (empDt.Rows.Count == 0)
+        string staffCode = empDt.Rows.Count > 0 ? empDt.Rows[0]["EMP_CODE"].ToString() : "";
+        string empId     = empDt.Rows.Count > 0 ? empDt.Rows[0]["empID"].ToString()     : "";
+
+        // ── Source 1: programme course assignments (primary — matches portal logic) ──
+        var sql1 = new System.Text.StringBuilder(
+            @"SELECT pc.course_code,
+                     COALESCE(c.courseName, pc.course_code) AS course_name,
+                     COALESCE(c.CreditUnit, 0) AS credit_units,
+                     pc.progcode AS programme_code,
+                     COALESCE(p.progname, pc.progcode) AS programme_name,
+                     IFNULL(pc.study_year, 1) AS study_year,
+                     pc.semester,
+                     '' AS acad_year, 0 AS campus_id, '' AS session,
+                     1 AS is_active, 'programme_assignment' AS source
+              FROM acad_programmecourses pc
+              LEFT JOIN acad_course    c ON c.courseID  = pc.course_code
+              LEFT JOIN acad_programme p ON p.progcode  = pc.progcode
+              WHERE IFNULL(pc.lecturer_id, 0) = @empId
+                AND UPPER(IFNULL(pc.is_lecturere_assigned, 'NO')) = 'YES'");
+        var p1 = new List<MySqlParameter>();
+        p1.Add(new MySqlParameter("@empId", empId));
+        if (semester > 0) { sql1.Append(" AND pc.semester = @sem1"); p1.Add(new MySqlParameter("@sem1", semester)); }
+        sql1.Append(" ORDER BY pc.progcode, pc.course_code");
+
+        // ── Source 2: new marks-module teaching assignments ───────────────────
+        var sql2 = new System.Text.StringBuilder(
+            @"SELECT ta.course_id AS course_code,
+                     COALESCE(c.courseName, ta.course_id) AS course_name,
+                     COALESCE(c.CreditUnit, 0) AS credit_units,
+                     ta.progid AS programme_code,
+                     COALESCE(p.progname, ta.progid) AS programme_name,
+                     ta.study_year,
+                     ta.semester,
+                     ta.acadyear AS acad_year, ta.campus_id, ta.stud_session AS session,
+                     ta.is_active, 'assignments' AS source
+              FROM acad_teaching_assignments ta
+              LEFT JOIN acad_course    c ON c.courseID = ta.course_id
+              LEFT JOIN acad_programme p ON p.progcode = ta.progid
+              WHERE ta.teacher_username = @username AND ta.is_active = 1");
+        var p2 = new List<MySqlParameter>();
+        p2.Add(new MySqlParameter("@username", auth.UserId));
+        if (!string.IsNullOrEmpty(acadYear)) { sql2.Append(" AND ta.acadyear = @ay2");  p2.Add(new MySqlParameter("@ay2",  acadYear)); }
+        if (semester > 0)                    { sql2.Append(" AND ta.semester = @sem2"); p2.Add(new MySqlParameter("@sem2", semester)); }
+        sql2.Append(" ORDER BY ta.acadyear DESC, ta.semester, ta.course_id");
+
+        // ── Source 3: legacy teaching allocation ──────────────────────────────
+        var sql3 = new System.Text.StringBuilder(
+            @"SELECT ta.courseID AS course_code,
+                     COALESCE(c.courseName, ta.courseID) AS course_name,
+                     COALESCE(c.CreditUnit, 0) AS credit_units,
+                     ta.progcode AS programme_code,
+                     COALESCE(p.progname, ta.progcode) AS programme_name,
+                     ta.cyear AS study_year,
+                     ta.semester,
+                     ta.acad_year, 0 AS campus_id, 'Day' AS session,
+                     1 AS is_active, 'allocation' AS source
+              FROM acad_teaching_allocation ta
+              LEFT JOIN acad_course    c ON c.courseID = ta.courseID
+              LEFT JOIN acad_programme p ON p.progcode = ta.progcode
+              WHERE ta.staffCode = @staffCode");
+        var p3 = new List<MySqlParameter>();
+        p3.Add(new MySqlParameter("@staffCode", staffCode));
+        if (!string.IsNullOrEmpty(acadYear)) { sql3.Append(" AND ta.acad_year = @ay3");  p3.Add(new MySqlParameter("@ay3",  acadYear)); }
+        if (semester > 0)                    { sql3.Append(" AND ta.semester = @sem3");  p3.Add(new MySqlParameter("@sem3", semester)); }
+        sql3.Append(" ORDER BY ta.acad_year DESC, ta.semester, ta.courseID");
+
+        // Run all three sources; suppress query errors for optional sources
+        DataTable dt1 = !string.IsNullOrEmpty(empId) ? ApiHelper.Query(sql1.ToString(), p1.ToArray()) : new DataTable();
+        DataTable dt2 = ApiHelper.Query(sql2.ToString(), p2.ToArray());
+        DataTable dt3 = !string.IsNullOrEmpty(staffCode) ? ApiHelper.Query(sql3.ToString(), p3.ToArray()) : new DataTable();
+
+        // Merge all three sources — deduplicate by course+programme (programme_assignment rows lack acad_year)
+        var courses = ApiHelper.TableToList(dt1);
+        var seen    = new System.Collections.Generic.HashSet<string>();
+        foreach (var row in courses)
+            seen.Add(Convert.ToString(row["course_code"]) + "|" + Convert.ToString(row["programme_code"]));
+
+        foreach (var row in ApiHelper.TableToList(dt2))
         {
-            ApiHelper.Error(Response, "Staff member not found.", "NOT_FOUND");
-            return;
+            string key = Convert.ToString(row["course_code"]) + "|" + Convert.ToString(row["programme_code"]);
+            if (!seen.Contains(key)) { courses.Add(row); seen.Add(key); }
         }
 
-        string staffCode = empDt.Rows[0]["EMP_CODE"].ToString();
-
-        string sql = @"SELECT ta.courseID AS course_code, c.courseName AS course_name, c.CreditUnit AS credit_units,
-                       ta.progcode AS programme_code, p.progname AS programme_name,
-                       ta.acad_year, ta.semester, ta.cyear AS study_year
-                FROM acad_teaching_allocation ta
-                LEFT JOIN acad_course c ON ta.courseID = c.courseID
-                LEFT JOIN acad_programme p ON ta.progcode = p.progcode
-                WHERE ta.staffCode = @staffCode";
-
-        var parms = new List<MySqlParameter>();
-        parms.Add(new MySqlParameter("@staffCode", staffCode));
-
-        if (!string.IsNullOrEmpty(acad_year))
+        foreach (var row in ApiHelper.TableToList(dt3))
         {
-            sql += " AND ta.acad_year = @acad";
-            parms.Add(new MySqlParameter("@acad", acad_year));
+            string key = Convert.ToString(row["course_code"]) + "|" + Convert.ToString(row["programme_code"]);
+            if (!seen.Contains(key)) { courses.Add(row); seen.Add(key); }
+        }
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "total_courses", courses.Count },
+            { "courses", courses }
+        });
+    }
+
+    // ── Schema guard: adds allocation_request_* columns to acad_programmecourses if missing ──
+    private static volatile bool _allocationSchemaReady = false;
+    private static readonly object _allocationSchemaLock = new object();
+    private void EnsureAllocationSchema()
+    {
+        if (_allocationSchemaReady) return;
+        lock (_allocationSchemaLock)
+        {
+            if (_allocationSchemaReady) return;
+            string[] alters = {
+                "ALTER TABLE acad_programmecourses ADD COLUMN allocation_request_status VARCHAR(3) NULL DEFAULT 'No'",
+                "ALTER TABLE acad_programmecourses ADD COLUMN allocation_request_lecturer_id INT NULL",
+                "ALTER TABLE acad_programmecourses ADD COLUMN allocation_request_date DATETIME NULL",
+                "ALTER TABLE acad_programmecourses ADD COLUMN allocation_request_message TEXT NULL",
+                "ALTER TABLE acad_programmecourses ADD COLUMN allocation_request_admin_status VARCHAR(20) NULL DEFAULT 'Pending'",
+                "ALTER TABLE acad_programmecourses ADD COLUMN allocation_request_admin_message TEXT NULL"
+            };
+            foreach (string sql in alters) { try { ApiHelper.Execute(sql); } catch { } }
+            _allocationSchemaReady = true;
+        }
+    }
+
+    private void HandleCourseAllocationSearch()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        EnsureAllocationSchema();
+
+        string empId = GetLecturerEmpId(auth.UserId) ?? "";
+
+        string q        = ApiHelper.Param(Request, "q", "").Trim();
+        int    semester = ApiHelper.ParamInt(Request, "semester", 0);
+        int    size     = Math.Min(100, Math.Max(1, ApiHelper.ParamInt(Request, "size", 50)));
+
+        var sql = new System.Text.StringBuilder(
+            @"SELECT pc.ID AS programme_course_id,
+                     pc.course_code,
+                     IFNULL(c.courseName, pc.course_code) AS course_name,
+                     pc.progcode AS programme_code,
+                     IFNULL(p.progname, pc.progcode) AS programme_name,
+                     IFNULL(sp.spec, '') AS specialisation,
+                     IFNULL(pc.study_year, 1) AS study_year,
+                     IFNULL(pc.semester, 1) AS semester,
+                     IFNULL(pc.lecturer_id, 0) AS current_lecturer_id,
+                     UPPER(IFNULL(pc.is_lecturere_assigned, 'NO')) AS is_assigned,
+                     IFNULL(e.emp_name, '') AS current_lecturer_name,
+                     IFNULL(e.EMP_CODE, '') AS current_lecturer_code,
+                     IFNULL(pc.allocation_request_status, 'No') AS allocation_request_status,
+                     IFNULL(pc.allocation_request_admin_status, 'Pending') AS allocation_request_admin_status
+              FROM acad_programmecourses pc
+              LEFT JOIN acad_course    c  ON c.courseID    = pc.course_code
+              LEFT JOIN acad_programme p  ON p.progcode    = pc.progcode
+              LEFT JOIN acad_specialisation sp ON sp.spec_id = pc.specialisation_id
+              LEFT JOIN hrm_employee   e  ON e.empID       = pc.lecturer_id
+              WHERE 1=1");
+        var parms = new List<MySqlParameter>();
+
+        if (!string.IsNullOrEmpty(q))
+        {
+            sql.Append(" AND (pc.course_code LIKE @q OR IFNULL(c.courseName,'') LIKE @q OR IFNULL(p.progname,'') LIKE @q)");
+            parms.Add(new MySqlParameter("@q", "%" + q + "%"));
         }
         if (semester > 0)
         {
-            sql += " AND ta.semester = @sem";
+            sql.Append(" AND pc.semester = @sem");
             parms.Add(new MySqlParameter("@sem", semester));
         }
+        sql.Append(" ORDER BY IFNULL(c.courseName,''), pc.course_code LIMIT @lim");
+        parms.Add(new MySqlParameter("@lim", size));
 
-        sql += " ORDER BY ta.acad_year DESC, ta.semester, ta.courseID";
+        DataTable dt = ApiHelper.Query(sql.ToString(), parms.ToArray());
 
-        DataTable dt = ApiHelper.Query(sql, parms.ToArray());
-        ApiHelper.Success(Response, ApiHelper.TableToList(dt));
+        int myEmpId = 0;
+        int.TryParse(empId, out myEmpId);
+
+        var items = new List<Dictionary<string, object>>();
+        foreach (DataRow r in dt.Rows)
+        {
+            int lecturerId = 0;
+            int.TryParse(Convert.ToString(r["current_lecturer_id"]), out lecturerId);
+            bool assignedYes = string.Equals(Convert.ToString(r["is_assigned"]), "YES", StringComparison.OrdinalIgnoreCase);
+            bool alreadyMine = myEmpId > 0 && lecturerId == myEmpId && assignedYes;
+            string lecturerName = Convert.ToString(r["current_lecturer_name"]).Trim();
+            string lecturerCode = Convert.ToString(r["current_lecturer_code"]).Trim();
+            string currentLecturerDisplay = assignedYes && !string.IsNullOrEmpty(lecturerName)
+                ? (lecturerName + (string.IsNullOrEmpty(lecturerCode) ? "" : " (" + lecturerCode + ")"))
+                : null;
+
+            items.Add(new Dictionary<string, object>
+            {
+                { "programme_course_id",         Convert.ToString(r["programme_course_id"]) },
+                { "course_code",                  Convert.ToString(r["course_code"]) },
+                { "course_name",                  Convert.ToString(r["course_name"]) },
+                { "programme_code",               Convert.ToString(r["programme_code"]) },
+                { "programme_name",               Convert.ToString(r["programme_name"]) },
+                { "specialisation",               Convert.ToString(r["specialisation"]) },
+                { "study_year",                   Convert.ToString(r["study_year"]) },
+                { "semester",                     Convert.ToString(r["semester"]) },
+                { "is_assigned",                  assignedYes },
+                { "current_lecturer",             currentLecturerDisplay },
+                { "already_mine",                 alreadyMine },
+                { "can_allocate",                 !alreadyMine },
+                { "allocation_request_status",    Convert.ToString(r["allocation_request_status"]) },
+                { "allocation_request_admin_status", Convert.ToString(r["allocation_request_admin_status"]) }
+            });
+        }
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "total", items.Count },
+            { "courses", items }
+        });
+    }
+
+    private void HandleCourseAllocationSubmit()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        EnsureAllocationSchema();
+
+        string empIdStr = GetLecturerEmpId(auth.UserId);
+        if (string.IsNullOrEmpty(empIdStr))
+        {
+            ApiHelper.Error(Response, "Staff profile not found. Cannot process allocation.", "NOT_FOUND");
+            return;
+        }
+        int myEmpId = int.Parse(empIdStr);
+
+        // Accept programme_course_ids as comma-separated string or repeated query params
+        string idsRaw  = ApiHelper.Param(Request, "programme_course_ids", "").Trim();
+        string message = ApiHelper.Param(Request, "message", "").Trim();
+
+        if (string.IsNullOrEmpty(idsRaw))
+        {
+            ApiHelper.Error(Response, "programme_course_ids is required (comma-separated list of IDs).", "VALIDATION_ERROR");
+            return;
+        }
+        if (string.IsNullOrEmpty(message))
+        {
+            ApiHelper.Error(Response, "message is required — briefly state why you are allocating yourself to this course.", "VALIDATION_ERROR");
+            return;
+        }
+        if (message.Length > 1000) message = message.Substring(0, 1000);
+
+        // Parse IDs
+        var ids = new List<int>();
+        foreach (string part in idsRaw.Split(','))
+        {
+            int id;
+            if (int.TryParse(part.Trim(), out id) && id > 0 && !ids.Contains(id))
+                ids.Add(id);
+        }
+        if (ids.Count == 0)
+        {
+            ApiHelper.Error(Response, "No valid IDs found in programme_course_ids.", "VALIDATION_ERROR");
+            return;
+        }
+
+        int assignedCount = 0, alreadyMineCount = 0, notFoundCount = 0, unchangedCount = 0;
+
+        using (var conn = ApiHelper.GetConnection())
+        {
+            conn.Open();
+            using (var tx = conn.BeginTransaction())
+            {
+                foreach (int targetId in ids)
+                {
+                    int    lecturerId = 0;
+                    string isAssigned = "No";
+
+                    using (var cmdCheck = new MySqlCommand(
+                        "SELECT IFNULL(lecturer_id,0) AS lid, IFNULL(is_lecturere_assigned,'No') AS ia FROM acad_programmecourses WHERE ID=@id",
+                        conn, tx))
+                    {
+                        cmdCheck.Parameters.AddWithValue("@id", targetId);
+                        using (var rdr = cmdCheck.ExecuteReader())
+                        {
+                            if (!rdr.Read()) { notFoundCount++; continue; }
+                            int.TryParse(rdr["lid"].ToString(), out lecturerId);
+                            isAssigned = rdr["ia"].ToString();
+                        }
+                    }
+
+                    if (lecturerId == myEmpId && string.Equals(isAssigned, "Yes", StringComparison.OrdinalIgnoreCase))
+                    {
+                        alreadyMineCount++;
+                        continue;
+                    }
+
+                    using (var cmdUp = new MySqlCommand(
+                        @"UPDATE acad_programmecourses
+                          SET lecturer_id                        = @lid,
+                              is_lecturere_assigned              = 'Yes',
+                              allocation_request_status          = 'Yes',
+                              allocation_request_lecturer_id     = @lid,
+                              allocation_request_date            = NOW(),
+                              allocation_request_message         = @msg,
+                              allocation_request_admin_status    = 'Approved',
+                              allocation_request_admin_message   = 'Auto-approved: assigned immediately by lecturer request.'
+                          WHERE ID = @id",
+                        conn, tx))
+                    {
+                        cmdUp.Parameters.AddWithValue("@lid", myEmpId);
+                        cmdUp.Parameters.AddWithValue("@msg", message);
+                        cmdUp.Parameters.AddWithValue("@id",  targetId);
+                        int affected = cmdUp.ExecuteNonQuery();
+                        if (affected > 0) assignedCount++; else unchangedCount++;
+                    }
+                }
+                tx.Commit();
+            }
+        }
+
+        if (assignedCount == 0)
+        {
+            string errMsg = alreadyMineCount > 0 && notFoundCount == 0 && unchangedCount == 0
+                ? (alreadyMineCount == 1 ? "The selected course is already allocated to you." : "All selected courses are already allocated to you.")
+                : "No courses were allocated. Please review your selection and try again.";
+            ApiHelper.Error(Response, errMsg, "NO_CHANGE");
+            return;
+        }
+
+        var parts = new List<string>();
+        parts.Add(assignedCount + (assignedCount == 1 ? " course allocated" : " courses allocated"));
+        if (alreadyMineCount > 0) parts.Add(alreadyMineCount + " already yours");
+        if (notFoundCount > 0)    parts.Add(notFoundCount + " not found");
+        if (unchangedCount > 0)   parts.Add(unchangedCount + " unchanged");
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "assigned_count",    assignedCount },
+            { "already_mine_count", alreadyMineCount },
+            { "not_found_count",   notFoundCount },
+            { "skipped_count",     unchangedCount },
+            { "message",           string.Join("; ", parts.ToArray()) + "." }
+        });
+    }
+
+    private void HandleCourseUnassign()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        EnsureAllocationSchema();
+
+        string empIdStr = GetLecturerEmpId(auth.UserId);
+        if (string.IsNullOrEmpty(empIdStr))
+        {
+            ApiHelper.Error(Response, "Staff profile not found.", "NOT_FOUND");
+            return;
+        }
+        int myEmpId = int.Parse(empIdStr);
+
+        int programmeCourseId = ApiHelper.ParamInt(Request, "programme_course_id", 0);
+        if (programmeCourseId <= 0)
+        {
+            ApiHelper.Error(Response, "programme_course_id is required.", "VALIDATION_ERROR");
+            return;
+        }
+
+        int updated = ApiHelper.Execute(
+            @"UPDATE acad_programmecourses
+              SET lecturer_id                      = NULL,
+                  is_lecturere_assigned            = 'No',
+                  allocation_request_status        = 'No',
+                  allocation_request_lecturer_id   = NULL,
+                  allocation_request_date          = NULL,
+                  allocation_request_message       = NULL,
+                  allocation_request_admin_status  = 'Pending',
+                  allocation_request_admin_message = ''
+              WHERE ID = @id
+                AND IFNULL(lecturer_id, 0) = @sid
+                AND UPPER(IFNULL(is_lecturere_assigned, 'No')) = 'YES'",
+            new MySqlParameter("@id",  programmeCourseId),
+            new MySqlParameter("@sid", myEmpId));
+
+        if (updated <= 0)
+        {
+            int exists = Convert.ToInt32(ApiHelper.Scalar(
+                "SELECT COUNT(*) FROM acad_programmecourses WHERE ID = @id",
+                new MySqlParameter("@id", programmeCourseId)));
+            string msg = exists > 0
+                ? "This course is not currently assigned to you."
+                : "Selected course context was not found.";
+            ApiHelper.Error(Response, msg, "NOT_FOUND");
+            return;
+        }
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "message", "Course unassigned successfully." }
+        });
+    }
+
+    // ── Schema guard for acad_course_registration optional columns ─────────
+    private static volatile bool _crSchemaReady = false;
+    private static volatile bool _crHasCreatedDate = false;
+    private static volatile bool _crHasStudSession  = false;
+    private static readonly object _crSchemaLock = new object();
+    private void EnsureCourseRegSchema()
+    {
+        if (_crSchemaReady) return;
+        lock (_crSchemaLock)
+        {
+            if (_crSchemaReady) return;
+            _crHasCreatedDate = Convert.ToInt32(ApiHelper.Scalar(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='campus_dynamics_portal' AND TABLE_NAME='acad_course_registration' AND COLUMN_NAME='created_date'")) > 0;
+            _crHasStudSession = Convert.ToInt32(ApiHelper.Scalar(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='campus_dynamics_portal' AND TABLE_NAME='acad_course_registration' AND COLUMN_NAME='stud_session'")) > 0;
+            _crSchemaReady = true;
+        }
+    }
+
+    // Returns list of UPPER course codes assigned to this empId; null = no restriction; empty list = no courses
+    private List<string> GetLecturerCourseCodes(string empIdStr)
+    {
+        int empId = 0;
+        if (string.IsNullOrEmpty(empIdStr) || !int.TryParse(empIdStr, out empId) || empId <= 0)
+            return new List<string>(); // no courses
+
+        DataTable dt = ApiHelper.Query(
+            "SELECT DISTINCT UPPER(TRIM(course_code)) AS cc FROM acad_programmecourses " +
+            "WHERE IFNULL(lecturer_id,0)=@sid AND UPPER(IFNULL(is_lecturere_assigned,'NO'))='YES'",
+            new MySqlParameter("@sid", empId));
+        var list = new List<string>();
+        foreach (DataRow r in dt.Rows)
+        {
+            string c = Convert.ToString(r["cc"]).Trim();
+            if (!string.IsNullOrEmpty(c)) list.Add(c);
+        }
+        return list;
+    }
+
+    // Appends an IN(...) clause to sb; returns false if codes is empty (caller should short-circuit)
+    private bool AppendCourseFilter(System.Text.StringBuilder sb, List<MySqlParameter> parms,
+                                    List<string> courseCodes, string colExpr)
+    {
+        if (courseCodes == null) return true; // no restriction
+        if (courseCodes.Count == 0) return false; // nothing matches
+        sb.Append(" AND " + colExpr + " IN (");
+        for (int i = 0; i < courseCodes.Count; i++)
+        {
+            if (i > 0) sb.Append(",");
+            string pname = "@lc" + i;
+            sb.Append(pname);
+            parms.Add(new MySqlParameter(pname, courseCodes[i]));
+        }
+        sb.Append(")");
+        return true;
+    }
+
+    private void HandleCourseRegSummary()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string empId      = GetLecturerEmpId(auth.UserId) ?? "";
+        string acadYear   = ApiHelper.Param(Request, "acad_year", "").Trim();
+        int    semester   = ApiHelper.ParamInt(Request, "semester", 0);
+        string progCode   = ApiHelper.Param(Request, "programme_code", "").Trim();
+        string courseCode = ApiHelper.Param(Request, "course_code", "").Trim();
+
+        List<string> myCodes = GetLecturerCourseCodes(empId);
+        if (myCodes.Count == 0)
+        {
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            {
+                { "total_registration_rows", 0 }, { "total_students", 0 },
+                { "total_unique_courses", 0 },    { "total_programmes", 0 },
+                { "pending_rows", 0 },            { "approved_rows", 0 }
+            });
+            return;
+        }
+
+        var sql   = new System.Text.StringBuilder(@"
+            SELECT COUNT(*) AS total_registration_rows,
+                   COUNT(DISTINCT cr.regno) AS total_students,
+                   COUNT(DISTINCT UPPER(TRIM(cr.courseID))) AS total_unique_courses,
+                   COUNT(DISTINCT IFNULL(s.progid,'')) AS total_programmes,
+                   SUM(CASE WHEN UPPER(IFNULL(cr.course_status,''))='PENDING'  THEN 1 ELSE 0 END) AS pending_rows,
+                   SUM(CASE WHEN UPPER(IFNULL(cr.course_status,''))='APPROVED' THEN 1 ELSE 0 END) AS approved_rows
+            FROM campus_dynamics_portal.acad_course_registration cr
+            LEFT JOIN acad_student s ON s.regno = cr.regno
+            WHERE 1=1");
+        var parms = new List<MySqlParameter>();
+
+        if (!string.IsNullOrEmpty(acadYear))  { sql.Append(" AND cr.acad_year = @a");              parms.Add(new MySqlParameter("@a",  acadYear)); }
+        if (semester > 0)                     { sql.Append(" AND cr.semester = @sem");             parms.Add(new MySqlParameter("@sem", semester)); }
+        if (!string.IsNullOrEmpty(progCode))  { sql.Append(" AND s.progid = @p");                 parms.Add(new MySqlParameter("@p",  progCode)); }
+        if (!string.IsNullOrEmpty(courseCode)){ sql.Append(" AND UPPER(TRIM(cr.courseID))=UPPER(@cc)"); parms.Add(new MySqlParameter("@cc", courseCode)); }
+        AppendCourseFilter(sql, parms, myCodes, "UPPER(TRIM(cr.courseID))");
+
+        DataTable dt = ApiHelper.Query(sql.ToString(), parms.ToArray());
+        DataRow row = dt.Rows.Count > 0 ? dt.Rows[0] : null;
+
+        Func<DataRow, string, long> toNum = (r, col) => {
+            if (r == null || r[col] == DBNull.Value) return 0;
+            long v; long.TryParse(r[col].ToString(), out v); return v;
+        };
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "total_registration_rows", toNum(row, "total_registration_rows") },
+            { "total_students",          toNum(row, "total_students") },
+            { "total_unique_courses",    toNum(row, "total_unique_courses") },
+            { "total_programmes",        toNum(row, "total_programmes") },
+            { "pending_rows",            toNum(row, "pending_rows") },
+            { "approved_rows",           toNum(row, "approved_rows") }
+        });
+    }
+
+    private void HandleCourseRegList()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string empId      = GetLecturerEmpId(auth.UserId) ?? "";
+        string acadYear   = ApiHelper.Param(Request, "acad_year", "").Trim();
+        int    semester   = ApiHelper.ParamInt(Request, "semester", 0);
+        string progCode   = ApiHelper.Param(Request, "programme_code", "").Trim();
+        string courseCode = ApiHelper.Param(Request, "course_code", "").Trim();
+        string search     = ApiHelper.Param(Request, "search", "").Trim();
+        int    page       = Math.Max(1, ApiHelper.ParamInt(Request, "page", 1));
+        int    size       = Math.Min(200, Math.Max(1, ApiHelper.ParamInt(Request, "size", 50)));
+        int    offset     = (page - 1) * size;
+
+        List<string> myCodes = GetLecturerCourseCodes(empId);
+        if (myCodes.Count == 0)
+        {
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            { { "total", 0 }, { "page", page }, { "size", size }, { "pages", 1 }, { "students", new List<object>() } });
+            return;
+        }
+
+        var sql   = new System.Text.StringBuilder(@"
+            SELECT SQL_CALC_FOUND_ROWS
+                   cr.regno,
+                   COALESCE(NULLIF(TRIM(CONCAT(IFNULL(s.othername,''),' ',IFNULL(s.firstname,''))), ''), cr.regno) AS student_name,
+                   COALESCE(NULLIF(TRIM(IFNULL(s.entryno,'')), ''), cr.regno) AS entry_no,
+                   IFNULL(s.progid, '')   AS programme_code,
+                   IFNULL(p.progname, '') AS programme_name,
+                   GROUP_CONCAT(DISTINCT UPPER(TRIM(cr.courseID)) ORDER BY UPPER(TRIM(cr.courseID)) SEPARATOR ', ') AS enrolled_courses,
+                   COUNT(DISTINCT UPPER(TRIM(cr.courseID))) AS course_count,
+                   cr.acad_year, cr.semester,
+                   IFNULL(MAX(reg.studyyear), 0) AS study_year,
+                   SUM(CASE WHEN UPPER(IFNULL(cr.course_status,''))='PENDING' THEN 1 ELSE 0 END) AS pending_count
+            FROM campus_dynamics_portal.acad_course_registration cr
+            LEFT JOIN acad_student    s   ON s.regno     = cr.regno
+            LEFT JOIN acad_programme  p   ON p.progcode  = s.progid
+            LEFT JOIN acad_registration reg ON reg.regno = cr.regno
+                 AND reg.acad_year = cr.acad_year AND reg.semester = cr.semester
+            WHERE 1=1");
+        var parms = new List<MySqlParameter>();
+
+        if (!string.IsNullOrEmpty(acadYear))  { sql.Append(" AND cr.acad_year = @a");              parms.Add(new MySqlParameter("@a",  acadYear)); }
+        if (semester > 0)                     { sql.Append(" AND cr.semester = @sem");             parms.Add(new MySqlParameter("@sem", semester)); }
+        if (!string.IsNullOrEmpty(progCode))  { sql.Append(" AND s.progid = @p");                 parms.Add(new MySqlParameter("@p",  progCode)); }
+        if (!string.IsNullOrEmpty(courseCode)){ sql.Append(" AND UPPER(TRIM(cr.courseID))=UPPER(@cc)"); parms.Add(new MySqlParameter("@cc", courseCode)); }
+        if (!string.IsNullOrEmpty(search))
+        {
+            sql.Append(" AND (cr.regno LIKE @q OR IFNULL(s.entryno,'') LIKE @q OR TRIM(CONCAT(IFNULL(s.othername,''),' ',IFNULL(s.firstname,''))) LIKE @q OR IFNULL(p.progname,'') LIKE @q)");
+            parms.Add(new MySqlParameter("@q", "%" + search + "%"));
+        }
+        AppendCourseFilter(sql, parms, myCodes, "UPPER(TRIM(cr.courseID))");
+
+        sql.Append(" GROUP BY cr.regno, s.progid, p.progname, cr.acad_year, cr.semester, s.othername, s.firstname, s.entryno");
+        sql.Append(" ORDER BY cr.acad_year DESC, cr.semester DESC, student_name ASC");
+        sql.Append(" LIMIT @off, @sz");
+        parms.Add(new MySqlParameter("@off", offset));
+        parms.Add(new MySqlParameter("@sz",  size));
+
+        DataTable dt    = ApiHelper.Query(sql.ToString(), parms.ToArray());
+        int       total = Convert.ToInt32(ApiHelper.Scalar("SELECT FOUND_ROWS()"));
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "total",    total },
+            { "page",     page },
+            { "size",     size },
+            { "pages",    (int)Math.Ceiling(total / (double)size) },
+            { "students", ApiHelper.TableToList(dt) }
+        });
+    }
+
+    private void HandleCourseRegValidateStudent()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string regno = ApiHelper.Param(Request, "regno", "").Trim();
+        if (string.IsNullOrEmpty(regno))
+        {
+            ApiHelper.Error(Response, "regno is required.", "VALIDATION_ERROR");
+            return;
+        }
+
+        // Student info
+        DataTable infodt = ApiHelper.Query(
+            @"SELECT NULLIF(TRIM(CONCAT(IFNULL(s.othername,''),' ',IFNULL(s.firstname,''))), '') AS stud_name,
+                     COALESCE(NULLIF(TRIM(IFNULL(s.entryno,'')), ''), s.regno) AS entry_no,
+                     CONCAT(IFNULL(p.progcode,''), ' - ', IFNULL(p.progname,'')) AS prog_name,
+                     IFNULL(p.progcode,'') AS prog_code
+              FROM acad_student s
+              LEFT JOIN acad_programme p ON p.progcode = s.progid
+              WHERE s.regno = @r LIMIT 1",
+            new MySqlParameter("@r", regno));
+
+        if (infodt.Rows.Count == 0)
+        {
+            ApiHelper.Error(Response, "Student not found.", "NOT_FOUND");
+            return;
+        }
+
+        DataRow info = infodt.Rows[0];
+
+        // Registration options (semester enrolments from acad_registration)
+        DataTable regDt = ApiHelper.Query(
+            @"SELECT r.ID AS registration_id, r.regno,
+                     IFNULL(r.acad_year, '') AS acad_year,
+                     IFNULL(r.semester, 0)   AS semester,
+                     IFNULL(r.studyyear, 0)  AS study_year,
+                     IFNULL(r.regstatus, '') AS reg_status,
+                     IFNULL(s.progid, '')    AS prog_id,
+                     IFNULL(p.progname, '')  AS programme_name
+              FROM acad_registration r
+              LEFT JOIN acad_student   s ON s.regno    = r.regno
+              LEFT JOIN acad_programme p ON p.progcode = s.progid
+              WHERE r.regno = @r
+              ORDER BY r.acad_year DESC, r.semester DESC, r.ID DESC",
+            new MySqlParameter("@r", regno));
+
+        var registrations = new List<Dictionary<string, object>>();
+        foreach (DataRow r in regDt.Rows)
+        {
+            int sem = r["semester"] != DBNull.Value ? Convert.ToInt32(r["semester"]) : 0;
+            int yr  = r["study_year"] != DBNull.Value ? Convert.ToInt32(r["study_year"]) : 0;
+            string ay  = Convert.ToString(r["acad_year"]).Trim();
+            string rst = Convert.ToString(r["reg_status"]).Trim();
+            string label = ay + " — Sem " + sem + (yr > 0 ? ", Year " + yr : "") + (string.IsNullOrEmpty(rst) ? "" : " [" + rst + "]");
+
+            registrations.Add(new Dictionary<string, object>
+            {
+                { "registration_id", Convert.ToInt32(r["registration_id"]) },
+                { "acad_year",       ay },
+                { "semester",        sem },
+                { "study_year",      yr },
+                { "reg_status",      rst },
+                { "programme_name",  Convert.ToString(r["programme_name"]) },
+                { "label",           label }
+            });
+        }
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "regno",         regno },
+            { "student_name",  Convert.ToString(info["stud_name"]) },
+            { "entry_no",      Convert.ToString(info["entry_no"]) },
+            { "programme",     Convert.ToString(info["prog_name"]) },
+            { "programme_code",Convert.ToString(info["prog_code"]) },
+            { "registrations", registrations }
+        });
+    }
+
+    private void HandleCourseRegEnroll()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        EnsureCourseRegSchema();
+
+        string empIdStr = GetLecturerEmpId(auth.UserId);
+        if (string.IsNullOrEmpty(empIdStr))
+        {
+            ApiHelper.Error(Response, "Staff profile not found. Cannot process enrollment.", "NOT_FOUND");
+            return;
+        }
+        int myEmpId = int.Parse(empIdStr);
+
+        string regno      = ApiHelper.Param(Request, "regno",     "").Trim();
+        string courseId   = ApiHelper.Param(Request, "course_id", "").Trim().ToUpperInvariant();
+        int    regId      = ApiHelper.ParamInt(Request, "registration_id", 0);
+        string acadYear   = ApiHelper.Param(Request, "acad_year", "").Trim();
+        int    semester   = ApiHelper.ParamInt(Request, "semester", 0);
+
+        if (string.IsNullOrEmpty(regno) || string.IsNullOrEmpty(courseId))
+        {
+            ApiHelper.Error(Response, "regno and course_id are required.", "VALIDATION_ERROR");
+            return;
+        }
+
+        // If registration_id supplied, look it up; otherwise require acad_year + semester
+        string progId = "";
+        if (regId > 0)
+        {
+            DataTable regDt = ApiHelper.Query(
+                @"SELECT r.regno, IFNULL(r.acad_year,'') AS acad_year,
+                         IFNULL(r.semester,0) AS semester, IFNULL(s.progid,'') AS prog_id
+                  FROM acad_registration r
+                  LEFT JOIN acad_student s ON s.regno = r.regno
+                  WHERE r.ID = @id LIMIT 1",
+                new MySqlParameter("@id", regId));
+
+            if (regDt.Rows.Count == 0) { ApiHelper.Error(Response, "Registration record not found.", "NOT_FOUND"); return; }
+            DataRow reg = regDt.Rows[0];
+            // Allow override of regno by the registration record for safety
+            regno    = Convert.ToString(reg["regno"]).Trim();
+            acadYear = Convert.ToString(reg["acad_year"]).Trim();
+            semester = reg["semester"] != DBNull.Value ? Convert.ToInt32(reg["semester"]) : 0;
+            progId   = Convert.ToString(reg["prog_id"]).Trim();
+        }
+        else
+        {
+            if (string.IsNullOrEmpty(acadYear) || semester < 1 || semester > 3)
+            {
+                ApiHelper.Error(Response, "Either registration_id OR (acad_year + semester) must be provided.", "VALIDATION_ERROR");
+                return;
+            }
+            // Look up progId from student
+            object pv = ApiHelper.Scalar("SELECT IFNULL(progid,'') FROM acad_student WHERE regno=@r LIMIT 1",
+                new MySqlParameter("@r", regno));
+            progId = pv != null && pv != DBNull.Value ? pv.ToString().Trim() : "";
+        }
+
+        if (string.IsNullOrEmpty(acadYear) || semester < 1 || semester > 3)
+        {
+            ApiHelper.Error(Response, "Valid acad_year and semester (1-3) are required.", "VALIDATION_ERROR");
+            return;
+        }
+
+        // 1. Verify lecturer owns this course for this semester
+        int owned = Convert.ToInt32(ApiHelper.Scalar(
+            "SELECT COUNT(*) FROM acad_programmecourses " +
+            "WHERE IFNULL(lecturer_id,0)=@sid AND UPPER(IFNULL(is_lecturere_assigned,'NO'))='YES' " +
+            "  AND course_code=@cid AND IFNULL(semester,0)=@sem",
+            new MySqlParameter("@sid", myEmpId),
+            new MySqlParameter("@cid", courseId),
+            new MySqlParameter("@sem", semester)));
+        if (owned <= 0)
+        {
+            ApiHelper.Error(Response, "You can only enroll students to your allocated course(s) for the selected semester.", "ACCESS_DENIED");
+            return;
+        }
+
+        // 2. Verify course exists
+        int courseExists = Convert.ToInt32(ApiHelper.Scalar(
+            "SELECT COUNT(*) FROM acad_course WHERE courseID=@c",
+            new MySqlParameter("@c", courseId)));
+        if (courseExists <= 0)
+        {
+            ApiHelper.Error(Response, "Course not found: " + courseId + ".", "NOT_FOUND");
+            return;
+        }
+
+        // 3. Duplicate check
+        int dup = Convert.ToInt32(ApiHelper.Scalar(
+            "SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration " +
+            "WHERE regno=@r AND courseID=@c AND acad_year=@a AND semester=@s",
+            new MySqlParameter("@r", regno),
+            new MySqlParameter("@c", courseId),
+            new MySqlParameter("@a", acadYear),
+            new MySqlParameter("@s", semester)));
+        if (dup > 0)
+        {
+            ApiHelper.Error(Response, "Student is already enrolled for this course in the selected period.", "DUPLICATE");
+            return;
+        }
+
+        // 4. Insert
+        string insertSql;
+        var ip = new List<MySqlParameter>();
+        ip.Add(new MySqlParameter("@r", regno));
+        ip.Add(new MySqlParameter("@c", courseId));
+        ip.Add(new MySqlParameter("@p", progId));
+        ip.Add(new MySqlParameter("@a", acadYear));
+        ip.Add(new MySqlParameter("@s", semester));
+
+        if (_crHasCreatedDate && _crHasStudSession)
+        {
+            insertSql = "INSERT INTO campus_dynamics_portal.acad_course_registration (regno,courseID,prog_id,acad_year,semester,course_status,stud_session,created_date) VALUES(@r,@c,@p,@a,@s,'REGULAR',@ss,NOW())";
+            ip.Add(new MySqlParameter("@ss", "Day"));
+        }
+        else if (_crHasCreatedDate)
+        {
+            insertSql = "INSERT INTO campus_dynamics_portal.acad_course_registration (regno,courseID,prog_id,acad_year,semester,course_status,created_date) VALUES(@r,@c,@p,@a,@s,'REGULAR',NOW())";
+        }
+        else if (_crHasStudSession)
+        {
+            insertSql = "INSERT INTO campus_dynamics_portal.acad_course_registration (regno,courseID,prog_id,acad_year,semester,course_status,stud_session) VALUES(@r,@c,@p,@a,@s,'REGULAR',@ss)";
+            ip.Add(new MySqlParameter("@ss", "Day"));
+        }
+        else
+        {
+            insertSql = "INSERT INTO campus_dynamics_portal.acad_course_registration (regno,courseID,prog_id,acad_year,semester,course_status) VALUES(@r,@c,@p,@a,@s,'REGULAR')";
+        }
+
+        ApiHelper.Execute(insertSql, ip.ToArray());
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "message",   "Student enrolled successfully." },
+            { "regno",     regno },
+            { "course_id", courseId },
+            { "acad_year", acadYear },
+            { "semester",  semester }
+        });
+    }
+
+    private void HandleCourseRegStudentCourses()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string regno    = ApiHelper.Param(Request, "regno", "").Trim();
+        string acadYear = ApiHelper.Param(Request, "acad_year", "").Trim();
+        int    semester = ApiHelper.ParamInt(Request, "semester", 0);
+
+        if (string.IsNullOrEmpty(regno))
+        {
+            ApiHelper.Error(Response, "regno is required.", "VALIDATION_ERROR");
+            return;
+        }
+
+        DataTable dt = ApiHelper.Query(
+            @"SELECT UPPER(TRIM(cr.courseID)) AS course_code,
+                     IFNULL(c.courseName, cr.courseID) AS course_name,
+                     IFNULL(c.CreditUnit, 0)          AS credit_units,
+                     IFNULL(cr.course_status, '')      AS status,
+                     cr.acad_year, cr.semester
+              FROM campus_dynamics_portal.acad_course_registration cr
+              LEFT JOIN acad_course c ON c.courseID = cr.courseID
+              WHERE cr.regno = @r
+                AND (@a = '' OR cr.acad_year = @a)
+                AND (@sem = 0 OR cr.semester  = @sem)
+              ORDER BY cr.acad_year DESC, cr.semester DESC, c.courseName ASC",
+            new MySqlParameter("@r",   regno),
+            new MySqlParameter("@a",   acadYear),
+            new MySqlParameter("@sem", semester));
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "regno",   regno },
+            { "total",   dt.Rows.Count },
+            { "courses", ApiHelper.TableToList(dt) }
+        });
+    }
+
+    private void HandleCourseRegPopularity()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string empId      = GetLecturerEmpId(auth.UserId) ?? "";
+        string acadYear   = ApiHelper.Param(Request, "acad_year", "").Trim();
+        int    semester   = ApiHelper.ParamInt(Request, "semester", 0);
+        string progCode   = ApiHelper.Param(Request, "programme_code", "").Trim();
+        int    top        = Math.Min(100, Math.Max(1, ApiHelper.ParamInt(Request, "top", 20)));
+
+        List<string> myCodes = GetLecturerCourseCodes(empId);
+        if (myCodes.Count == 0)
+        {
+            ApiHelper.Success(Response, new Dictionary<string, object> { { "total", 0 }, { "courses", new List<object>() } });
+            return;
+        }
+
+        var sql   = new System.Text.StringBuilder(@"
+            SELECT UPPER(TRIM(cr.courseID)) AS course_code,
+                   IFNULL(c.courseName, cr.courseID) AS course_name,
+                   COUNT(*) AS registration_count,
+                   COUNT(DISTINCT cr.regno) AS student_count
+            FROM campus_dynamics_portal.acad_course_registration cr
+            LEFT JOIN acad_course  c ON c.courseID = cr.courseID
+            LEFT JOIN acad_student s ON s.regno    = cr.regno
+            WHERE 1=1");
+        var parms = new List<MySqlParameter>();
+
+        if (!string.IsNullOrEmpty(acadYear)) { sql.Append(" AND cr.acad_year = @a");  parms.Add(new MySqlParameter("@a",  acadYear)); }
+        if (semester > 0)                    { sql.Append(" AND cr.semester = @sem"); parms.Add(new MySqlParameter("@sem", semester)); }
+        if (!string.IsNullOrEmpty(progCode)) { sql.Append(" AND s.progid = @p");      parms.Add(new MySqlParameter("@p",  progCode)); }
+        AppendCourseFilter(sql, parms, myCodes, "UPPER(TRIM(cr.courseID))");
+
+        sql.Append(" GROUP BY UPPER(TRIM(cr.courseID)), IFNULL(c.courseName,cr.courseID)");
+        sql.Append(" ORDER BY registration_count DESC, student_count DESC, course_name ASC");
+        sql.Append(" LIMIT @top");
+        parms.Add(new MySqlParameter("@top", top));
+
+        DataTable dt = ApiHelper.Query(sql.ToString(), parms.ToArray());
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "total",   dt.Rows.Count },
+            { "courses", ApiHelper.TableToList(dt) }
+        });
     }
 
     private void HandleClassList()
@@ -297,31 +1221,95 @@ public partial class API_v2_staff : System.Web.UI.Page
 
         string courseId = ApiHelper.RequireParam(Request, Response, "course_id");
         if (courseId == null) return;
-        string acad_year = ApiHelper.RequireParam(Request, Response, "acad_year");
-        if (acad_year == null) return;
-        int semester = ApiHelper.ParamInt(Request, "semester", 1);
+        string acadYear = ApiHelper.RequireParam(Request, Response, "acad_year");
+        if (acadYear == null) return;
+        int semester    = ApiHelper.ParamInt(Request, "semester", 1);
+        string progid   = ApiHelper.Param(Request, "progid", ""); // optional programme filter
+
+        var parms = new List<MySqlParameter>();
+        parms.Add(new MySqlParameter("@course", courseId));
+        parms.Add(new MySqlParameter("@acad",   acadYear));
+        parms.Add(new MySqlParameter("@sem",    semester));
+
+        string progFilter = "";
+        if (!string.IsNullOrEmpty(progid))
+        {
+            progFilter = " AND (TRIM(IFNULL(cr.prog_id,'')) = @prog OR TRIM(IFNULL(s.progid,'')) = @prog)";
+            parms.Add(new MySqlParameter("@prog", progid));
+        }
 
         DataTable dt = ApiHelper.Query(
-            @"SELECT cr.id AS registration_id, cr.regno, 
-                     s.firstname, s.othername, s.gender,
-                     COALESCE((SELECT MAX(r.studyyear) FROM acad_registration r WHERE r.regno = s.regno), 1) AS study_year,
-                     s.studsesion AS session
-              FROM acad_course_registration cr
-              JOIN acad_student s ON cr.regno = s.regno
-              WHERE cr.courseid = @course AND cr.acad_year = @acad AND cr.semester = @sem
-              ORDER BY s.firstname, s.othername",
-            new MySqlParameter("@course", courseId),
-            new MySqlParameter("@acad", acad_year),
-            new MySqlParameter("@sem", semester)
-        );
+            @"SELECT cr.id AS registration_id,
+                     TRIM(cr.regno) AS regno,
+                     COALESCE(NULLIF(TRIM(IFNULL(s.entryno,'')),'' ), cr.regno) AS entry_no,
+                     TRIM(COALESCE(s.firstname,''))  AS firstname,
+                     TRIM(COALESCE(s.othername,''))  AS othername,
+                     CONCAT(TRIM(COALESCE(s.firstname,'')), ' ', TRIM(COALESCE(s.othername,''))) AS student_name,
+                     s.gender,
+                     COALESCE(s.studsesion,'Day') AS session,
+                     cr.prog_id AS programme_code,
+                     cr.provisional_course_work_marks AS cw_marks,
+                     cr.provisional_exam_marks         AS exam_marks,
+                     cr.provisional_total_marks        AS total_marks,
+                     COALESCE(cr.provisional_marks_status,'not_entered') AS mark_status,
+                     CASE WHEN cr.provisional_course_work_marks IS NOT NULL
+                               AND cr.provisional_exam_marks IS NOT NULL
+                               AND COALESCE(cr.provisional_marks_status,'pending') NOT IN ('published')
+                          THEN 1 ELSE 0 END AS ready_to_publish
+              FROM campus_dynamics_portal.acad_course_registration cr
+              LEFT JOIN acad_student s ON TRIM(s.regno) = TRIM(cr.regno)
+              WHERE cr.courseID = @course AND cr.acad_year = @acad AND cr.semester = @sem
+              " + progFilter + @"
+              ORDER BY s.firstname, s.othername, TRIM(cr.regno)",
+            parms.ToArray());
+
+        // Get course and programme info
+        DataTable courseInfo = ApiHelper.Query(
+            "SELECT courseName AS course_name, COALESCE(CreditUnit,0) AS credit_units FROM acad_course WHERE courseID = @c LIMIT 1",
+            new MySqlParameter("@c", courseId));
+
+        // Add grades
+        var students = ApiHelper.TableToList(dt);
+        int cntEntered = 0, cntPending = 0, cntApproved = 0, cntRejected = 0, cntPublished = 0;
+        foreach (var row in students)
+        {
+            object totObj = row.ContainsKey("total_marks") ? row["total_marks"] : null;
+            if (totObj != null && !(totObj is DBNull))
+            {
+                decimal tot = 0;
+                if (decimal.TryParse(totObj.ToString(), out tot))
+                    row["grade"] = ComputeProvisionalGrade((int)Math.Round(tot));
+                else row["grade"] = null;
+            }
+            else row["grade"] = null;
+
+            string ms = Convert.ToString(row["mark_status"]);
+            if (ms == "pending")   cntPending++;
+            else if (ms == "approved")  cntApproved++;
+            else if (ms == "rejected")  cntRejected++;
+            else if (ms == "published") cntPublished++;
+            if (ms != "not_entered") cntEntered++;
+        }
 
         var data = new Dictionary<string, object>
         {
-            { "course_id", courseId },
-            { "acad_year", acad_year },
-            { "semester", semester },
-            { "total_students", dt.Rows.Count },
-            { "students", ApiHelper.TableToList(dt) }
+            { "course_id",      courseId },
+            { "course_name",    courseInfo.Rows.Count > 0 ? courseInfo.Rows[0]["course_name"].ToString() : courseId },
+            { "credit_units",   courseInfo.Rows.Count > 0 ? courseInfo.Rows[0]["credit_units"]           : 0 },
+            { "acad_year",      acadYear },
+            { "semester",       semester },
+            { "total_students", students.Count },
+            { "marks_summary",  new Dictionary<string, object>
+                {
+                    { "entered",   cntEntered },
+                    { "not_entered", students.Count - cntEntered },
+                    { "pending",   cntPending },
+                    { "approved",  cntApproved },
+                    { "rejected",  cntRejected },
+                    { "published", cntPublished }
+                }
+            },
+            { "students", students }
         };
 
         ApiHelper.Success(Response, data);
@@ -594,129 +1582,30 @@ public partial class API_v2_staff : System.Web.UI.Page
     {
         switch (grade)
         {
-            case "A": return 5.0;
+            case "A":  return 5.0;
             case "B+": return 4.5;
-            case "B": return 4.0;
+            case "B":  return 4.0;
             case "C+": return 3.5;
-            case "C": return 3.0;
+            case "C":  return 3.0;
             case "D+": return 2.5;
-            case "D": return 2.0;
-            default: return 0;
+            case "D":  return 2.0;
+            default:   return 0;
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  MARKS WORKFLOW ENDPOINTS (Batch 14 — reflects marks module improvements)
-    // ═══════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Returns courses assigned to the authenticated teacher from the new
-    /// acad_teaching_assignments table (marks module). Falls back to the legacy
-    /// acad_teaching_allocation table when no assignments are found.
-    /// </summary>
-    private void HandleTeachingAssignments()
+    // Full provisional-marks grade scale (matches ProvisionalMarksController logic)
+    private static string ComputeProvisionalGrade(int score)
     {
-        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
-        if (auth == null) return;
-
-        if (auth.UserType != "staff")
-        {
-            ApiHelper.Error(Response, "This endpoint is for staff members only.", "ACCESS_DENIED");
-            return;
-        }
-
-        string acad_year = ApiHelper.Param(Request, "acad_year", "");
-        int semester = ApiHelper.ParamInt(Request, "semester", 0);
-
-        try
-        {
-            string sql = @"SELECT ta.id AS assignment_id, ta.teacher_username, ta.course_id,
-                                  COALESCE(c.CourseName, ta.course_id) AS course_name,
-                                  ta.progid AS programme_code,
-                                  COALESCE(p.progname, ta.progid) AS programme_name,
-                                  ta.acadyear AS acad_year, ta.semester, ta.study_year,
-                                  ta.campus_id, ta.stud_session AS session,
-                                  ta.is_active, ta.assigned_by,
-                                  DATE_FORMAT(ta.assigned_at, '%Y-%m-%d %H:%i') AS assigned_at,
-                                  COALESCE(ta.notes, '') AS notes
-                           FROM acad_teaching_assignments ta
-                           LEFT JOIN acad_courses c ON c.CourseCode = ta.course_id
-                           LEFT JOIN acad_programme p ON p.progcode = ta.progid
-                           WHERE ta.teacher_username = @user AND ta.is_active = 1";
-
-            var parms = new List<MySqlParameter>();
-            parms.Add(new MySqlParameter("@user", auth.UserId));
-
-            if (!string.IsNullOrEmpty(acad_year))
-            {
-                sql += " AND ta.acadyear = @acad";
-                parms.Add(new MySqlParameter("@acad", acad_year));
-            }
-            if (semester > 0)
-            {
-                sql += " AND ta.semester = @sem";
-                parms.Add(new MySqlParameter("@sem", semester));
-            }
-
-            sql += " ORDER BY ta.acadyear DESC, ta.semester, ta.course_id";
-
-            DataTable dt = ApiHelper.Query(sql, parms.ToArray());
-
-            // If no new-style assignments, fall back to legacy allocation table
-            if (dt.Rows.Count == 0)
-            {
-                DataTable empDt = ApiHelper.Query(
-                    "SELECT EMP_CODE FROM hrm_employee WHERE usernames = @uid",
-                    new MySqlParameter("@uid", auth.UserId)
-                );
-
-                if (empDt.Rows.Count > 0)
-                {
-                    string staffCode = empDt.Rows[0]["EMP_CODE"].ToString();
-                    string legacySql = @"SELECT 0 AS assignment_id, @user AS teacher_username, ta.courseID AS course_id,
-                                                COALESCE(c.courseName, ta.courseID) AS course_name,
-                                                ta.progcode AS programme_code,
-                                                COALESCE(p.progname, ta.progcode) AS programme_name,
-                                                ta.acad_year, ta.semester, ta.cyear AS study_year,
-                                                0 AS campus_id, 'Day' AS session,
-                                                1 AS is_active, '' AS assigned_by, '' AS assigned_at, '' AS notes
-                                         FROM acad_teaching_allocation ta
-                                         LEFT JOIN acad_course c ON ta.courseID = c.courseID
-                                         LEFT JOIN acad_programme p ON ta.progcode = p.progcode
-                                         WHERE ta.staffCode = @staffCode";
-
-                    var lp = new List<MySqlParameter>();
-                    lp.Add(new MySqlParameter("@user", auth.UserId));
-                    lp.Add(new MySqlParameter("@staffCode", staffCode));
-
-                    if (!string.IsNullOrEmpty(acad_year))
-                    {
-                        legacySql += " AND ta.acad_year = @acad";
-                        lp.Add(new MySqlParameter("@acad", acad_year));
-                    }
-                    if (semester > 0)
-                    {
-                        legacySql += " AND ta.semester = @sem";
-                        lp.Add(new MySqlParameter("@sem", semester));
-                    }
-                    legacySql += " ORDER BY ta.acad_year DESC, ta.semester, ta.courseID";
-
-                    dt = ApiHelper.Query(legacySql, lp.ToArray());
-                }
-            }
-
-            var data = new Dictionary<string, object>
-            {
-                { "total_assignments", dt.Rows.Count },
-                { "assignments", ApiHelper.TableToList(dt) }
-            };
-
-            ApiHelper.Success(Response, data);
-        }
-        catch (Exception ex)
-        {
-            ApiHelper.Error(Response, "Error fetching teaching assignments: " + ex.Message, "SERVER_ERROR");
-        }
+        if (score >= 80) return "A";
+        if (score >= 75) return "A-";
+        if (score >= 70) return "B+";
+        if (score >= 65) return "B";
+        if (score >= 60) return "B-";
+        if (score >= 55) return "C+";
+        if (score >= 50) return "C";
+        if (score >= 45) return "D+";
+        if (score >= 40) return "D";
+        return "F";
     }
 
     /// <summary>
@@ -1154,63 +2043,188 @@ public partial class API_v2_staff : System.Web.UI.Page
     }
 
     /// <summary>
-    /// Returns submission deadlines for the authenticated teacher's assigned courses.
-    /// Shows deadline dates, grace periods, and whether the deadline is enforced.
+    /// Returns all filter dropdown options for the provisional marks interface.
+    /// Scoped to the authenticated teacher's assigned courses (triple-source auth).
+    /// Covers: academic years, semesters, programmes, courses, statuses, page sizes.
     /// </summary>
-    private void HandleDeadlines()
+    private void HandleFilterOptions()
     {
         TokenInfo auth = TokenManager.RequireAuth(Request, Response);
         if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
 
-        if (auth.UserType != "staff")
-        {
-            ApiHelper.Error(Response, "This endpoint is for staff members only.", "ACCESS_DENIED");
-            return;
-        }
+        string filterAcadYear = ApiHelper.Param(Request, "acad_year", "");
+        int    filterSemester = ApiHelper.ParamInt(Request, "semester", 0);
 
-        string acad_year = ApiHelper.Param(Request, "acad_year", "");
-        int semester = ApiHelper.ParamInt(Request, "semester", 0);
 
         try
         {
-            // Get deadlines for courses the teacher is assigned to
-            string sql = @"SELECT d.ActivityName AS deadline_type, d.deadline,
-                                  d.campusid AS campus_id, d.acadyear AS acad_year,
-                                  d.semester, d.studsession AS session,
-                                  d.is_active,
-                                  CASE WHEN d.deadline < NOW() THEN 1 ELSE 0 END AS is_past_due,
-                                  TIMESTAMPDIFF(HOUR, NOW(), d.deadline) AS hours_remaining
-                           FROM acad_deadlines d
-                           WHERE d.is_active = 1";
+            // ── 1. Academic years ──────────────────────────────────────────────
+            var yearParms = new List<MySqlParameter>();
+            var yearWhere = new System.Text.StringBuilder("WHERE cr.regno IS NOT NULL AND cr.acad_year IS NOT NULL AND cr.acad_year <> ''");
+            if (filterSemester > 0) { yearWhere.Append(" AND cr.semester = @semFlt"); yearParms.Add(new MySqlParameter("@semFlt", filterSemester)); }
 
-            var parms = new List<MySqlParameter>();
+            DataTable dtYears = ApiHelper.Query(
+                "SELECT DISTINCT cr.acad_year " +
+                "FROM campus_dynamics_portal.acad_course_registration cr " +
+                yearWhere + " ORDER BY cr.acad_year DESC LIMIT 20",
+                yearParms.ToArray());
 
-            if (!string.IsNullOrEmpty(acad_year))
+            var years = new List<Dictionary<string, object>>();
+            foreach (DataRow r in dtYears.Rows)
             {
-                sql += " AND d.acadyear = @acad";
-                parms.Add(new MySqlParameter("@acad", acad_year));
-            }
-            if (semester > 0)
-            {
-                sql += " AND d.semester = @sem";
-                parms.Add(new MySqlParameter("@sem", semester));
+                string y = r["acad_year"].ToString().Trim();
+                if (!string.IsNullOrEmpty(y))
+                    years.Add(new Dictionary<string, object> { { "value", y }, { "label", y } });
             }
 
-            sql += " ORDER BY d.deadline ASC";
+            // ── 2. Semesters (static) ──────────────────────────────────────────
+            var semesters = new List<Dictionary<string, object>>
+            {
+                new Dictionary<string, object> { { "value", 1 }, { "label", "Semester 1" } },
+                new Dictionary<string, object> { { "value", 2 }, { "label", "Semester 2" } },
+                new Dictionary<string, object> { { "value", 3 }, { "label", "Semester 3" } }
+            };
 
-            DataTable dt = ApiHelper.Query(sql, parms.ToArray());
+            // ── 3. Programmes ──────────────────────────────────────────────────
+            var progParms = new List<MySqlParameter>();
+            var progWhere = new System.Text.StringBuilder("WHERE cr.regno IS NOT NULL");
+            if (!string.IsNullOrEmpty(filterAcadYear)) { progWhere.Append(" AND cr.acad_year = @ayFlt"); progParms.Add(new MySqlParameter("@ayFlt", filterAcadYear)); }
+            if (filterSemester > 0)                    { progWhere.Append(" AND cr.semester = @semFlt2"); progParms.Add(new MySqlParameter("@semFlt2", filterSemester)); }
+
+            DataTable dtProgs = ApiHelper.Query(
+                "SELECT DISTINCT p.progcode AS value, COALESCE(NULLIF(TRIM(p.progname),''), p.progcode) AS label " +
+                "FROM acad_programme p " +
+                "INNER JOIN campus_dynamics_portal.acad_course_registration cr ON cr.prog_id = p.progcode " +
+                progWhere + " ORDER BY label",
+                progParms.ToArray());
+
+            var programmes = ApiHelper.TableToList(dtProgs);
+
+            // ── 4. Courses from all registrations ────────────────────────────────
+            var cParms = new List<MySqlParameter>();
+            var cWhere = new System.Text.StringBuilder("WHERE cr.courseID IS NOT NULL AND TRIM(cr.courseID) <> ''");
+            if (!string.IsNullOrEmpty(filterAcadYear)) { cWhere.Append(" AND cr.acad_year = @ay_c"); cParms.Add(new MySqlParameter("@ay_c", filterAcadYear)); }
+            if (filterSemester > 0)                    { cWhere.Append(" AND cr.semester = @sem_c"); cParms.Add(new MySqlParameter("@sem_c", filterSemester)); }
+
+            DataTable dtCourses = ApiHelper.Query(
+                "SELECT DISTINCT cr.courseID AS value, COALESCE(c.courseName, cr.courseID) AS label, " +
+                "cr.prog_id AS programme_code, NULL AS acad_year, NULL AS semester " +
+                "FROM campus_dynamics_portal.acad_course_registration cr " +
+                "LEFT JOIN acad_course c ON c.courseID = cr.courseID " +
+                cWhere + " ORDER BY cr.courseID LIMIT 500",
+                cParms.ToArray());
+
+            var courses = ApiHelper.TableToList(dtCourses);
+
+            // ── 5. Statuses (static) ───────────────────────────────────────────
+            var statuses = new List<Dictionary<string, object>>
+            {
+                new Dictionary<string, object> { { "value", "" },            { "label", "All Statuses" } },
+                new Dictionary<string, object> { { "value", "not_entered" }, { "label", "Not Entered" } },
+                new Dictionary<string, object> { { "value", "pending" },     { "label", "Pending Review" } },
+                new Dictionary<string, object> { { "value", "approved" },    { "label", "Approved" } },
+                new Dictionary<string, object> { { "value", "rejected" },    { "label", "Rejected" } },
+                new Dictionary<string, object> { { "value", "published" },   { "label", "Published" } }
+            };
+
+            // ── 6. Page sizes (static) ─────────────────────────────────────────
+            var pageSizes = new List<Dictionary<string, object>>
+            {
+                new Dictionary<string, object> { { "value", 25 },  { "label", "25 per page" } },
+                new Dictionary<string, object> { { "value", 50 },  { "label", "50 per page" } },
+                new Dictionary<string, object> { { "value", 100 }, { "label", "100 per page" } },
+                new Dictionary<string, object> { { "value", 200 }, { "label", "200 per page" } }
+            };
 
             var data = new Dictionary<string, object>
             {
-                { "total_deadlines", dt.Rows.Count },
-                { "deadlines", ApiHelper.TableToList(dt) }
+                { "years",       years },
+                { "semesters",   semesters },
+                { "programmes",  programmes },
+                { "courses",     courses },
+                { "statuses",    statuses },
+                { "page_sizes",  pageSizes }
             };
 
             ApiHelper.Success(Response, data);
         }
         catch (Exception ex)
         {
-            ApiHelper.Error(Response, "Error fetching deadlines: " + ex.Message, "SERVER_ERROR");
+            ApiHelper.Error(Response, "Error fetching filter options: " + ex.Message, "SERVER_ERROR");
+        }
+    }
+
+    /// <summary>
+    /// Returns the full catalogue of course codes and names (no assignment restriction).
+    /// Any authenticated staff member can call this — admins and ICT staff who are not
+    /// lecturers get empty lists from my_courses but still need to browse courses for
+    /// manual mark entry. Supports ?q= keyword search and ?prog_code= filter.
+    /// </summary>
+    private void HandleAllCourses()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string q      = ApiHelper.Param(Request, "q",         "").Trim();
+        string prog   = ApiHelper.Param(Request, "prog_code", "");
+        int    page   = Math.Max(1, ApiHelper.ParamInt(Request, "page", 1));
+        int    size   = Math.Min(200, Math.Max(1, ApiHelper.ParamInt(Request, "size", 50)));
+        int    offset = (page - 1) * size;
+
+        try
+        {
+            var where = new System.Text.StringBuilder(
+                "WHERE TRIM(COALESCE(c.courseName,'')) <> '' AND c.courseID IS NOT NULL");
+            var parms = new List<MySqlParameter>();
+
+            if (!string.IsNullOrEmpty(q))
+            {
+                where.Append(" AND (c.courseID LIKE @q OR c.courseName LIKE @q)");
+                parms.Add(new MySqlParameter("@q", "%" + q + "%"));
+            }
+            if (!string.IsNullOrEmpty(prog))
+            {
+                where.Append(" AND pc.progcode = @prog");
+                parms.Add(new MySqlParameter("@prog", prog));
+            }
+
+            string fromClause =
+                "FROM acad_course c " +
+                "LEFT JOIN acad_programmecourses pc ON pc.course_code = c.courseID " +
+                "LEFT JOIN acad_programme p ON p.progcode = pc.progcode";
+
+            var countParms = new List<MySqlParameter>(parms);
+            int total = Convert.ToInt32(ApiHelper.Scalar(
+                "SELECT COUNT(*) " + fromClause + " " + where, countParms.ToArray()));
+
+            parms.Add(new MySqlParameter("@lim", size));
+            parms.Add(new MySqlParameter("@off", offset));
+
+            DataTable dt = ApiHelper.Query(
+                "SELECT c.courseID AS course_code, " +
+                "       TRIM(c.courseName) AS course_name, " +
+                "       COALESCE(pc.progcode, '') AS prog_code, " +
+                "       COALESCE(NULLIF(TRIM(p.progname),''), pc.progcode, '') AS prog_name, " +
+                "       COALESCE(c.CreditUnit, 0) AS credit_units " +
+                fromClause + " " + where + " " +
+                "ORDER BY c.courseID, pc.progcode " +
+                "LIMIT @lim OFFSET @off",
+                parms.ToArray());
+
+            ApiHelper.Success(Response, new Dictionary<string, object>
+            {
+                { "total",   total },
+                { "page",    page },
+                { "size",    size },
+                { "pages",   total > 0 ? (int)Math.Ceiling(total / (double)size) : 1 },
+                { "courses", ApiHelper.TableToList(dt) }
+            });
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Error fetching courses: " + ex.Message, "SERVER_ERROR");
         }
     }
 
@@ -1334,8 +2348,12 @@ public partial class API_v2_staff : System.Web.UI.Page
     private string GetLecturerEmpId(string username)
     {
         DataTable dt = ApiHelper.Query(
-            "SELECT empID FROM hrm_employee WHERE usernames = @u LIMIT 1",
-            new MySqlParameter("@u", username));
+            @"SELECT empID FROM hrm_employee
+              WHERE (NULLIF(TRIM(IFNULL(usernames,'')),'-') IS NOT NULL AND UPPER(TRIM(usernames)) = UPPER(@u))
+                 OR UPPER(TRIM(IFNULL(EMP_CODE,''))) = UPPER(@u2)
+              LIMIT 1",
+            new MySqlParameter("@u",  username),
+            new MySqlParameter("@u2", username));
         return dt.Rows.Count > 0 ? dt.Rows[0]["empID"].ToString() : null;
     }
 
@@ -1345,78 +2363,93 @@ public partial class API_v2_staff : System.Web.UI.Page
         if (auth == null) return;
         if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
 
-        string empId = GetLecturerEmpId(auth.UserId);
-        if (empId == null) { ApiHelper.Error(Response, "Staff member not found.", "NOT_FOUND"); return; }
+        // Filters — trim all string params so whitespace-only is treated as "not provided"
+        string acadYear  = ApiHelper.Param(Request, "acad_year",  "").Trim();
+        int    semester  = ApiHelper.ParamInt(Request, "semester", 0);
+        string prog      = ApiHelper.Param(Request, "prog",       "").Trim();
+        string courseId  = ApiHelper.Param(Request, "course_id",  "").Trim();
+        string status        = ApiHelper.Param(Request, "status",        "").Trim();
+        string sq            = ApiHelper.Param(Request, "sq",            "").Trim();
+        string studentRegno  = ApiHelper.Param(Request, "student_regno", "").Trim();
+        int    ready         = ApiHelper.ParamInt(Request, "ready",      0);
+        int    page      = Math.Max(1, ApiHelper.ParamInt(Request, "page", 1));
+        int    size      = Math.Min(200, Math.Max(1, ApiHelper.ParamInt(Request, "size", 50)));
+        int    offset    = (page - 1) * size;
 
-        string acadYear = ApiHelper.Param(Request, "acad_year", "");
-        int semester    = ApiHelper.ParamInt(Request, "semester", 0);
-        string prog     = ApiHelper.Param(Request, "prog", "");
-        string status   = ApiHelper.Param(Request, "status", "");
-        string sq       = ApiHelper.Param(Request, "sq", "");
-        int page        = Math.Max(1, ApiHelper.ParamInt(Request, "page", 1));
-        int size        = Math.Min(200, Math.Max(1, ApiHelper.ParamInt(Request, "size", 50)));
-        int offset      = (page - 1) * size;
-
-        string baseFrom = @"FROM campus_dynamics_portal.acad_course_registration cr
-                            LEFT JOIN acad_student s ON TRIM(s.regno) = TRIM(cr.regno)
-                            LEFT JOIN acad_course c ON c.courseID = cr.courseID
-                            INNER JOIN acad_programmecourses pc ON pc.course_code = cr.courseID
-                              AND pc.progcode = cr.progid
-                              AND pc.lecturer_id = @empId";
-
-        var where = new System.Text.StringBuilder(" WHERE cr.regno IS NOT NULL");
+        var where = new System.Text.StringBuilder("WHERE cr.regno IS NOT NULL");
         var parms = new List<MySqlParameter>();
-        parms.Add(new MySqlParameter("@empId", empId));
 
-        if (!string.IsNullOrEmpty(acadYear)) { where.Append(" AND cr.acad_year = @ay"); parms.Add(new MySqlParameter("@ay", acadYear)); }
-        if (semester > 0) { where.Append(" AND cr.semester = @sem"); parms.Add(new MySqlParameter("@sem", semester)); }
-        if (!string.IsNullOrEmpty(prog)) { where.Append(" AND cr.progid = @prog"); parms.Add(new MySqlParameter("@prog", prog)); }
-        if (!string.IsNullOrEmpty(status))
+        if (!string.IsNullOrWhiteSpace(acadYear)) { where.Append(" AND cr.acad_year = @ay");  parms.Add(new MySqlParameter("@ay",  acadYear)); }
+        if (semester > 0)                         { where.Append(" AND cr.semester = @sem");  parms.Add(new MySqlParameter("@sem", semester)); }
+        if (!string.IsNullOrWhiteSpace(prog))     { where.Append(" AND (TRIM(IFNULL(cr.prog_id,'')) = @prog OR TRIM(IFNULL(s.progid,'')) = @prog)"); parms.Add(new MySqlParameter("@prog", prog)); }
+        if (!string.IsNullOrWhiteSpace(courseId))     { where.Append(" AND cr.courseID = @cid");      parms.Add(new MySqlParameter("@cid",  courseId));     }
+        if (!string.IsNullOrWhiteSpace(studentRegno)) { where.Append(" AND TRIM(cr.regno) = @sreg"); parms.Add(new MySqlParameter("@sreg", studentRegno)); }
+
+        if (ready == 1)
+        {
+            // Both CW and Exam filled, not yet published — "ready to submit for review"
+            where.Append(@" AND cr.provisional_course_work_marks IS NOT NULL
+                            AND cr.provisional_exam_marks IS NOT NULL
+                            AND COALESCE(cr.provisional_marks_status,'pending') NOT IN ('published')");
+        }
+        else if (!string.IsNullOrWhiteSpace(status))
         {
             if (status == "not_entered")
-                where.Append(" AND cr.provisional_total_marks IS NULL");
+                where.Append(" AND cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL");
             else if (status == "pending")
-                where.Append(" AND cr.provisional_total_marks IS NOT NULL AND COALESCE(cr.provisional_marks_status,'pending') = 'pending'");
+                where.Append(@" AND (cr.provisional_course_work_marks IS NOT NULL OR cr.provisional_exam_marks IS NOT NULL)
+                                AND COALESCE(cr.provisional_marks_status,'pending') = 'pending'");
             else
             {
                 where.Append(" AND cr.provisional_marks_status = @status");
                 parms.Add(new MySqlParameter("@status", status));
             }
         }
-        if (!string.IsNullOrEmpty(sq))
+
+        if (!string.IsNullOrWhiteSpace(sq))
         {
             where.Append(@" AND (TRIM(cr.regno) LIKE @sq
                              OR TRIM(IFNULL(s.entryno,'')) LIKE @sq
-                             OR TRIM(IFNULL(s.firstname,'')) LIKE @sq
-                             OR TRIM(IFNULL(s.othername,'')) LIKE @sq
-                             OR CONCAT(TRIM(COALESCE(s.firstname,'')), ' ', TRIM(COALESCE(s.othername,''))) LIKE @sq)");
+                             OR CONCAT(TRIM(COALESCE(s.firstname,'')), ' ', TRIM(COALESCE(s.othername,''))) LIKE @sq
+                             OR TRIM(COALESCE(s.firstname,'')) LIKE @sq
+                             OR TRIM(COALESCE(s.othername,'')) LIKE @sq)");
             parms.Add(new MySqlParameter("@sq", "%" + sq + "%"));
         }
 
+        string baseFrom = @"FROM campus_dynamics_portal.acad_course_registration cr
+                            LEFT JOIN acad_student s ON TRIM(s.regno) = TRIM(cr.regno)
+                            LEFT JOIN acad_course c ON c.courseID = cr.courseID";
+
         var countParms = new List<MySqlParameter>(parms);
-        int total = Convert.ToInt32(ApiHelper.Scalar("SELECT COUNT(*) " + baseFrom + where, countParms.ToArray()));
+        int total = Convert.ToInt32(ApiHelper.Scalar("SELECT COUNT(*) " + baseFrom + " " + where, countParms.ToArray()));
 
         parms.Add(new MySqlParameter("@lim", size));
         parms.Add(new MySqlParameter("@off", offset));
 
-        string dataSql = @"SELECT cr.id, TRIM(cr.regno) AS regno,
+        string dataSql = @"SELECT cr.id,
+                                  COALESCE(NULLIF(TRIM(IFNULL(s.entryno,'')),'' ), cr.regno) AS entry_no,
                                   CONCAT(TRIM(COALESCE(s.firstname,'')), ' ', TRIM(COALESCE(s.othername,''))) AS student_name,
-                                  cr.courseID AS course_code, c.courseName AS course_name,
-                                  cr.acad_year, cr.semester, cr.progid AS programme_code,
+                                  cr.courseID AS course_code,
+                                  cr.acad_year, cr.semester, cr.prog_id AS programme_code,
                                   cr.provisional_course_work_marks AS cw_marks,
-                                  cr.provisional_exam_marks AS exam_marks,
-                                  cr.provisional_total_marks AS total_marks,
-                                  COALESCE(cr.provisional_marks_status, 'pending') AS prov_status "
-                        + baseFrom + where
-                        + " ORDER BY COALESCE(cr.provisional_marks_status,'pending'), s.firstname, s.othername LIMIT @lim OFFSET @off";
+                                  cr.provisional_exam_marks         AS exam_marks,
+                                  cr.provisional_total_marks        AS total_marks,
+                                  COALESCE(cr.provisional_marks_status, 'not_entered') AS prov_status
+                           " + baseFrom + " " + where
+                        + @" ORDER BY FIELD(COALESCE(cr.provisional_marks_status,'not_entered'),
+                                           'rejected','not_entered','pending','approved','published'),
+                                      s.firstname, s.othername
+                             LIMIT @lim OFFSET @off";
 
         DataTable dt = ApiHelper.Query(dataSql, parms.ToArray());
+
+        var rows = ApiHelper.TableToList(dt);
 
         ApiHelper.Success(Response, new Dictionary<string, object>
         {
             { "total", total }, { "page", page }, { "size", size },
             { "pages", (int)Math.Ceiling(total / (double)size) },
-            { "rows", ApiHelper.TableToList(dt) }
+            { "rows",  rows }
         });
     }
 
@@ -1429,30 +2462,55 @@ public partial class API_v2_staff : System.Web.UI.Page
         int id = ApiHelper.ParamInt(Request, "id", 0);
         if (id <= 0) { ApiHelper.Error(Response, "id is required.", "MISSING_PARAM"); return; }
 
-        string empId = GetLecturerEmpId(auth.UserId);
-        if (empId == null) { ApiHelper.Error(Response, "Staff member not found.", "NOT_FOUND"); return; }
-
         DataTable dt = ApiHelper.Query(
-            @"SELECT cr.id, TRIM(cr.regno) AS regno,
+            @"SELECT cr.id,
+                     TRIM(cr.regno) AS regno,
+                     COALESCE(NULLIF(TRIM(IFNULL(s.entryno,'')),'' ), cr.regno) AS entry_no,
                      CONCAT(TRIM(COALESCE(s.firstname,'')), ' ', TRIM(COALESCE(s.othername,''))) AS student_name,
-                     cr.courseID AS course_code, c.courseName AS course_name,
-                     cr.acad_year, cr.semester, cr.progid AS programme_code,
+                     s.gender, COALESCE(s.studsesion,'Day') AS session,
+                     cr.courseID AS course_code,
+                     COALESCE(c.courseName, cr.courseID) AS course_name,
+                     COALESCE(c.CreditUnit, 0) AS credit_units,
+                     cr.acad_year, cr.semester, cr.prog_id AS programme_code,
+                     COALESCE(p.progname, cr.prog_id) AS programme_name,
                      cr.provisional_course_work_marks AS cw_marks,
-                     cr.provisional_exam_marks AS exam_marks,
-                     cr.provisional_total_marks AS total_marks,
-                     COALESCE(cr.provisional_marks_status,'pending') AS prov_status
+                     cr.provisional_exam_marks         AS exam_marks,
+                     cr.provisional_total_marks        AS total_marks,
+                     COALESCE(cr.provisional_marks_status, 'not_entered') AS prov_status,
+                     COALESCE(cr.provisional_marks_review_comments, '') AS review_comments,
+                     COALESCE(cr.provisional_marks_reviewed_by, '')     AS reviewed_by,
+                     DATE_FORMAT(cr.provisional_marks_review_date,  '%Y-%m-%d %H:%i') AS review_date,
+                     COALESCE(cr.provisional_submitted_by, '')  AS submitted_by,
+                     COALESCE(cr.provisional_published_by, '')  AS published_by,
+                     DATE_FORMAT(cr.provisional_published_date, '%Y-%m-%d %H:%i') AS published_date,
+                     CASE WHEN cr.provisional_course_work_marks IS NOT NULL
+                               AND cr.provisional_exam_marks IS NOT NULL
+                               AND COALESCE(cr.provisional_marks_status,'pending') NOT IN ('published')
+                          THEN 1 ELSE 0 END AS ready_to_publish
               FROM campus_dynamics_portal.acad_course_registration cr
-              LEFT JOIN acad_student s ON TRIM(s.regno) = TRIM(cr.regno)
-              LEFT JOIN acad_course c ON c.courseID = cr.courseID
-              INNER JOIN acad_programmecourses pc ON pc.course_code = cr.courseID
-                AND pc.progcode = cr.progid AND pc.lecturer_id = @empId
+              LEFT JOIN acad_student s    ON TRIM(s.regno)  = TRIM(cr.regno)
+              LEFT JOIN acad_course c     ON c.courseID     = cr.courseID
+              LEFT JOIN acad_programme p  ON p.progcode     = cr.prog_id
               WHERE cr.id = @id LIMIT 1",
-            new MySqlParameter("@empId", empId),
             new MySqlParameter("@id", id));
 
-        if (dt.Rows.Count == 0) { ApiHelper.Error(Response, "Record not found or you do not have access.", "NOT_FOUND"); return; }
+        if (dt.Rows.Count == 0) { ApiHelper.Error(Response, "Record not found.", "NOT_FOUND"); return; }
 
-        ApiHelper.Success(Response, ApiHelper.FirstRowToDict(dt));
+        var row = ApiHelper.FirstRowToDict(dt);
+
+        // Append calculated grade
+        object totObj = row.ContainsKey("total_marks") ? row["total_marks"] : null;
+        if (totObj != null && !(totObj is DBNull))
+        {
+            decimal tot = 0;
+            if (decimal.TryParse(totObj.ToString(), out tot))
+                row["grade"] = ComputeProvisionalGrade((int)Math.Round(tot));
+            else
+                row["grade"] = null;
+        }
+        else row["grade"] = null;
+
+        ApiHelper.Success(Response, row);
     }
 
     private void HandleSaveProvisionalMark()
@@ -1475,20 +2533,14 @@ public partial class API_v2_staff : System.Web.UI.Page
         if (cw < 0 || cw > 40) { ApiHelper.Error(Response, "Coursework must be 0–40.", "VALIDATION_ERROR"); return; }
         if (exam < 0 || exam > 60) { ApiHelper.Error(Response, "Exam must be 0–60.", "VALIDATION_ERROR"); return; }
 
-        string empId = GetLecturerEmpId(auth.UserId);
-        if (empId == null) { ApiHelper.Error(Response, "Staff member not found.", "NOT_FOUND"); return; }
-
         // Lock check
         DataTable lockDt = ApiHelper.Query(
             @"SELECT cr.id, COALESCE(cr.provisional_marks_status,'pending') AS prov_status
               FROM campus_dynamics_portal.acad_course_registration cr
-              INNER JOIN acad_programmecourses pc ON pc.course_code = cr.courseID
-                AND pc.progcode = cr.progid AND pc.lecturer_id = @empId
               WHERE cr.id = @id LIMIT 1",
-            new MySqlParameter("@empId", empId),
             new MySqlParameter("@id", id));
 
-        if (lockDt.Rows.Count == 0) { ApiHelper.Error(Response, "Record not found or access denied.", "NOT_FOUND"); return; }
+        if (lockDt.Rows.Count == 0) { ApiHelper.Error(Response, "Record not found.", "NOT_FOUND"); return; }
         if (lockDt.Rows[0]["prov_status"].ToString() == "published")
         {
             ApiHelper.Error(Response, "This record is published and cannot be modified.", "MARKS_LOCKED"); return;
@@ -1499,18 +2551,21 @@ public partial class API_v2_staff : System.Web.UI.Page
         ApiHelper.Execute(
             @"UPDATE campus_dynamics_portal.acad_course_registration
               SET provisional_course_work_marks = @cw,
-                  provisional_exam_marks = @exam,
-                  provisional_total_marks = @total,
-                  provisional_marks_status = CASE WHEN provisional_marks_status IN ('approved','published') THEN provisional_marks_status ELSE 'pending' END
+                  provisional_exam_marks         = @exam,
+                  provisional_total_marks        = @total,
+                  provisional_submitted_by       = COALESCE(provisional_submitted_by, @user),
+                  provisional_marks_status       = CASE WHEN provisional_marks_status = 'published' THEN 'published' ELSE 'pending' END
               WHERE id = @id",
             new MySqlParameter("@cw",    cw),
             new MySqlParameter("@exam",  exam),
             new MySqlParameter("@total", total),
+            new MySqlParameter("@user",  auth.UserId),
             new MySqlParameter("@id",    id));
 
         ApiHelper.Success(Response, new Dictionary<string, object>
         {
-            { "id", id }, { "cw_marks", cw }, { "exam_marks", exam }, { "total_marks", total }
+            { "id", id }, { "cw_marks", cw }, { "exam_marks", exam },
+            { "total_marks", total }, { "grade", ComputeProvisionalGrade((int)Math.Round(total)) }
         }, "Provisional marks saved");
     }
 
@@ -1525,22 +2580,16 @@ public partial class API_v2_staff : System.Web.UI.Page
         string field = ApiHelper.RequireParam(Request, Response, "field"); if (field == null) return;
         string val   = ApiHelper.RequireParam(Request, Response, "value"); if (val == null) return;
 
-        string empId = GetLecturerEmpId(auth.UserId);
-        if (empId == null) { ApiHelper.Error(Response, "Staff member not found.", "NOT_FOUND"); return; }
-
         // Lock check + fetch current values
         DataTable lockDt = ApiHelper.Query(
             @"SELECT cr.id, COALESCE(cr.provisional_marks_status,'pending') AS prov_status,
                      COALESCE(cr.provisional_course_work_marks, 0) AS cur_cw,
                      COALESCE(cr.provisional_exam_marks, 0) AS cur_exam
               FROM campus_dynamics_portal.acad_course_registration cr
-              INNER JOIN acad_programmecourses pc ON pc.course_code = cr.courseID
-                AND pc.progcode = cr.progid AND pc.lecturer_id = @empId
               WHERE cr.id = @id LIMIT 1",
-            new MySqlParameter("@empId", empId),
             new MySqlParameter("@id", id));
 
-        if (lockDt.Rows.Count == 0) { ApiHelper.Error(Response, "Record not found or access denied.", "NOT_FOUND"); return; }
+        if (lockDt.Rows.Count == 0) { ApiHelper.Error(Response, "Record not found.", "NOT_FOUND"); return; }
         if (lockDt.Rows[0]["prov_status"].ToString() == "published")
         {
             ApiHelper.Error(Response, "This record is published and cannot be modified.", "MARKS_LOCKED"); return;
@@ -1576,18 +2625,21 @@ public partial class API_v2_staff : System.Web.UI.Page
         ApiHelper.Execute(
             @"UPDATE campus_dynamics_portal.acad_course_registration
               SET provisional_course_work_marks = @cw,
-                  provisional_exam_marks = @exam,
-                  provisional_total_marks = @total,
-                  provisional_marks_status = CASE WHEN provisional_marks_status IN ('approved','published') THEN provisional_marks_status ELSE 'pending' END
+                  provisional_exam_marks         = @exam,
+                  provisional_total_marks        = @total,
+                  provisional_submitted_by       = COALESCE(provisional_submitted_by, @user),
+                  provisional_marks_status       = CASE WHEN provisional_marks_status = 'published' THEN 'published' ELSE 'pending' END
               WHERE id = @id",
             new MySqlParameter("@cw",    newCw),
             new MySqlParameter("@exam",  newExam),
             new MySqlParameter("@total", total),
+            new MySqlParameter("@user",  auth.UserId),
             new MySqlParameter("@id",    id));
 
         ApiHelper.Success(Response, new Dictionary<string, object>
         {
-            { "id", id }, { "field", field }, { "new_value", newVal }, { "total_marks", total }
+            { "id", id }, { "field", field }, { "new_value", newVal },
+            { "total_marks", total }, { "grade", ComputeProvisionalGrade((int)Math.Round(total)) }
         }, "Mark saved inline");
     }
 
@@ -1597,43 +2649,394 @@ public partial class API_v2_staff : System.Web.UI.Page
         if (auth == null) return;
         if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
 
-        string empId = GetLecturerEmpId(auth.UserId);
-        if (empId == null) { ApiHelper.Error(Response, "Staff member not found.", "NOT_FOUND"); return; }
+        string acadYear = ApiHelper.Param(Request, "acad_year", "").Trim();
+        int    semester = ApiHelper.ParamInt(Request, "semester", 0);
 
-        string acadYear = ApiHelper.Param(Request, "acad_year", "");
-        int semester    = ApiHelper.ParamInt(Request, "semester", 0);
-
-        var where = new System.Text.StringBuilder(" WHERE cr.regno IS NOT NULL");
+        var where = new System.Text.StringBuilder("WHERE cr.regno IS NOT NULL");
         var parms = new List<MySqlParameter>();
-        parms.Add(new MySqlParameter("@empId", empId));
 
-        if (!string.IsNullOrEmpty(acadYear)) { where.Append(" AND cr.acad_year = @ay"); parms.Add(new MySqlParameter("@ay", acadYear)); }
-        if (semester > 0) { where.Append(" AND cr.semester = @sem"); parms.Add(new MySqlParameter("@sem", semester)); }
+        if (!string.IsNullOrWhiteSpace(acadYear)) { where.Append(" AND cr.acad_year = @ay");  parms.Add(new MySqlParameter("@ay",  acadYear)); }
+        if (semester > 0)                         { where.Append(" AND cr.semester = @sem");  parms.Add(new MySqlParameter("@sem", semester)); }
 
-        string sql = @"SELECT cr.courseID AS course_code, c.courseName AS course_name,
-                              cr.acad_year, cr.semester, cr.progid AS programme_code,
-                              COUNT(*) AS total,
-                              SUM(cr.provisional_total_marks IS NOT NULL) AS entered,
-                              SUM(cr.provisional_total_marks IS NULL) AS not_entered,
-                              SUM(COALESCE(cr.provisional_marks_status,'pending') = 'pending' AND cr.provisional_total_marks IS NOT NULL) AS pending,
-                              SUM(cr.provisional_marks_status = 'approved') AS approved,
-                              SUM(cr.provisional_marks_status = 'published') AS published
+        // Per-course breakdown
+        string sql = @"SELECT cr.courseID AS course_code,
+                              COALESCE(c.courseName, cr.courseID) AS course_name,
+                              COALESCE(p.progname,  cr.prog_id)   AS programme_name,
+                              cr.acad_year, cr.semester, cr.prog_id AS programme_code,
+                              COUNT(*) AS total_students,
+                              SUM(CASE WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL    THEN 1 ELSE 0 END) AS not_entered,
+                              SUM(CASE WHEN cr.provisional_course_work_marks IS NOT NULL OR  cr.provisional_exam_marks IS NOT NULL THEN 1 ELSE 0 END) AS partially_entered,
+                              SUM(CASE WHEN cr.provisional_course_work_marks IS NOT NULL AND cr.provisional_exam_marks IS NOT NULL THEN 1 ELSE 0 END) AS fully_entered,
+                              SUM(CASE WHEN COALESCE(cr.provisional_marks_status,'pending') = 'pending'
+                                            AND cr.provisional_total_marks IS NOT NULL               THEN 1 ELSE 0 END) AS pending,
+                              SUM(CASE WHEN cr.provisional_marks_status = 'approved'                THEN 1 ELSE 0 END) AS approved,
+                              SUM(CASE WHEN cr.provisional_marks_status = 'rejected'                THEN 1 ELSE 0 END) AS rejected,
+                              SUM(CASE WHEN cr.provisional_marks_status = 'published'               THEN 1 ELSE 0 END) AS published,
+                              SUM(CASE WHEN cr.provisional_course_work_marks IS NOT NULL
+                                            AND cr.provisional_exam_marks IS NOT NULL
+                                            AND COALESCE(cr.provisional_marks_status,'pending') NOT IN ('published')
+                                       THEN 1 ELSE 0 END) AS ready_to_publish
                        FROM campus_dynamics_portal.acad_course_registration cr
-                       LEFT JOIN acad_course c ON c.courseID = cr.courseID
-                       INNER JOIN acad_programmecourses pc ON pc.course_code = cr.courseID
-                         AND pc.progcode = cr.progid AND pc.lecturer_id = @empId"
-                    + where + " GROUP BY cr.courseID, cr.acad_year, cr.semester, cr.progid ORDER BY cr.acad_year DESC, cr.semester, cr.courseID";
+                       LEFT JOIN acad_course    c ON c.courseID = cr.courseID
+                       LEFT JOIN acad_programme p ON p.progcode = cr.prog_id
+                       " + where
+                    + " GROUP BY cr.courseID, cr.acad_year, cr.semester, cr.prog_id"
+                    + " ORDER BY cr.acad_year DESC, cr.semester, cr.courseID";
 
         DataTable dt = ApiHelper.Query(sql, parms.ToArray());
 
+        // Aggregate totals across all courses
+        int totStudents = 0, totNotEntered = 0, totPending = 0, totApproved = 0, totRejected = 0, totPublished = 0, totReady = 0;
+        foreach (DataRow row in dt.Rows)
+        {
+            totStudents   += Convert.ToInt32(row["total_students"]);
+            totNotEntered += Convert.ToInt32(row["not_entered"]);
+            totPending    += Convert.ToInt32(row["pending"]);
+            totApproved   += Convert.ToInt32(row["approved"]);
+            totRejected   += Convert.ToInt32(row["rejected"]);
+            totPublished  += Convert.ToInt32(row["published"]);
+            totReady      += Convert.ToInt32(row["ready_to_publish"]);
+        }
+
         ApiHelper.Success(Response, new Dictionary<string, object>
         {
-            { "total_courses", dt.Rows.Count },
+            { "total_courses",  dt.Rows.Count },
+            { "total_students", totStudents },
+            { "totals", new Dictionary<string, object>
+                {
+                    { "not_entered",     totNotEntered },
+                    { "pending",         totPending },
+                    { "approved",        totApproved },
+                    { "rejected",        totRejected },
+                    { "published",       totPublished },
+                    { "ready_to_publish",totReady }
+                }
+            },
             { "courses", ApiHelper.TableToList(dt) }
         });
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    //  BULK & DASHBOARD MARKS ENDPOINTS
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Bulk-save provisional marks for multiple students in one call.
+    /// POST body or 'marks' param: JSON array [{id, cw, exam}, ...]
+    /// Partial updates allowed — supply only cw or only exam to update one component.
+    /// Validates 0–40 for cw, 0–60 for exam.  Blocks published records.
+    /// Returns per-row outcome: saved | skipped | error.
+    /// </summary>
+    private void HandleBulkSaveMarks()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string json = ApiHelper.Param(Request, "marks", "");
+        if (string.IsNullOrEmpty(json))
+        {
+            try { using (var rdr = new StreamReader(Request.InputStream)) json = rdr.ReadToEnd(); } catch { }
+        }
+        if (string.IsNullOrEmpty(json))
+        {
+            ApiHelper.Error(Response, "Missing marks data. Send JSON array: [{\"id\":123,\"cw\":30,\"exam\":50}, ...]", "MISSING_PARAM");
+            return;
+        }
+
+        List<Dictionary<string, object>> marksList;
+        try
+        {
+            var ser = new JavaScriptSerializer();
+            marksList = ser.Deserialize<List<Dictionary<string, object>>>(json);
+        }
+        catch
+        {
+            ApiHelper.Error(Response, "Invalid JSON format.", "VALIDATION_ERROR"); return;
+        }
+
+        if (marksList == null || marksList.Count == 0)
+        { ApiHelper.Error(Response, "Empty marks array.", "MISSING_PARAM"); return; }
+        if (marksList.Count > 500)
+        { ApiHelper.Error(Response, "Maximum 500 marks per bulk save.", "VALIDATION_ERROR"); return; }
+
+        int saved = 0, skipped = 0, errors = 0;
+        var detail = new List<Dictionary<string, object>>();
+
+        foreach (var item in marksList)
+        {
+            int rowId = 0;
+            if (item.ContainsKey("id")) int.TryParse(Convert.ToString(item["id"]), out rowId);
+            if (rowId <= 0)
+            {
+                errors++;
+                detail.Add(new Dictionary<string, object> { { "id", rowId }, { "error", "id required and must be > 0" } });
+                continue;
+            }
+
+            string cwStr   = item.ContainsKey("cw")   ? Convert.ToString(item["cw"])   : null;
+            string examStr = item.ContainsKey("exam") ? Convert.ToString(item["exam"]) : null;
+
+            if (string.IsNullOrEmpty(cwStr) && string.IsNullOrEmpty(examStr))
+            {
+                skipped++;
+                detail.Add(new Dictionary<string, object> { { "id", rowId }, { "skipped", "no cw or exam provided" } });
+                continue;
+            }
+
+            decimal cwVal = 0, examVal = 0;
+            if (!string.IsNullOrEmpty(cwStr) && (!decimal.TryParse(cwStr, out cwVal) || cwVal < 0 || cwVal > 40))
+            {
+                errors++;
+                detail.Add(new Dictionary<string, object> { { "id", rowId }, { "error", "cw must be 0–40" } });
+                continue;
+            }
+            if (!string.IsNullOrEmpty(examStr) && (!decimal.TryParse(examStr, out examVal) || examVal < 0 || examVal > 60))
+            {
+                errors++;
+                detail.Add(new Dictionary<string, object> { { "id", rowId }, { "error", "exam must be 0–60" } });
+                continue;
+            }
+
+            try
+            {
+                // Lock check
+                DataTable lockDt = ApiHelper.Query(
+                    @"SELECT cr.id,
+                             COALESCE(cr.provisional_marks_status,'not_entered') AS prov_status,
+                             COALESCE(cr.provisional_course_work_marks, 0) AS cur_cw,
+                             COALESCE(cr.provisional_exam_marks, 0)        AS cur_exam
+                      FROM campus_dynamics_portal.acad_course_registration cr
+                      WHERE cr.id = @rowId LIMIT 1",
+                    new MySqlParameter("@rowId", rowId));
+                if (lockDt.Rows.Count == 0)
+                {
+                    skipped++;
+                    detail.Add(new Dictionary<string, object> { { "id", rowId }, { "skipped", "record not found" } });
+                    continue;
+                }
+
+                string provStatus = lockDt.Rows[0]["prov_status"].ToString();
+                if (provStatus == "published")
+                {
+                    skipped++;
+                    detail.Add(new Dictionary<string, object> { { "id", rowId }, { "skipped", "published — cannot modify" } });
+                    continue;
+                }
+
+                // Partial update: keep current value if component not supplied
+                decimal applyCw   = !string.IsNullOrEmpty(cwStr)   ? cwVal   : Convert.ToDecimal(lockDt.Rows[0]["cur_cw"]);
+                decimal applyExam = !string.IsNullOrEmpty(examStr) ? examVal : Convert.ToDecimal(lockDt.Rows[0]["cur_exam"]);
+                decimal total     = applyCw + applyExam;
+
+                ApiHelper.Execute(
+                    @"UPDATE campus_dynamics_portal.acad_course_registration
+                      SET provisional_course_work_marks = @cw,
+                          provisional_exam_marks         = @exam,
+                          provisional_total_marks        = @total,
+                          provisional_submitted_by       = COALESCE(provisional_submitted_by, @user),
+                          provisional_marks_status       = CASE WHEN provisional_marks_status = 'published' THEN 'published' ELSE 'pending' END
+                      WHERE id = @rowId",
+                    new MySqlParameter("@cw",    applyCw),
+                    new MySqlParameter("@exam",  applyExam),
+                    new MySqlParameter("@total", total),
+                    new MySqlParameter("@user",  auth.UserId),
+                    new MySqlParameter("@rowId", rowId));
+
+                saved++;
+                detail.Add(new Dictionary<string, object>
+                {
+                    { "id",          rowId },
+                    { "cw_marks",    applyCw },
+                    { "exam_marks",  applyExam },
+                    { "total_marks", total },
+                    { "grade",       ComputeProvisionalGrade((int)total) }
+                });
+            }
+            catch (Exception ex)
+            {
+                errors++;
+                detail.Add(new Dictionary<string, object> { { "id", rowId }, { "error", ex.Message } });
+            }
+        }
+
+        string msg = saved > 0
+            ? "Bulk save complete: " + saved + " saved, " + skipped + " skipped, " + errors + " errors"
+            : "No marks were saved";
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "saved",            saved },
+            { "skipped",          skipped },
+            { "errors",           errors },
+            { "total_submitted",  marksList.Count },
+            { "detail",           detail }
+        }, msg);
+    }
+
+    /// <summary>
+    /// Returns overall dashboard statistics for the authenticated teacher.
+    /// Aggregates provisional mark counts across all assigned courses, with per-course breakdown.
+    /// Filters: acad_year (optional), semester (optional).
+    /// </summary>
+    private void HandleMarkStats()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string acadYear = ApiHelper.Param(Request, "acad_year", "").Trim();
+        int    semester = ApiHelper.ParamInt(Request, "semester", 0);
+
+        var where = new System.Text.StringBuilder("WHERE cr.regno IS NOT NULL");
+        var parms = new List<MySqlParameter>();
+        if (!string.IsNullOrWhiteSpace(acadYear)) { where.Append(" AND cr.acad_year = @ay"); parms.Add(new MySqlParameter("@ay", acadYear)); }
+        if (semester > 0)                         { where.Append(" AND cr.semester = @sem"); parms.Add(new MySqlParameter("@sem", semester)); }
+
+        // ── Overall summary ───────────────────────────────────────────────
+        string summarySql = @"SELECT
+            COUNT(*) AS total_students,
+            COUNT(DISTINCT cr.courseID) AS total_courses,
+            COUNT(DISTINCT cr.prog_id)   AS total_programmes,
+            SUM(CASE WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL                                    THEN 1 ELSE 0 END) AS not_entered,
+            SUM(CASE WHEN cr.provisional_course_work_marks IS NOT NULL AND cr.provisional_exam_marks IS NOT NULL                            THEN 1 ELSE 0 END) AS fully_entered,
+            SUM(CASE WHEN COALESCE(cr.provisional_marks_status,'pending') = 'pending' AND cr.provisional_total_marks IS NOT NULL            THEN 1 ELSE 0 END) AS pending_review,
+            SUM(CASE WHEN cr.provisional_marks_status = 'approved'                                                                          THEN 1 ELSE 0 END) AS approved,
+            SUM(CASE WHEN cr.provisional_marks_status = 'rejected'                                                                          THEN 1 ELSE 0 END) AS rejected,
+            SUM(CASE WHEN cr.provisional_marks_status = 'published'                                                                         THEN 1 ELSE 0 END) AS published,
+            SUM(CASE WHEN cr.provisional_course_work_marks IS NOT NULL AND cr.provisional_exam_marks IS NOT NULL
+                          AND COALESCE(cr.provisional_marks_status,'pending') NOT IN ('published')                                           THEN 1 ELSE 0 END) AS ready_to_publish
+        FROM campus_dynamics_portal.acad_course_registration cr " + where;
+
+        var sumParms = new List<MySqlParameter>(parms);
+        DataTable sumDt = ApiHelper.Query(summarySql, sumParms.ToArray());
+        var summary = sumDt.Rows.Count > 0 ? ApiHelper.FirstRowToDict(sumDt) : new Dictionary<string, object>();
+
+        // ── Per-course breakdown ──────────────────────────────────────────
+        string courseSql = @"SELECT cr.courseID AS course_code,
+                                    COALESCE(c.courseName, cr.courseID) AS course_name,
+                                    COALESCE(p.progname,  cr.prog_id)   AS programme_name,
+                                    cr.prog_id AS programme_code,
+                                    cr.acad_year, cr.semester,
+                                    COUNT(*) AS total_students,
+                                    SUM(CASE WHEN cr.provisional_course_work_marks IS NULL AND cr.provisional_exam_marks IS NULL              THEN 1 ELSE 0 END) AS not_entered,
+                                    SUM(CASE WHEN cr.provisional_course_work_marks IS NOT NULL AND cr.provisional_exam_marks IS NOT NULL      THEN 1 ELSE 0 END) AS fully_entered,
+                                    SUM(CASE WHEN COALESCE(cr.provisional_marks_status,'pending') = 'pending' AND cr.provisional_total_marks IS NOT NULL THEN 1 ELSE 0 END) AS pending,
+                                    SUM(CASE WHEN cr.provisional_marks_status = 'approved'                                                   THEN 1 ELSE 0 END) AS approved,
+                                    SUM(CASE WHEN cr.provisional_marks_status = 'rejected'                                                   THEN 1 ELSE 0 END) AS rejected,
+                                    SUM(CASE WHEN cr.provisional_marks_status = 'published'                                                  THEN 1 ELSE 0 END) AS published,
+                                    SUM(CASE WHEN cr.provisional_course_work_marks IS NOT NULL AND cr.provisional_exam_marks IS NOT NULL
+                                                  AND COALESCE(cr.provisional_marks_status,'pending') NOT IN ('published')                   THEN 1 ELSE 0 END) AS ready_to_publish,
+                                    ROUND(AVG(CASE WHEN cr.provisional_total_marks IS NOT NULL THEN cr.provisional_total_marks END), 1) AS avg_total
+                             FROM campus_dynamics_portal.acad_course_registration cr
+                             LEFT JOIN acad_course    c ON c.courseID = cr.courseID
+                             LEFT JOIN acad_programme p ON p.progcode = cr.prog_id
+                             " + where
+                          + " GROUP BY cr.courseID, cr.prog_id, cr.acad_year, cr.semester"
+                          + " ORDER BY cr.acad_year DESC, cr.semester, cr.courseID"
+                          + " LIMIT 100";
+
+        var courseParms = new List<MySqlParameter>(parms);
+        DataTable coursesDt = ApiHelper.Query(courseSql, courseParms.ToArray());
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "filter_acad_year", string.IsNullOrWhiteSpace(acadYear) ? null : (object)acadYear },
+            { "filter_semester",  semester > 0 ? (object)semester : null },
+            { "summary",  summary },
+            { "courses",  ApiHelper.TableToList(coursesDt) }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  STUDENT SEARCH
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleStudentSearch()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+
+        string q    = ApiHelper.Param(Request, "q",    "").Trim();
+        string prog = ApiHelper.Param(Request, "prog", "").Trim();
+        int    size = Math.Min(100, Math.Max(10, ApiHelper.ParamInt(Request, "size", 30)));
+
+        var where = new System.Text.StringBuilder("WHERE 1=1");
+        var parms = new List<MySqlParameter>();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            where.Append(@" AND (
+                TRIM(s.regno) LIKE @q
+                OR TRIM(IFNULL(s.entryno,'')) LIKE @q
+                OR LOWER(TRIM(COALESCE(s.firstname,''))) LIKE @q
+                OR LOWER(TRIM(COALESCE(s.othername,''))) LIKE @q
+                OR LOWER(TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,'')))) LIKE @q
+            )");
+            parms.Add(new MySqlParameter("@q", "%" + q.ToLower() + "%"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(prog))
+        {
+            where.Append(" AND s.progid = @prog");
+            parms.Add(new MySqlParameter("@prog", prog));
+        }
+
+        // Closest-match ordering: exact ID first, then prefix, then contains
+        string orderBy = !string.IsNullOrWhiteSpace(q)
+            ? @"ORDER BY
+                  CASE WHEN LOWER(TRIM(IFNULL(s.entryno,''))) = @qExact OR LOWER(TRIM(s.regno)) = @qExact THEN 0
+                       WHEN TRIM(IFNULL(s.entryno,'')) LIKE @qPrefix OR s.regno LIKE @qPrefix THEN 1
+                       WHEN LOWER(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @qPrefix THEN 2
+                       ELSE 3 END,
+                  s.firstname, s.othername"
+            : "ORDER BY s.firstname, s.othername";
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            parms.Add(new MySqlParameter("@qExact",  q.ToLower()));
+            parms.Add(new MySqlParameter("@qPrefix", q.ToLower() + "%"));
+        }
+
+        parms.Add(new MySqlParameter("@lim", size));
+
+        DataTable dt = ApiHelper.Query(
+            @"SELECT s.regno,
+                     COALESCE(NULLIF(TRIM(IFNULL(s.entryno,'')),'' ), s.regno) AS entry_no,
+                     TRIM(COALESCE(s.firstname,''))  AS firstname,
+                     TRIM(COALESCE(s.othername,''))  AS othername,
+                     TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS student_name,
+                     s.gender,
+                     COALESCE(s.studsesion,'Day') AS session,
+                     s.progid AS programme_code,
+                     COALESCE(p.progname, s.progid) AS programme_name,
+                     COALESCE(s.stud_status,'Active') AS student_status,
+                     IFNULL(TRIM(s.photofile),'') AS photofile
+              FROM acad_student s
+              LEFT JOIN acad_programme p ON p.progcode = s.progid
+              " + where + " " + orderBy + @"
+              LIMIT @lim",
+            parms.ToArray());
+
+        var students = ApiHelper.TableToList(dt);
+        foreach (var row in students)
+        {
+            string pf = Convert.ToString(row["photofile"]);
+            row["photo_url"] = !string.IsNullOrWhiteSpace(pf)
+                ? "/COOPERP/StudentInfo/photos/" + pf
+                : null;
+            row.Remove("photofile");
+        }
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "count",   students.Count },
+            { "query",   q },
+            { "results", students }
+        });
+    }
+
     //  HR EMPLOYEES
     // ═══════════════════════════════════════════════════════════════════
 
@@ -2360,5 +3763,860 @@ public partial class API_v2_staff : System.Web.UI.Page
 
         ApiHelper.Success(Response, responseData,
             decision == "APPROVED" ? "Request approved" : "Request rejected");
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  DASHBOARD STATS
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private void HandleDashboardStats()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff")
+        {
+            ApiHelper.Error(Response, "This endpoint is for staff members only.", "ACCESS_DENIED");
+            return;
+        }
+
+        // ── Resolve staff record ────────────────────────────────────────────
+        DataTable empDt = ApiHelper.Query(
+            @"SELECT e.empID, e.emp_name, e.EMP_CODE, e.EmpType,
+                     d.dept_name AS department
+              FROM hrm_employee e
+              LEFT JOIN hrm_department d ON d.dept_id = e.dept_id
+              WHERE (NULLIF(TRIM(IFNULL(e.usernames,'')),'-') IS NOT NULL
+                     AND UPPER(TRIM(e.usernames)) = UPPER(@uid))
+                 OR UPPER(TRIM(IFNULL(e.EMP_CODE,''))) = UPPER(@uid2)
+              LIMIT 1",
+            new MySqlParameter("@uid",  auth.UserId),
+            new MySqlParameter("@uid2", auth.UserId));
+
+        if (empDt.Rows.Count == 0)
+        {
+            ApiHelper.Error(Response, "Staff profile not found.", "NOT_FOUND");
+            return;
+        }
+
+        int    staffId   = Convert.ToInt32(empDt.Rows[0]["empID"]);
+        string staffName = empDt.Rows[0]["emp_name"].ToString();
+
+        // ── Build lecturer's course-code list (upper-cased) ─────────────────
+        // Primary source: acad_programmecourses (is_lecturere_assigned='YES')
+        DataTable codesDt = ApiHelper.Query(
+            @"SELECT DISTINCT UPPER(TRIM(pc.course_code)) AS cc
+              FROM acad_programmecourses pc
+              WHERE IFNULL(pc.lecturer_id,0) = @sid
+                AND UPPER(IFNULL(pc.is_lecturere_assigned,'NO')) = 'YES'
+              UNION
+              SELECT DISTINCT UPPER(TRIM(ta.course_id)) AS cc
+              FROM acad_teaching_assignments ta
+              WHERE UPPER(TRIM(ta.teacher_username)) = UPPER(@uname)
+                AND ta.is_active = 1
+                AND ta.course_id IS NOT NULL AND ta.course_id <> ''
+              UNION
+              SELECT DISTINCT UPPER(TRIM(al.courseID)) AS cc
+              FROM acad_teaching_allocation al
+              WHERE UPPER(TRIM(al.staffCode)) = UPPER(@uname2)
+                AND al.courseID IS NOT NULL AND al.courseID <> ''",
+            new MySqlParameter("@sid",   staffId),
+            new MySqlParameter("@uname", auth.UserId),
+            new MySqlParameter("@uname2",auth.UserId));
+
+        var myCodes = new List<string>();
+        foreach (DataRow dr in codesDt.Rows)
+            if (dr["cc"] != DBNull.Value && !string.IsNullOrEmpty(dr["cc"].ToString()))
+                myCodes.Add(dr["cc"].ToString().ToUpper().Trim());
+
+        // ── 1. Assigned courses — all time (acad_programmecourses) ──────────
+        long assignedCoursesTotal = Convert.ToInt64(ApiHelper.Scalar(
+            @"SELECT COUNT(DISTINCT course_code)
+              FROM acad_programmecourses
+              WHERE IFNULL(lecturer_id,0) = @sid
+                AND UPPER(IFNULL(is_lecturere_assigned,'NO')) = 'YES'",
+            new MySqlParameter("@sid", staffId)) ?? 0L);
+
+        // ── 2. Current academic year / semester (from system settings) ───────
+        string currentYear = "";
+        int    currentSem  = 0;
+        try
+        {
+            DataTable sysDt = ApiHelper.Query(
+                "SELECT acad_year, semester FROM acad_semester WHERE is_current='1' OR is_current='Yes' LIMIT 1");
+            if (sysDt.Rows.Count > 0)
+            {
+                currentYear = sysDt.Rows[0]["acad_year"].ToString();
+                int.TryParse(sysDt.Rows[0]["semester"].ToString(), out currentSem);
+            }
+        }
+        catch { }
+
+        // Fallback: most recent year/semester from acad_registration
+        if (string.IsNullOrEmpty(currentYear))
+        {
+            try
+            {
+                DataTable regDt = ApiHelper.Query(
+                    "SELECT acad_year, MAX(semester) AS semester FROM acad_registration GROUP BY acad_year ORDER BY acad_year DESC LIMIT 1");
+                if (regDt.Rows.Count > 0)
+                {
+                    currentYear = regDt.Rows[0]["acad_year"].ToString();
+                    int.TryParse(regDt.Rows[0]["semester"].ToString(), out currentSem);
+                }
+            }
+            catch { }
+        }
+
+        // ── 3-6. Student & mark stats from acad_course_registration ─────────
+        long totalStudents      = 0;
+        long totalRegistrations = 0;
+        long pendingCW          = 0;
+        long pendingExam        = 0;
+        long bothMissing        = 0;
+        long fullyEntered       = 0;
+        long studentsThisSem    = 0;
+
+        if (myCodes.Count > 0)
+        {
+            // Build IN list (parameterised)
+            var inParams = new List<MySqlParameter>();
+            var inPlaceholders = new List<string>();
+            for (int i = 0; i < myCodes.Count; i++)
+            {
+                string p = "@cc" + i;
+                inPlaceholders.Add(p);
+                inParams.Add(new MySqlParameter(p, myCodes[i]));
+            }
+            string inClause = string.Join(",", inPlaceholders);
+
+            string crSql = @"
+                SELECT COUNT(*)                                                      AS total_rows,
+                       COUNT(DISTINCT cr.regno)                                      AS total_students,
+                       SUM(CASE WHEN cr.provisional_course_work_marks IS NULL
+                                  OR cr.provisional_course_work_marks = 0 THEN 1 ELSE 0 END) AS pending_cw,
+                       SUM(CASE WHEN cr.provisional_exam_marks IS NULL
+                                  OR cr.provisional_exam_marks = 0       THEN 1 ELSE 0 END) AS pending_exam,
+                       SUM(CASE WHEN (cr.provisional_course_work_marks IS NULL OR cr.provisional_course_work_marks = 0)
+                                 AND (cr.provisional_exam_marks IS NULL OR cr.provisional_exam_marks = 0) THEN 1 ELSE 0 END) AS both_missing,
+                       SUM(CASE WHEN cr.provisional_course_work_marks IS NOT NULL AND cr.provisional_course_work_marks > 0
+                                 AND cr.provisional_exam_marks IS NOT NULL AND cr.provisional_exam_marks > 0 THEN 1 ELSE 0 END) AS fully_entered
+                FROM campus_dynamics_portal.acad_course_registration cr
+                WHERE UPPER(TRIM(cr.courseID)) IN (" + inClause + ")";
+
+            DataTable crDt = ApiHelper.Query(crSql, inParams.ToArray());
+            if (crDt.Rows.Count > 0)
+            {
+                DataRow r = crDt.Rows[0];
+                Func<string, long> N = col => {
+                    if (r[col] == DBNull.Value) return 0;
+                    long v; long.TryParse(r[col].ToString(), out v); return v;
+                };
+                totalRegistrations = N("total_rows");
+                totalStudents      = N("total_students");
+                pendingCW          = N("pending_cw");
+                pendingExam        = N("pending_exam");
+                bothMissing        = N("both_missing");
+                fullyEntered       = N("fully_entered");
+            }
+
+            // Students this semester (filtered by current year/sem)
+            if (!string.IsNullOrEmpty(currentYear) && currentSem > 0)
+            {
+                var semParams = new List<MySqlParameter>(inParams);
+                semParams.Add(new MySqlParameter("@ay",  currentYear));
+                semParams.Add(new MySqlParameter("@sem", currentSem));
+                DataTable semDt = ApiHelper.Query(
+                    "SELECT COUNT(DISTINCT cr.regno) AS cnt " +
+                    "FROM campus_dynamics_portal.acad_course_registration cr " +
+                    "WHERE UPPER(TRIM(cr.courseID)) IN (" + inClause + ") " +
+                    "AND cr.acad_year = @ay AND cr.semester = @sem",
+                    semParams.ToArray());
+                if (semDt.Rows.Count > 0 && semDt.Rows[0]["cnt"] != DBNull.Value)
+                    long.TryParse(semDt.Rows[0]["cnt"].ToString(), out studentsThisSem);
+            }
+        }
+
+        // ── 7. Results already submitted (acad_results) ──────────────────────
+        long resultsEntered = 0;
+        if (myCodes.Count > 0)
+        {
+            var inParams2 = new List<MySqlParameter>();
+            var inPH2     = new List<string>();
+            for (int i = 0; i < myCodes.Count; i++)
+            {
+                string p = "@rc" + i;
+                inPH2.Add(p);
+                inParams2.Add(new MySqlParameter(p, myCodes[i]));
+            }
+            DataTable resDt = ApiHelper.Query(
+                "SELECT COUNT(*) AS cnt FROM acad_results " +
+                "WHERE UPPER(TRIM(courseid)) IN (" + string.Join(",", inPH2) + ")",
+                inParams2.ToArray());
+            if (resDt.Rows.Count > 0 && resDt.Rows[0]["cnt"] != DBNull.Value)
+                long.TryParse(resDt.Rows[0]["cnt"].ToString(), out resultsEntered);
+        }
+
+        // ── 8. Mark requests breakdown ────────────────────────────────────────
+        long mrPendingLecturer  = 0;
+        long mrPendingSupervisor= 0;
+        long mrPendingAdmin     = 0;
+        long mrApproved         = 0;
+        long mrRejected         = 0;
+        long mrTotal            = 0;
+        try
+        {
+            DataTable mrDt = ApiHelper.Query(
+                @"SELECT
+                    SUM(CASE WHEN status='PENDING_LECTURER'  THEN 1 ELSE 0 END) AS pl,
+                    SUM(CASE WHEN status='PENDING_SUPERVISOR'THEN 1 ELSE 0 END) AS ps,
+                    SUM(CASE WHEN status='PENDING_ADMIN'     THEN 1 ELSE 0 END) AS pa,
+                    SUM(CASE WHEN status='APPROVED'          THEN 1 ELSE 0 END) AS ap,
+                    SUM(CASE WHEN status='REJECTED'          THEN 1 ELSE 0 END) AS rj,
+                    COUNT(*)                                                     AS total
+                  FROM campus_dynamics_portal.acad_marks_requests
+                  WHERE lecturer_id = @sid",
+                new MySqlParameter("@sid", staffId));
+            if (mrDt.Rows.Count > 0)
+            {
+                DataRow r = mrDt.Rows[0];
+                Func<string, long> N = col => {
+                    if (r[col] == DBNull.Value) return 0;
+                    long v; long.TryParse(r[col].ToString(), out v); return v;
+                };
+                mrPendingLecturer   = N("pl");
+                mrPendingSupervisor = N("ps");
+                mrPendingAdmin      = N("pa");
+                mrApproved          = N("ap");
+                mrRejected          = N("rj");
+                mrTotal             = N("total");
+            }
+        }
+        catch { }
+
+        // ── 9. Mark sheet status (acad_results_status) ────────────────────────
+        long sheetsSubmitted = 0;
+        long sheetsApproved  = 0;
+        long sheetsDraft     = 0;
+        try
+        {
+            if (myCodes.Count > 0)
+            {
+                var inParams3 = new List<MySqlParameter>();
+                var inPH3     = new List<string>();
+                for (int i = 0; i < myCodes.Count; i++)
+                {
+                    string p = "@sc" + i;
+                    inPH3.Add(p);
+                    inParams3.Add(new MySqlParameter(p, myCodes[i]));
+                }
+                DataTable sheetDt = ApiHelper.Query(
+                    "SELECT " +
+                    "SUM(CASE WHEN UPPER(status)='SUBMITTED' THEN 1 ELSE 0 END) AS submitted, " +
+                    "SUM(CASE WHEN UPPER(status)='APPROVED'  THEN 1 ELSE 0 END) AS approved, " +
+                    "SUM(CASE WHEN UPPER(status)='DRAFT'     THEN 1 ELSE 0 END) AS draft " +
+                    "FROM acad_results_status " +
+                    "WHERE UPPER(TRIM(course_id)) IN (" + string.Join(",", inPH3) + ")",
+                    inParams3.ToArray());
+                if (sheetDt.Rows.Count > 0)
+                {
+                    DataRow r = sheetDt.Rows[0];
+                    Func<string, long> N = col => {
+                        if (r[col] == DBNull.Value) return 0;
+                        long v; long.TryParse(r[col].ToString(), out v); return v;
+                    };
+                    sheetsSubmitted = N("submitted");
+                    sheetsApproved  = N("approved");
+                    sheetsDraft     = N("draft");
+                }
+            }
+        }
+        catch { }
+
+        // ── 10. Mark requests received in last 7 and 30 days ──────────────────
+        long mrLast7Days  = 0;
+        long mrLast30Days = 0;
+        try
+        {
+            DataTable recentDt = ApiHelper.Query(
+                @"SELECT
+                    SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 7  DAY) THEN 1 ELSE 0 END) AS last7,
+                    SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS last30
+                  FROM campus_dynamics_portal.acad_marks_requests
+                  WHERE lecturer_id = @sid",
+                new MySqlParameter("@sid", staffId));
+            if (recentDt.Rows.Count > 0)
+            {
+                DataRow r = recentDt.Rows[0];
+                Func<string, long> N = col => {
+                    if (r[col] == DBNull.Value) return 0;
+                    long v; long.TryParse(r[col].ToString(), out v); return v;
+                };
+                mrLast7Days  = N("last7");
+                mrLast30Days = N("last30");
+            }
+        }
+        catch { }
+
+        // ── Compute completion rate ───────────────────────────────────────────
+        double completionRate = totalRegistrations > 0
+            ? Math.Round((double)fullyEntered / totalRegistrations * 100.0, 1)
+            : 0.0;
+
+        // ── Build response ────────────────────────────────────────────────────
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            // Lecturer identity
+            { "staff_id",   staffId },
+            { "staff_name", staffName },
+            { "current_acad_year", currentYear },
+            { "current_semester",  currentSem  },
+
+            // ── Courses ──
+            { "assigned_courses", new Dictionary<string, object>
+                {
+                    // Total unique course codes ever assigned (all time)
+                    { "total",           assignedCoursesTotal },
+                    // Number of distinct course code entries tracked in system
+                    { "unique_codes",    myCodes.Count },
+                }
+            },
+
+            // ── Students ──
+            { "students", new Dictionary<string, object>
+                {
+                    // Distinct students registered in any of this lecturer's courses (all time)
+                    { "total_in_my_courses",   totalStudents },
+                    // Distinct students this semester only
+                    { "this_semester",         studentsThisSem },
+                    // Total registration rows (one student can be in multiple courses)
+                    { "total_registrations",   totalRegistrations },
+                }
+            },
+
+            // ── Mark entry progress ──
+            // These show how many student-course registrations are missing marks.
+            // pending_coursework = registrations where CW mark is NULL or 0.
+            // pending_exam       = registrations where Exam mark is NULL or 0.
+            // both_missing       = neither CW nor Exam entered yet.
+            // fully_entered      = both CW and Exam are present and > 0.
+            // completion_rate    = % of registrations with both marks entered.
+            { "marks", new Dictionary<string, object>
+                {
+                    { "pending_coursework",  pendingCW     },
+                    { "pending_exam_marks",  pendingExam   },
+                    { "both_missing",        bothMissing   },
+                    { "fully_entered",       fullyEntered  },
+                    { "results_in_system",   resultsEntered},
+                    { "completion_rate_pct", completionRate},
+                }
+            },
+
+            // ── Mark requests (portal student workflow) ──
+            // pending_lecturer   = NEW requests awaiting YOUR response (action required).
+            // pending_supervisor = You've responded; awaiting supervisor sign-off.
+            // pending_admin      = Awaiting registry/admin final approval.
+            // approved           = Fully resolved and marks published.
+            // rejected           = Rejected at any stage.
+            { "mark_requests", new Dictionary<string, object>
+                {
+                    { "pending_lecturer",   mrPendingLecturer  },
+                    { "pending_supervisor", mrPendingSupervisor},
+                    { "pending_admin",      mrPendingAdmin     },
+                    { "approved",           mrApproved         },
+                    { "rejected",           mrRejected         },
+                    { "total",              mrTotal            },
+                    { "new_last_7_days",    mrLast7Days        },
+                    { "new_last_30_days",   mrLast30Days       },
+                }
+            },
+
+            // ── Mark sheets (formal submission workflow) ──
+            // draft     = Sheets created but not yet submitted for approval.
+            // submitted = Submitted to dean/HOD for approval.
+            // approved  = Approved and finalised.
+            { "mark_sheets", new Dictionary<string, object>
+                {
+                    { "draft",     sheetsDraft     },
+                    { "submitted", sheetsSubmitted },
+                    { "approved",  sheetsApproved  },
+                }
+            },
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  LECTURER MARK REQUESTS (portal acad_marks_requests workflow)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private int GetSupervisorIdForLecturer(int staffId)
+    {
+        if (staffId <= 0) return 0;
+        try
+        {
+            object obj = ApiHelper.Scalar(
+                "SELECT IFNULL(supervisorID,0) FROM hrm_employee WHERE empID=@sid LIMIT 1",
+                new MySqlParameter("@sid", staffId));
+            int sup;
+            return (obj != null && obj != DBNull.Value && int.TryParse(obj.ToString(), out sup)) ? sup : 0;
+        }
+        catch { return 0; }
+    }
+
+    private void HandleLmrRequests()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff")
+        {
+            ApiHelper.Error(Response, "This endpoint is for staff members only.", "ACCESS_DENIED");
+            return;
+        }
+
+        string empIdStr = GetLecturerEmpId(auth.UserId);
+        if (string.IsNullOrEmpty(empIdStr))
+        {
+            ApiHelper.Error(Response, "Staff profile not found.", "NOT_FOUND");
+            return;
+        }
+        int staffId = int.Parse(empIdStr);
+
+        string statusFilter = ApiHelper.Param(Request, "status", "ALL").Trim().ToUpper();
+        bool allStatus = string.IsNullOrEmpty(statusFilter) || statusFilter == "ALL";
+
+        var parms = new List<MySqlParameter> { new MySqlParameter("@sid", staffId) };
+        string whereStatus = allStatus ? "" : " AND r.status = @sf ";
+        if (!allStatus) parms.Add(new MySqlParameter("@sf", statusFilter));
+
+        string sql = @"
+            SELECT r.id, r.regno,
+                   IFNULL(s.entryno, '') AS entry_no,
+                   IFNULL(NULLIF(TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))),''), r.regno) AS student_name,
+                   r.course_id, IFNULL(c.courseName, r.course_id) AS course_name,
+                   r.acad_year, r.semester, r.request_type, r.student_reason, r.status,
+                   IFNULL(r.lecturer_response,'') AS lecturer_response,
+                   IFNULL(r.supervisor_response,'') AS supervisor_response,
+                   IFNULL(r.admin_response,'') AS admin_response,
+                   r.proposed_cw, r.proposed_exam, r.proposed_total,
+                   cr.provisional_course_work_marks AS original_cw,
+                   cr.provisional_exam_marks AS original_exam,
+                   IFNULL(ar.score, cr.provisional_total_marks) AS original_total,
+                   IFNULL(ar.grade, '') AS original_grade,
+                   DATE_FORMAT(r.created_at,'%Y-%m-%d %H:%i') AS created_at,
+                   DATE_FORMAT(r.updated_at,'%Y-%m-%d %H:%i') AS updated_at
+            FROM campus_dynamics_portal.acad_marks_requests r
+            LEFT JOIN acad_course c ON c.courseID = r.course_id
+            LEFT JOIN acad_student s ON s.regno = r.regno
+            LEFT JOIN campus_dynamics_portal.acad_course_registration cr ON cr.id = r.course_reg_id
+            LEFT JOIN acad_results ar ON ar.regno = r.regno
+                AND ar.courseid = r.course_id AND ar.acad = r.acad_year AND ar.semester = r.semester
+            WHERE r.lecturer_id = @sid
+            " + whereStatus + @"
+            ORDER BY CASE r.status
+                WHEN 'PENDING_LECTURER' THEN 0
+                WHEN 'PENDING_SUPERVISOR' THEN 1
+                WHEN 'PENDING_ADMIN' THEN 2
+                ELSE 3
+            END, r.created_at DESC
+            LIMIT 500";
+
+        DataTable dt;
+        try
+        {
+            dt = ApiHelper.Query(sql, parms.ToArray());
+        }
+        catch
+        {
+            // Fallback: drop student name concat in case acad_student schema differs
+            sql = sql.Replace(
+                "IFNULL(NULLIF(TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))),''), r.regno) AS student_name",
+                "r.regno AS student_name");
+            dt = ApiHelper.Query(sql, parms.ToArray());
+        }
+
+        int supervisorId = GetSupervisorIdForLecturer(staffId);
+
+        var rows = new List<Dictionary<string, object>>();
+        foreach (DataRow dr in dt.Rows)
+        {
+            var row = new Dictionary<string, object>();
+            foreach (DataColumn col in dt.Columns)
+            {
+                object val = dr[col];
+                if (val is DBNull) val = null;
+                row[col.ColumnName] = val;
+            }
+            string status = (row["status"] ?? "").ToString();
+            row["can_review"] = string.Equals(status, "PENDING_LECTURER", StringComparison.OrdinalIgnoreCase);
+            rows.Add(row);
+        }
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "requests", rows },
+            { "total", rows.Count },
+            { "lecturer_has_supervisor", supervisorId > 0 }
+        });
+    }
+
+    private void HandleLmrRespond()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff")
+        {
+            ApiHelper.Error(Response, "This endpoint is for staff members only.", "ACCESS_DENIED");
+            return;
+        }
+
+        string empIdStr = GetLecturerEmpId(auth.UserId);
+        if (string.IsNullOrEmpty(empIdStr))
+        {
+            ApiHelper.Error(Response, "Staff profile not found.", "NOT_FOUND");
+            return;
+        }
+        int staffId = int.Parse(empIdStr);
+
+        int requestId = ApiHelper.ParamInt(Request, "request_id", 0);
+        if (requestId <= 0)
+        {
+            ApiHelper.Error(Response, "Missing required parameter: request_id.", "MISSING_PARAM");
+            return;
+        }
+
+        string lecturerResponse = ApiHelper.Param(Request, "response", "").Trim();
+
+        // Parse nullable proposed_cw / proposed_exam
+        int? proposedCw = null, proposedExam = null;
+        string cwStr = ApiHelper.Param(Request, "proposed_cw", "");
+        string exStr = ApiHelper.Param(Request, "proposed_exam", "");
+        int cwVal, exVal;
+        if (!string.IsNullOrEmpty(cwStr) && int.TryParse(cwStr, out cwVal)) proposedCw = cwVal;
+        if (!string.IsNullOrEmpty(exStr) && int.TryParse(exStr, out exVal)) proposedExam = exVal;
+
+        if (proposedCw.HasValue && (proposedCw.Value < 0 || proposedCw.Value > 40))
+        {
+            ApiHelper.Error(Response, "Coursework mark must be between 0 and 40.", "VALIDATION_ERROR");
+            return;
+        }
+        if (proposedExam.HasValue && (proposedExam.Value < 0 || proposedExam.Value > 60))
+        {
+            ApiHelper.Error(Response, "Exam mark must be between 0 and 60.", "VALIDATION_ERROR");
+            return;
+        }
+
+        int supervisorId = GetSupervisorIdForLecturer(staffId);
+
+        string reqType = "";
+        string reqRegno = "";
+        string reqCourseId = "";
+        string reqAcadYear = "";
+        int reqSemester = 0;
+        int courseRegId = 0;
+        bool marksPublished = false;
+        int publishedTotal = 0;
+        string nextStatus = "";
+
+        using (var conn = ApiHelper.GetConnection())
+        {
+            conn.Open();
+
+            using (var cmd = new MySqlCommand(@"
+                SELECT IFNULL(request_type,'') AS request_type,
+                       IFNULL(course_reg_id,0) AS course_reg_id,
+                       IFNULL(regno,'') AS regno,
+                       IFNULL(course_id,'') AS course_id,
+                       IFNULL(acad_year,'') AS acad_year,
+                       IFNULL(semester,0) AS semester
+                FROM campus_dynamics_portal.acad_marks_requests
+                WHERE id = @id AND lecturer_id = @sid
+                LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@id",  requestId);
+                cmd.Parameters.AddWithValue("@sid", staffId);
+                using (var rdr = cmd.ExecuteReader(System.Data.CommandBehavior.SingleRow))
+                {
+                    if (!rdr.Read())
+                    {
+                        ApiHelper.Error(Response,
+                            "Request not found or not assigned to you.",
+                            "NOT_FOUND");
+                        return;
+                    }
+                    reqType   = rdr["request_type"].ToString();
+                    int.TryParse(rdr["course_reg_id"].ToString(), out courseRegId);
+                    reqRegno    = rdr["regno"].ToString();
+                    reqCourseId = rdr["course_id"].ToString();
+                    reqAcadYear = rdr["acad_year"].ToString();
+                    int.TryParse(rdr["semester"].ToString(), out reqSemester);
+                }
+            }
+
+            if (reqType == "MARK_CHANGE" && (!proposedCw.HasValue || !proposedExam.HasValue))
+            {
+                ApiHelper.Error(Response,
+                    "You must provide both coursework and exam marks for a mark change request.",
+                    "VALIDATION_ERROR");
+                return;
+            }
+            if (reqType == "MISSING_MARK" && !proposedCw.HasValue)
+            {
+                ApiHelper.Error(Response, "Please provide the coursework mark.", "VALIDATION_ERROR");
+                return;
+            }
+
+            int? proposedTotal = (proposedCw.HasValue && proposedExam.HasValue)
+                ? (int?)(proposedCw.Value + proposedExam.Value)
+                : proposedCw;
+
+            nextStatus = (reqType == "MARK_CHANGE" && supervisorId > 0) ? "PENDING_SUPERVISOR" : "APPROVED";
+
+            using (var tx = conn.BeginTransaction())
+            {
+                using (var cmd = new MySqlCommand(@"
+                    UPDATE campus_dynamics_portal.acad_marks_requests
+                    SET lecturer_response     = @lresp,
+                        lecturer_responded_at = NOW(),
+                        supervisor_id         = @supid,
+                        proposed_cw           = @cw,
+                        proposed_exam         = @exam,
+                        proposed_total        = @total,
+                        status                = @ns,
+                        updated_at            = NOW()
+                    WHERE id = @id AND lecturer_id = @sid", conn, tx))
+                {
+                    cmd.Parameters.AddWithValue("@lresp", lecturerResponse);
+                    cmd.Parameters.AddWithValue("@supid", supervisorId > 0 ? (object)supervisorId : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@cw",    proposedCw.HasValue   ? (object)proposedCw.Value   : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@exam",  proposedExam.HasValue ? (object)proposedExam.Value : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@total", proposedTotal.HasValue ? (object)proposedTotal.Value : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@ns",    nextStatus);
+                    cmd.Parameters.AddWithValue("@id",    requestId);
+                    cmd.Parameters.AddWithValue("@sid",   staffId);
+                    int n = cmd.ExecuteNonQuery();
+                    if (n == 0)
+                    {
+                        tx.Rollback();
+                        ApiHelper.Error(Response,
+                            "Update failed. The request may have already been processed.", "CONFLICT");
+                        return;
+                    }
+                }
+
+                // Publish marks directly when MISSING_MARK goes straight to APPROVED
+                if (nextStatus == "APPROVED"
+                    && !string.IsNullOrEmpty(reqRegno)
+                    && !string.IsNullOrEmpty(reqCourseId)
+                    && proposedCw.HasValue)
+                {
+                    try
+                    {
+                        publishedTotal = proposedCw.Value + (proposedExam.HasValue ? proposedExam.Value : 0);
+                        string grade = CalculateGrade(publishedTotal);
+                        double gp    = CalculateGP(grade);
+
+                        int studyYear = 1;
+                        using (var cmd = new MySqlCommand(
+                            "SELECT IFNULL(MAX(studyyear),1) FROM acad_registration WHERE regno=@r AND acad_year=@ay",
+                            conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@r",  reqRegno);
+                            cmd.Parameters.AddWithValue("@ay", reqAcadYear);
+                            object sy = cmd.ExecuteScalar();
+                            int tmp;
+                            if (sy != null && sy != DBNull.Value && int.TryParse(sy.ToString(), out tmp))
+                                studyYear = tmp;
+                        }
+
+                        int cu = 3;
+                        using (var cmd = new MySqlCommand(
+                            "SELECT COALESCE(NULLIF(CreditUnit,0),3) FROM acad_course WHERE courseID=@cid LIMIT 1",
+                            conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@cid", reqCourseId);
+                            object cuObj = cmd.ExecuteScalar();
+                            int tmp;
+                            if (cuObj != null && cuObj != DBNull.Value && int.TryParse(cuObj.ToString(), out tmp) && tmp > 0)
+                                cu = tmp;
+                        }
+
+                        string comment = "Published via marks request #" + requestId + " by lecturer; type=" + reqType;
+
+                        int upd;
+                        using (var cmd = new MySqlCommand(@"
+                            UPDATE acad_results
+                            SET course_work = @cw, exam_total = @ex, score = @tot,
+                                grade = @grd, gradept = @gp, CreditUnits = @cu,
+                                studyyear = @sy, result_comment = @rem
+                            WHERE regno = @r AND courseid = @cid AND acad = @ay AND semester = @sem",
+                            conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@cw",  proposedCw.HasValue   ? (object)proposedCw.Value   : DBNull.Value);
+                            cmd.Parameters.AddWithValue("@ex",  proposedExam.HasValue ? (object)proposedExam.Value : DBNull.Value);
+                            cmd.Parameters.AddWithValue("@tot", publishedTotal);
+                            cmd.Parameters.AddWithValue("@grd", grade);
+                            cmd.Parameters.AddWithValue("@gp",  gp);
+                            cmd.Parameters.AddWithValue("@cu",  cu);
+                            cmd.Parameters.AddWithValue("@sy",  studyYear);
+                            cmd.Parameters.AddWithValue("@rem", comment);
+                            cmd.Parameters.AddWithValue("@r",   reqRegno);
+                            cmd.Parameters.AddWithValue("@cid", reqCourseId);
+                            cmd.Parameters.AddWithValue("@ay",  reqAcadYear);
+                            cmd.Parameters.AddWithValue("@sem", reqSemester);
+                            upd = cmd.ExecuteNonQuery();
+                        }
+
+                        if (upd == 0)
+                        {
+                            string progId = "";
+                            using (var cmd = new MySqlCommand(
+                                "SELECT IFNULL(progid,'') FROM acad_student WHERE regno=@r LIMIT 1",
+                                conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@r", reqRegno);
+                                object po = cmd.ExecuteScalar();
+                                if (po != null && po != DBNull.Value) progId = po.ToString();
+                            }
+
+                            using (var cmd = new MySqlCommand(@"
+                                INSERT INTO acad_results
+                                    (regno, courseid, acad, semester, progid, studyyear,
+                                     course_work, exam_total, score, grade, gradept, CreditUnits, result_comment)
+                                VALUES (@r, @cid, @ay, @sem, @prog, @sy, @cw, @ex, @tot, @grd, @gp, @cu, @rem)",
+                                conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@r",    reqRegno);
+                                cmd.Parameters.AddWithValue("@cid",  reqCourseId);
+                                cmd.Parameters.AddWithValue("@ay",   reqAcadYear);
+                                cmd.Parameters.AddWithValue("@sem",  reqSemester);
+                                cmd.Parameters.AddWithValue("@prog", progId);
+                                cmd.Parameters.AddWithValue("@sy",   studyYear);
+                                cmd.Parameters.AddWithValue("@cw",   proposedCw.HasValue   ? (object)proposedCw.Value   : DBNull.Value);
+                                cmd.Parameters.AddWithValue("@ex",   proposedExam.HasValue ? (object)proposedExam.Value : DBNull.Value);
+                                cmd.Parameters.AddWithValue("@tot",  publishedTotal);
+                                cmd.Parameters.AddWithValue("@grd",  grade);
+                                cmd.Parameters.AddWithValue("@gp",   gp);
+                                cmd.Parameters.AddWithValue("@cu",   cu);
+                                cmd.Parameters.AddWithValue("@rem",  comment);
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        marksPublished = true;
+                    }
+                    catch { /* non-fatal; request status already updated */ }
+                }
+
+                // For MISSING_MARK: mirror marks into provisional registration record
+                if (reqType == "MISSING_MARK" && proposedCw.HasValue && courseRegId > 0)
+                {
+                    try
+                    {
+                        int regTotal = proposedCw.Value + (proposedExam.HasValue ? proposedExam.Value : 0);
+                        using (var cmd = new MySqlCommand(@"
+                            UPDATE campus_dynamics_portal.acad_course_registration
+                            SET provisional_course_work_marks = @cw,
+                                provisional_exam_marks        = @exam,
+                                provisional_total_marks       = @total,
+                                provisional_marks_status      = @ps
+                            WHERE id = @crid", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@cw",    proposedCw.Value);
+                            cmd.Parameters.AddWithValue("@exam",  proposedExam.HasValue ? (object)proposedExam.Value : DBNull.Value);
+                            cmd.Parameters.AddWithValue("@total", regTotal);
+                            cmd.Parameters.AddWithValue("@ps",    proposedExam.HasValue ? "pending" : "not_entered");
+                            cmd.Parameters.AddWithValue("@crid",  courseRegId);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* non-fatal */ }
+                }
+
+                tx.Commit();
+            }
+        }
+
+        var result = new Dictionary<string, object>
+        {
+            { "request_id", requestId },
+            { "next_status", nextStatus }
+        };
+        if (marksPublished)
+        {
+            result["marks_published"]  = true;
+            result["published_total"]  = publishedTotal;
+        }
+
+        string msg = nextStatus == "APPROVED"
+            ? "Response submitted. Marks have been published and the request is now approved."
+            : "Response submitted. The request has been forwarded to your supervisor for review.";
+
+        ApiHelper.Success(Response, result, msg);
+    }
+
+    private void HandleLmrReject()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff")
+        {
+            ApiHelper.Error(Response, "This endpoint is for staff members only.", "ACCESS_DENIED");
+            return;
+        }
+
+        string empIdStr = GetLecturerEmpId(auth.UserId);
+        if (string.IsNullOrEmpty(empIdStr))
+        {
+            ApiHelper.Error(Response, "Staff profile not found.", "NOT_FOUND");
+            return;
+        }
+        int staffId = int.Parse(empIdStr);
+
+        // Matching the portal: reject requires a supervisor to be assigned
+        int supervisorId = GetSupervisorIdForLecturer(staffId);
+        if (supervisorId <= 0)
+        {
+            ApiHelper.Error(Response,
+                "You do not have a supervisor assigned. You cannot reject requests until a supervisor is assigned to your staff profile.",
+                "ACCESS_DENIED");
+            return;
+        }
+
+        int requestId = ApiHelper.ParamInt(Request, "request_id", 0);
+        if (requestId <= 0)
+        {
+            ApiHelper.Error(Response, "Missing required parameter: request_id.", "MISSING_PARAM");
+            return;
+        }
+
+        string rejectReason = ApiHelper.Param(Request, "reason", "").Trim();
+        if (rejectReason.Length < 10)
+        {
+            ApiHelper.Error(Response,
+                "Please provide a rejection reason of at least 10 characters.",
+                "VALIDATION_ERROR");
+            return;
+        }
+
+        int n = ApiHelper.Execute(@"
+            UPDATE campus_dynamics_portal.acad_marks_requests
+            SET lecturer_response     = @reason,
+                lecturer_responded_at = NOW(),
+                status                = 'REJECTED',
+                updated_at            = NOW()
+            WHERE id = @id AND lecturer_id = @sid",
+            new MySqlParameter("@reason", rejectReason),
+            new MySqlParameter("@id",     requestId),
+            new MySqlParameter("@sid",    staffId));
+
+        if (n == 0)
+        {
+            ApiHelper.Error(Response,
+                "Request not found or not assigned to you.", "NOT_FOUND");
+            return;
+        }
+
+        ApiHelper.Success(Response,
+            new Dictionary<string, object> { { "request_id", requestId } },
+            "Request rejected successfully.");
     }
 }

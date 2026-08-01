@@ -113,6 +113,16 @@
 .pm-toast.show{display:block;}
 .pm-toast--ok{background:#15803d;}
 .pm-toast--err{background:#b91c1c;}
+.pm-search-results{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #dbe4ef;border-top:none;border-radius:0 0 6px 6px;max-height:220px;overflow:auto;z-index:9002;display:none;box-shadow:0 12px 28px rgba(15,23,42,.14);}
+.pm-search-results.show{display:block;}
+.pm-search-item{padding:7px 10px;font-size:11px;cursor:pointer;border-bottom:1px solid #f1f5f9;color:#1f2937;line-height:1.35;}
+.pm-search-item:last-child{border-bottom:none;}
+.pm-search-item:hover{background:#f4f8ff;}
+.pm-search-item small{color:#6b7280;}
+.pm-picked{background:#f8fafc;border:1px solid #e0e5ed;border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:11px;color:#1f2937;}
+.pm-existing-wrap{max-height:120px;overflow:auto;border:1px solid #eef2f6;border-radius:6px;}
+.pm-existing-row{padding:5px 8px;border-bottom:1px solid #f1f5f9;font-size:10px;color:#374151;}
+.pm-existing-row:last-child{border-bottom:none;}
 </style>
 </asp:Content>
 
@@ -193,6 +203,96 @@
 	<div class="pm-modal__foot"><button type="button" class="pm-btn pm-btn--ghost" id="wizBack" onclick="wizardBack()">Back</button><button type="button" class="pm-btn pm-btn--primary" id="wizNext" onclick="wizardNext()">Next</button><button type="button" class="pm-btn pm-btn--success" id="wizRun" onclick="wizardRun()" style="display:none;">Run Workflow</button></div>
 </div>
 
+<!-- ── Set Status modal (single-record + batch) ── -->
+<div id="modalSetStatus" class="pm-modal" style="max-width:460px;">
+  <div class="pm-modal__head">
+    <span class="pm-modal__title" id="setStatusTitle">Set Status</span>
+    <button class="pm-modal__close" onclick="closeModal('modalSetStatus')">&times;</button>
+  </div>
+  <div class="pm-modal__body">
+    <div id="setStatusInfo" style="font-size:11px;color:#374151;background:#f8fafc;border:1px solid #e0e5ed;border-radius:4px;padding:8px 10px;margin-bottom:12px;min-height:18px;"></div>
+    <div class="pm-fg" style="margin-bottom:12px;">
+      <label style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800;margin-bottom:7px;display:block;">New Status</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <label style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid #d6deea;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#92400e;background:#fff;" id="ssLblPending">
+          <input type="radio" name="ssStatus" value="pending" onchange="onSetStatusChange(this)" /> Pending
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid #d6deea;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#2e7d32;background:#fff;" id="ssLblApproved">
+          <input type="radio" name="ssStatus" value="approved" onchange="onSetStatusChange(this)" /> Approved
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid #d6deea;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#b42318;background:#fff;" id="ssLblRejected">
+          <input type="radio" name="ssStatus" value="rejected" onchange="onSetStatusChange(this)" /> Rejected
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid #d6deea;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;color:#174DA4;background:#fff;" id="ssLblPublished">
+          <input type="radio" name="ssStatus" value="published" onchange="onSetStatusChange(this)" /> Published
+        </label>
+      </div>
+    </div>
+    <div class="pm-fg" style="margin-bottom:6px;">
+      <label style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800;">Comment <span id="ssCommentReq" style="color:#b42318;display:none;">(required for Rejected)</span></label>
+      <textarea class="pm-comment-area" id="ssComment" placeholder="Optional reason or note…" style="min-height:52px;"></textarea>
+    </div>
+    <div id="ssPublishNote" style="display:none;padding:7px 10px;background:#e8f0fc;border:1px solid #c5d5f5;border-radius:4px;font-size:10px;color:#174DA4;margin-bottom:6px;">
+      &#9432; <strong>Published</strong> runs the full pipeline: marks are written to <em>acad_results</em> and semester GPA is recomputed. At least one mark value must be present on the record.
+    </div>
+    <div class="pm-alert" id="ssAlert"></div>
+  </div>
+  <div class="pm-modal__foot">
+    <button type="button" class="pm-btn pm-btn--ghost" onclick="closeModal('modalSetStatus')">Cancel</button>
+    <button type="button" class="pm-btn pm-btn--primary" id="btnSetStatusConfirm" onclick="submitSetStatus()">Set Status</button>
+  </div>
+</div>
+
+<!-- ── Register Student to Course (admin) ── -->
+<div id="modalCreateReg" class="pm-modal pm-modal--wide">
+  <div class="pm-modal__head"><span class="pm-modal__title">Register Student to a Course</span><span id="crSessionBadge" style="display:none;margin-left:auto;margin-right:8px;font-size:10px;font-weight:800;color:#15803d;background:#e6f4ea;border:1px solid #bbf7d0;border-radius:10px;padding:2px 9px;">0 added</span><button class="pm-modal__close" onclick="closeCreateReg()">&times;</button></div>
+  <div class="pm-modal__body">
+    <div class="pm-fg" style="margin-bottom:10px;position:relative;">
+      <label>1. Student <span style="color:#94a3b8;font-weight:600;text-transform:none;letter-spacing:0;">(search reg no, name or entry no)</span></label>
+      <input type="text" class="pm-input" id="crStudSearch" autocomplete="off" placeholder="Type at least 2 characters&hellip;" oninput="crSearchStudents()" />
+      <div id="crStudResults" class="pm-search-results"></div>
+    </div>
+    <div id="crStudPicked" class="pm-picked" style="display:none;"></div>
+    <div id="crExisting" style="display:none;margin-bottom:10px;"></div>
+    <div class="pm-fg" style="margin-bottom:10px;position:relative;">
+      <label>2. Course <span style="color:#94a3b8;font-weight:600;text-transform:none;letter-spacing:0;">(search code or name)</span></label>
+      <input type="text" class="pm-input" id="crCourseSearch" autocomplete="off" placeholder="Type at least 2 characters&hellip;" oninput="crSearchCourses()" />
+      <div id="crCourseResults" class="pm-search-results"></div>
+    </div>
+    <div id="crCoursePicked" class="pm-picked" style="display:none;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="pm-fg"><label>3. Academic Year</label><input type="text" class="pm-input" id="crYear" list="crYearList" autocomplete="off" placeholder="e.g. 2024/2025" /><datalist id="crYearList"></datalist></div>
+      <div class="pm-fg"><label>4. Semester</label><select class="pm-select" id="crSem"><option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option></select></div>
+    </div>
+    <div class="pm-alert" id="crAlert" style="margin-top:10px;"></div>
+    <div id="crDoneWrap" style="display:none;margin-top:12px;">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#15803d;font-weight:800;margin-bottom:4px;">Registered this session</div>
+      <div id="crDoneList" class="pm-existing-wrap" style="max-height:130px;border-color:#bbf7d0;"></div>
+    </div>
+  </div>
+  <div class="pm-modal__foot" style="justify-content:space-between;">
+    <div style="font-size:10px;color:#6b7280;align-self:center;" id="crHint">Tip: after each save the student &amp; period are kept — just pick the next course.</div>
+    <div style="display:flex;gap:6px;">
+      <button type="button" class="pm-btn pm-btn--ghost" id="btnCreateRegClose" onclick="closeCreateReg()">Close</button>
+      <button type="button" class="pm-btn pm-btn--primary" id="btnCreateReg" onclick="submitCreateReg()">Register to Course</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete Course Registration (admin) ── -->
+<div id="modalDeleteReg" class="pm-modal" style="max-width:460px;">
+  <div class="pm-modal__head"><span class="pm-modal__title" style="color:#b42318;">Delete Course Registration</span><button class="pm-modal__close" onclick="closeModal('modalDeleteReg')">&times;</button></div>
+  <div class="pm-modal__body">
+    <p style="font-size:11px;color:#374151;margin:0 0 10px;">This permanently removes the student's registration for this course in this period. It cannot be undone.</p>
+    <div id="drInfo" style="font-size:11px;color:#374151;background:#f8fafc;border:1px solid #e0e5ed;border-radius:4px;padding:8px 10px;margin-bottom:10px;min-height:18px;">Loading&hellip;</div>
+    <div class="pm-alert" id="drAlert"></div>
+  </div>
+  <div class="pm-modal__foot">
+    <button type="button" class="pm-btn pm-btn--ghost" onclick="closeModal('modalDeleteReg')">Cancel</button>
+    <button type="button" class="pm-btn pm-btn--danger" id="btnDeleteReg" onclick="submitDeleteReg()">Delete Registration</button>
+  </div>
+</div>
+
 <div class="pm-card">
 	<div class="pm-card__head">
 		<div>
@@ -202,6 +302,8 @@
 	</div>
 
 	<div class="pm-top-controls">
+		<button type="button" class="pm-btn pm-btn--primary" onclick="openCreateReg()">&#43; Register Student to Course</button>
+		<span style="width:1px;height:20px;background:#e0e5ed;display:inline-block;"></span>
 		<button type="button" class="pm-btn pm-btn--success" onclick="openBatchWizard('approved')">Wizard: Batch Approve</button>
 		<button type="button" class="pm-btn pm-btn--primary" onclick="openBatchWizard('published')">Wizard: Batch Publish</button>
 	</div>
@@ -226,7 +328,7 @@
 		<div class="pm-fg" style="justify-content:flex-end;"><label>&nbsp;</label><button type="button" class="pm-btn pm-btn--primary" onclick="applyFilters()">Apply</button></div>
 	</div>
 
-	<div class="pm-bulk-bar" id="bulkBar"><span class="pm-bulk-label" id="bulkCountLabel">0 selected</span><button type="button" class="pm-btn pm-btn--success" onclick="openBulkModal('approved')">Approve Selected</button><button type="button" class="pm-btn pm-btn--danger" onclick="openBulkModal('rejected')">Reject Selected</button><button type="button" class="pm-btn pm-btn--primary" onclick="openBulkModal('published')">Publish Selected</button><button type="button" class="pm-btn pm-btn--ghost" onclick="clearSelection()">Clear Selection</button></div>
+	<div class="pm-bulk-bar" id="bulkBar"><span class="pm-bulk-label" id="bulkCountLabel">0 selected</span><button type="button" class="pm-btn pm-btn--success" onclick="openBulkModal('approved')">Approve Selected</button><button type="button" class="pm-btn pm-btn--danger" onclick="openBulkModal('rejected')">Reject Selected</button><button type="button" class="pm-btn pm-btn--primary" onclick="openBulkModal('published')">Publish Selected</button><button type="button" class="pm-btn" style="border-color:#7c3aed;color:#7c3aed;" onclick="openBulkSetStatus()">&#9654; Set Status&hellip;</button><button type="button" class="pm-btn pm-btn--ghost" onclick="clearSelection()">Clear Selection</button></div>
 
 	<div class="pm-meta"><span>Showing <strong><asp:Literal ID="litFrom" runat="server">0</asp:Literal></strong>–<strong><asp:Literal ID="litTo" runat="server">0</asp:Literal></strong> of <strong><asp:Literal ID="litTotal" runat="server">0</asp:Literal></strong> records &nbsp;|&nbsp; Page <asp:Literal ID="litPage" runat="server">1</asp:Literal> of <asp:Literal ID="litPageCount" runat="server">1</asp:Literal></span><div class="pm-pager"><asp:Literal ID="litPager" runat="server" /></div></div>
 
@@ -259,7 +361,7 @@ window.closeMenuThen=function(btn,fn){ btn.closest('.pm-row-menu').classList.rem
 window.toggleRowMenu=function(btn){ var menu=btn.parentNode.querySelector('.pm-row-menu'); var wasOpen=menu.classList.contains('open'); document.querySelectorAll('.pm-row-menu.open').forEach(function(m){m.classList.remove('open');}); if(!wasOpen) menu.classList.add('open'); };
 function openModal(id){ qs('pmOverlay').classList.add('show'); qs(id).classList.add('show'); }
 window.closeModal=function(id){ qs('pmOverlay').classList.remove('show'); qs(id).classList.remove('show'); _id=null; };
-window.closeAllModals=function(){ ['modalDetails','modalReview','modalPublish','modalEdit','modalBulk','modalBatchWizard'].forEach(function(m){ var el=qs(m); if(el) el.classList.remove('show'); }); qs('pmOverlay').classList.remove('show'); _id=null; };
+window.closeAllModals=function(){ ['modalDetails','modalReview','modalPublish','modalEdit','modalBulk','modalBatchWizard','modalSetStatus','modalCreateReg','modalDeleteReg'].forEach(function(m){ var el=qs(m); if(el) el.classList.remove('show'); }); qs('pmOverlay').classList.remove('show'); _id=null; };
 function goWithQuery(params){ var query = new URLSearchParams(); Object.keys(params).forEach(function(k){ if(params[k]!==undefined && params[k]!==null) query.set(k, params[k]); }); window.location.href='AllMarksController.aspx?'+query.toString(); }
 window.applyFilters=function(){ var year=qs('<%= ddlYear.ClientID %>').value, sem=qs('<%= ddlSemester.ClientID %>').value, status=qs('<%= ddlStatus.ClientID %>').value, prog=qs('<%= ddlProg.ClientID %>').value, lect=qs('<%= ddlLecturer.ClientID %>').value, ps=qs('<%= ddlPageSize.ClientID %>').value, q=qs('<%= txtSearch.ClientID %>').value; goWithQuery({pg:'1',year:year,sem:sem,status:status,prog:prog,lect:lect,ps:ps,q:q}); };
 window.filterByStatus=function(){ var year=qs('<%= ddlYear.ClientID %>').value, sem=qs('<%= ddlSemester.ClientID %>').value, status=qs('<%= ddlStatus.ClientID %>').value, prog=qs('<%= ddlProg.ClientID %>').value, lect=qs('<%= ddlLecturer.ClientID %>').value, ps=qs('<%= ddlPageSize.ClientID %>').value, q=qs('<%= txtSearch.ClientID %>').value; goWithQuery({pg:'1',year:year,sem:sem,status:status,prog:prog,lect:lect,ps:ps,q:q}); };
@@ -286,6 +388,243 @@ window.openBatchWizard=function(action){ syncWizardLookups(); qs('wizAction').va
 window.wizardBack=function(){ if(_wizStep>1) setWizStep(_wizStep-1); };
 window.wizardNext=function(){ if(_wizStep===1){ setWizStep(2); return; } if(_wizStep===2){ setWizStep(3); wizardPreview(); } };
 window.wizardRun=function(){ clearAlert('wizAlert'); qs('wizRun').disabled=true; callAJAX('ExecuteBatchWorkflow',wizardPayload(),function(d){ qs('wizRun').disabled=false; if(d.success){ showToast(d.message||'Workflow completed.','ok'); window.closeModal('modalBatchWizard'); setTimeout(function(){ location.reload(); },800); } else showAlert('wizAlert',d.message||'Workflow failed.','err'); }); };
+
+/* ── Set Status (single + batch) ─────────────────────────────── */
+var _ssMode='single'; // 'single' | 'bulk'
+
+function _resetSetStatusModal(){
+  document.querySelectorAll('input[name="ssStatus"]').forEach(function(r){ r.checked=false; });
+  qs('ssComment').value='';
+  qs('ssCommentReq').style.display='none';
+  qs('ssPublishNote').style.display='none';
+  clearAlert('ssAlert');
+  qs('btnSetStatusConfirm').disabled=false;
+  // un-highlight all labels
+  ['ssLblPending','ssLblApproved','ssLblRejected','ssLblPublished'].forEach(function(id){
+    var el=qs(id); if(el){ el.style.background='#fff'; el.style.borderColor='#d6deea'; }
+  });
+}
+
+window.onSetStatusChange=function(radio){
+  var v=radio?radio.value:'';
+  qs('ssCommentReq').style.display = v==='rejected' ? 'inline' : 'none';
+  qs('ssPublishNote').style.display = v==='published' ? 'block' : 'none';
+  clearAlert('ssAlert');
+  // highlight selected label
+  var map={pending:'ssLblPending',approved:'ssLblApproved',rejected:'ssLblRejected',published:'ssLblPublished'};
+  var bgMap={pending:'#fff7ed',approved:'#f0fdf4',rejected:'#fef2f2',published:'#eef2ff'};
+  var bdMap={pending:'#f59e0b',approved:'#22c55e',rejected:'#ef4444',published:'#6366f1'};
+  ['pending','approved','rejected','published'].forEach(function(s){
+    var el=qs(map[s]); if(!el) return;
+    el.style.background = s===v ? bgMap[s] : '#fff';
+    el.style.borderColor= s===v ? bdMap[s] : '#d6deea';
+  });
+};
+
+window.openSetStatus=function(id){
+  _ssMode='single'; _id=id;
+  _resetSetStatusModal();
+  // Load record info
+  qs('setStatusTitle').textContent='Set Status';
+  qs('setStatusInfo').textContent='Loading…';
+  openModal('modalSetStatus');
+  callAJAX('GetProvisionalRecord',{id:id},function(d){
+    if(!d.success){ qs('setStatusInfo').textContent='Could not load record.'; return; }
+    var r=d.record;
+    qs('setStatusTitle').textContent='Set Status — '+r.regno+' / '+r.courseID;
+    qs('setStatusInfo').innerHTML=
+      '<strong>'+r.regno+'</strong> &mdash; '+r.courseID+' &nbsp;|&nbsp; '+r.acad_year+' · Yr '+(r.study_year||'—')+', Sem '+r.semester+
+      '<br/>Current status: '+statusPill(r.provisional_marks_status);
+    // Pre-select current status
+    var cur=r.provisional_marks_status;
+    document.querySelectorAll('input[name="ssStatus"]').forEach(function(radio){
+      if(radio.value===cur){ radio.checked=true; onSetStatusChange(radio); }
+    });
+  });
+};
+
+window.openBulkSetStatus=function(){
+  if(_selectedIds.length===0){ showToast('No records selected.','err'); return; }
+  _ssMode='bulk';
+  _resetSetStatusModal();
+  qs('setStatusTitle').textContent='Set Status — '+_selectedIds.length+' selected';
+  qs('setStatusInfo').innerHTML='Changing status for <strong>'+_selectedIds.length+'</strong> selected record(s). All will be set to the chosen status.';
+  openModal('modalSetStatus');
+};
+
+window.submitSetStatus=function(){
+  var selected=document.querySelector('input[name="ssStatus"]:checked');
+  if(!selected){ showAlert('ssAlert','Please select a target status.','err'); return; }
+  var newStatus=selected.value;
+  var comment=qs('ssComment').value.trim();
+  if(newStatus==='rejected'&&!comment){ showAlert('ssAlert','Comment is required when setting to Rejected.','err'); return; }
+  clearAlert('ssAlert');
+  qs('btnSetStatusConfirm').disabled=true;
+
+  if(_ssMode==='single'){
+    callAJAX('ForceSetStatus',{id:_id,status:newStatus,comment:comment},function(d){
+      qs('btnSetStatusConfirm').disabled=false;
+      if(d.success){ showToast(d.message||'Status updated.','ok'); window.closeModal('modalSetStatus'); setTimeout(function(){ location.reload(); },800); }
+      else showAlert('ssAlert',d.message||'Update failed.','err');
+    });
+  } else {
+    callAJAX('BulkForceSetStatus',{ids:_selectedIds,status:newStatus,comment:comment},function(d){
+      qs('btnSetStatusConfirm').disabled=false;
+      if(d.success){ showToast(d.message||'Bulk status updated.','ok'); window.closeModal('modalSetStatus'); setTimeout(function(){ location.reload(); },800); }
+      else showAlert('ssAlert',d.message||'Bulk update failed.','err');
+    });
+  }
+};
+
+/* ── Admin: create / delete course registration ─────────────────── */
+function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+var _crStud=null, _crCourse=null, _crStudList=[], _crCourseList=[], _crStudT=null, _crCourseT=null, _drId=null, _crCount=0;
+
+// close search dropdowns when clicking outside them
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#crStudSearch, #crStudResults')){ var a=qs('crStudResults'); if(a) a.classList.remove('show'); }
+  if(!e.target.closest('#crCourseSearch, #crCourseResults')){ var b=qs('crCourseResults'); if(b) b.classList.remove('show'); }
+});
+
+window.openCreateReg=function(){
+  _crStud=null; _crCourse=null; _crStudList=[]; _crCourseList=[]; _crCount=0;
+  qs('crStudSearch').value=''; qs('crCourseSearch').value=''; qs('crYear').value=''; qs('crSem').value='1';
+  qs('crStudPicked').style.display='none'; qs('crCoursePicked').style.display='none'; qs('crExisting').style.display='none';
+  qs('crStudResults').classList.remove('show'); qs('crCourseResults').classList.remove('show');
+  clearAlert('crAlert'); qs('btnCreateReg').disabled=false;
+  // reset the "registered this session" tracker
+  qs('crDoneWrap').style.display='none'; qs('crDoneList').innerHTML='';
+  var badge=qs('crSessionBadge'); badge.style.display='none'; badge.textContent='0 added';
+  var closeBtn=qs('btnCreateRegClose'); closeBtn.textContent='Close'; closeBtn.className='pm-btn pm-btn--ghost';
+  // populate the academic-year datalist from the page's year filter
+  var src=qs('<%= ddlYear.ClientID %>'), dl=qs('crYearList');
+  if(src&&dl){ var h=''; for(var i=0;i<src.options.length;i++){ var v=src.options[i].value; if(v) h+='<option value="'+esc(v)+'"></option>'; } dl.innerHTML=h; }
+  openModal('modalCreateReg');
+};
+
+// Close the register modal — reload the underlying list only if something was registered this session.
+window.closeCreateReg=function(){
+  if(_crCount>0){ window.closeModal('modalCreateReg'); setTimeout(function(){ location.reload(); },250); }
+  else window.closeModal('modalCreateReg');
+};
+
+// Append a successfully-registered course to the session list + bump the badge.
+function crAddDone(code,year,sem){
+  qs('crDoneWrap').style.display='block';
+  var row=document.createElement('div');
+  row.className='pm-existing-row';
+  row.innerHTML='<span style="color:#15803d;font-weight:800;">&#10003;</span> <strong>'+esc(code)+'</strong> &mdash; '+esc(year)+' &middot; Sem '+esc(sem)+(_crStud?(' &middot; '+esc(_crStud.regno)):'');
+  var list=qs('crDoneList'); list.insertBefore(row, list.firstChild);
+  var badge=qs('crSessionBadge'); badge.style.display='inline-block'; badge.textContent=_crCount+' added';
+}
+
+// Load + render the picked student's existing registrations (also refreshed after each new save).
+function crLoadExisting(regno){
+  callAJAX('GetStudentRegSummary',{regno:regno},function(d){
+    if(!d||!d.success) return;
+    if(d.in_scope===false){ showAlert('crAlert','This student is outside your faculty/department scope; registering them will be blocked.','err'); }
+    var box=qs('crExisting');
+    if(d.existing&&d.existing.length){
+      var h='<div style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800;margin-bottom:4px;">Already registered ('+d.existing.length+' period(s))</div><div class="pm-existing-wrap">';
+      d.existing.forEach(function(x){ h+='<div class="pm-existing-row"><strong>'+esc(x.acad_year)+' &middot; Sem '+esc(x.semester)+'</strong> &mdash; '+esc(x.courses||'')+'</div>'; });
+      h+='</div>';
+      box.innerHTML=h; box.style.display='block';
+    } else { box.style.display='none'; }
+  });
+}
+
+window.crSearchStudents=function(){
+  var q=qs('crStudSearch').value.trim(); _crStud=null;
+  qs('crStudPicked').style.display='none'; qs('crExisting').style.display='none'; clearAlert('crAlert');
+  var box=qs('crStudResults');
+  if(_crStudT) clearTimeout(_crStudT);
+  if(q.length<2){ box.innerHTML=''; box.classList.remove('show'); return; }
+  _crStudT=setTimeout(function(){
+    callAJAX('RegSearchStudents',{q:q},function(d){
+      if(!d||!d.success){ box.classList.remove('show'); return; }
+      _crStudList=d.students||[];
+      if(!_crStudList.length){ box.innerHTML='<div class="pm-search-item" style="color:#6b7280;">No students found.</div>'; box.classList.add('show'); return; }
+      var h=''; _crStudList.forEach(function(s,i){ h+='<div class="pm-search-item" onclick="crPickStudent('+i+')"><strong>'+esc(s.regno)+'</strong> &mdash; '+esc(s.name||'')+'<br><small>'+esc(s.prog||'')+(s.status?(' &middot; '+esc(s.status)):'')+'</small></div>'; });
+      box.innerHTML=h; box.classList.add('show');
+    });
+  },220);
+};
+window.crPickStudent=function(i){
+  var s=_crStudList[i]; if(!s) return; _crStud=s;
+  qs('crStudSearch').value=s.regno; qs('crStudResults').classList.remove('show');
+  qs('crStudPicked').style.display='block';
+  qs('crStudPicked').innerHTML='Selected student: <strong>'+esc(s.regno)+'</strong> &mdash; '+esc(s.name||'')+'<br><small style="color:#6b7280;">'+esc(s.prog||'')+'</small>';
+  clearAlert('crAlert');
+  crLoadExisting(s.regno);
+};
+
+window.crSearchCourses=function(){
+  var q=qs('crCourseSearch').value.trim(); _crCourse=null; qs('crCoursePicked').style.display='none';
+  var box=qs('crCourseResults');
+  if(_crCourseT) clearTimeout(_crCourseT);
+  if(q.length<2){ box.innerHTML=''; box.classList.remove('show'); return; }
+  _crCourseT=setTimeout(function(){
+    callAJAX('RegSearchCourses',{q:q},function(d){
+      if(!d||!d.success){ box.classList.remove('show'); return; }
+      _crCourseList=d.courses||[];
+      if(!_crCourseList.length){ box.innerHTML='<div class="pm-search-item" style="color:#6b7280;">No courses found.</div>'; box.classList.add('show'); return; }
+      var h=''; _crCourseList.forEach(function(c,i){ h+='<div class="pm-search-item" onclick="crPickCourse('+i+')"><strong>'+esc(c.code)+'</strong>'+(c.name?(' &mdash; '+esc(c.name)):'')+'</div>'; });
+      box.innerHTML=h; box.classList.add('show');
+    });
+  },220);
+};
+window.crPickCourse=function(i){
+  var c=_crCourseList[i]; if(!c) return; _crCourse=c;
+  qs('crCourseSearch').value=c.code; qs('crCourseResults').classList.remove('show');
+  qs('crCoursePicked').style.display='block';
+  qs('crCoursePicked').innerHTML='Selected course: <strong>'+esc(c.code)+'</strong>'+(c.name?(' &mdash; '+esc(c.name)):'');
+};
+
+window.submitCreateReg=function(){
+  if(!_crStud){ showAlert('crAlert','Select a student first.','err'); return; }
+  if(!_crCourse){ showAlert('crAlert','Select a course first.','err'); return; }
+  var year=qs('crYear').value.trim(), sem=qs('crSem').value, semN=parseInt(sem,10);
+  if(!year){ showAlert('crAlert','Academic year is required.','err'); return; }
+  clearAlert('crAlert'); qs('btnCreateReg').disabled=true;
+  var code=_crCourse.code;
+  callAJAX('CreateRegistration',{regno:_crStud.regno,course:code,acadYear:year,semester:semN},function(d){
+    qs('btnCreateReg').disabled=false;
+    if(d&&d.success){
+      _crCount++;
+      showToast(d.message||'Student registered.','ok');
+      crAddDone(code, year, sem);
+      showAlert('crAlert','✓ Registered '+code+' ('+year+', Sem '+sem+'). The student & period are kept - pick another course to add more.','ok');
+      // keep the student + academic year + semester; clear only the course so the next one can be added
+      _crCourse=null; _crCourseList=[];
+      qs('crCourseSearch').value=''; qs('crCoursePicked').style.display='none'; qs('crCourseResults').classList.remove('show');
+      // refresh the student's existing-registrations panel to include what we just added
+      if(_crStud) crLoadExisting(_crStud.regno);
+      // once something is saved, the Close button also refreshes the underlying list
+      var closeBtn=qs('btnCreateRegClose'); closeBtn.textContent='Done & Refresh'; closeBtn.className='pm-btn pm-btn--success';
+      setTimeout(function(){ qs('crCourseSearch').focus(); },60);
+    }
+    else showAlert('crAlert',(d&&d.message)||'Registration failed.','err');
+  });
+};
+
+window.openDeleteReg=function(id){
+  _drId=id; clearAlert('drAlert'); qs('btnDeleteReg').disabled=false; qs('drInfo').textContent='Loading…';
+  openModal('modalDeleteReg');
+  callAJAX('GetProvisionalRecord',{id:id},function(d){
+    if(!d||!d.success){ qs('drInfo').textContent='Could not load record.'; return; }
+    var r=d.record;
+    qs('drInfo').innerHTML='<strong>'+esc(r.regno)+'</strong> &mdash; '+esc(r.courseID)+'<br>'+esc(r.acad_year)+' &middot; Yr '+esc(r.study_year||'—')+', Sem '+esc(r.semester)+'<br>Status: '+statusPill(r.provisional_marks_status);
+    if(r.provisional_marks_status==='published'){ showAlert('drAlert','This record is PUBLISHED — deletion will be blocked to protect final results. Unpublish it first.','err'); }
+  });
+};
+window.submitDeleteReg=function(){
+  if(!_drId) return; clearAlert('drAlert'); qs('btnDeleteReg').disabled=true;
+  callAJAX('DeleteRegistration',{id:_drId},function(d){
+    qs('btnDeleteReg').disabled=false;
+    if(d&&d.success){ showToast(d.message||'Registration deleted.','ok'); window.closeModal('modalDeleteReg'); setTimeout(function(){ location.reload(); },900); }
+    else showAlert('drAlert',(d&&d.message)||'Delete failed.','err');
+  });
+};
 })();
 </script>
 </asp:Content>

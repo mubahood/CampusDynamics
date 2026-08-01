@@ -99,12 +99,19 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
         return "";
     }
 
+    // Only count appraisals for employees that currently hold a VALID contract.
+    // Expired / terminated / resigned staff are excluded from all stats.
+    private const string ValidContractFilter =
+        " AND EXISTS (SELECT 1 FROM hrm_emp_contracts vc" +
+        "             WHERE vc.empID = ar.employee_id AND vc.contractStatus = 'VALID')";
+
     // ═══════════════════════════════════════════════════════════════════
     //  KPI CARDS
     // ═══════════════════════════════════════════════════════════════════
     private void LoadKpis(MySqlConnection conn)
     {
-        string sessionWhere = QsSession > 0 ? " WHERE ar.session_id = " + QsSession : "";
+        string sessionClause = QsSession > 0 ? " AND ar.session_id = " + QsSession : "";
+        string baseWhere = " WHERE 1=1" + ValidContractFilter + sessionClause;
 
         string sql = string.Format(
             @"SELECT
@@ -119,28 +126,37 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
                 ROUND(AVG(CASE WHEN ar.status IN ('COMPLETED','HR_REVIEWED')
                                THEN ar.final_percentage END), 1)                                  AS avg_score
               FROM appraisal_records ar
-              {0}", sessionWhere);
+              {0}", baseWhere);
 
         DataTable dt = ExecuteQuery(conn, sql);
         DataRow r = dt.Rows[0];
 
-        litKpiTotal.Text      = SafeInt(r["total"]).ToString("N0");
+        int total      = SafeInt(r["total"]);
+        int notStart   = SafeInt(r["not_started"]);
+        int hrDone     = SafeInt(r["hr_reviewed"]);
+        int needsHr    = SafeInt(r["needs_hr"]);
+        int supDone    = needsHr + hrDone; // COMPLETED (awaiting HR) + HR_REVIEWED
+        double pctDone = total > 0 ? Math.Round((double)supDone / total * 100, 1) : 0;
+
+        litKpiTotal.Text      = total.ToString("N0");
         litKpiNeedsHr.Text    = SafeInt(r["needs_hr"]).ToString("N0");
-        litKpiHrReviewed.Text = SafeInt(r["hr_reviewed"]).ToString("N0");
+        litKpiHrReviewed.Text = hrDone.ToString("N0");
         litKpiSupStage.Text   = SafeInt(r["sup_stage"]).ToString("N0");
         litKpiEmpStage.Text   = SafeInt(r["emp_stage"]).ToString("N0");
-        litKpiNotStarted.Text = SafeInt(r["not_started"]).ToString("N0");
+        litKpiNotStarted.Text = notStart.ToString("N0");
         litKpiAvgScore.Text   = (r["avg_score"] != null && r["avg_score"] != DBNull.Value)
             ? Convert.ToDecimal(r["avg_score"]).ToString("F1") + "%" : "—";
+        litKpiCompletionPct.Text = pctDone.ToString("F0") + "%";
 
-        string overdueWhere = QsSession > 0 ? " AND ar.session_id = " + QsSession : "";
-        DataTable dtOver = ExecuteQuery(conn, string.Format(
+        string overdueWhere = " WHERE ar.status NOT IN ('COMPLETED','HR_REVIEWED','CANCELLED')" +
+                              ValidContractFilter +
+                              (QsSession > 0 ? " AND ar.session_id = " + QsSession : "") +
+                              " AND s.deadline < CURDATE()";
+        DataTable dtOver = ExecuteQuery(conn,
             @"SELECT COUNT(*) AS cnt
               FROM appraisal_records ar
-              INNER JOIN appraisal_sessions s ON s.session_id = ar.session_id
-              WHERE ar.status NOT IN ('COMPLETED','HR_REVIEWED','CANCELLED')
-                AND s.deadline < CURDATE()
-                {0}", overdueWhere));
+              INNER JOIN appraisal_sessions s ON s.session_id = ar.session_id" +
+            overdueWhere);
         litKpiOverdue.Text = SafeInt(dtOver.Rows[0]["cnt"]).ToString("N0");
     }
 
@@ -149,7 +165,8 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadPipeline(MySqlConnection conn)
     {
-        string sessionWhere = QsSession > 0 ? " WHERE ar.session_id = " + QsSession : "";
+        string baseWhere = " WHERE 1=1" + ValidContractFilter +
+                           (QsSession > 0 ? " AND ar.session_id = " + QsSession : "");
 
         string sql = string.Format(
             @"SELECT
@@ -161,7 +178,7 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
                 SUM(CASE WHEN ar.status = 'COMPLETED'              THEN 1 ELSE 0 END) AS s_completed,
                 SUM(CASE WHEN ar.status = 'HR_REVIEWED'            THEN 1 ELSE 0 END) AS s_hr_reviewed
               FROM appraisal_records ar
-              {0}", sessionWhere);
+              {0}", baseWhere);
 
         DataTable dt = ExecuteQuery(conn, sql);
         if (dt.Rows.Count == 0) return;
@@ -181,7 +198,7 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadActionRequired(MySqlConnection conn)
     {
-        string sessionWhere = QsSession > 0 ? " AND ar.session_id = " + QsSession : "";
+        string sessionWhere = ValidContractFilter + (QsSession > 0 ? " AND ar.session_id = " + QsSession : "");
         string deptExpr = BuildDepartmentSqlExpression(conn, "e");
 
         bool hasSupervisorId = ColumnExists(conn, "appraisal_records", "supervisor_id");
@@ -211,17 +228,17 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
         if (count > 0)
         {
             litActionBanner.Text = string.Format(
-                "<div class='pa-action-banner'>" +
-                "<div class='pa-action-banner__icon'>" +
-                "<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'>" +
+                "<div class='pa-banner'>" +
+                "<div class='pa-banner__icon'>" +
+                "<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'>" +
                 "<path d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/>" +
                 "<line x1='12' y1='9' x2='12' y2='13'/><line x1='12' y1='17' x2='12.01' y2='17'/></svg>" +
                 "</div>" +
-                "<div class='pa-action-banner__text'>" +
-                "<div class='pa-action-banner__title'>{0} appraisal{1} awaiting your HR review</div>" +
-                "<div class='pa-action-banner__sub'>These records have been completed by supervisors and are ready for final HR assessment and sign-off.</div>" +
+                "<div class='pa-banner__body'>" +
+                "<div class='pa-banner__title'>{0} appraisal{1} awaiting HR review</div>" +
+                "<div class='pa-banner__sub'>Completed by supervisors — ready for final HR assessment.</div>" +
                 "</div>" +
-                "<a href='AppraisalView.aspx?status=COMPLETED' class='pa-action-banner__btn'>Open HR Review Queue &rarr;</a>" +
+                "<a href='AppraisalView.aspx?status=COMPLETED' class='pa-banner__btn'>Open HR Review Queue &rarr;</a>" +
                 "</div>",
                 count, count == 1 ? "" : "s");
         }
@@ -259,7 +276,7 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
                 sb.AppendFormat("<td style='font-size:11px;'>{0}</td>",
                     HttpUtility.HtmlEncode(SafeStr(r["supervisor_name"])));
                 sb.AppendFormat("<td class='pa-num' style='font-weight:700;'>{0}</td>", score);
-                sb.AppendFormat("<td><span class='pa-rec-badge pa-rec-badge--completed'>{0}</span></td>",
+                sb.AppendFormat("<td><span class='pa-badge pa-badge--completed'>{0}</span></td>",
                     string.IsNullOrEmpty(classification) ? "—" : HttpUtility.HtmlEncode(classification));
                 sb.AppendFormat("<td class='pa-ar-days {0}'>{1}</td>", daysClass, daysText);
                 sb.AppendFormat("<td style='text-align:center;'>" +
@@ -276,7 +293,7 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadCategoryBreakdown(MySqlConnection conn)
     {
-        string sessionWhere = QsSession > 0 ? " AND ar.session_id = " + QsSession : "";
+        string sessionWhere = ValidContractFilter + (QsSession > 0 ? " AND ar.session_id = " + QsSession : "");
 
         string sql = string.Format(
             @"SELECT
@@ -334,7 +351,7 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadDepartmentBreakdown(MySqlConnection conn)
     {
-        string sessionWhere = QsSession > 0 ? " AND ar.session_id = " + QsSession : "";
+        string sessionWhere = ValidContractFilter + (QsSession > 0 ? " AND ar.session_id = " + QsSession : "");
         string departmentExpr = BuildDepartmentSqlExpression(conn, "e");
 
         string sql = string.Format(
@@ -435,7 +452,7 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadStatusBreakdown(MySqlConnection conn)
     {
-        string sessionWhere = QsSession > 0 ? " AND ar.session_id = " + QsSession : "";
+        string sessionWhere = ValidContractFilter + (QsSession > 0 ? " AND ar.session_id = " + QsSession : "");
 
         string sql = string.Format(
             @"SELECT ar.status, COUNT(*) AS cnt
@@ -466,12 +483,12 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
                 string color = GetStatusColor(status);
                 string label = FormatStatusLabel(status);
 
-                sb.Append("<div class='pa-status-row'>");
-                sb.AppendFormat("<span class='pa-status-row__label'>{0}</span>", label);
-                sb.AppendFormat("<span class='pa-status-row__count'>{0}</span>", cnt);
-                sb.AppendFormat("<div class='pa-status-row__bar'>" +
-                    "<div class='pa-status-row__fill' style='width:{0}%;background:{1};'></div></div>", pct, color);
-                sb.AppendFormat("<span class='pa-status-row__pct'>{0}%</span>", pct);
+                sb.Append("<div class='pa-sbar'>");
+                sb.AppendFormat("<span class='pa-sbar__lbl'>{0}</span>", label);
+                sb.AppendFormat("<span class='pa-sbar__n'>{0}</span>", cnt);
+                sb.AppendFormat("<div class='pa-sbar__track'>" +
+                    "<div class='pa-sbar__fill' style='width:{0}%;background:{1};'></div></div>", pct, color);
+                sb.AppendFormat("<span class='pa-sbar__pct'>{0}%</span>", pct);
                 sb.Append("</div>");
             }
         }
@@ -483,7 +500,7 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadRecentActivity(MySqlConnection conn)
     {
-        string sessionWhere = QsSession > 0 ? " AND ar.session_id = " + QsSession : "";
+        string sessionWhere = ValidContractFilter + (QsSession > 0 ? " AND ar.session_id = " + QsSession : "");
         string deptExpr = BuildDepartmentSqlExpression(conn, "e");
 
         string sql = string.Format(
@@ -521,7 +538,7 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
                     HttpUtility.HtmlEncode(SafeStr(r["department"])));
                 sb.AppendFormat("<td style='font-size:11px;'>{0}</td>",
                     HttpUtility.HtmlEncode(SafeStr(r["session_title"])));
-                sb.AppendFormat("<td><span class='pa-rec-badge pa-rec-badge--{0}'>{1}</span></td>",
+                sb.AppendFormat("<td><span class='pa-badge pa-badge--{0}'>{1}</span></td>",
                     GetRecordBadgeModifier(status), FormatStatusLabel(status));
 
                 string score = (r["final_percentage"] != null && r["final_percentage"] != DBNull.Value)
@@ -542,7 +559,7 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private void LoadOverdueAlerts(MySqlConnection conn)
     {
-        string sessionWhere = QsSession > 0 ? " AND ar.session_id = " + QsSession : "";
+        string sessionWhere = ValidContractFilter + (QsSession > 0 ? " AND ar.session_id = " + QsSession : "");
 
         string sql = string.Format(
             @"SELECT s.session_title, s.deadline,
@@ -589,14 +606,14 @@ public partial class COOPERP_NewScreens_AppraisalDashboard : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     private string BuildMiniProgress(int completed, int total)
     {
-        if (total == 0) return "<span style='color:#bbb;font-size:11px;'>—</span>";
+        if (total == 0) return "<span style='color:#bbb;font-size:10px;'>—</span>";
         double pct = Math.Round((double)completed / total * 100, 1);
-        string color = pct >= 75 ? "#28a745" : pct >= 40 ? "#f59e0b" : pct > 0 ? "#174DA4" : "#dee2e6";
+        string color = pct >= 75 ? "#1a7a4a" : pct >= 40 ? "#d97706" : pct > 0 ? "#174DA4" : "#e0e5ed";
         return string.Format(
-            "<div class='pa-mini-prog'>" +
-            "<div class='pa-mini-prog__bar' style='width:{0}%;background:{1}'></div>" +
-            "</div>" +
-            "<span class='pa-mini-prog__text'>{0}%</span>",
+            "<div class='pa-prog'>" +
+            "<div class='pa-prog__track'><div class='pa-prog__fill' style='width:{0}%;background:{1};'></div></div>" +
+            "<span class='pa-prog__txt'>{0}%</span>" +
+            "</div>",
             pct, color);
     }
 

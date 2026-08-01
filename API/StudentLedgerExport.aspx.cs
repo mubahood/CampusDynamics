@@ -223,7 +223,12 @@ public partial class API_StudentLedgerExport : System.Web.UI.Page
                 "          fl2.transaction_amount = t.amount" +
                 "          AND DATE(fl2.transactionDate) = DATE(t.trans_date)" +
                 "          AND fl2.transactionType = CASE WHEN t.trans_type='Payment' THEN 'CR' ELSE 'DR' END" +
-                "          AND (fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '')" +
+                // Payment double-count fix: migration/imported ledger rows carry the student NAME
+                // as particulars while the tracking detail says "Fees Payment ... Airtel Money", so a
+                // strict particulars match fails and the same payment is counted twice. Waive the
+                // particulars match for PAYMENTS only (bills keep the strict match) — matches the
+                // canonical dedup in FinanceEngine / StudentLedgers (Fix B).
+                "          AND (t.trans_type = 'Payment' OR fl2.particulars = t.detail OR t.detail IS NULL OR t.detail = '')" +
                 "        )" +
                 "      )" +
                 "  ) " +

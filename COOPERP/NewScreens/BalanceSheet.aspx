@@ -114,6 +114,11 @@
     </div>
 </div>
 
+<!-- Error / info banner -->
+<asp:Panel ID="pnlError" runat="server" Visible="false" CssClass="ft-status ft-status--err">
+    <asp:Literal ID="litError" runat="server" />
+</asp:Panel>
+
 <asp:Panel ID="pnlReport" runat="server" Visible="false">
 
 <!-- Stats Row -->

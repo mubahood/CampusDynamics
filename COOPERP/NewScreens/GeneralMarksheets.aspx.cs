@@ -408,7 +408,7 @@ public partial class COOPERP_NewScreens_GeneralMarksheets : System.Web.UI.Page
     
     protected void btnApproveSelected_Click(object sender, EventArgs e)
     {
-        if (!HttpContext.Current.User.IsInRole("Dean") && !HttpContext.Current.User.IsInRole("Administrator"))
+        if (!RoleAccessService.IsInRoleCompat("Dean") && !RoleAccessService.IsInRoleCompat("Administrator"))
         {
             ShowMessage("Only Dean or Administrator can approve marksheets.", "error");
             return;

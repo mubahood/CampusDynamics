@@ -246,10 +246,211 @@
         .alert-item svg { width: 14px; height: 14px; flex-shrink: 0; color: #f57c00; }
         .alert-item--info svg { color: #2196f3; }
         .alert-item--success svg { color: #4caf50; }
+
+        /* ── Role-aware additions ───────────────────────────────────────── */
+        .dash-welcome{background:#fff;border:1px solid #e0e5ed;border-radius:6px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+        .dash-welcome__hi{font-size:17px;font-weight:700;color:#05275C;margin:0;}
+        .dash-welcome__sub{font-size:12px;color:#64748b;margin-top:3px;}
+        .dash-welcome__roles{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+        .dash-roles-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;margin-right:2px;}
+        .dash-rolechip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;color:#fff;font-size:11px;font-weight:600;white-space:nowrap;}
+        .dash-rolechip__dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.7);}
+        .dash-rolechip--none{background:#fff;color:#92400e;border:1px solid #fde68a;}
+        .dash-section{display:flex;align-items:baseline;gap:10px;margin:20px 0 10px;}
+        .dash-section__title{font-size:14px;font-weight:700;color:#1a1a2e;margin:0;display:flex;align-items:center;gap:8px;}
+        .dash-section__title svg{width:16px;height:16px;color:#174DA4;}
+        .dash-section__hint{font-size:11px;color:#94a3b8;}
+        .dash-noaccess{background:#fff;border:1px solid #e0e5ed;border-radius:6px;padding:52px 24px;text-align:center;color:#64748b;}
+        .dash-noaccess svg{width:46px;height:46px;color:#cbd5e1;margin-bottom:12px;}
+        .dash-noaccess h2{font-size:16px;color:#05275C;margin:0 0 6px;}
+        .dash-noaccess p{font-size:13px;margin:0;line-height:1.6;}
+        .stat-card__icon--money{background:#e8f5e9;color:#16a34a;}
+        .stat-card__icon--amber{background:#fff7ed;color:#ea580c;}
+        .stat-card__icon--slate{background:#eef2ff;color:#475569;}
+        /* Your Faculty card */
+        .myfac-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+        .myfac-card{background:linear-gradient(135deg,#05275C,#174DA4);color:#fff;border-radius:8px;padding:18px 20px;box-shadow:0 4px 16px rgba(5,39,92,.25);}
+        .myfac-card--dept{background:linear-gradient(135deg,#0d9488,#0f766e);box-shadow:0 4px 16px rgba(13,148,136,.25);}
+        .myfac-card__top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+        .myfac-card__abbr{font-size:11px;font-weight:700;letter-spacing:.5px;background:rgba(255,255,255,.18);padding:3px 10px;border-radius:20px;}
+        .myfac-card__role{font-size:11px;color:rgba(255,255,255,.85);}
+        .myfac-card__name{font-size:15px;font-weight:700;line-height:1.35;margin-bottom:14px;}
+        .myfac-card__stats{display:flex;gap:26px;margin-bottom:14px;}
+        .myfac-card__stats b{display:block;font-size:22px;font-weight:800;line-height:1;}
+        .myfac-card__stats span{font-size:11px;color:rgba(255,255,255,.8);}
+        .myfac-card__link{display:inline-block;font-size:12px;font-weight:600;color:#fff;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.5);padding-bottom:1px;}
+        .myfac-card__link:hover{border-bottom-color:#fff;}
+        /* Faculty Overview (square, tight, graph-driven) */
+        .fo-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:8px;margin:0 0 8px;}
+        .fo-kpi{background:#fff;border:1px solid #e0e5ed;border-left:3px solid #174DA4;border-radius:0;padding:10px 12px;}
+        .fo-kpi__v{font-size:22px;font-weight:800;color:#05275C;line-height:1;}
+        .fo-kpi__l{font-size:11px;color:#64748b;margin-top:4px;}
+        .fo-kpi__s{font-size:10px;color:#94a3b8;margin-top:3px;}
+        .fo-charts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 0 8px;}
+        @media(max-width:900px){.fo-charts{grid-template-columns:1fr;}}
+        .fo-chart{background:#fff;border:1px solid #e0e5ed;border-radius:0;padding:10px 12px;}
+        .fo-chart__t{font-size:11px;font-weight:700;color:#05275C;margin-bottom:8px;}
+        .fo-chart__c{position:relative;height:185px;}
+        .fo-table-card{background:#fff;border:1px solid #e0e5ed;border-radius:0;margin-bottom:8px;}
+        .fo-table-card__t{font-size:11px;font-weight:700;color:#05275C;padding:9px 12px;border-bottom:1px solid #e0e5ed;}
+        .fo-table-wrap{overflow-x:auto;}
+        .fo-table{width:100%;border-collapse:collapse;font-size:12px;}
+        .fo-table th{background:#f5f7fa;color:#374151;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.4px;text-align:left;padding:7px 12px;border-bottom:1px solid #e0e5ed;}
+        .fo-table td{padding:7px 12px;border-bottom:1px solid #f1f5f9;color:#374151;}
+        .fo-table tr:hover td{background:#f8fafc;}
+        .fo-code{font-family:monospace;font-size:10px;color:#174DA4;background:#f5f7fa;border:1px solid #e0e5ed;padding:1px 6px;}
+        .fo-badge{display:inline-block;font-size:9px;font-weight:700;border-radius:0;padding:2px 7px;text-transform:uppercase;}
+        .fo-badge--ok{background:#e8f5e9;color:#166534;border:1px solid #bbf7d0;}
+        .fo-badge--warn{background:#fff7ed;color:#b45309;border:1px solid #fde68a;}
+        .fo-empty{text-align:center;color:#94a3b8;padding:18px;}
     </style>
 </asp:Content>
 
 <asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+
+    <!-- Personalised welcome header -->
+    <div class="dash-welcome">
+        <div>
+            <h1 class="dash-welcome__hi"><asp:Literal ID="litGreeting" runat="server" Text="Welcome" /></h1>
+            <div class="dash-welcome__sub"><asp:Literal ID="litWelcomeSub" runat="server" /></div>
+        </div>
+        <div class="dash-welcome__roles">
+            <span class="dash-roles-label">Your roles</span>
+            <asp:Literal ID="litRoleChips" runat="server" />
+        </div>
+    </div>
+
+    <!-- Your Faculty (shown when the user is a faculty dean) -->
+    <asp:Panel ID="pnlMyFaculty" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>Your Faculty</span>
+            <span class="dash-section__hint">The faculty you head as Dean</span>
+        </div>
+        <div class="myfac-grid"><asp:Literal ID="litMyFaculty" runat="server" /></div>
+    </asp:Panel>
+
+    <!-- Your Department (shown when the user is a Head of Department) -->
+    <asp:Panel ID="pnlMyDept" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>Your Department</span>
+            <span class="dash-section__hint">The department you head (HOD)</span>
+        </div>
+        <div class="myfac-grid"><asp:Literal ID="litMyDept" runat="server" /></div>
+    </asp:Panel>
+
+    <!-- Scoped Overview (Dean=faculty, HOD=department — dynamic, reusable widget) -->
+    <asp:Panel ID="pnlFacultyOverview" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg><asp:Literal ID="litFoTitle" runat="server" Text="Overview" /></span>
+            <span class="dash-section__hint"><asp:Literal ID="litFoHint" runat="server" /></span>
+        </div>
+
+        <div class="fo-kpis">
+            <div class="fo-kpi"><div class="fo-kpi__v"><asp:Label ID="lblFoProgrammes" runat="server" Text="—" /></div><div class="fo-kpi__l">Programmes</div></div>
+            <div class="fo-kpi"><div class="fo-kpi__v"><asp:Label ID="lblFoStudents" runat="server" Text="—" /></div><div class="fo-kpi__l">Students</div><div class="fo-kpi__s">Total enrolled</div></div>
+            <div class="fo-kpi"><div class="fo-kpi__v"><asp:Label ID="lblFoActive" runat="server" Text="—" /></div><div class="fo-kpi__l">Registered</div><div class="fo-kpi__s"><asp:Label ID="lblFoActiveSub" runat="server" /></div></div>
+            <div class="fo-kpi"><div class="fo-kpi__v"><asp:Label ID="lblFoLecturers" runat="server" Text="—" /></div><div class="fo-kpi__l">Lecturers</div></div>
+            <div class="fo-kpi"><div class="fo-kpi__v"><asp:Label ID="lblFoPassRate" runat="server" Text="—" /></div><div class="fo-kpi__l">Pass rate</div><div class="fo-kpi__s"><asp:Label ID="lblFoPassSub" runat="server" /></div></div>
+        </div>
+
+        <div class="fo-charts">
+            <div class="fo-chart"><div class="fo-chart__t">Students by gender</div><div class="fo-chart__c"><canvas id="foGenderChart"></canvas></div></div>
+            <div class="fo-chart"><div class="fo-chart__t">Top programmes by enrolment</div><div class="fo-chart__c"><canvas id="foProgChart"></canvas></div></div>
+            <div class="fo-chart"><div class="fo-chart__t">Enrolment trend</div><div class="fo-chart__c"><canvas id="foEnrollChart"></canvas></div></div>
+        </div>
+
+        <div class="fo-table-card">
+            <div class="fo-table-card__t"><asp:Literal ID="litFoTableTitle" runat="server" Text="Programmes" /></div>
+            <div class="fo-table-wrap">
+                <table class="fo-table">
+                    <thead><tr><th style="width:90px;">Code</th><th>Programme</th><th style="width:90px;text-align:right;">Students</th><th style="width:120px;">Status</th></tr></thead>
+                    <tbody><asp:Literal ID="litFoProgrammes" runat="server" /></tbody>
+                </table>
+            </div>
+        </div>
+
+        <asp:HiddenField ID="hfFoGender" runat="server" />
+        <asp:HiddenField ID="hfFoProgrammes" runat="server" />
+        <asp:HiddenField ID="hfFoEnroll" runat="server" />
+    </asp:Panel>
+
+    <!-- No-access state (user has no role yet) -->
+    <asp:Panel ID="pnlNoAccess" runat="server" Visible="false">
+        <div class="dash-noaccess">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <h2>Your access is being set up</h2>
+            <p>You don't have a role assigned yet, so there are no modules to show here.<br>Please contact your system administrator to be granted access.</p>
+        </div>
+    </asp:Panel>
+
+    <!-- FEES & BURSARY -->
+    <asp:Panel ID="pnlFees" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>Fees &amp; Bursary</span>
+            <span class="dash-section__hint">Student fees collection &amp; billing</span>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--green"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblFeesMonth" runat="server" Text="—" /></div><div class="stat-card__label">Collected this month</div><div class="stat-card__sub"><asp:Label ID="lblFeesMonthName" runat="server" /></div></div></div>
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--blue"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblFeesYearCollected" runat="server" Text="—" /></div><div class="stat-card__label">Collected this year</div><div class="stat-card__sub">Jan–today</div></div></div>
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--teal"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblFeesYearBilled" runat="server" Text="—" /></div><div class="stat-card__label">Billed this year</div><div class="stat-card__sub">Total invoices</div></div></div>
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--amber"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblFeesOutstanding" runat="server" Text="—" /></div><div class="stat-card__label">Outstanding this year</div><div class="stat-card__sub">Billed − collected</div></div></div>
+        </div>
+    </asp:Panel>
+
+    <!-- FINANCE & ACCOUNTS -->
+    <asp:Panel ID="pnlAccounts" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>Finance &amp; Accounts</span>
+            <span class="dash-section__hint">General ledger &amp; expenditure</span>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--blue"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblAcctTxMonth" runat="server" Text="—" /></div><div class="stat-card__label">Transactions this month</div><div class="stat-card__sub">Ledger postings</div></div></div>
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--slate"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><rect x="7" y="9" width="3" height="9"></rect><rect x="14" y="5" width="3" height="13"></rect></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblAcctAccounts" runat="server" Text="—" /></div><div class="stat-card__label">Active accounts</div><div class="stat-card__sub">In the ledger</div></div></div>
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--amber"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblAcctPendingFin" runat="server" Text="—" /></div><div class="stat-card__label">Requisitions awaiting finance</div><div class="stat-card__sub">Pending payment</div></div></div>
+        </div>
+    </asp:Panel>
+
+    <!-- REQUISITIONS -->
+    <asp:Panel ID="pnlReq" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>Requisitions</span>
+            <span class="dash-section__hint">Procurement &amp; approvals</span>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--amber"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblReqPending" runat="server" Text="—" /></div><div class="stat-card__label">Pending requisitions</div><div class="stat-card__sub">Awaiting action</div></div></div>
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--money"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblReqValue" runat="server" Text="—" /></div><div class="stat-card__label">Pending value</div><div class="stat-card__sub">Total amount</div></div></div>
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--indigo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblReqTotal" runat="server" Text="—" /></div><div class="stat-card__label">Total requisitions</div><div class="stat-card__sub">All time</div></div></div>
+        </div>
+    </asp:Panel>
+
+    <!-- HUMAN RESOURCE -->
+    <asp:Panel ID="pnlHr" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Human Resource</span>
+            <span class="dash-section__hint">Staff, contracts &amp; leave</span>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--blue"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblHrEmployees" runat="server" Text="—" /></div><div class="stat-card__label">Employees</div><div class="stat-card__sub">On record</div></div></div>
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--teal"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblHrContracts" runat="server" Text="—" /></div><div class="stat-card__label">Employee contracts</div><div class="stat-card__sub">Recorded</div></div></div>
+            <div class="stat-card"><div class="stat-card__icon stat-card__icon--amber"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line></svg></div>
+                <div class="stat-card__content"><div class="stat-card__value"><asp:Label ID="lblHrPendingLeave" runat="server" Text="—" /></div><div class="stat-card__label">Pending leave requests</div><div class="stat-card__sub">Awaiting approval</div></div></div>
+        </div>
+    </asp:Panel>
+
+    <!-- ACADEMICS (existing dashboard) -->
+    <asp:Panel ID="pnlAcademics" runat="server">
     <div class="dashboard-layout">
         <!-- Main Content Area -->
         <div class="main-content">
@@ -510,7 +711,9 @@
             </div>
         </div>
     </div>
-    
+    </asp:Panel>
+    <!-- /ACADEMICS -->
+
     <!-- Chart.js Initialization -->
     <asp:HiddenField ID="hfEnrollmentData" runat="server" />
     <asp:HiddenField ID="hfMaleCount" runat="server" />
@@ -518,11 +721,19 @@
     
     <script type="text/javascript">
         document.addEventListener('DOMContentLoaded', function() {
+            // Charts only exist when the Academics panel is shown for this role.
+            var _enrollEl = document.getElementById('enrollmentChart');
+            var _genderEl = document.getElementById('genderChart');
+            if (!_enrollEl && !_genderEl) return;          // role without academics → nothing to draw
+            if (typeof Chart === 'undefined') return;       // chart lib not loaded → bail safely
+
             // Enrollment Trend Chart
-            var enrollmentDataStr = document.getElementById('<%= hfEnrollmentData.ClientID %>').value;
+            if (_enrollEl) {
+            var _hf = document.getElementById('<%= hfEnrollmentData.ClientID %>');
+            var enrollmentDataStr = _hf ? _hf.value : '';
             var enrollmentData = enrollmentDataStr ? JSON.parse(enrollmentDataStr) : [];
-            
-            var enrollmentCtx = document.getElementById('enrollmentChart').getContext('2d');
+
+            var enrollmentCtx = _enrollEl.getContext('2d');
             new Chart(enrollmentCtx, {
                 type: 'bar',
                 data: {
@@ -554,12 +765,14 @@
                     }
                 }
             });
-            
+            } // end enrollment chart
+
             // Gender Distribution Chart
-            var maleCount = parseInt(document.getElementById('<%= hfMaleCount.ClientID %>').value) || 0;
-            var femaleCount = parseInt(document.getElementById('<%= hfFemaleCount.ClientID %>').value) || 0;
-            
-            var genderCtx = document.getElementById('genderChart').getContext('2d');
+            if (_genderEl) {
+            var maleCount = parseInt((document.getElementById('<%= hfMaleCount.ClientID %>') || {value:0}).value) || 0;
+            var femaleCount = parseInt((document.getElementById('<%= hfFemaleCount.ClientID %>') || {value:0}).value) || 0;
+
+            var genderCtx = _genderEl.getContext('2d');
             new Chart(genderCtx, {
                 type: 'doughnut',
                 data: {
@@ -582,6 +795,50 @@
                     cutout: '60%'
                 }
             });
+            } // end gender chart
+        });
+    </script>
+
+    <!-- Faculty Overview charts (Dean) — only run when those canvases exist -->
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof Chart === 'undefined') return;
+            function _foPairs(id){ var el=document.getElementById(id); if(!el) return []; try { return JSON.parse(el.value||'[]'); } catch(e){ return []; } }
+
+            var gEl = document.getElementById('foGenderChart');
+            if (gEl) {
+                var gd = _foPairs('<%= hfFoGender.ClientID %>');
+                if (gd.length) new Chart(gEl.getContext('2d'), {
+                    type:'doughnut',
+                    data:{ labels:gd.map(function(x){return x.k;}),
+                           datasets:[{ data:gd.map(function(x){return x.v;}), backgroundColor:['#174DA4','#e91e63','#94a3b8','#16a34a'], borderWidth:0 }] },
+                    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ font:{size:10}, boxWidth:12 } } }, cutout:'58%' }
+                });
+            }
+
+            var pEl = document.getElementById('foProgChart');
+            if (pEl) {
+                var pd = _foPairs('<%= hfFoProgrammes.ClientID %>');
+                if (pd.length) new Chart(pEl.getContext('2d'), {
+                    type:'bar',
+                    data:{ labels:pd.map(function(x){return x.k;}),
+                           datasets:[{ data:pd.map(function(x){return x.v;}), backgroundColor:'#174DA4', borderWidth:0 }] },
+                    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+                              scales:{ y:{ beginAtZero:true, ticks:{ font:{size:9} }, grid:{ color:'#f0f0f0' } }, x:{ ticks:{ font:{size:9} }, grid:{ display:false } } } }
+                });
+            }
+
+            var eEl = document.getElementById('foEnrollChart');
+            if (eEl) {
+                var ed = _foPairs('<%= hfFoEnroll.ClientID %>');
+                if (ed.length) new Chart(eEl.getContext('2d'), {
+                    type:'bar',
+                    data:{ labels:ed.map(function(x){return x.k;}),
+                           datasets:[{ data:ed.map(function(x){return x.v;}), backgroundColor:'#05275C', borderWidth:0 }] },
+                    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+                              scales:{ y:{ beginAtZero:true, ticks:{ font:{size:9} }, grid:{ color:'#f0f0f0' } }, x:{ ticks:{ font:{size:9} }, grid:{ display:false } } } }
+                });
+            }
         });
     </script>
 </asp:Content>

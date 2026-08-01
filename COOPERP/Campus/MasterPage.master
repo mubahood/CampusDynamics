@@ -119,7 +119,7 @@
 &nbsp;<asp:LoginName ID="LoginName1" runat="server" />
 &nbsp;<asp:LoginStatus ID="LoginStatus1" runat="server" Font-Underline="False" ForeColor="Blue" LoginText=" | Login |" 
                                                                 LogoutAction="RedirectToLoginPage" LogoutText=" | Logout |" />
-                                <dx:ASPxHyperLink ID="cmdPasschange" runat="server" Text="Change Password |" />
+                                <dx:ASPxHyperLink ID="cmdPasschange" runat="server" Text="Change Password |" />&nbsp;<dx:ASPxHyperLink ID="lnkNewDashboard" runat="server" Text="New Dashboard" NavigateUrl="~/COOPERP/NewScreens/NewDashboard.aspx" />
                             </td>
                         </tr>
                     </table>
