@@ -34,6 +34,21 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
         public double SemGpa, Cgpa; // cgpa = cumulative up to and including this semester
     }
 
+    /// <summary>
+    /// MRU study systems are only ever "Semester" or "Session" — in-service students study in
+    /// SESSIONS, everyone else by SEMESTER. Any legacy programme value (Full Time, Part Time,
+    /// Blended, In-Service, etc.) is normalised to one of these two so the transcript never shows
+    /// anything else.
+    /// </summary>
+    private static string NormalizeStudySystem(string raw)
+    {
+        string v = (raw ?? "").Trim().ToUpperInvariant();
+        if (v == "SESSION" || v == "PART TIME" || v == "PART-TIME" || v == "BLENDED"
+            || v.Contains("SESSION") || v.Contains("SERVICE") || v.Contains("EVENING") || v.Contains("WEEKEND"))
+            return "Session";
+        return "Semester";   // Semester, Full Time, Day, blank, or anything else
+    }
+
     protected void Page_Load(object sender, EventArgs e)
     {
         AutoPrint = (Request["autoprint"] ?? "") == "1";
@@ -76,7 +91,7 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
                     gender = S(r["gender"]); nationality = S(r["nationality"]); dob = S(r["dob"]);
                     compDateRaw = S(r["compdate"]);
                     progname = S(r["progname"]); faculty = S(r["faculty"]);
-                    studySystem = S(r["study_system"]); minLoad = D(r["minLoad"]);
+                    studySystem = NormalizeStudySystem(S(r["study_system"])); minLoad = D(r["minLoad"]);
                     levelCode = S(r["levelCode"]); if (levelCode == "") levelCode = "3";
                     photofile = S(r["photofile"]);
                 }
@@ -246,9 +261,9 @@ public partial class COOPERP_NewScreens_TranscriptPrint : System.Web.UI.Page
         foreach (var s in sems)
         {
             sb.Append("<div class='sem'>");
-            sb.AppendFormat("<div class='sem-head'><span>Year {0} &mdash; Semester {1}{2}</span><span class='sem-gpa'>GPA: {3} &nbsp;&nbsp; CGPA: {4}</span></div>",
+            sb.AppendFormat("<div class='sem-head'><span>Year {0} &mdash; {5} {1}{2}</span><span class='sem-gpa'>GPA: {3} &nbsp;&nbsp; CGPA: {4}</span></div>",
                 s.Year, s.Semester, s.Acad != "" ? " &nbsp;|&nbsp; " + H(s.Acad) : "",
-                s.SemGpa.ToString("0.00"), s.Cgpa.ToString("0.00"));
+                s.SemGpa.ToString("0.00"), s.Cgpa.ToString("0.00"), H(studySystem));
             sb.Append("<table class='ct'><thead><tr><th class='c-code'>CODE</th><th class='c-course'>COURSE</th><th class='c-cu'>CU</th><th class='c-grade'>GRADE</th></tr></thead><tbody>");
             foreach (var c in s.Courses)
             {

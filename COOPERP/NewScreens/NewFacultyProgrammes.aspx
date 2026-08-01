@@ -355,11 +355,9 @@
                     <div class="hr-form-group">
                         <label>Study System <span class="req">*</span></label>
                         <asp:DropDownList ID="ddlStudySystem" runat="server" CssClass="hr-select">
-                            <asp:ListItem Value=""          Text="-- Select --" />
-                            <asp:ListItem Value="FULL TIME"  Text="Full Time" />
-                            <asp:ListItem Value="PART TIME"  Text="Part Time" />
-                            <asp:ListItem Value="DISTANCE"   Text="Distance Learning" />
-                            <asp:ListItem Value="BLENDED"    Text="Blended" />
+                            <asp:ListItem Value=""         Text="-- Select --" />
+                            <asp:ListItem Value="Semester" Text="Semester" />
+                            <asp:ListItem Value="Session"  Text="Session (in-service)" />
                         </asp:DropDownList>
                     </div>
                     <div class="hr-form-group">
