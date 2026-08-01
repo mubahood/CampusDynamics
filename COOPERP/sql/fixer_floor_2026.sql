@@ -1,0 +1,45 @@
+-- ============================================================================
+-- Billing-fixer floor: reconciliation / repair must NEVER work backwards
+-- ----------------------------------------------------------------------------
+-- WHY: when a fee structure changed over the years, the fixers saw the student's
+-- OLD (different-amount) bill, judged them "unbilled", and raised a SECOND bill
+-- WITHOUT removing the first — i.e. duplicate bills on older cohorts. Policy: the
+-- fixers only operate on 2026/2027 onward, and only for 2026+ entrants.
+--
+-- STATUS:
+--  • BillingReconciliation.aspx (the ACTIVE admin fixer) — floor already enforced
+--    in code (MIN_FIX_ACADYEAR '2026/2027' + MIN_FIX_ENTRYYEAR 2026): candidate
+--    query, preview, and per-student worker all reject anything earlier.
+--  • BillingReconciliationJob (auto-reconcile engine) — already DISABLED.
+--  • The two repair SPs below are DORMANT (sp_SystemRepair = manual-only, no auto
+--    caller; fin_ReconcileEnrolledBilling = only called by the disabled engine).
+--    This migration adds the same floor to them. Apply during a maintenance window
+--    with a tool that preserves the body verbatim (MySQL Workbench, or mysqldump
+--    round-trip) — do NOT hand-retype the bodies. Only the guard block below is new.
+--
+-- HOW TO APPLY each SP:
+--   1) SHOW CREATE PROCEDURE <schema>.<name>;   -- copy the exact body
+--   2) Immediately AFTER the last DECLARE (and BEFORE the first executable
+--      statement), insert the GUARD BLOCK below.
+--   3) DROP PROCEDURE + re-CREATE with the guard added. Verify with a dry CALL
+--      using a pre-2026 year — it must now raise SQLSTATE 45000 and bill nothing.
+-- ============================================================================
+
+-- ---- GUARD BLOCK (paste after the DECLAREs, before the first real statement) ----
+-- Both SPs take an IN p_acadyear (varchar/char(15)). acad_year is 'YYYY/YYYY',
+-- so a plain string comparison orders correctly.
+--
+--     IF p_acadyear IS NULL OR p_acadyear < '2026/2027' THEN
+--         SIGNAL SQLSTATE '45000'
+--             SET MESSAGE_TEXT = 'Fixer floor: reconciliation/backfill only runs for 2026/2027 onward. Older years are billed manually to avoid duplicate bills.';
+--     END IF;
+--
+-- For fin_ReconcileEnrolledBilling additionally scope its enrolled-gap candidate
+-- SELECT with:  AND CAST(NULLIF(TRIM(s.entryyear),'') AS UNSIGNED) >= 2026
+-- (join acad_student s on the regno) so pre-2026 entrants are never picked up.
+--
+-- sp_SystemRepair_RegisterAndAutoBill_Unbilled additionally: add to its
+-- tmp_repair_candidates INSERT ... WHERE:
+--     AND r.acad_year >= '2026/2027'
+--     AND CAST(NULLIF(TRIM(s.entryyear),'') AS UNSIGNED) >= 2026
+-- ============================================================================
