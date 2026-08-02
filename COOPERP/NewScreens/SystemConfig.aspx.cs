@@ -31,6 +31,8 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
     private const string D_LIVE_SUPPORT_START = "09:00";
     private const string D_LIVE_SUPPORT_END = "17:00";
     private const string D_LIVE_SUPPORT_LINK = "";
+    // Students' WhatsApp community group — this is the current live link and the safe default.
+    private const string D_WHATSAPP_URL = "https://chat.whatsapp.com/FlXDRgWTnhG5wDX3mDQnBg";
 
     // -------------------------------------------------------------------------
 
@@ -62,6 +64,7 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
                     live_support_end_time           VARCHAR(5)    NULL,
                     live_support_link               VARCHAR(500)  NULL,
                     live_support_admin_message      TEXT          NULL,
+                    whatsapp_community_url          VARCHAR(500)  NULL,
                     last_updated                    DATETIME      NULL,
                     updated_by                      VARCHAR(100)  NULL,
                     PRIMARY KEY (id)
@@ -69,6 +72,23 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
 
             // Seed the single config row if it doesn't exist
             ExecuteNonQuery("INSERT IGNORE INTO system_config (id) VALUES (1)");
+
+            // Migration: add whatsapp_community_url if missing, then backfill the current link as the
+            // default so the portal always has a working group link (never blank -> never broken).
+            try
+            {
+                DataTable dtW = ExecuteQuery(
+                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS " +
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'system_config' " +
+                    "AND COLUMN_NAME = 'whatsapp_community_url'");
+                if (dtW == null || dtW.Rows.Count == 0)
+                    ExecuteNonQuery("ALTER TABLE system_config ADD COLUMN whatsapp_community_url VARCHAR(500) NULL");
+
+                ExecuteNonQuery(
+                    "UPDATE system_config SET whatsapp_community_url = '" + D_WHATSAPP_URL + "' " +
+                    "WHERE id = 1 AND (whatsapp_community_url IS NULL OR TRIM(whatsapp_community_url) = '')");
+            }
+            catch { /* handled on save */ }
 
             // Migration: Add live_support_admin_message column if it doesn't exist (MySQL 5.7 compatible)
             try
@@ -141,6 +161,14 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
         }
         catch { }
 
+        // WhatsApp community group link (falls back to the current default if empty)
+        try
+        {
+            if (dt.Columns.Contains("whatsapp_community_url"))
+                txtWhatsappUrl.Text = SafeString(r["whatsapp_community_url"], D_WHATSAPP_URL);
+        }
+        catch { }
+
         // Audit banner
         if (r["last_updated"] != DBNull.Value && r["updated_by"] != DBNull.Value
             && !string.IsNullOrEmpty(r["updated_by"].ToString()))
@@ -177,6 +205,7 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
         string lsEndTime = txtMeetingEndTime.Text.Trim();
         string lsLink = txtMeetingLink.Text.Trim();
         string lsAdminMessage = txtLiveSupportAdminMessage.Text.Trim();
+        string whatsappUrl = txtWhatsappUrl.Text.Trim();
 
         // Validate email if provided
         if (!string.IsNullOrEmpty(schoolEmail) && !IsValidEmail(schoolEmail))
@@ -220,11 +249,20 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
                 errors.Add("Invalid meeting link URL.");
         }
 
+        // WhatsApp group link: blank is allowed (falls back to the default); if provided it must be a
+        // real chat.whatsapp.com invite URL — this guards the eportal button from ever getting a bad link.
+        if (!string.IsNullOrEmpty(whatsappUrl) &&
+            (!IsValidUrl(whatsappUrl) || whatsappUrl.IndexOf("chat.whatsapp.com/", StringComparison.OrdinalIgnoreCase) < 0))
+            errors.Add("WhatsApp group link must be a valid https://chat.whatsapp.com/... invite URL (or leave it blank to use the default).");
+
         if (errors.Count > 0)
         {
             ShowBanner(string.Join(" ", errors), false);
             return;
         }
+
+        // Never store a blank link — fall back to the default so the portal always works.
+        if (string.IsNullOrEmpty(whatsappUrl)) whatsappUrl = D_WHATSAPP_URL;
 
         // Build and execute UPDATE
         try
@@ -244,6 +282,7 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
                     live_support_end_time = @lsEndTime,
                     live_support_link = @lsLink,
                     live_support_admin_message = @lsAdminMessage,
+                    whatsapp_community_url = @whatsappUrl,
                     last_updated = NOW(),
                     updated_by = @userName
                 WHERE id = 1";
@@ -266,6 +305,7 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
                     cmd.Parameters.AddWithValue("@lsEndTime", string.IsNullOrEmpty(lsEndTime) ? (object)DBNull.Value : lsEndTime);
                     cmd.Parameters.AddWithValue("@lsLink", string.IsNullOrEmpty(lsLink) ? (object)DBNull.Value : lsLink);
                     cmd.Parameters.AddWithValue("@lsAdminMessage", string.IsNullOrEmpty(lsAdminMessage) ? (object)DBNull.Value : lsAdminMessage);
+                    cmd.Parameters.AddWithValue("@whatsappUrl", whatsappUrl);
                     cmd.Parameters.AddWithValue("@userName", HttpContext.Current.User.Identity.Name ?? "admin");
 
                     cmd.ExecuteNonQuery();
@@ -302,6 +342,7 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
                     live_support_end_time = NULL,
                     live_support_link = NULL,
                     live_support_admin_message = NULL,
+                    whatsapp_community_url = '" + D_WHATSAPP_URL + @"',
                     last_updated = NOW(),
                     updated_by = @userName
                 WHERE id = 1");
@@ -313,6 +354,7 @@ public partial class COOPERP_NewScreens_SystemConfig : System.Web.UI.Page
             })
                 ctrl.Text = "";
 
+            txtWhatsappUrl.Text = D_WHATSAPP_URL;   // factory default = current live link
             hfLiveSupportEnabled.Value = "false";
             ddlAppStatus.SelectedIndex = 0;
 

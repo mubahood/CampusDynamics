@@ -245,6 +245,37 @@
 </div>
 
 <!-- ===========================================================
+     SECTION 1b - COMMUNITY & LINKS
+     =========================================================== -->
+<div class="sys-card">
+    <div class="sys-card__header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+             fill="none" stroke="#174DA4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span class="sys-card__title">Community &amp; Links</span>
+        <span class="sys-card__desc">Links shown to students on the portal — update any time, no redeploy</span>
+    </div>
+    <div class="sys-card__body">
+        <div class="sys-notice">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            The student portal's "Join the WhatsApp Group" button uses this link live. If left blank, the system keeps the current default so the button never breaks.
+        </div>
+
+        <div class="sys-form-grid">
+            <div class="sys-form-group sys-span2">
+                <label class="sys-label">Students' WhatsApp Group Link</label>
+                <asp:TextBox ID="txtWhatsappUrl" runat="server" CssClass="sys-input"
+                    placeholder="https://chat.whatsapp.com/xxxxxxxxxxxxxxxxxxxxxx" />
+                <span class="sys-hint">Must be a WhatsApp invite link (https://chat.whatsapp.com/…). Get it from the group &rarr; Invite via link.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===========================================================
      SECTION 2 - APPLICATION SETTINGS
      =========================================================== -->
 <div class="sys-card">
