@@ -118,5 +118,5 @@
   </div>
 </div>
 
-<script src="js/stageconsole.js?v=20260801a" type="text/javascript"></script>
+<script src="js/stageconsole.js?v=20260802a" type="text/javascript"></script>
 </asp:Content>

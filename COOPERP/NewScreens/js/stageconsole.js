@@ -26,7 +26,40 @@ function call(method, params, cb) {
 }
 function show(m) { m.style.display = 'flex'; } function hide(m) { m.style.display = 'none'; }
 
+// ── GET-driven filters: the year/sem/programme/search/failed/page state lives in the URL query
+// string, so the view is bookmarkable, shareable and survives a reload / back-forward. The server
+// (Browse) already filters on exactly these params. ──
+function scReadUrl() {
+    var p; try { p = new URLSearchParams(location.search); } catch (e) { return; }
+    var y = qs('sc-year'), sm = qs('sc-sem'), pr = qs('sc-prog'), q = qs('sc-q');
+    if (y)  y.value  = p.get('year') || '';
+    if (sm) sm.value = p.get('sem')  || '';
+    if (pr) pr.value = p.get('prog') || '';
+    if (q)  q.value  = p.get('q')    || '';
+    FAILED_ONLY = (p.get('failed') === '1');
+    PAGE = parseInt(p.get('page') || '1', 10) || 1;
+    var tb = qs('sc-failed-toggle');
+    if (tb) {
+        if (FAILED_ONLY) { tb.classList.add('sc-btn--danger'); tb.innerHTML = '&#10003; Showing failed (F) only'; }
+        else { tb.classList.remove('sc-btn--danger'); tb.innerHTML = '&#9873; Show failed (F) only'; }
+    }
+}
+function scPushUrl() {
+    var parts = [];
+    function add(k, v) { if (v !== undefined && v !== null && v !== '') parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v)); }
+    add('year', qs('sc-year') ? qs('sc-year').value : '');
+    add('sem',  qs('sc-sem')  ? qs('sc-sem').value  : '');
+    add('prog', qs('sc-prog') ? qs('sc-prog').value : '');
+    add('q',    qs('sc-q')    ? qs('sc-q').value.trim() : '');
+    if (FAILED_ONLY) add('failed', '1');
+    if (PAGE > 1) add('page', PAGE);
+    try { history.pushState(null, '', location.pathname + (parts.length ? ('?' + parts.join('&')) : '')); } catch (e) {}
+}
+window.onpopstate = function () { scReadUrl(); loadStats(); loadBrowse(PAGE); };
+
 function boot() {
+    var qbox = qs('sc-q');
+    if (qbox && !qbox._scEnter) { qbox._scEnter = 1; qbox.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); SC.apply(); } }); }
     call('Init', {}, function (d) {
         if (!d || !d.success) { qs('sc-scope').textContent = (d && d.message) || 'Failed to initialise.'; return; }
         STAGE.canAct = d.canAct; STAGE.name = d.stage; STAGE.fromLabel = d.fromLabel; STAGE.toLabel = d.toLabel;
@@ -42,7 +75,8 @@ function boot() {
         if (!d.canAct && launch) { launch.disabled = true; var n = qs('sc-cantact'); if (n) n.style.display = 'inline-block'; }
         var adv = qs('sc-advance-btn');
         if (adv) { adv.innerHTML = '&#10003; ' + (VERB[d.stage] || 'Advance') + ' selected'; if (!d.canAct) adv.style.display = 'none'; }
-        loadStats(); loadBrowse(1);
+        scReadUrl();               // apply any year/sem/prog/q/failed/page from the URL (after selects are populated)
+        loadStats(); loadBrowse(PAGE);
     });
 }
 function setText(id, v) { var e = qs(id); if (e) e.textContent = v; }
@@ -150,7 +184,7 @@ function toggleFailed() {
     FAILED_ONLY = !FAILED_ONLY;
     var btn = qs('sc-failed-toggle');
     if (btn) { if (FAILED_ONLY) btn.classList.add('sc-btn--danger'); else btn.classList.remove('sc-btn--danger'); btn.innerHTML = FAILED_ONLY ? '&#10003; Showing failed (F) only' : '&#9873; Show failed (F) only'; }
-    loadBrowse(1);
+    PAGE = 1; scPushUrl(); loadBrowse(1);
 }
 
 /* ── Advance selected (forward) ── */
@@ -232,9 +266,10 @@ function tab(which) {
     if (which === 'hist') loadHistory();
 }
 
-window.SC = { go: loadBrowse, openWizard: openWizard, doPreview: doPreview, wizBack: wizBack, commit: commit,
+window.SC = { go: function(p){ PAGE=p; scPushUrl(); loadBrowse(p); }, openWizard: openWizard, doPreview: doPreview, wizBack: wizBack, commit: commit,
     closeWizard: closeWizard, returnSelected: returnSelected, advanceSelected: advanceSelected, tab: tab, viewRec: viewRec, closeDetail: closeDetail, toggleFailed: toggleFailed,
-    apply: function(){ loadBrowse(1); }, reset: function(){ qs('sc-year').value=''; qs('sc-sem').value=''; qs('sc-prog').value=''; qs('sc-q').value=''; FAILED_ONLY=false; var tb=qs('sc-failed-toggle'); if(tb){ tb.classList.remove('sc-btn--danger'); tb.innerHTML='&#9873; Show failed (F) only'; } loadBrowse(1); },
+    apply: function(){ PAGE=1; scPushUrl(); loadBrowse(1); },
+    reset: function(){ qs('sc-year').value=''; qs('sc-sem').value=''; qs('sc-prog').value=''; qs('sc-q').value=''; FAILED_ONLY=false; var tb=qs('sc-failed-toggle'); if(tb){ tb.classList.remove('sc-btn--danger'); tb.innerHTML='&#9873; Show failed (F) only'; } PAGE=1; scPushUrl(); loadBrowse(1); },
     selectAll: function(cb){ var ch=document.querySelectorAll('.sc-chk'); for(var i=0;i<ch.length;i++) ch[i].checked=cb.checked; } };
 
 if (document.readyState !== 'loading') boot(); else document.addEventListener('DOMContentLoaded', boot);
