@@ -32,6 +32,16 @@
 .pc-st{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;white-space:nowrap;}
 .pc-st--pending{background:#fff8e1;color:#7a5c00;} .pc-st--approved{background:#e9f7ef;color:#1c7a45;}
 .pc-st--rejected{background:#fdecec;color:#b3261e;} .pc-st--deleted{background:#eef1f6;color:#5b6472;}
+.pc-st--banned{background:#5b0d0d;color:#fff;} .pc-st--unbanned{background:#e9f7ef;color:#1c7a45;}
+.pc-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.pc-card--banned{border-color:#f0b4b4;}
+.pc-imgs--one .pc-img--new{width:110px;height:147px;}
+.pc-clickimg{cursor:zoom-in;}
+.pc-banchk{display:flex;gap:8px;align-items:flex-start;margin-top:10px;padding:9px 11px;background:#fdecec;border:1px solid #f4c2c2;font-size:12px;color:#7a1f1a;cursor:pointer;}
+.pc-banchk input{width:15px;height:15px;margin-top:1px;accent-color:#b3261e;flex:0 0 auto;}
+.pc-lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:100000;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;}
+.pc-lightbox img{max-width:92vw;max-height:92vh;border:3px solid #fff;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.pc-lightbox__x{position:absolute;top:14px;right:22px;color:#fff;font-size:34px;line-height:1;cursor:pointer;font-weight:300;}
 .pc-imgs{display:flex;gap:8px;padding:12px;justify-content:center;background:#fafbfc;}
 .pc-img{position:relative;background:#eef1f6;border:1px solid #e0e5ed;overflow:hidden;}
 .pc-img--new{width:132px;height:176px;} .pc-img--old{width:78px;height:104px;align-self:flex-end;opacity:.85;}
@@ -128,6 +138,8 @@
                 <textarea id="pcRejReason" placeholder="Pick from above or type your own reason..."></textarea>
                 <div class="pc-hint">This message is shown to the student, and their photograph is removed &mdash; they must upload a new one before they can use their dashboard.</div>
             </div>
+            <label class="pc-banchk"><input type="checkbox" id="pcRejBan"/> <span>Also <b>ban</b> this student from uploading (they must visit the admin office to be unbanned)</span></label>
+            <div class="pc-hint" style="margin-top:2px;">Students are banned automatically after 3 rejections &mdash; tick this to ban immediately.</div>
         </div>
         <div class="pc-modal__f">
             <button type="button" class="pc-btn" onclick="pcRejClose()">Cancel</button>
@@ -137,6 +149,12 @@
 </div>
 
 <div class="pc-toast" id="pcToast"></div>
+
+<!-- Full-size photo lightbox -->
+<div class="pc-lightbox" id="pcLightbox" onclick="if(event.target===this)pcCloseView()">
+    <span class="pc-lightbox__x" onclick="pcCloseView()">&times;</span>
+    <img id="pcLightboxImg" src="" alt="Full size photograph" />
+</div>
 
 <script type="text/javascript">
 (function () {
@@ -207,6 +225,7 @@
         _rejTarget = target;
         document.getElementById("pcRejWho").innerHTML = whoHtml;
         document.getElementById("pcRejReason").value = "";
+        var bc = document.getElementById("pcRejBan"); if (bc) bc.checked = false;
         window.pcBuildChips("pcChips", "pcRejReason");
         document.getElementById("pcRejOv").style.display = "flex";
     }
@@ -221,9 +240,10 @@
     window.pcRejConfirm = function () {
         var reason = document.getElementById("pcRejReason").value.trim();
         if (!reason && !confirm("Reject without a reason? The student will not be told why.")) return;
+        var ban = (document.getElementById("pcRejBan") && document.getElementById("pcRejBan").checked) ? "1" : "0";
         var body = _rejTarget.mode === "single"
-            ? "action=review&id=" + encodeURIComponent(_rejTarget.id) + "&decision=reject&comment=" + encodeURIComponent(reason)
-            : "action=batch&ids=" + encodeURIComponent(_rejTarget.ids.join(",")) + "&decision=reject&comment=" + encodeURIComponent(reason);
+            ? "action=review&id=" + encodeURIComponent(_rejTarget.id) + "&decision=reject&ban=" + ban + "&comment=" + encodeURIComponent(reason)
+            : "action=batch&ids=" + encodeURIComponent(_rejTarget.ids.join(",")) + "&decision=reject&ban=" + ban + "&comment=" + encodeURIComponent(reason);
         var go = document.getElementById("pcRejGo"); go.disabled = true;
         post(body).then(function (d) {
             go.disabled = false;
@@ -249,6 +269,22 @@
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 800); })
             .catch(function () { pcToast("Request failed.", true); });
     };
+    window.pcUnban = function (regno) {
+        if (!confirm("Lift the photo-upload ban for " + regno + "? They will be able to upload a new photograph again.")) return;
+        post("action=unban&regno=" + encodeURIComponent(regno))
+            .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 800); })
+            .catch(function () { pcToast("Request failed.", true); });
+    };
+    // Full-size photo viewer (lightbox)
+    window.pcView = function (url) {
+        if (!url) return;
+        var ov = document.getElementById("pcLightbox"), im = document.getElementById("pcLightboxImg");
+        if (!ov || !im) return;
+        im.src = url; ov.style.display = "flex";
+    };
+    window.pcCloseView = function () { var ov = document.getElementById("pcLightbox"); if (ov) { ov.style.display = "none"; document.getElementById("pcLightboxImg").src = ""; } };
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") window.pcCloseView(); });
+
     window.pcToggleAll = function (cb) {
         document.querySelectorAll(".pc-chk").forEach(function (c) { c.checked = cb.checked; });
         pcCount();

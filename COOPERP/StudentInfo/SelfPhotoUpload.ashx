@@ -125,10 +125,11 @@ public class SelfPhotoUpload : IHttpHandler
             {
                 conn.Open();
 
-                // Capture the photo being replaced + its status, for change-tracking + auto-resume.
+                // Capture the photo being replaced + its status + ban flag.
                 string oldPhoto = "";
                 string oldStatus = "";
-                using (MySqlCommand sel = new MySqlCommand("SELECT COALESCE(photofile,''), COALESCE(photo_status,'APPROVED') FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                bool banned = false;
+                using (MySqlCommand sel = new MySqlCommand("SELECT COALESCE(photofile,''), COALESCE(photo_status,'APPROVED'), COALESCE(photo_banned,0) FROM acad_student WHERE regno=@r LIMIT 1", conn))
                 {
                     sel.Parameters.AddWithValue("@r", regno);
                     using (MySqlDataReader rd = sel.ExecuteReader())
@@ -137,8 +138,16 @@ public class SelfPhotoUpload : IHttpHandler
                         {
                             oldPhoto = rd.IsDBNull(0) ? "" : rd.GetString(0);
                             oldStatus = rd.IsDBNull(1) ? "" : rd.GetString(1).Trim().ToUpperInvariant();
+                            banned = !rd.IsDBNull(2) && rd.GetValue(2).ToString().Trim() == "1";
                         }
                     }
+                }
+
+                // Banned students cannot upload until an admin lifts the ban.
+                if (banned)
+                {
+                    WriteJson(res, false, "Your photograph uploads have been suspended after repeated rejections. Please visit the Academic Registrar's / administrator's office to lift the restriction before you can upload again.", null);
+                    return;
                 }
 
                 // The new photo goes live but PENDING admin approval (photo change tracker).

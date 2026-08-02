@@ -47,6 +47,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                 if (action == "review") Response.Write(HandleReview());
                 else if (action == "batch") Response.Write(HandleBatch());
                 else if (action == "admininit") Response.Write(HandleAdminInit());
+                else if (action == "unban") Response.Write(HandleUnban());
                 else Response.Write("{\"success\":false,\"message\":\"Unknown action.\"}");
             }
             catch (Exception ex)
@@ -68,12 +69,13 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         int id = SafeInt(Request.Form["id"], 0);
         bool approve = string.Equals(Request.Form["decision"], "approve", StringComparison.OrdinalIgnoreCase);
         string comment = (Request.Form["comment"] ?? "").Trim();
+        bool ban = Request.Form["ban"] == "1";
         if (id <= 0) return "{\"success\":false,\"message\":\"Missing record id.\"}";
 
         using (var conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
-            string outcome = ReviewOne(conn, id, approve, comment, GetCurrentUser());
+            string outcome = ReviewOne(conn, id, approve, comment, GetCurrentUser(), ban);
             bool ok = outcome == "OK";
             return "{\"success\":" + (ok ? "true" : "false") + ",\"message\":\"" + JsEnc(ok ? (approve ? "Photograph approved." : "Photograph rejected and removed from the student.") : outcome) + "\"}";
         }
@@ -84,6 +86,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         string idsCsv = Request.Form["ids"] ?? "";
         bool approve = string.Equals(Request.Form["decision"], "approve", StringComparison.OrdinalIgnoreCase);
         string comment = (Request.Form["comment"] ?? "").Trim();
+        bool ban = Request.Form["ban"] == "1";
 
         var ids = new List<int>();
         foreach (string part in idsCsv.Split(','))
@@ -99,7 +102,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             conn.Open();
             foreach (int id in ids)
             {
-                string r = ReviewOne(conn, id, approve, comment, user);
+                string r = ReviewOne(conn, id, approve, comment, user, ban);
                 if (r == "OK") done++; else skipped++;
             }
         }
@@ -117,6 +120,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         string regno = (Request.Form["regno"] ?? "").Trim();
         string status = (Request.Form["status"] ?? "").Trim().ToUpperInvariant();
         string comment = (Request.Form["comment"] ?? "").Trim();
+        bool ban = Request.Form["ban"] == "1";
 
         if (regno == "") return "{\"success\":false,\"message\":\"Please enter a registration number.\"}";
         if (status != "PENDING" && status != "APPROVED" && status != "REJECTED")
@@ -167,6 +171,8 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                         cmd.Parameters.AddWithValue("@c", comment == "" ? (object)DBNull.Value : comment);
                         cmd.ExecuteNonQuery();
                     }
+                    // If this admin action rejected the photo, apply ban rules (manual tick or 3+ rejections).
+                    if (status == "REJECTED") ApplyBanIfNeeded(conn, tx, regno, ban, comment, user);
                     tx.Commit();
                 }
                 catch { tx.Rollback(); throw; }
@@ -177,8 +183,71 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         }
     }
 
+    private const int BAN_AFTER_REJECTIONS = 3;
+
+    /// <summary>
+    /// Applies an indefinite photo-upload ban when the student should be banned: either the admin
+    /// explicitly ticked "ban" on this rejection, or they have now reached BAN_AFTER_REJECTIONS
+    /// rejections. A banned student cannot re-upload until an admin lifts the ban. Runs inside the
+    /// caller's transaction; the stud_photo_change row must already be marked REJECTED so the count
+    /// includes the current rejection.
+    /// </summary>
+    private void ApplyBanIfNeeded(MySqlConnection conn, MySqlTransaction tx, string regno, bool manualBan, string comment, string user)
+    {
+        int rej = 0;
+        using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM stud_photo_change WHERE regno=@r AND status='REJECTED'", conn, tx))
+        { cmd.Parameters.AddWithValue("@r", regno); rej = Convert.ToInt32(cmd.ExecuteScalar()); }
+
+        bool autoBan = rej >= BAN_AFTER_REJECTIONS;
+        if (!manualBan && !autoBan) return;
+
+        string reason = manualBan
+            ? ("Photo uploads suspended by the administrator." + (string.IsNullOrEmpty(comment) ? "" : (" Reason: " + comment)))
+            : ("Photo uploads suspended automatically after " + rej + " rejections. Please visit the administrator's office to lift the ban.");
+        using (var cmd = new MySqlCommand(
+            "UPDATE acad_student SET photo_banned=1, photo_ban_reason=@rz, photo_ban_at=NOW(), photo_ban_by=@by WHERE regno=@rn", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("@rz", reason);
+            cmd.Parameters.AddWithValue("@by", user);
+            cmd.Parameters.AddWithValue("@rn", regno);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Lifts a student's photo-upload ban so they can upload again (visited the office).</summary>
+    private string HandleUnban()
+    {
+        string regno = (Request.Form["regno"] ?? "").Trim();
+        if (regno == "") return "{\"success\":false,\"message\":\"Missing registration number.\"}";
+        using (var conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            string name = "";
+            using (var cmd = new MySqlCommand("SELECT TRIM(CONCAT(COALESCE(firstname,''),' ',COALESCE(othername,''))) FROM acad_student WHERE regno=@r LIMIT 1", conn))
+            { cmd.Parameters.AddWithValue("@r", regno); object o = cmd.ExecuteScalar(); if (o == null) return "{\"success\":false,\"message\":\"No student found.\"}"; name = o == DBNull.Value ? "" : o.ToString().Trim(); }
+
+            int rows;
+            using (var cmd = new MySqlCommand(
+                "UPDATE acad_student SET photo_banned=0, photo_ban_reason=NULL, photo_ban_at=NULL, photo_ban_by=NULL WHERE regno=@r", conn))
+            { cmd.Parameters.AddWithValue("@r", regno); rows = cmd.ExecuteNonQuery(); }
+
+            // Audit note.
+            try
+            {
+                using (var cmd = new MySqlCommand(
+                    "INSERT INTO stud_photo_change (regno, old_photofile, new_photofile, status, source, requested_at, reviewed_by, reviewed_at, review_comment) " +
+                    "VALUES (@r,'','','UNBANNED','eadmin-admin',NOW(),@by,NOW(),'Photo-upload ban lifted by administrator.')", conn))
+                { cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@by", GetCurrentUser()); cmd.ExecuteNonQuery(); }
+            }
+            catch { }
+
+            string who = name == "" ? regno : name + " (" + regno + ")";
+            return "{\"success\":true,\"message\":\"Ban lifted for " + JsEnc(who) + ". They can now upload a photograph again.\"}";
+        }
+    }
+
     /// <summary>Reviews a single PENDING change. Returns "OK" or a skip reason.</summary>
-    private string ReviewOne(MySqlConnection conn, int id, bool approve, string comment, string user)
+    private string ReviewOne(MySqlConnection conn, int id, bool approve, string comment, string user, bool ban)
     {
         string regno = "", newPhoto = "", status = "";
         using (var cmd = new MySqlCommand("SELECT regno, new_photofile, status FROM stud_photo_change WHERE id=@id LIMIT 1", conn))
@@ -222,6 +291,8 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                     using (var cmd = new MySqlCommand(
                         "UPDATE acad_student SET photo_status='REJECTED', photofile='' WHERE regno=@r AND photofile=@p", conn, tx))
                     { cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@p", newPhoto); cmd.ExecuteNonQuery(); }
+                    // Auto/ manual ban after repeated rejections (stud_photo_change is already REJECTED above).
+                    ApplyBanIfNeeded(conn, tx, regno, ban, comment, user);
                 }
                 tx.Commit();
                 return "OK";
@@ -236,59 +307,84 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
     private string BuildList()
     {
         string status = (Request.QueryString["status"] ?? "PENDING").Trim().ToUpperInvariant();
-        if (status != "ALL" && status != "PENDING" && status != "APPROVED" && status != "REJECTED" && status != "DELETED") status = "PENDING";
+        if (status != "ALL" && status != "PENDING" && status != "APPROVED" && status != "REJECTED" && status != "DELETED" && status != "BANNED") status = "PENDING";
         string q = (Request.QueryString["q"] ?? "").Trim();
         int page = SafeInt(Request.QueryString["page"], 1); if (page < 1) page = 1;
+        bool bannedView = (status == "BANNED");
 
-        var pr = new List<MySqlParameter>();
-        var where = new StringBuilder("WHERE 1=1");
-        if (status != "ALL") { where.Append(" AND c.status=@st"); pr.Add(new MySqlParameter("@st", status)); }
-        if (q != "") { where.Append(" AND (c.regno LIKE @q OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @q)"); pr.Add(new MySqlParameter("@q", "%" + q + "%")); }
-
-        int total = 0, pendingCount = 0;
+        int total = 0, pendingCount = 0, bannedCount = 0;
         var rows = new List<Dictionary<string, string>>();
         using (var conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
             using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM stud_photo_change WHERE status='PENDING'", conn))
                 pendingCount = Convert.ToInt32(cmd.ExecuteScalar());
+            using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_student WHERE photo_banned=1", conn))
+                bannedCount = Convert.ToInt32(cmd.ExecuteScalar());
 
-            using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM stud_photo_change c LEFT JOIN acad_student s ON s.regno=c.regno " + where, conn))
-            { foreach (var p in pr) cmd.Parameters.Add(Clone(p)); total = Convert.ToInt32(cmd.ExecuteScalar()); }
-
-            int pages = Math.Max(1, (int)Math.Ceiling(total / (double)PAGE_SIZE));
-            if (page > pages) page = pages;
-            int offset = (page - 1) * PAGE_SIZE;
-
-            string sql = "SELECT c.id, c.regno, TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS name, " +
-                         "COALESCE(s.progid,'') AS prog, COALESCE(c.old_photofile,'') AS oldf, c.new_photofile AS newf, c.status, " +
-                         "COALESCE(c.source,'') AS source, c.requested_at, COALESCE(c.reviewed_by,'') AS reviewed_by, c.reviewed_at, " +
-                         "COALESCE(c.review_comment,'') AS review_comment " +
-                         "FROM stud_photo_change c LEFT JOIN acad_student s ON s.regno=c.regno " + where +
-                         " ORDER BY (c.status='PENDING') DESC, c.id DESC LIMIT " + offset + "," + PAGE_SIZE;
-            using (var cmd = new MySqlCommand(sql, conn))
+            var pr = new List<MySqlParameter>();
+            if (bannedView)
             {
-                foreach (var p in pr) cmd.Parameters.Add(Clone(p));
-                using (var rd = cmd.ExecuteReader())
+                // Banned students live on acad_student (not stud_photo_change).
+                var w = new StringBuilder("WHERE s.photo_banned=1");
+                if (q != "") { w.Append(" AND (s.regno LIKE @q OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @q)"); pr.Add(new MySqlParameter("@q", "%" + q + "%")); }
+                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_student s " + w, conn))
+                { foreach (var p in pr) cmd.Parameters.Add(Clone(p)); total = Convert.ToInt32(cmd.ExecuteScalar()); }
+                int pgs = Math.Max(1, (int)Math.Ceiling(total / (double)PAGE_SIZE)); if (page > pgs) page = pgs; int off = (page - 1) * PAGE_SIZE;
+                string sql = "SELECT s.regno, TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS name, COALESCE(s.progid,'') AS prog, " +
+                             "COALESCE(s.photo_ban_reason,'') AS ban_reason, s.photo_ban_at AS ban_at, COALESCE(s.photo_ban_by,'') AS ban_by, " +
+                             "(SELECT COUNT(*) FROM stud_photo_change c WHERE c.regno=s.regno AND c.status='REJECTED') AS rej_count, " +
+                             "COALESCE((SELECT c2.new_photofile FROM stud_photo_change c2 WHERE c2.regno=s.regno AND c2.new_photofile<>'' ORDER BY c2.id DESC LIMIT 1),'') AS last_photo " +
+                             "FROM acad_student s " + w + " ORDER BY s.photo_ban_at DESC LIMIT " + off + "," + PAGE_SIZE;
+                using (var cmd = new MySqlCommand(sql, conn))
                 {
-                    while (rd.Read())
-                    {
-                        var d = new Dictionary<string, string>();
-                        d["id"] = rd["id"].ToString();
-                        d["regno"] = Safe(rd, "regno");
-                        d["name"] = Safe(rd, "name");
-                        d["prog"] = Safe(rd, "prog");
-                        d["oldf"] = Safe(rd, "oldf");
-                        d["newf"] = Safe(rd, "newf");
-                        d["status"] = Safe(rd, "status");
-                        d["requested_at"] = rd["requested_at"] == DBNull.Value ? "" : Convert.ToDateTime(rd["requested_at"]).ToString("dd MMM yyyy HH:mm");
-                        d["reviewed_by"] = Safe(rd, "reviewed_by");
-                        d["reviewed_at"] = rd["reviewed_at"] == DBNull.Value ? "" : Convert.ToDateTime(rd["reviewed_at"]).ToString("dd MMM yyyy HH:mm");
-                        d["comment"] = Safe(rd, "review_comment");
-                        rows.Add(d);
-                    }
+                    foreach (var p in pr) cmd.Parameters.Add(Clone(p));
+                    using (var rd = cmd.ExecuteReader())
+                        while (rd.Read())
+                        {
+                            var d = new Dictionary<string, string>();
+                            d["regno"] = Safe(rd, "regno"); d["name"] = Safe(rd, "name"); d["prog"] = Safe(rd, "prog");
+                            d["ban_reason"] = Safe(rd, "ban_reason"); d["ban_by"] = Safe(rd, "ban_by");
+                            d["ban_at"] = rd["ban_at"] == DBNull.Value ? "" : Convert.ToDateTime(rd["ban_at"]).ToString("dd MMM yyyy HH:mm");
+                            d["rej_count"] = Safe(rd, "rej_count"); d["last_photo"] = Safe(rd, "last_photo");
+                            rows.Add(d);
+                        }
                 }
             }
+            else
+            {
+                var where = new StringBuilder("WHERE 1=1");
+                if (status != "ALL") { where.Append(" AND c.status=@st"); pr.Add(new MySqlParameter("@st", status)); }
+                if (q != "") { where.Append(" AND (c.regno LIKE @q OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @q)"); pr.Add(new MySqlParameter("@q", "%" + q + "%")); }
+                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM stud_photo_change c LEFT JOIN acad_student s ON s.regno=c.regno " + where, conn))
+                { foreach (var p in pr) cmd.Parameters.Add(Clone(p)); total = Convert.ToInt32(cmd.ExecuteScalar()); }
+                int pgs = Math.Max(1, (int)Math.Ceiling(total / (double)PAGE_SIZE)); if (page > pgs) page = pgs; int off = (page - 1) * PAGE_SIZE;
+                string sql = "SELECT c.id, c.regno, TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS name, " +
+                             "COALESCE(s.progid,'') AS prog, COALESCE(c.old_photofile,'') AS oldf, c.new_photofile AS newf, c.status, " +
+                             "COALESCE(c.source,'') AS source, c.requested_at, COALESCE(c.reviewed_by,'') AS reviewed_by, c.reviewed_at, " +
+                             "COALESCE(c.review_comment,'') AS review_comment, COALESCE(s.photo_banned,0) AS banned " +
+                             "FROM stud_photo_change c LEFT JOIN acad_student s ON s.regno=c.regno " + where +
+                             " ORDER BY (c.status='PENDING') DESC, c.id DESC LIMIT " + off + "," + PAGE_SIZE;
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    foreach (var p in pr) cmd.Parameters.Add(Clone(p));
+                    using (var rd = cmd.ExecuteReader())
+                        while (rd.Read())
+                        {
+                            var d = new Dictionary<string, string>();
+                            d["id"] = rd["id"].ToString(); d["regno"] = Safe(rd, "regno"); d["name"] = Safe(rd, "name");
+                            d["prog"] = Safe(rd, "prog"); d["oldf"] = Safe(rd, "oldf"); d["newf"] = Safe(rd, "newf");
+                            d["status"] = Safe(rd, "status");
+                            d["requested_at"] = rd["requested_at"] == DBNull.Value ? "" : Convert.ToDateTime(rd["requested_at"]).ToString("dd MMM yyyy HH:mm");
+                            d["reviewed_by"] = Safe(rd, "reviewed_by");
+                            d["reviewed_at"] = rd["reviewed_at"] == DBNull.Value ? "" : Convert.ToDateTime(rd["reviewed_at"]).ToString("dd MMM yyyy HH:mm");
+                            d["comment"] = Safe(rd, "review_comment"); d["banned"] = Safe(rd, "banned");
+                            rows.Add(d);
+                        }
+                }
+            }
+
+            int pages = Math.Max(1, (int)Math.Ceiling(total / (double)PAGE_SIZE));
 
             var sb = new StringBuilder();
             // Filter bar
@@ -297,6 +393,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             sb.Append(Tab("PENDING", "Pending", status, q, pendingCount));
             sb.Append(Tab("APPROVED", "Approved", status, q, -1));
             sb.Append(Tab("REJECTED", "Rejected", status, q, -1));
+            sb.Append(Tab("BANNED", "Banned", status, q, bannedCount));
             sb.Append(Tab("DELETED", "Deleted", status, q, -1));
             sb.Append(Tab("ALL", "All", status, q, -1));
             sb.Append("</div>");
@@ -308,23 +405,26 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             sb.Append("</div>");
             sb.Append("</div>");
 
-            // Batch action bar (only meaningful for pending)
-            sb.Append("<div class='pc-batch' id='pcBatch'>");
-            sb.Append("<label class='pc-selall'><input type='checkbox' id='pcAll' onclick='pcToggleAll(this)'/> Select all on this page</label>");
-            sb.Append("<span class='pc-batch__spacer'></span>");
-            sb.Append("<span id='pcSelCount' class='pc-selcount'>0 selected</span>");
-            sb.Append("<button type='button' class='pc-btn pc-btn--ok' onclick='pcBatch(true)'>Approve selected</button>");
-            sb.Append("<button type='button' class='pc-btn pc-btn--danger' onclick='pcBatch(false)'>Reject selected</button>");
-            sb.Append("</div>");
+            // Batch action bar (pending review only — not for the banned list)
+            if (!bannedView)
+            {
+                sb.Append("<div class='pc-batch' id='pcBatch'>");
+                sb.Append("<label class='pc-selall'><input type='checkbox' id='pcAll' onclick='pcToggleAll(this)'/> Select all on this page</label>");
+                sb.Append("<span class='pc-batch__spacer'></span>");
+                sb.Append("<span id='pcSelCount' class='pc-selcount'>0 selected</span>");
+                sb.Append("<button type='button' class='pc-btn pc-btn--ok' onclick='pcBatch(true)'>Approve selected</button>");
+                sb.Append("<button type='button' class='pc-btn pc-btn--danger' onclick='pcBatch(false)'>Reject selected</button>");
+                sb.Append("</div>");
+            }
 
             if (rows.Count == 0)
             {
-                sb.Append("<div class='pc-empty'>No photo changes match this filter.</div>");
+                sb.Append("<div class='pc-empty'>" + (bannedView ? "No banned students." : "No photo changes match this filter.") + "</div>");
                 return sb.ToString();
             }
 
             sb.Append("<div class='pc-grid'>");
-            foreach (var d in rows) sb.Append(Card(d));
+            foreach (var d in rows) sb.Append(bannedView ? BannedCard(d) : Card(d));
             sb.Append("</div>");
 
             // Pager
@@ -345,7 +445,9 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
     private string Card(Dictionary<string, string> d)
     {
         string st = d["status"].ToUpperInvariant();
+        bool banned = d.ContainsKey("banned") && d["banned"] == "1";
         string badge = "<span class='pc-st pc-st--" + st.ToLowerInvariant() + "'>" + HE(d["status"]) + "</span>";
+        if (banned) badge += "<span class='pc-st pc-st--banned' title='This student cannot re-upload until an admin lifts the ban'>BANNED</span>";
         string newUrl = d["newf"] != "" ? PHOTO_BASE + Uri.EscapeDataString(d["newf"]) : "";
         string oldUrl = d["oldf"] != "" ? PHOTO_BASE + Uri.EscapeDataString(d["oldf"]) : "";
         bool pending = st == "PENDING";
@@ -356,15 +458,15 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         sb.Append("<div class='pc-card__h'>");
         if (pending) sb.Append("<input type='checkbox' class='pc-chk' value='" + HE(d["id"]) + "' onclick='pcCount()'/>");
         sb.Append("<div class='pc-card__id'><b>" + HE(d["name"] == "" ? d["regno"] : d["name"]) + "</b><span>" + HE(d["regno"]) + (d["prog"] != "" ? " &middot; " + HE(d["prog"]) : "") + "</span></div>");
-        sb.Append(badge);
+        sb.Append("<div class='pc-badges'>" + badge + "</div>");
         sb.Append("</div>");
-        // photos: new (big) + old (small)
+        // photos: new (big) + old (small) — click to view full size
         sb.Append("<div class='pc-imgs'>");
         sb.Append("<div class='pc-img pc-img--new'>");
-        if (newUrl != "") sb.Append("<img src='" + HE(newUrl) + "' alt='new' loading='lazy'/>"); else sb.Append("<div class='pc-img__none'>none</div>");
+        if (newUrl != "") sb.Append("<img src='" + HE(newUrl) + "' alt='new' loading='lazy' class='pc-clickimg' onclick=\"pcView('" + HE(newUrl) + "')\"/>"); else sb.Append("<div class='pc-img__none'>none</div>");
         sb.Append("<span class='pc-img__lbl'>New</span></div>");
         sb.Append("<div class='pc-img pc-img--old'>");
-        if (oldUrl != "") sb.Append("<img src='" + HE(oldUrl) + "' alt='old' loading='lazy'/>"); else sb.Append("<div class='pc-img__none'>no previous</div>");
+        if (oldUrl != "") sb.Append("<img src='" + HE(oldUrl) + "' alt='old' loading='lazy' class='pc-clickimg' onclick=\"pcView('" + HE(oldUrl) + "')\"/>"); else sb.Append("<div class='pc-img__none'>no previous</div>");
         sb.Append("<span class='pc-img__lbl'>Previous</span></div>");
         sb.Append("</div>");
         // meta
@@ -378,6 +480,32 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             sb.Append("<button type='button' class='pc-btn pc-btn--danger' onclick=\"pcReview(" + HE(d["id"]) + ",false)\">Reject</button>");
             sb.Append("</div>");
         }
+        else if (banned)
+        {
+            sb.Append("<div class='pc-acts'><button type='button' class='pc-btn pc-btn--ok' onclick=\"pcUnban('" + HE(d["regno"]) + "')\">Lift ban</button></div>");
+        }
+        sb.Append("</div>");
+        return sb.ToString();
+    }
+
+    /// <summary>Card for the Banned tab (student-level, from acad_student).</summary>
+    private string BannedCard(Dictionary<string, string> d)
+    {
+        string photoUrl = d["last_photo"] != "" ? PHOTO_BASE + Uri.EscapeDataString(d["last_photo"]) : "";
+        var sb = new StringBuilder();
+        sb.Append("<div class='pc-card pc-card--banned'>");
+        sb.Append("<div class='pc-card__h'>");
+        sb.Append("<div class='pc-card__id'><b>" + HE(d["name"] == "" ? d["regno"] : d["name"]) + "</b><span>" + HE(d["regno"]) + (d["prog"] != "" ? " &middot; " + HE(d["prog"]) : "") + "</span></div>");
+        sb.Append("<div class='pc-badges'><span class='pc-st pc-st--banned'>BANNED</span></div>");
+        sb.Append("</div>");
+        sb.Append("<div class='pc-imgs pc-imgs--one'>");
+        sb.Append("<div class='pc-img pc-img--new'>");
+        if (photoUrl != "") sb.Append("<img src='" + HE(photoUrl) + "' alt='last' loading='lazy' class='pc-clickimg' onclick=\"pcView('" + HE(photoUrl) + "')\"/>"); else sb.Append("<div class='pc-img__none'>no photo</div>");
+        sb.Append("<span class='pc-img__lbl'>Last submitted</span></div>");
+        sb.Append("</div>");
+        sb.Append("<div class='pc-meta'><b>" + HE(d["rej_count"]) + "</b> rejection(s) &middot; banned " + HE(d["ban_at"]) + (d["ban_by"] != "" ? " by " + HE(d["ban_by"]) : "") + "</div>");
+        if (d["ban_reason"] != "") sb.Append("<div class='pc-meta'><i>&ldquo;" + HE(d["ban_reason"]) + "&rdquo;</i></div>");
+        sb.Append("<div class='pc-acts'><button type='button' class='pc-btn pc-btn--ok' onclick=\"pcUnban('" + HE(d["regno"]) + "')\">Lift ban &amp; allow re-upload</button></div>");
         sb.Append("</div>");
         return sb.ToString();
     }
