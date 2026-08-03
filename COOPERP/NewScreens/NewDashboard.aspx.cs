@@ -500,8 +500,52 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
     }
 
     // ── Safe aggregate + formatters (one failed widget never breaks the page) ─
+    // Dashboard summaries are institution-wide counts that change slowly; caching them
+    // for a few minutes turns ~35 sequential DB round-trips (each a new connection) into a
+    // single instant lookup on all but the first load within the window. Only successful
+    // values are cached — an error (NaN) is never cached, so it retries next request.
+    private const int DashCacheSeconds = 300;
+    private static object CacheGet(string key) { return System.Web.HttpRuntime.Cache[key]; }
+    private static void CachePut(string key, object val)
+    {
+        System.Web.HttpRuntime.Cache.Insert(key, val, null,
+            DateTime.UtcNow.AddSeconds(DashCacheSeconds),
+            System.Web.Caching.Cache.NoSlidingExpiration);
+    }
+
+    // Cached multi-column scalar row — lets several counts/sums from ONE table be fetched
+    // in a single scan (one connection, one round-trip) instead of N separate Agg() calls.
+    private double[] AggMulti(string cs, string sql, int cols)
+    {
+        string key = "nd_aggm:" + (cs ?? "").GetHashCode() + ":" + sql;
+        object hit = CacheGet(key);
+        if (hit is double[]) return (double[])hit;
+        var res = new double[cols];
+        try
+        {
+            using (var conn = new MySqlConnection(cs))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.CommandTimeout = 20;
+                    using (var r = cmd.ExecuteReader())
+                        if (r.Read())
+                            for (int i = 0; i < cols; i++)
+                                res[i] = r.IsDBNull(i) ? 0 : Convert.ToDouble(r.GetValue(i));
+                }
+            }
+            CachePut(key, res);
+            return res;
+        }
+        catch { for (int i = 0; i < cols; i++) res[i] = double.NaN; return res; }
+    }
+
     private double Agg(string cs, string sql)
     {
+        string key = "nd_agg:" + (cs ?? "").GetHashCode() + ":" + sql;
+        object hit = CacheGet(key);
+        if (hit is double) return (double)hit;
         try
         {
             using (var conn = new MySqlConnection(cs))
@@ -511,7 +555,9 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
                 {
                     cmd.CommandTimeout = 20;
                     var v = cmd.ExecuteScalar();
-                    return (v == null || v == DBNull.Value) ? 0 : Convert.ToDouble(v);
+                    double d = (v == null || v == DBNull.Value) ? 0 : Convert.ToDouble(v);
+                    CachePut(key, d);
+                    return d;
                 }
             }
         }
@@ -528,9 +574,14 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
     {
         string cs = AcctConn;
         lblFeesMonthName.Text = DateTime.Now.ToString("MMMM yyyy");
-        double month = Agg(cs, "SELECT COALESCE(SUM(amount),0) FROM fin_studentfeestracking WHERE trans_type='Payment' AND YEAR(trans_date)=YEAR(CURDATE()) AND MONTH(trans_date)=MONTH(CURDATE())");
-        double yc    = Agg(cs, "SELECT COALESCE(SUM(amount),0) FROM fin_studentfeestracking WHERE trans_type='Payment' AND YEAR(trans_date)=YEAR(CURDATE())");
-        double yb    = Agg(cs, "SELECT COALESCE(SUM(amount),0) FROM fin_studentfeestracking WHERE trans_type='Bill' AND YEAR(trans_date)=YEAR(CURDATE())");
+        // One scan of the current year's rows yields all three figures (was 3 separate scans/connections).
+        double[] f = AggMulti(cs,
+            "SELECT " +
+            "COALESCE(SUM(CASE WHEN trans_type='Payment' AND MONTH(trans_date)=MONTH(CURDATE()) THEN amount END),0), " +
+            "COALESCE(SUM(CASE WHEN trans_type='Payment' THEN amount END),0), " +
+            "COALESCE(SUM(CASE WHEN trans_type='Bill'    THEN amount END),0) " +
+            "FROM fin_studentfeestracking WHERE YEAR(trans_date)=YEAR(CURDATE())", 3);
+        double month = f[0], yc = f[1], yb = f[2];
         lblFeesMonth.Text         = M(month);
         lblFeesYearCollected.Text = M(yc);
         lblFeesYearBilled.Text    = M(yb);
@@ -541,8 +592,12 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
     private void LoadAccountsStats()
     {
         string cs = AcctConn;
-        lblAcctTxMonth.Text  = N(Agg(cs, "SELECT COUNT(*) FROM fin_ledger WHERE YEAR(transactionDate)=YEAR(CURDATE()) AND MONTH(transactionDate)=MONTH(CURDATE())"));
-        lblAcctAccounts.Text = N(Agg(cs, "SELECT COUNT(DISTINCT accountcode) FROM fin_ledger"));
+        // Both fin_ledger figures from a single scan (was 2 separate scans/connections).
+        double[] a = AggMulti(cs,
+            "SELECT COUNT(CASE WHEN YEAR(transactionDate)=YEAR(CURDATE()) AND MONTH(transactionDate)=MONTH(CURDATE()) THEN 1 END), " +
+            "COUNT(DISTINCT accountcode) FROM fin_ledger", 2);
+        lblAcctTxMonth.Text  = N(a[0]);
+        lblAcctAccounts.Text = N(a[1]);
         lblAcctPendingFin.Text = N(Agg(ConnectionString,
             "SELECT COUNT(*) FROM sys_requisitions WHERE is_deleted=0 AND finance_action='PENDING' AND status NOT IN ('DRAFT','COMPLETED','REJECTED','CANCELLED')"));
     }
@@ -568,207 +623,143 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
 
     // Academic year logic centralised in AcademicYearHelper
 
+    // Snapshot of the whole Academic section — cached so repeat loads run ZERO queries.
+    private class AcademicSnapshot
+    {
+        public string currentYear;
+        public long totalStudents, maleStudents, femaleStudents;
+        public long currentEnrollments, totalReg, apps, results;
+        public long faculties, programmes, specs, courses;
+        public long progCourses, coreCourses, electiveCourses, defaultSpecs;
+        public long progsConfigured, specsConfigured, progsWithCourses;
+        public DataTable enrollments;
+        public string enrollmentJson;
+    }
+
+    private static string N0(long v) { return String.Format("{0:N0}", v); }
+
     private void LoadAcademicStats()
     {
-        using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+        var snap = CacheGet("nd_academic") as AcademicSnapshot;
+        if (snap == null)
         {
-            try
+            snap = ComputeAcademicStats();
+            if (snap != null) CachePut("nd_academic", snap);
+        }
+        if (snap != null) ApplyAcademic(snap);
+    }
+
+    // Consolidated: ~20 separate counts collapsed into ~10 single-scan queries.
+    private AcademicSnapshot ComputeAcademicStats()
+    {
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                
-                string currentYear = AcademicYearHelper.GetCurrentAcademicYear();
-                lblCurrentYear.Text = currentYear;
-                
-                // ========== STUDENT METRICS ==========
-                
-                // Total Students
-                int totalStudents = 0;
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_student", conn))
+                var s = new AcademicSnapshot();
+                s.currentYear = AcademicYearHelper.GetCurrentAcademicYear();
+
+                // Students: total + male + female in one scan
+                using (var cmd = new MySqlCommand("SELECT COUNT(*), COALESCE(SUM(gender='Male'),0), COALESCE(SUM(gender='Female'),0) FROM acad_student", conn))
+                using (var r = cmd.ExecuteReader())
+                    if (r.Read()) { s.totalStudents = Convert.ToInt64(r.GetValue(0)); s.maleStudents = Convert.ToInt64(r.GetValue(1)); s.femaleStudents = Convert.ToInt64(r.GetValue(2)); }
+
+                // Registrations: total + current-year in one scan
+                using (var cmd = new MySqlCommand("SELECT COUNT(*), COALESCE(SUM(acad_year=@year),0) FROM acad_registration", conn))
                 {
-                    totalStudents = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblTotalStudents.Text = String.Format("{0:N0}", totalStudents);
+                    cmd.Parameters.AddWithValue("@year", s.currentYear);
+                    using (var r = cmd.ExecuteReader())
+                        if (r.Read()) { s.totalReg = Convert.ToInt64(r.GetValue(0)); s.currentEnrollments = Convert.ToInt64(r.GetValue(1)); }
                 }
-                
-                // Male Students
-                int maleStudents = 0;
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_student WHERE gender = 'Male'", conn))
+
+                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_applications", conn))
+                    s.apps = Convert.ToInt64(cmd.ExecuteScalar());
+                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_results", conn))
+                    s.results = Convert.ToInt64(cmd.ExecuteScalar());
+                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_faculty", conn))
+                    s.faculties = Convert.ToInt64(cmd.ExecuteScalar());
+                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_course", conn))
+                    s.courses = Convert.ToInt64(cmd.ExecuteScalar());
+
+                // Programmes: total + configured in one scan
+                using (var cmd = new MySqlCommand("SELECT COUNT(*), COALESCE(SUM(is_fully_set='Yes'),0) FROM acad_programme", conn))
+                using (var r = cmd.ExecuteReader())
+                    if (r.Read()) { s.programmes = Convert.ToInt64(r.GetValue(0)); s.progsConfigured = Convert.ToInt64(r.GetValue(1)); }
+
+                // Specialisations: total + configured + default in one scan
+                using (var cmd = new MySqlCommand("SELECT COUNT(*), COALESCE(SUM(is_fully_set='Yes'),0), COALESCE(SUM(spec='Default'),0) FROM acad_specialisation", conn))
+                using (var r = cmd.ExecuteReader())
+                    if (r.Read()) { s.specs = Convert.ToInt64(r.GetValue(0)); s.specsConfigured = Convert.ToInt64(r.GetValue(1)); s.defaultSpecs = Convert.ToInt64(r.GetValue(2)); }
+
+                // Programme-courses: total + core + elective + programmes-with-courses in one scan
+                using (var cmd = new MySqlCommand("SELECT COUNT(*), COALESCE(SUM(course_type='CORE' OR course_type IS NULL),0), COALESCE(SUM(course_type='ELECTIVE'),0), COUNT(DISTINCT progcode) FROM acad_programmecourses", conn))
+                using (var r = cmd.ExecuteReader())
+                    if (r.Read()) { s.progCourses = Convert.ToInt64(r.GetValue(0)); s.coreCourses = Convert.ToInt64(r.GetValue(1)); s.electiveCourses = Convert.ToInt64(r.GetValue(2)); s.progsWithCourses = Convert.ToInt64(r.GetValue(3)); }
+
+                // Enrollment by year (table + chart)
+                s.enrollments = new DataTable();
+                using (var cmd = new MySqlCommand("SELECT acad_year, COUNT(*) as count FROM acad_registration GROUP BY acad_year ORDER BY acad_year DESC LIMIT 5", conn))
+                using (var adapter = new MySqlDataAdapter(cmd))
+                    adapter.Fill(s.enrollments);
+
+                var chartData = new List<object>();
+                for (int i = s.enrollments.Rows.Count - 1; i >= 0; i--)
                 {
-                    maleStudents = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblMaleStudents.Text = String.Format("{0:N0}", maleStudents);
-                    hfMaleCount.Value = maleStudents.ToString();
+                    DataRow row = s.enrollments.Rows[i];
+                    chartData.Add(new { year = row["acad_year"].ToString(), count = Convert.ToInt32(row["count"]) });
                 }
-                
-                // Female Students
-                int femaleStudents = 0;
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_student WHERE gender = 'Female'", conn))
-                {
-                    femaleStudents = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblFemaleStudents.Text = String.Format("{0:N0}", femaleStudents);
-                    hfFemaleCount.Value = femaleStudents.ToString();
-                }
-                
-                // Gender Ratio
-                if (femaleStudents > 0)
-                {
-                    double ratio = Math.Round((double)maleStudents / femaleStudents, 2);
-                    lblGenderRatio.Text = ratio.ToString("0.00") + ":1";
-                }
-                
-                // Current Year Enrollments
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_registration WHERE acad_year = @year", conn))
-                {
-                    cmd.Parameters.AddWithValue("@year", currentYear);
-                    int currentEnrollments = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblCurrentEnrollments.Text = String.Format("{0:N0}", currentEnrollments);
-                }
-                
-                // Total Registrations
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_registration", conn))
-                {
-                    int totalReg = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblTotalRegistrations.Text = String.Format("{0:N0}", totalReg);
-                }
-                
-                // Applications
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_applications", conn))
-                {
-                    int apps = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblApplications.Text = String.Format("{0:N0}", apps);
-                }
-                
-                // Exam Results
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_results", conn))
-                {
-                    int results = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblExamResults.Text = String.Format("{0:N0}", results);
-                }
-                
-                // ========== ACADEMIC STRUCTURE ==========
-                
-                // Faculties
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_faculty", conn))
-                {
-                    lblFaculties.Text = cmd.ExecuteScalar().ToString();
-                }
-                
-                // Programmes
-                int totalProgrammes = 0;
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_programme", conn))
-                {
-                    totalProgrammes = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblProgrammes.Text = totalProgrammes.ToString();
-                }
-                
-                // Specialisations
-                int totalSpecs = 0;
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_specialisation", conn))
-                {
-                    totalSpecs = Convert.ToInt32(cmd.ExecuteScalar());
-                    lblSpecialisations.Text = totalSpecs.ToString();
-                }
-                
-                // Courses
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_course", conn))
-                {
-                    lblCourses.Text = cmd.ExecuteScalar().ToString();
-                }
-                
-                // ========== COURSE STATISTICS ==========
-                
-                // Programme Courses
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_programmecourses", conn))
-                {
-                    lblTotalProgrammeCourses.Text = cmd.ExecuteScalar().ToString();
-                }
-                
-                // Core Courses
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_programmecourses WHERE course_type = 'CORE' OR course_type IS NULL", conn))
-                {
-                    lblCoreCourses.Text = cmd.ExecuteScalar().ToString();
-                }
-                
-                // Elective Courses
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_programmecourses WHERE course_type = 'ELECTIVE'", conn))
-                {
-                    lblElectiveCourses.Text = cmd.ExecuteScalar().ToString();
-                }
-                
-                // Default Specialisations
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_specialisation WHERE spec = 'Default'", conn))
-                {
-                    lblDefaultSpecs.Text = cmd.ExecuteScalar().ToString();
-                }
-                
-                // ========== CONFIGURATION STATUS ==========
-                
-                // Programmes Configured
-                int progsConfigured = 0;
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_programme WHERE is_fully_set = 'Yes'", conn))
-                {
-                    progsConfigured = Convert.ToInt32(cmd.ExecuteScalar());
-                }
-                int progPercent = totalProgrammes > 0 ? (progsConfigured * 100 / totalProgrammes) : 0;
-                lblProgConfigured.Text = progPercent.ToString();
-                progBar.Style["width"] = progPercent + "%";
-                lblUnConfiguredProgs.Text = (totalProgrammes - progsConfigured).ToString();
-                
-                // Specialisations Configured
-                int specsConfigured = 0;
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_specialisation WHERE is_fully_set = 'Yes'", conn))
-                {
-                    specsConfigured = Convert.ToInt32(cmd.ExecuteScalar());
-                }
-                int specPercent = totalSpecs > 0 ? (specsConfigured * 100 / totalSpecs) : 0;
-                lblSpecConfigured.Text = specPercent.ToString();
-                specBar.Style["width"] = specPercent + "%";
-                lblUnConfiguredSpecs.Text = (totalSpecs - specsConfigured).ToString();
-                
-                // Programmes with Courses
-                int progsWithCourses = 0;
-                using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(DISTINCT progcode) FROM acad_programmecourses", conn))
-                {
-                    progsWithCourses = Convert.ToInt32(cmd.ExecuteScalar());
-                }
-                int coursesPercent = totalProgrammes > 0 ? (progsWithCourses * 100 / totalProgrammes) : 0;
-                lblProgWithCourses.Text = coursesPercent.ToString();
-                coursesBar.Style["width"] = coursesPercent + "%";
-                
-                // ========== ENROLLMENT BY YEAR (for table and chart) ==========
-                
-                DataTable dtEnrollments = new DataTable();
-                List<object> chartData = new List<object>();
-                
-                using (MySqlCommand cmd = new MySqlCommand(
-                    "SELECT acad_year, COUNT(*) as count FROM acad_registration " +
-                    "GROUP BY acad_year ORDER BY acad_year DESC LIMIT 5", conn))
-                {
-                    using (MySqlDataAdapter adapter = new MySqlDataAdapter(cmd))
-                    {
-                        adapter.Fill(dtEnrollments);
-                    }
-                }
-                
-                // Bind to repeater (newest first)
-                rptEnrollmentsByYear.DataSource = dtEnrollments;
-                rptEnrollmentsByYear.DataBind();
-                
-                // Build chart data (oldest first for chart)
-                for (int i = dtEnrollments.Rows.Count - 1; i >= 0; i--)
-                {
-                    DataRow row = dtEnrollments.Rows[i];
-                    chartData.Add(new { 
-                        year = row["acad_year"].ToString(), 
-                        count = Convert.ToInt32(row["count"]) 
-                    });
-                }
-                
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
-                hfEnrollmentData.Value = serializer.Serialize(chartData);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("Dashboard Error: " + ex.Message);
+                s.enrollmentJson = new JavaScriptSerializer().Serialize(chartData);
+                return s;
             }
         }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("Dashboard Error: " + ex.Message);
+            return null;
+        }
+    }
+
+    private void ApplyAcademic(AcademicSnapshot s)
+    {
+        lblCurrentYear.Text = s.currentYear;
+
+        lblTotalStudents.Text  = N0(s.totalStudents);
+        lblMaleStudents.Text   = N0(s.maleStudents);   hfMaleCount.Value   = s.maleStudents.ToString();
+        lblFemaleStudents.Text = N0(s.femaleStudents); hfFemaleCount.Value = s.femaleStudents.ToString();
+        if (s.femaleStudents > 0)
+            lblGenderRatio.Text = Math.Round((double)s.maleStudents / s.femaleStudents, 2).ToString("0.00") + ":1";
+
+        lblCurrentEnrollments.Text = N0(s.currentEnrollments);
+        lblTotalRegistrations.Text = N0(s.totalReg);
+        lblApplications.Text       = N0(s.apps);
+        lblExamResults.Text        = N0(s.results);
+
+        lblFaculties.Text            = s.faculties.ToString();
+        lblProgrammes.Text           = s.programmes.ToString();
+        lblSpecialisations.Text      = s.specs.ToString();
+        lblCourses.Text              = s.courses.ToString();
+        lblTotalProgrammeCourses.Text = s.progCourses.ToString();
+        lblCoreCourses.Text          = s.coreCourses.ToString();
+        lblElectiveCourses.Text      = s.electiveCourses.ToString();
+        lblDefaultSpecs.Text         = s.defaultSpecs.ToString();
+
+        int progPercent = s.programmes > 0 ? (int)(s.progsConfigured * 100 / s.programmes) : 0;
+        lblProgConfigured.Text = progPercent.ToString();
+        progBar.Style["width"] = progPercent + "%";
+        lblUnConfiguredProgs.Text = (s.programmes - s.progsConfigured).ToString();
+
+        int specPercent = s.specs > 0 ? (int)(s.specsConfigured * 100 / s.specs) : 0;
+        lblSpecConfigured.Text = specPercent.ToString();
+        specBar.Style["width"] = specPercent + "%";
+        lblUnConfiguredSpecs.Text = (s.specs - s.specsConfigured).ToString();
+
+        int coursesPercent = s.programmes > 0 ? (int)(s.progsWithCourses * 100 / s.programmes) : 0;
+        lblProgWithCourses.Text = coursesPercent.ToString();
+        coursesBar.Style["width"] = coursesPercent + "%";
+
+        rptEnrollmentsByYear.DataSource = s.enrollments;
+        rptEnrollmentsByYear.DataBind();
+        hfEnrollmentData.Value = s.enrollmentJson;
     }
 }
