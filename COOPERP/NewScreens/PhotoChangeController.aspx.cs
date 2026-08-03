@@ -203,7 +203,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
 
         string reason = manualBan
             ? ("Photo uploads suspended by the administrator." + (string.IsNullOrEmpty(comment) ? "" : (" Reason: " + comment)))
-            : ("Photo uploads suspended automatically after " + rej + " rejections. Please visit the administrator's office to lift the ban.");
+            : ("Photo uploads suspended automatically after " + rej + " rejections. Please visit the University IT Office / Help Desk with a perfect, professional passport-size studio photograph to have the ban lifted.");
         using (var cmd = new MySqlCommand(
             "UPDATE acad_student SET photo_banned=1, photo_ban_reason=@rz, photo_ban_at=NOW(), photo_ban_by=@by WHERE regno=@rn", conn, tx))
         {
