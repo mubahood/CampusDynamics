@@ -916,6 +916,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.lblRunIdentity.StylePriority.UseTextAlignment = false;
             this.lblRunIdentity.Text = "";
             this.lblRunIdentity.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleLeft;
+            // Hidden on the KEY-TO-GRADES (last) page by PageOfTotal_PrintOnPage.
+            this.lblRunIdentity.PrintOnPage += new DevExpress.XtraReports.UI.PrintOnPageEventHandler(this.PageOfTotal_PrintOnPage);
             //
             // lineRunIdentity
             //
@@ -925,6 +927,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.lineRunIdentity.Name = "lineRunIdentity";
             this.lineRunIdentity.SizeF = new System.Drawing.SizeF(762.5F, 2.083328F);
             this.lineRunIdentity.StylePriority.UseForeColor = false;
+            // Hidden on the KEY-TO-GRADES (last) page by PageOfTotal_PrintOnPage.
+            this.lineRunIdentity.PrintOnPage += new DevExpress.XtraReports.UI.PrintOnPageEventHandler(this.PageOfTotal_PrintOnPage);
             //
             // pgInfoRun — "Page X of Y" on continuation pages (right of the running identity)
             //
@@ -1080,12 +1084,6 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
 
     private void GroupFooter1_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
-        // This footer has PageBreak = AfterBand, so the NEXT physical page is this student's
-        // standalone KEY-TO-GRADES page. Flag it here (reliable inline event) so that page's
-        // running identity header + page number are suppressed, and count it as a KEY page so
-        // it is excluded from the "Page X of Y" total. Guarded against a re-measure of the band.
-        if (!_keyPageComing) { _keyPageComing = true; _keyPageCount++; }
-
         // Reset per-student so batch printing always re-enriches each student
         _thesisDataEnriched = false;
         EnsureThesisData();
@@ -1167,32 +1165,12 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     // a page whose regno equals the previous page's regno must be a continuation page.
     private string _phPrevRegno = null;
 
-    // ── Independent KEY-TO-GRADES end page ───────────────────────────────────
-    // The KEY-TO-GRADES page (GroupFooter2) is forced onto its own page by
-    // GroupFooter1.PageBreak = AfterBand. The registrar treats it as a standalone
-    // reference/legend page: it must carry NO running identity header, NO page number,
-    // and must NOT be counted in the "Page X of Y" total.
-    //   • _keyPageComing — set in GroupFooter1.BeforePrint (fires on the last results page,
-    //                       immediately before the page break) so the VERY NEXT page's
-    //                       header is recognised as the KEY page and suppressed.
-    //   • _keyPageCount  — number of KEY pages (one per student) — subtracted from the total.
-    //   • _realPageNo    — running number of real (non-key) pages, so numbering stays
-    //                       correct even for batches (a KEY page never advances it).
-    private bool _keyPageComing = false;
-    private int _keyPageCount = 0;
-    private int _realPageNo = 0;
-    private int _lastRealPageIndex = -1;
-
+    // ── Running per-page identity header ─────────────────────────────────────
+    // Prints only on continuation pages; suppressed on each student's first page (which
+    // carries the full letterhead). The KEY-TO-GRADES page is handled below in
+    // PageOfTotal_PrintOnPage — it is always the LAST page.
     private void PageHeaderIdentity_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
-        if (_keyPageComing)
-        {
-            // Standalone KEY-TO-GRADES end page — no running identity header, no page number.
-            _keyPageComing = false;
-            e.Cancel = true;
-            return;
-        }
-
         string reg = GetThesisColumnSafe("regno");
         bool continuation = reg.Length > 0
             && _phPrevRegno != null
@@ -1216,24 +1194,30 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
         lblRunIdentity.Text = txt;
     }
 
-    // "Page X of Y" where Y EXCLUDES the independent KEY-TO-GRADES end page(s), and X only
-    // advances on real (non-key) pages. Hidden when the transcript is a single real page.
-    // PrintOnPage fires in page order during final composition (total is known by then),
-    // and only on real pages — the KEY page's header band is cancelled, so it carries no
-    // page-number label and never advances X. pgInfoRun/pgInfoHead are plain XRLabels, so
-    // the text set here is what renders (an XRPageInfo would ignore .Text).
+    // KEY-TO-GRADES is a standalone reference page: NO running header, NO page number, and it
+    // must NOT be counted in the "Page X of Y" total. It is ALWAYS the LAST physical page (its
+    // band GroupFooter2 follows GroupFooter1, whose PageBreak = AfterBand). This runs during
+    // final composition where e.PageIndex/e.PageCount are final and reliable — the earlier
+    // BeforePrint/flag approach was unreliable across the page break. Wired to every running-
+    // header control (lblRunIdentity, lineRunIdentity, pgInfoRun) + the letterhead's pgInfoHead.
     private void PageOfTotal_PrintOnPage(object sender, DevExpress.XtraReports.UI.PrintOnPageEventArgs e)
     {
         XRControl ctl = sender as XRControl;
         if (ctl == null) return;
 
-        int realTotal = e.PageCount - _keyPageCount;
-        if (realTotal <= 1) { ctl.Visible = false; return; }
+        // Last page = KEY-TO-GRADES → hide the entire running header + page number there.
+        if (e.PageIndex >= e.PageCount - 1) { ctl.Visible = false; return; }
 
-        // Advance the real-page counter once per physical page (guard against a control's
-        // PrintOnPage firing more than once for the same page).
-        if (e.PageIndex != _lastRealPageIndex) { _realPageNo++; _lastRealPageIndex = e.PageIndex; }
-        ctl.Visible = true;
-        ctl.Text = "Page " + _realPageNo + " of " + realTotal;
+        if (ctl == pgInfoRun || ctl == pgInfoHead)
+        {
+            int realTotal = e.PageCount - 1;              // exclude the KEY page from the total
+            if (realTotal <= 1) { ctl.Visible = false; return; }
+            ctl.Visible = true;
+            ctl.Text = "Page " + (e.PageIndex + 1) + " of " + realTotal;
+        }
+        else
+        {
+            ctl.Visible = true;   // lblRunIdentity / lineRunIdentity on the real (non-key) pages
+        }
     }
 }
