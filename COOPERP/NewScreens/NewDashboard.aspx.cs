@@ -59,23 +59,34 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
         bool secReq       = Has("requisitions");
         bool any = secAcademics || secFees || secAccounts || secHr || secReq;
 
-        pnlAcademics.Visible = secAcademics;
-        pnlFees.Visible      = secFees;
-        pnlAccounts.Visible  = secAccounts;
-        pnlHr.Visible        = secHr;
-        pnlReq.Visible       = secReq;
+        // The main dashboard is now a SHORTCUTS + "what you head" launcher — institution-wide
+        // statistics were removed from it (they were slow and rarely needed on the landing page;
+        // users open the relevant module or the General Dashboard when they actually want numbers).
+        // The old stat panels stay in the markup but are never shown and never queried, so the
+        // page loads instantly. Role-aware shortcut panels replace them.
+        pnlAcademics.Visible = false;
+        pnlFees.Visible      = false;
+        pnlAccounts.Visible  = false;
+        pnlHr.Visible        = false;
+        pnlReq.Visible       = false;
         pnlNoAccess.Visible  = !any;
+
+        // Shortcuts shown per the user's access set.
+        pnlScAcademics.Visible = secAcademics;
+        pnlScFees.Visible      = secFees;
+        pnlScAccounts.Visible  = secAccounts;
+        pnlScHr.Visible        = secHr;
+        pnlScReq.Visible       = secReq;
 
         LoadWelcome(username);
         try { LoadMyFaculty(username); } catch { pnlMyFaculty.Visible = false; }
         try { LoadMyDepartment(username); } catch { pnlMyDept.Visible = false; }
 
-        // A Dean gets a FACULTY-scoped overview; a Head of Department gets a
-        // DEPARTMENT-scoped overview — both INSTEAD of the university-wide academic
-        // widgets (which stay for registrars/admins). Dynamic + reusable widget.
+        // A Dean gets a FACULTY-scoped overview; a Head of Department gets a DEPARTMENT-scoped
+        // overview — a live summary of the faculty / department they head. This is the only
+        // "statistics" the landing page keeps, because it is personal to the signed-in leader.
         if (_facultyCodes.Count > 0)
         {
-            pnlAcademics.Visible = false;
             try { LoadScopedOverview(FacultyScopeSql(), "Faculty Overview",
                 "Live statistics for the programmes, staff and students in your faculty",
                 "Programmes in your faculty", "faculty"); }
@@ -83,20 +94,11 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
         }
         else if (_deptIds.Count > 0)
         {
-            pnlAcademics.Visible = false;
             try { LoadScopedOverview(DeptScopeSql(), "Department Overview",
                 "Live statistics for the programmes, staff and students in your department",
                 "Programmes in your department", "department"); }
             catch { pnlFacultyOverview.Visible = false; }
         }
-
-        // Load data only for the sections this user can see (relevance + perf).
-        // Each loader is fully isolated so one failure can never blank the page.
-        if (pnlAcademics.Visible) { try { LoadAcademicStats(); } catch { } }
-        if (secFees)      { try { LoadFeesStats(); }     catch { } }
-        if (secAccounts)  { try { LoadAccountsStats(); } catch { } }
-        if (secHr)        { try { LoadHrStats(); }       catch { } }
-        if (secReq)       { try { LoadReqStats(); }      catch { } }
     }
 
     // ── Welcome header ──────────────────────────────────────────────────────

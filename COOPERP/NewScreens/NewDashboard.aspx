@@ -260,6 +260,13 @@
         .dash-section__title{font-size:14px;font-weight:700;color:#1a1a2e;margin:0;display:flex;align-items:center;gap:8px;}
         .dash-section__title svg{width:16px;height:16px;color:#174DA4;}
         .dash-section__hint{font-size:11px;color:#94a3b8;}
+        /* Shortcut cards — the dashboard is a launcher, not a stats page */
+        .sc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:14px;}
+        .sc-card{display:flex;align-items:center;gap:10px;padding:13px 12px;background:#fff;border:1px solid #e0e5ed;color:#1a1a2e;text-decoration:none;transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease;}
+        .sc-card:hover{border-color:#174DA4;box-shadow:0 1px 5px rgba(5,39,92,.12);transform:translateY(-1px);}
+        .sc-card__ic{width:34px;height:34px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#eef2fb;color:#174DA4;}
+        .sc-card__ic svg{width:17px;height:17px;}
+        .sc-card span{font-size:12.5px;font-weight:600;line-height:1.25;}
         .dash-noaccess{background:#fff;border:1px solid #e0e5ed;border-radius:6px;padding:52px 24px;text-align:center;color:#64748b;}
         .dash-noaccess svg{width:46px;height:46px;color:#cbd5e1;margin-bottom:12px;}
         .dash-noaccess h2{font-size:16px;color:#05275C;margin:0 0 6px;}
@@ -382,6 +389,98 @@
             <p>You don't have a role assigned yet, so there are no modules to show here.<br>Please contact your system administrator to be granted access.</p>
         </div>
     </asp:Panel>
+
+    <!-- ============================================================= -->
+    <!-- QUICK ACCESS — role-aware shortcuts (this dashboard is a       -->
+    <!-- launcher; statistics live in the module pages / General        -->
+    <!-- Dashboard, reached via the shortcuts below).                   -->
+    <!-- ============================================================= -->
+
+    <!-- Students & Academics -->
+    <asp:Panel ID="pnlScAcademics" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"></path><path d="M6 12v5c3 3 9 3 12 0v-5"></path></svg>Students &amp; Academics</span>
+            <span class="dash-section__hint">Registration, admissions, marks &amp; records</span>
+        </div>
+        <div class="sc-grid">
+            <a href="AllStudents.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span><span>Students</span></a>
+            <a href="StudentsRegistration.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span><span>Registration</span></a>
+            <a href="CourseRegistration.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span><span>Course Registration</span></a>
+            <a href="AdmissionsController.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"></path></svg></span><span>Admissions</span></a>
+            <a href="GeneralMarksheets.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></span><span>Marksheets</span></a>
+            <a href="ExamApproval.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></span><span>Exam Approvals</span></a>
+            <a href="NewFacultyProgrammes.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><span>Programmes</span></a>
+            <a href="PhotoChangeController.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></span><span>Photo Approvals</span></a>
+            <a href="IDCardController.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg></span><span>ID Cards</span></a>
+            <a href="EnrollmentAnalysis.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span><span>Enrollment Analysis</span></a>
+        </div>
+    </asp:Panel>
+
+    <!-- Fees & Bursary -->
+    <asp:Panel ID="pnlScFees" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>Fees &amp; Bursary</span>
+            <span class="dash-section__hint">Fees collection, billing &amp; bursaries</span>
+        </div>
+        <div class="sc-grid">
+            <a href="FeesManagement.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg></span><span>Fees Management</span></a>
+            <a href="FeesStructure.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg></span><span>Fee Structure</span></a>
+            <a href="BillWaivers.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span><span>Bill Waivers</span></a>
+            <a href="BursaryBeneficiaries.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg></span><span>Bursary</span></a>
+            <a href="StudentLedgers.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><span>Student Ledgers</span></a>
+        </div>
+    </asp:Panel>
+
+    <!-- Finance & Accounts -->
+    <asp:Panel ID="pnlScAccounts" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>Finance &amp; Accounts</span>
+            <span class="dash-section__hint">Ledgers, statements &amp; vouchers</span>
+        </div>
+        <div class="sc-grid">
+            <a href="FinanceDashboard.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></span><span>Finance Dashboard</span></a>
+            <a href="GeneralLedger.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><rect x="7" y="9" width="3" height="9"></rect><rect x="14" y="5" width="3" height="13"></rect></svg></span><span>General Ledger</span></a>
+            <a href="TrialBalance.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><path d="M5 8l7-5 7 5"></path><path d="M3 12h4l-2 5H1z"></path><path d="M17 12h4l-2 5h-4z"></path></svg></span><span>Trial Balance</span></a>
+            <a href="IncomeStatement.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span><span>Income Statement</span></a>
+            <a href="BalanceSheet.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></span><span>Balance Sheet</span></a>
+            <a href="PaymentVouchers.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="1" y1="10" x2="23" y2="10"></line></svg></span><span>Payment Vouchers</span></a>
+            <a href="AuditCentre.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></span><span>Audit Centre</span></a>
+        </div>
+    </asp:Panel>
+
+    <!-- Human Resource -->
+    <asp:Panel ID="pnlScHr" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Human Resource</span>
+            <span class="dash-section__hint">Staff, contracts &amp; appraisals</span>
+        </div>
+        <div class="sc-grid">
+            <a href="HREmployees.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg></span><span>Employees</span></a>
+            <a href="AppraisalDashboard.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span><span>Appraisals</span></a>
+        </div>
+    </asp:Panel>
+
+    <!-- Requisitions -->
+    <asp:Panel ID="pnlScReq" runat="server" Visible="false">
+        <div class="dash-section">
+            <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>Requisitions</span>
+            <span class="dash-section__hint">Procurement &amp; approvals</span>
+        </div>
+        <div class="sc-grid">
+            <a href="RequisitionsController.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg></span><span>Requisitions</span></a>
+            <a href="FinanceRequisitions.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span><span>Finance Requisitions</span></a>
+        </div>
+    </asp:Panel>
+
+    <!-- Everyone: statistics live here now, plus the knowledge base -->
+    <div class="dash-section">
+        <span class="dash-section__title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Explore</span>
+        <span class="dash-section__hint">Need the numbers? They live in the analytics pages</span>
+    </div>
+    <div class="sc-grid">
+        <a href="GeneralDashboard.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span><span>Statistics &amp; Analytics</span></a>
+        <a href="Knowledgebase.aspx" class="sc-card"><span class="sc-card__ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg></span><span>Knowledge Base</span></a>
+    </div>
 
     <!-- FEES & BURSARY -->
     <asp:Panel ID="pnlFees" runat="server" Visible="false">
