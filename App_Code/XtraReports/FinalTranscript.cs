@@ -548,7 +548,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.GroupFooter1.PageBreak = DevExpress.XtraReports.UI.PageBreak.AfterBand;
             this.GroupFooter1.PrintAtBottom = false;
             this.GroupFooter1.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.GroupFooter1_BeforePrint);
-            this.GroupFooter1.AfterPrint += new System.Drawing.Printing.PrintEventHandler(this.GroupFooter1_AfterPrint);
+            this.GroupFooter1.AfterPrint += new System.EventHandler(this.GroupFooter1_AfterPrint);
             // 
             // ── Thesis block — lives in GroupFooter1, positions relative to GroupFooter1 top ──
             //
@@ -1182,10 +1182,11 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     private int _keyPageCount = 0;
     private int _realPageNo = 0;
 
-    private void GroupFooter1_AfterPrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    private void GroupFooter1_AfterPrint(object sender, System.EventArgs e)
     {
         // The results/thesis footer just printed; the next physical page is this
-        // student's standalone KEY-TO-GRADES page.
+        // student's standalone KEY-TO-GRADES page. (Band.AfterPrint is EventHandler,
+        // not PrintEventHandler like BeforePrint.)
         _keyPageComing = true;
         _keyPageCount++;
     }
