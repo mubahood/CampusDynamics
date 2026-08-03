@@ -2072,7 +2072,16 @@ public static class MarksControllerShared
     // Delete a single course-registration row. Blocked when the record is already PUBLISHED /
     // has a row in acad_results (final results + GPA are derived from acad_results, so deleting the
     // registration alone would orphan the transcript). Scope-gated like every other mutation.
-    public static string DeleteRegistration(int id)
+    public static string DeleteRegistration(int id) { return DeleteRegistration(id, false); }
+
+    /// <summary>
+    /// Delete a course registration. If it has PUBLISHED / final results in acad_results the
+    /// delete is blocked (returns canForce=true) UNLESS force=true, in which case it CASCADES:
+    /// removes the published acad_results row(s), deletes the registration, and recomputes the
+    /// student's semester GPA — all in one audited transaction (the acad_results audit trigger
+    /// captures the removed final results, so this stays recoverable).
+    /// </summary>
+    public static string DeleteRegistration(int id, bool force)
     {
         JavaScriptSerializer js = new JavaScriptSerializer();
         if (id <= 0) return js.Serialize(new { success = false, message = "Invalid record id." });
@@ -2118,7 +2127,81 @@ public static class MarksControllerShared
                 hasResult = Convert.ToInt32(cmd.ExecuteScalar()) > 0;
             }
             if (isPublished || hasResult)
-                return js.Serialize(new { success = false, message = "This registration has PUBLISHED / final results in acad_results and cannot be deleted here. Unpublish it (or use the results / mark-change workflow) first." });
+            {
+                if (!force)
+                    return js.Serialize(new
+                    {
+                        success = false,
+                        canForce = true,
+                        message = "This registration has PUBLISHED / final results in acad_results. Deleting it will ALSO remove the published result and recompute the student's GPA. Tick “Force delete” to proceed."
+                    });
+
+                // ── FORCE cascade: remove the published result(s), delete the registration,
+                //    recompute semester GPA — all audited, in one transaction. ──
+                string actor = MarksAuthorizationService.GetCurrentUser();
+                using (MySqlTransaction tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        // Attribute the acad_results deletion so the audit trigger records who/why.
+                        SetMarkAuditContext(conn, tx, actor, "AllMarks:force-delete-registration",
+                            "Force-deleted registration + published result by " + actor);
+
+                        int delResults;
+                        using (MySqlCommand del = new MySqlCommand(
+                            "DELETE FROM acad_results WHERE TRIM(regno)=@r AND TRIM(courseid)=@c AND TRIM(acad)=@a AND semester=@s", conn, tx))
+                        {
+                            del.Parameters.AddWithValue("@r", regno);
+                            del.Parameters.AddWithValue("@c", courseID);
+                            del.Parameters.AddWithValue("@a", acadYear);
+                            del.Parameters.AddWithValue("@s", semester);
+                            delResults = del.ExecuteNonQuery();
+                        }
+
+                        int delReg;
+                        using (MySqlCommand del = new MySqlCommand(
+                            "DELETE FROM campus_dynamics_portal.acad_course_registration WHERE id=@id", conn, tx))
+                        {
+                            del.Parameters.AddWithValue("@id", id);
+                            delReg = del.ExecuteNonQuery();
+                        }
+                        if (delReg <= 0)
+                        {
+                            tx.Rollback();
+                            return js.Serialize(new { success = false, message = "No record was deleted (it may already have been removed)." });
+                        }
+
+                        // Recompute the semester GPA off the remaining results and stamp it on them.
+                        decimal semesterGpa = ComputeSemesterGpa(conn, tx, regno, acadYear, semester);
+                        decimal cgpa = ComputeStudentCgpa(conn, tx, regno);
+                        using (MySqlCommand gpaUpd = new MySqlCommand(
+                            "UPDATE acad_results SET gpa=@g WHERE regno=@r AND acad=@a AND semester=@s", conn, tx))
+                        {
+                            gpaUpd.Parameters.AddWithValue("@g", semesterGpa);
+                            gpaUpd.Parameters.AddWithValue("@r", regno);
+                            gpaUpd.Parameters.AddWithValue("@a", acadYear);
+                            gpaUpd.Parameters.AddWithValue("@s", semester);
+                            gpaUpd.ExecuteNonQuery();
+                        }
+
+                        tx.Commit();
+                        return js.Serialize(new
+                        {
+                            success = true,
+                            message = "Force-deleted registration and " + delResults + " published result row(s): " + regno + " - " + courseID +
+                                      " (" + acadYear + ", Semester " + semester + "). Recomputed Semester GPA " + semesterGpa.ToString("F2") +
+                                      ", CGPA " + cgpa.ToString("F2") + ".",
+                            regno = regno,
+                            courseID = courseID
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        try { tx.Rollback(); } catch { }
+                        return js.Serialize(new { success = false, message = "Force delete failed: " + ex.Message });
+                    }
+                }
+            }
 
             int rows;
             using (MySqlCommand cmd = new MySqlCommand("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE id=@id", conn))

@@ -286,6 +286,10 @@
     <p style="font-size:11px;color:#374151;margin:0 0 10px;">This permanently removes the student's registration for this course in this period. It cannot be undone.</p>
     <div id="drInfo" style="font-size:11px;color:#374151;background:#f8fafc;border:1px solid #e0e5ed;border-radius:4px;padding:8px 10px;margin-bottom:10px;min-height:18px;">Loading&hellip;</div>
     <div class="pm-alert" id="drAlert"></div>
+    <label id="drForceWrap" style="display:none;align-items:flex-start;gap:8px;font-size:11px;color:#7a271a;background:#fef3f2;border:1px solid #fda29b;border-radius:4px;padding:9px 10px;margin-top:8px;cursor:pointer;line-height:1.45;">
+      <input type="checkbox" id="drForceChk" style="margin-top:1px;flex:0 0 auto;" />
+      <span><strong>Force delete.</strong> This registration has a PUBLISHED / final result. Ticking this will also <strong>delete that result from acad_results and recompute the student&rsquo;s GPA</strong>. The removal is logged in the marks audit.</span>
+    </label>
   </div>
   <div class="pm-modal__foot">
     <button type="button" class="pm-btn pm-btn--ghost" onclick="closeModal('modalDeleteReg')">Cancel</button>
@@ -609,20 +613,31 @@ window.submitCreateReg=function(){
 
 window.openDeleteReg=function(id){
   _drId=id; clearAlert('drAlert'); qs('btnDeleteReg').disabled=false; qs('drInfo').textContent='Loading…';
+  // reset the force state each time the modal opens
+  qs('drForceWrap').style.display='none'; qs('drForceChk').checked=false; qs('btnDeleteReg').textContent='Delete Registration';
   openModal('modalDeleteReg');
   callAJAX('GetProvisionalRecord',{id:id},function(d){
     if(!d||!d.success){ qs('drInfo').textContent='Could not load record.'; return; }
     var r=d.record;
     qs('drInfo').innerHTML='<strong>'+esc(r.regno)+'</strong> &mdash; '+esc(r.courseID)+'<br>'+esc(r.acad_year)+' &middot; Yr '+esc(r.study_year||'—')+', Sem '+esc(r.semester)+'<br>Status: '+statusPill(r.provisional_marks_status);
-    if(r.provisional_marks_status==='published'){ showAlert('drAlert','This record is PUBLISHED — deletion will be blocked to protect final results. Unpublish it first.','err'); }
+    if(r.provisional_marks_status==='published'){ showAlert('drAlert','This record is PUBLISHED. You can still delete it below — tick Force delete to also remove the final result and recompute GPA.','err'); }
   });
 };
 window.submitDeleteReg=function(){
-  if(!_drId) return; clearAlert('drAlert'); qs('btnDeleteReg').disabled=true;
-  callAJAX('DeleteRegistration',{id:_drId},function(d){
+  if(!_drId) return; clearAlert('drAlert');
+  var force = qs('drForceChk') && qs('drForceChk').checked;
+  qs('btnDeleteReg').disabled=true;
+  callAJAX('DeleteRegistration',{id:_drId,force:force},function(d){
     qs('btnDeleteReg').disabled=false;
-    if(d&&d.success){ showToast(d.message||'Registration deleted.','ok'); window.closeModal('modalDeleteReg'); setTimeout(function(){ location.reload(); },900); }
-    else showAlert('drAlert',(d&&d.message)||'Delete failed.','err');
+    if(d&&d.success){ showToast(d.message||'Registration deleted.','ok'); window.closeModal('modalDeleteReg'); setTimeout(function(){ location.reload(); },900); return; }
+    if(d&&d.canForce){
+      // published/final-result — reveal the force option and turn the button into a Force Delete
+      qs('drForceWrap').style.display='flex';
+      qs('btnDeleteReg').textContent='Force Delete';
+      showAlert('drAlert',(d&&d.message)||'This registration has published results.','err');
+      return;
+    }
+    showAlert('drAlert',(d&&d.message)||'Delete failed.','err');
   });
 };
 })();

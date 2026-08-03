@@ -133,8 +133,8 @@ public partial class COOPERP_NewScreens_AllMarksController : System.Web.UI.Page
     { return Run("create_registration", Ctx("regno", regno, "course", course, "year", acadYear, "sem", semester.ToString()), delegate { return MarksControllerShared.CreateRegistration(regno, course, acadYear, semester); }); }
 
     [WebMethod(EnableSession = true)]
-    public static string DeleteRegistration(int id)
-    { return Run("delete_registration", Ctx("id", id.ToString()), delegate { return MarksControllerShared.DeleteRegistration(id); }); }
+    public static string DeleteRegistration(int id, bool force)
+    { return Run("delete_registration", Ctx("id", id.ToString(), "force", force.ToString()), delegate { return MarksControllerShared.DeleteRegistration(id, force); }); }
 
     // Read-only lookups powering the register modal — not logged (invoked per keystroke).
     [WebMethod(EnableSession = true)]
