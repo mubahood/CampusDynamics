@@ -75,8 +75,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     private DevExpress.XtraReports.UI.PageHeaderBand PageHeaderIdentity;
     private XRLabel lblRunIdentity;
     private XRLine lineRunIdentity;
-    private XRPageInfo pgInfoRun;   // "Page X of Y" on continuation pages (running header)
-    private XRPageInfo pgInfoHead;  // "Page X of Y" on each student's first page (letterhead)
+    private XRLabel pgInfoRun;   // "Page X of Y" on continuation pages (running header) — plain label so PrintOnPage text is used
+    private XRLabel pgInfoHead;  // "Page X of Y" on each student's first page (letterhead) — plain label so PrintOnPage text is used
 	/// <summary>
 	/// Required designer variable.
 	/// </summary>
@@ -171,8 +171,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.PageHeaderIdentity = new DevExpress.XtraReports.UI.PageHeaderBand();
             this.lblRunIdentity = new DevExpress.XtraReports.UI.XRLabel();
             this.lineRunIdentity = new DevExpress.XtraReports.UI.XRLine();
-            this.pgInfoRun = new DevExpress.XtraReports.UI.XRPageInfo();
-            this.pgInfoHead = new DevExpress.XtraReports.UI.XRPageInfo();
+            this.pgInfoRun = new DevExpress.XtraReports.UI.XRLabel();
+            this.pgInfoHead = new DevExpress.XtraReports.UI.XRLabel();
             ((System.ComponentModel.ISupportInitialize)(this.resultsData1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this)).BeginInit();
             // 
@@ -548,7 +548,6 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.GroupFooter1.PageBreak = DevExpress.XtraReports.UI.PageBreak.AfterBand;
             this.GroupFooter1.PrintAtBottom = false;
             this.GroupFooter1.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.GroupFooter1_BeforePrint);
-            this.GroupFooter1.AfterPrint += new System.EventHandler(this.GroupFooter1_AfterPrint);
             // 
             // ── Thesis block — lives in GroupFooter1, positions relative to GroupFooter1 top ──
             //
@@ -932,12 +931,9 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.pgInfoRun.Dpi = 100F;
             this.pgInfoRun.Font = new System.Drawing.Font("Calibri", 8F, System.Drawing.FontStyle.Bold);
             this.pgInfoRun.ForeColor = System.Drawing.Color.DarkBlue;
-            this.pgInfoRun.Format = "Page {0} of {1}";
             this.pgInfoRun.LocationFloat = new DevExpress.Utils.PointFloat(672.5F, 6F);
             this.pgInfoRun.Name = "pgInfoRun";
-            // PageInfo=None: text is set by PageOfTotal_PrintOnPage so the independent
-            // KEY-TO-GRADES end page is excluded from the "Page X of Y" count.
-            this.pgInfoRun.PageInfo = DevExpress.XtraPrinting.PageInfo.None;
+            // Plain label — text ("Page X of Y", KEY page excluded) is set in PageOfTotal_PrintOnPage.
             this.pgInfoRun.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.pgInfoRun.SizeF = new System.Drawing.SizeF(95F, 13F);
             this.pgInfoRun.StylePriority.UseFont = false;
@@ -951,11 +947,9 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.pgInfoHead.Dpi = 100F;
             this.pgInfoHead.Font = new System.Drawing.Font("Calibri", 7.5F, System.Drawing.FontStyle.Bold);
             this.pgInfoHead.ForeColor = System.Drawing.Color.DarkBlue;
-            this.pgInfoHead.Format = "Page {0} of {1}";
             this.pgInfoHead.LocationFloat = new DevExpress.Utils.PointFloat(628F, 6F);
             this.pgInfoHead.Name = "pgInfoHead";
-            // PageInfo=None: text is set by PageOfTotal_PrintOnPage (KEY page excluded from total).
-            this.pgInfoHead.PageInfo = DevExpress.XtraPrinting.PageInfo.None;
+            // Plain label — text ("Page X of Y", KEY page excluded) is set in PageOfTotal_PrintOnPage.
             this.pgInfoHead.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.pgInfoHead.SizeF = new System.Drawing.SizeF(137F, 10F);
             this.pgInfoHead.StylePriority.UseFont = false;
@@ -1086,6 +1080,12 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
 
     private void GroupFooter1_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
+        // This footer has PageBreak = AfterBand, so the NEXT physical page is this student's
+        // standalone KEY-TO-GRADES page. Flag it here (reliable inline event) so that page's
+        // running identity header + page number are suppressed, and count it as a KEY page so
+        // it is excluded from the "Page X of Y" total. Guarded against a re-measure of the band.
+        if (!_keyPageComing) { _keyPageComing = true; _keyPageCount++; }
+
         // Reset per-student so batch printing always re-enriches each student
         _thesisDataEnriched = false;
         EnsureThesisData();
@@ -1172,7 +1172,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     // GroupFooter1.PageBreak = AfterBand. The registrar treats it as a standalone
     // reference/legend page: it must carry NO running identity header, NO page number,
     // and must NOT be counted in the "Page X of Y" total.
-    //   • _keyPageComing — set in GroupFooter1.AfterPrint (fires on the last results page,
+    //   • _keyPageComing — set in GroupFooter1.BeforePrint (fires on the last results page,
     //                       immediately before the page break) so the VERY NEXT page's
     //                       header is recognised as the KEY page and suppressed.
     //   • _keyPageCount  — number of KEY pages (one per student) — subtracted from the total.
@@ -1181,15 +1181,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     private bool _keyPageComing = false;
     private int _keyPageCount = 0;
     private int _realPageNo = 0;
-
-    private void GroupFooter1_AfterPrint(object sender, System.EventArgs e)
-    {
-        // The results/thesis footer just printed; the next physical page is this
-        // student's standalone KEY-TO-GRADES page. (Band.AfterPrint is EventHandler,
-        // not PrintEventHandler like BeforePrint.)
-        _keyPageComing = true;
-        _keyPageCount++;
-    }
+    private int _lastRealPageIndex = -1;
 
     private void PageHeaderIdentity_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
@@ -1227,8 +1219,9 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     // "Page X of Y" where Y EXCLUDES the independent KEY-TO-GRADES end page(s), and X only
     // advances on real (non-key) pages. Hidden when the transcript is a single real page.
     // PrintOnPage fires in page order during final composition (total is known by then),
-    // and only on real pages — the KEY page carries no page-info control, so it never
-    // advances X. pgInfoRun/pgInfoHead have PageInfo=None so this text is authoritative.
+    // and only on real pages — the KEY page's header band is cancelled, so it carries no
+    // page-number label and never advances X. pgInfoRun/pgInfoHead are plain XRLabels, so
+    // the text set here is what renders (an XRPageInfo would ignore .Text).
     private void PageOfTotal_PrintOnPage(object sender, DevExpress.XtraReports.UI.PrintOnPageEventArgs e)
     {
         XRControl ctl = sender as XRControl;
@@ -1237,7 +1230,9 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
         int realTotal = e.PageCount - _keyPageCount;
         if (realTotal <= 1) { ctl.Visible = false; return; }
 
-        _realPageNo++;
+        // Advance the real-page counter once per physical page (guard against a control's
+        // PrintOnPage firing more than once for the same page).
+        if (e.PageIndex != _lastRealPageIndex) { _realPageNo++; _lastRealPageIndex = e.PageIndex; }
         ctl.Visible = true;
         ctl.Text = "Page " + _realPageNo + " of " + realTotal;
     }
