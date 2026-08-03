@@ -543,11 +543,13 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
         catch { for (int i = 0; i < cols; i++) res[i] = double.NaN; return res; }
     }
 
+    // NOT cached: Agg now serves only the per-HOD/dean "Your Department" / "Your Faculty" /
+    // scoped-overview cards. Those must reflect the CURRENT scope — an HOD whose programmes
+    // were just assigned (acad_programme.department_id) must see the new counts immediately,
+    // not a stale 0 from before. (The old 300s cache was for the institution-wide stat cards,
+    // which were removed when the dashboard became a launcher.)
     private double Agg(string cs, string sql)
     {
-        string key = "nd_agg:" + (cs ?? "").GetHashCode() + ":" + sql;
-        object hit = CacheGet(key);
-        if (hit is double) return (double)hit;
         try
         {
             using (var conn = new MySqlConnection(cs))
@@ -557,9 +559,7 @@ public partial class COOPERP_NewScreens_NewDashboard : System.Web.UI.Page
                 {
                     cmd.CommandTimeout = 20;
                     var v = cmd.ExecuteScalar();
-                    double d = (v == null || v == DBNull.Value) ? 0 : Convert.ToDouble(v);
-                    CachePut(key, d);
-                    return d;
+                    return (v == null || v == DBNull.Value) ? 0 : Convert.ToDouble(v);
                 }
             }
         }
