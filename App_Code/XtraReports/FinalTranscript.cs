@@ -548,6 +548,7 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.GroupFooter1.PageBreak = DevExpress.XtraReports.UI.PageBreak.AfterBand;
             this.GroupFooter1.PrintAtBottom = false;
             this.GroupFooter1.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.GroupFooter1_BeforePrint);
+            this.GroupFooter1.AfterPrint += new System.Drawing.Printing.PrintEventHandler(this.GroupFooter1_AfterPrint);
             // 
             // ── Thesis block — lives in GroupFooter1, positions relative to GroupFooter1 top ──
             //
@@ -934,7 +935,9 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.pgInfoRun.Format = "Page {0} of {1}";
             this.pgInfoRun.LocationFloat = new DevExpress.Utils.PointFloat(672.5F, 6F);
             this.pgInfoRun.Name = "pgInfoRun";
-            this.pgInfoRun.PageInfo = DevExpress.XtraPrinting.PageInfo.NumberOfTotal;
+            // PageInfo=None: text is set by PageOfTotal_PrintOnPage so the independent
+            // KEY-TO-GRADES end page is excluded from the "Page X of Y" count.
+            this.pgInfoRun.PageInfo = DevExpress.XtraPrinting.PageInfo.None;
             this.pgInfoRun.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.pgInfoRun.SizeF = new System.Drawing.SizeF(95F, 13F);
             this.pgInfoRun.StylePriority.UseFont = false;
@@ -951,7 +954,8 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
             this.pgInfoHead.Format = "Page {0} of {1}";
             this.pgInfoHead.LocationFloat = new DevExpress.Utils.PointFloat(628F, 6F);
             this.pgInfoHead.Name = "pgInfoHead";
-            this.pgInfoHead.PageInfo = DevExpress.XtraPrinting.PageInfo.NumberOfTotal;
+            // PageInfo=None: text is set by PageOfTotal_PrintOnPage (KEY page excluded from total).
+            this.pgInfoHead.PageInfo = DevExpress.XtraPrinting.PageInfo.None;
             this.pgInfoHead.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
             this.pgInfoHead.SizeF = new System.Drawing.SizeF(137F, 10F);
             this.pgInfoHead.StylePriority.UseFont = false;
@@ -1163,8 +1167,39 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
     // a page whose regno equals the previous page's regno must be a continuation page.
     private string _phPrevRegno = null;
 
+    // ── Independent KEY-TO-GRADES end page ───────────────────────────────────
+    // The KEY-TO-GRADES page (GroupFooter2) is forced onto its own page by
+    // GroupFooter1.PageBreak = AfterBand. The registrar treats it as a standalone
+    // reference/legend page: it must carry NO running identity header, NO page number,
+    // and must NOT be counted in the "Page X of Y" total.
+    //   • _keyPageComing — set in GroupFooter1.AfterPrint (fires on the last results page,
+    //                       immediately before the page break) so the VERY NEXT page's
+    //                       header is recognised as the KEY page and suppressed.
+    //   • _keyPageCount  — number of KEY pages (one per student) — subtracted from the total.
+    //   • _realPageNo    — running number of real (non-key) pages, so numbering stays
+    //                       correct even for batches (a KEY page never advances it).
+    private bool _keyPageComing = false;
+    private int _keyPageCount = 0;
+    private int _realPageNo = 0;
+
+    private void GroupFooter1_AfterPrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+    {
+        // The results/thesis footer just printed; the next physical page is this
+        // student's standalone KEY-TO-GRADES page.
+        _keyPageComing = true;
+        _keyPageCount++;
+    }
+
     private void PageHeaderIdentity_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
     {
+        if (_keyPageComing)
+        {
+            // Standalone KEY-TO-GRADES end page — no running identity header, no page number.
+            _keyPageComing = false;
+            e.Cancel = true;
+            return;
+        }
+
         string reg = GetThesisColumnSafe("regno");
         bool continuation = reg.Length > 0
             && _phPrevRegno != null
@@ -1188,13 +1223,21 @@ public class FinalTranscript : DevExpress.XtraReports.UI.XtraReport
         lblRunIdentity.Text = txt;
     }
 
-    // "Page X of Y" is only meaningful when the document spans more than one page.
-    // PrintOnPage fires during final composition when the total page count is known,
-    // so we hide the counter whenever the document is a single page. (For a single
-    // student's transcript — the usual case — this is exactly the per-student count.)
+    // "Page X of Y" where Y EXCLUDES the independent KEY-TO-GRADES end page(s), and X only
+    // advances on real (non-key) pages. Hidden when the transcript is a single real page.
+    // PrintOnPage fires in page order during final composition (total is known by then),
+    // and only on real pages — the KEY page carries no page-info control, so it never
+    // advances X. pgInfoRun/pgInfoHead have PageInfo=None so this text is authoritative.
     private void PageOfTotal_PrintOnPage(object sender, DevExpress.XtraReports.UI.PrintOnPageEventArgs e)
     {
         XRControl ctl = sender as XRControl;
-        if (ctl != null) ctl.Visible = e.PageCount > 1;
+        if (ctl == null) return;
+
+        int realTotal = e.PageCount - _keyPageCount;
+        if (realTotal <= 1) { ctl.Visible = false; return; }
+
+        _realPageNo++;
+        ctl.Visible = true;
+        ctl.Text = "Page " + _realPageNo + " of " + realTotal;
     }
 }
