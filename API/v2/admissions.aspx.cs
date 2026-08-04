@@ -338,7 +338,8 @@ public partial class API_v2_admissions : System.Web.UI.Page
                      ch.adm_status, IFNULL(ch.stud_reg_no,'') AS existing_regno,
                      a.stud_name, a.stud_email, a.stud_phone, a.stud_sex AS gender,
                      a.stud_nationality AS nationality, IFNULL(a.stud_entry_method,'') AS entry_mode,
-                     IFNULL(a.stud_intake,'') AS intake, IFNULL(a.stud_campus,'') AS campus
+                     IFNULL(a.stud_intake,'') AS intake, IFNULL(a.stud_campus,'') AS campus,
+                     IFNULL(a.stud_entry_year,'') AS entry_year
               FROM acad_applicant_choices ch
               INNER JOIN acad_applications a ON a.stud_entry_no = ch.stud_entry_no
               WHERE ch.id=@id AND ch.Choice=1 LIMIT 1",
@@ -352,10 +353,23 @@ public partial class API_v2_admissions : System.Web.UI.Page
         int admStatus = Convert.ToInt32(choice["adm_status"]);
         if (admStatus != 1) { ApiHelper.Error(Response, "Applicant must be ADMITTED before registration.", "BUSINESS_ERROR"); return; }
 
+        // If a reg number is already on the application, there are two cases:
+        //  (a) the acad_student row also exists  -> genuinely already registered, refuse.
+        //  (b) no acad_student row               -> a stranded/incomplete registration
+        //      (reg number was committed but the student was never created). Clear the
+        //      stale/placeholder number and fall through to (re)generate + create cleanly.
         string existingRegno = choice["existing_regno"].ToString();
-        if (!string.IsNullOrEmpty(existingRegno))
+        if (!string.IsNullOrEmpty(existingRegno) && existingRegno != "-")
         {
-            ApiHelper.Error(Response, "Applicant is already registered as student: " + existingRegno, "ALREADY_REGISTERED"); return;
+            bool studentExists = Convert.ToInt32(ApiHelper.Scalar(
+                "SELECT COUNT(*) FROM acad_student WHERE regno=@eno",
+                new MySqlParameter("@eno", entryNo))) > 0;
+            if (studentExists)
+            {
+                ApiHelper.Error(Response, "Applicant is already registered as student: " + existingRegno, "ALREADY_REGISTERED"); return;
+            }
+            ApiHelper.Execute("UPDATE acad_applications SET stud_reg_no='' WHERE stud_entry_no=@eno",
+                new MySqlParameter("@eno", entryNo));
         }
 
         // Generate regno using the SP
@@ -368,12 +382,12 @@ public partial class API_v2_admissions : System.Web.UI.Page
         catch { }
 
         // Fallback: manual format matching MRU student regno pattern
-        if (string.IsNullOrEmpty(regno))
+        if (string.IsNullOrEmpty(regno) || regno == "-")
         {
             string prog = choice["prog_id"].ToString().Replace("/", "");
-            string yr   = DateTime.Now.Year.ToString().Substring(2);
-            int seq     = Convert.ToInt32(ApiHelper.Scalar("SELECT COUNT(*)+1 FROM acad_student WHERE progid=@p", new MySqlParameter("@p", choice["prog_id"].ToString())));
-            regno = "MRU" + DateTime.Now.Year + prog.Length > 3 ? prog.Substring(0, 3) : prog + seq.ToString("D5");
+            string progCode = prog.Length > 3 ? prog.Substring(0, 3) : prog;
+            int seq  = Convert.ToInt32(ApiHelper.Scalar("SELECT COUNT(*)+1 FROM acad_student WHERE progid=@p", new MySqlParameter("@p", choice["prog_id"].ToString())));
+            regno = "MRU" + DateTime.Now.Year + progCode + seq.ToString("D5");
         }
 
         // Update acad_applications with the generated regno
@@ -381,8 +395,17 @@ public partial class API_v2_admissions : System.Web.UI.Page
             new MySqlParameter("@r",   regno),
             new MySqlParameter("@eno", entryNo));
 
-        // Register via SP
-        int entryYear = DateTime.Now.Year;
+        // Use the applicant's ACTUAL entry year (the SP only allows the current academic
+        // year). Using DateTime.Now.Year silently mismatched during the year transition and
+        // stranded reg numbers with no student row.
+        int entryYear;
+        if (!int.TryParse(choice["entry_year"].ToString(), out entryYear) || entryYear < 2000)
+            entryYear = DateTime.Now.Year;
+
+        // Register via SP. This is NOT one DB transaction, so if the SP aborts (e.g. the
+        // year-guard) we must UNDO the reg number we just committed — otherwise the applicant
+        // is left "registered" with no acad_student row (a stranded orphan). The undo returns
+        // them to a clean ADMITTED state that can be retried.
         try
         {
             ApiHelper.Execute("CALL acad_RegisterApplicant(@yr, @eno, @usr)",
@@ -392,8 +415,30 @@ public partial class API_v2_admissions : System.Web.UI.Page
         }
         catch (Exception spEx)
         {
-            ApiHelper.Error(Response, "Registration SP failed: " + spEx.Message, "SERVER_ERROR"); return;
+            ApiHelper.Execute("UPDATE acad_applications SET stud_reg_no='' WHERE stud_entry_no=@eno AND stud_reg_no=@r",
+                new MySqlParameter("@eno", entryNo), new MySqlParameter("@r", regno));
+            ApiHelper.Error(Response, "Registration SP failed (no changes were saved): " + spEx.Message, "SERVER_ERROR"); return;
         }
+
+        // Verify the student row was actually created; if not, undo and fail cleanly.
+        bool created = Convert.ToInt32(ApiHelper.Scalar(
+            "SELECT COUNT(*) FROM acad_student WHERE regno=@eno", new MySqlParameter("@eno", entryNo))) > 0;
+        if (!created)
+        {
+            ApiHelper.Execute("UPDATE acad_applications SET stud_reg_no='' WHERE stud_entry_no=@eno AND stud_reg_no=@r",
+                new MySqlParameter("@eno", entryNo), new MySqlParameter("@r", regno));
+            ApiHelper.Error(Response, "Registration did not create the student record (no changes were saved).", "SERVER_ERROR"); return;
+        }
+
+        // Ensure the semester-1 registration row exists (the SP itself does not create it).
+        string acadYear = entryYear + "/" + (entryYear + 1);
+        ApiHelper.Execute(@"INSERT IGNORE INTO acad_registration(
+                regno, acad_year, semester, regstatus, studyyear,
+                id_cardStatus, residence_status, reg_CardStatus, examClearance, clearedBy, registeredBy)
+            VALUES(@eno, @ay, 1, 'UNREGISTERED', 1, '-','-','-','UNCLEARED','-', @usr)",
+            new MySqlParameter("@eno", entryNo),
+            new MySqlParameter("@ay",  acadYear),
+            new MySqlParameter("@usr", auth.UserId));
 
         // Link regno back to choice row
         ApiHelper.Execute("UPDATE acad_applicant_choices SET choice_reg_no=@r WHERE id=@id",
@@ -477,7 +522,8 @@ public partial class API_v2_admissions : System.Web.UI.Page
 
         if (dt.Rows.Count == 0) { ApiHelper.Error(Response, "Application not found.", "NOT_FOUND"); return; }
 
-        string currentStatus = dt.Rows[0]["app_status"]?.ToString() ?? "";
+        object curStatusObj = dt.Rows[0]["app_status"];
+        string currentStatus = (curStatusObj == null || curStatusObj == DBNull.Value) ? "" : curStatusObj.ToString();
         if (currentStatus != "SUBMITTED")
         {
             ApiHelper.Error(Response,
