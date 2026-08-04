@@ -147,7 +147,7 @@
     <div class="rtm__h">Reverse retake registration</div>
     <div class="rtm__b">
       <p id="rtmMsg"></p>
-      <div class="rtm__warn">This permanently deletes the retake registration, removes its course registration, and <strong>reverses the UGX 150,000 retake fee</strong> (both the fee bill and the ledger entries). It cannot be undone. If the student already paid, the reversal leaves that amount as credit on their account.</div>
+      <div class="rtm__warn">This deletes the retake registration, <strong>restores the original course record</strong> (its previous period, marks and grade come back), and <strong>reverses the UGX 150,000 retake fee</strong> (both the fee bill and the ledger entries). It cannot be undone. If the student already paid, the reversal leaves that amount as credit on their account.</div>
       <label class="rtm__lbl">Reason (optional)</label>
       <textarea id="rtmReason" class="rt-in" rows="2" style="width:100%;box-sizing:border-box;" placeholder="e.g. registered in error"></textarea>
       <div id="rtmErr" class="rtm__err" style="display:none;"></div>

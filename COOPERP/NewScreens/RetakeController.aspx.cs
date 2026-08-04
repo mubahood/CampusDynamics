@@ -251,10 +251,15 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
 
                 string regno = "", courseID = "", feeBilled = "", newGrade = "", stage = "", status = "", retYr = "";
                 long courseRegId = 0, feeTid = 0; int retSem = 0; decimal retakeFee = 0; bool hasNewTotal = false;
+                // Original snapshot — used to RESTORE the re-opened course record on reversal.
+                string origAcadYr = ""; int origSem = 0; bool origWasPublished = false;
+                object origCw = DBNull.Value, origExam = DBNull.Value, origTotal = DBNull.Value;
                 using (var cmd = new MySqlCommand(
                     @"SELECT rr.regno, rr.courseID, rr.course_reg_id, rr.fee_tid, rr.fee_billed,
                              rr.retake_fee, rr.status, rr.new_grade, rr.new_total,
                              rr.retake_acad_year, rr.retake_semester,
+                             rr.orig_acad_year, rr.orig_semester, rr.orig_course_work, rr.orig_exam,
+                             rr.orig_total, rr.orig_result_id,
                              COALESCE(cr.mark_stage,'NOT_ENTERED') AS stage
                       FROM campus_dynamics_portal.acad_retake_registrations rr
                       LEFT JOIN campus_dynamics_portal.acad_course_registration cr ON cr.ID = rr.course_reg_id
@@ -276,6 +281,12 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
                         retYr = (rd["retake_acad_year"] ?? "").ToString();
                         retSem = rd["retake_semester"] == DBNull.Value ? 0 : Convert.ToInt32(rd["retake_semester"]);
                         stage = (rd["stage"] ?? "NOT_ENTERED").ToString().Trim().ToUpperInvariant();
+                        origAcadYr = (rd["orig_acad_year"] ?? "").ToString();
+                        origSem = rd["orig_semester"] == DBNull.Value ? 0 : Convert.ToInt32(rd["orig_semester"]);
+                        origCw = rd["orig_course_work"];
+                        origExam = rd["orig_exam"];
+                        origTotal = rd["orig_total"];
+                        origWasPublished = rd["orig_result_id"] != DBNull.Value;
                     }
                 }
 
@@ -321,10 +332,29 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
                             feeMsg = "UGX " + retakeFee.ToString("N0") + " retake fee reversed";
                         }
 
+                        // Restore the re-opened course record to its ORIGINAL state (the retake
+                        // reused this same row, so we must NOT delete it). Put back the original
+                        // period, marks and stage from the snapshot, and clear the RT flags.
                         if (courseRegId > 0)
                         {
-                            using (var d = new MySqlCommand("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE ID=@c AND registration_type='RT'", conn, tx))
-                            { d.Parameters.AddWithValue("@c", courseRegId); d.ExecuteNonQuery(); }
+                            using (var d = new MySqlCommand(
+                                @"UPDATE campus_dynamics_portal.acad_course_registration SET
+                                    acad_year=@ay, semester=@sem, course_status='REGULAR', registration_type='NORMAL',
+                                    retake_registration_id=NULL,
+                                    provisional_course_work_marks=@cw, provisional_exam_marks=@ex, provisional_total_marks=@tot,
+                                    provisional_marks_status=@pms, mark_stage=@stg
+                                  WHERE ID=@c AND registration_type='RT'", conn, tx))
+                            {
+                                d.Parameters.AddWithValue("@ay", string.IsNullOrEmpty(origAcadYr) ? retYr : origAcadYr);
+                                d.Parameters.AddWithValue("@sem", origSem > 0 ? origSem : retSem);
+                                d.Parameters.AddWithValue("@cw", origCw);
+                                d.Parameters.AddWithValue("@ex", origExam);
+                                d.Parameters.AddWithValue("@tot", origTotal);
+                                d.Parameters.AddWithValue("@pms", origWasPublished ? "published" : "not_entered");
+                                d.Parameters.AddWithValue("@stg", origWasPublished ? "PUBLISHED" : "NOT_ENTERED");
+                                d.Parameters.AddWithValue("@c", courseRegId);
+                                d.ExecuteNonQuery();
+                            }
                         }
 
                         using (var d = new MySqlCommand("DELETE FROM campus_dynamics_portal.acad_retake_registrations WHERE ID=@id", conn, tx))
@@ -342,7 +372,7 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
                         }
 
                         tx.Commit();
-                        return js.Serialize(new { ok = true, message = "Retake for " + courseID + " reversed — " + feeMsg + ", course registration removed." });
+                        return js.Serialize(new { ok = true, message = "Retake for " + courseID + " reversed — " + feeMsg + ", original course registration restored." });
                     }
                     catch (Exception exTx)
                     {
