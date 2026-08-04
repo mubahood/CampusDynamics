@@ -173,8 +173,12 @@ public static class SemsAdmin
                 }
             }
         }
-        catch (MySqlException mex) when (mex.Number == 1062)
-        { return js.Serialize(new { success = false, message = "That email address is already assigned to another student." }); }
+        catch (MySqlException mex)
+        {
+            if (mex.Number == 1062)
+                return js.Serialize(new { success = false, message = "That email address is already assigned to another student." });
+            return js.Serialize(new { success = false, message = mex.Message });
+        }
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
     }
 
