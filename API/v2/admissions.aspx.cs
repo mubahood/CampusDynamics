@@ -430,15 +430,10 @@ public partial class API_v2_admissions : System.Web.UI.Page
             ApiHelper.Error(Response, "Registration did not create the student record (no changes were saved).", "SERVER_ERROR"); return;
         }
 
-        // Ensure the semester-1 registration row exists (the SP itself does not create it).
-        string acadYear = entryYear + "/" + (entryYear + 1);
-        ApiHelper.Execute(@"INSERT IGNORE INTO acad_registration(
-                regno, acad_year, semester, regstatus, studyyear,
-                id_cardStatus, residence_status, reg_CardStatus, examClearance, clearedBy, registeredBy)
-            VALUES(@eno, @ay, 1, 'UNREGISTERED', 1, '-','-','-','UNCLEARED','-', @usr)",
-            new MySqlParameter("@eno", entryNo),
-            new MySqlParameter("@ay",  acadYear),
-            new MySqlParameter("@usr", auth.UserId));
+        // NOTE: we deliberately do NOT create an acad_registration (semester) row here.
+        // Registration = making the person a student (acad_student). SEMESTER registration
+        // is a separate, billed, student-initiated step — per policy, never auto-created
+        // (see the trg_acadreg_block_autoreg guard against automatic registeredBy).
 
         // Link regno back to choice row
         ApiHelper.Execute("UPDATE acad_applicant_choices SET choice_reg_no=@r WHERE id=@id",
