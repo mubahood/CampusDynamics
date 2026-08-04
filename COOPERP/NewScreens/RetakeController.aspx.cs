@@ -253,15 +253,17 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
 
                 string regno = "", courseID = "", feeBilled = "", newGrade = "", stage = "", status = "", retYr = "";
                 long courseRegId = 0, feeTid = 0; int retSem = 0; decimal retakeFee = 0; bool hasNewTotal = false;
-                // Original snapshot — used to RESTORE the re-opened course record on reversal.
-                string origAcadYr = ""; int origSem = 0; bool origWasPublished = false;
-                object origCw = DBNull.Value, origExam = DBNull.Value, origTotal = DBNull.Value;
+                // Original snapshot — used to RESTORE the re-opened course record + the official
+                // result on reversal.
+                string origAcadYr = "", origGrade = ""; int origSem = 0; bool origWasPublished = false;
+                long origResultId = 0;
+                object origCw = DBNull.Value, origExam = DBNull.Value, origTotal = DBNull.Value, origGradept = DBNull.Value;
                 using (var cmd = new MySqlCommand(
                     @"SELECT rr.regno, rr.courseID, rr.course_reg_id, rr.fee_tid, rr.fee_billed,
                              rr.retake_fee, rr.status, rr.new_grade, rr.new_total,
                              rr.retake_acad_year, rr.retake_semester,
                              rr.orig_acad_year, rr.orig_semester, rr.orig_course_work, rr.orig_exam,
-                             rr.orig_total, rr.orig_result_id,
+                             rr.orig_total, rr.orig_grade, rr.orig_gradept, rr.orig_result_id,
                              COALESCE(cr.mark_stage,'NOT_ENTERED') AS stage
                       FROM campus_dynamics_portal.acad_retake_registrations rr
                       LEFT JOIN campus_dynamics_portal.acad_course_registration cr ON cr.ID = rr.course_reg_id
@@ -288,7 +290,10 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
                         origCw = rd["orig_course_work"];
                         origExam = rd["orig_exam"];
                         origTotal = rd["orig_total"];
-                        origWasPublished = rd["orig_result_id"] != DBNull.Value;
+                        origGrade = (rd["orig_grade"] ?? "").ToString();
+                        origGradept = rd["orig_gradept"];
+                        origResultId = rd["orig_result_id"] == DBNull.Value ? 0 : Convert.ToInt64(rd["orig_result_id"]);
+                        origWasPublished = origResultId > 0;
                     }
                 }
 
@@ -356,6 +361,22 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
                                 d.Parameters.AddWithValue("@stg", origWasPublished ? "PUBLISHED" : "NOT_ENTERED");
                                 d.Parameters.AddWithValue("@c", courseRegId);
                                 d.ExecuteNonQuery();
+                            }
+                        }
+
+                        // Restore the official published result that was blanked at registration
+                        // (the retake "moved" the mark here). Put back score/grade/gradept from the
+                        // snapshot and clear the is_retake flag.
+                        if (origWasPublished && origResultId > 0)
+                        {
+                            using (var rr = new MySqlCommand(
+                                "UPDATE campus_dynamics.acad_results SET score=@sc, grade=@g, gradept=@gp, is_retake=0 WHERE ID=@rid", conn, tx))
+                            {
+                                rr.Parameters.AddWithValue("@sc", origTotal);
+                                rr.Parameters.AddWithValue("@g", string.IsNullOrEmpty(origGrade) ? (object)DBNull.Value : origGrade);
+                                rr.Parameters.AddWithValue("@gp", origGradept);
+                                rr.Parameters.AddWithValue("@rid", origResultId);
+                                rr.ExecuteNonQuery();
                             }
                         }
 
