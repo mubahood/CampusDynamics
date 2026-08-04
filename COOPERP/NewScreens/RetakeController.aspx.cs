@@ -210,16 +210,18 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
         catch (Exception ex) { litCount.Text = "Export failed: " + Server.HtmlEncode(ex.Message); }
     }
 
-    // A retake can only be reversed BEFORE any marks exist — once it has been marked
-    // (any stage past NOT_ENTERED, a new grade, or COMPLETED) reversing would lose marks.
+    // Reversible until the retake result is OFFICIAL. Provisional in-progress marks
+    // (ENTERED / CAPTURED / APPROVED) can still be reversed — they are discarded and the
+    // original result restored. Only a PUBLISHED (or COMPLETED) retake is locked, because
+    // that has already written to acad_results / GPA.
     protected bool CanReverse(object stage, object status, object newGrade)
     {
         string st = (stage == null ? "" : stage.ToString()).Trim().ToUpperInvariant();
         string status2 = (status == null ? "" : status.ToString()).Trim().ToUpperInvariant();
         string ng = (newGrade == null ? "" : newGrade.ToString()).Trim();
         if (status2 == "COMPLETED") return false;
+        if (st == "PUBLISHED") return false;
         if (ng != "") return false;
-        if (st != "" && st != "NOT_ENTERED") return false;
         return true;
     }
 
@@ -290,8 +292,8 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
                     }
                 }
 
-                if (status == "COMPLETED" || newGrade != "" || hasNewTotal || (stage != "" && stage != "NOT_ENTERED"))
-                    return js.Serialize(new { ok = false, message = "This retake already has marks (" + (stage == "" ? "MARKED" : stage) + "). Reverse or correct the marks first — a marked retake cannot be deleted here." });
+                if (status == "COMPLETED" || stage == "PUBLISHED" || newGrade != "" || hasNewTotal)
+                    return js.Serialize(new { ok = false, message = "This retake result is already PUBLISHED/completed — un-publish the marks first before reversing." });
 
                 using (var tx = conn.BeginTransaction())
                 {
