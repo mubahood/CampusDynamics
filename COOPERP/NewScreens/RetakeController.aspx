@@ -36,6 +36,19 @@
 .rt-empty { text-align:center; padding:44px; color:#94a3b8; font-size:12px; }
 .rt-foot { padding:8px 14px; background:#fafbfc; border-top:1px solid #e4e8f0; font-size:11px; color:#666; }
 @media (max-width:900px){ .rt-stats { grid-template-columns:repeat(2,1fr); } }
+.rt-del { padding:4px 10px; font-size:10px; font-weight:700; border:1px solid #fbc4c4; background:#fef2f2; color:#b91c1c; cursor:pointer; border-radius:0; white-space:nowrap; }
+.rt-del:hover { background:#b91c1c; color:#fff; border-color:#b91c1c; }
+.rt-locked { color:#cbd5e1; font-size:11px; }
+.rtm-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px; }
+.rtm { background:#fff; width:100%; max-width:440px; border-radius:2px; box-shadow:0 20px 60px rgba(0,0,0,.3); overflow:hidden; }
+.rtm__h { background:#b91c1c; color:#fff; font-size:13px; font-weight:700; padding:12px 16px; }
+.rtm__b { padding:16px; font-size:12.5px; color:#334155; line-height:1.5; }
+.rtm__b p { margin:0 0 10px; }
+.rtm__warn { background:#fff7ed; border:1px solid #fed7aa; border-left:3px solid #ea580c; color:#7c2d12; font-size:11.5px; padding:9px 11px; margin:10px 0; line-height:1.45; }
+.rtm__lbl { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:#94a3b8; font-weight:700; margin-bottom:4px; }
+.rtm__err { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; font-size:11.5px; padding:8px 10px; margin-top:10px; }
+.rtm__f { padding:12px 16px; background:#f8fafc; border-top:1px solid #eef1f5; display:flex; justify-content:flex-end; gap:8px; }
+.rt-del-confirm { background:#b91c1c; color:#fff; } .rt-del-confirm:hover { background:#991b1b; } .rt-del-confirm:disabled { opacity:.6; cursor:default; }
 </style>
 </asp:Content>
 
@@ -100,7 +113,7 @@
             <thead><tr>
                 <th>Student</th><th>Course</th><th>Prog</th><th style="text-align:center;">Att.</th>
                 <th>Original</th><th>Retake Period</th><th style="text-align:center;">Fee</th>
-                <th style="text-align:center;">Marks Stage</th><th>New</th><th style="text-align:center;">Status</th><th>Registered</th>
+                <th style="text-align:center;">Marks Stage</th><th>New</th><th style="text-align:center;">Status</th><th>Registered</th><th style="text-align:center;">Action</th>
             </tr></thead>
             <tbody>
                 <asp:Repeater ID="rpt" runat="server">
@@ -117,6 +130,7 @@
                             <td class="rt-mk rt-mk--new"><%# (Eval("new_grade") ?? "").ToString()=="" ? "<span style='color:#94a3b8;font-weight:400;'>pending</span>" : Server.HtmlEncode(Eval("new_grade").ToString()) %><%# Eval("new_total")==DBNull.Value ? "" : " ("+Eval("new_total")+")" %></td>
                             <td style="text-align:center;"><%# StatusBadge(Eval("status")) %></td>
                             <td style="font-size:10px;color:#888;white-space:nowrap;"><%# Server.HtmlEncode((Eval("reg_date") ?? "").ToString()) %><div><%# Server.HtmlEncode((Eval("registered_by") ?? "").ToString()) %></div></td>
+                            <td style="text-align:center;white-space:nowrap;"><%# CanReverse(Eval("stage"), Eval("status"), Eval("new_grade")) ? "<button type='button' class='rt-del' data-id='" + Eval("ID") + "' data-course=\"" + Server.HtmlEncode((Eval("courseID") ?? "").ToString()) + "\" data-reg=\"" + Server.HtmlEncode((Eval("regno") ?? "").ToString()) + "\" data-name=\"" + Server.HtmlEncode((Eval("name") ?? "").ToString().Replace("\"","")) + "\" onclick='rtReverse(this)'>Reverse</button>" : "<span class='rt-locked' title='Has marks &mdash; cannot reverse'>&mdash;</span>" %></td>
                         </tr>
                     </ItemTemplate>
                 </asp:Repeater>
@@ -126,4 +140,54 @@
     <asp:Panel ID="pnlEmpty" runat="server" Visible="false"><div class="rt-empty">No retake registrations match the current filters.</div></asp:Panel>
     <div class="rt-foot">Showing up to 1,000 most recent retakes. Use filters or export for the full set.</div>
 </div>
+
+<!-- Reverse confirmation modal -->
+<div id="rtModal" class="rtm-overlay" style="display:none;">
+  <div class="rtm">
+    <div class="rtm__h">Reverse retake registration</div>
+    <div class="rtm__b">
+      <p id="rtmMsg"></p>
+      <div class="rtm__warn">This permanently deletes the retake registration, removes its course registration, and <strong>reverses the UGX 150,000 retake fee</strong> (both the fee bill and the ledger entries). It cannot be undone. If the student already paid, the reversal leaves that amount as credit on their account.</div>
+      <label class="rtm__lbl">Reason (optional)</label>
+      <textarea id="rtmReason" class="rt-in" rows="2" style="width:100%;box-sizing:border-box;" placeholder="e.g. registered in error"></textarea>
+      <div id="rtmErr" class="rtm__err" style="display:none;"></div>
+    </div>
+    <div class="rtm__f">
+      <button type="button" class="hr-btn hr-btn--ghost" onclick="rtClose()">Cancel</button>
+      <button type="button" class="hr-btn rt-del-confirm" id="rtmGo" onclick="rtDoReverse()">Reverse retake</button>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+(function(){
+  var rtCur = null;
+  window.rtReverse = function(btn){
+    rtCur = btn.getAttribute('data-id');
+    document.getElementById('rtmMsg').innerHTML = 'Reverse the retake of <strong>' + (btn.getAttribute('data-course')||'') +
+      '</strong> for <strong>' + (btn.getAttribute('data-name')||'&mdash;') + '</strong> (' + (btn.getAttribute('data-reg')||'') + ')?';
+    document.getElementById('rtmReason').value = '';
+    var e = document.getElementById('rtmErr'); e.style.display='none'; e.textContent='';
+    document.getElementById('rtModal').style.display = 'flex';
+  };
+  window.rtClose = function(){ document.getElementById('rtModal').style.display = 'none'; rtCur = null; };
+  window.rtDoReverse = function(){
+    if(!rtCur) return;
+    var go = document.getElementById('rtmGo'); go.disabled = true; go.textContent = 'Reversing…';
+    var reason = document.getElementById('rtmReason').value || '';
+    var x = new XMLHttpRequest();
+    x.open('POST','RetakeController.aspx/ReverseRetake', true);
+    x.setRequestHeader('Content-Type','application/json; charset=utf-8');
+    x.onreadystatechange = function(){
+      if(x.readyState !== 4) return;
+      go.disabled = false; go.textContent = 'Reverse retake';
+      var r = null;
+      try { var o = JSON.parse(x.responseText); r = (typeof o.d === 'string') ? JSON.parse(o.d) : o.d; } catch(ex){}
+      if (r && r.ok) { window.rtClose(); location.reload(); }
+      else { var e = document.getElementById('rtmErr'); e.textContent = (r && r.message) || 'Reversal failed. Please try again.'; e.style.display = 'block'; }
+    };
+    x.send(JSON.stringify({ id: parseInt(rtCur,10), reason: reason }));
+  };
+})();
+</script>
 </asp:Content>

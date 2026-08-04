@@ -4,6 +4,8 @@ using System.Configuration;
 using System.Data;
 using System.Text;
 using System.Web;
+using System.Web.Services;
+using System.Web.Script.Serialization;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using MySql.Data.MySqlClient;
@@ -206,6 +208,154 @@ public partial class COOPERP_NewScreens_RetakeController : System.Web.UI.Page
             }
         }
         catch (Exception ex) { litCount.Text = "Export failed: " + Server.HtmlEncode(ex.Message); }
+    }
+
+    // A retake can only be reversed BEFORE any marks exist — once it has been marked
+    // (any stage past NOT_ENTERED, a new grade, or COMPLETED) reversing would lose marks.
+    protected bool CanReverse(object stage, object status, object newGrade)
+    {
+        string st = (stage == null ? "" : stage.ToString()).Trim().ToUpperInvariant();
+        string status2 = (status == null ? "" : status.ToString()).Trim().ToUpperInvariant();
+        string ng = (newGrade == null ? "" : newGrade.ToString()).Trim();
+        if (status2 == "COMPLETED") return false;
+        if (ng != "") return false;
+        if (st != "" && st != "NOT_ENTERED") return false;
+        return true;
+    }
+
+    // ── Reverse / delete a retake registration (admin) ──────────────────────────
+    // Undoes EVERYTHING the registration created, in one cross-DB transaction:
+    //   1. reverses the retake fee — reduces (or deletes) the accumulated item-21 Bill in
+    //      fin_studentfeestracking and removes this retake's DR(student)/CR(revenue) GL pair,
+    //   2. deletes the RT course-registration row,
+    //   3. deletes the acad_retake_registrations row,
+    //   4. writes an audit-log entry.
+    // Blocked once the retake has any marks (see CanReverse). WebMethods bypass the master
+    // page, so we guard the session explicitly.
+    [WebMethod(EnableSession = true)]
+    public static string ReverseRetake(int id, string reason)
+    {
+        var js = new JavaScriptSerializer();
+        var ctx = HttpContext.Current;
+        if (ctx == null || ctx.Session == null || ctx.Session["username"] == null)
+            return js.Serialize(new { ok = false, message = "Your session has expired. Please sign in again." });
+        if (id <= 0) return js.Serialize(new { ok = false, message = "Invalid retake reference." });
+        string actor = ctx.Session["username"].ToString();
+        string connStr = ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString;
+
+        try
+        {
+            using (var conn = new MySqlConnection(connStr))
+            {
+                conn.Open();
+
+                string regno = "", courseID = "", feeBilled = "", newGrade = "", stage = "", status = "", retYr = "";
+                long courseRegId = 0, feeTid = 0; int retSem = 0; decimal retakeFee = 0; bool hasNewTotal = false;
+                using (var cmd = new MySqlCommand(
+                    @"SELECT rr.regno, rr.courseID, rr.course_reg_id, rr.fee_tid, rr.fee_billed,
+                             rr.retake_fee, rr.status, rr.new_grade, rr.new_total,
+                             rr.retake_acad_year, rr.retake_semester,
+                             COALESCE(cr.mark_stage,'NOT_ENTERED') AS stage
+                      FROM campus_dynamics_portal.acad_retake_registrations rr
+                      LEFT JOIN campus_dynamics_portal.acad_course_registration cr ON cr.ID = rr.course_reg_id
+                      WHERE rr.ID = @id LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    using (var rd = cmd.ExecuteReader())
+                    {
+                        if (!rd.Read()) return js.Serialize(new { ok = false, message = "Retake not found — it may have already been reversed." });
+                        regno = (rd["regno"] ?? "").ToString();
+                        courseID = (rd["courseID"] ?? "").ToString();
+                        courseRegId = rd["course_reg_id"] == DBNull.Value ? 0 : Convert.ToInt64(rd["course_reg_id"]);
+                        feeTid = rd["fee_tid"] == DBNull.Value ? 0 : Convert.ToInt64(rd["fee_tid"]);
+                        feeBilled = (rd["fee_billed"] ?? "").ToString();
+                        retakeFee = rd["retake_fee"] == DBNull.Value ? 0 : Convert.ToDecimal(rd["retake_fee"]);
+                        status = (rd["status"] ?? "").ToString().Trim().ToUpperInvariant();
+                        newGrade = (rd["new_grade"] ?? "").ToString().Trim();
+                        hasNewTotal = rd["new_total"] != DBNull.Value;
+                        retYr = (rd["retake_acad_year"] ?? "").ToString();
+                        retSem = rd["retake_semester"] == DBNull.Value ? 0 : Convert.ToInt32(rd["retake_semester"]);
+                        stage = (rd["stage"] ?? "NOT_ENTERED").ToString().Trim().ToUpperInvariant();
+                    }
+                }
+
+                if (status == "COMPLETED" || newGrade != "" || hasNewTotal || (stage != "" && stage != "NOT_ENTERED"))
+                    return js.Serialize(new { ok = false, message = "This retake already has marks (" + (stage == "" ? "MARKED" : stage) + "). Reverse or correct the marks first — a marked retake cannot be deleted here." });
+
+                using (var tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        string feeMsg = "no fee had been billed";
+                        if (feeBilled == "Yes" && feeTid > 0 && retakeFee > 0)
+                        {
+                            // Item-21 Bill accumulates all retakes for the period: subtract this
+                            // one, or delete the Bill if this was the only/last retake on it.
+                            decimal curAmt = 0; bool haveBill = false;
+                            using (var q = new MySqlCommand("SELECT amount FROM campus_dynamics_accounts.fin_studentfeestracking WHERE TID=@t LIMIT 1", conn, tx))
+                            { q.Parameters.AddWithValue("@t", feeTid); object o = q.ExecuteScalar(); if (o != null && o != DBNull.Value) { haveBill = true; curAmt = Convert.ToDecimal(o); } }
+                            if (haveBill)
+                            {
+                                if (curAmt - retakeFee <= 0.5m)
+                                {
+                                    using (var d = new MySqlCommand("DELETE FROM campus_dynamics_accounts.fin_studentfeestracking WHERE TID=@t", conn, tx))
+                                    { d.Parameters.AddWithValue("@t", feeTid); d.ExecuteNonQuery(); }
+                                }
+                                else
+                                {
+                                    using (var u = new MySqlCommand("UPDATE campus_dynamics_accounts.fin_studentfeestracking SET amount=amount-@f WHERE TID=@t", conn, tx))
+                                    { u.Parameters.AddWithValue("@f", (double)retakeFee); u.Parameters.AddWithValue("@t", feeTid); u.ExecuteNonQuery(); }
+                                }
+                            }
+                            // Remove this retake's GL pair (DR student + CR revenue), voucherNo = fee bill TID.
+                            using (var dDr = new MySqlCommand(
+                                @"DELETE FROM campus_dynamics_accounts.fin_ledger
+                                  WHERE voucherNo=@v AND accountcode=@r AND account_type='Student'
+                                    AND transactionType='DR' AND transaction_amount=@f ORDER BY TID DESC LIMIT 1", conn, tx))
+                            { dDr.Parameters.AddWithValue("@v", feeTid); dDr.Parameters.AddWithValue("@r", regno); dDr.Parameters.AddWithValue("@f", (double)retakeFee); dDr.ExecuteNonQuery(); }
+                            using (var dCr = new MySqlCommand(
+                                @"DELETE FROM campus_dynamics_accounts.fin_ledger
+                                  WHERE voucherNo=@v AND accountcode='AC6016' AND account_type='Chart Account'
+                                    AND transactionType='CR' AND transaction_amount=@f ORDER BY TID DESC LIMIT 1", conn, tx))
+                            { dCr.Parameters.AddWithValue("@v", feeTid); dCr.Parameters.AddWithValue("@f", (double)retakeFee); dCr.ExecuteNonQuery(); }
+                            feeMsg = "UGX " + retakeFee.ToString("N0") + " retake fee reversed";
+                        }
+
+                        if (courseRegId > 0)
+                        {
+                            using (var d = new MySqlCommand("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE ID=@c AND registration_type='RT'", conn, tx))
+                            { d.Parameters.AddWithValue("@c", courseRegId); d.ExecuteNonQuery(); }
+                        }
+
+                        using (var d = new MySqlCommand("DELETE FROM campus_dynamics_portal.acad_retake_registrations WHERE ID=@id", conn, tx))
+                        { d.Parameters.AddWithValue("@id", id); d.ExecuteNonQuery(); }
+
+                        using (var log = new MySqlCommand(
+                            @"INSERT INTO campus_dynamics.acad_activity_log (user_id, page_function, par, comments, access_date)
+                              VALUES (@u, 'Retake Reversal', @par, @c, NOW())", conn, tx))
+                        {
+                            log.Parameters.AddWithValue("@u", actor);
+                            log.Parameters.AddWithValue("@par", regno + " | " + courseID + " | " + retYr + " Sem " + retSem);
+                            string rsn = string.IsNullOrEmpty(reason) ? "" : " Reason: " + reason.Trim();
+                            log.Parameters.AddWithValue("@c", "Retake reversed/deleted (" + feeMsg + ")." + rsn);
+                            log.ExecuteNonQuery();
+                        }
+
+                        tx.Commit();
+                        return js.Serialize(new { ok = true, message = "Retake for " + courseID + " reversed — " + feeMsg + ", course registration removed." });
+                    }
+                    catch (Exception exTx)
+                    {
+                        try { tx.Rollback(); } catch { }
+                        return js.Serialize(new { ok = false, message = "Reversal failed — no changes were saved: " + exTx.Message });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            return js.Serialize(new { ok = false, message = ex.Message });
+        }
     }
 
     // template helpers
