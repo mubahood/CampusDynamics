@@ -1293,11 +1293,18 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
                 return;
             }
 
-            int fixes = RepairRegisteredApplicant(conn, eno, regno);
+            List<string> actions = RepairRegisteredApplicant(conn, eno, regno);
             UpdateApplicationStatus(conn, eno, "REGISTERED");
+
+            string message = actions.Count == 0
+                ? "Re-registration check complete for " + eno + " — all records are already intact."
+                : "Re-registration check complete for " + eno + ". "
+                  + actions.Count + " item(s): " + string.Join(" ", actions.ToArray());
+
             Response.Write("{\"ok\":true,\"regno\":" + JsonStr(regno) +
-                ",\"fixed\":" + fixes +
-                ",\"message\":\"Re-registration check complete. " + fixes + " issue(s) repaired.\"}");
+                ",\"fixed\":" + actions.Count +
+                ",\"actions\":" + JsonStrArray(actions) +
+                ",\"message\":" + JsonStr(message) + "}");
         }
     }
 
@@ -1336,28 +1343,27 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
             if (string.IsNullOrEmpty(regProg))
                 throw new Exception("Applicant choice (programme) not found.");
 
-            int entryYear = GetApplicantEntryYear(conn, tx, eno);
-            string acadYear = entryYear + "/" + (entryYear + 1);
-
             InsertStudentFromApplication(conn, tx, eno, regProg, regSess, regSpec);
+            if (!StudentRowExists(conn, tx, eno))
+                throw new Exception(
+                    "Could not create the student record for " + eno +
+                    ". The application may be missing required data (programme, name or entry year).");
             FixStudentNames(conn, tx, eno);
 
-            string currentUser = GetCurrentUser();
-            using (var cmd = new MySqlCommand(@"
-                INSERT IGNORE INTO acad_registration(
-                    regno, acad_year, semester, regstatus, studyyear,
-                    id_cardStatus, residence_status, reg_CardStatus,
-                    examClearance, clearedBy, registeredBy
-                ) VALUES(@eno, @acad_year, 1, 'UNREGISTERED', 1, '-', '-', '-', 'UNCLEARED', '-', @usr)", conn, tx))
-            {
-                cmd.Parameters.AddWithValue("@eno",       eno);
-                cmd.Parameters.AddWithValue("@acad_year", acadYear);
-                cmd.Parameters.AddWithValue("@usr",       currentUser);
-                cmd.ExecuteNonQuery();
-            }
+            // Semester registration is deliberately NOT created here. Registration at this
+            // stage means "make this person a student" (acad_student). SEMESTER registration
+            // is a separate, billed, student-initiated step done in the eportal wizard.
+            // Pre-creating an 'UNREGISTERED' placeholder produced unbilled phantom rows and
+            // interfered with the student's own registration — see the policy in
+            // sql/guardrails/acad_registration_block_autoreg_trigger.sql and the matching
+            // comments in NewStudentRegistration.aspx.cs and API/v2/admissions.aspx.cs.
 
             tx.Commit();
-            RenameOrProvisionAccount(conn, newRegno, eno);
+
+            // The portal login is keyed on the MRU number (eno), which is what acad_student.regno
+            // holds and what the eportal authenticates against. It must NOT be renamed to the
+            // slash-form academic number — doing so produces "Account not found" at login.
+            ProvisionStudentAccount(conn, eno, eno, false);
             return newRegno;
         }
         catch
@@ -1367,48 +1373,31 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
         }
     }
 
-    private void RenameOrProvisionAccount(MySqlConnection conn, string newUsername, string eno)
-    {
-        try
-        {
-            int entryAccId = 0;
-            using (var cmd = new MySqlCommand("SELECT id FROM my_aspnet_users WHERE name=@name LIMIT 1", conn))
-            {
-                cmd.Parameters.AddWithValue("@name", eno);
-                object v = cmd.ExecuteScalar();
-                if (v != null && v != DBNull.Value) entryAccId = Convert.ToInt32(v);
-            }
-            if (entryAccId > 0)
-            {
-                bool regExists = false;
-                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM my_aspnet_users WHERE name=@name", conn))
-                {
-                    cmd.Parameters.AddWithValue("@name", newUsername);
-                    object v = cmd.ExecuteScalar();
-                    regExists = v != null && Convert.ToInt32(v) > 0;
-                }
-                if (!regExists)
-                {
-                    using (var cmd = new MySqlCommand(
-                        "UPDATE my_aspnet_users SET name=@newName WHERE id=@id", conn))
-                    {
-                        cmd.Parameters.AddWithValue("@newName", newUsername);
-                        cmd.Parameters.AddWithValue("@id",      entryAccId);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-            }
-            else
-            {
-                ProvisionStudentAccount(conn, newUsername, eno);
-            }
-        }
-        catch { }
-    }
+    // RenameOrProvisionAccount was removed. It renamed the portal login from the MRU number
+    // to the slash-form academic number, which is not what the eportal authenticates against —
+    // the renamed student then got "Account not found" at login. Registration now calls
+    // ProvisionStudentAccount(eno, ...) directly and leaves the username as the MRU number.
 
-    private int RepairRegisteredApplicant(MySqlConnection conn, string eno, string regno)
+    /// <summary>
+    /// Repairs an admitted applicant whose downstream records are missing or malformed.
+    /// Returns a human-readable list of what changed (empty = nothing needed repairing).
+    ///
+    /// Column semantics in the live system — verified against production data, and the
+    /// opposite of what the legacy acad_RegisterApplicant SP implies:
+    ///     acad_student.regno   = the MRU number (acad_applications.stud_entry_no).
+    ///                            THE operative key — eportal login, acad_registration
+    ///                            and acad_results are all keyed on it.
+    ///     acad_student.entryno = the slash-form academic number (stud_reg_no).
+    ///
+    /// This method therefore NEVER writes acad_student.regno on an existing row. The
+    /// previous version ran
+    ///     UPDATE acad_student SET regno=@regno WHERE entryno=@eno
+    /// which overwrote the operative key with the academic number, collapsing unrelated
+    /// students onto one row and breaking their logins.
+    /// </summary>
+    private List<string> RepairRegisteredApplicant(MySqlConnection conn, string eno, string regno)
     {
-        int fixes = 0;
+        var actions = new List<string>();
         MySqlTransaction tx = conn.BeginTransaction();
         try
         {
@@ -1417,55 +1406,39 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
             if (string.IsNullOrEmpty(regProg))
                 throw new Exception("Applicant choice (programme) not found.");
 
-            bool hasStudent = false;
-            using (var cmd = new MySqlCommand(
-                "SELECT COUNT(*) FROM acad_student WHERE entryno=@eno OR regno=@regno", conn, tx))
+            // ── 1. Student record, keyed on the MRU number ───────────────────────────
+            if (!StudentRowExists(conn, tx, eno))
             {
-                cmd.Parameters.AddWithValue("@eno",   eno);
-                cmd.Parameters.AddWithValue("@regno", regno);
-                hasStudent = Convert.ToInt32(cmd.ExecuteScalar()) > 0;
-            }
-            if (!hasStudent)
-            {
-                int inserted = InsertStudentFromApplication(conn, tx, eno, regProg, regSess, regSpec);
-                if (inserted > 0) { fixes++; FixStudentNames(conn, tx, eno); }
-            }
-
-            using (var cmd = new MySqlCommand(
-                "UPDATE acad_student SET regno=@regno WHERE entryno=@eno AND (regno IS NULL OR regno='' OR regno='-' OR regno<>@regno)", conn, tx))
-            {
-                cmd.Parameters.AddWithValue("@regno", regno);
-                cmd.Parameters.AddWithValue("@eno",   eno);
-                if (cmd.ExecuteNonQuery() > 0) fixes++;
+                // INSERT IGNORE reports 0 affected rows both when nothing inserted and
+                // when the row already existed — verify by lookup, not affected-rows.
+                InsertStudentFromApplication(conn, tx, eno, regProg, regSess, regSpec);
+                if (!StudentRowExists(conn, tx, eno))
+                    throw new Exception(
+                        "Could not create the student record for " + eno +
+                        ". The application may be missing required data (programme, name or entry year).");
+                actions.Add("Student record created in acad_student for " + eno + ".");
             }
 
-            if (FixStudentNames(conn, tx, eno) > 0) fixes++;
-
-            bool hasAnyRegistration = false;
+            // ── 2. Academic (slash) number on the student record ─────────────────────
+            // Stored in `entryno`. Not a key, so it is safe to correct in place.
             using (var cmd = new MySqlCommand(
-                "SELECT COUNT(*) FROM acad_registration WHERE regno=@eno OR regno=@regno", conn, tx))
+                "UPDATE acad_student SET entryno=@regno " +
+                "WHERE regno=@eno AND (entryno IS NULL OR entryno='' OR entryno='-' OR entryno<>@regno)", conn, tx))
             {
-                cmd.Parameters.AddWithValue("@eno",   eno);
                 cmd.Parameters.AddWithValue("@regno", regno);
-                hasAnyRegistration = Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+                cmd.Parameters.AddWithValue("@eno",   eno);
+                if (cmd.ExecuteNonQuery() > 0)
+                    actions.Add("Academic number on the student record set to " + regno + ".");
             }
-            if (!hasAnyRegistration)
-            {
-                int entryYear = GetApplicantEntryYear(conn, tx, eno);
-                string acadYear = entryYear + "/" + (entryYear + 1);
-                using (var cmd = new MySqlCommand(@"
-                    INSERT IGNORE INTO acad_registration(
-                        regno, acad_year, semester, regstatus, studyyear,
-                        id_cardStatus, residence_status, reg_CardStatus,
-                        examClearance, clearedBy, registeredBy
-                    ) VALUES(@eno, @acad_year, 1, 'UNREGISTERED', 1, '-', '-', '-', 'UNCLEARED', '-', @usr)", conn, tx))
-                {
-                    cmd.Parameters.AddWithValue("@eno",       eno);
-                    cmd.Parameters.AddWithValue("@acad_year", acadYear);
-                    cmd.Parameters.AddWithValue("@usr",       GetCurrentUser());
-                    if (cmd.ExecuteNonQuery() > 0) fixes++;
-                }
-            }
+
+            // ── 3. Backfill blank names ─────────────────────────────────────────────
+            if (FixStudentNames(conn, tx, eno) > 0)
+                actions.Add("Student first name / other name backfilled from the application.");
+
+            // ── 4. Semester registration ────────────────────────────────────────────
+            // Deliberately NOT auto-created — it is a billed, student-initiated step in
+            // the eportal wizard. See sql/guardrails/acad_registration_block_autoreg_trigger.sql.
+
             tx.Commit();
         }
         catch
@@ -1474,10 +1447,26 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
             throw;
         }
 
-        bool hadPortalAccess = HasPortalMembership(conn, regno);
-        ProvisionStudentAccount(conn, regno, eno, false);
-        if (!hadPortalAccess && HasPortalMembership(conn, regno)) fixes++;
-        return fixes;
+        // ── 5. Portal login (outside the transaction — separate schema) ──────────────
+        // Keyed on the MRU number, because that is what acad_student.regno holds and what
+        // the eportal authenticates against. Provisioning it under the slash-form number
+        // is what produced "Account not found" on https://eportal.mru.ac.ug/.
+        bool hadPortalAccess = HasPortalMembership(conn, eno);
+        ProvisionStudentAccount(conn, eno, eno, false);
+        if (!hadPortalAccess && HasPortalMembership(conn, eno))
+            actions.Add("Portal login account provisioned for " + eno + " — the student can now sign in.");
+
+        return actions;
+    }
+
+    private bool StudentRowExists(MySqlConnection conn, MySqlTransaction tx, string mruNumber)
+    {
+        if (string.IsNullOrEmpty(mruNumber)) return false;
+        using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_student WHERE regno=@v", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("@v", mruNumber);
+            return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
     }
 
     private string GetApplicationRegno(MySqlConnection conn, string eno)
@@ -1510,20 +1499,6 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
         }
     }
 
-    private int GetApplicantEntryYear(MySqlConnection conn, MySqlTransaction tx, string eno)
-    {
-        int entryYear = DateTime.Now.Year;
-        using (var cmd = new MySqlCommand(
-            "SELECT COALESCE(stud_entry_year,0) FROM acad_applications WHERE stud_entry_no=@eno LIMIT 1", conn, tx))
-        {
-            cmd.Parameters.AddWithValue("@eno", eno);
-            object v = cmd.ExecuteScalar();
-            if (v != null) entryYear = SafeInt(v.ToString(), DateTime.Now.Year);
-        }
-        if (entryYear < 1990) entryYear = DateTime.Now.Year;
-        return entryYear;
-    }
-
     private int InsertStudentFromApplication(MySqlConnection conn, MySqlTransaction tx, string eno, string regProg, string regSess, string regSpec)
     {
         using (var cmd = new MySqlCommand(@"
@@ -1552,14 +1527,20 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
         }
     }
 
+    /// <summary>
+    /// Backfills blank student names from the application. Joined on acad_student.regno,
+    /// which holds the MRU number — the previous version joined on `entryno` (the slash-form
+    /// academic number) and compared it to the MRU number, so it never matched a single row
+    /// and names were silently never repaired.
+    /// </summary>
     private int FixStudentNames(MySqlConnection conn, MySqlTransaction tx, string eno)
     {
         using (var cmd = new MySqlCommand(@"
             UPDATE acad_student s
-            JOIN acad_applications a ON a.stud_entry_no = s.entryno
+            JOIN acad_applications a ON a.stud_entry_no = s.regno
             SET s.firstname = TRIM(IF(LOCATE(' ', a.stud_name)>0, SUBSTRING(a.stud_name, LOCATE(' ', a.stud_name)+1), '')),
                 s.othername = TRIM(SUBSTRING_INDEX(a.stud_name,' ',1))
-            WHERE s.entryno = @eno AND (s.firstname IS NULL OR s.firstname = '' OR s.firstname = ' ')", conn, tx))
+            WHERE s.regno = @eno AND (s.firstname IS NULL OR s.firstname = '' OR s.firstname = ' ')", conn, tx))
         {
             cmd.Parameters.AddWithValue("@eno", eno);
             return cmd.ExecuteNonQuery();
@@ -2057,6 +2038,18 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
         return "\"" + s
             .Replace("\\", "\\\\").Replace("\"", "\\\"")
             .Replace("\r", "\\r").Replace("\n", "\\n").Replace("\t", "\\t") + "\"";
+    }
+
+    private static string JsonStrArray(List<string> items)
+    {
+        if (items == null || items.Count == 0) return "[]";
+        var sb = new StringBuilder("[");
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (i > 0) sb.Append(',');
+            sb.Append(JsonStr(items[i]));
+        }
+        return sb.Append(']').ToString();
     }
 
     // ── ASPX expression helpers (protected so <%= %> can call them) ──────
