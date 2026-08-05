@@ -861,26 +861,68 @@ public partial class COOPERP_NewScreens_AdmissionsController : System.Web.UI.Pag
         using (var conn = Open())
         {
             int current = GetAdmStatus(conn, eno);
-            if (current != 0) throw new Exception("Applicant is not in PENDING status. Current status code: " + current);
+            if (current == 2 || current == 3)
+                throw new Exception("This applicant was rejected/withdrawn. Restore them before admitting.");
 
-            using (var cmd = new MySqlCommand(
-                "UPDATE acad_applicant_choices SET adm_status=1 WHERE stud_entry_no=@eno AND Choice=1", conn))
+            // 1. Mark the choice ADMITTED (idempotent — also completes a half-admitted applicant).
+            if (current != 1)
             {
-                cmd.Parameters.AddWithValue("@eno", eno);
-                cmd.ExecuteNonQuery();
+                using (var cmd = new MySqlCommand(
+                    "UPDATE acad_applicant_choices SET adm_status=1 WHERE stud_entry_no=@eno AND Choice=1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@eno", eno);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            UpdateApplicationStatus(conn, eno, "ADMITTED");
+
+            // 2. The REAL admission: create the actual student record. Admitting a student now
+            //    fully registers them (generates the reg number, creates acad_student, provisions
+            //    the portal login) instead of only flipping a status flag. Idempotent: if the
+            //    student already exists we just ensure the login + status; otherwise we clear any
+            //    stale/placeholder reg number and register cleanly.
+            bool alreadyStudent = StudentRowExists(conn, null, eno);
+            string regno;
+            if (alreadyStudent)
+            {
+                regno = GetApplicationRegno(conn, eno);
+                ProvisionStudentAccount(conn, eno, eno, false);
+            }
+            else
+            {
+                string existing = GetApplicationRegno(conn, eno);
+                if (!string.IsNullOrEmpty(existing) && existing != "-")
+                {
+                    using (var cmd = new MySqlCommand(
+                        "UPDATE acad_applications SET stud_reg_no='' WHERE stud_entry_no=@eno", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@eno", eno);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                regno = RegisterApplicant(conn, eno);   // atomic: reg number + acad_student + login
             }
 
-            UpdateApplicationStatus(conn, eno, "ADMITTED");
-            ProvisionStudentAccount(conn, eno, eno);
-            AddApplicantNotification(conn, eno, "Your application has been admitted. Please check My Application for next steps.", "/apply/my-application.aspx");
-            WriteAuditLog(conn, eno, "ADMITTED", "Application admitted by " + GetCurrentUser());
+            // 3. Now truly a student — reflect that in the application status.
+            UpdateApplicationStatus(conn, eno, "REGISTERED");
 
-            string admEmail, admName;
-            GetApplicantContact(conn, eno, out admEmail, out admName);
-            if (!string.IsNullOrWhiteSpace(admEmail) && admEmail.Contains("@"))
-                SendDecisionEmail(admEmail, admName, eno, true, string.Empty);
+            AddApplicantNotification(conn, eno,
+                "Congratulations! You have been admitted and registered as a student. Your registration number is " + regno + ".",
+                "/apply/my-application.aspx");
+            WriteAuditLog(conn, eno, "REGISTERED",
+                (alreadyStudent ? "Admission confirmed (student already existed) " : "Admitted + registered as student ") + regno + " by " + GetCurrentUser());
+
+            if (!alreadyStudent)
+            {
+                string admEmail, admName;
+                GetApplicantContact(conn, eno, out admEmail, out admName);
+                if (!string.IsNullOrWhiteSpace(admEmail) && admEmail.Contains("@"))
+                    SendDecisionEmail(admEmail, admName, eno, true, string.Empty);
+            }
+
+            Response.Write("{\"ok\":true,\"regno\":" + JsonStr(regno) +
+                ",\"message\":\"Applicant admitted and registered as a student. Registration No: " + (regno ?? "").Replace("\"", "\\\"") + "\"}");
         }
-        Response.Write("{\"ok\":true,\"message\":\"Applicant admitted successfully.\"}");
     }
 
     // ════════════════════════════════════════════════════════════════════════
