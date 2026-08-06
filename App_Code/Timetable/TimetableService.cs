@@ -46,6 +46,50 @@ public static class TimetableService
         }
     }
 
+    // INSERT and return the new auto-increment id from the SAME connection/session.
+    // A separate Scalar("SELECT LAST_INSERT_ID()") runs on a DIFFERENT pooled connection
+    // and returns 0 (fresh session) or a stale id from a prior insert — a real bug.
+    public static long ExecInsertId(string sql, params MySqlParameter[] parms)
+    {
+        using (MySqlConnection conn = new MySqlConnection(ConnStr))
+        {
+            conn.Open();
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                if (parms != null) foreach (MySqlParameter p in parms) cmd.Parameters.Add(p);
+                cmd.ExecuteNonQuery();
+                return cmd.LastInsertedId;
+            }
+        }
+    }
+
+    // Run several statements inside ONE transaction on one connection (atomic multi-write).
+    public static void ExecTx(Action<MySqlConnection, MySqlTransaction> body)
+    {
+        using (MySqlConnection conn = new MySqlConnection(ConnStr))
+        {
+            conn.Open();
+            using (MySqlTransaction tx = conn.BeginTransaction())
+            {
+                try { body(conn, tx); tx.Commit(); }
+                catch { try { tx.Rollback(); } catch { } throw; }
+            }
+        }
+    }
+
+    // Validate a start time is parseable and within the day; and that start+duration does not
+    // run past midnight. Returns "" when valid, else a student-friendly reason.
+    public static string ValidateSlot(string startHHmm, int durationMin)
+    {
+        TimeSpan t;
+        if (!TimeSpan.TryParse((startHHmm ?? "").Trim(), out t) || t.TotalHours >= 24 || t < TimeSpan.Zero)
+            return "Enter a valid start time (HH:MM).";
+        if (durationMin <= 0) durationMin = 60;
+        if (t.Add(TimeSpan.FromMinutes(durationMin)).TotalHours > 24)
+            return "This session runs past midnight — shorten it or start it earlier.";
+        return "";
+    }
+
     public static object Scalar(string sql, params MySqlParameter[] parms)
     {
         using (MySqlConnection conn = new MySqlConnection(ConnStr))

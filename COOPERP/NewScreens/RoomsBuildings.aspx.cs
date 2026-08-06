@@ -76,10 +76,8 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
                     P("@n", name), P("@c", code), P("@cp", campusId), P("@f", floors), P("@no", notes), P("@a", active == 0 ? 0 : 1), P("@id", id));
             else
             {
-                TimetableService.Exec("INSERT INTO acad_building (building_name, building_code, campus_id, floors, notes, is_active, created_at) VALUES (@n,@c,@cp,@f,@no,@a,NOW())",
+                id = (int)TimetableService.ExecInsertId("INSERT INTO acad_building (building_name, building_code, campus_id, floors, notes, is_active, created_at) VALUES (@n,@c,@cp,@f,@no,@a,NOW())",
                     P("@n", name), P("@c", code), P("@cp", campusId), P("@f", floors), P("@no", notes), P("@a", active == 0 ? 0 : 1));
-                object nid = TimetableService.Scalar("SELECT LAST_INSERT_ID()");
-                id = nid == null || nid == DBNull.Value ? 0 : Convert.ToInt32(nid);
             }
             return new { ok = true, id = id };
         }
@@ -94,8 +92,11 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
         TimetableService.EnsureSchema();
         try
         {
-            TimetableService.Exec("UPDATE acad_lecturerooms SET building_id=NULL WHERE building_id=@id", P("@id", id));
-            TimetableService.Exec("DELETE FROM acad_building WHERE building_id=@id", P("@id", id));
+            TimetableService.ExecTx(delegate(MySqlConnection conn, MySqlTransaction tx)
+            {
+                using (MySqlCommand c1 = new MySqlCommand("UPDATE acad_lecturerooms SET building_id=NULL WHERE building_id=@id", conn, tx)) { c1.Parameters.AddWithValue("@id", id); c1.ExecuteNonQuery(); }
+                using (MySqlCommand c2 = new MySqlCommand("DELETE FROM acad_building WHERE building_id=@id", conn, tx)) { c2.Parameters.AddWithValue("@id", id); c2.ExecuteNonQuery(); }
+            });
             return new { ok = true };
         }
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }

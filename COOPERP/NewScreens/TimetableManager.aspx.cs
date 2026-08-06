@@ -191,17 +191,22 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             if (pc == null) return new { ok = false, message = "Programme-course not found." };
             if (dayNo < 1 || dayNo > 7) return new { ok = false, message = "Pick a valid weekday." };
             if (durationMin <= 0) durationMin = 60;
+            string slotErr = TimetableService.ValidateSlot(start, durationMin);
+            if (slotErr != "") return new { ok = false, message = slotErr };
             string st = TimetableService.NormTime(start);
             string et = TimetableService.EndTime(start, durationMin);
             if (string.Compare(et, st) <= 0) return new { ok = false, message = "End time must be after start time." };
 
             string stat = (status ?? "ACTIVE").Trim().ToUpperInvariant(); if (stat != "DRAFT" && stat != "ARCHIVED") stat = "ACTIVE";
             int effTeacher = teacherId > 0 ? teacherId : Convert.ToInt32(pc["lecturerId"]);
-            if (stat == "ACTIVE" && allowConflicts != 1)
+            if (stat == "ACTIVE")
             {
                 List<TimetableService.Conflict> cs = TimetableService.CheckConflicts(itemId, dayNo, start, durationMin, roomId, effTeacher,
                     Convert.ToString(pc["progcode"]), Convert.ToInt32(pc["studyYear"]), Convert.ToInt32(pc["semester"]), campusId);
-                if (cs.Count > 0)
+                bool engineError = false;
+                foreach (TimetableService.Conflict c in cs) if (c.Kind == "ERROR") engineError = true;
+                if (engineError) return new { ok = false, message = "Could not check for clashes right now — please try again." };
+                if (allowConflicts != 1 && cs.Count > 0)
                 {
                     List<object> outc = new List<object>();
                     foreach (TimetableService.Conflict c in cs) outc.Add(new Dictionary<string, object> { { "kind", c.Kind }, { "message", c.Message } });
@@ -230,15 +235,14 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             }
             else
             {
-                TimetableService.Exec(
+                long nid = TimetableService.ExecInsertId(
                     "INSERT INTO acad_timetable_item (programmecourse_id, acad_year, progcode, course_code, study_year, semester, day_no, start_time, duration_min, end_time, " +
                     "teacher_id, campus_id, building_id, room_id, room_label, session_type, delivery_mode, meet_link, description, status, created_by, created_at) " +
                     "VALUES (@pc,'',@prog,@cc,@sy,@sem,@day,@st,@dur,@et,@t,@cp,@b,@r,@rl,@stype,@dmode,@ml,@desc,@status,@who,NOW())",
                     P("@pc", pcId), P("@prog", prog), P("@cc", ccode), P("@sy", sy), P("@sem", sem), P("@day", dayNo), P("@st", st), P("@dur", durationMin), P("@et", et),
                     P("@t", tId), P("@cp", campusId), P("@b", bId), P("@r", rId), P("@rl", roomLabel), P("@stype", (sessionType ?? "LECTURE").ToUpperInvariant()), P("@dmode", (deliveryMode ?? "PHYSICAL").ToUpperInvariant()),
                     P("@ml", meetLink), P("@desc", description), P("@status", stat), P("@who", who));
-                object nid = TimetableService.Scalar("SELECT LAST_INSERT_ID()");
-                itemId = nid == null || nid == DBNull.Value ? 0 : Convert.ToInt32(nid);
+                itemId = (int)nid;
             }
 
             // Optionally promote the chosen lecturer to be the course's default lecturer.
@@ -329,7 +333,7 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
                 "INSERT INTO acad_timetable_item (programmecourse_id, acad_year, progcode, course_code, study_year, semester, day_no, start_time, duration_min, end_time, teacher_id, campus_id, room_id, room_label, session_type, delivery_mode, status, created_by, created_at) " +
                 "SELECT pc.ID, '', pc.progcode, TRIM(pc.course_code), pc.study_year, pc.semester, w.DayNo, CAST(t.start_time AS TIME), " +
                 "GREATEST(30, TIME_TO_SEC(TIMEDIFF(MAX(CAST(t.end_time AS TIME)), CAST(t.start_time AS TIME)))/60), MAX(CAST(t.end_time AS TIME)), " +
-                "NULLIF(MAX(t.lecturer_id),0), IFNULL(MAX(t.campusId),0), MAX(rr.RoomID), IFNULL(MAX(t.building),''), 'LECTURE', 'PHYSICAL', 'ACTIVE', 'legacy_import', NOW() " +
+                "NULLIF(MAX(t.lecturer_id),0), IFNULL(MAX(t.campusId),0), MAX(rr.RoomID), IFNULL(MAX(t.building),''), 'LECTURE', 'PHYSICAL', 'DRAFT', 'legacy_import', NOW() " +
                 ImportJoins +
                 "WHERE CAST(t.end_time AS TIME) > CAST(t.start_time AS TIME) " +
                 "AND NOT EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.day_no=w.DayNo AND it.start_time=CAST(t.start_time AS TIME)) " +
