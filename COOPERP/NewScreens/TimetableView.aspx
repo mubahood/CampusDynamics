@@ -117,7 +117,7 @@
         </div>
     </div>
     <div style="display:flex;gap:6px;">
-        <button class="tv-btn tv-btn--ghost" onclick="window.print()">
+        <button type="button" class="tv-btn tv-btn--ghost" onclick="window.print()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Print
         </button>
@@ -396,7 +396,11 @@ function renderGrid(items) {
 
         var startSlot = timeToSlot(it.startTime);
         var endSlot   = timeToSlot(it.endTime);
-        if (startSlot < 0 || endSlot <= startSlot) continue;
+        var maxSlots  = slots[dayIdx].length;
+        // Skip sessions that start outside the visible window; clamp ones that end past it,
+        // so a late/evening class no longer indexes an undefined cell and crashes the grid.
+        if (startSlot < 0 || startSlot >= maxSlots || endSlot <= startSlot) continue;
+        if (endSlot > maxSlots) endSlot = maxSlots;
 
         var span = endSlot - startSlot;
         slots[dayIdx][startSlot].push({ item: it, rowspan: span });
@@ -524,12 +528,13 @@ function getColor(courseCode) {
 
 function showTip(evt, el) {
     var tip = document.getElementById('tooltip');
+    // getAttribute returns the DECODED value, so re-escape before injecting as innerHTML.
     tip.innerHTML =
-        '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Course:</span> ' + (el.getAttribute('data-course')||'') + ' — ' + (el.getAttribute('data-name')||'') + '</div>'
-        + '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Lecturer:</span> ' + (el.getAttribute('data-lecturer')||'') + '</div>'
-        + '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Room:</span> ' + (el.getAttribute('data-room')||'') + '</div>'
-        + '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Time:</span> ' + (el.getAttribute('data-time')||'') + '</div>'
-        + '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Programme:</span> ' + (el.getAttribute('data-prog')||'') + '</div>';
+        '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Course:</span> ' + esc(el.getAttribute('data-course')||'') + ' — ' + esc(el.getAttribute('data-name')||'') + '</div>'
+        + '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Lecturer:</span> ' + esc(el.getAttribute('data-lecturer')||'') + '</div>'
+        + '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Room:</span> ' + esc(el.getAttribute('data-room')||'') + '</div>'
+        + '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Time:</span> ' + esc(el.getAttribute('data-time')||'') + '</div>'
+        + '<div class="tv-tooltip__row"><span class="tv-tooltip__label">Programme:</span> ' + esc(el.getAttribute('data-prog')||'') + '</div>';
     tip.style.display = 'block';
     tip.style.left = (evt.clientX + 12) + 'px';
     tip.style.top  = (evt.clientY + 12) + 'px';
