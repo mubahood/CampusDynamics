@@ -7091,7 +7091,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         if (newEntryno != "") sets.Add("entryno=@e");
                         using (var cmd = new MySqlCommand("UPDATE acad_student SET " + string.Join(", ", sets) + " WHERE regno=@r", conn, tx))
                         {
-                            cmd.Parameters.AddWithValue("@s", spec == "" ? (object)DBNull.Value : spec);
+                            // acad_student.specialisation is NOT NULL (default '-'). For programmes/faculties
+                            // that have NO subject combinations, the caller sends an empty spec — store the
+                            // "none" sentinel '-' rather than NULL, which previously failed with
+                            // "Column 'specialisation' cannot be null" and blocked the whole course change.
+                            cmd.Parameters.AddWithValue("@s", spec == "" ? (object)"-" : spec);
                             if (progChanged)      cmd.Parameters.AddWithValue("@p", prog);
                             if (newEntryno != "") cmd.Parameters.AddWithValue("@e", newEntryno);
                             cmd.Parameters.AddWithValue("@r", regno);
