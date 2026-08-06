@@ -40,4 +40,28 @@ public partial class COOPERP_NewScreens_StudentEmailController : System.Web.UI.P
     [WebMethod(EnableSession = true)]
     public static string RespondComplaint(long id, string status, string response)
     { return NoAuth() ? DENIED : SemsAdmin.RespondComplaint(id, status, response); }
+
+    // ── 360 controls ─────────────────────────────────────────────────
+    [WebMethod(EnableSession = true)]
+    public static string Candidates(string q, string payFilter, int page, int pageSize)
+    { return NoAuth() ? DENIED : SemsAdmin.Candidates(q, payFilter, page, pageSize); }
+
+    [WebMethod(EnableSession = true)]
+    public static string AddToPipeline(string regno, string note)
+    { return NoAuth() ? DENIED : SemsAdmin.AddToPipeline(regno, note); }
+
+    [WebMethod(EnableSession = true)]
+    public static string Detail(string regno) { return NoAuth() ? DENIED : SemsAdmin.Detail(regno); }
+
+    [WebMethod(EnableSession = true)]
+    public static string SetStatus(string regno, string stage, string note)
+    { return NoAuth() ? DENIED : SemsAdmin.SetStatus(regno, stage, note); }
+
+    [WebMethod(EnableSession = true)]
+    public static string SetPassword(string regno, string tempPw)
+    { return NoAuth() ? DENIED : SemsAdmin.SetPassword(regno, tempPw); }
+
+    [WebMethod(EnableSession = true)]
+    public static string DeleteRecord(string regno, string note)
+    { return NoAuth() ? DENIED : SemsAdmin.DeleteRecord(regno, note); }
 }

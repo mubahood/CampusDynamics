@@ -87,6 +87,9 @@ public static class SemsAdmin
             {
                 c.Open();
                 int eligible = Scalar(c, "SELECT COUNT(*) " + EligibleFrom);
+                int partial  = Scalar(c, "SELECT COUNT(*) FROM campus_dynamics.acad_student s " + PaySub +
+                    "WHERE s.entryyear >= 2026 AND IFNULL(TRIM(s.email),'') = '' AND pay.paid > 0 AND pay.paid < 100000 " +
+                    "AND NOT EXISTS (SELECT 1 FROM campus_dynamics_portal.sems_email_creations e WHERE e.regno=TRIM(s.regno))");
                 Func<string, int> cnt = w => Scalar(c, "SELECT COUNT(*) FROM campus_dynamics_portal.sems_email_creations " + w);
                 int total     = cnt("");
                 int pending   = cnt("WHERE current_stage='PENDING_CREATION'");
@@ -99,7 +102,7 @@ public static class SemsAdmin
                 int complaints= Scalar(c, "SELECT COUNT(*) FROM campus_dynamics_portal.sems_complaints WHERE status NOT IN ('RESOLVED','CLOSED')");
                 int forgot    = Scalar(c, "SELECT COUNT(*) FROM campus_dynamics_portal.sems_complaints WHERE category='Forgot Password' AND status NOT IN ('RESOLVED','CLOSED')");
                 double rate = total > 0 ? Math.Round(completed * 100.0 / total, 1) : 0;
-                return js.Serialize(new { success = true, eligible, total, pending, ready, learning, quiz, activated, completed, pwchanged, complaints, forgot, successRate = rate });
+                return js.Serialize(new { success = true, eligible, partial, total, pending, ready, learning, quiz, activated, completed, pwchanged, complaints, forgot, successRate = rate });
             }
         }
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
@@ -212,7 +215,7 @@ public static class SemsAdmin
                 var rows = new List<object>();
                 using (var cmd = new MySqlCommand(
                     "SELECT id, regno, student_name, programme, campus, admission_year, IFNULL(email_address,'') email, " +
-                    "current_stage, current_status, verification_status, complaint_status, DATE_FORMAT(creation_date,'%Y-%m-%d') cdate, " +
+                    "current_stage, current_status, verification_status, complaint_status, IFNULL(paid_amount_snapshot,0) paid, DATE_FORMAT(creation_date,'%Y-%m-%d') cdate, " +
                     "DATE_FORMAT(last_updated_at,'%Y-%m-%d %H:%i') udate " +
                     "FROM campus_dynamics_portal.sems_email_creations " + where + " ORDER BY id DESC LIMIT @off,@ps", c))
                 {
@@ -234,6 +237,7 @@ public static class SemsAdmin
                                 status = rd["current_status"].ToString(),
                                 verification = rd["verification_status"].ToString(),
                                 complaint = rd["complaint_status"].ToString(),
+                                paid = rd["paid"] == DBNull.Value ? 0 : Convert.ToDecimal(rd["paid"]),
                                 created = rd["cdate"].ToString(),
                                 updated = rd["udate"] == DBNull.Value ? "" : rd["udate"].ToString()
                             });
@@ -320,7 +324,227 @@ public static class SemsAdmin
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
     }
 
+    // Pre-aggregated payments (tracking 'Payment' rows) joined once — the same source the
+    // eligibility uses, so amounts on screen match the eligibility decision.
+    private const string PaySub =
+        "LEFT JOIN (SELECT TRIM(regno) rg, SUM(amount) paid FROM campus_dynamics_accounts.fin_studentfeestracking " +
+        "           WHERE trans_type='Payment' GROUP BY TRIM(regno)) pay ON pay.rg = TRIM(s.regno) ";
+
+    // ── Candidates: 2026+ students NOT yet in the pipeline, WITH their payment amount ──
+    // This is what surfaces students who "paid but don't appear": the partial payers
+    // (1..99,999) that the >=100k auto-generate skips. payFilter: eligible | partial | none | (all).
+    public static string Candidates(string q, string payFilter, int page, int pageSize)
+    {
+        var js = new JavaScriptSerializer();
+        if (pageSize < 1 || pageSize > 200) pageSize = 25;
+        if (page < 1) page = 1;
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                var wb = new StringBuilder(
+                    "FROM campus_dynamics.acad_student s " + PaySub +
+                    "WHERE s.entryyear >= 2026 AND IFNULL(TRIM(s.email),'') = '' " +
+                    "  AND NOT EXISTS (SELECT 1 FROM campus_dynamics_portal.sems_email_creations e WHERE e.regno=TRIM(s.regno)) ");
+                var ps = new List<MySqlParameter>();
+                payFilter = (payFilter ?? "").Trim().ToLowerInvariant();
+                if (payFilter == "eligible") wb.Append("AND pay.paid >= 100000 ");
+                else if (payFilter == "partial") wb.Append("AND pay.paid > 0 AND pay.paid < 100000 ");
+                else if (payFilter == "none") wb.Append("AND (pay.paid IS NULL OR pay.paid = 0) ");
+                else if (payFilter == "paid") wb.Append("AND pay.paid > 0 ");
+                if (!string.IsNullOrWhiteSpace(q)) { wb.Append("AND (TRIM(s.regno) LIKE @q OR CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,'')) LIKE @q) "); ps.Add(new MySqlParameter("@q", "%" + q.Trim() + "%")); }
+                string from = wb.ToString();
+
+                int total;
+                using (var cc = new MySqlCommand("SELECT COUNT(*) " + from, c)) { cc.CommandTimeout = 120; foreach (var p in ps) cc.Parameters.Add(Clone(p)); total = Convert.ToInt32(cc.ExecuteScalar()); }
+                int pageCount = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)); if (page > pageCount) page = pageCount;
+
+                var rows = new List<object>();
+                using (var cmd = new MySqlCommand(
+                    "SELECT TRIM(s.regno) regno, TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) nm, " +
+                    "IFNULL(s.progid,'') prog, s.studCampus, s.entryyear, IFNULL(pay.paid,0) paid " + from +
+                    "ORDER BY IFNULL(pay.paid,0) DESC, s.regno LIMIT @off,@ps", c))
+                {
+                    cmd.CommandTimeout = 120; foreach (var p in ps) cmd.Parameters.Add(Clone(p));
+                    cmd.Parameters.AddWithValue("@off", (page - 1) * pageSize); cmd.Parameters.AddWithValue("@ps", pageSize);
+                    using (var rd = cmd.ExecuteReader())
+                        while (rd.Read())
+                        {
+                            decimal paid = rd["paid"] == DBNull.Value ? 0 : Convert.ToDecimal(rd["paid"]);
+                            rows.Add(new { regno = rd["regno"].ToString(), name = rd["nm"].ToString(), programme = rd["prog"].ToString(),
+                                campus = CampusName(rd["studCampus"].ToString()), year = rd["entryyear"].ToString(), paid,
+                                bucket = paid >= 100000 ? "eligible" : (paid > 0 ? "partial" : "none") });
+                        }
+                }
+                return js.Serialize(new { success = true, total, page, pageCount, rows });
+            }
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    // Force-add ONE 2026+ student to the pipeline regardless of how much they've paid.
+    public static string AddToPipeline(string regno, string note)
+    {
+        var js = new JavaScriptSerializer(); regno = (regno ?? "").Trim();
+        if (regno == "") return js.Serialize(new { success = false, message = "Student number is required." });
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                int n;
+                using (var cmd = new MySqlCommand(
+                    "INSERT INTO campus_dynamics_portal.sems_email_creations " +
+                    " (regno, entryno, admission_year, campus, programme, student_name, current_stage, current_status, creation_date, created_by, paid_amount_snapshot, notes) " +
+                    "SELECT TRIM(s.regno), s.entryno, s.entryyear, s.studCampus, s.progid, " +
+                    "  NULLIF(TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))),''), " +
+                    "  'PENDING_CREATION','PENDING', NOW(), @who, IFNULL(pay.paid,0), NULLIF(@note,'') " +
+                    "FROM campus_dynamics.acad_student s " + PaySub +
+                    "WHERE TRIM(s.regno)=@r AND s.entryyear >= 2026 " +
+                    "  AND NOT EXISTS (SELECT 1 FROM campus_dynamics_portal.sems_email_creations e WHERE e.regno=TRIM(s.regno)) LIMIT 1", c))
+                {
+                    cmd.Parameters.AddWithValue("@who", Actor());
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    cmd.Parameters.AddWithValue("@note", note ?? "");
+                    n = cmd.ExecuteNonQuery();
+                }
+                if (n == 0) return js.Serialize(new { success = false, message = "Already in the pipeline, or not a 2026+ student without an email." });
+                Log(c, null, 0, regno, "add_to_pipeline", null, "PENDING_CREATION", "manually added by admin");
+                return js.Serialize(new { success = true, message = "Student added to the pipeline." });
+            }
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    // 360: manually move a student to any lifecycle stage.
+    public static string SetStatus(string regno, string stage, string note)
+    {
+        var js = new JavaScriptSerializer();
+        regno = (regno ?? "").Trim(); stage = (stage ?? "").Trim().ToUpperInvariant();
+        string[] valid = { "PENDING_CREATION", "READY_FOR_COLLECTION", "EMAIL_CREATED", "COMPLETED", "SUSPENDED" };
+        if (regno == "" || Array.IndexOf(valid, stage) < 0) return js.Serialize(new { success = false, message = "Invalid student or stage." });
+        string status = stage == "COMPLETED" ? "COMPLETED" : stage == "PENDING_CREATION" ? "PENDING" : stage == "SUSPENDED" ? "SUSPENDED" : "READY";
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                int id = 0; string from = "";
+                using (var q = new MySqlCommand("SELECT id, current_stage FROM campus_dynamics_portal.sems_email_creations WHERE regno=@r LIMIT 1", c))
+                { q.Parameters.AddWithValue("@r", regno); using (var rd = q.ExecuteReader()) if (rd.Read()) { id = Convert.ToInt32(rd[0]); from = rd[1].ToString(); } }
+                if (id == 0) return js.Serialize(new { success = false, message = "No pipeline record for that student." });
+                using (var up = new MySqlCommand(
+                    "UPDATE campus_dynamics_portal.sems_email_creations SET current_stage=@st, current_status=@ss, " +
+                    "notes=CONCAT(COALESCE(NULLIF(notes,''),''), CASE WHEN @n<>'' THEN CONCAT(' | ', @n) ELSE '' END), " +
+                    "last_updated_by=@who, last_updated_at=NOW() WHERE id=@id", c))
+                {
+                    up.Parameters.AddWithValue("@st", stage); up.Parameters.AddWithValue("@ss", status);
+                    up.Parameters.AddWithValue("@n", note ?? ""); up.Parameters.AddWithValue("@who", Actor()); up.Parameters.AddWithValue("@id", id);
+                    up.ExecuteNonQuery();
+                }
+                Log(c, null, id, regno, "set_status", from, stage, note);
+                return js.Serialize(new { success = true, message = "Status changed to " + stage.Replace("_", " ") + "." });
+            }
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    // 360: reset the temporary password (and notify the student).
+    public static string SetPassword(string regno, string tempPw)
+    {
+        var js = new JavaScriptSerializer(); regno = (regno ?? "").Trim();
+        if (regno == "" || string.IsNullOrWhiteSpace(tempPw)) return js.Serialize(new { success = false, message = "Student and a new temporary password are required." });
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                int n;
+                using (var up = new MySqlCommand("UPDATE campus_dynamics_portal.sems_email_creations SET temp_password=@p, password_changed='No', last_updated_by=@who, last_updated_at=NOW() WHERE regno=@r", c))
+                { up.Parameters.AddWithValue("@p", tempPw.Trim()); up.Parameters.AddWithValue("@who", Actor()); up.Parameters.AddWithValue("@r", regno); n = up.ExecuteNonQuery(); }
+                if (n == 0) return js.Serialize(new { success = false, message = "No pipeline record for that student." });
+                Log(c, null, 0, regno, "reset_password", null, null, "temporary password reset by admin");
+                Notify(c, null, regno, "Your email password was reset", "Please open the portal, view your new temporary password and set your own.", "key");
+                return js.Serialize(new { success = true, message = "Temporary password reset." });
+            }
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    // 360: remove a record from the pipeline entirely.
+    public static string DeleteRecord(string regno, string note)
+    {
+        var js = new JavaScriptSerializer(); regno = (regno ?? "").Trim();
+        if (regno == "") return js.Serialize(new { success = false, message = "Student number is required." });
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                Log(c, null, 0, regno, "delete_record", null, null, note);   // log BEFORE the row is gone
+                int n;
+                using (var d = new MySqlCommand("DELETE FROM campus_dynamics_portal.sems_email_creations WHERE regno=@r", c))
+                { d.Parameters.AddWithValue("@r", regno); n = d.ExecuteNonQuery(); }
+                if (n == 0) return js.Serialize(new { success = false, message = "No pipeline record for that student." });
+                return js.Serialize(new { success = true, message = "Removed from the pipeline." });
+            }
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    // 360: full detail for one student — record, per-stage timestamps, activity log, complaints.
+    public static string Detail(string regno)
+    {
+        var js = new JavaScriptSerializer(); regno = (regno ?? "").Trim();
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                object rec = null;
+                using (var cmd = new MySqlCommand(
+                    "SELECT id, regno, student_name, programme, campus, admission_year, IFNULL(entryno,'') entryno, " +
+                    "IFNULL(email_address,'') email, IFNULL(temp_password,'') pw, current_stage, current_status, verification_status, " +
+                    "IFNULL(password_changed,'No') pwc, IFNULL(paid_amount_snapshot,0) paid, IFNULL(notes,'') notes, " +
+                    "DATE_FORMAT(creation_date,'%Y-%m-%d %H:%i') t_created, DATE_FORMAT(email_created_at,'%Y-%m-%d %H:%i') t_email, " +
+                    "DATE_FORMAT(education_done_at,'%Y-%m-%d %H:%i') t_edu, DATE_FORMAT(gmail_guide_done_at,'%Y-%m-%d %H:%i') t_gmail, " +
+                    "DATE_FORMAT(quiz_passed_at,'%Y-%m-%d %H:%i') t_quiz, DATE_FORMAT(credentials_viewed_at,'%Y-%m-%d %H:%i') t_viewed, " +
+                    "DATE_FORMAT(verified_at,'%Y-%m-%d %H:%i') t_verified, DATE_FORMAT(completed_at,'%Y-%m-%d %H:%i') t_completed " +
+                    "FROM campus_dynamics_portal.sems_email_creations WHERE regno=@r LIMIT 1", c))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rd = cmd.ExecuteReader())
+                        if (rd.Read())
+                            rec = new
+                            {
+                                id = Convert.ToInt32(rd["id"]), regno = rd["regno"].ToString(), name = rd["student_name"].ToString(),
+                                programme = rd["programme"].ToString(), campus = CampusName(rd["campus"].ToString()), year = rd["admission_year"].ToString(),
+                                entryno = rd["entryno"].ToString(), email = rd["email"].ToString(), pw = rd["pw"].ToString(),
+                                stage = rd["current_stage"].ToString(), status = rd["current_status"].ToString(), verification = rd["verification_status"].ToString(),
+                                pwChanged = rd["pwc"].ToString(), paid = Convert.ToDecimal(rd["paid"]), notes = rd["notes"].ToString(),
+                                t_created = S(rd["t_created"]), t_email = S(rd["t_email"]), t_edu = S(rd["t_edu"]), t_gmail = S(rd["t_gmail"]),
+                                t_quiz = S(rd["t_quiz"]), t_viewed = S(rd["t_viewed"]), t_verified = S(rd["t_verified"]), t_completed = S(rd["t_completed"])
+                            };
+                }
+                if (rec == null) return js.Serialize(new { success = false, message = "No pipeline record for that student." });
+
+                var acts = new List<object>();
+                using (var cmd = new MySqlCommand("SELECT action, IFNULL(stage_from,'') sf, IFNULL(stage_to,'') st, IFNULL(actor,'') ac, IFNULL(detail,'') dt, DATE_FORMAT(created_at,'%Y-%m-%d %H:%i') ct FROM campus_dynamics_portal.sems_activity_log WHERE regno=@r ORDER BY id DESC LIMIT 40", c))
+                { cmd.Parameters.AddWithValue("@r", regno); using (var rd = cmd.ExecuteReader()) while (rd.Read()) acts.Add(new { action = rd["action"].ToString(), from = rd["sf"].ToString(), to = rd["st"].ToString(), actor = rd["ac"].ToString(), detail = rd["dt"].ToString(), at = rd["ct"].ToString() }); }
+
+                var comps = new List<object>();
+                using (var cmd = new MySqlCommand("SELECT category, status, IFNULL(admin_response,'') resp, DATE_FORMAT(created_at,'%Y-%m-%d %H:%i') ct FROM campus_dynamics_portal.sems_complaints WHERE regno=@r ORDER BY id DESC LIMIT 10", c))
+                { cmd.Parameters.AddWithValue("@r", regno); using (var rd = cmd.ExecuteReader()) while (rd.Read()) comps.Add(new { category = rd["category"].ToString(), status = rd["status"].ToString(), response = rd["resp"].ToString(), at = rd["ct"].ToString() }); }
+
+                return js.Serialize(new { success = true, record = rec, activity = acts, complaints = comps });
+            }
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
     // ── helpers ──────────────────────────────────────────────────────
+    private static string S(object v) { return v == null || v == DBNull.Value ? "" : v.ToString(); }
     private static int Scalar(MySqlConnection c, string sql)
     { using (var cmd = new MySqlCommand(sql, c)) { cmd.CommandTimeout = 60; var v = cmd.ExecuteScalar(); return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v); } }
     private static MySqlParameter Clone(MySqlParameter p) { return new MySqlParameter(p.ParameterName, p.Value); }
