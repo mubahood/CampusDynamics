@@ -91,7 +91,6 @@
       <button type="button" class="tt-btn tt-btn--p" onclick="TM.apply()">Apply</button>
       <span class="sp"></span>
       <a class="tt-btn tt-btn--sm" href="TimetableCalendar.aspx">Calendar &amp; Export</a>
-      <button type="button" class="tt-btn tt-btn--sm" onclick="TM.importLegacy()">Import legacy</button>
     </div>
     <div class="tt-tblwrap"><table class="tt-tbl"><thead><tr><th style="min-width:200px;">Course</th><th>Programme</th><th>Yr/Sem</th><th>Lecturer</th><th>Sessions</th><th style="text-align:right;">Actions</th></tr></thead><tbody id="pcBody"><tr><td colspan="6" class="tt-empty">Loading&hellip;</td></tr></tbody></table></div>
     <div class="tt-pager" id="pcPager"></div>
@@ -367,18 +366,9 @@ var TM = (function(){
   function itemDel(id){ if(!confirm('Delete this session?')) return; api('DeleteItem',{itemId:id}).then(function(d){ if(d&&d.ok){ toast('Deleted.'); manage(CUR_PC.id); load(PAGE); } else toast((d&&d.message)||'Failed',true); }); }
   function dupe(id){ api('DuplicateItem',{itemId:id}).then(function(d){ if(d&&d.ok){ toast('Duplicated as draft.'); manage(CUR_PC.id); load(PAGE); } else toast((d&&d.message)||'Failed',true); }); }
 
-  function importLegacy(){
-    api('ImportPreview').then(function(d){
-      if(!d||!d.ok){ toast((d&&d.message)||'Preview failed',true); return; }
-      var toImport=d.distinct-d.already;
-      if(!confirm('Import the legacy timetable into the new system?\n\nDistinct sessions found: '+d.distinct+'\nAlready imported (skipped): '+d.already+'\nWill import now: '+toImport+'\nUnmatched legacy rows (skipped): '+d.unmatched+'\n\nProceed?')) return;
-      api('ImportRun').then(function(r){ if(r&&r.ok){ toast('Imported '+r.imported+' session'+(r.imported==1?'':'s')+'.'); load(1); } else toast((r&&r.message)||'Import failed',true); });
-    });
-  }
-
   function close(id){ qs(id).classList.remove('on'); }
   init();
-  return { apply:apply, load:load, manage:manage, itemEdit:itemEdit, itemDel:itemDel, dupe:dupe, preview:preview, save:save, close:close, importLegacy:importLegacy };
+  return { apply:apply, load:load, manage:manage, itemEdit:itemEdit, itemDel:itemDel, dupe:dupe, preview:preview, save:save, close:close };
 })();
 </script>
 </asp:Content>

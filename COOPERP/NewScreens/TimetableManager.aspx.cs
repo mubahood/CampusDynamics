@@ -297,49 +297,5 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
 
-    // ── Legacy import (acad_timetable -> acad_timetable_item), deduped across years ──
-    // Perpetual timetable: collapse legacy rows to one per (programme-course, day, start).
-    private const string ImportJoins =
-        "FROM acad_timetable t " +
-        "JOIN acad_programmecourses pc ON pc.ID=(SELECT MIN(pc2.ID) FROM acad_programmecourses pc2 WHERE TRIM(pc2.progcode)=TRIM(t.programme_code) AND TRIM(pc2.course_code)=TRIM(t.course_code) AND pc2.study_year=t.study_year AND pc2.semester=t.semester) " +
-        "JOIN acad_timetable_weekdays w ON UPPER(TRIM(w.DayName))=UPPER(TRIM(t.day_of_week)) " +
-        "LEFT JOIN acad_lecturerooms rr ON t.room REGEXP '^[0-9]+$' AND rr.RoomID=CAST(t.room AS UNSIGNED) ";
-
-    [WebMethod(EnableSession = true)]
-    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object ImportPreview()
-    {
-        if (!Authed()) return Denied();
-        TimetableService.EnsureSchema();
-        try
-        {
-            object distinct = TimetableService.Scalar("SELECT COUNT(*) FROM (SELECT pc.ID pid, w.DayNo dno, CAST(t.start_time AS TIME) st " + ImportJoins + "WHERE CAST(t.end_time AS TIME) > CAST(t.start_time AS TIME) GROUP BY pc.ID, w.DayNo, CAST(t.start_time AS TIME)) x");
-            object already = TimetableService.Scalar("SELECT COUNT(*) FROM (SELECT pc.ID pid, w.DayNo dno, CAST(t.start_time AS TIME) st " + ImportJoins + "WHERE CAST(t.end_time AS TIME) > CAST(t.start_time AS TIME) AND EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.day_no=w.DayNo AND it.start_time=CAST(t.start_time AS TIME)) GROUP BY pc.ID, w.DayNo, CAST(t.start_time AS TIME)) x");
-            object unmatched = TimetableService.Scalar("SELECT COUNT(*) FROM acad_timetable t WHERE NOT EXISTS (SELECT 1 FROM acad_programmecourses pc WHERE TRIM(pc.progcode)=TRIM(t.programme_code) AND TRIM(pc.course_code)=TRIM(t.course_code) AND pc.study_year=t.study_year AND pc.semester=t.semester)");
-            return new { ok = true, distinct = Convert.ToInt32(distinct), already = Convert.ToInt32(already), unmatched = Convert.ToInt32(unmatched) };
-        }
-        catch (Exception ex) { return new { ok = false, message = ex.Message }; }
-    }
-
-    [WebMethod(EnableSession = true)]
-    [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object ImportRun()
-    {
-        if (!Authed()) return Denied();
-        TimetableService.EnsureSchema();
-        try
-        {
-            int n = TimetableService.Exec(
-                "INSERT INTO acad_timetable_item (programmecourse_id, acad_year, progcode, course_code, study_year, semester, day_no, start_time, duration_min, end_time, teacher_id, campus_id, room_id, room_label, session_type, delivery_mode, status, created_by, created_at) " +
-                "SELECT pc.ID, '', pc.progcode, TRIM(pc.course_code), pc.study_year, pc.semester, w.DayNo, CAST(t.start_time AS TIME), " +
-                "GREATEST(30, TIME_TO_SEC(TIMEDIFF(MAX(CAST(t.end_time AS TIME)), CAST(t.start_time AS TIME)))/60), MAX(CAST(t.end_time AS TIME)), " +
-                "NULLIF(MAX(t.lecturer_id),0), IFNULL(MAX(t.campusId),0), MAX(rr.RoomID), IFNULL(MAX(t.building),''), 'LECTURE', 'PHYSICAL', 'DRAFT', 'legacy_import', NOW() " +
-                ImportJoins +
-                "WHERE CAST(t.end_time AS TIME) > CAST(t.start_time AS TIME) " +
-                "AND NOT EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.programmecourse_id=pc.ID AND it.day_no=w.DayNo AND it.start_time=CAST(t.start_time AS TIME)) " +
-                "GROUP BY pc.ID, w.DayNo, CAST(t.start_time AS TIME)");
-            return new { ok = true, imported = n };
-        }
-        catch (Exception ex) { return new { ok = false, message = ex.Message }; }
-    }
+    // Legacy import removed — the timetable is now built fresh in this screen.
 }
