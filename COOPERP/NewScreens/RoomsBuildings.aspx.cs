@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Web;
 using System.Web.Services;
 using System.Web.Script.Services;
 using System.Web.UI;
@@ -18,11 +19,17 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
     private static string S(DataRow r, string c) { return r.Table.Columns.Contains(c) && r[c] != DBNull.Value ? r[c].ToString() : ""; }
     private static MySqlParameter P(string n, object v) { return new MySqlParameter(n, v == null ? DBNull.Value : v); }
 
+    // WebMethods bypass the master-page login gate, so each guards the session itself.
+    private static bool Authed()
+    { try { HttpContext c = HttpContext.Current; return c != null && c.Session != null && c.Session["username"] != null; } catch { return false; } }
+    private static object Denied() { return new { ok = false, message = "Your session has expired. Please sign in again." }; }
+
     // ── lookups (campuses + active buildings for the room dropdown) ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object GetLookups()
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         List<object> campuses = new List<object>();
         foreach (DataRow r in TimetableService.Query("SELECT ID, campus_name, campus_short_name FROM acad_campuses ORDER BY ID").Rows)
@@ -34,10 +41,11 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
     }
 
     // ── BUILDINGS ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object ListBuildings()
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         List<object> rows = new List<object>();
         DataTable dt = TimetableService.Query(
@@ -53,10 +61,11 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
         return new { ok = true, rows = rows };
     }
 
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object SaveBuilding(int id, string name, string code, int campusId, int floors, string notes, int active)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         name = (name ?? "").Trim();
         if (name == "") return new { ok = false, message = "Building name is required." };
@@ -77,10 +86,11 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
 
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object DeleteBuilding(int id)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         try
         {
@@ -92,10 +102,11 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
     }
 
     // ── ROOMS (extend the legacy acad_lecturerooms) ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object ListRooms()
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         List<object> rows = new List<object>();
         DataTable dt = TimetableService.Query(
@@ -110,10 +121,11 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
         return new { ok = true, rows = rows };
     }
 
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object SaveRoom(int id, string name, int capacity, int campusId, int buildingId, string roomType, int active)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         name = (name ?? "").Trim();
         if (name == "") return new { ok = false, message = "Room name is required." };
@@ -136,10 +148,11 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
 
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object DeleteRoom(int id)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         try
         {
@@ -153,25 +166,29 @@ public partial class COOPERP_NewScreens_RoomsBuildings : Page
     }
 
     // ── Find free rooms for a slot ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object FindFreeRooms(string acadYear, int dayNo, string start, int durationMin, int campusId, int minCapacity)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         try
         {
             string st = TimetableService.NormTime(start);
             string et = TimetableService.EndTime(start, durationMin);
             string campusFilter = campusId > 0 ? " AND (r.campusId=@cp OR r.campusId=0) " : "";
+            // Perpetual timetable — a room is busy if ANY active session overlaps this weekday/slot
+            // (NOT scoped by academic year; items are stored year-agnostic, matching CheckConflicts
+            // and RoomsForSlot). Filtering by acad_year here made every room look free.
             List<MySqlParameter> ps = new List<MySqlParameter> {
-                P("@ay", acadYear), P("@day", dayNo), P("@st", st), P("@et", et), P("@cap", minCapacity)
+                P("@day", dayNo), P("@st", st), P("@et", et), P("@cap", minCapacity)
             };
             if (campusId > 0) ps.Add(P("@cp", campusId));
             DataTable dt = TimetableService.Query(
                 "SELECT r.RoomID, r.RoomName, IFNULL(r.Capacity,0) Capacity, IFNULL(b.building_name,'') bn, IFNULL(cp.campus_name,'') cn " +
                 "FROM acad_lecturerooms r LEFT JOIN acad_building b ON b.building_id=r.building_id LEFT JOIN acad_campuses cp ON cp.ID=r.campusId " +
                 "WHERE IFNULL(r.is_active,1)=1 AND IFNULL(r.Capacity,0)>=@cap " + campusFilter +
-                "AND NOT EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.room_id=r.RoomID AND it.status='ACTIVE' AND it.acad_year=@ay AND it.day_no=@day AND it.start_time < @et AND @st < it.end_time) " +
+                "AND NOT EXISTS (SELECT 1 FROM acad_timetable_item it WHERE it.room_id=r.RoomID AND it.status='ACTIVE' AND it.day_no=@day AND it.start_time < @et AND @st < it.end_time) " +
                 "ORDER BY r.Capacity, r.RoomName", ps.ToArray());
             List<object> rooms = new List<object>();
             foreach (DataRow r in dt.Rows)

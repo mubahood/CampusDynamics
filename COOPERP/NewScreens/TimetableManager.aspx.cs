@@ -17,15 +17,22 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     private static MySqlParameter P(string n, object v) { return new MySqlParameter(n, v == null ? DBNull.Value : v); }
     private static string Actor()
     {
+        try { HttpContext c = HttpContext.Current; if (c != null && c.Session != null && c.Session["username"] != null) return c.Session["username"].ToString(); } catch { }
         try { HttpContext c = HttpContext.Current; if (c != null && c.User != null && c.User.Identity != null && !string.IsNullOrEmpty(c.User.Identity.Name)) return c.User.Identity.Name; } catch { }
         return "admin";
     }
 
+    // WebMethods bypass the master-page login gate, so each guards the session itself.
+    private static bool Authed()
+    { try { HttpContext c = HttpContext.Current; return c != null && c.Session != null && c.Session["username"] != null; } catch { return false; } }
+    private static object Denied() { return new { ok = false, message = "Your session has expired. Please sign in again." }; }
+
     // ── lookups (no academic year — timetable is perpetual) ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object Lookups()
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         List<object> campuses = new List<object>();
         foreach (DataRow r in TimetableService.Query("SELECT ID, campus_name FROM acad_campuses ORDER BY ID").Rows)
@@ -43,10 +50,11 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     }
 
     // ── rooms for a campus, annotated with availability for a day/time slot ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object RoomsForSlot(int campusId, int dayNo, string start, int durationMin, int excludeItemId)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         string st = TimetableService.NormTime(start);
         string et = TimetableService.EndTime(start, durationMin);
@@ -71,10 +79,11 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     }
 
     // ── list programme-courses (+ session count) ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object ListPCs(string q, string progcode, int studyYear, int semester, int onlyUnscheduled, int page)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         const int PS = 20;
         if (page < 1) page = 1;
@@ -111,10 +120,11 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     }
 
     // ── items for one programme-course ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object GetItems(int pcId)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         Dictionary<string, object> pc = LoadPc(pcId);
         if (pc == null) return new { ok = false, message = "Programme-course not found." };
@@ -152,10 +162,11 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     }
 
     // ── live conflict preview ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object PreviewConflicts(int itemId, int pcId, int dayNo, string start, int durationMin, int roomId, int teacherId, int campusId)
     {
+        if (!Authed()) return Denied();
         Dictionary<string, object> pc = LoadPc(pcId);
         if (pc == null) return new { ok = false, message = "Programme-course not found." };
         int effTeacher = teacherId > 0 ? teacherId : Convert.ToInt32(pc["lecturerId"]);
@@ -167,11 +178,12 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     }
 
     // ── save an item ──
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object SaveItem(int itemId, int pcId, int dayNo, string start, int durationMin,
         int teacherId, int campusId, int buildingId, int roomId, string roomLabel, string sessionType, string deliveryMode, string meetLink, string description, string status, int allowConflicts, int setCourseLecturer)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         try
         {
@@ -252,20 +264,22 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
 
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object DeleteItem(int itemId)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         try { TimetableService.Exec("DELETE FROM acad_timetable_item WHERE item_id=@id", P("@id", itemId)); return new { ok = true }; }
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
 
     // Duplicate a session as a DRAFT so it can be tweaked before going live.
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object DuplicateItem(int itemId)
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         try
         {
@@ -287,10 +301,11 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         "JOIN acad_timetable_weekdays w ON UPPER(TRIM(w.DayName))=UPPER(TRIM(t.day_of_week)) " +
         "LEFT JOIN acad_lecturerooms rr ON t.room REGEXP '^[0-9]+$' AND rr.RoomID=CAST(t.room AS UNSIGNED) ";
 
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object ImportPreview()
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         try
         {
@@ -302,10 +317,11 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
         catch (Exception ex) { return new { ok = false, message = ex.Message }; }
     }
 
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
     public static object ImportRun()
     {
+        if (!Authed()) return Denied();
         TimetableService.EnsureSchema();
         try
         {
