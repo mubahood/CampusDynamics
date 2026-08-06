@@ -155,7 +155,7 @@
 <!-- Create email modal -->
 <div class="se-ov" id="ov" onclick="closeM()"></div>
 <div class="se-modal" id="mCreate" role="dialog" aria-modal="true">
-    <div class="se-modal__h"><span class="se-modal__t">Create University Email</span><button class="se-modal__x" onclick="closeM()">&times;</button></div>
+    <div class="se-modal__h"><span class="se-modal__t">Create University Email</span><button type="button" class="se-modal__x" onclick="closeM()">&times;</button></div>
     <div class="se-modal__b">
         <div class="se-msg" id="mMsg"></div>
         <div id="mWho" style="font-size:12.5px;color:#64748b;margin-bottom:6px;"></div>
@@ -167,14 +167,14 @@
         <input type="text" id="mNotes" class="se-fi" autocomplete="off" />
     </div>
     <div class="se-modal__f">
-        <button class="se-btn" onclick="closeM()">Cancel</button>
-        <button class="se-btn se-btn--p" id="mSave" onclick="saveCreate()">Create &amp; make ready</button>
+        <button type="button" class="se-btn" onclick="closeM()">Cancel</button>
+        <button type="button" class="se-btn se-btn--p" id="mSave" onclick="saveCreate()">Create &amp; make ready</button>
     </div>
 </div>
 
 <!-- Complaint respond modal -->
 <div class="se-modal" id="mResp" role="dialog" aria-modal="true">
-    <div class="se-modal__h"><span class="se-modal__t">Respond to complaint</span><button class="se-modal__x" onclick="closeM()">&times;</button></div>
+    <div class="se-modal__h"><span class="se-modal__t">Respond to complaint</span><button type="button" class="se-modal__x" onclick="closeM()">&times;</button></div>
     <div class="se-modal__b">
         <div class="se-msg" id="rMsg"></div>
         <div id="rWho" style="font-size:12.5px;color:#64748b;margin-bottom:6px;"></div>
@@ -188,12 +188,12 @@
         <label class="se-fl">Response to student</label>
         <textarea id="rText" class="se-fi" rows="3"></textarea>
     </div>
-    <div class="se-modal__f"><button class="se-btn" onclick="closeM()">Cancel</button><button class="se-btn se-btn--p" onclick="saveResp()">Send update</button></div>
+    <div class="se-modal__f"><button type="button" class="se-btn" onclick="closeM()">Cancel</button><button type="button" class="se-btn se-btn--p" onclick="saveResp()">Send update</button></div>
 </div>
 
 <!-- 360 Manage modal -->
 <div class="se-modal se-modal--wide" id="mManage" role="dialog" aria-modal="true">
-    <div class="se-modal__h"><span class="se-modal__t" id="gTitle">Manage student</span><button class="se-modal__x" onclick="closeM()">&times;</button></div>
+    <div class="se-modal__h"><span class="se-modal__t" id="gTitle">Manage student</span><button type="button" class="se-modal__x" onclick="closeM()">&times;</button></div>
     <div class="se-modal__b" id="gBody" style="max-height:72vh;overflow:auto;"><div style="text-align:center;color:#94a3b8;padding:30px">Loading&hellip;</div></div>
 </div>
 
@@ -295,10 +295,10 @@ function renderDetail(r){var d=r.record;var h='';
   +'</div>';
  if(d.notes)h+='<div style="font-size:12px;background:#f8fafc;border:1px solid #eef2f7;padding:8px 10px;margin-bottom:10px"><b>Notes:</b> '+esc(d.notes)+'</div>';
  h+='<div class="g-act">'
-  +(d.stage==='PENDING_CREATION'?'<button class="g-abtn g-abtn--p" onclick="closeM();openCreate(\''+_gReg+'\',\''+esc(d.name).replace(/\x27/g,"")+'\')">Create email</button>':'')
-  +'<button class="g-abtn" onclick="gStage()">Change stage</button>'
-  +'<button class="g-abtn" onclick="gPw()">Reset password</button>'
-  +'<button class="g-abtn g-abtn--d" onclick="gDel()">Remove</button>'
+  +(d.stage==='PENDING_CREATION'?'<button type="button" class="g-abtn g-abtn--p" onclick="closeM();openCreate(\''+_gReg+'\',\''+esc(d.name).replace(/\x27/g,"")+'\')">Create email</button>':'')
+  +'<button type="button" class="g-abtn" onclick="gStage()">Change stage</button>'
+  +'<button type="button" class="g-abtn" onclick="gPw()">Reset password</button>'
+  +'<button type="button" class="g-abtn g-abtn--d" onclick="gDel()">Remove</button>'
   +'</div>';
  h+='<div class="g-sec">Journey timeline</div><ul class="g-tl">'
   +tl('Added to pipeline',d.t_created)+tl('Email created',d.t_email)+tl('Learn done',d.t_edu)+tl('Gmail guide done',d.t_gmail)+tl('Quiz passed',d.t_quiz)+tl('Credentials viewed',d.t_viewed)+tl('Verified (Active Student)',d.t_verified)+tl('Completed',d.t_completed)+'</ul>';
