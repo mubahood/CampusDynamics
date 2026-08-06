@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data;
 using System.Text;
 using System.Web;
@@ -35,6 +36,7 @@ public partial class API_v2_admissions : System.Web.UI.Page
                 case "withdraw":           HandleWithdraw();          break;
                 case "register":           HandleRegister();          break;
                 case "repair":             HandleRepair();            break;
+                case "ensure_account":     HandleEnsureAccount();     break;
                 case "add_note":           HandleAddNote();           break;
                 case "notes":              HandleNotes();             break;
                 case "notify":             HandleNotify();            break;
@@ -446,6 +448,70 @@ public partial class API_v2_admissions : System.Web.UI.Page
         {
             { "choice_id", choiceId }, { "entry_no", entryNo }, { "regno", regno }
         }, "Student registered successfully");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ENSURE ACCOUNT — the canonical "fix a student account" endpoint.
+    //  Given any student number (MRU number or slash-form), if it exists in the
+    //  system it admits + registers + creates acad_student (if missing) and
+    //  provisions the portal login (default password "123"). Idempotent.
+    //  Auth: a trusted system caller (SysApiKey header/param — used by the eportal
+    //  login self-heal) OR a normal staff token. Runs the single source-of-truth SP
+    //  campus_dynamics.sp_EnsureStudentAccount so every caller behaves identically.
+    // ═══════════════════════════════════════════════════════════════════
+    private void HandleEnsureAccount()
+    {
+        string sysKey = ConfigurationManager.AppSettings["SysApiKey"] ?? "";
+        string provided = (Request.Headers["X-Sys-Key"] ?? ApiHelper.Param(Request, "sys_key", "")).Trim();
+        bool systemCall = !string.IsNullOrEmpty(sysKey) && string.Equals(provided, sysKey, StringComparison.Ordinal);
+
+        string actor = "system";
+        if (!systemCall)
+        {
+            TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+            if (auth == null) return;
+            if (auth.UserType != "staff") { ApiHelper.Error(Response, "Staff access required.", "FORBIDDEN"); return; }
+            actor = auth.UserId;
+        }
+
+        string studentNo = ApiHelper.RequireParam(Request, Response, "student_no");
+        if (studentNo == null) return;
+        studentNo = studentNo.Trim();
+        if (studentNo.Length == 0) { ApiHelper.Error(Response, "student_no is required.", "MISSING_PARAM"); return; }
+
+        DataTable dt;
+        try
+        {
+            dt = ApiHelper.QueryProc("sp_EnsureStudentAccount", new MySqlParameter("p_in", studentNo));
+        }
+        catch (Exception ex)
+        {
+            ApiHelper.Error(Response, "Account fix failed: " + ex.Message, "SERVER_ERROR"); return;
+        }
+
+        bool found = false; string regno = "", resolvedNo = studentNo, action = "not_found"; bool hadLogin = false;
+        if (dt != null && dt.Rows.Count > 0)
+        {
+            DataRow r = dt.Rows[0];
+            found      = Convert.ToInt32(r["found"]) == 1;
+            regno      = (r["regno"] ?? "").ToString();
+            resolvedNo = (r["student_no"] ?? studentNo).ToString();
+            hadLogin   = Convert.ToInt32(r["had_login"]) == 1;
+            action     = (r["action"] ?? "").ToString();
+        }
+
+        if (found)
+            LogAudit(resolvedNo, actor, "ACCOUNT_FIX", "ensure_account -> " + action + " (regno=" + regno + ")");
+
+        ApiHelper.Success(Response, new Dictionary<string, object>
+        {
+            { "found",       found },
+            { "can_login",   found },     // fixed accounts sign in with the default password
+            { "student_no",  resolvedNo },
+            { "regno",       regno },
+            { "had_login",   hadLogin },
+            { "action",      action }
+        }, found ? "Student account is ready." : "No matching student was found for that number.");
     }
 
     // ═══════════════════════════════════════════════════════════════════
