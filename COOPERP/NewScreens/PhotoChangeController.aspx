@@ -92,7 +92,7 @@
 <div class="pc-wrap">
     <div class="pc-head">
         <h1>Official Photograph Approvals</h1>
-        <p>Every student official-photograph change starts as <strong>Pending</strong>. Approve it to keep the new photograph, or reject it &mdash; a rejected photograph is removed from the student, who must then upload a new one or delete it. When a student submits several photographs and only one is good, use <strong>Delete this version</strong> to clear the extra submissions; the student&rsquo;s current live photograph (badged <strong>Current</strong>) is never affected.</p>
+        <p>Every student official-photograph change starts as <strong>Pending</strong>. <strong>Approving</strong> a photograph makes it the student&rsquo;s official photo and automatically clears every other version they submitted. Rejecting removes the photograph, and the student must upload a new one. When a student submits several photographs, just approve the good one &mdash; or use <strong>Delete this version</strong> to clear an individual extra. The student&rsquo;s current live photograph is badged <strong>Current</strong>.</p>
     </div>
     <asp:Literal ID="litBody" runat="server" />
 </div>
@@ -259,7 +259,7 @@
 
     window.pcReview = function (id, approve) {
         if (!approve) { openReject({ mode: "single", id: id }, "Rejecting <b>1</b> photograph &mdash; it will be removed and the student asked to re-upload."); return; }
-        if (!confirm("Approve this photograph?")) return;
+        if (!confirm("Approve this photograph as the student's official photo?\n\nAny other versions this student submitted will be cleared automatically.")) return;
         post("action=review&id=" + encodeURIComponent(id) + "&decision=approve&comment=")
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 700); })
             .catch(function () { pcToast("Request failed.", true); });
@@ -269,7 +269,7 @@
         document.querySelectorAll(".pc-chk:checked").forEach(function (c) { ids.push(c.value); });
         if (ids.length === 0) { pcToast("Select at least one photo first.", true); return; }
         if (!approve) { openReject({ mode: "batch", ids: ids }, "Rejecting <b>" + ids.length + "</b> selected photograph(s) &mdash; each will be removed and the students asked to re-upload."); return; }
-        if (!confirm("Approve " + ids.length + " selected photograph(s)?")) return;
+        if (!confirm("Approve " + ids.length + " selected photograph(s)?\n\nFor each student, approving one photo clears their other submitted versions.")) return;
         post("action=batch&ids=" + encodeURIComponent(ids.join(",")) + "&decision=approve&comment=")
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 800); })
             .catch(function () { pcToast("Request failed.", true); });

@@ -379,6 +379,8 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         }
         if (status != "PENDING") return "Already " + status.ToLowerInvariant() + ".";
 
+        // Files freed by an approval's purge of the student's other versions — cleaned up after commit.
+        var orphanFiles = new List<string>();
         using (var tx = conn.BeginTransaction())
         {
             try
@@ -393,13 +395,18 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                     if (cmd.ExecuteNonQuery() == 0) { tx.Rollback(); return "Already reviewed."; }
                 }
 
-                // Only touch the student if THIS change's photo is still their current photo
-                // (guards against a newer upload having superseded this pending one).
                 if (approve)
                 {
-                    using (var cmd = new MySqlCommand(
-                        "UPDATE acad_student SET photo_status='APPROVED' WHERE regno=@r AND photofile=@p", conn, tx))
-                    { cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@p", newPhoto); cmd.ExecuteNonQuery(); }
+                    // The approved photograph becomes the student's official, live photo. Admin has
+                    // explicitly chosen this version, so it overrides any later upload.
+                    string setSql = newPhoto != ""
+                        ? "UPDATE acad_student SET photo_status='APPROVED', photofile=@p WHERE regno=@r"
+                        : "UPDATE acad_student SET photo_status='APPROVED' WHERE regno=@r";
+                    using (var cmd = new MySqlCommand(setSql, conn, tx))
+                    { cmd.Parameters.AddWithValue("@r", regno); if (newPhoto != "") cmd.Parameters.AddWithValue("@p", newPhoto); cmd.ExecuteNonQuery(); }
+
+                    // Approving one photo clears the student's other submitted versions from the queue.
+                    orphanFiles = PurgeOtherVersions(conn, tx, regno, id, user);
                 }
                 else
                 {
@@ -411,10 +418,42 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                     ApplyBanIfNeeded(conn, tx, regno, ban, comment, user);
                 }
                 tx.Commit();
-                return "OK";
             }
             catch { tx.Rollback(); throw; }
         }
+
+        // Reclaim the superseded thumbnails now the transaction is committed. The approved
+        // photo (newPhoto) is the live one, so TryDeletePhotoFile keeps it and any still-referenced file.
+        foreach (string f in orphanFiles) TryDeletePhotoFile(conn, f, newPhoto);
+        return "OK";
+    }
+
+    /// <summary>
+    /// Marks every OTHER (non-DELETED) change row for the student as DELETED because one of their
+    /// photographs has just been approved. Returns the files those rows pointed at so the caller can
+    /// clean up any that become orphaned. Runs inside the caller's transaction.
+    /// </summary>
+    private List<string> PurgeOtherVersions(MySqlConnection conn, MySqlTransaction tx, string regno, int keepId, string user)
+    {
+        var files = new List<string>();
+        using (var cmd = new MySqlCommand(
+            "SELECT COALESCE(new_photofile,'') FROM stud_photo_change WHERE regno=@r AND id<>@id AND status<>'DELETED'", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@id", keepId);
+            using (var rd = cmd.ExecuteReader())
+                while (rd.Read()) { string f = rd.GetString(0); if (f != "") files.Add(f); }
+        }
+        using (var cmd = new MySqlCommand(
+            "UPDATE stud_photo_change SET status='DELETED', reviewed_by=@by, reviewed_at=NOW(), " +
+            "review_comment='Superseded — another photograph was approved for this student.' " +
+            "WHERE regno=@r AND id<>@id AND status<>'DELETED'", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("@by", user);
+            cmd.Parameters.AddWithValue("@r", regno);
+            cmd.Parameters.AddWithValue("@id", keepId);
+            cmd.ExecuteNonQuery();
+        }
+        return files;
     }
 
     // ===================================================================
