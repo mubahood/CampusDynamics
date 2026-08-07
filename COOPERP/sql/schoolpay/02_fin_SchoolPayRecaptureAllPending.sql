@@ -1,12 +1,23 @@
 -- ============================================================================
 -- fin_SchoolPayRecaptureAllPending (campus_dynamics_accounts)  deployed 2026-06-30
+--   revised 2026-08-07: heal by LEDGER TRUTH, not the captureStatus flag.
 -- ----------------------------------------------------------------------------
--- Sweeps every captureStatus='Pending' SchoolPay row through the (now double-post-
--- proof) fin_AutoPayCapture. The engine decides clean-vs-partial, so this just
--- loops. Idempotent (Captured rows leave the working set); snapshot into a temp
--- table so the loop is unaffected by its own status changes; per-row rollback
--- handler so one bad row never aborts the batch. Run automatically by the event
--- ev_schoolpay_autosweep (see 03_*). Safe to run manually any time.
+-- Sweeps every SchoolPay payment that is NOT actually on the student ledger yet
+-- (regardless of its captureStatus flag) through the double-post-proof
+-- fin_AutoPayCapture. This is the core self-healing batch: it catches money that
+-- was received but never posted — whether the row is 'Pending', 'Failed', or was
+-- even mis-flagged 'Captured' while its GL entry never landed.
+--
+--   Working set = resolvable-student rows with NO ledger posting, established via
+--   the dual guard fin_SchoolPayReceiptPosted (TransCode folio OR 'TNo:' particulars)
+--   so a legacy-folio posting is NEVER re-posted. The cheap indexed folio filter is
+--   applied first to keep the candidate set tiny before the particulars scan.
+--   Each row is re-armed to 'Pending' so the capture engine acts (TCheck=1). The
+--   engine's own folio guard still makes every post idempotent.
+--
+-- Idempotent, per-row rollback handler so one bad row never aborts the batch.
+-- Run automatically by the event ev_schoolpay_autosweep (see 03_*). Safe to run
+-- manually any time. Requires fin_SchoolPayReceiptPosted (see pull/01_*).
 -- ============================================================================
 DROP PROCEDURE IF EXISTS fin_SchoolPayRecaptureAllPending;
 DELIMITER $$
@@ -29,9 +40,16 @@ BEGIN
         ReceiptNo CHAR(45), regno VARCHAR(45), stud_name VARCHAR(75),
         amount_paid DOUBLE, datePaid DATETIME, channelPaid VARCHAR(45)
     );
+    -- step 1 (cheap, indexed): candidates with no 'TransCode:' folio + resolvable student
     INSERT INTO tmp_sp_pending(ReceiptNo, regno, stud_name, amount_paid, datePaid, channelPaid)
-        SELECT ReceiptNo, regno, stud_name, amount_paid, datePaid, channelPaid
-        FROM fin_schoolpaydata WHERE captureStatus = 'Pending';
+        SELECT d.ReceiptNo, d.regno, d.stud_name, d.amount_paid, d.datePaid, d.channelPaid
+        FROM fin_schoolpaydata d
+        WHERE NOT EXISTS (SELECT 1 FROM fin_ledger l WHERE l.folio = CONCAT('TransCode:', d.ReceiptNo))
+          AND TRIM(IFNULL(d.regno,'')) NOT IN ('', '-')
+          AND EXISTS (SELECT 1 FROM campus_dynamics.acad_student s WHERE TRIM(s.regno) = TRIM(d.regno));
+    -- step 2 (small set only): drop any that ARE posted under a legacy folio
+    DELETE t FROM tmp_sp_pending t
+        WHERE fin_SchoolPayReceiptPosted(t.ReceiptNo, t.datePaid) = 1;
     SELECT IFNULL(MAX(rid), 0) INTO v_max FROM tmp_sp_pending;
 
     WHILE v_i <= v_max DO
@@ -47,6 +65,10 @@ BEGIN
             ELSE 'AC1302'
         END;
         SET v_bankName = IF(v_channel LIKE '%Shared%', 'Bank of Africa', v_channel);
+
+        -- re-arm exactly one Pending row so the capture engine acts (ReceiptNo is PK)
+        UPDATE fin_schoolpaydata SET captureStatus = 'Pending'
+         WHERE ReceiptNo = v_receipt AND captureStatus <> 'Pending';
 
         BEGIN
             DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; END;

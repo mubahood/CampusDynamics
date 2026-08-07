@@ -51,7 +51,37 @@ CREATE TABLE IF NOT EXISTS fin_schoolpay_synclog (
     KEY idx_run (run_id), KEY idx_started (run_started)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- ----------------------------------------------------------------------------
+-- 2b. "Is this receipt genuinely posted to the GL?" — the single source of truth.
+--     A fin_schoolpaydata row EXISTING is NOT proof of posting (it may be a stale
+--     'Pending'/'Failed' row a prior attempt left behind). The real proof is a
+--     ledger entry. Dual guard so we never double-post AND never miss:
+--       (a) modern postings carry folio 'TransCode:<receipt>'  (indexed, fast)
+--       (b) legacy postings (pre-2026-07, different folio) still name the receipt
+--           in the particulars as 'TNo: <receipt>'  (leading-wildcard scan)
+--     (b) is bounded to old dates so recent/daily reconciles stay on the fast (a) path.
+DROP FUNCTION IF EXISTS fin_SchoolPayReceiptPosted;
+DELIMITER $$
+CREATE FUNCTION fin_SchoolPayReceiptPosted(p_receipt VARCHAR(45), p_paydate DATETIME)
+    RETURNS TINYINT
+    DETERMINISTIC READS SQL DATA
+BEGIN
+    IF EXISTS (SELECT 1 FROM fin_ledger WHERE folio = CONCAT('TransCode:', p_receipt)) THEN
+        RETURN 1;
+    END IF;
+    IF (p_paydate IS NULL OR p_paydate < '2026-07-01')
+       AND EXISTS (SELECT 1 FROM fin_ledger WHERE particulars LIKE CONCAT('%TNo: ', p_receipt)) THEN
+        RETURN 1;
+    END IF;
+    RETURN 0;
+END$$
+DELIMITER ;
+
 -- 3. Reconcile: post every 'New' staged row of a run through the hardened engine.
+--    "Existed / Already recorded" is decided by ACTUAL ledger posting (above), never by
+--    a mere staging-row presence — so a payment received but never posted is (re)posted
+--    rather than silently reported as already recorded. fin_AutoPayCapture is idempotent
+--    (its own folio guard prevents any GL double-entry), so re-driving is always safe.
 DROP PROCEDURE IF EXISTS fin_SchoolPayReconcilePulled;
 DELIMITER $$
 CREATE PROCEDURE fin_SchoolPayReconcilePulled(IN p_run_id VARCHAR(40), IN p_actor VARCHAR(100))
@@ -66,7 +96,7 @@ BEGIN
     DECLARE v_paydate DATETIME;
     DECLARE v_name VARCHAR(100);
     DECLARE v_bankCode VARCHAR(25);
-    DECLARE v_exists INT;
+    DECLARE v_posted INT;
     DECLARE v_hasstudent INT;
     DECLARE n_new INT DEFAULT 0;
     DECLARE n_existed INT DEFAULT 0;
@@ -93,22 +123,31 @@ BEGIN
             WHEN LOWER(v_channel) LIKE '%eco%'       THEN 'AC1308'
             ELSE 'AC1302' END;
 
-        SELECT COUNT(*) INTO v_exists FROM fin_schoolpaydata WHERE ReceiptNo = v_receipt;
+        -- SOURCE OF TRUTH: is the money actually on the student ledger?
+        SET v_posted = fin_SchoolPayReceiptPosted(v_receipt, v_paydate);
 
-        IF v_exists > 0 THEN
+        IF v_posted = 1 THEN
+            -- genuinely recorded on the statement; self-heal a stale capture flag if any
+            UPDATE fin_schoolpaydata SET captureStatus = 'Captured'
+             WHERE ReceiptNo = v_receipt AND captureStatus <> 'Captured';
             UPDATE fin_schoolpay_pull_staging SET reconcile_status = 'Existed' WHERE id = v_sid;
             SET n_existed = n_existed + 1;
         ELSE
+            -- NOT on the ledger — post it, whether brand-new OR a stale row a previous
+            -- attempt left behind (Pending/Failed/even mis-flagged 'Captured').
             SELECT COUNT(*) INTO v_hasstudent FROM campus_dynamics.acad_student WHERE TRIM(regno) = v_regno;
             IF v_regno = '' OR v_hasstudent = 0 THEN
-                -- record the payment but it can't be posted (student unresolved) -> Pending for manual mapping
+                -- can't be posted (student unresolved) -> keep for manual mapping
                 INSERT IGNORE INTO fin_schoolpaydata(ReceiptNo, regno, datePaid, channelPaid, amount_paid, stud_name, captureStatus)
                     VALUES (v_receipt, IF(v_regno='','-',v_regno), v_paydate, v_channel, v_amount, v_name, 'Pending');
                 UPDATE fin_schoolpay_pull_staging SET reconcile_status = 'NoStudent' WHERE id = v_sid;
                 SET n_new = n_new + 1; SET n_failed = n_failed + 1;
             ELSE
-                INSERT IGNORE INTO fin_schoolpaydata(ReceiptNo, regno, datePaid, channelPaid, amount_paid, stud_name, captureStatus)
-                    VALUES (v_receipt, v_regno, v_paydate, v_channel, v_amount, v_name, 'Pending');
+                -- ensure exactly ONE armed 'Pending' row (ReceiptNo is PK) so the capture
+                -- engine will act, re-arming any stale row from a prior failed attempt.
+                INSERT INTO fin_schoolpaydata(ReceiptNo, regno, datePaid, channelPaid, amount_paid, stud_name, captureStatus)
+                    VALUES (v_receipt, v_regno, v_paydate, v_channel, v_amount, v_name, 'Pending')
+                ON DUPLICATE KEY UPDATE captureStatus = 'Pending', regno = VALUES(regno);
                 SET n_new = n_new + 1;
                 BEGIN
                     DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; END;
