@@ -117,51 +117,29 @@ BEGIN
           INTO v_sid, v_receipt, v_regno, v_amount, v_channel, v_paydate, v_name
           FROM tmp_recon WHERE rid = v_i;
         SET v_regno = TRIM(IFNULL(v_regno,''));
-        SET v_bankCode = CASE
-            WHEN LOWER(v_channel) LIKE '%dfcu%'      THEN 'AC1303'
-            WHEN LOWER(v_channel) LIKE '%centenary%' THEN 'AC1303'
-            WHEN LOWER(v_channel) LIKE '%eco%'       THEN 'AC1308'
-            ELSE 'AC1302' END;
 
-        -- SOURCE OF TRUTH: is the money actually on the student ledger?
-        SET v_posted = fin_SchoolPayReceiptPosted(v_receipt, v_paydate);
+        -- Ensure the SchoolPay record exists (the heal poster reads its money/student
+        -- from here); refresh the student to whom this pull attributes the payment.
+        INSERT INTO fin_schoolpaydata(ReceiptNo, regno, datePaid, channelPaid, amount_paid, stud_name, captureStatus)
+            VALUES (v_receipt, IF(v_regno='','-',v_regno), v_paydate, v_channel, v_amount, v_name, 'Pending')
+        ON DUPLICATE KEY UPDATE regno = IF(v_regno='', regno, v_regno);
 
-        IF v_posted = 1 THEN
-            -- genuinely recorded on the statement; self-heal a stale capture flag if any
-            UPDATE fin_schoolpaydata SET captureStatus = 'Captured'
-             WHERE ReceiptNo = v_receipt AND captureStatus <> 'Captured';
+        -- ONE self-healing poster brings the ledger to the single correct state:
+        -- posts if missing, rebuilds if over-posted / DR-only / mis-credited, leaves if clean.
+        CALL fin_SchoolPayHealReceipt(v_receipt, @oc);
+
+        IF @oc = 'Existed' THEN
             UPDATE fin_schoolpay_pull_staging SET reconcile_status = 'Existed' WHERE id = v_sid;
             SET n_existed = n_existed + 1;
+        ELSEIF @oc = 'Posted' OR @oc = 'Rebuilt' THEN
+            UPDATE fin_schoolpay_pull_staging SET reconcile_status = 'Captured' WHERE id = v_sid;
+            SET n_captured = n_captured + 1; SET n_new = n_new + 1;
+        ELSEIF @oc = 'NoStudent' THEN
+            UPDATE fin_schoolpay_pull_staging SET reconcile_status = 'NoStudent' WHERE id = v_sid;
+            SET n_new = n_new + 1; SET n_failed = n_failed + 1;
         ELSE
-            -- NOT on the ledger — post it, whether brand-new OR a stale row a previous
-            -- attempt left behind (Pending/Failed/even mis-flagged 'Captured').
-            SELECT COUNT(*) INTO v_hasstudent FROM campus_dynamics.acad_student WHERE TRIM(regno) = v_regno;
-            IF v_regno = '' OR v_hasstudent = 0 THEN
-                -- can't be posted (student unresolved) -> keep for manual mapping
-                INSERT IGNORE INTO fin_schoolpaydata(ReceiptNo, regno, datePaid, channelPaid, amount_paid, stud_name, captureStatus)
-                    VALUES (v_receipt, IF(v_regno='','-',v_regno), v_paydate, v_channel, v_amount, v_name, 'Pending');
-                UPDATE fin_schoolpay_pull_staging SET reconcile_status = 'NoStudent' WHERE id = v_sid;
-                SET n_new = n_new + 1; SET n_failed = n_failed + 1;
-            ELSE
-                -- ensure exactly ONE armed 'Pending' row (ReceiptNo is PK) so the capture
-                -- engine will act, re-arming any stale row from a prior failed attempt.
-                INSERT INTO fin_schoolpaydata(ReceiptNo, regno, datePaid, channelPaid, amount_paid, stud_name, captureStatus)
-                    VALUES (v_receipt, v_regno, v_paydate, v_channel, v_amount, v_name, 'Pending')
-                ON DUPLICATE KEY UPDATE captureStatus = 'Pending', regno = VALUES(regno);
-                SET n_new = n_new + 1;
-                BEGIN
-                    DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; END;
-                    CALL fin_AutoPayCapture(v_regno, CONCAT(v_name, ' [', v_regno, '] - SCHOOLPAY'),
-                         v_bankCode, v_amount, DATE(v_paydate), 'pullsync', v_channel, v_receipt);
-                END;
-                IF (SELECT captureStatus FROM fin_schoolpaydata WHERE ReceiptNo = v_receipt) = 'Captured' THEN
-                    UPDATE fin_schoolpay_pull_staging SET reconcile_status = 'Captured' WHERE id = v_sid;
-                    SET n_captured = n_captured + 1;
-                ELSE
-                    UPDATE fin_schoolpay_pull_staging SET reconcile_status = 'Failed' WHERE id = v_sid;
-                    SET n_failed = n_failed + 1;
-                END IF;
-            END IF;
+            UPDATE fin_schoolpay_pull_staging SET reconcile_status = 'Failed' WHERE id = v_sid;
+            SET n_failed = n_failed + 1;
         END IF;
         SET v_i = v_i + 1;
     END WHILE;

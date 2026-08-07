@@ -53,29 +53,9 @@ BEGIN
     SELECT IFNULL(MAX(rid), 0) INTO v_max FROM tmp_sp_pending;
 
     WHILE v_i <= v_max DO
-        SELECT ReceiptNo, regno, stud_name, amount_paid, datePaid, channelPaid
-          INTO v_receipt, v_reg, v_name, v_amount, v_date, v_channel
-          FROM tmp_sp_pending WHERE rid = v_i;
-
-        -- bank routing identical to the live webhook BankRouter()
-        SET v_bankCode = CASE
-            WHEN LOWER(v_channel) LIKE '%dfcu%'      THEN 'AC1303'
-            WHEN LOWER(v_channel) LIKE '%centenary%' THEN 'AC1303'
-            WHEN LOWER(v_channel) LIKE '%eco%'       THEN 'AC1308'
-            ELSE 'AC1302'
-        END;
-        SET v_bankName = IF(v_channel LIKE '%Shared%', 'Bank of Africa', v_channel);
-
-        -- re-arm exactly one Pending row so the capture engine acts (ReceiptNo is PK)
-        UPDATE fin_schoolpaydata SET captureStatus = 'Pending'
-         WHERE ReceiptNo = v_receipt AND captureStatus <> 'Pending';
-
-        BEGIN
-            DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN ROLLBACK; END;
-            CALL fin_AutoPayCapture(v_reg, CONCAT(v_name, ' [', v_reg, '] - SCHOOLPAY'),
-                 v_bankCode, v_amount, DATE(v_date), 'autosweep', v_bankName, v_receipt);
-        END;
-
+        SELECT ReceiptNo INTO v_receipt FROM tmp_sp_pending WHERE rid = v_i;
+        -- the ONE shared self-healing poster (posts/rebuilds/leaves as appropriate)
+        CALL fin_SchoolPayHealReceipt(v_receipt, @oc);
         SET v_i = v_i + 1;
     END WHILE;
 
