@@ -18,6 +18,7 @@
 .pc-btn--sm{padding:7px 12px;}
 .pc-btn--ok{background:#1c7a45;color:#fff;} .pc-btn--ok:hover{background:#166534;}
 .pc-btn--danger{background:#b3261e;color:#fff;} .pc-btn--danger:hover{background:#8f1c16;}
+.pc-btn--del{background:#fff;color:#8b93a3;border:1px solid #e0e5ed;} .pc-btn--del:hover{background:#fff6f6;color:#b3261e;border-color:#f0b4b4;}
 .pc-btn:disabled{opacity:.5;cursor:not-allowed;}
 .pc-batch{display:flex;align-items:center;gap:10px;background:#f5f7fa;border:1px solid #e0e5ed;padding:9px 12px;margin-bottom:14px;flex-wrap:wrap;}
 .pc-selall{font-size:12px;color:#3a4250;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;}
@@ -33,6 +34,7 @@
 .pc-st--pending{background:#fff8e1;color:#7a5c00;} .pc-st--approved{background:#e9f7ef;color:#1c7a45;}
 .pc-st--rejected{background:#fdecec;color:#b3261e;} .pc-st--deleted{background:#eef1f6;color:#5b6472;}
 .pc-st--banned{background:#5b0d0d;color:#fff;} .pc-st--unbanned{background:#e9f7ef;color:#1c7a45;}
+.pc-st--live{background:#e6f0ff;color:#174DA4;}
 .pc-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
 .pc-card--banned{border-color:#f0b4b4;}
 .pc-imgs--one .pc-img--new{width:110px;height:147px;}
@@ -52,6 +54,9 @@
 .pc-meta i{color:#8b6f00;}
 .pc-acts{display:flex;gap:8px;padding:10px 12px;border-top:1px solid #eef1f6;margin-top:auto;}
 .pc-acts .pc-btn{flex:1;}
+.pc-del{padding:0 12px 11px;}
+.pc-del a{display:inline-flex;align-items:center;font-size:11px;font-weight:600;color:#9aa4b5;text-decoration:none;}
+.pc-del a:hover{color:#b3261e;}
 .pc-empty{text-align:center;padding:44px 20px;color:#8b93a3;font-size:13px;background:#fff;border:1px solid #e0e5ed;}
 .pc-pager{display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-size:11px;color:#6b7280;}
 .pc-pg{border:1px solid #e0e5ed;background:#fff;padding:5px 11px;font-size:11px;font-weight:700;color:#05275C;text-decoration:none;}
@@ -87,7 +92,7 @@
 <div class="pc-wrap">
     <div class="pc-head">
         <h1>Official Photograph Approvals</h1>
-        <p>Every student official-photograph change starts as <strong>Pending</strong>. Approve it to keep the new photograph, or reject it &mdash; a rejected photograph is removed from the student, who must then upload a new one or delete it.</p>
+        <p>Every student official-photograph change starts as <strong>Pending</strong>. Approve it to keep the new photograph, or reject it &mdash; a rejected photograph is removed from the student, who must then upload a new one or delete it. When a student submits several photographs and only one is good, use <strong>Delete this version</strong> to clear the extra submissions; the student&rsquo;s current live photograph (badged <strong>Current</strong>) is never affected.</p>
     </div>
     <asp:Literal ID="litBody" runat="server" />
 </div>
@@ -266,6 +271,22 @@
         if (!approve) { openReject({ mode: "batch", ids: ids }, "Rejecting <b>" + ids.length + "</b> selected photograph(s) &mdash; each will be removed and the students asked to re-upload."); return; }
         if (!confirm("Approve " + ids.length + " selected photograph(s)?")) return;
         post("action=batch&ids=" + encodeURIComponent(ids.join(",")) + "&decision=approve&comment=")
+            .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 800); })
+            .catch(function () { pcToast("Request failed.", true); });
+    };
+    // ---- delete a photo version (extra / unwanted submission; never the live photo) ----
+    window.pcDelete = function (id) {
+        if (!confirm("Delete this photo version?\n\nIt is removed from the review queue and its image file cleaned up. The student's current live photograph is not affected.")) return;
+        post("action=deleteversion&id=" + encodeURIComponent(id))
+            .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 700); })
+            .catch(function () { pcToast("Request failed.", true); });
+    };
+    window.pcDeleteBatch = function () {
+        var ids = [];
+        document.querySelectorAll(".pc-chk:checked").forEach(function (c) { ids.push(c.value); });
+        if (ids.length === 0) { pcToast("Select at least one version first.", true); return; }
+        if (!confirm("Delete " + ids.length + " selected version(s)?\n\nAny that are a student's current live photograph are skipped automatically.")) return;
+        post("action=deleteversion&ids=" + encodeURIComponent(ids.join(",")) + "&comment=")
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 800); })
             .catch(function () { pcToast("Request failed.", true); });
     };

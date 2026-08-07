@@ -46,6 +46,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             {
                 if (action == "review") Response.Write(HandleReview());
                 else if (action == "batch") Response.Write(HandleBatch());
+                else if (action == "deleteversion") Response.Write(HandleDeleteVersion());
                 else if (action == "admininit") Response.Write(HandleAdminInit());
                 else if (action == "unban") Response.Write(HandleUnban());
                 else Response.Write("{\"success\":false,\"message\":\"Unknown action.\"}");
@@ -108,6 +109,121 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         }
         string verb = approve ? "approved" : "rejected";
         return "{\"success\":true,\"message\":\"" + done + " " + verb + (skipped > 0 ? ", " + skipped + " skipped (already reviewed)" : "") + ".\"}";
+    }
+
+    // ===================================================================
+    // DELETE VERSION (remove a duplicate / unwanted submitted photo)
+    // ===================================================================
+    /// <summary>
+    /// Deletes one or more photo *versions* (stud_photo_change rows). Used when a
+    /// student submitted several photographs and only one is acceptable: the extra
+    /// junk versions are removed from the review queue. Soft-marked DELETED (kept for
+    /// audit) and the underlying thumbnail is physically removed only when nothing else
+    /// references it. The student's CURRENT live photograph is never deletable this way
+    /// (use Approve / Reject for it) so a delete can never blank a student's photo.
+    /// Accepts a single id (Form["id"]) or a CSV of ids (Form["ids"]).
+    /// </summary>
+    private string HandleDeleteVersion()
+    {
+        string idsCsv = Request.Form["ids"];
+        if (string.IsNullOrEmpty(idsCsv)) idsCsv = Request.Form["id"] ?? "";
+        string comment = (Request.Form["comment"] ?? "").Trim();
+
+        var ids = new List<int>();
+        foreach (string part in idsCsv.Split(','))
+        {
+            int v; if (int.TryParse(part.Trim(), out v) && v > 0) ids.Add(v);
+        }
+        if (ids.Count == 0) return "{\"success\":false,\"message\":\"No versions selected.\"}";
+
+        int done = 0, skipped = 0; string lastSkip = "";
+        string user = GetCurrentUser();
+        using (var conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+            foreach (int id in ids)
+            {
+                string r = DeleteOne(conn, id, comment, user);
+                if (r == "OK") done++; else { skipped++; lastSkip = r; }
+            }
+        }
+        string msg = done + " version" + (done == 1 ? "" : "s") + " deleted"
+            + (skipped > 0 ? ", " + skipped + " skipped" + (lastSkip != "" ? " (" + lastSkip + ")" : "") : "") + ".";
+        return "{\"success\":true,\"message\":\"" + JsEnc(msg) + "\"}";
+    }
+
+    /// <summary>Soft-deletes a single change row. Returns "OK" or a skip reason.</summary>
+    private string DeleteOne(MySqlConnection conn, int id, string comment, string user)
+    {
+        string regno = "", newPhoto = "", status = "";
+        using (var cmd = new MySqlCommand("SELECT regno, COALESCE(new_photofile,''), status FROM stud_photo_change WHERE id=@id LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@id", id);
+            using (var rd = cmd.ExecuteReader())
+            {
+                if (!rd.Read()) return "not found";
+                regno = rd.GetString(0);
+                newPhoto = rd.GetString(1);
+                status = rd.GetString(2).ToUpperInvariant();
+            }
+        }
+        if (status == "DELETED") return "already deleted";
+
+        // Guard: never delete the student's current live photograph via this path.
+        string livePhoto = "";
+        using (var cmd = new MySqlCommand("SELECT COALESCE(photofile,'') FROM acad_student WHERE regno=@r LIMIT 1", conn))
+        { cmd.Parameters.AddWithValue("@r", regno); object o = cmd.ExecuteScalar(); livePhoto = (o == null || o == DBNull.Value) ? "" : o.ToString(); }
+
+        if (newPhoto != "" && string.Equals(newPhoto, livePhoto, StringComparison.OrdinalIgnoreCase))
+            return "current live photo — approve or reject it instead";
+
+        using (var tx = conn.BeginTransaction())
+        {
+            try
+            {
+                using (var cmd = new MySqlCommand(
+                    "UPDATE stud_photo_change SET status='DELETED', reviewed_by=@by, reviewed_at=NOW(), review_comment=@c WHERE id=@id AND status<>'DELETED'", conn, tx))
+                {
+                    cmd.Parameters.AddWithValue("@by", user);
+                    cmd.Parameters.AddWithValue("@c", comment == "" ? (object)DBNull.Value : comment);
+                    cmd.Parameters.AddWithValue("@id", id);
+                    if (cmd.ExecuteNonQuery() == 0) { tx.Rollback(); return "already deleted"; }
+                }
+                tx.Commit();
+            }
+            catch { tx.Rollback(); throw; }
+        }
+
+        // Reclaim the junk thumbnail from disk only when nothing else points at it.
+        TryDeletePhotoFile(conn, newPhoto, livePhoto);
+        return "OK";
+    }
+
+    /// <summary>
+    /// Physically removes a photo thumbnail from disk, but ONLY when it is truly orphaned:
+    /// not the passed live photo, not any student's current photofile, and not referenced by
+    /// any surviving (non-DELETED) change row as either the new or the previous photo. Safe to
+    /// no-op — the record delete has already succeeded regardless.
+    /// </summary>
+    private void TryDeletePhotoFile(MySqlConnection conn, string file, string livePhoto)
+    {
+        if (string.IsNullOrEmpty(file)) return;
+        if (string.Equals(file, livePhoto, StringComparison.OrdinalIgnoreCase)) return;
+        // Path-traversal guard: only a bare filename is ever a valid photofile value.
+        if (file.IndexOf('/') >= 0 || file.IndexOf('\\') >= 0 || file.IndexOf("..", StringComparison.Ordinal) >= 0) return;
+
+        using (var cmd = new MySqlCommand(
+            "SELECT COUNT(*) FROM stud_photo_change WHERE status<>'DELETED' AND (new_photofile=@f OR old_photofile=@f)", conn))
+        { cmd.Parameters.AddWithValue("@f", file); if (Convert.ToInt32(cmd.ExecuteScalar()) > 0) return; }
+        using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_student WHERE photofile=@f", conn))
+        { cmd.Parameters.AddWithValue("@f", file); if (Convert.ToInt32(cmd.ExecuteScalar()) > 0) return; }
+
+        try
+        {
+            string full = Server.MapPath("~/COOPERP/StudentInfo/photos/" + file);
+            if (System.IO.File.Exists(full)) System.IO.File.Delete(full);
+        }
+        catch { /* non-critical — the version is already removed from the queue */ }
     }
 
     /// <summary>
@@ -362,7 +478,8 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                 string sql = "SELECT c.id, c.regno, TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS name, " +
                              "COALESCE(s.progid,'') AS prog, COALESCE(c.old_photofile,'') AS oldf, c.new_photofile AS newf, c.status, " +
                              "COALESCE(c.source,'') AS source, c.requested_at, COALESCE(c.reviewed_by,'') AS reviewed_by, c.reviewed_at, " +
-                             "COALESCE(c.review_comment,'') AS review_comment, COALESCE(s.photo_banned,0) AS banned " +
+                             "COALESCE(c.review_comment,'') AS review_comment, COALESCE(s.photo_banned,0) AS banned, " +
+                             "CASE WHEN c.new_photofile<>'' AND c.new_photofile=s.photofile THEN 1 ELSE 0 END AS is_live " +
                              "FROM stud_photo_change c LEFT JOIN acad_student s ON s.regno=c.regno " + where +
                              " ORDER BY (c.status='PENDING') DESC, c.id DESC LIMIT " + off + "," + PAGE_SIZE;
                 using (var cmd = new MySqlCommand(sql, conn))
@@ -379,6 +496,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                             d["reviewed_by"] = Safe(rd, "reviewed_by");
                             d["reviewed_at"] = rd["reviewed_at"] == DBNull.Value ? "" : Convert.ToDateTime(rd["reviewed_at"]).ToString("dd MMM yyyy HH:mm");
                             d["comment"] = Safe(rd, "review_comment"); d["banned"] = Safe(rd, "banned");
+                            d["is_live"] = Safe(rd, "is_live");
                             rows.Add(d);
                         }
                 }
@@ -414,6 +532,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                 sb.Append("<span id='pcSelCount' class='pc-selcount'>0 selected</span>");
                 sb.Append("<button type='button' class='pc-btn pc-btn--ok' onclick='pcBatch(true)'>Approve selected</button>");
                 sb.Append("<button type='button' class='pc-btn pc-btn--danger' onclick='pcBatch(false)'>Reject selected</button>");
+                sb.Append("<button type='button' class='pc-btn pc-btn--del' onclick='pcDeleteBatch()' title='Remove the selected versions from the queue (a live photo is skipped)'>Delete selected</button>");
                 sb.Append("</div>");
             }
 
@@ -446,11 +565,14 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
     {
         string st = d["status"].ToUpperInvariant();
         bool banned = d.ContainsKey("banned") && d["banned"] == "1";
+        bool live = d.ContainsKey("is_live") && d["is_live"] == "1";
         string badge = "<span class='pc-st pc-st--" + st.ToLowerInvariant() + "'>" + HE(d["status"]) + "</span>";
+        if (live) badge += "<span class='pc-st pc-st--live' title='This is the student&#39;s current live photograph — approve or reject it, it cannot be deleted'>CURRENT</span>";
         if (banned) badge += "<span class='pc-st pc-st--banned' title='This student cannot re-upload until an admin lifts the ban'>BANNED</span>";
         string newUrl = d["newf"] != "" ? PHOTO_BASE + Uri.EscapeDataString(d["newf"]) : "";
         string oldUrl = d["oldf"] != "" ? PHOTO_BASE + Uri.EscapeDataString(d["oldf"]) : "";
         bool pending = st == "PENDING";
+        bool deletable = st != "DELETED" && !live;
 
         var sb = new StringBuilder();
         sb.Append("<div class='pc-card' data-id='" + HE(d["id"]) + "'>");
@@ -471,7 +593,8 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         sb.Append("</div>");
         // meta
         sb.Append("<div class='pc-meta'>Requested " + HE(d["requested_at"]) + "</div>");
-        if (d["reviewed_at"] != "") sb.Append("<div class='pc-meta'>" + HE(st == "REJECTED" ? "Rejected" : (st == "APPROVED" ? "Approved" : "Reviewed")) + " by " + HE(d["reviewed_by"]) + " &middot; " + HE(d["reviewed_at"]) + (d["comment"] != "" ? "<br/><i>&ldquo;" + HE(d["comment"]) + "&rdquo;</i>" : "") + "</div>");
+        string revLabel = st == "REJECTED" ? "Rejected" : st == "APPROVED" ? "Approved" : st == "DELETED" ? "Deleted" : "Reviewed";
+        if (d["reviewed_at"] != "") sb.Append("<div class='pc-meta'>" + HE(revLabel) + " by " + HE(d["reviewed_by"]) + " &middot; " + HE(d["reviewed_at"]) + (d["comment"] != "" ? "<br/><i>&ldquo;" + HE(d["comment"]) + "&rdquo;</i>" : "") + "</div>");
         // actions
         if (pending)
         {
@@ -484,8 +607,18 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         {
             sb.Append("<div class='pc-acts'><button type='button' class='pc-btn pc-btn--ok' onclick=\"pcUnban('" + HE(d["regno"]) + "')\">Lift ban</button></div>");
         }
+        // Delete this version (removes an extra / unwanted submission; never the live photo).
+        if (deletable)
+        {
+            sb.Append("<div class='pc-del'><a href='javascript:void(0)' onclick=\"pcDelete(" + HE(d["id"]) + ")\" title='Remove this photo version from the queue'>" + TrashIcon() + "Delete this version</a></div>");
+        }
         sb.Append("</div>");
         return sb.ToString();
+    }
+
+    private static string TrashIcon()
+    {
+        return "<svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align:-2px;margin-right:5px'><polyline points='3 6 5 6 21 6'></polyline><path d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'></path><line x1='10' y1='11' x2='10' y2='17'></line><line x1='14' y1='11' x2='14' y2='17'></line></svg>";
     }
 
     /// <summary>Card for the Banned tab (student-level, from acad_student).</summary>
