@@ -37,6 +37,9 @@ public static class CourseDeletionService
     private const string REQ_TABLE = "campus_dynamics_portal.acad_course_deletion_requests";
     private const string REG_TABLE = "campus_dynamics_portal.acad_course_registration";
     private const string RES_TABLE = "campus_dynamics.acad_results";
+    // The printed transcript reads from its own mirror, not from acad_results, so a deleted
+    // course has to be removed here as well or it keeps appearing on the document.
+    private const string TRN_TABLE = "campus_dynamics.acad_transcript_results";
 
     private static string Conn
     {
@@ -256,7 +259,8 @@ public static class CourseDeletionService
                     }
                 }
 
-                int regRows, resRows;
+                int regRows, resRows, transcriptRows = 0;
+                string gpaNote = null;
                 using (var tx = c.BeginTransaction())
                 {
                     try
@@ -272,6 +276,14 @@ public static class CourseDeletionService
                             new MySqlParameter("@r", regno), new MySqlParameter("@c", courseId),
                             new MySqlParameter("@a", acadYear), new MySqlParameter("@s", semester));
 
+                        // The transcript reads from its own mirror table. Leaving the row
+                        // there would keep the deleted course on the printed transcript even
+                        // though it no longer exists in the results.
+                        var trnSnap = CaptureRows(c, tx,
+                            "SELECT * FROM " + TRN_TABLE + " WHERE TRIM(regno)=@r AND UPPER(TRIM(courseid))=UPPER(TRIM(@c)) AND acad=@a AND semester=@s",
+                            new MySqlParameter("@r", regno), new MySqlParameter("@c", courseId),
+                            new MySqlParameter("@a", acadYear), new MySqlParameter("@s", semester));
+
                         if (regSnap.Count == 0 && resSnap.Count == 0)
                         {
                             tx.Rollback();
@@ -282,14 +294,15 @@ public static class CourseDeletionService
                         {
                             takenAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                             registration = regSnap,
-                            results = resSnap
+                            results = resSnap,
+                            transcript = trnSnap
                         });
 
                         using (var up = new MySqlCommand(
                             "UPDATE " + REQ_TABLE + " SET snapshot_json=@j, snapshot_rows=@n WHERE id=@id", c, tx))
                         {
                             up.Parameters.AddWithValue("@j", snapshot);
-                            up.Parameters.AddWithValue("@n", regSnap.Count + resSnap.Count);
+                            up.Parameters.AddWithValue("@n", regSnap.Count + resSnap.Count + trnSnap.Count);
                             up.Parameters.AddWithValue("@id", id);
                             up.ExecuteNonQuery();
                         }
@@ -310,7 +323,20 @@ public static class CourseDeletionService
                             }
                         }
 
-                        // 3. Then the registration row itself.
+                        // 3. The transcript mirror, so the course stops printing.
+                        int trnRows = 0;
+                        if (trnSnap.Count > 0)
+                        {
+                            using (var d = new MySqlCommand(
+                                "DELETE FROM " + TRN_TABLE + " WHERE TRIM(regno)=@r AND UPPER(TRIM(courseid))=UPPER(TRIM(@c)) AND acad=@a AND semester=@s", c, tx))
+                            {
+                                d.Parameters.AddWithValue("@r", regno); d.Parameters.AddWithValue("@c", courseId);
+                                d.Parameters.AddWithValue("@a", acadYear); d.Parameters.AddWithValue("@s", semester);
+                                trnRows = d.ExecuteNonQuery();
+                            }
+                        }
+
+                        // 4. Then the registration row itself.
                         using (var d = new MySqlCommand(
                             "DELETE FROM " + REG_TABLE + " WHERE TRIM(regno)=@r AND courseID=@c AND acad_year=@a AND semester=@s", c, tx))
                         {
@@ -319,8 +345,9 @@ public static class CourseDeletionService
                             regRows = d.ExecuteNonQuery();
                         }
 
-                        // 4. The semester GPA was computed including the result just removed.
-                        RecomputeSemesterGpa(c, tx, regno, acadYear, semester);
+                        // 5. Every stored GPA/CGPA figure was computed including what just went.
+                        gpaNote = SettleGpaSurfaces(c, tx, regno, acadYear, semester);
+                        transcriptRows = trnRows;
 
                         using (var fin = new MySqlCommand(
                             "UPDATE " + REQ_TABLE + " SET deletion_executed=1, deletion_executed_at=NOW() WHERE id=@id", c, tx))
@@ -345,9 +372,14 @@ public static class CourseDeletionService
                 return Json.Serialize(new
                 {
                     success = true,
-                    message = "Deleted " + regRows + " registration row and " + resRows + " published result row. This can be reversed from the request record.",
+                    message = "Deleted " + regRows + " registration row, " + resRows + " published result row and " +
+                              transcriptRows + " transcript row. GPA recalculated." +
+                              (gpaNote != null ? " " + gpaNote : "") +
+                              " This can be reversed from the request record.",
                     registrationRows = regRows,
-                    resultRows = resRows
+                    resultRows = resRows,
+                    transcriptRows,
+                    gpaNote
                 });
             }
         }
@@ -384,14 +416,17 @@ public static class CourseDeletionService
                 var snap = Json.Deserialize<Dictionary<string, object>>(snapshot);
                 var regRows = ToRowList(snap.ContainsKey("registration") ? snap["registration"] : null);
                 var resRows = ToRowList(snap.ContainsKey("results") ? snap["results"] : null);
+                var trnRows = ToRowList(snap.ContainsKey("transcript") ? snap["transcript"] : null);
 
-                int restoredReg = 0, restoredRes = 0, skipped = 0;
+                int restoredReg = 0, restoredRes = 0, restoredTrn = 0, skipped = 0;
+                string gpaNote = null;
                 using (var tx = c.BeginTransaction())
                 {
                     try
                     {
                         var regCols = LiveColumns(c, tx, "campus_dynamics_portal", "acad_course_registration");
                         var resCols = LiveColumns(c, tx, "campus_dynamics", "acad_results");
+                        var trnCols = LiveColumns(c, tx, "campus_dynamics", "acad_transcript_results");
 
                         foreach (var row in regRows)
                         {
@@ -405,9 +440,14 @@ public static class CourseDeletionService
                             if (ResultExists(c, tx, row)) { skipped++; continue; }
                             restoredRes += RestoreRow(c, tx, RES_TABLE, row, resCols);
                         }
+                        foreach (var row in trnRows)
+                        {
+                            if (TranscriptExists(c, tx, row)) { skipped++; continue; }
+                            restoredTrn += RestoreRow(c, tx, TRN_TABLE, row, trnCols);
+                        }
 
-                        // Putting a result back changes the semester GPA again.
-                        RecomputeSemesterGpa(c, tx, regno, acadYear, semester);
+                        // Putting the rows back changes every stored GPA/CGPA again.
+                        gpaNote = SettleGpaSurfaces(c, tx, regno, acadYear, semester);
 
                         using (var up = new MySqlCommand(
                             "UPDATE " + REQ_TABLE + " SET status='REVERSED', reversed_by=@by, reversed_at=NOW()," +
@@ -426,9 +466,12 @@ public static class CourseDeletionService
                 return Json.Serialize(new
                 {
                     success = true,
-                    message = "Restored " + restoredReg + " registration row and " + restoredRes + " result row." +
+                    message = "Restored " + restoredReg + " registration row, " + restoredRes + " result row and " +
+                              restoredTrn + " transcript row. GPA recalculated." +
+                              (gpaNote != null ? " " + gpaNote : "") +
                               (skipped > 0 ? " " + skipped + " row(s) were skipped because a live record already exists." : ""),
-                    restoredRegistration = restoredReg, restoredResults = restoredRes, skipped
+                    restoredRegistration = restoredReg, restoredResults = restoredRes,
+                    restoredTranscript = restoredTrn, skipped, gpaNote
                 });
             }
         }
@@ -517,28 +560,105 @@ public static class CourseDeletionService
     }
 
     /// <summary>
-    /// Rewrite acad_results.gpa for the affected student/semester. Both deleting and
-    /// restoring a result change the weighted mean, so this runs on either path.
+    /// Keyed on term as well as course: unlike acad_results, the transcript mirror legitimately
+    /// carries the same course twice when it has been retaken, so matching on course alone
+    /// would wrongly treat a retake as "already restored" and silently drop the row.
     /// </summary>
-    private static void RecomputeSemesterGpa(MySqlConnection c, MySqlTransaction tx, string regno, string acadYear, int semester)
+    private static bool TranscriptExists(MySqlConnection c, MySqlTransaction tx, Dictionary<string, object> row)
     {
+        string reg = Get(row, "regno"), crs = Get(row, "courseid"), ay = Get(row, "acad"), sem = Get(row, "semester");
+        using (var cmd = new MySqlCommand(
+            "SELECT COUNT(*) FROM " + TRN_TABLE + " WHERE TRIM(regno)=@r AND UPPER(TRIM(courseid))=UPPER(TRIM(@c))" +
+            " AND acad=@a AND semester=@s", c, tx))
+        {
+            cmd.Parameters.AddWithValue("@r", (reg ?? "").Trim());
+            cmd.Parameters.AddWithValue("@c", crs);
+            cmd.Parameters.AddWithValue("@a", ay);
+            cmd.Parameters.AddWithValue("@s", sem);
+            return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
+    }
+
+    /// <summary>
+    /// Settle EVERY stored GPA/CGPA figure the student has, after a result has been removed
+    /// or put back. Both directions change the weighted mean, so this runs on both paths.
+    ///
+    /// There is more than one surface, and missing any of them leaves a figure that
+    /// contradicts the results behind it:
+    ///
+    ///   1. acad_results.gpa            — the semester GPA.
+    ///   2. acad_transcript_results.gpa — the transcript's own copy. This table is a
+    ///      separate mirror (~59k rows) that the printed transcript reads from, so a
+    ///      deleted course left there would still appear on the document even though it is
+    ///      gone from the results.
+    ///   3. acad_graduands.cgpa         — a STORED cumulative GPA for the 1,571 students who
+    ///      have reached graduation. Nothing recalculates it on read, so it silently goes
+    ///      stale the moment a result changes.
+    ///
+    /// Deliberately NOT updated: acad_graduands.degclass. Two award schemes are in use —
+    /// degrees ("Second Class Upper") and diplomas ("Class II (Credit)") — and the row does
+    /// not say which applies, so rewriting it risks relabelling a diploma with degree
+    /// wording. The CGPA is corrected and the caller is told the classification may need a
+    /// human to review it.
+    /// </summary>
+    private static string SettleGpaSurfaces(MySqlConnection c, MySqlTransaction tx, string regno, string acadYear, int semester)
+    {
+        string reg = (regno ?? "").Trim();
+        string note = null;
+
+        // 1 + 2 — semester GPA, in the results table and in the transcript mirror.
+        foreach (string table in new[] { RES_TABLE, "campus_dynamics.acad_transcript_results" })
+        {
+            try
+            {
+                using (var cmd = new MySqlCommand(
+                    "UPDATE " + table + " t" +
+                    " JOIN (SELECT ROUND(SUM(COALESCE(gradept,0) * COALESCE(NULLIF(CreditUnits,0),3)) /" +
+                    "              NULLIF(SUM(COALESCE(NULLIF(CreditUnits,0),3)),0),2) AS g" +
+                    "       FROM " + table + " WHERE TRIM(regno)=@r AND acad=@a AND semester=@s) x" +
+                    " SET t.gpa = x.g" +
+                    " WHERE TRIM(t.regno)=@r AND t.acad=@a AND t.semester=@s", c, tx))
+                {
+                    cmd.Parameters.AddWithValue("@r", reg);
+                    cmd.Parameters.AddWithValue("@a", acadYear);
+                    cmd.Parameters.AddWithValue("@s", semester);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            catch { /* best-effort: a GPA settle must never roll back a valid deletion */ }
+        }
+
+        // 3 — the stored graduand CGPA is REPORTED, never rewritten.
+        //
+        // It is tempting to recompute it here, and the first version of this did. Measured
+        // against 300 graduands, the obvious weighted-mean formula reproduces the stored
+        // figure for only 254 of them: 46 differ, the worst by 0.45 — comfortably enough to
+        // move a degree classification. So whatever produced these numbers is not this
+        // formula (retakes, credit rules and historical hand-corrections all plausibly
+        // differ), and overwriting would silently corrupt roughly one graduand CGPA in
+        // seven — including on a REVERSE, which is supposed to restore state exactly, and
+        // which was observed putting back 4.15 where 4.16 had been.
+        //
+        // Corrupting a graduation record is far worse than leaving one stale, so this
+        // surfaces the fact and leaves the number to whoever owns the graduation process.
         try
         {
             using (var cmd = new MySqlCommand(
-                "UPDATE " + RES_TABLE + " t" +
-                " JOIN (SELECT ROUND(SUM(COALESCE(gradept,0) * COALESCE(NULLIF(CreditUnits,0),3)) /" +
-                "              NULLIF(SUM(COALESCE(NULLIF(CreditUnits,0),3)),0),2) AS g" +
-                "       FROM " + RES_TABLE + " WHERE TRIM(regno)=@r AND acad=@a AND semester=@s) x" +
-                " SET t.gpa = x.g" +
-                " WHERE TRIM(t.regno)=@r AND t.acad=@a AND t.semester=@s", c, tx))
+                "SELECT ROUND(cgpa,2) FROM campus_dynamics.acad_graduands WHERE TRIM(regno)=@r LIMIT 1", c, tx))
             {
-                cmd.Parameters.AddWithValue("@r", (regno ?? "").Trim());
-                cmd.Parameters.AddWithValue("@a", acadYear);
-                cmd.Parameters.AddWithValue("@s", semester);
-                cmd.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("@r", reg);
+                object v = cmd.ExecuteScalar();
+                if (v != null && v != DBNull.Value)
+                    note = "This student is a GRADUAND with a stored CGPA of " + Convert.ToString(v) +
+                           ", which is now out of date. It has deliberately NOT been overwritten — " +
+                           "the stored graduation figures do not reproduce from the standard formula, " +
+                           "so they need review by the graduation office before any certificate or " +
+                           "transcript is issued.";
             }
         }
-        catch { /* GPA settle is best-effort; it must not roll back a valid deletion */ }
+        catch { }
+
+        return note;
     }
 
     /// <summary>Attribute the acad_results change for the audit trigger (keyed by CONNECTION_ID()).</summary>
