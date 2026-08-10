@@ -381,7 +381,30 @@ function clearSelection(){
 // ── Dropdown menus ─────────────────────────────────────────────────────────────
 function closeAllMenus(){
     var menus=document.querySelectorAll('.mra-menu.open');
-    for(var i=0;i<menus.length;i++) menus[i].className='mra-menu';
+    for(var i=0;i<menus.length;i++){
+        var m=menus[i];
+        m.className='mra-menu';
+        // clear the inline fixed-positioning applied on open
+        m.style.position=''; m.style.top=''; m.style.left=''; m.style.right=''; m.style.bottom=''; m.style.zIndex='';
+    }
+}
+// Position an open menu as position:fixed anchored to its button, so the table
+// wrapper's overflow can never clip it. Right-aligned to the button, clamped to
+// the viewport, and flipped upward when there isn't room below.
+function positionMenu(btn,menu){
+    menu.style.position='fixed';
+    menu.style.right='auto'; menu.style.bottom='auto';
+    menu.style.zIndex='100001';
+    var r=btn.getBoundingClientRect();
+    var mw=menu.offsetWidth, mh=menu.offsetHeight;
+    var vw=document.documentElement.clientWidth, vh=document.documentElement.clientHeight;
+    var left=r.right-mw;
+    if(left+mw>vw-4) left=vw-4-mw;
+    if(left<4) left=4;
+    var top=r.bottom+2;
+    if(top+mh>vh-4 && r.top-mh-2>=4) top=r.top-mh-2;
+    menu.style.left=Math.round(left)+'px';
+    menu.style.top=Math.round(top)+'px';
 }
 function toggleMenu(wrapId){
     var wrap=byId(wrapId);
@@ -390,7 +413,10 @@ function toggleMenu(wrapId){
     if(!menu) return;
     var isOpen=menu.className.indexOf('open')>=0;
     closeAllMenus();
-    if(!isOpen) menu.className='mra-menu open';
+    if(!isOpen){
+        menu.className='mra-menu open';   // display:block first so we can measure it
+        positionMenu(wrap.querySelector('button'),menu);
+    }
 }
 
 // ── Mark helpers ──────────────────────────────────────────────────────────────
@@ -699,6 +725,9 @@ document.addEventListener('click',function(e){
 document.addEventListener('keydown',function(e){
     if(e.key==='Escape') closeAllMenus();
 },{capture:true});
+// a fixed-position menu would drift if the page/table scrolls or resizes — close it
+document.addEventListener('scroll',function(){ closeAllMenus(); },{capture:true,passive:true});
+window.addEventListener('resize',function(){ closeAllMenus(); });
 /* ── View Details + Change Lecturer (self-contained overlays) ── */
 function mrxEsc(s){ s=(s==null?'':''+s); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function mrxDash(v){ return (v==null||v==='')?'—':v; }
