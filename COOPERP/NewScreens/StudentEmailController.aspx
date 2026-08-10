@@ -38,9 +38,12 @@
 .se-b--verified{background:#ecfeff;color:#155e75;border-color:#a5f3fc;}
 .se-b--muted{background:#f1f5f9;color:#475569;border-color:#cbd5e1;}
 .se-act{color:#174DA4;font-weight:700;cursor:pointer;font-size:11.5px;}
-.se-pager{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:14px;}
-.se-pager button{min-width:32px;padding:6px 9px;border:1px solid #cbd5e1;background:#fff;font-size:12px;cursor:pointer;}
-.se-pager button.active{background:#05275C;border-color:#05275C;color:#fff;}
+/* Pager entries are real <a href> links (see renderPager) so they can be opened in a new
+   tab or copied; only the disabled ends are inert <button>s. */
+.se-pager{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;align-items:center;margin-top:14px;}
+.se-pager a,.se-pager button{min-width:32px;padding:6px 9px;border:1px solid #cbd5e1;background:#fff;font-size:12px;cursor:pointer;text-align:center;color:#334155;text-decoration:none;line-height:1.3;font-family:inherit;}
+.se-pager a:hover{border-color:#174DA4;color:#174DA4;}
+.se-pager a.active{background:#05275C;border-color:#05275C;color:#fff;font-weight:700;}
 .se-pager button:disabled{opacity:.45;cursor:default;}
 .se-ov{display:none;position:fixed;inset:0;background:rgba(5,39,92,.55);z-index:1000;}
 .se-modal{display:none;position:fixed;z-index:1001;top:50%;left:50%;transform:translate(-50%,-50%);width:92%;max-width:460px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.35);}
@@ -118,7 +121,7 @@
     <!-- Pipeline -->
     <div id="paneP">
         <div class="se-toolbar">
-            <input type="text" id="fq" class="se-in" placeholder="Search name, student number or email&hellip;" />
+            <input type="text" id="fq" class="se-in" placeholder="Search name, student number, reg no or email &mdash; any order&hellip;" />
             <select id="fStage" class="se-sel">
                 <option value="">All stages</option>
                 <option value="PENDING_CREATION">Pending creation</option>
@@ -133,6 +136,12 @@
             </select>
             <select id="fCampus" class="se-sel"><option value="">All campuses</option></select>
             <select id="fProg" class="se-sel"><option value="">All programmes</option></select>
+            <select id="fPs" class="se-sel" title="Rows per page">
+                <option value="25">25 / page</option>
+                <option value="50">50 / page</option>
+                <option value="100">100 / page</option>
+                <option value="200">200 / page</option>
+            </select>
             <button type="button" class="se-btn se-btn--p" onclick="doSearch(1)">Search</button>
             <button type="button" class="se-btn" onclick="resetF()">Reset</button>
         </div>
@@ -287,8 +296,48 @@ function ajax(m,p,cb){var x=new XMLHttpRequest();x.open('POST','StudentEmailCont
 function topMsg(m,ok){var e=qs('topMsg');e.textContent=m;e.className='se-msg '+(ok?'se-msg--ok':'se-msg--err');e.style.display='block';setTimeout(function(){e.style.display='none';},5000);}
 
 // URL state
-function readUrl(){var u=new URLSearchParams(location.search||'');st.q=u.get('q')||'';st.stage=u.get('stage')||'';st.verif=u.get('verif')||'';st.prog=u.get('prog')||'';st.campus=u.get('campus')||'';st.page=Math.max(1,parseInt(u.get('page'),10)||1);}
-function syncUrl(){var u=new URLSearchParams();if(st.q)u.set('q',st.q);if(st.stage)u.set('stage',st.stage);if(st.verif)u.set('verif',st.verif);if(st.prog)u.set('prog',st.prog);if(st.campus)u.set('campus',st.campus);if(st.page>1)u.set('page',st.page);history.replaceState(null,'',(u.toString()?'?'+u.toString():location.pathname));}
+var PAGE_SIZES=[25,50,100,200];   // 200 is the server-side ceiling in SemsAdmin.Search
+
+function readUrl(){
+    var u=new URLSearchParams(location.search||'');
+    st.q=u.get('q')||'';st.stage=u.get('stage')||'';st.verif=u.get('verif')||'';
+    st.prog=u.get('prog')||'';st.campus=u.get('campus')||'';
+    st.page=Math.max(1,parseInt(u.get('page'),10)||1);
+    var ps=parseInt(u.get('ps'),10)||25;
+    st.ps=(PAGE_SIZES.indexOf(ps)>=0)?ps:25;
+}
+
+// Build a real, complete URL for any state — this is what the pager anchors point at, so
+// every page is a genuine GET address: bookmarkable, shareable, and openable in a new tab.
+function buildUrl(o){
+    o=o||{};
+    function pick(k){return (k in o)?o[k]:st[k];}
+    var u=new URLSearchParams();
+    var q=pick('q'),stage=pick('stage'),verif=pick('verif'),prog=pick('prog'),campus=pick('campus'),
+        page=pick('page'),ps=pick('ps');
+    if(q)u.set('q',q); if(stage)u.set('stage',stage); if(verif)u.set('verif',verif);
+    if(prog)u.set('prog',prog); if(campus)u.set('campus',campus);
+    if(page>1)u.set('page',page);
+    if(ps&&ps!==25)u.set('ps',ps);
+    var s=u.toString();
+    return location.pathname+(s?('?'+s):'');
+}
+
+// pushState (not replaceState) so Back genuinely walks the pages the user visited.
+function syncUrl(push){
+    var url=buildUrl({});
+    if(url===location.pathname+location.search) return;      // nothing changed; don't stack duplicates
+    try{ push?history.pushState(null,'',url):history.replaceState(null,'',url); }catch(e){}
+}
+
+// Back / Forward re-render from the URL alone, which is the real test of GET-driven state.
+window.addEventListener('popstate',function(){
+    readUrl();
+    qs('fq').value=st.q;qs('fStage').value=st.stage;qs('fVerif').value=st.verif;
+    qs('fProg').value=st.prog;qs('fCampus').value=st.campus;
+    var sel=qs('fPs'); if(sel) sel.value=String(st.ps);
+    runSearch(false);
+});
 
 function loadKpis(){ajax('Stats',{},function(r){if(!r||!r.success)return;var k=[['eligible','Eligible (100k+)','info'],['partial','Paid < 100k','warn'],['total','In Pipeline',''],['pending','Pending','warn'],['ready','Ready','ready'],['quiz','Quiz Passed','info'],['activated','Activated','ok'],['completed','Completed','ok'],['complaints','Open Complaints','warn'],['successRate','Success %','ok']];var h='';k.forEach(function(x){var raw=r[x[0]];var disp=(x[0]==='successRate')?((raw||0)+'%'):fmt(raw);h+='<div class="se-kpi'+(x[2]?' se-kpi--'+x[2]:'')+'"><div class="se-kpi__v">'+disp+'</div><div class="se-kpi__l">'+x[1]+'</div></div>';});qs('kpis').innerHTML=h;renderCampuses(r.campuses);});}
 
@@ -318,19 +367,74 @@ function payBadge(p){p=parseInt(p,10)||0;var c=p>=100000?'full':(p>0?'part':'non
 
 function stageBadge(s){var m={PENDING_CREATION:['pending','Pending creation'],READY_FOR_COLLECTION:['ready','Ready for collection'],EMAIL_CREATED:['ready','Email created'],COMPLETED:['done','Completed']};var x=m[s]||['muted',s||'-'];return '<span class="se-badge se-b--'+x[0]+'">'+esc(x[1])+'</span>';}
 
-window.doSearch=function(page){st.q=qs('fq').value.trim();st.stage=qs('fStage').value;st.verif=qs('fVerif').value;st.prog=qs('fProg').value;st.campus=qs('fCampus').value;st.page=page||1;syncUrl();markActiveCampus();
-qs('pMeta').textContent='Loading…';
-ajax('Search',{q:st.q,stage:st.stage,campus:st.campus,programme:st.prog,year:'',verification:st.verif,page:st.page,pageSize:st.ps},function(r){
- if(!r||!r.success){qs('pMeta').textContent=(r&&r.message)||'Error';return;}
- qs('pMeta').textContent=fmt(r.total)+' student'+(r.total===1?'':'s')+(r.pageCount>1?(' · page '+r.page+' of '+r.pageCount):'');
- var b=qs('pBody');b.innerHTML='';qs('pEmpty').style.display=r.rows.length?'none':'block';
- r.rows.forEach(function(x){var canCreate=(x.stage==='PENDING_CREATION');var rg=x.regno.replace(/'/g,"");var tr=document.createElement('tr');
-  tr.innerHTML='<td><strong>'+esc(x.name||'-')+'</strong></td><td>'+esc(x.regno)+'</td><td>'+esc(x.programme||'-')+'</td><td>'+esc(x.campus)+'</td><td>'+esc(x.year)+'</td><td>'+payBadge(x.paid)+'</td><td>'+(x.email?esc(x.email):'<span style="color:#cbd5e1">—</span>')+'</td><td>'+stageBadge(x.stage)+'</td><td>'+(x.verification==='VERIFIED'?'<span class="se-badge se-b--verified">Verified</span>':'<span class="se-badge se-b--muted">—</span>')+'</td><td style="color:#94a3b8">'+esc(x.updated||x.created)+'</td><td style="white-space:nowrap">'+(canCreate?'<span class="se-act" onclick="openCreate(\''+rg+'\',\''+esc(x.name).replace(/'/g,"")+'\',\''+esc(x.year)+'\')">Create</span> · ':'')+'<span class="se-act" onclick="openManage(\''+rg+'\')">Manage</span></td>';
-  b.appendChild(tr);});
- renderPager(r.page,r.pageCount);
-});};
-function renderPager(page,pc){var el=qs('pPager');el.innerHTML='';if(pc<=1)return;function b(t,pg,dis,act){var x=document.createElement('button');x.textContent=t;if(act)x.className='active';if(dis)x.disabled=true;else x.onclick=function(){doSearch(pg);};el.appendChild(x);}b('‹',page-1,page<=1);var f=Math.max(1,page-2),t=Math.min(pc,page+2);for(var i=f;i<=t;i++)b(String(i),i,false,i===page);b('›',page+1,page>=pc);}
-window.resetF=function(){qs('fq').value='';qs('fStage').value='';qs('fVerif').value='';qs('fProg').value='';qs('fCampus').value='';st={q:'',stage:'',verif:'',prog:'',campus:'',page:1,ps:25};doSearch(1);};
+// Reads the filter controls, then searches. Called by the Search button and the filters.
+window.doSearch=function(page){
+    st.q=qs('fq').value.trim();st.stage=qs('fStage').value;st.verif=qs('fVerif').value;
+    st.prog=qs('fProg').value;st.campus=qs('fCampus').value;
+    var sel=qs('fPs'); if(sel) st.ps=parseInt(sel.value,10)||25;
+    st.page=page||1;
+    runSearch(true);
+};
+
+// Jump to a page without re-reading the controls (used by the pager anchors).
+window.goPage=function(p){ st.page=Math.max(1,p||1); runSearch(true); return false; };
+
+// Only the newest in-flight search may paint. Without this, typing quickly could let a
+// slower earlier response land last and overwrite the results for what you actually typed.
+var _seq=0;
+
+function runSearch(push){
+    syncUrl(push);
+    markActiveCampus();
+    var mine=++_seq;
+    qs('pMeta').textContent='Loading…';
+    ajax('Search',{q:st.q,stage:st.stage,campus:st.campus,programme:st.prog,year:'',verification:st.verif,page:st.page,pageSize:st.ps},function(r){
+        if(mine!==_seq) return;                       // a newer search has already been issued
+        if(!r||!r.success){qs('pMeta').textContent=(r&&r.message)||'Error';return;}
+        st.page=r.page;                               // server clamps out-of-range pages
+        var from=r.total?((r.page-1)*r.pageSize+1):0, to=Math.min(r.page*r.pageSize,r.total);
+        qs('pMeta').textContent=r.total
+            ? ('Showing '+fmt(from)+'–'+fmt(to)+' of '+fmt(r.total)+' student'+(r.total===1?'':'s')+(r.pageCount>1?(' · page '+r.page+' of '+r.pageCount):''))
+            : 'No students match these filters.';
+        var b=qs('pBody');b.innerHTML='';qs('pEmpty').style.display=r.rows.length?'none':'block';
+        r.rows.forEach(function(x){var canCreate=(x.stage==='PENDING_CREATION');var rg=x.regno.replace(/'/g,"");var tr=document.createElement('tr');
+         tr.innerHTML='<td><strong>'+esc(x.name||'-')+'</strong></td><td>'+esc(x.regno)+'</td><td>'+esc(x.programme||'-')+'</td><td>'+esc(x.campus)+'</td><td>'+esc(x.year)+'</td><td>'+payBadge(x.paid)+'</td><td>'+(x.email?esc(x.email):'<span style="color:#cbd5e1">—</span>')+'</td><td>'+stageBadge(x.stage)+'</td><td>'+(x.verification==='VERIFIED'?'<span class="se-badge se-b--verified">Verified</span>':'<span class="se-badge se-b--muted">—</span>')+'</td><td style="color:#94a3b8">'+esc(x.updated||x.created)+'</td><td style="white-space:nowrap">'+(canCreate?'<span class="se-act" onclick="openCreate(\''+rg+'\',\''+esc(x.name).replace(/'/g,"")+'\',\''+esc(x.year)+'\')">Create</span> · ':'')+'<span class="se-act" onclick="openManage(\''+rg+'\')">Manage</span></td>';
+         b.appendChild(tr);});
+        renderPager(r.page,r.pageCount);
+    });
+}
+
+// Pager built from real anchors, so every page number is a working link (middle-click,
+// open-in-new-tab, copy-address all behave) while a left-click stays on the AJAX path.
+// Window is 9 wide with First/Last, rather than the previous 5 with no jump to the ends.
+function renderPager(page,pc){
+    var el=qs('pPager');el.innerHTML='';
+    if(pc<=1)return;
+    function link(label,pg,disabled,active,title){
+        if(disabled){var s=document.createElement('button');s.textContent=label;s.disabled=true;el.appendChild(s);return;}
+        var a=document.createElement('a');
+        a.href=buildUrl({page:pg});
+        a.textContent=label;
+        if(title)a.title=title;
+        if(active)a.className='active';
+        a.onclick=function(ev){
+            if(ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.button===1) return true;  // let the browser open it
+            ev.preventDefault();goPage(pg);return false;
+        };
+        el.appendChild(a);
+    }
+    link('« First',1,page<=1,false,'First page');
+    link('‹ Prev',page-1,page<=1,false,'Previous page');
+    var span=9, half=Math.floor(span/2);
+    var f=Math.max(1,page-half), t=Math.min(pc,f+span-1);
+    if(t-f+1<span) f=Math.max(1,t-span+1);
+    if(f>1) el.appendChild(document.createTextNode('…'));
+    for(var i=f;i<=t;i++) link(String(i),i,false,i===page);
+    if(t<pc) el.appendChild(document.createTextNode('…'));
+    link('Next ›',page+1,page>=pc,false,'Next page');
+    link('Last »',pc,page>=pc,false,'Last page');
+}
+window.resetF=function(){qs('fq').value='';qs('fStage').value='';qs('fVerif').value='';qs('fProg').value='';qs('fCampus').value='';var sel=qs('fPs');if(sel)sel.value='25';st={q:'',stage:'',verif:'',prog:'',campus:'',page:1,ps:25};runSearch(true);};
 
 // Clicking a campus card is just another way to set the filter — it drives the same
 // dropdown and the same search, so the two can never disagree.
@@ -453,7 +557,7 @@ function renderDetail(r){var d=r.record;var h='';
   +'</div>';
  if(d.notes)h+='<div style="font-size:12px;background:#f8fafc;border:1px solid #eef2f7;padding:8px 10px;margin-bottom:10px"><b>Notes:</b> '+esc(d.notes)+'</div>';
  h+='<div class="g-act">'
-  +(d.stage==='PENDING_CREATION'?'<button type="button" class="g-abtn g-abtn--p" onclick="closeM();openCreate(\''+_gReg+'\',\''+esc(d.name).replace(/\x27/g,"")+'\')">Create email</button>':'')
+  +(d.stage==='PENDING_CREATION'?'<button type="button" class="g-abtn g-abtn--p" onclick="closeM();openCreate(\''+_gReg+'\',\''+esc(d.name).replace(/\x27/g,"")+'\',\''+esc(d.year)+'\')">Create email</button>':'')
   +'<button type="button" class="g-abtn" onclick="gStage()">Change stage</button>'
   +'<button type="button" class="g-abtn" onclick="gPw()">Reset password</button>'
   +'<button type="button" class="g-abtn g-abtn--d" onclick="gDel()">Remove</button>'
@@ -478,19 +582,39 @@ window.saveResp=function(){ajax('RespondComplaint',{id:_rId,status:qs('rStatus')
 
 // init
 (function(){readUrl();qs('fq').value=st.q;qs('fStage').value=st.stage;qs('fVerif').value=st.verif;
+ qs('fPs').value=String(st.ps);
  qs('fq').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();doSearch(1);}});
+ // Type-to-search, debounced. The stale-response guard in runSearch means a slow earlier
+ // reply can never overwrite the results for what is currently in the box.
+ var _t=null;
+ qs('fq').addEventListener('input',function(){clearTimeout(_t);_t=setTimeout(function(){doSearch(1);},350);});
+ // Changing any filter starts again at page 1 — staying on page 7 of a different result
+ // set is never what someone means.
  qs('fCampus').addEventListener('change',function(){doSearch(1);});
+ qs('fStage').addEventListener('change',function(){doSearch(1);});
+ qs('fVerif').addEventListener('change',function(){doSearch(1);});
+ qs('fProg').addEventListener('change',function(){doSearch(1);});
+ qs('fPs').addEventListener('change',function(){doSearch(1);});
  loadKpis();
+
+ // The results and the filter option-lists are independent, so they are fetched in
+ // PARALLEL. Previously the first search waited for Filters to come back, which put two
+ // sequential round trips in front of the very first row the user sees.
+ //
+ // runSearch (not doSearch) is used here deliberately: doSearch reads the dropdowns, and
+ // at this instant fProg/fCampus are still empty — reading them would wipe the programme
+ // and campus that came in on the URL. runSearch works from the parsed state instead.
+ runSearch(false);
+
  ajax('Filters',{},function(r){
-  if(r&&r.success){
-   var s=qs('fProg');(r.programmes||[]).forEach(function(p){var o=document.createElement('option');o.value=p.code;o.textContent=p.name;s.appendChild(o);});
-   qs('fProg').value=st.prog;
-   // Campuses come from the pipeline itself, with counts, so the list can never offer an
-   // option that returns nothing — and picks up a third campus automatically if one appears.
-   var cs=qs('fCampus');(r.campuses||[]).forEach(function(cp){var o=document.createElement('option');o.value=cp.code;o.textContent=cp.name+' ('+fmt(cp.count)+')';cs.appendChild(o);});
-   cs.value=st.campus;
-  }
-  doSearch(st.page);});
+  if(!r||!r.success) return;
+  var s=qs('fProg');(r.programmes||[]).forEach(function(p){var o=document.createElement('option');o.value=p.code;o.textContent=p.name;s.appendChild(o);});
+  s.value=st.prog;
+  // Campuses come from the pipeline itself, with counts, so the list can never offer an
+  // option that returns nothing — and picks up a third campus automatically if one appears.
+  var cs=qs('fCampus');(r.campuses||[]).forEach(function(cp){var o=document.createElement('option');o.value=cp.code;o.textContent=cp.name+' ('+fmt(cp.count)+')';cs.appendChild(o);});
+  cs.value=st.campus;
+ });
 })();
 })();
 </script>

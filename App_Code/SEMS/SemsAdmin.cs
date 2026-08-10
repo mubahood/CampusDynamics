@@ -86,10 +86,28 @@ public static class SemsAdmin
             using (var c = new MySqlConnection(Conn))
             {
                 c.Open();
-                int eligible = Scalar(c, "SELECT COUNT(*) " + EligibleFrom);
-                int partial  = Scalar(c, "SELECT COUNT(*) FROM campus_dynamics.acad_student s " + PaySub +
-                    "WHERE s.entryyear >= 2026 AND IFNULL(TRIM(s.email),'') = '' AND pay.paid > 0 AND pay.paid < 100000 " +
-                    "AND NOT EXISTS (SELECT 1 FROM campus_dynamics_portal.sems_email_creations e WHERE e.regno=TRIM(s.regno))");
+                // "Eligible" and "paid < 100k" differ only by the payment threshold, but each used
+                // to run its own copy of the fees aggregate — the single most expensive thing on
+                // this page at ~173ms a piece. One pass now yields both counts, halving page-load
+                // cost, and the two figures are guaranteed to come from the same instant.
+                int eligible = 0, partial = 0;
+                using (var cmd = new MySqlCommand(
+                    "SELECT SUM(pay.paid >= " + MinPaid.ToString("0") + ") AS eligible," +
+                    "       SUM(pay.paid > 0 AND pay.paid < " + MinPaid.ToString("0") + ") AS partial " +
+                    "FROM campus_dynamics.acad_student s " +
+                    "JOIN (SELECT TRIM(regno) rg, SUM(amount) paid FROM campus_dynamics_accounts.fin_studentfeestracking " +
+                    "      WHERE trans_type='Payment' GROUP BY TRIM(regno)) pay ON pay.rg = TRIM(s.regno) " +
+                    "WHERE s.entryyear >= 2026 AND IFNULL(TRIM(s.email),'') = '' " +
+                    "  AND NOT EXISTS (SELECT 1 FROM campus_dynamics_portal.sems_email_creations e WHERE e.regno=TRIM(s.regno))", c))
+                {
+                    cmd.CommandTimeout = 60;
+                    using (var rd = cmd.ExecuteReader())
+                        if (rd.Read())
+                        {
+                            eligible = rd["eligible"] == DBNull.Value ? 0 : Convert.ToInt32(rd["eligible"]);
+                            partial  = rd["partial"]  == DBNull.Value ? 0 : Convert.ToInt32(rd["partial"]);
+                        }
+                }
                 Func<string, int> cnt = w => Scalar(c, "SELECT COUNT(*) FROM campus_dynamics_portal.sems_email_creations " + w);
                 int total     = cnt("");
                 int pending   = cnt("WHERE current_stage='PENDING_CREATION'");
@@ -228,7 +246,35 @@ public static class SemsAdmin
                 c.Open();
                 var wb = new StringBuilder("WHERE 1=1");
                 var ps = new List<MySqlParameter>();
-                if (!string.IsNullOrWhiteSpace(q)) { wb.Append(" AND (regno LIKE @q OR student_name LIKE @q OR email_address LIKE @q)"); ps.Add(new MySqlParameter("@q", "%" + q.Trim() + "%")); }
+
+                // Free-text search, tokenised on whitespace: EVERY token must appear in at least
+                // one of the searchable columns, in any order.
+                //
+                // Three real failures this fixes, each verified against live data:
+                //   * entryno was not searched at all, even though the box promises "student
+                //     number" — searching 26/U/DME/0001/M/DAY returned nothing.
+                //   * student_name is stored "FIRSTNAME SURNAME", but class lists (and most
+                //     people) write surname first, so "SSENTONGO WILBERFORCE" matched nothing.
+                //   * a stray double space broke the match outright.
+                // Matching per-token rather than on the raw string makes word order and
+                // whitespace irrelevant. Capped so a pathological paste can't build a huge WHERE.
+                if (!string.IsNullOrWhiteSpace(q))
+                {
+                    string[] tokens = q.Trim().Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    int used = 0;
+                    for (int i = 0; i < tokens.Length && used < 6; i++)
+                    {
+                        string tok = tokens[i].Trim();
+                        if (tok.Length == 0) continue;
+                        string pn = "@q" + used;
+                        wb.Append(" AND (regno LIKE ").Append(pn)
+                          .Append(" OR entryno LIKE ").Append(pn)
+                          .Append(" OR student_name LIKE ").Append(pn)
+                          .Append(" OR email_address LIKE ").Append(pn).Append(")");
+                        ps.Add(new MySqlParameter(pn, "%" + tok + "%"));
+                        used++;
+                    }
+                }
                 if (!string.IsNullOrWhiteSpace(stage)) { wb.Append(" AND current_stage=@st"); ps.Add(new MySqlParameter("@st", stage)); }
                 if (!string.IsNullOrWhiteSpace(campus)) { wb.Append(" AND campus=@cm"); ps.Add(new MySqlParameter("@cm", campus)); }
                 if (!string.IsNullOrWhiteSpace(programme)) { wb.Append(" AND programme=@pr"); ps.Add(new MySqlParameter("@pr", programme)); }
