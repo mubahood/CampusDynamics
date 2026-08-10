@@ -77,6 +77,10 @@
 .sc-pill{display:inline-block;padding:2px 7px;font-size:9px;font-weight:800;text-transform:uppercase;border-radius:3px;}
 .sc-pill--ok{background:#e6f4ea;color:#2e7d32;}.sc-pill--no{background:#fde8e8;color:#b42318;}
 .sc-pill--draft{background:#fff3cd;color:#92400e;}.sc-pill--mig{background:#eef2f8;color:#475569;}
+/* States the chunked commit engine can leave behind: a run in flight, and a run that
+   stopped part-way (some marks published, the remainder still queued and resumable). */
+.sc-pill--run{background:#e8f0fe;color:#174DA4;}
+.sc-pill--err{background:#fde8e8;color:#b42318;border:1px solid #f3c9c9;}
 .sc-link{color:#174DA4;font-weight:700;text-decoration:none;}.sc-link:hover{text-decoration:underline;}
 
 /* modal */
@@ -87,6 +91,14 @@
 .sc-modal__bd{padding:16px 18px;}
 .sc-modal__ft{padding:12px 18px;border-top:1px solid #e0e5ed;display:flex;gap:8px;justify-content:flex-end;}
 .sc-pv-hd{font-size:13px;color:#1a1a2e;margin-bottom:12px;}
+/* Live progress for a running publish batch. The server commits in chunks and reports
+   progress against the session, so this reflects work actually written, not a guess. */
+.sc-prog{margin-bottom:14px;padding:10px 12px;background:#f8fafc;border:1px solid #e0e5ed;}
+.sc-prog__track{height:8px;background:#e0e5ed;overflow:hidden;}
+.sc-prog__fill{height:100%;width:0;background:#174DA4;transition:width .35s ease;}
+.sc-prog__txt{margin-top:7px;font-size:11px;font-weight:700;color:#05275C;}
+/* Why a session moved fewer marks than it matched — shown in the session detail. */
+.sc-warn{margin:10px 0;padding:9px 11px;background:#fef5f5;border:1px solid #f3c9c9;color:#7f1d1d;font-size:11px;line-height:1.5;}
 .sc-pv-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;}
 .sc-kpi{background:#f8fafc;border:1px solid #e0e5ed;padding:8px;text-align:center;}
 .sc-kpi__v{font-size:18px;font-weight:800;color:#05275C;}

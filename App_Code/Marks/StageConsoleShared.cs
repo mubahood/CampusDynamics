@@ -225,6 +225,14 @@ public static class StageConsoleShared
         catch (Exception ex) { return Json.Serialize(new { success = false, message = ex.Message }); }
     }
 
+    // Live progress for a running commit. Deliberately cheap (one indexed row read) —
+    // the console polls this every couple of seconds while a batch is publishing.
+    public static string Progress(string stage, int recordId)
+    {
+        try { return Json.Serialize(StageAdvanceService.Progress(Def(stage), recordId)); }
+        catch (Exception ex) { return Json.Serialize(new { success = false, message = ex.Message }); }
+    }
+
     public static string ReturnMarks(string stage, int[] ids, string reason)
     {
         try

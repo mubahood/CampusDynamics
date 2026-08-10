@@ -21,6 +21,9 @@ public partial class COOPERP_NewScreens_MarkPublishController : Page
     [WebMethod(EnableSession = true)] public static string CreateAndPreview(string prog, int yos, string acadYear, int sem, bool all, string notes, string failMode) { return StageConsoleShared.CreateAndPreview("PUBLISH", prog, yos, acadYear, sem, all, notes, failMode); }
     [WebMethod(EnableSession = true)] public static string Commit(int recordId) { return StageConsoleShared.Commit("PUBLISH", recordId); }
     [WebMethod(EnableSession = true)] public static string Cancel(int recordId) { return StageConsoleShared.Cancel("PUBLISH", recordId); }
+    // Polled by the console while a publish batch runs, so a long run shows live progress
+    // instead of a frozen "Committing…" button.
+    [WebMethod(EnableSession = true)] public static string Progress(int recordId) { return StageConsoleShared.Progress("PUBLISH", recordId); }
     [WebMethod(EnableSession = true)] public static string ReturnMarks(int[] ids, string reason) { return StageConsoleShared.ReturnMarks("PUBLISH", ids, reason); }
     [WebMethod(EnableSession = true)] public static string AdvanceSelected(int[] ids, string notes) { return StageConsoleShared.AdvanceSelected("PUBLISH", ids, notes); }
     [WebMethod(EnableSession = true)] public static string Records(int page) { return StageConsoleShared.Records("PUBLISH", page); }

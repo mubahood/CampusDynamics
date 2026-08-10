@@ -16,12 +16,18 @@ function toast(m, err) {
     t.style.cssText = 'position:fixed;top:18px;right:18px;z-index:11000;padding:10px 16px;font-size:13px;font-weight:600;color:#fff;border-radius:0;box-shadow:0 4px 16px rgba(0,0,0,.2);background:' + (err ? '#dc3545' : '#16a34a');
     document.body.appendChild(t); setTimeout(function () { t.style.transition = 'opacity .4s'; t.style.opacity = '0'; setTimeout(function () { t.remove(); }, 400); }, 2800);
 }
-function call(method, params, cb) {
+function call(method, params, cb, opts) {
+    opts = opts || {};
     var x = new XMLHttpRequest();
     x.open('POST', location.pathname + '/' + method, true);
     x.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
+    // A long publish batch can outlive the default socket behaviour. Give callers an
+    // explicit budget and a distinguishable 'timeout' outcome, so the UI can fall back to
+    // polling the server for the real state instead of guessing that the work failed.
+    if (opts.timeoutMs) x.timeout = opts.timeoutMs;
+    x.ontimeout = function () { cb({ success: false, timedOut: true, message: 'The request took longer than expected.' }); };
     x.onload = function () { try { var o = JSON.parse(x.responseText); cb(typeof o.d === 'string' ? JSON.parse(o.d) : o.d); } catch (e) { cb({ success: false, message: 'Parse error' }); } };
-    x.onerror = function () { cb({ success: false, message: 'Network error' }); };
+    x.onerror = function () { cb({ success: false, networkError: true, message: 'Network error' }); };
     x.send(JSON.stringify(params || {}));
 }
 function show(m) { m.style.display = 'flex'; } function hide(m) { m.style.display = 'none'; }
@@ -150,21 +156,139 @@ function doPreview() {
     });
 }
 function wizBack() {
+    if (COMMITTING) return;                       // can't rewind a run that is under way
     if (REC) { call('Cancel', { recordId: REC }, function () {}); REC = 0; }
+    stopPoll();
     qs('sc-wiz-preview').style.display = 'none'; qs('sc-wiz-params').style.display = '';
     qs('sc-btn-preview').style.display = ''; qs('sc-btn-back').style.display = 'none'; qs('sc-commit-btn').style.display = 'none';
 }
-function commit() {
-    if (!REC) return;
-    var cb = qs('sc-commit-btn'); cb.disabled = true; cb.textContent = 'Committing…';
-    call('Commit', { recordId: REC }, function (d) {
-        cb.disabled = false;
-        if (!d || !d.success) { toast((d && d.message) || 'Commit failed.', true); cb.textContent = 'Retry commit'; return; }
-        toast(d.affected + ' mark(s) advanced to ' + STAGE.toLabel + '.'); REC = 0;
-        hide(qs('sc-modal')); loadStats(); loadBrowse(1);
-    });
+/* ── Commit ──────────────────────────────────────────────────────────────────
+   Publishing is a batch that can run for a while. The server commits it in small
+   chunks and records progress against the session, so the client's job is to (a)
+   never let the operator fire it twice, (b) show what is actually happening, and
+   (c) recover sensibly if the HTTP request dies before the batch does — the work
+   already committed survives, and re-running the session picks up the remainder. */
+var COMMITTING = false, POLL = null;
+
+function stopPoll() { if (POLL) { clearInterval(POLL); POLL = null; } }
+
+function setCommitBusy(busy, label) {
+    COMMITTING = busy;
+    var cb = qs('sc-commit-btn'), bk = qs('sc-btn-back'), x = document.querySelector('#sc-modal .sc-modal__x');
+    if (cb) { cb.disabled = busy; if (label) cb.textContent = label; }
+    if (bk) bk.style.display = busy ? 'none' : '';
+    if (x) x.style.opacity = busy ? '.35' : '';
 }
-function closeWizard() { if (REC) { call('Cancel', { recordId: REC }, function () {}); REC = 0; } hide(qs('sc-modal')); }
+
+function renderProgress(p) {
+    var pv = qs('sc-wiz-preview'); if (!pv) return;
+    var bar = qs('sc-prog-bar'), txt = qs('sc-prog-txt');
+    if (!bar) {
+        pv.insertAdjacentHTML('afterbegin',
+            '<div class="sc-prog" id="sc-prog">' +
+            '  <div class="sc-prog__track"><div class="sc-prog__fill" id="sc-prog-bar"></div></div>' +
+            '  <div class="sc-prog__txt" id="sc-prog-txt">Starting…</div>' +
+            '</div>');
+        bar = qs('sc-prog-bar'); txt = qs('sc-prog-txt');
+    }
+    var pct = p.total > 0 ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
+    bar.style.width = pct + '%';
+    txt.textContent = p.total > 0
+        ? (p.done.toLocaleString() + ' of ' + p.total.toLocaleString() + ' mark(s) published — ' + pct + '%')
+        : (p.done.toLocaleString() + ' mark(s) published…');
+}
+
+function startPoll() {
+    stopPoll();
+    if (!REC) return;
+    POLL = setInterval(function () {
+        if (!REC) { stopPoll(); return; }
+        call('Progress', { recordId: REC }, function (p) {
+            if (!p || !p.success) return;
+            renderProgress(p);
+            // The batch finished server-side even though our Commit request may still be
+            // in flight (or already gave up). Settle the UI from the authoritative state.
+            if (p.status === 'COMMITTED' || p.status === 'FAILED' || p.stalled) {
+                stopPoll();
+                if (COMMITTING) finishCommit(p);
+            }
+        });
+    }, 2000);
+}
+
+function finishCommit(p) {
+    setCommitBusy(false, 'Commit');
+    stopPoll();
+    if (p.status === 'COMMITTED') {
+        toast((p.affected || p.done || 0).toLocaleString() + ' mark(s) advanced to ' + STAGE.toLabel + '.');
+        REC = 0; hide(qs('sc-modal')); loadStats(); loadBrowse(1); return;
+    }
+    if (p.stalled) {
+        toast('The publish run stopped unexpectedly after ' + (p.done || 0).toLocaleString() +
+              ' mark(s). Nothing was lost — press Resume to continue.', true);
+        qs('sc-commit-btn').textContent = 'Resume publish';
+        return;
+    }
+    toast(p.error || 'Publish failed.', true);
+    qs('sc-commit-btn').textContent = (p.done > 0) ? 'Resume publish' : 'Retry commit';
+}
+
+function commit() {
+    if (!REC || COMMITTING) return;              // hard guard against a double-click
+    setCommitBusy(true, 'Publishing…');
+    renderProgress({ done: 0, total: 0 });
+    startPoll();
+
+    // Generous budget: the server's own executionTimeout is the real ceiling. If we do
+    // time out, we do NOT report failure — the batch is very likely still running, so we
+    // keep polling and let the session's own status decide the outcome.
+    call('Commit', { recordId: REC }, function (d) {
+        if (d && (d.timedOut || d.networkError)) {
+            toast('Still working — following the run’s progress.', false);
+            startPoll();
+            return;
+        }
+        stopPoll();
+        setCommitBusy(false, 'Commit');
+
+        if (!d || !d.success) {
+            // A session someone else is already committing: watch it rather than double-run.
+            if (d && d.alreadyRunning) { setCommitBusy(true, 'Publishing…'); startPoll(); toast(d.message, true); return; }
+            toast((d && d.message) || 'Commit failed.', true);
+            qs('sc-commit-btn').textContent = (d && d.partial) ? 'Resume publish' : 'Retry commit';
+            if (d && d.partial) { loadStats(); loadBrowse(1); }
+            return;
+        }
+        toast(d.message || ((d.affected || 0) + ' mark(s) advanced to ' + STAGE.toLabel + '.'));
+        if (d.skipped > 0) reportSkips(d);
+        REC = 0;
+        hide(qs('sc-modal')); loadStats(); loadBrowse(1);
+    }, { timeoutMs: 290000 });
+}
+
+/* A shortfall between "previewed" and "published" is never silent any more — say how
+   many were skipped and why, so the operator can act on it. */
+function reportSkips(d) {
+    var reasons = d.skipReasons || {}, lines = [];
+    for (var k in reasons) if (reasons.hasOwnProperty(k)) lines.push('• ' + reasons[k] + ' × ' + k);
+    if (!lines.length) return;
+    setTimeout(function () {
+        alert(d.skipped + ' of ' + (d.expected || '?') + ' mark(s) could not be published:\n\n' +
+              lines.join('\n') + '\n\nEverything else was published successfully.');
+    }, 350);
+}
+
+function closeWizard() {
+    // Never cancel a session that is mid-flight — Cancel only applies to a DRAFT, and
+    // silently discarding a running publish would be alarming. Closing just hides the
+    // dialog; the batch continues and can be reviewed in Session history.
+    if (COMMITTING) {
+        if (!confirm('A publish is still running.\n\nClosing this window will not stop it — progress is saved and you can follow it in Session history.\n\nClose anyway?')) return;
+        stopPoll(); COMMITTING = false; hide(qs('sc-modal')); loadStats(); loadBrowse(1); return;
+    }
+    if (REC) { call('Cancel', { recordId: REC }, function () {}); REC = 0; }
+    hide(qs('sc-modal'));
+}
 
 function statsBlock(st) {
     return '<div class="sc-pv-stats">' + kpi('Marks', num(st.marks)) + kpi('Students', num(st.students)) +
@@ -196,12 +320,20 @@ function advanceSelected() {
     var verb = VERB[STAGE.name] || 'Advance';
     var extra = (STAGE.name === 'PUBLISH') ? ' and publish them to results' : '';
     if (!confirm(verb + ' ' + ids.length + ' selected mark(s)?\n\nThis moves them to "' + STAGE.toLabel + '"' + extra + '.')) return;
-    var btn = qs('sc-advance-btn'); if (btn) btn.disabled = true;
+    var btn = qs('sc-advance-btn');
+    if (btn) { if (btn.disabled) return; btn.disabled = true; btn.textContent = 'Working…'; }
     call('AdvanceSelected', { ids: ids, notes: '' }, function (d) {
-        if (btn) btn.disabled = false;
-        if (!d || !d.success) { toast((d && d.message) || 'Advance failed.', true); return; }
-        toast(d.message); loadStats(); loadBrowse(PAGE);
-    });
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#10003; Advance selected'; }
+        if (d && d.timedOut) { toast('Still working — refresh in a moment to see the result.', true); loadStats(); loadBrowse(PAGE); return; }
+        if (!d || !d.success) {
+            toast((d && d.message) || 'Advance failed.', true);
+            if (d && d.partial) { loadStats(); loadBrowse(PAGE); }   // keep committed chunks visible
+            return;
+        }
+        toast(d.message);
+        if (d.skipped > 0) reportSkips({ skipped: d.skipped, expected: ids.length, skipReasons: d.skipReasons });
+        loadStats(); loadBrowse(PAGE);
+    }, { timeoutMs: 290000 });
 }
 
 /* ── Send-back ── */
@@ -217,13 +349,23 @@ function returnSelected() {
 }
 
 /* ── History (click a row to view full details) ── */
+/* A partially-completed run must not look like an ordinary draft in the history —
+   RUNNING and FAILED are new states the chunked engine can leave behind, and FAILED in
+   particular means "some marks published, the rest still waiting". */
+function pillFor(status) {
+    if (status === 'COMMITTED') return 'ok';
+    if (status === 'CANCELLED') return 'no';
+    if (status === 'FAILED')    return 'err';
+    if (status === 'RUNNING')   return 'run';
+    return 'draft';
+}
 function loadHistory() {
     var b = qs('sc-hist-body'); b.innerHTML = '<tr><td colspan="7" class="sc-empty">Loading…</td></tr>';
     call('Records', { page: 1 }, function (d) {
         if (!d || !d.success) { b.innerHTML = '<tr><td colspan="7" class="sc-empty" style="color:#b42318">' + esc((d&&d.message)||'Error') + '</td></tr>'; return; }
         if (!d.records.length) { b.innerHTML = '<tr><td colspan="7" class="sc-empty">No sessions yet.</td></tr>'; return; }
         b.innerHTML = d.records.map(function (r) {
-            var badge = r.isMigration ? '<span class="sc-pill sc-pill--mig">migration</span>' : '<span class="sc-pill sc-pill--' + (r.status === 'COMMITTED' ? 'ok' : (r.status === 'CANCELLED' ? 'no' : 'draft')) + '">' + esc(r.status) + '</span>';
+            var badge = r.isMigration ? '<span class="sc-pill sc-pill--mig">migration</span>' : '<span class="sc-pill sc-pill--' + pillFor(r.status) + '">' + esc(r.status) + '</span>';
             var scopeTxt = r.all ? 'All in scope' : [r.prog, r.acadYear, r.semester ? 'S' + r.semester : '', r.yearOfStudy ? 'Y' + r.yearOfStudy : ''].filter(Boolean).join(' · ');
             return '<tr class="sc-rowclick" onclick="SC.viewRec(' + r.id + ')">' +
                 '<td>#' + r.id + '</td><td>' + badge + '</td><td>' + esc(r.byName || r.by) + '<div class="sc-sub">' + esc(r.role) + '</div></td>' +
@@ -249,11 +391,37 @@ function viewRec(id) {
             (r.notes ? row('Notes', esc(r.notes)) : '') + '</tbody></table>';
         var snap = (st && st.marks) ? ('<div class="sc-det-h">Performance snapshot (at commit)</div>' + statsBlock(st)) : '';
         var bd = (sm && sm.breakdown) ? ('<div class="sc-det-h">Breakdown</div>' + breakdownTbl(sm.breakdown)) : '';
-        body.innerHTML = meta + snap + bd;
+        body.innerHTML = meta + outcomeBlock(r, sm) + snap + bd;
         var csv = qs('sc-detail-csv');
         if (r.status === 'COMMITTED' && r.affected && !r.isMigration) { csv.style.display = ''; csv.href = location.pathname + '?export=csv&rid=' + r.id; }
         else csv.style.display = 'none';
     });
+}
+/* Explains any gap between what a session was asked to move and what it actually moved.
+   Previously a run that fell short just showed a smaller number with no reason given —
+   which is exactly how the old LIMIT-5000 truncation stayed invisible for so long. */
+function outcomeBlock(r, sm) {
+    if (!sm) return '';
+    var bits = '';
+    if (sm.error) {
+        bits += '<div class="sc-warn"><b>This run stopped before finishing.</b><br>' + esc(sm.error) +
+                '<br><br>Marks already published were kept. Re-running the session continues with whatever is still awaiting publication.</div>';
+    }
+    var reasons = sm.skipReasons;
+    if (reasons) {
+        var rows = '';
+        for (var k in reasons) if (reasons.hasOwnProperty(k))
+            rows += '<tr><td>' + esc(k) + '</td><td style="text-align:right">' + reasons[k] + '</td></tr>';
+        if (rows) {
+            bits += '<div class="sc-det-h">Not advanced (' + num(sm.skipped) + ')</div>' +
+                    '<table class="sc-pv-tbl"><thead><tr><th>Reason</th><th style="text-align:right">Marks</th></tr></thead><tbody>' +
+                    rows + '</tbody></table>';
+        }
+    }
+    if (sm.expected && sm.advanced !== undefined && sm.expected !== sm.advanced && !sm.error && !reasons) {
+        bits += '<div class="sc-warn">Matched ' + num(sm.expected) + ' but advanced ' + num(sm.advanced) + '.</div>';
+    }
+    return bits;
 }
 function row(k, v) { return '<tr><th>' + k + '</th><td>' + v + '</td></tr>'; }
 function closeDetail() { hide(qs('sc-detail')); }

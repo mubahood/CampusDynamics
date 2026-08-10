@@ -21,6 +21,7 @@ public partial class COOPERP_NewScreens_MarkApproveController : Page
     [WebMethod(EnableSession = true)] public static string CreateAndPreview(string prog, int yos, string acadYear, int sem, bool all, string notes, string failMode) { return StageConsoleShared.CreateAndPreview("APPROVE", prog, yos, acadYear, sem, all, notes, failMode); }
     [WebMethod(EnableSession = true)] public static string Commit(int recordId) { return StageConsoleShared.Commit("APPROVE", recordId); }
     [WebMethod(EnableSession = true)] public static string Cancel(int recordId) { return StageConsoleShared.Cancel("APPROVE", recordId); }
+    [WebMethod(EnableSession = true)] public static string Progress(int recordId) { return StageConsoleShared.Progress("APPROVE", recordId); }
     [WebMethod(EnableSession = true)] public static string ReturnMarks(int[] ids, string reason) { return StageConsoleShared.ReturnMarks("APPROVE", ids, reason); }
     [WebMethod(EnableSession = true)] public static string AdvanceSelected(int[] ids, string notes) { return StageConsoleShared.AdvanceSelected("APPROVE", ids, notes); }
     [WebMethod(EnableSession = true)] public static string Records(int page) { return StageConsoleShared.Records("APPROVE", page); }

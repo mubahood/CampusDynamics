@@ -662,6 +662,36 @@ public static class MarksControllerShared
         return r != null && r.Success;
     }
 
+    /// <summary>
+    /// Batch variant: publishes one row but defers the semester-GPA rewrite into
+    /// <paramref name="deferGpa"/> so the whole batch can settle GPAs once per
+    /// student/semester at the end. Also reports WHY a row was skipped, which the old
+    /// bool-only signature threw away — the publish console now surfaces those reasons
+    /// instead of silently reporting a smaller number than the preview promised.
+    /// </summary>
+    public static bool PublishSingle(MySqlConnection conn, MySqlTransaction tx, int id, string actor,
+                                     MarksGpaDeferral deferGpa, out string reason)
+    {
+        ProvisionalActionResult r = ProcessProvisionalAction(conn, tx, id, StatusPublished, actor, "", deferGpa);
+        reason = (r == null) ? "Unknown error" : r.Message;
+        return r != null && r.Success;
+    }
+
+    /// <summary>
+    /// Resolve every schema-shape constant the publish path needs, and run any one-off
+    /// self-heal DDL, BEFORE a batch opens its first transaction. ALTER TABLE implicitly
+    /// commits in MySQL, so this must never happen inside the row loop. Returns the
+    /// acad_results credit-units column name for the caller's GPA flush.
+    /// </summary>
+    public static string PrepareForBatchPublish(MySqlConnection conn)
+    {
+        GetCourseColumnExpression(conn, "cr");
+        ResolveCourseCreditUnitsColumn(conn);
+        string resultsCreditCol = ResolveResultsCreditUnitsColumn(conn);
+        EnsureResultCommentTextNullable(conn);
+        return string.IsNullOrEmpty(resultsCreditCol) ? "CreditUnits" : resultsCreditCol;
+    }
+
     public static string SaveAdminMarks(int id, int? cw, int? exam, int? total, string note)
     {
         string connStr = ConnectionString;
@@ -1354,6 +1384,18 @@ public static class MarksControllerShared
     /// </summary>
     private static ProvisionalActionResult ProcessProvisionalAction(MySqlConnection conn, MySqlTransaction tx, int id, string normalizedAction, string actor, string comment)
     {
+        return ProcessProvisionalAction(conn, tx, id, normalizedAction, actor, comment, null);
+    }
+
+    /// <summary>
+    /// Core single-record processor. When <paramref name="deferGpa"/> is supplied (batch
+    /// publishing), the per-row semester-GPA rewrite and the CGPA aggregate are skipped and
+    /// the student's semester is queued for a single recompute at the end of the batch —
+    /// see MarksGpaDeferral. Passing null preserves the original per-row behaviour exactly,
+    /// which is what every interactive single-record caller still does.
+    /// </summary>
+    private static ProvisionalActionResult ProcessProvisionalAction(MySqlConnection conn, MySqlTransaction tx, int id, string normalizedAction, string actor, string comment, MarksGpaDeferral deferGpa)
+    {
         ProvisionalActionResult result = new ProvisionalActionResult { Success = false, Message = "Unable to process action." };
 
         if (normalizedAction != StatusRejected && normalizedAction != StatusPublished)
@@ -1585,22 +1627,34 @@ public static class MarksControllerShared
             ? string.Format(" WARNING: previous score {0} ({1}) overwritten with {2}.", priorScore.Value, priorGrade ?? "?", total.Value)
             : "";
 
-        decimal semesterGpa = ComputeSemesterGpa(conn, tx, regno, acadYear, ParseIntSafe(semester, 0));
-        decimal cgpa = ComputeStudentCgpa(conn, tx, regno);
-        string awardClass = ComputeAwardClass(cgpa);
-
-        using (MySqlCommand cmd = new MySqlCommand(@"
-            UPDATE acad_results
-            SET gpa = @gpa
-            WHERE regno = @regno
-              AND acad = @acad
-              AND semester = @semester", conn, tx))
+        // Batch mode: queue this student's semester for ONE recompute after the batch and
+        // skip the CGPA aggregate entirely (it is only ever used for the message below, and
+        // is never persisted). Interactive mode (deferGpa == null) behaves exactly as before.
+        decimal semesterGpa = 0m, cgpa = 0m;
+        string awardClass = "";
+        if (deferGpa != null)
         {
-            cmd.Parameters.AddWithValue("@gpa", semesterGpa);
-            cmd.Parameters.AddWithValue("@regno", regno);
-            cmd.Parameters.AddWithValue("@acad", acadYear);
-            cmd.Parameters.AddWithValue("@semester", ParseIntSafe(semester, 0));
-            cmd.ExecuteNonQuery();
+            deferGpa.Touch(regno, acadYear, ParseIntSafe(semester, 0));
+        }
+        else
+        {
+            semesterGpa = ComputeSemesterGpa(conn, tx, regno, acadYear, ParseIntSafe(semester, 0));
+            cgpa = ComputeStudentCgpa(conn, tx, regno);
+            awardClass = ComputeAwardClass(cgpa);
+
+            using (MySqlCommand cmd = new MySqlCommand(@"
+                UPDATE acad_results
+                SET gpa = @gpa
+                WHERE regno = @regno
+                  AND acad = @acad
+                  AND semester = @semester", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@gpa", semesterGpa);
+                cmd.Parameters.AddWithValue("@regno", regno);
+                cmd.Parameters.AddWithValue("@acad", acadYear);
+                cmd.Parameters.AddWithValue("@semester", ParseIntSafe(semester, 0));
+                cmd.ExecuteNonQuery();
+            }
         }
 
         using (MySqlCommand cmd = new MySqlCommand(@"
@@ -1665,7 +1719,11 @@ public static class MarksControllerShared
         result.SemesterGpa = semesterGpa;
         result.Cgpa = cgpa;
         result.AwardClass = awardClass;
-        result.Message = "Marks published to final results. Semester GPA " + semesterGpa.ToString("F2") + ", CGPA " + cgpa.ToString("F2") + " (" + awardClass + ")." + overwriteWarning;
+        // In batch mode the GPA figures are not computed here (they are rewritten once per
+        // student/semester after the batch), so don't report a misleading "0.00".
+        result.Message = deferGpa != null
+            ? ("Marks published to final results." + overwriteWarning)
+            : ("Marks published to final results. Semester GPA " + semesterGpa.ToString("F2") + ", CGPA " + cgpa.ToString("F2") + " (" + awardClass + ")." + overwriteWarning);
         return result;
     }
 
@@ -1911,9 +1969,19 @@ public static class MarksControllerShared
         return HttpUtility.HtmlEncode(s ?? string.Empty);
     }
 
+    /// <summary>
+    /// One-shot schema self-heal for acad_results.result_comment.
+    ///
+    /// DANGER this guards against: an ALTER TABLE performs an IMPLICIT COMMIT in MySQL.
+    /// This used to be invoked from inside the per-row publish loop, so if the ALTER had
+    /// ever fired mid-batch it would have committed a half-finished publish and silently
+    /// destroyed the atomicity of the surrounding transaction. RunOnce keeps the check
+    /// (and any DDL) to a single execution per AppDomain, and callers now invoke it
+    /// before opening a transaction — never inside one.
+    /// </summary>
     private static void EnsureResultCommentTextNullable(MySqlConnection conn)
     {
-        try
+        MarksSchemaCache.RunOnce("acad_results.result_comment.textnull", delegate
         {
             using (MySqlCommand cmd = new MySqlCommand(@"
                 SELECT DATA_TYPE, IS_NULLABLE
@@ -1934,8 +2002,7 @@ public static class MarksControllerShared
             {
                 alter.ExecuteNonQuery();
             }
-        }
-        catch { }
+        });
     }
 
     private static void SafeSelect(DropDownList ddl, string val)
@@ -1944,16 +2011,10 @@ public static class MarksControllerShared
         if (item != null) item.Selected = true;
     }
 
+    // Cached — see MarksSchemaCache. Previously fired twice per published row.
     private static bool ColumnExists(MySqlConnection conn, string schema, string table, string column)
     {
-        using (MySqlCommand cmd = new MySqlCommand(
-            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@s AND TABLE_NAME=@t AND COLUMN_NAME=@c", conn))
-        {
-            cmd.Parameters.AddWithValue("@s", schema);
-            cmd.Parameters.AddWithValue("@t", table);
-            cmd.Parameters.AddWithValue("@c", column);
-            return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
-        }
+        return MarksSchemaCache.ColumnExists(conn, schema, table, column);
     }
 
     private static void EnsureNullableColumn(MySqlConnection conn, string schema, string table, string column, string sqlType)
@@ -2386,16 +2447,10 @@ public static class MarksControllerShared
         return "CreditUnits";
     }
 
+    // Cached: schema shape cannot change mid-request, and this used to fire per published row.
     private static string GetActualColumnName(MySqlConnection conn, string schema, string table, string columnCandidate)
     {
-        using (MySqlCommand cmd = new MySqlCommand(
-            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=@s AND TABLE_NAME=@t AND LOWER(COLUMN_NAME)=@c LIMIT 1", conn))
-        {
-            cmd.Parameters.AddWithValue("@s", schema);
-            cmd.Parameters.AddWithValue("@t", table);
-            cmd.Parameters.AddWithValue("@c", (columnCandidate ?? string.Empty).ToLowerInvariant());
-            object value = cmd.ExecuteScalar();
-            return value == null || value == DBNull.Value ? null : value.ToString();
-        }
+        return MarksSchemaCache.ActualColumnName(conn, schema, table, columnCandidate);
     }
+
 }

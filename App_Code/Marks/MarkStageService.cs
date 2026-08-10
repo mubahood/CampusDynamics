@@ -81,6 +81,18 @@ public static class MarkStage
             AddRecCol(conn, "mark_capture_records", "param_fail_mode", "VARCHAR(12) NULL");
             AddRecCol(conn, "mark_approve_records", "param_fail_mode", "VARCHAR(12) NULL");
             AddRecCol(conn, "mark_publish_records", "param_fail_mode", "VARCHAR(12) NULL");
+            // Live-progress + crash-recovery columns for the chunked commit engine.
+            // progress_done/total drive the console's progress bar; heartbeat_at lets a
+            // later caller tell a live RUNNING session from one whose worker died; and
+            // last_error keeps the reason a partial run stopped.
+            string[] tables = new string[] { "mark_capture_records", "mark_approve_records", "mark_publish_records" };
+            for (int i = 0; i < tables.Length; i++)
+            {
+                AddRecCol(conn, tables[i], "progress_done",  "INT NULL");
+                AddRecCol(conn, tables[i], "progress_total", "INT NULL");
+                AddRecCol(conn, tables[i], "heartbeat_at",   "DATETIME NULL");
+                AddRecCol(conn, tables[i], "last_error",     "TEXT NULL");
+            }
         }
         catch { /* never break a page on self-heal */ }
     }
@@ -123,6 +135,7 @@ public static class MarkStage
             " param_semester INT NULL, param_all TINYINT NULL, param_fail_mode VARCHAR(12) NULL, params_json TEXT NULL," +
             " preview_count INT NULL, affected_count INT NULL, summary_json TEXT NULL, stats_snapshot_json TEXT NULL," +
             " notes TEXT NULL, is_migration TINYINT NULL DEFAULT 0," +
+            " progress_done INT NULL, progress_total INT NULL, heartbeat_at DATETIME NULL, last_error TEXT NULL," +
             " created_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP, committed_at DATETIME NULL" +
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8", conn))
             c.ExecuteNonQuery();
