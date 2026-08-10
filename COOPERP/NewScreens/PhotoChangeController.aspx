@@ -163,6 +163,36 @@
 
 <script type="text/javascript">
 (function () {
+    // Search navigates to a real query-string URL rather than submitting anything.
+    // The search markup is rendered inside the master page's server-side form element, and
+    // a nested GET form there is discarded by the browser: its fields end up on the outer
+    // ASP.NET form, which POSTs, so the typed term never reached the query string that
+    // BuildList reads. Navigating directly keeps search a true GET, so the URL carries the
+    // state and can be bookmarked, shared, and walked with Back.
+    // (Deliberately no literal form tags in this comment — the ASPX page parser scans this
+    //  block and would treat them as real server tags, breaking the page.)
+    window.pcSearch = function () {
+        var qEl = document.getElementById("pcQ");
+        var sEl = document.getElementById("pcStatus");
+        var q = qEl ? qEl.value.replace(/^\s+|\s+$/g, "") : "";
+        var st = sEl ? sEl.value : "PENDING";
+        var url = "PhotoChangeController.aspx?status=" + encodeURIComponent(st);
+        if (q) url += "&q=" + encodeURIComponent(q);
+        // Any new search starts at page 1 — keeping ?page=4 from the previous result set
+        // would land on an empty page.
+        window.location.href = url;
+    };
+
+    // Enter inside the search box searches, and must not be allowed to submit the
+    // surrounding server form (which is what made the box appear to clear itself).
+    document.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter" && e.keyCode !== 13) return;
+        var t = e.target;
+        if (!t || t.id !== "pcQ") return;
+        e.preventDefault();
+        window.pcSearch();
+    }, true);
+
     window.pcOpenInit = function () {
         document.getElementById("piReg").value = "";
         document.getElementById("piStatus").value = "APPROVED";

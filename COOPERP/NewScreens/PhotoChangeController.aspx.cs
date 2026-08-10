@@ -459,6 +459,42 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
     // ===================================================================
     // LIST
     // ===================================================================
+    /// <summary>
+    /// Appends the free-text search predicate, tokenised on whitespace: every token must
+    /// appear in at least one of the student number, registration number, or either name
+    /// part. Tokens are ANDed across, ORed within — so extra tokens narrow the result and
+    /// never widen it.
+    ///
+    /// Two things this fixes beyond the plumbing:
+    ///   * acad_student.entryno (the STUDENT NUMBER, e.g. 24/U/BPLM/0011/K/DAY) was not
+    ///     searched at all, so searching by student ID could never return anything.
+    ///   * names are stored firstname-then-othername, but people type the surname first;
+    ///     matching per token rather than against the concatenated string makes the order
+    ///     and any stray spacing irrelevant.
+    ///
+    /// <paramref name="regnoCol"/> differs by branch: the banned list reads acad_student
+    /// directly, the queue reads stud_photo_change joined to it.
+    /// </summary>
+    private static void AppendSearch(StringBuilder w, List<MySqlParameter> pr, string q, string regnoCol)
+    {
+        if (string.IsNullOrEmpty(q)) return;
+        string[] tokens = q.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        int used = 0;
+        for (int i = 0; i < tokens.Length && used < 6; i++)
+        {
+            string tok = tokens[i].Trim();
+            if (tok.Length == 0) continue;
+            string p = "@q" + used;
+            w.Append(" AND (").Append(regnoCol).Append(" LIKE ").Append(p)
+             .Append(" OR COALESCE(s.entryno,'') LIKE ").Append(p)
+             .Append(" OR COALESCE(s.firstname,'') LIKE ").Append(p)
+             .Append(" OR COALESCE(s.othername,'') LIKE ").Append(p)
+             .Append(")");
+            pr.Add(new MySqlParameter(p, "%" + tok + "%"));
+            used++;
+        }
+    }
+
     private string BuildList()
     {
         string status = (Request.QueryString["status"] ?? "PENDING").Trim().ToUpperInvariant();
@@ -482,7 +518,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             {
                 // Banned students live on acad_student (not stud_photo_change).
                 var w = new StringBuilder("WHERE s.photo_banned=1");
-                if (q != "") { w.Append(" AND (s.regno LIKE @q OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @q)"); pr.Add(new MySqlParameter("@q", "%" + q + "%")); }
+                AppendSearch(w, pr, q, "s.regno");
                 using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_student s " + w, conn))
                 { foreach (var p in pr) cmd.Parameters.Add(Clone(p)); total = Convert.ToInt32(cmd.ExecuteScalar()); }
                 int pgs = Math.Max(1, (int)Math.Ceiling(total / (double)PAGE_SIZE)); if (page > pgs) page = pgs; int off = (page - 1) * PAGE_SIZE;
@@ -510,7 +546,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             {
                 var where = new StringBuilder("WHERE 1=1");
                 if (status != "ALL") { where.Append(" AND c.status=@st"); pr.Add(new MySqlParameter("@st", status)); }
-                if (q != "") { where.Append(" AND (c.regno LIKE @q OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @q)"); pr.Add(new MySqlParameter("@q", "%" + q + "%")); }
+                AppendSearch(where, pr, q, "c.regno");
                 using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM stud_photo_change c LEFT JOIN acad_student s ON s.regno=c.regno " + where, conn))
                 { foreach (var p in pr) cmd.Parameters.Add(Clone(p)); total = Convert.ToInt32(cmd.ExecuteScalar()); }
                 int pgs = Math.Max(1, (int)Math.Ceiling(total / (double)PAGE_SIZE)); if (page > pgs) page = pgs; int off = (page - 1) * PAGE_SIZE;
@@ -555,9 +591,22 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             sb.Append(Tab("ALL", "All", status, q, -1));
             sb.Append("</div>");
             sb.Append("<div class='pc-bar__right'>");
-            sb.Append("<form method='get' class='pc-search'><input type='hidden' name='status' value='" + HE(status) + "'/>" +
-                      "<input type='text' name='q' value='" + HE(q) + "' placeholder='Search reg no or name...' class='pc-search__in'/>" +
-                      "<button class='pc-btn pc-btn--sm'>Search</button>" + (q != "" ? "<a class='pc-clear' href='PhotoChangeController.aspx?status=" + HE(status) + "'>clear</a>" : "") + "</form>");
+            // Deliberately NOT a <form>. This markup is emitted inside the master page's
+            // <form id="form1" runat="server">, and HTML does not allow nested forms: the
+            // browser silently drops the inner <form> tag, so its inputs join the OUTER
+            // ASP.NET form and the button (which had no type, so defaulted to submit) posted
+            // that form back to the same URL. The typed term went out as a POST field while
+            // BuildList reads Request.QueryString["q"] — which is why the box appeared to
+            // clear itself and nothing was ever filtered.
+            //
+            // pcSearch() instead navigates to a real query-string URL, so search is a genuine
+            // GET: bookmarkable, shareable, and correct on Back.
+            sb.Append("<div class='pc-search'>" +
+                      "<input type='hidden' id='pcStatus' value='" + HE(status) + "'/>" +
+                      "<input type='text' id='pcQ' value='" + HE(q) + "' placeholder='Search student no, reg no or name...' class='pc-search__in' autocomplete='off'/>" +
+                      "<button type='button' class='pc-btn pc-btn--sm' onclick='pcSearch()'>Search</button>" +
+                      (q != "" ? "<a class='pc-clear' href='PhotoChangeController.aspx?status=" + HE(status) + "'>clear</a>" : "") +
+                      "</div>");
             sb.Append("<button type='button' class='pc-btn pc-btn--nav' onclick='pcOpenInit()'>&#43; Set a student&rsquo;s photograph status</button>");
             sb.Append("</div>");
             sb.Append("</div>");
