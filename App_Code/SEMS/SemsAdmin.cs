@@ -102,7 +102,37 @@ public static class SemsAdmin
                 int complaints= Scalar(c, "SELECT COUNT(*) FROM campus_dynamics_portal.sems_complaints WHERE status NOT IN ('RESOLVED','CLOSED')");
                 int forgot    = Scalar(c, "SELECT COUNT(*) FROM campus_dynamics_portal.sems_complaints WHERE category='Forgot Password' AND status NOT IN ('RESOLVED','CLOSED')");
                 double rate = total > 0 ? Math.Round(completed * 100.0 / total, 1) : 0;
-                return js.Serialize(new { success = true, eligible, partial, total, pending, ready, learning, quiz, activated, completed, pwchanged, complaints, forgot, successRate = rate });
+
+                // Per-campus breakdown. One grouped pass rather than a query per campus, so
+                // adding a third campus later costs nothing.
+                var campuses = new List<object>();
+                using (var cmd = new MySqlCommand(
+                    "SELECT IFNULL(campus,'') campus, COUNT(*) total," +
+                    " SUM(current_stage='PENDING_CREATION') pending," +
+                    " SUM(current_stage IN ('EMAIL_CREATED','READY_FOR_COLLECTION')) ready," +
+                    " SUM(current_stage='COMPLETED') completed," +
+                    " SUM(verification_status='VERIFIED') verified" +
+                    " FROM campus_dynamics_portal.sems_email_creations" +
+                    " GROUP BY campus ORDER BY total DESC", c))
+                using (var rd = cmd.ExecuteReader())
+                    while (rd.Read())
+                    {
+                        int cTotal = Convert.ToInt32(rd["total"]);
+                        int cDone  = Convert.ToInt32(rd["completed"]);
+                        campuses.Add(new
+                        {
+                            code = rd["campus"].ToString(),
+                            name = CampusName(rd["campus"].ToString()),
+                            total = cTotal,
+                            pending = Convert.ToInt32(rd["pending"]),
+                            ready = Convert.ToInt32(rd["ready"]),
+                            completed = cDone,
+                            verified = Convert.ToInt32(rd["verified"]),
+                            successRate = cTotal > 0 ? Math.Round(cDone * 100.0 / cTotal, 1) : 0
+                        });
+                    }
+
+                return js.Serialize(new { success = true, eligible, partial, total, pending, ready, learning, quiz, activated, completed, pwchanged, complaints, forgot, successRate = rate, campuses });
             }
         }
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
@@ -263,7 +293,18 @@ public static class SemsAdmin
                     "LEFT JOIN campus_dynamics.acad_programme p ON p.progcode=e.programme WHERE IFNULL(e.programme,'')<>'' ORDER BY nm", c))
                 using (var rd = cmd.ExecuteReader())
                     while (rd.Read()) progs.Add(new { code = rd[0].ToString(), name = rd[1].ToString() });
-                return js.Serialize(new { success = true, programmes = progs });
+
+                // Campuses actually present in the pipeline, with counts, so the filter only
+                // ever offers options that return something.
+                var camps = new List<object>();
+                using (var cmd = new MySqlCommand(
+                    "SELECT IFNULL(campus,'') campus, COUNT(*) n FROM campus_dynamics_portal.sems_email_creations " +
+                    "WHERE IFNULL(campus,'')<>'' GROUP BY campus ORDER BY n DESC", c))
+                using (var rd = cmd.ExecuteReader())
+                    while (rd.Read())
+                        camps.Add(new { code = rd[0].ToString(), name = CampusName(rd[0].ToString()), count = Convert.ToInt32(rd[1]) });
+
+                return js.Serialize(new { success = true, programmes = progs, campuses = camps });
             }
         }
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }

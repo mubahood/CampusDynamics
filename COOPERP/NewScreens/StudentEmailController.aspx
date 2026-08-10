@@ -55,7 +55,36 @@
 .se-msg--ok{background:#e6f4ec;color:#0b5c3a;border:1px solid #b5dcc5;}
 .se-msg--err{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
 .se-empty{text-align:center;padding:40px;color:#94a3b8;font-size:13px;}
-@media(max-width:640px){.se-wrap{padding:12px;}}
+/* Per-campus cards. Clickable: they set the campus filter and re-run the search. */
+.se-camps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:16px;}
+.se-camp{background:#fff;border:1px solid #e0e5ed;border-top:3px solid #05275C;padding:12px 14px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+.se-camp:hover{border-color:#174DA4;box-shadow:0 2px 10px rgba(5,39,92,.09);}
+.se-camp.active{border-color:#174DA4;background:#f7faff;box-shadow:inset 0 0 0 1px #174DA4;}
+.se-camp__h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:9px;}
+.se-camp__n{font-size:13.5px;font-weight:800;color:#05275C;}
+.se-camp__t{font-size:19px;font-weight:800;color:#05275C;line-height:1;font-variant-numeric:tabular-nums;}
+.se-camp__g{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.se-camp__s{text-align:center;padding:5px 2px;background:#f9fafc;border:1px solid #eef2f7;}
+.se-camp__sv{font-size:14px;font-weight:800;color:#334155;font-variant-numeric:tabular-nums;}
+.se-camp__sl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#94a3b8;margin-top:2px;}
+.se-camp__bar{height:4px;background:#eef2f7;margin-top:9px;overflow:hidden;}
+.se-camp__fill{height:100%;background:#16a34a;width:0;transition:width .4s ease;}
+.se-camp__pct{font-size:10px;color:#64748b;margin-top:4px;font-weight:600;}
+/* Email suggestions in the create modal */
+.se-sug{background:#f7faff;border:1px solid #dbe6f5;padding:10px 12px;margin-bottom:12px;}
+.se-sug__h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#64748b;margin-bottom:7px;}
+.se-sug__r{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+.se-sug__r:last-child{margin-bottom:0;}
+.se-sug__v{flex:1 1 auto;min-width:0;font-size:13px;font-weight:700;color:#05275C;font-family:Consolas,"Courier New",monospace;word-break:break-all;cursor:pointer;}
+.se-sug__v:hover{text-decoration:underline;}
+.se-cp{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid #cbd5e1;background:#fff;color:#475569;cursor:pointer;padding:0;}
+.se-cp:hover{border-color:#174DA4;color:#174DA4;}
+.se-cp.ok{border-color:#16a34a;color:#16a34a;}
+.se-use{flex:0 0 auto;border:1px solid #cbd5e1;background:#fff;color:#174DA4;font-size:10.5px;font-weight:700;padding:5px 8px;cursor:pointer;}
+.se-use:hover{border-color:#174DA4;background:#174DA4;color:#fff;}
+.se-fi--row{display:flex;gap:7px;align-items:center;}
+.se-fi--row .se-fi{flex:1 1 auto;min-width:0;}
+@media(max-width:640px){.se-wrap{padding:12px;}.se-camps{grid-template-columns:1fr;}}
 </style>
 </asp:Content>
 
@@ -73,6 +102,11 @@
     </div>
 
     <div class="se-kpis" id="kpis"></div>
+
+    <!-- Per-campus breakdown. Clicking a card filters the pipeline to that campus, so the
+         numbers are a way in rather than just a readout. -->
+    <div class="se-camps" id="camps"></div>
+
     <div class="se-msg" id="topMsg"></div>
 
     <div class="se-tabs">
@@ -97,6 +131,7 @@
                 <option value="VERIFIED">Verified</option>
                 <option value="UNVERIFIED">Unverified</option>
             </select>
+            <select id="fCampus" class="se-sel"><option value="">All campuses</option></select>
             <select id="fProg" class="se-sel"><option value="">All programmes</option></select>
             <button type="button" class="se-btn se-btn--p" onclick="doSearch(1)">Search</button>
             <button type="button" class="se-btn" onclick="resetF()">Reset</button>
@@ -159,10 +194,30 @@
     <div class="se-modal__b">
         <div class="se-msg" id="mMsg"></div>
         <div id="mWho" style="font-size:12.5px;color:#64748b;margin-bottom:6px;"></div>
+
+        <!-- Suggested addresses, built from the student's own name + intake year.
+             Click the address (or "Use") to drop it into the field; the icon copies it. -->
+        <div class="se-sug" id="mSug">
+            <div class="se-sug__h">Suggested addresses</div>
+            <div class="se-sug__r">
+                <span class="se-sug__v" id="sug1" title="Click to use this address" onclick="useSug(1)">&mdash;</span>
+                <button type="button" class="se-use" onclick="useSug(1)">Use</button>
+                <button type="button" class="se-cp" id="cp1" title="Copy" onclick="copyVal('sug1','cp1')"></button>
+            </div>
+            <div class="se-sug__r">
+                <span class="se-sug__v" id="sug2" title="Click to use this address" onclick="useSug(2)">&mdash;</span>
+                <button type="button" class="se-use" onclick="useSug(2)">Use</button>
+                <button type="button" class="se-cp" id="cp2" title="Copy" onclick="copyVal('sug2','cp2')"></button>
+            </div>
+        </div>
+
         <label class="se-fl">University email address</label>
-        <input type="text" id="mEmail" class="se-fi" placeholder="e.g. jdoe25@mru.ac.ug" autocomplete="off" />
+        <input type="text" id="mEmail" class="se-fi" placeholder="e.g. jdoe26@mru.ac.ug" autocomplete="off" />
         <label class="se-fl">Temporary password</label>
-        <input type="text" id="mPw" class="se-fi" placeholder="e.g. Mru@2026" autocomplete="off" />
+        <div class="se-fi--row">
+            <input type="text" id="mPw" class="se-fi" autocomplete="off" />
+            <button type="button" class="se-cp" id="cpPw" title="Copy password" onclick="copyVal('mPw','cpPw')"></button>
+        </div>
         <label class="se-fl">Notes (optional)</label>
         <input type="text" id="mNotes" class="se-fi" autocomplete="off" />
     </div>
@@ -224,7 +279,7 @@
 <script type="text/javascript">
 (function(){
 'use strict';
-var st={q:'',stage:'',verif:'',prog:'',page:1,ps:25};
+var st={q:'',stage:'',verif:'',prog:'',campus:'',page:1,ps:25};
 function qs(id){return document.getElementById(id);}
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
 function fmt(n){return (parseInt(n,10)||0).toLocaleString('en-US');}
@@ -232,33 +287,136 @@ function ajax(m,p,cb){var x=new XMLHttpRequest();x.open('POST','StudentEmailCont
 function topMsg(m,ok){var e=qs('topMsg');e.textContent=m;e.className='se-msg '+(ok?'se-msg--ok':'se-msg--err');e.style.display='block';setTimeout(function(){e.style.display='none';},5000);}
 
 // URL state
-function readUrl(){var u=new URLSearchParams(location.search||'');st.q=u.get('q')||'';st.stage=u.get('stage')||'';st.verif=u.get('verif')||'';st.prog=u.get('prog')||'';st.page=Math.max(1,parseInt(u.get('page'),10)||1);}
-function syncUrl(){var u=new URLSearchParams();if(st.q)u.set('q',st.q);if(st.stage)u.set('stage',st.stage);if(st.verif)u.set('verif',st.verif);if(st.prog)u.set('prog',st.prog);if(st.page>1)u.set('page',st.page);history.replaceState(null,'',(u.toString()?'?'+u.toString():location.pathname));}
+function readUrl(){var u=new URLSearchParams(location.search||'');st.q=u.get('q')||'';st.stage=u.get('stage')||'';st.verif=u.get('verif')||'';st.prog=u.get('prog')||'';st.campus=u.get('campus')||'';st.page=Math.max(1,parseInt(u.get('page'),10)||1);}
+function syncUrl(){var u=new URLSearchParams();if(st.q)u.set('q',st.q);if(st.stage)u.set('stage',st.stage);if(st.verif)u.set('verif',st.verif);if(st.prog)u.set('prog',st.prog);if(st.campus)u.set('campus',st.campus);if(st.page>1)u.set('page',st.page);history.replaceState(null,'',(u.toString()?'?'+u.toString():location.pathname));}
 
-function loadKpis(){ajax('Stats',{},function(r){if(!r||!r.success)return;var k=[['eligible','Eligible (100k+)','info'],['partial','Paid < 100k','warn'],['total','In Pipeline',''],['pending','Pending','warn'],['ready','Ready','ready'],['quiz','Quiz Passed','info'],['activated','Activated','ok'],['completed','Completed','ok'],['complaints','Open Complaints','warn'],['successRate','Success %','ok']];var h='';k.forEach(function(x){var raw=r[x[0]];var disp=(x[0]==='successRate')?((raw||0)+'%'):fmt(raw);h+='<div class="se-kpi'+(x[2]?' se-kpi--'+x[2]:'')+'"><div class="se-kpi__v">'+disp+'</div><div class="se-kpi__l">'+x[1]+'</div></div>';});qs('kpis').innerHTML=h;});}
+function loadKpis(){ajax('Stats',{},function(r){if(!r||!r.success)return;var k=[['eligible','Eligible (100k+)','info'],['partial','Paid < 100k','warn'],['total','In Pipeline',''],['pending','Pending','warn'],['ready','Ready','ready'],['quiz','Quiz Passed','info'],['activated','Activated','ok'],['completed','Completed','ok'],['complaints','Open Complaints','warn'],['successRate','Success %','ok']];var h='';k.forEach(function(x){var raw=r[x[0]];var disp=(x[0]==='successRate')?((raw||0)+'%'):fmt(raw);h+='<div class="se-kpi'+(x[2]?' se-kpi--'+x[2]:'')+'"><div class="se-kpi__v">'+disp+'</div><div class="se-kpi__l">'+x[1]+'</div></div>';});qs('kpis').innerHTML=h;renderCampuses(r.campuses);});}
+
+// Per-campus cards: headline total, the four stages that matter, and completion progress.
+function renderCampuses(list){
+    var el=qs('camps'); if(!el) return;
+    if(!list||!list.length){el.innerHTML='';return;}
+    var h='';
+    list.forEach(function(c){
+        var pct=parseFloat(c.successRate)||0;
+        h+='<div class="se-camp" data-code="'+esc(c.code)+'" onclick="pickCampus(\''+esc(c.code)+'\')" title="Filter the pipeline to '+esc(c.name)+'">'
+          +  '<div class="se-camp__h"><span class="se-camp__n">'+esc(c.name)+'</span><span class="se-camp__t">'+fmt(c.total)+'</span></div>'
+          +  '<div class="se-camp__g">'
+          +    '<div class="se-camp__s"><div class="se-camp__sv">'+fmt(c.pending)+'</div><div class="se-camp__sl">Pending</div></div>'
+          +    '<div class="se-camp__s"><div class="se-camp__sv">'+fmt(c.ready)+'</div><div class="se-camp__sl">Ready</div></div>'
+          +    '<div class="se-camp__s"><div class="se-camp__sv">'+fmt(c.verified)+'</div><div class="se-camp__sl">Verified</div></div>'
+          +    '<div class="se-camp__s"><div class="se-camp__sv">'+fmt(c.completed)+'</div><div class="se-camp__sl">Done</div></div>'
+          +  '</div>'
+          +  '<div class="se-camp__bar"><div class="se-camp__fill" style="width:'+pct+'%"></div></div>'
+          +  '<div class="se-camp__pct">'+pct+'% completed</div>'
+          +'</div>';
+    });
+    el.innerHTML=h;
+    markActiveCampus();
+}
 function payBadge(p){p=parseInt(p,10)||0;var c=p>=100000?'full':(p>0?'part':'none');return '<span class="se-pay se-pay--'+c+'">'+(p>0?('UGX '+fmt(p)):'—')+'</span>';}
 
 function stageBadge(s){var m={PENDING_CREATION:['pending','Pending creation'],READY_FOR_COLLECTION:['ready','Ready for collection'],EMAIL_CREATED:['ready','Email created'],COMPLETED:['done','Completed']};var x=m[s]||['muted',s||'-'];return '<span class="se-badge se-b--'+x[0]+'">'+esc(x[1])+'</span>';}
 
-window.doSearch=function(page){st.q=qs('fq').value.trim();st.stage=qs('fStage').value;st.verif=qs('fVerif').value;st.prog=qs('fProg').value;st.page=page||1;syncUrl();
+window.doSearch=function(page){st.q=qs('fq').value.trim();st.stage=qs('fStage').value;st.verif=qs('fVerif').value;st.prog=qs('fProg').value;st.campus=qs('fCampus').value;st.page=page||1;syncUrl();markActiveCampus();
 qs('pMeta').textContent='Loading…';
-ajax('Search',{q:st.q,stage:st.stage,campus:'',programme:st.prog,year:'',verification:st.verif,page:st.page,pageSize:st.ps},function(r){
+ajax('Search',{q:st.q,stage:st.stage,campus:st.campus,programme:st.prog,year:'',verification:st.verif,page:st.page,pageSize:st.ps},function(r){
  if(!r||!r.success){qs('pMeta').textContent=(r&&r.message)||'Error';return;}
  qs('pMeta').textContent=fmt(r.total)+' student'+(r.total===1?'':'s')+(r.pageCount>1?(' · page '+r.page+' of '+r.pageCount):'');
  var b=qs('pBody');b.innerHTML='';qs('pEmpty').style.display=r.rows.length?'none':'block';
  r.rows.forEach(function(x){var canCreate=(x.stage==='PENDING_CREATION');var rg=x.regno.replace(/'/g,"");var tr=document.createElement('tr');
-  tr.innerHTML='<td><strong>'+esc(x.name||'-')+'</strong></td><td>'+esc(x.regno)+'</td><td>'+esc(x.programme||'-')+'</td><td>'+esc(x.campus)+'</td><td>'+esc(x.year)+'</td><td>'+payBadge(x.paid)+'</td><td>'+(x.email?esc(x.email):'<span style="color:#cbd5e1">—</span>')+'</td><td>'+stageBadge(x.stage)+'</td><td>'+(x.verification==='VERIFIED'?'<span class="se-badge se-b--verified">Verified</span>':'<span class="se-badge se-b--muted">—</span>')+'</td><td style="color:#94a3b8">'+esc(x.updated||x.created)+'</td><td style="white-space:nowrap">'+(canCreate?'<span class="se-act" onclick="openCreate(\''+rg+'\',\''+esc(x.name).replace(/'/g,"")+'\')">Create</span> · ':'')+'<span class="se-act" onclick="openManage(\''+rg+'\')">Manage</span></td>';
+  tr.innerHTML='<td><strong>'+esc(x.name||'-')+'</strong></td><td>'+esc(x.regno)+'</td><td>'+esc(x.programme||'-')+'</td><td>'+esc(x.campus)+'</td><td>'+esc(x.year)+'</td><td>'+payBadge(x.paid)+'</td><td>'+(x.email?esc(x.email):'<span style="color:#cbd5e1">—</span>')+'</td><td>'+stageBadge(x.stage)+'</td><td>'+(x.verification==='VERIFIED'?'<span class="se-badge se-b--verified">Verified</span>':'<span class="se-badge se-b--muted">—</span>')+'</td><td style="color:#94a3b8">'+esc(x.updated||x.created)+'</td><td style="white-space:nowrap">'+(canCreate?'<span class="se-act" onclick="openCreate(\''+rg+'\',\''+esc(x.name).replace(/'/g,"")+'\',\''+esc(x.year)+'\')">Create</span> · ':'')+'<span class="se-act" onclick="openManage(\''+rg+'\')">Manage</span></td>';
   b.appendChild(tr);});
  renderPager(r.page,r.pageCount);
 });};
 function renderPager(page,pc){var el=qs('pPager');el.innerHTML='';if(pc<=1)return;function b(t,pg,dis,act){var x=document.createElement('button');x.textContent=t;if(act)x.className='active';if(dis)x.disabled=true;else x.onclick=function(){doSearch(pg);};el.appendChild(x);}b('‹',page-1,page<=1);var f=Math.max(1,page-2),t=Math.min(pc,page+2);for(var i=f;i<=t;i++)b(String(i),i,false,i===page);b('›',page+1,page>=pc);}
-window.resetF=function(){qs('fq').value='';qs('fStage').value='';qs('fVerif').value='';qs('fProg').value='';st={q:'',stage:'',verif:'',prog:'',page:1,ps:25};doSearch(1);};
+window.resetF=function(){qs('fq').value='';qs('fStage').value='';qs('fVerif').value='';qs('fProg').value='';qs('fCampus').value='';st={q:'',stage:'',verif:'',prog:'',campus:'',page:1,ps:25};doSearch(1);};
+
+// Clicking a campus card is just another way to set the filter — it drives the same
+// dropdown and the same search, so the two can never disagree.
+window.pickCampus=function(code){
+    qs('fCampus').value=(st.campus===code)?'':code;   // click the active card again to clear
+    doSearch(1);
+    var t=qs('paneP'); if(t&&t.scrollIntoView) t.scrollIntoView({behavior:'smooth',block:'nearest'});
+};
+function markActiveCampus(){
+    var cards=document.querySelectorAll('.se-camp');
+    for(var i=0;i<cards.length;i++)
+        cards[i].className='se-camp'+(cards[i].getAttribute('data-code')===st.campus&&st.campus?' active':'');
+}
 
 window.genEligible=function(){var btn=qs('btnGen');btn.disabled=true;btn.textContent='Generating…';ajax('GenerateEligible',{},function(r){btn.disabled=false;btn.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Generate Eligible Students';if(r&&r.success){topMsg(r.message,true);loadKpis();doSearch(1);}else topMsg((r&&r.message)||'Failed',false);});};
 
-// Create modal
+// ── Create modal ────────────────────────────────────────────────────────────
 var _cReg='';
-window.openCreate=function(reg,name){_cReg=reg;qs('mWho').textContent=name+' · '+reg;qs('mEmail').value='';qs('mPw').value='';qs('mNotes').value='';qs('mMsg').style.display='none';qs('ov').style.display='block';qs('mCreate').style.display='block';};
+var DEFAULT_PW='mru123456';   // house default; the field is pre-filled with it and editable
+
+// Strip anything that can't live in the local part of an address, and lowercase it.
+function slug(s){return String(s||'').toLowerCase().replace(/[^a-z]/g,'');}
+
+// Two house formats, both suffixed with the last two digits of the intake year:
+//   1. firstname + first letter of surname      e.g. wilberforces26@mru.ac.ug
+//   2. surname   + first letter of first name   e.g. ssentongow26@mru.ac.ug
+// Names are stored as "FIRSTNAME SURNAME", so the first token is the given name and the
+// last token is the family name. Middle names are ignored.
+function buildSug(name,year){
+    var parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+    var first=slug(parts[0]), last=slug(parts.length>1?parts[parts.length-1]:'');
+    var yy=String(year||'').replace(/\D/g,'');
+    yy=yy.length>=2?yy.slice(-2):yy;
+    if(!first&&!last) return ['',''];
+    // With only one usable name token, fall back to that token + year rather than
+    // inventing an initial from nothing.
+    if(!last)  return [first+yy+'@mru.ac.ug', first+yy+'@mru.ac.ug'];
+    if(!first) return [last+yy+'@mru.ac.ug',  last+yy+'@mru.ac.ug'];
+    return [first+last.charAt(0)+yy+'@mru.ac.ug', last+first.charAt(0)+yy+'@mru.ac.ug'];
+}
+
+var ICON_COPY='<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+var ICON_OK  ='<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+
+// Copy helper. execCommand is the fallback because navigator.clipboard is unavailable
+// on plain-HTTP origins, and this console is reached over http internally.
+function copyText(t){
+    if(!t) return false;
+    if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t);return true;}
+    var ta=document.createElement('textarea');
+    ta.value=t;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.top='-1000px';
+    document.body.appendChild(ta);ta.select();
+    var ok=false;try{ok=document.execCommand('copy');}catch(e){ok=false;}
+    document.body.removeChild(ta);return ok;
+}
+window.copyVal=function(srcId,btnId){
+    var el=qs(srcId);if(!el)return;
+    var val=(el.tagName==='INPUT')?el.value:el.textContent;
+    val=String(val||'').trim();
+    if(!val||val==='—')return;
+    var b=qs(btnId);
+    if(copyText(val)){
+        b.innerHTML=ICON_OK;b.classList.add('ok');b.title='Copied';
+        setTimeout(function(){b.innerHTML=ICON_COPY;b.classList.remove('ok');b.title='Copy';},1400);
+    }
+};
+window.useSug=function(n){
+    var v=qs('sug'+n).textContent.trim();
+    if(v&&v!=='—'){qs('mEmail').value=v;qs('mEmail').focus();}
+};
+
+window.openCreate=function(reg,name,year){
+    _cReg=reg;
+    qs('mWho').textContent=name+' · '+reg;
+    qs('mEmail').value='';
+    qs('mPw').value=DEFAULT_PW;                  // pre-filled, still editable
+    qs('mNotes').value='';
+    qs('mMsg').style.display='none';
+    qs('cp1').innerHTML=ICON_COPY;qs('cp2').innerHTML=ICON_COPY;qs('cpPw').innerHTML=ICON_COPY;
+    qs('cp1').classList.remove('ok');qs('cp2').classList.remove('ok');qs('cpPw').classList.remove('ok');
+    var s=buildSug(name,year);
+    qs('sug1').textContent=s[0]||'—';
+    qs('sug2').textContent=s[1]||'—';
+    qs('mSug').style.display=(s[0]||s[1])?'block':'none';
+    qs('ov').style.display='block';qs('mCreate').style.display='block';
+};
 window.saveCreate=function(){var em=qs('mEmail').value.trim(),pw=qs('mPw').value.trim();if(!em||!pw){modMsg('mMsg','Email and temporary password are required.',false);return;}qs('mSave').disabled=true;ajax('CreateEmail',{regno:_cReg,email:em,tempPw:pw,notes:qs('mNotes').value.trim()},function(r){qs('mSave').disabled=false;if(r&&r.success){closeM();topMsg(r.message,true);loadKpis();doSearch(st.page);}else modMsg('mMsg',(r&&r.message)||'Failed',false);});};
 function modMsg(id,m,ok){var e=qs(id);e.textContent=m;e.className='se-msg '+(ok?'se-msg--ok':'se-msg--err');e.style.display='block';}
 window.closeM=function(){qs('ov').style.display='none';qs('mCreate').style.display='none';qs('mResp').style.display='none';qs('mManage').style.display='none';};
@@ -309,7 +467,7 @@ function renderDetail(r){var d=r.record;var h='';
  h+='</div>';
  qs('gBody').innerHTML=h;}
 window.gStage=function(){var s=prompt('Set stage to one of:\nPENDING_CREATION, READY_FOR_COLLECTION, EMAIL_CREATED, COMPLETED, SUSPENDED','READY_FOR_COLLECTION');if(!s)return;var note=prompt('Reason / note (optional):','')||'';ajax('SetStatus',{regno:_gReg,stage:s.trim().toUpperCase(),note:note},function(r){if(r&&r.success){topMsg(r.message,true);openManage(_gReg);loadKpis();doSearch(st.page);}else topMsg((r&&r.message)||'Failed',false);});};
-window.gPw=function(){var p=prompt('New temporary password for this student:','Mru@2026');if(!p||!p.trim())return;ajax('SetPassword',{regno:_gReg,tempPw:p.trim()},function(r){if(r&&r.success){topMsg(r.message,true);openManage(_gReg);}else topMsg((r&&r.message)||'Failed',false);});};
+window.gPw=function(){var p=prompt('New temporary password for this student:',DEFAULT_PW);if(!p||!p.trim())return;ajax('SetPassword',{regno:_gReg,tempPw:p.trim()},function(r){if(r&&r.success){topMsg(r.message,true);openManage(_gReg);}else topMsg((r&&r.message)||'Failed',false);});};
 window.gDel=function(){if(!confirm('Remove '+_gReg+' from the email pipeline? This deletes the record.'))return;var note=prompt('Reason (optional):','')||'';ajax('DeleteRecord',{regno:_gReg,note:note},function(r){if(r&&r.success){closeM();topMsg(r.message,true);loadKpis();doSearch(st.page);}else topMsg((r&&r.message)||'Failed',false);});};
 
 // Complaints
@@ -321,8 +479,17 @@ window.saveResp=function(){ajax('RespondComplaint',{id:_rId,status:qs('rStatus')
 // init
 (function(){readUrl();qs('fq').value=st.q;qs('fStage').value=st.stage;qs('fVerif').value=st.verif;
  qs('fq').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();doSearch(1);}});
+ qs('fCampus').addEventListener('change',function(){doSearch(1);});
  loadKpis();
- ajax('Filters',{},function(r){if(r&&r.success){var s=qs('fProg');(r.programmes||[]).forEach(function(p){var o=document.createElement('option');o.value=p.code;o.textContent=p.name;s.appendChild(o);});qs('fProg').value=st.prog;}
+ ajax('Filters',{},function(r){
+  if(r&&r.success){
+   var s=qs('fProg');(r.programmes||[]).forEach(function(p){var o=document.createElement('option');o.value=p.code;o.textContent=p.name;s.appendChild(o);});
+   qs('fProg').value=st.prog;
+   // Campuses come from the pipeline itself, with counts, so the list can never offer an
+   // option that returns nothing — and picks up a third campus automatically if one appears.
+   var cs=qs('fCampus');(r.campuses||[]).forEach(function(cp){var o=document.createElement('option');o.value=cp.code;o.textContent=cp.name+' ('+fmt(cp.count)+')';cs.appendChild(o);});
+   cs.value=st.campus;
+  }
   doSearch(st.page);});
 })();
 })();
