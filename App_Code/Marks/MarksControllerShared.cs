@@ -712,29 +712,59 @@ public static class MarksControllerShared
             {
                 conn.Open();
                 if (!RecordInScope(conn, id)) return SCOPE_DENIED;
-                string sql = @"UPDATE campus_dynamics_portal.acad_course_registration
-                               SET provisional_course_work_marks = @cw,
-                                   provisional_exam_marks = @exam,
-                                   provisional_total_marks = @total,
-                                   provisional_marks_status = @pending,
-                                   provisional_marks_reviewed_by = @actor,
-                                   provisional_marks_review_comments = @comment,
-                                   provisional_marks_review_date = NOW()
-                               WHERE id = @id";
-                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+
+                bool wasPublished = IsPublished(conn, id);
+
+                using (MySqlTransaction tx = conn.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@cw", (object)cw ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@exam", (object)exam ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@total", (object)computedTotal ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@pending", StatusPending);
-                    cmd.Parameters.AddWithValue("@actor", actor);
-                    cmd.Parameters.AddWithValue("@comment", reviewComment);
-                    cmd.Parameters.AddWithValue("@id", id);
-                    if (cmd.ExecuteNonQuery() == 0)
-                        return js.Serialize(new { success = false, message = "Record not found." });
+                    // Editing a PUBLISHED mark used to change the provisional figures and set the
+                    // status back to pending while leaving the old value live in acad_results —
+                    // so the student's statement kept showing the mark that had just been
+                    // corrected. The published result is withdrawn first, in the same
+                    // transaction, which also recomputes the semester GPA and CGPA.
+                    if (wasPublished)
+                    {
+                        ProvisionalActionResult un = ProcessUnpublishAction(conn, tx, id, actor,
+                            "Withdrawn for an admin mark correction" + (string.IsNullOrWhiteSpace(note) ? "" : ": " + note.Trim()));
+                        if (!un.Success) { tx.Rollback(); return js.Serialize(new { success = false, message = un.Message }); }
+                    }
+
+                    string sql = @"UPDATE campus_dynamics_portal.acad_course_registration
+                                   SET provisional_course_work_marks = @cw,
+                                       provisional_exam_marks = @exam,
+                                       provisional_total_marks = @total,
+                                       provisional_marks_status = @pending,
+                                       provisional_marks_reviewed_by = @actor,
+                                       provisional_marks_review_comments = @comment,
+                                       provisional_marks_review_date = NOW()
+                                   WHERE id = @id";
+                    using (MySqlCommand cmd = new MySqlCommand(sql, conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@cw", (object)cw ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@exam", (object)exam ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@total", (object)computedTotal ?? DBNull.Value);
+                        cmd.Parameters.AddWithValue("@pending", StatusPending);
+                        cmd.Parameters.AddWithValue("@actor", actor);
+                        cmd.Parameters.AddWithValue("@comment", reviewComment);
+                        cmd.Parameters.AddWithValue("@id", id);
+                        if (cmd.ExecuteNonQuery() == 0)
+                        { tx.Rollback(); return js.Serialize(new { success = false, message = "Record not found." }); }
+                    }
+
+                    // Both components now present → the mark is ENTERED and ready for the HOD;
+                    // otherwise it drops back to NOT_ENTERED. Derived, never assumed.
+                    MarkStageSync.Sync(conn, tx, id, actor, reviewComment);
+                    tx.Commit();
                 }
+
+                return js.Serialize(new
+                {
+                    success = true,
+                    message = wasPublished
+                        ? "Marks saved. The published result was withdrawn and the GPA recomputed — the record must be taken back through capture, approval and publishing."
+                        : "Marks saved. Status reset to pending for re-review."
+                });
             }
-            return js.Serialize(new { success = true, message = "Marks saved. Status reset to pending for re-review." });
         }
         catch (Exception ex)
         {
@@ -753,6 +783,12 @@ public static class MarksControllerShared
             {
                 conn.Open();
                 if (!RecordInScope(conn, id)) return SCOPE_DENIED;
+
+                // Resetting a PUBLISHED record has to withdraw the published result too, or the
+                // student keeps seeing a mark the console has just sent back to the start.
+                if (IsPublished(conn, id))
+                    return UnpublishMark(id, "Reset to pending by " + actor);
+
                 string sql = @"UPDATE campus_dynamics_portal.acad_course_registration
                                SET provisional_marks_status = @pending,
                                    provisional_marks_review_comments = CONCAT(COALESCE(provisional_marks_review_comments,''), ' [Reset by admin: ', @actor, ']'),
@@ -767,13 +803,30 @@ public static class MarksControllerShared
                     if (cmd.ExecuteNonQuery() == 0)
                         return js.Serialize(new { success = false, message = "Record not found." });
                 }
+                MarkStageSync.Sync(conn, id, actor, "");
             }
-            return js.Serialize(new { success = true, message = "Record reset to pending." });
+            return js.Serialize(new { success = true, message = "Record reset to pending — it re-enters the journey at the lecturer's stage." });
         }
         catch (Exception ex)
         {
             return js.Serialize(new { success = false, message = "Error: " + ex.Message });
         }
+    }
+
+    /// <summary>True when the record currently carries a published provisional status.</summary>
+    private static bool IsPublished(MySqlConnection conn, int id)
+    {
+        try
+        {
+            using (MySqlCommand cmd = new MySqlCommand(
+                "SELECT LOWER(COALESCE(provisional_marks_status,'')) FROM campus_dynamics_portal.acad_course_registration WHERE id=@id LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                object v = cmd.ExecuteScalar();
+                return v != null && v != DBNull.Value && string.Equals(v.ToString(), StatusPublished, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        catch { return false; }
     }
 
     /// <summary>
@@ -855,6 +908,11 @@ public static class MarksControllerShared
                     "UPDATE campus_dynamics_portal.acad_course_registration " +
                     "SET provisional_published_by=NULL, provisional_published_date=NULL WHERE id=@id", conn))
                 { clr.Parameters.AddWithValue("@id", id); clr.ExecuteNonQuery(); }
+
+                // …and bring the staged journey with it. Without this the stage consoles and the
+                // student's Mark Status Check keep reporting the stage this record has just been
+                // taken back out of.
+                MarkStageSync.Sync(conn, id, actor, comment);
             }
             return js.Serialize(new { success = true, message = "Status updated to " + normalizedStatus + "." });
         }
@@ -937,6 +995,9 @@ public static class MarksControllerShared
                                     cmd.Parameters.AddWithValue("@id",      id);
                                     cmd.ExecuteNonQuery();
                                 }
+                                // Same transaction, so the stage can never be committed apart
+                                // from the status it is derived from.
+                                MarkStageSync.Sync(conn, tx, id, actor, comment);
                                 tx.Commit();
                                 affected++;
                             }
@@ -1496,8 +1557,12 @@ public static class MarksControllerShared
                 }
             }
 
+            // Rejection sends the mark back down the journey; the reason is stored where the
+            // stage consoles and the student's Mark Status Check look for it.
+            MarkStageSync.Sync(conn, tx, id, actor, comment);
+
             result.Success = true;
-            result.Message = "Marks rejected successfully.";
+            result.Message = "Marks rejected and returned to the lecturer's stage.";
             return result;
         }
 
@@ -1676,6 +1741,10 @@ public static class MarksControllerShared
             }
         }
 
+        // The staged journey reaches PUBLISHED at exactly the moment acad_results does —
+        // same transaction, so a student can never hold a result the stage says is unpublished.
+        MarkStageSync.Sync(conn, tx, id, actor, "");
+
         // ── Retake handling (best-effort; never blocks a publish) ────────────────────
         // If this registration is a RETAKE, flag the published result as a retake (so the
         // transcript marks it RT) and complete the independent retake tracking record with
@@ -1825,6 +1894,10 @@ public static class MarksControllerShared
                 return result;
             }
         }
+
+        // The result row has just been deleted, so the stage must come back down with it and
+        // release its publish/approve/capture back-references.
+        MarkStageSync.Sync(conn, tx, id, actor, comment);
 
         int semesterInt = ParseIntSafe(semester, 0);
         decimal semesterGpa = ComputeSemesterGpa(conn, tx, regno, acadYear, semesterInt);

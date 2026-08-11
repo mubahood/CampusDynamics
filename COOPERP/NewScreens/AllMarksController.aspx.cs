@@ -149,6 +149,69 @@ public partial class COOPERP_NewScreens_AllMarksController : System.Web.UI.Page
     public static string GetStudentRegSummary(string regno)
     { return MarksControllerShared.GetStudentRegSummary(regno); }
 
+    // ── Staged-journey integrity ─────────────────────────────────────
+    // This console predates the lecturer → HOD → Dean → Senate chain. Its actions now keep
+    // mark_stage derived from whatever they write, but records touched before that — or by
+    // any other tool that only knew the legacy column — can still contradict themselves.
+    // These two expose the contradiction and repair it.
+
+    [WebMethod(EnableSession = true)]
+    public static string StageDriftCount()
+    {
+        return Run("stage_drift_count", Ctx(), delegate
+        {
+            var js = new System.Web.Script.Serialization.JavaScriptSerializer();
+            try
+            {
+                using (var conn = new MySqlConnection(MarksControllerShared.ConnectionString))
+                {
+                    conn.Open();
+                    int n = MarkStageSync.DriftCount(conn);
+                    return js.Serialize(new
+                    {
+                        success = true,
+                        drift = n,
+                        message = n == 0
+                            ? "Every record's stage agrees with its status."
+                            : n + " record(s) have a marks stage that contradicts their status."
+                    });
+                }
+            }
+            catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+        });
+    }
+
+    [WebMethod(EnableSession = true)]
+    public static string RepairStageDrift()
+    {
+        return Run("stage_drift_repair", Ctx(), delegate
+        {
+            var js = new System.Web.Script.Serialization.JavaScriptSerializer();
+            try
+            {
+                MarksScope scope = MarksScopeResolver.Resolve();
+                if (!scope.HasAccess || !scope.IsAdmin)
+                    return js.Serialize(new { success = false, message = "Only an administrator can repair the stage journey." });
+
+                using (var conn = new MySqlConnection(MarksControllerShared.ConnectionString))
+                {
+                    conn.Open();
+                    string actor = MarksAuthorizationService.GetCurrentUser();
+                    int fixedRows = MarkStageSync.RepairDrift(conn, actor);
+                    return js.Serialize(new
+                    {
+                        success = true,
+                        repaired = fixedRows,
+                        message = fixedRows == 0
+                            ? "Nothing to repair — every stage already agrees with its status."
+                            : fixedRows + " record(s) re-derived from their current status."
+                    });
+                }
+            }
+            catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+        });
+    }
+
     [WebMethod(EnableSession = true)]
     public static string PreviewBatchWorkflow(string action, string scope, int[] ids, string year, string sem, string prog)
     { return Run("batch_preview:" + action, Ctx("scope", scope, "year", year, "sem", sem, "prog", prog, "count", (ids == null ? 0 : ids.Length).ToString()), delegate { return MarksControllerShared.PreviewBatchWorkflow(action, scope, ids, year, sem, prog, PageKind); }); }
