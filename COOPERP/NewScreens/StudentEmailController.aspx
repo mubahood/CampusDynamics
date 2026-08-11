@@ -239,6 +239,8 @@
                     the student's account</b> &mdash; confirmed rows move the student to Ready for collection and notify them.
                     Addresses created outside the system are adopted, and external accounts recorded.</div>
                 <button type="button" class="bx-btn bx-btn--p" onclick="impOpen()">Upload Google sheet</button>
+                <button type="button" class="bx-btn bx-btn--d" onclick="releaseUnconfirmed()"
+                    title="Clear addresses that were allocated and exported but that Google never created">Release unconfirmed</button>
             </div>
             <div class="bx-card">
                 <div class="bx-card__i">3</div>
@@ -1584,6 +1586,21 @@ window.dirOpen = function () {
         qs('dirDup').innerHTML = d.map(function (x) {
             return '<tr><td class="bx-pw">' + esc(x.email) + '</td><td><span class="bx-sev bx-sev--ERROR">' + x.count + ' students</span></td><td>' + esc(x.regnos) + '</td></tr>';
         }).join('');
+    });
+};
+
+// Gives back every address Google never created. Confirmed accounts are untouched — those are
+// live mailboxes — and the surrendered address is written to the activity log first, so a
+// cleared field is never a lost record.
+window.releaseUnconfirmed = function () {
+    var n = qs('flowCreate') ? qs('flowCreate').textContent : '?';
+    if (!confirm('Release the ' + n + ' address(es) that were exported but never confirmed by Google?\n\n'
+        + 'Those students go back to Pending with no address and no password. Accounts Google DID create are not touched.\n\n'
+        + 'Re-export when you are ready to try again.')) return;
+    msg('bxMsg', 'Releasing…', 'info');
+    ajax('ReleaseUnconfirmed', { note: 'released from the console' }, function (r) {
+        if (r && r.success) { msg('bxMsg', r.message, 'ok'); bxLoadBatches(); }
+        else msg('bxMsg', (r && r.message) || 'Could not release them.', 'err');
     });
 };
 

@@ -88,6 +88,11 @@ public partial class COOPERP_NewScreens_StudentEmailController : System.Web.UI.P
     public static string BatchCancel(string batchRef)
     { return NoAuth() ? DENIED : SemsBatch.CancelBatch(batchRef); }
 
+    /// <summary>Clears addresses allocated and exported but never confirmed by Google.</summary>
+    [WebMethod(EnableSession = true)]
+    public static string ReleaseUnconfirmed(string note)
+    { return NoAuth() ? DENIED : SemsBatch.ReleaseUnconfirmed(note); }
+
     [WebMethod(EnableSession = true)]
     public static string BatchList(int limit) { return NoAuth() ? DENIED : SemsBatch.BatchList(limit); }
 

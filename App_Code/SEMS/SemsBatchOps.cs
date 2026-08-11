@@ -678,6 +678,82 @@ public static partial class SemsBatch
         catch { }
     }
 
+    /// <summary>
+    /// Hands back every address that was allocated and exported but that Google never confirmed —
+    /// the rows left behind when an upload runs out of licences or is abandoned.
+    ///
+    /// The address, password and org unit are cleared, the reservation is released so the name is
+    /// free again, and the student returns to Pending with a clean slate. Confirmed accounts
+    /// (IN_GOOGLE) and students already past Pending are never touched: those are live mailboxes.
+    ///
+    /// The address being surrendered is written to the activity log first, so what a student was
+    /// once offered is always recoverable even though the field is now empty.
+    /// </summary>
+    public static string ReleaseUnconfirmed(string note)
+    {
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                var rows = new List<string[]>();
+                using (var q = new MySqlCommand(
+                    "SELECT id, regno, IFNULL(email_address,'') FROM campus_dynamics_portal.sems_email_creations " +
+                    "WHERE google_status IN ('PROPOSED','EXPORTED') AND current_stage='PENDING_CREATION' " +
+                    "  AND IFNULL(email_address,'') <> '' ORDER BY regno", c))
+                using (var rd = q.ExecuteReader())
+                    while (rd.Read()) rows.Add(new[] { S(rd[0]), S(rd[1]), S(rd[2]) });
+
+                if (rows.Count == 0)
+                    return Js().Serialize(new { success = true, released = 0, message = "Nothing to release — no unconfirmed allocations." });
+
+                int released = 0, failed = 0;
+                foreach (var r in rows)
+                {
+                    string id = r[0], regno = r[1], email = r[2];
+                    try
+                    {
+                        using (var tx = c.BeginTransaction())
+                        {
+                            LogTx(c, tx, 0, regno, "release_unconfirmed", "PENDING_CREATION", "PENDING_CREATION",
+                                  email + " released — never confirmed by Google" + (string.IsNullOrWhiteSpace(note) ? "" : " (" + note.Trim() + ")"));
+
+                            using (var up = new MySqlCommand(
+                                "UPDATE campus_dynamics_portal.sems_email_creations SET " +
+                                " email_address=NULL, temp_password=NULL, google_status='NOT_CREATED', google_org_unit=NULL, " +
+                                " google_synced_at=NULL, google_last_seen_at=NULL, recovery_email=NULL, recovery_phone=NULL, " +
+                                " exported_at=NULL, export_count=0, email_created_at=NULL, last_batch_id=NULL, " +
+                                " last_updated_by=@who, last_updated_at=NOW() WHERE id=@id", c, tx))
+                            {
+                                up.Parameters.AddWithValue("@who", Actor());
+                                up.Parameters.AddWithValue("@id", id);
+                                up.ExecuteNonQuery();
+                            }
+
+                            using (var d = new MySqlCommand(
+                                "DELETE FROM campus_dynamics_portal.sems_email_directory WHERE email=@e AND owner_ref=@o", c, tx))
+                            { d.Parameters.AddWithValue("@e", email); d.Parameters.AddWithValue("@o", regno); d.ExecuteNonQuery(); }
+
+                            tx.Commit();
+                        }
+                        released++;
+                    }
+                    catch { failed++; }
+                }
+
+                return Js().Serialize(new
+                {
+                    success = true,
+                    released,
+                    failed,
+                    message = released + " unconfirmed allocation(s) released — those students are back to Pending with no address." +
+                              (failed > 0 ? " " + failed + " could not be released." : "")
+                });
+            }
+        }
+        catch (Exception ex) { return Fail(ex.Message); }
+    }
+
     /// <summary>Throws the draft away and frees every address it was holding.</summary>
     public static string CancelBatch(string batchRef)
     {
