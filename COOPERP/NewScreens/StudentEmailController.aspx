@@ -116,6 +116,7 @@
         <div class="se-tab active" id="tabPipe" onclick="setTab('pipe')">Pipeline</div>
         <div class="se-tab" id="tabCand" onclick="setTab('cand')">Candidates</div>
         <div class="se-tab" id="tabComp" onclick="setTab('comp')">Complaints</div>
+        <div class="se-tab" id="tabBatch" onclick="setTab('batch')">Batch &amp; Google</div>
     </div>
 
     <!-- Pipeline -->
@@ -193,6 +194,51 @@
             <table class="se-tbl"><thead><tr><th>Student</th><th>Category</th><th>Details</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody id="cBody"></tbody></table>
         </div>
         <div class="se-empty" id="cEmpty" style="display:none;">No complaints.</div>
+    </div>
+
+    <!-- ============ Batch & Google Workspace ============ -->
+    <div id="paneB" style="display:none;">
+        <div class="bx-cards">
+            <div class="bx-card">
+                <div class="bx-card__i">1</div>
+                <div class="bx-card__t">Create addresses in bulk</div>
+                <div class="bx-card__d">Allocate <b>surname + first 3 letters of the other name + intake year</b> for a whole
+                    intake at once. Every address is checked against students, staff and Google before it is offered, and you
+                    review the full list before anything is written.</div>
+                <button type="button" class="bx-btn bx-btn--p" onclick="wizOpen()">Start batch creation</button>
+            </div>
+            <div class="bx-card">
+                <div class="bx-card__i">2</div>
+                <div class="bx-card__t">Export to Google Workspace</div>
+                <div class="bx-card__d">The exact 28-column bulk-upload sheet. A <b>create</b> sheet carries passwords for new
+                    accounts; an <b>update</b> sheet never does, so re-uploading can't lock a student out of live mail.</div>
+                <button type="button" class="bx-btn bx-btn--p" onclick="expOpen()">Build export sheet</button>
+                <button type="button" class="bx-btn" onclick="dl('template')">Blank template</button>
+            </div>
+            <div class="bx-card">
+                <div class="bx-card__i">3</div>
+                <div class="bx-card__t">Import from Google</div>
+                <div class="bx-card__d">Upload a Google export to confirm which accounts exist, adopt addresses created
+                    outside the system, catch address changes and record external accounts so they are never re-issued.</div>
+                <button type="button" class="bx-btn bx-btn--p" onclick="impOpen()">Upload Google sheet</button>
+            </div>
+            <div class="bx-card">
+                <div class="bx-card__i">4</div>
+                <div class="bx-card__t">Address directory</div>
+                <div class="bx-card__d">Every address known on the domain, and any that has been issued twice. This is the
+                    list the allocator checks — if it is here, nobody else can be given it.</div>
+                <button type="button" class="bx-btn bx-btn--p" onclick="dirOpen()">Open directory</button>
+                <button type="button" class="bx-btn" onclick="dl('credentials')">Credentials sheet</button>
+            </div>
+        </div>
+
+        <div class="bx-sec">Recent batches</div>
+        <div class="se-tblwrap">
+            <table class="se-tbl"><thead><tr>
+                <th>Reference</th><th>Type</th><th>Status</th><th>Rows</th><th>Applied</th><th>Skipped</th><th>Failed</th><th>By</th><th>When</th><th></th>
+            </tr></thead><tbody id="bBody"></tbody></table>
+        </div>
+        <div class="se-empty" id="bEmpty" style="display:none;">No batches yet — start with “Create addresses in bulk”.</div>
     </div>
 </div>
 
@@ -526,7 +572,7 @@ function modMsg(id,m,ok){var e=qs(id);e.textContent=m;e.className='se-msg '+(ok?
 window.closeM=function(){qs('ov').style.display='none';qs('mCreate').style.display='none';qs('mResp').style.display='none';qs('mManage').style.display='none';};
 
 // Tabs
-window.setTab=function(t){qs('tabPipe').classList.toggle('active',t==='pipe');qs('tabCand').classList.toggle('active',t==='cand');qs('tabComp').classList.toggle('active',t==='comp');qs('paneP').style.display=t==='pipe'?'block':'none';qs('paneD').style.display=t==='cand'?'block':'none';qs('paneC').style.display=t==='comp'?'block':'none';if(t==='comp')loadComplaints();if(t==='cand')loadCand(1);};
+window.setTab=function(t){qs('tabPipe').classList.toggle('active',t==='pipe');qs('tabCand').classList.toggle('active',t==='cand');qs('tabComp').classList.toggle('active',t==='comp');qs('tabBatch').classList.toggle('active',t==='batch');qs('paneP').style.display=t==='pipe'?'block':'none';qs('paneD').style.display=t==='cand'?'block':'none';qs('paneC').style.display=t==='comp'?'block':'none';qs('paneB').style.display=t==='batch'?'block':'none';if(t==='comp')loadComplaints();if(t==='cand')loadCand(1);if(t==='batch'&&window.bxLoadBatches)bxLoadBatches();};
 
 // ── Candidates (2026+ not in pipeline, with payments) ──
 var _dPage=1;
@@ -616,6 +662,832 @@ window.saveResp=function(){ajax('RespondComplaint',{id:_rId,status:qs('rStatus')
   cs.value=st.campus;
  });
 })();
+})();
+</script>
+
+<!-- =====================================================================
+     Batch creation + Google Workspace sync.
+     Kept in its own overlay/module so it cannot disturb the existing
+     single-student modals: separate ids, separate close handler.
+     ===================================================================== -->
+<style>
+.bx-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:20px;}
+.bx-card{background:#fff;border:1px solid #e0e5ed;border-top:3px solid #05275C;padding:16px 16px 14px;display:flex;flex-direction:column;}
+.bx-card__i{width:22px;height:22px;background:#05275C;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:9px;}
+.bx-card__t{font-size:14px;font-weight:800;color:#05275C;margin-bottom:6px;}
+.bx-card__d{font-size:11.5px;color:#64748b;line-height:1.55;flex:1 1 auto;margin-bottom:12px;}
+.bx-card__d b{color:#334155;}
+.bx-btn{padding:8px 13px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px;font-family:inherit;}
+.bx-btn:hover{border-color:#174DA4;color:#174DA4;}
+.bx-btn--p{background:#05275C;border-color:#05275C;color:#fff;}.bx-btn--p:hover{background:#174DA4;color:#fff;}
+.bx-btn--d{color:#b91c1c;border-color:#fbc4c4;}.bx-btn--d:hover{background:#b91c1c;color:#fff;}
+.bx-btn:disabled{opacity:.5;cursor:default;}
+.bx-sec{font-size:11px;font-weight:800;color:#05275C;text-transform:uppercase;letter-spacing:.4px;margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid #e0e5ed;}
+.bx-ov{display:none;position:fixed;inset:0;background:rgba(5,39,92,.6);z-index:1100;}
+.bx-modal{display:none;position:fixed;z-index:1101;top:50%;left:50%;transform:translate(-50%,-50%);width:96%;max-width:1120px;max-height:92vh;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.4);flex-direction:column;}
+.bx-modal.show{display:flex;}
+.bx-modal--sm{max-width:560px;}
+.bx-h{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #eef2f7;flex:0 0 auto;}
+.bx-h__t{font-size:16px;font-weight:800;color:#05275C;}
+.bx-h__x{border:0;background:none;font-size:24px;color:#94a3b8;cursor:pointer;line-height:1;}
+.bx-b{padding:16px 18px;overflow:auto;flex:1 1 auto;}
+.bx-f{padding:12px 18px;border-top:1px solid #eef2f7;display:flex;justify-content:space-between;align-items:center;gap:8px;flex:0 0 auto;background:#fbfcfe;}
+.bx-steps{display:flex;gap:0;margin-bottom:16px;border:1px solid #e0e5ed;}
+.bx-step{flex:1 1 0;padding:9px 10px;font-size:11px;font-weight:700;color:#94a3b8;text-align:center;border-right:1px solid #e0e5ed;background:#f9fafc;}
+.bx-step:last-child{border-right:0;}
+.bx-step.on{background:#05275C;color:#fff;}
+.bx-step.done{background:#e6f4ec;color:#0b5c3a;}
+.bx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px;}
+.bx-fl{display:block;font-size:11px;font-weight:700;color:#374151;margin:0 0 4px;}
+.bx-hint{font-size:10.5px;color:#94a3b8;margin-top:3px;line-height:1.45;}
+.bx-in,.bx-sel{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;font-size:13px;background:#fff;color:#1a1a2e;font-family:inherit;}
+.bx-in:focus,.bx-sel:focus{border-color:#174DA4;outline:none;}
+.bx-fld{margin-bottom:12px;}
+.bx-chk{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:#334155;margin:7px 0;cursor:pointer;}
+.bx-chk input{margin-top:2px;}
+.bx-eg{background:#f7faff;border:1px solid #dbe6f5;padding:11px 13px;margin:12px 0;font-size:12px;color:#334155;}
+.bx-eg code{font-family:Consolas,"Courier New",monospace;font-weight:700;color:#05275C;font-size:13px;}
+.bx-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.bx-chip{padding:5px 11px;border:1px solid #cbd5e1;background:#fff;font-size:11.5px;font-weight:700;cursor:pointer;color:#475569;}
+.bx-chip.on{background:#05275C;border-color:#05275C;color:#fff;}
+.bx-chip b{font-variant-numeric:tabular-nums;}
+.bx-tblwrap{border:1px solid #e0e5ed;overflow:auto;max-height:52vh;}
+.bx-tbl{width:100%;border-collapse:collapse;font-size:11.5px;min-width:900px;}
+.bx-tbl th{position:sticky;top:0;background:#f9fafc;text-align:left;padding:8px 9px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#64748b;border-bottom:2px solid #e0e5ed;white-space:nowrap;z-index:1;}
+.bx-tbl td{padding:6px 9px;border-bottom:1px solid #f0f3f7;vertical-align:middle;}
+.bx-tbl tbody tr:hover td{background:#f9fbff;}
+.bx-tbl tr.off td{opacity:.4;text-decoration:line-through;}
+.bx-em{width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid #dbe6f5;font-size:11.5px;font-family:Consolas,"Courier New",monospace;font-weight:700;color:#05275C;background:#fbfdff;}
+.bx-em:focus{border-color:#174DA4;outline:none;background:#fff;}
+.bx-em.bad{border-color:#dc2626;background:#fef2f2;color:#b91c1c;}
+.bx-em.good{border-color:#16a34a;background:#f0fdf4;}
+.bx-pw{font-family:Consolas,"Courier New",monospace;font-size:11px;color:#475569;}
+.bx-sev{display:inline-block;padding:1px 7px;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+.bx-sev--OK{background:#e6f4ec;color:#0b5c3a;}
+.bx-sev--WARN{background:#fff7ed;color:#9a3412;}
+.bx-sev--ERROR{background:#fef2f2;color:#b91c1c;}
+.bx-sev--SKIP{background:#f1f5f9;color:#475569;}
+.bx-msg{font-size:12.5px;padding:10px 12px;margin-bottom:12px;display:none;}
+.bx-msg--ok{background:#e6f4ec;color:#0b5c3a;border:1px solid #b5dcc5;}
+.bx-msg--err{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
+.bx-msg--warn{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;}
+.bx-msg--info{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;}
+.bx-drop{border:2px dashed #cbd5e1;background:#f9fbff;padding:28px 18px;text-align:center;cursor:pointer;}
+.bx-drop.over{border-color:#174DA4;background:#eff6ff;}
+.bx-drop__t{font-size:13px;font-weight:700;color:#05275C;margin-bottom:4px;}
+.bx-drop__d{font-size:11.5px;color:#64748b;}
+.bx-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px;}
+.bx-stat{background:#fff;border:1px solid #e0e5ed;border-left:3px solid #174DA4;padding:9px 11px;}
+.bx-stat__v{font-size:19px;font-weight:800;color:#05275C;line-height:1;font-variant-numeric:tabular-nums;}
+.bx-stat__l{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#94a3b8;margin-top:4px;}
+.bx-stat--ok{border-left-color:#16a34a;}.bx-stat--warn{border-left-color:#ea580c;}.bx-stat--err{border-left-color:#dc2626;}
+.bx-spin{display:inline-block;width:13px;height:13px;border:2px solid #cbd5e1;border-top-color:#05275C;border-radius:50%;animation:bxspin .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+@keyframes bxspin{to{transform:rotate(360deg);}}
+@media(max-width:700px){.bx-modal{width:100%;max-width:100%;height:100%;max-height:100%;top:0;left:0;transform:none;}}
+</style>
+
+<div class="bx-ov" id="bxOv" onclick="bxClose()"></div>
+
+<!-- ── Batch creation wizard ── -->
+<div class="bx-modal" id="bxWiz" role="dialog" aria-modal="true">
+    <div class="bx-h">
+        <span class="bx-h__t" id="wizTitle">Create university email addresses</span>
+        <button type="button" class="bx-h__x" onclick="wizCancel()">&times;</button>
+    </div>
+    <div class="bx-b">
+        <div class="bx-steps">
+            <div class="bx-step on" id="wizS1">1 &middot; Who</div>
+            <div class="bx-step" id="wizS2">2 &middot; Address rule</div>
+            <div class="bx-step" id="wizS3">3 &middot; Review &amp; fix</div>
+            <div class="bx-step" id="wizS4">4 &middot; Apply</div>
+        </div>
+        <div class="bx-msg" id="wizMsg"></div>
+
+        <!-- step 1 -->
+        <div id="wizP1">
+            <div class="bx-grid">
+                <div class="bx-fld">
+                    <label class="bx-fl">Stage</label>
+                    <select id="wStage" class="bx-sel">
+                        <option value="PENDING_CREATION">Pending creation (no address yet)</option>
+                        <option value="">Any stage without an address</option>
+                    </select>
+                    <div class="bx-hint">Students who already hold an address are never included.</div>
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Campus</label>
+                    <select id="wCampus" class="bx-sel"><option value="">All campuses</option></select>
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Programme</label>
+                    <select id="wProg" class="bx-sel"><option value="">All programmes</option></select>
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Intake year</label>
+                    <input type="text" id="wYear" class="bx-in" placeholder="e.g. 2026 — blank for all" />
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Name / student number contains</label>
+                    <input type="text" id="wQ" class="bx-in" placeholder="optional" />
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Maximum students in this batch</label>
+                    <input type="number" id="wLimit" class="bx-in" value="500" min="1" max="2000" />
+                    <div class="bx-hint">A batch is capped at 2,000 so a review stays reviewable. Run several.</div>
+                </div>
+            </div>
+            <div class="bx-msg bx-msg--info" id="wizCount" style="display:block">Choose a scope, then continue.</div>
+        </div>
+
+        <!-- step 2 -->
+        <div id="wizP2" style="display:none;">
+            <div class="bx-eg" id="wizEg">
+                Format preview: <code id="egOut">&mdash;</code>
+                <div class="bx-hint" id="egWho"></div>
+            </div>
+            <div class="bx-grid">
+                <div class="bx-fld">
+                    <label class="bx-fl">Letters taken from the other name</label>
+                    <input type="number" id="wOther" class="bx-in" value="3" min="1" max="12" />
+                    <div class="bx-hint">House rule is 3 &mdash; surname + 3 letters + year.</div>
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Which field is the surname?</label>
+                    <select id="wOrder" class="bx-sel">
+                        <option value="OTHER_IS_SURNAME">Other Name column (correct for the 2026 intake)</option>
+                        <option value="FIRST_IS_SURNAME">First Name column</option>
+                    </select>
+                    <div class="bx-hint">Older records are inconsistent &mdash; check the review step.</div>
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Domain</label>
+                    <input type="text" id="wDomain" class="bx-in" value="mru.ac.ug" />
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Google org unit path</label>
+                    <input type="text" id="wOrg" class="bx-in" value="/Students/{year}" />
+                    <div class="bx-hint">{year}, {campus} and {prog} are filled per student.</div>
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Temporary password</label>
+                    <select id="wPwMode" class="bx-sel" onchange="wizPwMode()">
+                        <option value="unique">Unique per student (recommended)</option>
+                        <option value="fixed">One shared password</option>
+                    </select>
+                    <input type="text" id="wPwFixed" class="bx-in" style="display:none;margin-top:6px" placeholder="at least 8 characters" />
+                    <div class="bx-hint">Google rejects anything under 8 characters.</div>
+                </div>
+                <div class="bx-fld">
+                    <label class="bx-fl">Stage after creation</label>
+                    <select id="wTarget" class="bx-sel">
+                        <option value="READY_FOR_COLLECTION">Ready for collection — student can start onboarding</option>
+                        <option value="EMAIL_CREATED">Email created — hold until the Google upload is done</option>
+                    </select>
+                </div>
+            </div>
+            <label class="bx-chk"><input type="checkbox" id="wChangePw" checked /> <span>Force a password change at first sign-in (written into the Google sheet).</span></label>
+            <label class="bx-chk"><input type="checkbox" id="wNotify" checked /> <span>Notify each student in the portal that their address is ready.</span></label>
+        </div>
+
+        <!-- step 3 -->
+        <div id="wizP3" style="display:none;">
+            <div class="bx-stats" id="wizStats"></div>
+            <div class="bx-chips" id="wizChips"></div>
+            <div class="bx-hint" style="margin-bottom:7px">
+                Any address can be edited before it is applied &mdash; it is re-checked against the whole domain as you type.
+                Untick a student to leave them out; their reserved address is released.
+            </div>
+            <div class="bx-tblwrap">
+                <table class="bx-tbl"><thead><tr>
+                    <th style="width:26px"><input type="checkbox" id="wizAll" checked onclick="wizToggleAll(this)" /></th>
+                    <th>Student</th><th>Student No.</th><th>Surname</th><th>Other name</th><th>Yr</th>
+                    <th style="min-width:230px">University address</th><th>Password</th><th>Org unit</th><th>Check</th>
+                </tr></thead><tbody id="wizBody"></tbody></table>
+            </div>
+            <div class="se-empty" id="wizEmpty" style="display:none;">Nothing in this view.</div>
+        </div>
+
+        <!-- step 4 -->
+        <div id="wizP4" style="display:none;">
+            <div id="wizDone"></div>
+        </div>
+    </div>
+    <div class="bx-f">
+        <div style="font-size:11.5px;color:#64748b" id="wizFoot"></div>
+        <div>
+            <button type="button" class="bx-btn" id="wizBack" onclick="wizGo(-1)" style="display:none">Back</button>
+            <button type="button" class="bx-btn bx-btn--p" id="wizNext" onclick="wizGo(1)">Continue</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Export modal ── -->
+<div class="bx-modal bx-modal--sm" id="bxExp" role="dialog" aria-modal="true">
+    <div class="bx-h"><span class="bx-h__t">Export to Google Workspace</span><button type="button" class="bx-h__x" onclick="bxClose()">&times;</button></div>
+    <div class="bx-b">
+        <div class="bx-msg" id="expMsg"></div>
+        <div class="bx-fld">
+            <label class="bx-fl">What to export</label>
+            <label class="bx-chk"><input type="radio" name="expMode" value="create" checked />
+                <span><b>New accounts</b> &mdash; never uploaded to Google. Includes passwords. <span id="expNCreate" class="bx-hint"></span></span></label>
+            <label class="bx-chk"><input type="radio" name="expMode" value="update" />
+                <span><b>Existing accounts</b> &mdash; already in Google. <b>Password column left blank</b> so nobody is locked out. <span id="expNUpdate" class="bx-hint"></span></span></label>
+            <label class="bx-chk"><input type="radio" name="expMode" value="all" />
+                <span><b>Everything with an address</b> &mdash; use only for a full audit. <span id="expNAll" class="bx-hint"></span></span></label>
+        </div>
+        <div class="bx-grid">
+            <div class="bx-fld"><label class="bx-fl">Campus</label><select id="eCampus" class="bx-sel"><option value="">All</option></select></div>
+            <div class="bx-fld"><label class="bx-fl">Intake year</label><input type="text" id="eYear" class="bx-in" placeholder="all" /></div>
+        </div>
+        <label class="bx-chk"><input type="checkbox" id="eChangePw" checked /> <span>Set “Change Password at Next Sign-In” for new accounts.</span></label>
+        <div class="bx-msg bx-msg--info" style="display:block;margin-top:10px">
+            In the Google Admin console: <b>Directory &rarr; Users &rarr; Bulk update users</b>, then upload this file.
+            Employee ID carries the student number, which is how the sheet finds its way home on import.
+        </div>
+    </div>
+    <div class="bx-f"><span></span><div>
+        <button type="button" class="bx-btn" onclick="bxClose()">Cancel</button>
+        <button type="button" class="bx-btn bx-btn--p" onclick="expDownload()">Download sheet</button>
+    </div></div>
+</div>
+
+<!-- ── Import wizard ── -->
+<div class="bx-modal" id="bxImp" role="dialog" aria-modal="true">
+    <div class="bx-h"><span class="bx-h__t">Import from Google Workspace</span><button type="button" class="bx-h__x" onclick="impCancel()">&times;</button></div>
+    <div class="bx-b">
+        <div class="bx-msg" id="impMsg"></div>
+        <div id="impP1">
+            <div class="bx-drop" id="impDrop" onclick="document.getElementById('impFile').click()">
+                <div class="bx-drop__t">Drop the Google export here, or click to choose</div>
+                <div class="bx-drop__d">CSV on the Google Workspace template. In the Admin console use
+                    <b>Users &rarr; Download users</b>, or upload a sheet built on this page.</div>
+                <input type="file" id="impFile" accept=".csv,.tsv,.txt" style="display:none" onchange="impPick(this)" />
+            </div>
+            <div class="bx-msg bx-msg--info" style="display:block;margin-top:12px">
+                Nothing is changed by uploading. The file is parsed, every row is matched to a student and classified,
+                and you choose what to apply.
+            </div>
+        </div>
+        <div id="impP2" style="display:none;">
+            <div class="bx-stats" id="impStats"></div>
+            <div class="bx-fld">
+                <label class="bx-fl">Apply these</label>
+                <label class="bx-chk"><input type="checkbox" id="iConfirm" checked /> <span><b>Confirm</b> — mark accounts as live in Google.</span></label>
+                <label class="bx-chk"><input type="checkbox" id="iAdopt" checked /> <span><b>Adopt</b> — take an address Google has for a student who has none on file.</span></label>
+                <label class="bx-chk"><input type="checkbox" id="iChange" /> <span><b>Address changed</b> — overwrite the system address with Google's. Leave off unless you know Google is right.</span></label>
+                <label class="bx-chk"><input type="checkbox" id="iSuspend" checked /> <span><b>Suspended</b> — record accounts Google reports as suspended.</span></label>
+                <label class="bx-chk"><input type="checkbox" id="iOrphan" checked /> <span><b>External accounts</b> — record addresses with no student, so they are never re-issued.</span></label>
+            </div>
+            <div class="bx-chips" id="impChips"></div>
+            <div class="bx-tblwrap">
+                <table class="bx-tbl"><thead><tr>
+                    <th>Row</th><th>Name</th><th>Address in Google</th><th>Employee ID</th><th>Matched student</th><th>Org unit</th><th>Class</th><th>What it means</th>
+                </tr></thead><tbody id="impBody"></tbody></table>
+            </div>
+            <div class="se-empty" id="impEmpty" style="display:none;">Nothing in this view.</div>
+        </div>
+        <div id="impP3" style="display:none;"><div id="impDone"></div></div>
+    </div>
+    <div class="bx-f">
+        <div style="font-size:11.5px;color:#64748b" id="impFoot"></div>
+        <div>
+            <button type="button" class="bx-btn" onclick="impCancel()">Cancel</button>
+            <button type="button" class="bx-btn bx-btn--p" id="impApply" onclick="impDoApply()" style="display:none">Apply selected</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Directory modal ── -->
+<div class="bx-modal" id="bxDir" role="dialog" aria-modal="true">
+    <div class="bx-h"><span class="bx-h__t">Address directory</span><button type="button" class="bx-h__x" onclick="bxClose()">&times;</button></div>
+    <div class="bx-b">
+        <div class="bx-stats" id="dirStats"></div>
+        <div class="bx-sec" style="margin-top:4px">Addresses issued more than once</div>
+        <div class="bx-hint" style="margin-bottom:8px">
+            Found on student records, not created here. They are listed rather than repaired automatically —
+            deciding who keeps an address is a human call. New allocations can no longer produce these.
+        </div>
+        <div class="bx-tblwrap" style="max-height:38vh">
+            <table class="bx-tbl"><thead><tr><th>Address</th><th>Held by</th><th>Student numbers</th></tr></thead><tbody id="dirDup"></tbody></table>
+        </div>
+        <div class="se-empty" id="dirNoDup" style="display:none;">No duplicated addresses. </div>
+    </div>
+    <div class="bx-f"><span></span><button type="button" class="bx-btn" onclick="bxClose()">Close</button></div>
+</div>
+
+<!-- ── Batch detail modal ── -->
+<div class="bx-modal" id="bxDet" role="dialog" aria-modal="true">
+    <div class="bx-h"><span class="bx-h__t" id="detTitle">Batch</span><button type="button" class="bx-h__x" onclick="bxClose()">&times;</button></div>
+    <div class="bx-b" id="detBody"></div>
+    <div class="bx-f"><div id="detFoot" style="font-size:11.5px;color:#64748b"></div><button type="button" class="bx-btn" onclick="bxClose()">Close</button></div>
+</div>
+
+<script type="text/javascript">
+(function () {
+'use strict';
+function qs(id) { return document.getElementById(id); }
+function esc(s) { return s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : ''; }
+function fmt(n) { return (parseInt(n, 10) || 0).toLocaleString('en-US'); }
+function ajax(m, p, cb) {
+    var x = new XMLHttpRequest();
+    x.open('POST', 'StudentEmailController.aspx/' + m, true);
+    x.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
+    x.onload = function () {
+        try { var o = JSON.parse(x.responseText); cb(typeof o.d === 'string' ? JSON.parse(o.d) : o.d); }
+        catch (e) { cb({ success: false, message: 'The server returned an unexpected response.' }); }
+    };
+    x.onerror = function () { cb({ success: false, message: 'Network error — check the connection and try again.' }); };
+    x.send(JSON.stringify(p || {}));
+}
+function msg(id, text, kind) {
+    var e = qs(id); if (!e) return;
+    if (!text) { e.style.display = 'none'; return; }
+    e.className = 'bx-msg bx-msg--' + (kind || 'err'); e.textContent = text; e.style.display = 'block';
+}
+function show(id) { qs('bxOv').style.display = 'block'; qs(id).classList.add('show'); }
+window.bxClose = function () {
+    qs('bxOv').style.display = 'none';
+    ['bxWiz', 'bxExp', 'bxImp', 'bxDir', 'bxDet'].forEach(function (i) { qs(i).classList.remove('show'); });
+};
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') bxClose(); });
+
+// =====================================================================
+//  Batch creation wizard
+// =====================================================================
+var wz = { step: 1, batchRef: '', rows: [], filter: 'ALL', excluded: {}, busy: false };
+
+window.wizOpen = function () {
+    wz = { step: 1, batchRef: '', rows: [], filter: 'ALL', excluded: {}, busy: false };
+    msg('wizMsg', '');
+    qs('wizP4').innerHTML = '';
+    copyFilterOptions('wCampus', 'fCampus'); copyFilterOptions('wProg', 'fProg');
+    wizPaint();
+    show('bxWiz');
+    wizEstimate();
+};
+
+// The wizard's campus/programme lists are the page's own, so they can never drift apart.
+function copyFilterOptions(dstId, srcId) {
+    var d = qs(dstId), s = qs(srcId);
+    if (!d || !s || d.options.length > 1) return;
+    for (var i = 1; i < s.options.length; i++) {
+        var o = document.createElement('option');
+        o.value = s.options[i].value; o.textContent = s.options[i].textContent;
+        d.appendChild(o);
+    }
+}
+
+function wizPaint() {
+    for (var i = 1; i <= 4; i++) {
+        var s = qs('wizS' + i);
+        s.className = 'bx-step' + (i === wz.step ? ' on' : (i < wz.step ? ' done' : ''));
+        qs('wizP' + i).style.display = (i === wz.step ? 'block' : 'none');
+    }
+    qs('wizBack').style.display = (wz.step > 1 && wz.step < 4) ? 'inline-block' : 'none';
+    var n = qs('wizNext');
+    n.style.display = wz.step < 4 ? 'inline-block' : 'none';
+    n.textContent = wz.step === 1 ? 'Continue' : wz.step === 2 ? 'Build the list' : 'Create these addresses';
+    qs('wizTitle').textContent = wz.step === 3 ? 'Review before anything is written' : 'Create university email addresses';
+}
+
+function wizOptions() {
+    return {
+        scope: 'filter',
+        stage: qs('wStage').value,
+        campus: qs('wCampus').value,
+        programme: qs('wProg').value,
+        year: qs('wYear').value.trim(),
+        q: qs('wQ').value.trim(),
+        limit: parseInt(qs('wLimit').value, 10) || 500,
+        otherLen: parseInt(qs('wOther').value, 10) || 3,
+        domain: qs('wDomain').value.trim() || 'mru.ac.ug',
+        nameOrder: qs('wOrder').value,
+        orgUnit: qs('wOrg').value.trim() || '/Students/{year}',
+        pwMode: qs('wPwMode').value,
+        pwFixed: qs('wPwFixed').value,
+        changePwNext: qs('wChangePw').checked,
+        targetStage: qs('wTarget').value,
+        notify: qs('wNotify').checked
+    };
+}
+
+window.wizPwMode = function () {
+    qs('wPwFixed').style.display = qs('wPwMode').value === 'fixed' ? 'block' : 'none';
+};
+
+// Step 1 shows how many students the scope actually covers, using the same search the
+// pipeline list uses — so the number on screen is the number that will be processed.
+function wizEstimate() {
+    var o = wizOptions();
+    qs('wizCount').textContent = 'Counting…';
+    ajax('Search', { q: o.q, stage: o.stage, campus: o.campus, programme: o.programme, year: o.year, verification: '', page: 1, pageSize: 1 },
+    function (r) {
+        if (!r || !r.success) { qs('wizCount').textContent = 'Could not count that scope.'; return; }
+        var n = r.total, lim = o.limit;
+        qs('wizCount').textContent = n === 0
+            ? 'No students match this scope.'
+            : (fmt(n) + ' student' + (n === 1 ? '' : 's') + ' match this scope' +
+               (n > lim ? (' — this batch will take the first ' + fmt(lim) + '. Run it again for the rest.') : '.'));
+    });
+}
+['wStage', 'wCampus', 'wProg', 'wYear', 'wQ', 'wLimit'].forEach(function (id) {
+    var el = qs(id); if (!el) return;
+    el.addEventListener('change', wizEstimate);
+    el.addEventListener('keyup', function (e) { if (e.key === 'Enter') wizEstimate(); });
+});
+
+// Live example of the rule, so the format is understood before 500 addresses use it.
+function wizExample() {
+    var n = parseInt(qs('wOther').value, 10) || 3;
+    var sample = wz.rows.length ? wz.rows[0] : null;
+    var sur = sample ? sample.surname : 'AKAMPURIRA', oth = sample ? sample.given : 'VINCENT',
+        yr = sample ? sample.year : '2026';
+    if (qs('wOrder').value === 'FIRST_IS_SURNAME' && !sample) { sur = 'VINCENT'; oth = 'AKAMPURIRA'; }
+    var slug = function (s) { return String(s || '').toLowerCase().replace(/[^a-z]/g, ''); };
+    var first = String(oth || '').trim().split(/\s+/)[0] || '';
+    var local = slug(sur) + slug(first).substring(0, n) + String(yr || '').replace(/\D/g, '').slice(-2);
+    qs('egOut').textContent = local + '@' + (qs('wDomain').value.trim() || 'mru.ac.ug');
+    qs('egWho').textContent = 'surname “' + (sur || '—') + '” + ' + n + ' letters of “' + (first || '—') + '” + year ' + (yr || '—') +
+        (sample ? ' (' + sample.name + ')' : ' (example)');
+}
+['wOther', 'wOrder', 'wDomain'].forEach(function (id) {
+    var el = qs(id); if (el) { el.addEventListener('input', wizExample); el.addEventListener('change', wizExample); }
+});
+
+window.wizGo = function (dir) {
+    if (wz.busy) return;
+    if (dir < 0) { wz.step = Math.max(1, wz.step - 1); wizPaint(); return; }
+    if (wz.step === 1) { wz.step = 2; wizPaint(); wizExample(); return; }
+    if (wz.step === 2) { wizBuild(); return; }
+    if (wz.step === 3) { wizCommit(); return; }
+};
+
+function wizBuild() {
+    var o = wizOptions();
+    if (o.pwMode === 'fixed' && (o.pwFixed || '').length < 8) { msg('wizMsg', 'A shared password must be at least 8 characters.', 'err'); return; }
+    wz.busy = true; msg('wizMsg', '');
+    var n = qs('wizNext'); n.disabled = true; n.innerHTML = '<span class="bx-spin"></span>Allocating addresses…';
+    ajax('BatchPreview', { options: JSON.stringify(o) }, function (r) {
+        wz.busy = false; n.disabled = false;
+        if (!r || !r.success) { wizPaint(); msg('wizMsg', (r && r.message) || 'Could not build the list.', 'err'); return; }
+        wz.batchRef = r.batchRef; wz.rows = r.rows || []; wz.excluded = {}; wz.filter = 'ALL';
+        // Rows that cannot be created are excluded up front — they are shown, but never applied.
+        wz.rows.forEach(function (x) { if (x.severity === 'ERROR' || x.severity === 'SKIP') wz.excluded[x.regno] = 1; });
+        wz.step = 3; wizPaint(); wizRender();
+    });
+}
+
+// Renders from wz.rows alone, so re-filtering never needs another round trip.
+function wizRender() {
+    var counts = { ALL: wz.rows.length, OK: 0, WARN: 0, ERROR: 0, SKIP: 0 };
+    wz.rows.forEach(function (x) { counts[x.severity] = (counts[x.severity] || 0) + 1; });
+    qs('wizStats').innerHTML =
+        stat(counts.ALL, 'In this batch', '') +
+        stat(counts.OK, 'Clean', 'ok') +
+        stat(counts.WARN, 'With a warning', 'warn') +
+        stat(counts.ERROR, 'Cannot create', 'err') +
+        stat(counts.SKIP, 'Already had one', '');
+    var chips = [['ALL', 'All'], ['OK', 'Clean'], ['WARN', 'Warnings'], ['ERROR', 'Problems'], ['SKIP', 'Skipped']];
+    qs('wizChips').innerHTML = chips.map(function (c) {
+        return '<span class="bx-chip' + (wz.filter === c[0] ? ' on' : '') + '" onclick="wizFilter(\'' + c[0] + '\')">' +
+               c[1] + ' <b>' + fmt(counts[c[0]] || 0) + '</b></span>';
+    }).join('');
+    wizRows();
+    qs('wizFoot').innerHTML = 'Draft <b>' + esc(wz.batchRef) + '</b> — addresses reserved, nothing written yet.';
+}
+function stat(v, l, k) {
+    return '<div class="bx-stat' + (k ? ' bx-stat--' + k : '') + '"><div class="bx-stat__v">' + fmt(v) + '</div><div class="bx-stat__l">' + l + '</div></div>';
+}
+
+window.wizFilter = function (f) { wz.filter = f; wizRender(); };
+
+function wizRows() {
+    var list = wz.rows.filter(function (x) { return wz.filter === 'ALL' || x.severity === wz.filter; });
+    var b = qs('wizBody'); b.innerHTML = '';
+    qs('wizEmpty').style.display = list.length ? 'none' : 'block';
+    var html = list.slice(0, 800).map(function (x) {
+        var off = wz.excluded[x.regno] ? ' class="off"' : '';
+        var canEdit = x.severity !== 'SKIP';
+        return '<tr' + off + ' id="wr_' + esc(x.regno) + '">' +
+            '<td><input type="checkbox" ' + (wz.excluded[x.regno] ? '' : 'checked ') +
+                'onclick="wizToggle(\'' + esc(x.regno) + '\',this)" /></td>' +
+            '<td><strong>' + esc(x.name || '-') + '</strong></td>' +
+            '<td>' + esc(x.regno) + '</td>' +
+            '<td>' + esc(x.surname || '—') + '</td>' +
+            '<td>' + esc(x.given || '—') + '</td>' +
+            '<td>' + esc(x.year || '—') + '</td>' +
+            '<td>' + (canEdit
+                ? '<input class="bx-em" id="we_' + esc(x.regno) + '" value="' + esc(x.email) + '" ' +
+                  'onchange="wizSetEmail(\'' + esc(x.regno) + '\')" onblur="wizSetEmail(\'' + esc(x.regno) + '\')" />'
+                : '<span class="bx-pw">' + esc(x.email) + '</span>') + '</td>' +
+            '<td class="bx-pw">' + esc(x.password || '—') + '</td>' +
+            '<td class="bx-pw">' + esc(x.orgUnit || '—') + '</td>' +
+            '<td><span class="bx-sev bx-sev--' + esc(x.severity) + '">' + esc(x.severity) + '</span>' +
+                (x.message ? '<div class="bx-hint" style="max-width:230px">' + esc(x.message) + '</div>' : '') + '</td>' +
+            '</tr>';
+    }).join('');
+    b.innerHTML = html;
+    if (list.length > 800) b.insertAdjacentHTML('beforeend',
+        '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:10px">Showing the first 800 of ' + fmt(list.length) + ' — use the filters above.</td></tr>');
+}
+
+window.wizToggle = function (regno, cb) {
+    if (cb.checked) delete wz.excluded[regno]; else wz.excluded[regno] = 1;
+    var tr = qs('wr_' + regno); if (tr) tr.className = cb.checked ? '' : 'off';
+    wizCountFoot();
+};
+window.wizToggleAll = function (cb) {
+    var list = wz.rows.filter(function (x) { return wz.filter === 'ALL' || x.severity === wz.filter; });
+    list.forEach(function (x) {
+        if (x.severity === 'ERROR' || x.severity === 'SKIP') return;   // never selectable
+        if (cb.checked) delete wz.excluded[x.regno]; else wz.excluded[x.regno] = 1;
+    });
+    wizRows(); wizCountFoot();
+};
+function wizCountFoot() {
+    var n = wz.rows.filter(function (x) { return !wz.excluded[x.regno]; }).length;
+    qs('wizFoot').innerHTML = 'Draft <b>' + esc(wz.batchRef) + '</b> — <b>' + fmt(n) + '</b> selected for creation.';
+}
+
+// Editing an address goes straight back to the server, which re-checks it against every
+// address on the domain and moves the reservation. A red box means it was refused.
+window.wizSetEmail = function (regno) {
+    var el = qs('we_' + regno); if (!el) return;
+    var row = null;
+    for (var i = 0; i < wz.rows.length; i++) if (wz.rows[i].regno === regno) { row = wz.rows[i]; break; }
+    var v = (el.value || '').trim().toLowerCase();
+    if (!row || v === row.email) { el.className = 'bx-em'; return; }
+    el.disabled = true;
+    ajax('BatchSetEmail', { batchRef: wz.batchRef, regno: regno, email: v }, function (r) {
+        el.disabled = false;
+        if (r && r.success) { row.email = r.email; el.value = r.email; el.className = 'bx-em good'; msg('wizMsg', ''); }
+        else { el.className = 'bx-em bad'; el.value = row.email; msg('wizMsg', (r && r.message) || 'That address was refused.', 'err'); }
+    });
+};
+
+function wizCommit() {
+    var keep = wz.rows.filter(function (x) { return !wz.excluded[x.regno]; });
+    if (keep.length === 0) { msg('wizMsg', 'Nothing is selected.', 'err'); return; }
+    if (!confirm('Create ' + keep.length + ' university email address(es)?\n\nThis writes the addresses and temporary passwords, and moves each student to the next stage.')) return;
+    wz.busy = true;
+    var n = qs('wizNext'); n.disabled = true; n.innerHTML = '<span class="bx-spin"></span>Creating…';
+    var exclude = Object.keys(wz.excluded);
+    ajax('BatchCommit', { batchRef: wz.batchRef, exclude: JSON.stringify(exclude) }, function (r) {
+        wz.busy = false; n.disabled = false;
+        if (!r || !r.success) { wizPaint(); msg('wizMsg', (r && r.message) || 'The batch could not be applied.', 'err'); return; }
+        wz.step = 4; wizPaint();
+        var fails = (r.failures || []).map(function (f) { return '<li>' + esc(f.regno) + ' — ' + esc(f.message) + '</li>'; }).join('');
+        qs('wizDone').innerHTML =
+            '<div class="bx-msg bx-msg--' + (r.failed ? 'warn' : 'ok') + '" style="display:block">' + esc(r.message) + '</div>' +
+            '<div class="bx-stats">' + stat(r.created, 'Created', 'ok') + stat(r.skipped, 'Skipped', '') + stat(r.failed, 'Failed', r.failed ? 'err' : '') + '</div>' +
+            (fails ? '<div class="bx-sec">Rows that failed</div><ul style="font-size:12px;color:#b91c1c;margin:0 0 12px 18px">' + fails + '</ul>' : '') +
+            '<div class="bx-sec">Next step</div>' +
+            '<div class="bx-hint" style="margin-bottom:10px">Download the Google sheet and upload it in the Admin console, then bring the Google export back here to confirm the accounts exist.</div>' +
+            '<button type="button" class="bx-btn bx-btn--p" onclick="dl(\'export\',{batchRef:\'' + esc(wz.batchRef) + '\',mode:\'create\'})">Google sheet for this batch</button>' +
+            '<button type="button" class="bx-btn" onclick="dl(\'credentials\',{batchRef:\'' + esc(wz.batchRef) + '\'})">Credentials sheet</button>' +
+            '<button type="button" class="bx-btn" onclick="bxClose();location.reload();">Done</button>';
+        qs('wizFoot').innerHTML = 'Batch <b>' + esc(wz.batchRef) + '</b> — ' + esc(r.status);
+        bxLoadBatches();
+    });
+}
+
+// Closing an un-applied draft frees every address it was holding, so an abandoned wizard
+// never quietly locks names away.
+window.wizCancel = function () {
+    if (wz.batchRef && wz.step === 3) {
+        if (!confirm('Discard this draft? The addresses it reserved will be released.')) return;
+        ajax('BatchCancel', { batchRef: wz.batchRef }, function () { bxClose(); bxLoadBatches(); });
+        return;
+    }
+    bxClose();
+};
+
+// =====================================================================
+//  Export
+// =====================================================================
+window.expOpen = function () {
+    msg('expMsg', '');
+    copyFilterOptions('eCampus', 'fCampus');
+    show('bxExp');
+    ajax('ExportCount', { scope: '{}' }, function (r) {
+        if (!r || !r.success) return;
+        qs('expNCreate').textContent = '(' + fmt(r.create) + ' ready)';
+        qs('expNUpdate').textContent = '(' + fmt(r.update) + ')';
+        qs('expNAll').textContent = '(' + fmt(r.all) + ')';
+    });
+};
+function expMode() {
+    var rs = document.getElementsByName('expMode');
+    for (var i = 0; i < rs.length; i++) if (rs[i].checked) return rs[i].value;
+    return 'create';
+}
+window.expDownload = function () {
+    dl('export', { mode: expMode(), campus: qs('eCampus').value, year: qs('eYear').value.trim(), changePwNext: qs('eChangePw').checked });
+};
+
+// Downloads go through the file handler — a PageMethod cannot stream a file.
+window.dl = function (action, params) {
+    var u = 'SemsFile.ashx?action=' + encodeURIComponent(action);
+    params = params || {};
+    for (var k in params) if (params.hasOwnProperty(k) && params[k] !== '' && params[k] != null)
+        u += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    window.location.href = u;
+};
+
+// =====================================================================
+//  Import
+// =====================================================================
+var im = { ref: '', filter: 'ALL', counts: {}, busy: false };
+
+window.impOpen = function () {
+    im = { ref: '', filter: 'ALL', counts: {}, busy: false };
+    msg('impMsg', '');
+    qs('impP1').style.display = 'block'; qs('impP2').style.display = 'none'; qs('impP3').style.display = 'none';
+    qs('impApply').style.display = 'none'; qs('impFoot').textContent = '';
+    qs('impFile').value = '';
+    show('bxImp');
+};
+
+(function wireDrop() {
+    var d = qs('impDrop'); if (!d) return;
+    ['dragenter', 'dragover'].forEach(function (e) {
+        d.addEventListener(e, function (ev) { ev.preventDefault(); ev.stopPropagation(); d.classList.add('over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (e) {
+        d.addEventListener(e, function (ev) { ev.preventDefault(); ev.stopPropagation(); d.classList.remove('over'); });
+    });
+    d.addEventListener('drop', function (ev) {
+        if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length) impSend(ev.dataTransfer.files[0]);
+    });
+})();
+
+window.impPick = function (input) { if (input.files && input.files.length) impSend(input.files[0]); };
+
+function impSend(file) {
+    if (im.busy) return;
+    im.busy = true;
+    msg('impMsg', 'Reading ' + file.name + '…', 'info');
+    var fd = new FormData();
+    fd.append('action', 'import');
+    fd.append('file', file);
+    var x = new XMLHttpRequest();
+    x.open('POST', 'SemsFile.ashx?action=import', true);
+    x.onload = function () {
+        im.busy = false;
+        var r; try { r = JSON.parse(x.responseText); } catch (e) { r = { success: false, message: 'The server returned an unexpected response.' }; }
+        if (!r.success) { msg('impMsg', r.message || 'The file could not be read.', 'err'); return; }
+        im.ref = r.importRef; im.counts = r; im.filter = 'ALL';
+        msg('impMsg', '');
+        qs('impP1').style.display = 'none'; qs('impP2').style.display = 'block';
+        qs('impApply').style.display = 'inline-block';
+        qs('impStats').innerHTML =
+            stat(r.total, 'Rows in file', '') +
+            stat(r.confirm, 'Confirm', 'ok') +
+            stat(r.adopt, 'Adopt', 'warn') +
+            stat(r.change, 'Address changed', 'warn') +
+            stat(r.suspend, 'Suspended', 'warn') +
+            stat(r.orphan, 'No student', 'warn') +
+            stat(r.error, 'Errors', r.error ? 'err' : '');
+        qs('impFoot').innerHTML = esc(r.fileName || 'sheet') + ' — ' + r.columns + ' columns, ' +
+            (r.delimiter === 'tab' ? 'tab' : 'comma') + '-separated. Import <b>' + esc(r.importRef) + '</b>';
+        impChips(); impRows();
+    };
+    x.onerror = function () { im.busy = false; msg('impMsg', 'Upload failed — check the connection.', 'err'); };
+    x.send(fd);
+}
+
+function impChips() {
+    var c = im.counts;
+    var chips = [['ALL', 'All', c.total], ['CONFIRM', 'Confirm', c.confirm], ['ADOPT', 'Adopt', c.adopt],
+                 ['UPDATE_EMAIL', 'Changed', c.change], ['SUSPEND', 'Suspended', c.suspend],
+                 ['ORPHAN', 'No student', c.orphan], ['ERROR', 'Errors', c.error]];
+    qs('impChips').innerHTML = chips.map(function (x) {
+        return '<span class="bx-chip' + (im.filter === x[0] ? ' on' : '') + '" onclick="impFilter(\'' + x[0] + '\')">' +
+               x[1] + ' <b>' + fmt(x[2] || 0) + '</b></span>';
+    }).join('');
+}
+window.impFilter = function (f) { im.filter = f; impChips(); impRows(); };
+
+function impRows() {
+    ajax('ImportRows', { importRef: im.ref, action: im.filter === 'ALL' ? '' : im.filter, page: 1, pageSize: 300 }, function (r) {
+        var b = qs('impBody'); b.innerHTML = '';
+        if (!r || !r.success) { msg('impMsg', (r && r.message) || 'Could not read the parsed rows.', 'err'); return; }
+        qs('impEmpty').style.display = r.rows.length ? 'none' : 'block';
+        b.innerHTML = r.rows.map(function (x) {
+            var sev = x.severity === 'ERROR' ? 'ERROR' : (x.action === 'CONFIRM' ? 'OK' : 'WARN');
+            return '<tr>' +
+                '<td>' + x.rowNo + '</td>' +
+                '<td>' + esc(((x.first || '') + ' ' + (x.last || '')).trim() || '—') + '</td>' +
+                '<td class="bx-pw">' + esc(x.newPrimary || x.email || '—') + '</td>' +
+                '<td>' + esc(x.employeeId || '—') + '</td>' +
+                '<td>' + (x.regno ? esc(x.regno) + ' <span class="bx-hint">(' + esc(x.matchType.toLowerCase()) + ')</span>' : '<span style="color:#cbd5e1">—</span>') + '</td>' +
+                '<td class="bx-pw">' + esc(x.orgUnit || '—') + '</td>' +
+                '<td><span class="bx-sev bx-sev--' + sev + '">' + esc((x.action || '').replace('_', ' ')) + '</span></td>' +
+                '<td class="bx-hint" style="max-width:280px">' + esc(x.message || '') + (x.applied ? ' <b>· applied</b>' : '') + '</td>' +
+                '</tr>';
+        }).join('');
+        if (r.total > r.rows.length) b.insertAdjacentHTML('beforeend',
+            '<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:10px">Showing ' + fmt(r.rows.length) + ' of ' + fmt(r.total) + ' rows in this class.</td></tr>');
+    });
+}
+
+window.impDoApply = function () {
+    if (im.busy) return;
+    var o = {
+        confirm: qs('iConfirm').checked, adopt: qs('iAdopt').checked, changeEmail: qs('iChange').checked,
+        suspend: qs('iSuspend').checked, orphan: qs('iOrphan').checked
+    };
+    if (!o.confirm && !o.adopt && !o.changeEmail && !o.suspend && !o.orphan) { msg('impMsg', 'Tick at least one class to apply.', 'err'); return; }
+    if (o.changeEmail && !confirm('Overwrite system addresses with the addresses in this file?\n\nOnly do this when you know Google is the correct side.')) return;
+    im.busy = true;
+    var b = qs('impApply'); b.disabled = true; b.innerHTML = '<span class="bx-spin"></span>Applying…';
+    ajax('ImportApply', { importRef: im.ref, options: JSON.stringify(o) }, function (r) {
+        im.busy = false; b.disabled = false; b.textContent = 'Apply selected';
+        if (!r || !r.success) { msg('impMsg', (r && r.message) || 'The import could not be applied.', 'err'); return; }
+        qs('impP2').style.display = 'none'; qs('impP3').style.display = 'block'; b.style.display = 'none';
+        var fails = (r.failures || []).map(function (f) { return '<li>' + esc(f.regno || f.email) + ' — ' + esc(f.message) + '</li>'; }).join('');
+        qs('impDone').innerHTML =
+            '<div class="bx-msg bx-msg--' + (r.failed ? 'warn' : 'ok') + '" style="display:block">' + esc(r.message) + '</div>' +
+            '<div class="bx-stats">' + stat(r.confirmed, 'Confirmed', 'ok') + stat(r.adopted, 'Adopted', 'ok') +
+            stat(r.changed, 'Addresses changed', 'warn') + stat(r.suspended, 'Suspended', 'warn') +
+            stat(r.orphans, 'External recorded', '') + stat(r.failed, 'Failed', r.failed ? 'err' : '') + '</div>' +
+            (fails ? '<div class="bx-sec">Rows that failed</div><ul style="font-size:12px;color:#b91c1c;margin:0 0 12px 18px">' + fails + '</ul>' : '') +
+            '<button type="button" class="bx-btn bx-btn--p" onclick="bxClose();location.reload();">Done</button>';
+        bxLoadBatches();
+    });
+};
+
+window.impCancel = function () {
+    if (im.ref && qs('impP2').style.display === 'block') {
+        ajax('ImportDiscard', { importRef: im.ref }, function () { bxClose(); bxLoadBatches(); });
+        return;
+    }
+    bxClose();
+};
+
+// =====================================================================
+//  Directory + batch history
+// =====================================================================
+window.dirOpen = function () {
+    qs('dirStats').innerHTML = '<div class="bx-hint">Loading…</div>';
+    qs('dirDup').innerHTML = '';
+    show('bxDir');
+    ajax('DirectoryStats', {}, function (r) {
+        if (!r || !r.success) { qs('dirStats').innerHTML = '<div class="bx-msg bx-msg--err" style="display:block">' + esc((r && r.message) || 'Could not load') + '</div>'; return; }
+        qs('dirStats').innerHTML =
+            stat(r.total, 'Addresses known', '') + stat(r.students, 'Students', 'ok') + stat(r.staff, 'Staff', '') +
+            stat(r.google, 'Seen in Google', '') + stat(r.reserved, 'Reserved by drafts', 'warn') + stat(r.system, 'System reserved', '');
+        var d = r.duplicates || [];
+        qs('dirNoDup').style.display = d.length ? 'none' : 'block';
+        qs('dirDup').innerHTML = d.map(function (x) {
+            return '<tr><td class="bx-pw">' + esc(x.email) + '</td><td><span class="bx-sev bx-sev--ERROR">' + x.count + ' students</span></td><td>' + esc(x.regnos) + '</td></tr>';
+        }).join('');
+    });
+};
+
+window.bxLoadBatches = function () {
+    ajax('BatchList', { limit: 30 }, function (r) {
+        var b = qs('bBody'); if (!b) return;
+        b.innerHTML = '';
+        if (!r || !r.success) return;
+        qs('bEmpty').style.display = r.batches.length ? 'none' : 'block';
+        b.innerHTML = r.batches.map(function (x) {
+            var cls = x.status === 'APPLIED' ? 'done' : x.status === 'DRAFT' ? 'pending' : x.status === 'CANCELLED' ? 'muted' : 'ready';
+            return '<tr>' +
+                '<td><strong>' + esc(x.batchRef) + '</strong></td>' +
+                '<td>' + esc(x.type) + '</td>' +
+                '<td><span class="se-badge se-b--' + cls + '">' + esc(x.status) + '</span></td>' +
+                '<td>' + fmt(x.total) + '</td><td>' + fmt(x.ok) + '</td><td>' + fmt(x.skipped) + '</td>' +
+                '<td>' + (x.failed ? '<b style="color:#b91c1c">' + fmt(x.failed) + '</b>' : '0') + '</td>' +
+                '<td>' + esc(x.who) + '</td><td style="color:#94a3b8">' + esc(x.at) + '</td>' +
+                '<td style="white-space:nowrap"><span class="se-act" onclick="detOpen(\'' + esc(x.batchRef) + '\')">Open</span>' +
+                (x.type === 'CREATE' && x.ok ? ' · <span class="se-act" onclick="dl(\'export\',{batchRef:\'' + esc(x.batchRef) + '\',mode:\'create\'})">Sheet</span>' : '') +
+                '</td></tr>';
+        }).join('');
+    });
+};
+
+window.detOpen = function (ref) {
+    qs('detTitle').textContent = 'Batch ' + ref;
+    qs('detBody').innerHTML = '<div class="bx-hint">Loading…</div>';
+    show('bxDet');
+    ajax('BatchDetail', { batchRef: ref, limit: 800 }, function (r) {
+        if (!r || !r.success) { qs('detBody').innerHTML = '<div class="bx-msg bx-msg--err" style="display:block">' + esc((r && r.message) || 'Could not load') + '</div>'; return; }
+        var h = '<div class="bx-stats">' + stat(r.batch.total, 'Rows', '') + stat(r.batch.ok, 'Applied', 'ok') +
+                stat(r.batch.skipped, 'Skipped', '') + stat(r.batch.failed, 'Failed', r.batch.failed ? 'err' : '') + '</div>';
+        h += '<div class="bx-tblwrap" style="max-height:56vh"><table class="bx-tbl"><thead><tr><th>#</th><th>Student</th><th>Student No.</th><th>Address</th><th>Password</th><th>Action</th><th>Result</th><th>Note</th></tr></thead><tbody>';
+        h += (r.rows || []).map(function (x) {
+            var cls = x.result === 'OK' ? 'OK' : x.result === 'FAILED' ? 'ERROR' : x.result === 'PENDING' ? 'WARN' : 'SKIP';
+            return '<tr><td>' + x.rowNo + '</td><td>' + esc(x.name || '—') + '</td><td>' + esc(x.regno) + '</td>' +
+                '<td class="bx-pw">' + esc(x.email || '—') + '</td><td class="bx-pw">' + esc(x.password || '—') + '</td>' +
+                '<td>' + esc(x.action) + '</td><td><span class="bx-sev bx-sev--' + cls + '">' + esc(x.result) + '</span></td>' +
+                '<td class="bx-hint" style="max-width:260px">' + esc(x.message || '') + '</td></tr>';
+        }).join('');
+        h += '</tbody></table></div>';
+        qs('detBody').innerHTML = h;
+        qs('detFoot').innerHTML = esc(r.batch.type) + ' · ' + esc(r.batch.status) + ' · by ' + esc(r.batch.who) + ' on ' + esc(r.batch.at);
+    });
+};
 })();
 </script>
 </asp:Content>

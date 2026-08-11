@@ -1,0 +1,768 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Web.Script.Serialization;
+using MySql.Data.MySqlClient;
+
+// =====================================================================
+//  SEMS ⇄ Google Workspace interchange.
+//
+//  OUT  BuildExportCsv  — the exact 28-column bulk-upload sheet.
+//       Two modes, and the distinction matters: a CREATE export carries
+//       passwords (Google needs them for new accounts); an UPDATE export
+//       leaves Password blank, because re-uploading a password for an
+//       account that already exists RESETS the student out of their mail.
+//
+//  IN   ImportParse     — a Google export (or any sheet on the template)
+//                         parsed into sems_import_staging and classified
+//                         row by row: confirm / adopt / email-change /
+//                         suspend / orphan / error. Nothing is applied.
+//       ImportApply     — applies only the classes the admin ticked.
+//
+//  Employee ID carries the student number both ways, so a sheet that has
+//  been through Google still matches back to the right student even if
+//  somebody edited the name or the address in the admin console.
+// =====================================================================
+public static partial class SemsBatch
+{
+    // =================================================================
+    //  EXPORT
+    // =================================================================
+    public class ExportScope
+    {
+        public string Mode = "create";        // create | update | all
+        public string BatchRef = "";
+        public string Stage = "", Campus = "", Programme = "", Year = "", GoogleStatus = "";
+        public List<string> Regnos = new List<string>();
+        public bool ChangePwNext = true;
+        public int Limit = HardBatchCap;
+    }
+
+    public static ExportScope ReadScope(string json)
+    {
+        var s = new ExportScope();
+        if (string.IsNullOrWhiteSpace(json)) return s;
+        var d = Js().Deserialize<Dictionary<string, object>>(json);
+        s.Mode = GetS(d, "mode", s.Mode).ToLowerInvariant();
+        s.BatchRef = GetS(d, "batchRef", "");
+        s.Stage = GetS(d, "stage", "");
+        s.Campus = GetS(d, "campus", "");
+        s.Programme = GetS(d, "programme", "");
+        s.Year = GetS(d, "year", "");
+        s.GoogleStatus = GetS(d, "googleStatus", "");
+        s.ChangePwNext = GetB(d, "changePwNext", true);
+        s.Limit = Math.Max(1, Math.Min(HardBatchCap * 5, GetI(d, "limit", s.Limit)));
+        object rr;
+        if (d != null && d.TryGetValue("regnos", out rr) && rr is System.Collections.IEnumerable && !(rr is string))
+            foreach (var x in (System.Collections.IEnumerable)rr)
+                if (x != null && x.ToString().Trim() != "") s.Regnos.Add(x.ToString().Trim());
+        return s;
+    }
+
+    /// <summary>Header-only sheet, for an admin who wants to fill it in by hand.</summary>
+    public static string ExportTemplateCsv()
+    {
+        return string.Join(",", GoogleHeaders.Select(CsvCell).ToArray()) + "\r\n";
+    }
+
+    /// <summary>
+    /// Builds the Google sheet. Returns the CSV and, out of band, how many rows it holds —
+    /// the caller streams it as a download and records the export as a batch.
+    /// </summary>
+    public static string BuildExportCsv(ExportScope sc, out int rowCount, out string batchRef)
+    {
+        rowCount = 0;
+        batchRef = "";
+        var sb = new StringBuilder();
+        sb.Append(string.Join(",", GoogleHeaders.Select(CsvCell).ToArray())).Append("\r\n");
+
+        var ps = new List<MySqlParameter>();
+        var w = new StringBuilder("WHERE IFNULL(p.email_address,'') <> '' ");
+
+        if (!string.IsNullOrEmpty(sc.BatchRef))
+        {
+            w.Append("AND p.regno IN (SELECT i.regno FROM campus_dynamics_portal.sems_email_batch_items i " +
+                     "JOIN campus_dynamics_portal.sems_email_batches b ON b.id=i.batch_id " +
+                     "WHERE b.batch_ref=@br AND i.result='OK') ");
+            ps.Add(new MySqlParameter("@br", sc.BatchRef));
+        }
+        else if (sc.Regnos.Count > 0)
+        {
+            var names = new List<string>();
+            for (int i = 0; i < sc.Regnos.Count && i < HardBatchCap; i++)
+            { names.Add("@r" + i); ps.Add(new MySqlParameter("@r" + i, sc.Regnos[i])); }
+            w.Append("AND p.regno IN (").Append(string.Join(",", names.ToArray())).Append(") ");
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(sc.Stage)) { w.Append("AND p.current_stage=@st "); ps.Add(new MySqlParameter("@st", sc.Stage)); }
+            if (!string.IsNullOrEmpty(sc.Campus)) { w.Append("AND p.campus=@cm "); ps.Add(new MySqlParameter("@cm", sc.Campus)); }
+            if (!string.IsNullOrEmpty(sc.Programme)) { w.Append("AND p.programme=@pr "); ps.Add(new MySqlParameter("@pr", sc.Programme)); }
+            if (!string.IsNullOrEmpty(sc.Year)) { w.Append("AND p.admission_year=@yr "); ps.Add(new MySqlParameter("@yr", sc.Year)); }
+            if (!string.IsNullOrEmpty(sc.GoogleStatus)) { w.Append("AND p.google_status=@gs "); ps.Add(new MySqlParameter("@gs", sc.GoogleStatus)); }
+        }
+
+        // The safety rail: a "create" sheet only ever contains accounts Google has not
+        // confirmed, and an "update" sheet never contains a password.
+        // EXPORTED counts as "not created yet" — the sheet may have been lost, or the upload
+        // may not have been done; a second download of the same batch must still work.
+        if (sc.Mode == "create") w.Append("AND p.google_status IN ('NOT_CREATED','EXPORTED') ");
+        else if (sc.Mode == "update") w.Append("AND p.google_status IN ('IN_GOOGLE','SUSPENDED') ");
+
+        using (var c = new MySqlConnection(Conn))
+        {
+            c.Open();
+            var regnos = new List<string>();
+            using (var cmd = new MySqlCommand(
+                "SELECT p.regno, IFNULL(p.student_name,'') nm, p.email_address, IFNULL(p.temp_password,'') pw, " +
+                "  IFNULL(p.google_org_unit,'') ou, IFNULL(p.recovery_email,'') rec, IFNULL(p.recovery_phone,'') ph, " +
+                "  p.admission_year, IFNULL(p.campus,'') campus, IFNULL(p.programme,'') prog, p.google_status, " +
+                "  IFNULL(s.firstname,'') firstname, IFNULL(s.othername,'') othername, IFNULL(s.studPhone,'') sphone, " +
+                "  IFNULL(s.email,'') personal, IFNULL(s.home_dist,'') dist, IFNULL(pr.progname,'') progname " +
+                "FROM campus_dynamics_portal.sems_email_creations p " +
+                "LEFT JOIN campus_dynamics.acad_student s ON s.regno = CONVERT(p.regno USING utf8) " +
+                "LEFT JOIN campus_dynamics.acad_programme pr ON pr.progcode = CONVERT(p.programme USING utf8) " +
+                w + "ORDER BY p.student_name, p.regno LIMIT " + sc.Limit, c))
+            {
+                cmd.CommandTimeout = 300;
+                foreach (var p in ps) cmd.Parameters.Add(new MySqlParameter(p.ParameterName, p.Value));
+                using (var rd = cmd.ExecuteReader())
+                    while (rd.Read())
+                    {
+                        string regno = S(rd["regno"]);
+                        string given = S(rd["firstname"]);
+                        string surname = S(rd["othername"]);
+                        if (given == "" && surname == "")          // fall back to the pipeline's copy
+                        {
+                            var t = S(rd["nm"]).Split(' ');
+                            given = t.Length > 0 ? t[0] : "";
+                            surname = t.Length > 1 ? string.Join(" ", t.Skip(1).ToArray()) : "";
+                        }
+                        // Google rejects a blank required name; a placeholder is better than a
+                        // failed row, and it is visible enough that somebody will fix it.
+                        if (given.Trim() == "") given = surname.Trim() == "" ? "Student" : surname;
+                        if (surname.Trim() == "") surname = given;
+
+                        string personal = S(rd["personal"]).ToLowerInvariant();
+                        if (personal.EndsWith("@" + DefaultDomain)) personal = "";
+                        string rec = S(rd["rec"]); if (rec == "") rec = personal;
+                        string phone = S(rd["ph"]); if (phone == "") phone = ToE164(S(rd["sphone"]));
+                        string org = S(rd["ou"]);
+                        if (org == "") org = "/Students/" + S(rd["admission_year"]);
+                        // Only a CONFIRMED Google account suppresses the password. Merely having
+                        // been exported does not — that sheet may never have been uploaded.
+                        string gst = S(rd["google_status"]);
+                        bool inGoogle = (gst == "IN_GOOGLE" || gst == "SUSPENDED");
+
+                        var cells = new string[]
+                        {
+                            given,                                      // First Name
+                            surname,                                    // Last Name
+                            S(rd["email_address"]),                     // Email Address
+                            inGoogle ? "" : S(rd["pw"]),                // Password — blank for updates
+                            "",                                         // Password Hash Function (plain text)
+                            org,                                        // Org Unit Path
+                            "",                                         // New Primary Email
+                            rec,                                        // Recovery Email
+                            personal,                                   // Home Secondary Email
+                            "",                                         // Work Secondary Email
+                            phone,                                      // Recovery Phone (E.164)
+                            "",                                         // Work Phone
+                            "",                                         // Home Phone
+                            phone,                                      // Mobile Phone
+                            "",                                         // Work Address
+                            S(rd["dist"]),                              // Home Address
+                            regno,                                      // Employee ID — the join key
+                            "Student",                                  // Employee Type
+                            S(rd["progname"]) == "" ? S(rd["prog"]) : S(rd["progname"]),   // Employee Title
+                            "",                                         // Manager Email
+                            S(rd["prog"]),                              // Department
+                            CampusName(S(rd["campus"])),                // Cost Center
+                            "",                                         // Building ID
+                            "",                                         // Floor Name
+                            "",                                         // Floor Section
+                            inGoogle ? "" : (sc.ChangePwNext ? "TRUE" : "FALSE"),   // Change Password at Next Sign-In
+                            "",                                         // New Status
+                            "FALSE"                                     // Advanced Protection
+                        };
+                        sb.Append(string.Join(",", cells.Select(CsvCell).ToArray())).Append("\r\n");
+                        regnos.Add(regno);
+                        rowCount++;
+                    }
+            }
+
+            if (rowCount > 0)
+            {
+                batchRef = "SEX" + DateTime.Now.ToString("yyyyMMddHHmmss") + "-" +
+                           Guid.NewGuid().ToString("N").Substring(0, 4).ToUpperInvariant();
+                int batchId;
+                using (var cmd = new MySqlCommand(
+                    "INSERT INTO campus_dynamics_portal.sems_email_batches " +
+                    "(batch_ref,batch_type,status,params_json,total_rows,ok_rows,created_by,created_at,completed_at,notes) " +
+                    "VALUES (@r,'EXPORT','APPLIED',@p,@t,@t,@who,NOW(),NOW(),@n)", c))
+                {
+                    cmd.Parameters.AddWithValue("@r", batchRef);
+                    cmd.Parameters.AddWithValue("@p", Js().Serialize(sc));
+                    cmd.Parameters.AddWithValue("@t", rowCount);
+                    cmd.Parameters.AddWithValue("@who", Actor());
+                    cmd.Parameters.AddWithValue("@n", Trunc(sc.Mode + " sheet for Google Workspace", 250));
+                    cmd.ExecuteNonQuery();
+                    batchId = (int)cmd.LastInsertedId;
+                }
+
+                // Mark what left the building, so "exported but never confirmed in Google" is
+                // a question the console can answer later.
+                for (int i = 0; i < regnos.Count; i += 400)
+                {
+                    var chunk = regnos.Skip(i).Take(400).ToList();
+                    var names = new List<string>();
+                    var cmdPs = new List<MySqlParameter>();
+                    for (int k = 0; k < chunk.Count; k++)
+                    { names.Add("@x" + k); cmdPs.Add(new MySqlParameter("@x" + k, chunk[k])); }
+                    using (var cmd = new MySqlCommand(
+                        "UPDATE campus_dynamics_portal.sems_email_creations SET exported_at=NOW(), export_count=export_count+1, " +
+                        "google_status=CASE WHEN google_status='NOT_CREATED' THEN 'EXPORTED' ELSE google_status END " +
+                        "WHERE regno IN (" + string.Join(",", names.ToArray()) + ")", c))
+                    { foreach (var p in cmdPs) cmd.Parameters.Add(p); cmd.ExecuteNonQuery(); }
+
+                    using (var cmd = new MySqlCommand(
+                        "INSERT INTO campus_dynamics_portal.sems_email_batch_items (batch_id,row_no,regno,action,result,created_at) " +
+                        "SELECT @b, 0, regno, 'EXPORT', 'OK', NOW() FROM campus_dynamics_portal.sems_email_creations " +
+                        "WHERE regno IN (" + string.Join(",", names.ToArray()) + ")", c))
+                    {
+                        cmd.Parameters.AddWithValue("@b", batchId);
+                        foreach (var p in cmdPs) cmd.Parameters.Add(new MySqlParameter(p.ParameterName, p.Value));
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// The internal hand-out sheet: who got which address and which temporary password.
+    /// Deliberately a different file from the Google sheet — this one is credentials, and
+    /// it is generated from what was actually applied, not from what was proposed.
+    /// </summary>
+    public static string BuildCredentialsCsv(string batchRef, out int rowCount)
+    {
+        rowCount = 0;
+        var sb = new StringBuilder();
+        sb.Append("Student No.,Student Name,Programme,Campus,Entry Year,University Email,Temporary Password,Org Unit,Stage,Google Status\r\n");
+        using (var c = new MySqlConnection(Conn))
+        {
+            c.Open();
+            string sql =
+                "SELECT p.regno, IFNULL(p.student_name,'') nm, IFNULL(pr.progname,IFNULL(p.programme,'')) prog, " +
+                "IFNULL(p.campus,'') campus, p.admission_year, IFNULL(p.email_address,'') em, IFNULL(p.temp_password,'') pw, " +
+                "IFNULL(p.google_org_unit,'') ou, p.current_stage, p.google_status " +
+                "FROM campus_dynamics_portal.sems_email_creations p " +
+                "LEFT JOIN campus_dynamics.acad_programme pr ON pr.progcode = CONVERT(p.programme USING utf8) " +
+                (string.IsNullOrWhiteSpace(batchRef)
+                    ? "WHERE IFNULL(p.email_address,'')<>'' "
+                    : "WHERE p.regno IN (SELECT i.regno FROM campus_dynamics_portal.sems_email_batch_items i " +
+                      "JOIN campus_dynamics_portal.sems_email_batches b ON b.id=i.batch_id WHERE b.batch_ref=@r AND i.result='OK') ") +
+                "ORDER BY p.student_name, p.regno LIMIT " + (HardBatchCap * 5);
+            using (var cmd = new MySqlCommand(sql, c))
+            {
+                cmd.CommandTimeout = 300;
+                if (!string.IsNullOrWhiteSpace(batchRef)) cmd.Parameters.AddWithValue("@r", batchRef.Trim());
+                using (var rd = cmd.ExecuteReader())
+                    while (rd.Read())
+                    {
+                        var cells = new[]
+                        {
+                            S(rd["regno"]), S(rd["nm"]), S(rd["prog"]), CampusName(S(rd["campus"])),
+                            S(rd["admission_year"]), S(rd["em"]), S(rd["pw"]), S(rd["ou"]),
+                            S(rd["current_stage"]), S(rd["google_status"])
+                        };
+                        sb.Append(string.Join(",", cells.Select(CsvCell).ToArray())).Append("\r\n");
+                        rowCount++;
+                    }
+            }
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>How many rows each export mode would produce — shown before the download.</summary>
+    public static string ExportCount(string scopeJson)
+    {
+        try
+        {
+            var sc = ReadScope(scopeJson);
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                Func<string, int> cnt = extra =>
+                {
+                    using (var cmd = new MySqlCommand(
+                        "SELECT COUNT(*) FROM campus_dynamics_portal.sems_email_creations p WHERE IFNULL(p.email_address,'')<>'' " + extra, c))
+                    {
+                        cmd.CommandTimeout = 120;
+                        var v = cmd.ExecuteScalar(); return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v);
+                    }
+                };
+                return Js().Serialize(new
+                {
+                    success = true,
+                    create = cnt("AND p.google_status IN ('NOT_CREATED','EXPORTED')"),
+                    exported = cnt("AND p.google_status='EXPORTED'"),
+                    update = cnt("AND p.google_status IN ('IN_GOOGLE','SUSPENDED')"),
+                    all = cnt("")
+                });
+            }
+        }
+        catch (Exception ex) { return Fail(ex.Message); }
+    }
+
+    // =================================================================
+    //  IMPORT — parse + classify into staging
+    // =================================================================
+    private static string Col(Dictionary<string, int> map, string[] cells, string key)
+    {
+        int i;
+        if (!map.TryGetValue(key, out i) || i < 0 || i >= cells.Length) return "";
+        return (cells[i] ?? "").Trim();
+    }
+
+    /// <summary>
+    /// Parses an uploaded sheet into staging and decides what each row means. Writes nothing
+    /// to student records — the admin sees the classification first.
+    /// </summary>
+    public static string ImportParse(string fileName, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return Fail("The file is empty.");
+        char delim;
+        var rows = ParseDelimited(text, out delim);
+        if (rows.Count < 2) return Fail("The file has no data rows.");
+
+        // Map by header NAME, so a sheet with columns in a different order — or with extra
+        // columns Google added — still imports correctly.
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var header = rows[0];
+        for (int i = 0; i < header.Length; i++)
+        {
+            string k = HeaderKey(header[i]);
+            if (k.Length > 0 && !map.ContainsKey(k)) map[k] = i;
+        }
+        if (!map.ContainsKey("emailaddress") && !map.ContainsKey("email"))
+            return Fail("No \"Email Address\" column found. Use the Google Workspace template — download a blank one from this page if needed.");
+        if (map.ContainsKey("email") && !map.ContainsKey("emailaddress")) map["emailaddress"] = map["email"];
+
+        string importRef = "SIM" + DateTime.Now.ToString("yyyyMMddHHmmss") + "-" +
+                           Guid.NewGuid().ToString("N").Substring(0, 4).ToUpperInvariant();
+
+        int confirm = 0, adopt = 0, change = 0, suspend = 0, orphan = 0, skip = 0, error = 0;
+        var seenInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                SyncDirectory(c, DefaultDomain);
+
+                for (int r = 1; r < rows.Count && r <= HardBatchCap * 5; r++)
+                {
+                    var cells = rows[r];
+                    if (cells.All(x => (x ?? "").Trim().Length == 0)) continue;
+
+                    string email = Col(map, cells, "emailaddress").ToLowerInvariant();
+                    string newPrimary = Col(map, cells, "newprimaryemail").ToLowerInvariant();
+                    string empId = Col(map, cells, "employeeid");
+                    string first = Col(map, cells, "firstname");
+                    string last = Col(map, cells, "lastname");
+                    string org = Col(map, cells, "orgunitpath");
+                    string status = Col(map, cells, "newstatus");
+                    if (status == "") status = Col(map, cells, "status");
+                    string rec = Col(map, cells, "recoveryemail");
+                    string phone = Col(map, cells, "recoveryphone");
+                    string dept = Col(map, cells, "department");
+
+                    string action, severity = "OK", message = "", matchRegno = "", matchType = "NONE";
+                    string effective = newPrimary != "" ? newPrimary : email;
+
+                    if (effective == "" || !IsValidEmail(effective))
+                    {
+                        action = "ERROR"; severity = "ERROR";
+                        message = effective == "" ? "No email address in this row." : "Not a valid email address.";
+                    }
+                    else if (!seenInFile.Add(effective))
+                    {
+                        action = "ERROR"; severity = "ERROR";
+                        message = "This address appears more than once in the file.";
+                    }
+                    else
+                    {
+                        // Match: Employee ID first (survives renames), then the address itself.
+                        string pipeEmail = "", pipeStage = "";
+                        if (empId != "")
+                        {
+                            using (var q = new MySqlCommand(
+                                "SELECT regno, IFNULL(email_address,''), current_stage FROM campus_dynamics_portal.sems_email_creations WHERE regno=@r LIMIT 1", c))
+                            {
+                                q.Parameters.AddWithValue("@r", empId);
+                                using (var rd = q.ExecuteReader())
+                                    if (rd.Read()) { matchRegno = S(rd[0]); pipeEmail = S(rd[1]); pipeStage = S(rd[2]); matchType = "EMPLOYEE_ID"; }
+                            }
+                        }
+                        if (matchRegno == "")
+                        {
+                            using (var q = new MySqlCommand(
+                                "SELECT regno, IFNULL(email_address,''), current_stage FROM campus_dynamics_portal.sems_email_creations " +
+                                "WHERE email_address=@e LIMIT 1", c))
+                            {
+                                q.Parameters.AddWithValue("@e", effective);
+                                using (var rd = q.ExecuteReader())
+                                    if (rd.Read()) { matchRegno = S(rd[0]); pipeEmail = S(rd[1]); pipeStage = S(rd[2]); matchType = "EMAIL"; }
+                            }
+                        }
+
+                        bool suspended = status.IndexOf("suspend", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                         status.IndexOf("archiv", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                        if (matchRegno == "")
+                        {
+                            action = "ORPHAN"; severity = "WARN";
+                            message = "No student in the pipeline for this account — it will be recorded as taken so it is never re-issued.";
+                        }
+                        else if (pipeEmail == "")
+                        {
+                            action = "ADOPT"; severity = "WARN";
+                            message = "Student has no address on file — this Google account will be adopted onto their record.";
+                        }
+                        else if (!pipeEmail.Equals(effective, StringComparison.OrdinalIgnoreCase))
+                        {
+                            action = "UPDATE_EMAIL"; severity = "WARN";
+                            message = "Google has " + effective + " but the system has " + pipeEmail + ".";
+                        }
+                        else if (suspended)
+                        {
+                            action = "SUSPEND"; severity = "WARN";
+                            message = "Account is suspended in Google.";
+                        }
+                        else
+                        {
+                            action = "CONFIRM";
+                            message = "Confirmed live in Google.";
+                        }
+                    }
+
+                    switch (action)
+                    {
+                        case "CONFIRM": confirm++; break;
+                        case "ADOPT": adopt++; break;
+                        case "UPDATE_EMAIL": change++; break;
+                        case "SUSPEND": suspend++; break;
+                        case "ORPHAN": orphan++; break;
+                        case "ERROR": error++; break;
+                        default: skip++; break;
+                    }
+
+                    using (var ins = new MySqlCommand(
+                        "INSERT INTO campus_dynamics_portal.sems_import_staging " +
+                        "(import_ref,row_no,first_name,last_name,email,new_primary_email,employee_id,org_unit,google_status," +
+                        " recovery_email,recovery_phone,department,raw_json,match_regno,match_type,action,severity,message,created_at) " +
+                        "VALUES (@ref,@no,@fn,@ln,@em,@np,@eid,@ou,@st,@rc,@ph,@dp,@raw,@mr,@mt,@ac,@sv,@msg,NOW())", c))
+                    {
+                        ins.Parameters.AddWithValue("@ref", importRef);
+                        ins.Parameters.AddWithValue("@no", r);
+                        ins.Parameters.AddWithValue("@fn", Trunc(first, 110));
+                        ins.Parameters.AddWithValue("@ln", Trunc(last, 110));
+                        ins.Parameters.AddWithValue("@em", Trunc(email, 150));
+                        ins.Parameters.AddWithValue("@np", Trunc(newPrimary, 150));
+                        ins.Parameters.AddWithValue("@eid", Trunc(empId, 50));
+                        ins.Parameters.AddWithValue("@ou", Trunc(org, 150));
+                        ins.Parameters.AddWithValue("@st", Trunc(status, 35));
+                        ins.Parameters.AddWithValue("@rc", Trunc(rec, 150));
+                        ins.Parameters.AddWithValue("@ph", Trunc(phone, 35));
+                        ins.Parameters.AddWithValue("@dp", Trunc(dept, 110));
+                        ins.Parameters.AddWithValue("@raw", Trunc(string.Join(" | ", cells.Take(28).ToArray()), 4000));
+                        ins.Parameters.AddWithValue("@mr", Trunc(matchRegno, 40));
+                        ins.Parameters.AddWithValue("@mt", matchType);
+                        ins.Parameters.AddWithValue("@ac", action);
+                        ins.Parameters.AddWithValue("@sv", severity);
+                        ins.Parameters.AddWithValue("@msg", Trunc(message, 250));
+                        ins.ExecuteNonQuery();
+                    }
+                }
+
+                using (var cmd = new MySqlCommand(
+                    "INSERT INTO campus_dynamics_portal.sems_email_batches " +
+                    "(batch_ref,batch_type,status,params_json,total_rows,created_by,created_at,notes) " +
+                    "VALUES (@r,'IMPORT','DRAFT',@p,@t,@who,NOW(),@n)", c))
+                {
+                    cmd.Parameters.AddWithValue("@r", importRef);
+                    cmd.Parameters.AddWithValue("@p", Js().Serialize(new { fileName, delimiter = delim == '\t' ? "tab" : delim.ToString(), columns = header.Length }));
+                    cmd.Parameters.AddWithValue("@t", confirm + adopt + change + suspend + orphan + skip + error);
+                    cmd.Parameters.AddWithValue("@who", Actor());
+                    cmd.Parameters.AddWithValue("@n", Trunc("uploaded " + (fileName ?? "sheet"), 250));
+                    cmd.ExecuteNonQuery();
+                }
+
+                return Js().Serialize(new
+                {
+                    success = true,
+                    importRef,
+                    fileName,
+                    columns = header.Length,
+                    delimiter = delim == '\t' ? "tab" : delim.ToString(),
+                    total = confirm + adopt + change + suspend + orphan + skip + error,
+                    confirm, adopt, change, suspend, orphan, error, skip
+                });
+            }
+        }
+        catch (Exception ex) { return Fail(ex.Message); }
+    }
+
+    /// <summary>Paged view of a parsed import, optionally filtered to one class of row.</summary>
+    public static string ImportRows(string importRef, string action, int page, int pageSize)
+    {
+        importRef = (importRef ?? "").Trim();
+        if (pageSize < 1 || pageSize > 500) pageSize = 50;
+        if (page < 1) page = 1;
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                string w = "WHERE import_ref=@r" + (string.IsNullOrWhiteSpace(action) ? "" : " AND action=@a");
+                int total;
+                using (var q = new MySqlCommand("SELECT COUNT(*) FROM campus_dynamics_portal.sems_import_staging " + w, c))
+                {
+                    q.Parameters.AddWithValue("@r", importRef);
+                    if (!string.IsNullOrWhiteSpace(action)) q.Parameters.AddWithValue("@a", action);
+                    total = Convert.ToInt32(q.ExecuteScalar());
+                }
+                var rows = new List<object>();
+                using (var q = new MySqlCommand(
+                    "SELECT row_no, IFNULL(first_name,'') fn, IFNULL(last_name,'') ln, IFNULL(email,'') em, " +
+                    "IFNULL(new_primary_email,'') np, IFNULL(employee_id,'') eid, IFNULL(org_unit,'') ou, " +
+                    "IFNULL(google_status,'') gs, IFNULL(match_regno,'') mr, IFNULL(match_type,'') mt, " +
+                    "IFNULL(action,'') ac, IFNULL(severity,'') sv, IFNULL(message,'') msg, applied " +
+                    "FROM campus_dynamics_portal.sems_import_staging " + w + " ORDER BY row_no LIMIT @off,@ps", c))
+                {
+                    q.Parameters.AddWithValue("@r", importRef);
+                    if (!string.IsNullOrWhiteSpace(action)) q.Parameters.AddWithValue("@a", action);
+                    q.Parameters.AddWithValue("@off", (page - 1) * pageSize);
+                    q.Parameters.AddWithValue("@ps", pageSize);
+                    using (var rd = q.ExecuteReader())
+                        while (rd.Read())
+                            rows.Add(new
+                            {
+                                rowNo = Convert.ToInt32(rd["row_no"]), first = S(rd["fn"]), last = S(rd["ln"]),
+                                email = S(rd["em"]), newPrimary = S(rd["np"]), employeeId = S(rd["eid"]),
+                                orgUnit = S(rd["ou"]), status = S(rd["gs"]), regno = S(rd["mr"]), matchType = S(rd["mt"]),
+                                action = S(rd["ac"]), severity = S(rd["sv"]), message = S(rd["msg"]),
+                                applied = Convert.ToInt32(rd["applied"]) == 1
+                            });
+                }
+                return Js().Serialize(new
+                {
+                    success = true, total, page, pageSize,
+                    pageCount = Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)), rows
+                });
+            }
+        }
+        catch (Exception ex) { return Fail(ex.Message); }
+    }
+
+    // =================================================================
+    //  IMPORT — apply the classes the admin ticked
+    // =================================================================
+    public static string ImportApply(string importRef, string optionsJson)
+    {
+        importRef = (importRef ?? "").Trim();
+        if (importRef == "") return Fail("Missing import reference.");
+
+        bool doConfirm = true, doAdopt = true, doChange = false, doSuspend = true, doOrphan = true;
+        try
+        {
+            var d = Js().Deserialize<Dictionary<string, object>>(optionsJson ?? "{}");
+            doConfirm = GetB(d, "confirm", true);
+            doAdopt = GetB(d, "adopt", true);
+            doChange = GetB(d, "changeEmail", false);
+            doSuspend = GetB(d, "suspend", true);
+            doOrphan = GetB(d, "orphan", true);
+        }
+        catch { }
+
+        int confirmed = 0, adopted = 0, changed = 0, suspended = 0, orphans = 0, failed = 0;
+        var failures = new List<object>();
+
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+
+                var wanted = new List<string>();
+                if (doConfirm) wanted.Add("'CONFIRM'");
+                if (doAdopt) wanted.Add("'ADOPT'");
+                if (doChange) wanted.Add("'UPDATE_EMAIL'");
+                if (doSuspend) wanted.Add("'SUSPEND'");
+                if (doOrphan) wanted.Add("'ORPHAN'");
+                if (wanted.Count == 0) return Fail("Nothing selected to apply.");
+
+                var rows = new List<string[]>();
+                using (var q = new MySqlCommand(
+                    "SELECT id, IFNULL(match_regno,''), IFNULL(email,''), IFNULL(new_primary_email,''), IFNULL(org_unit,''), " +
+                    "IFNULL(action,''), IFNULL(first_name,''), IFNULL(last_name,''), IFNULL(recovery_email,''), IFNULL(recovery_phone,'') " +
+                    "FROM campus_dynamics_portal.sems_import_staging " +
+                    "WHERE import_ref=@r AND applied=0 AND action IN (" + string.Join(",", wanted.ToArray()) + ") ORDER BY row_no", c))
+                {
+                    q.Parameters.AddWithValue("@r", importRef);
+                    using (var rd = q.ExecuteReader())
+                        while (rd.Read())
+                            rows.Add(new[] { S(rd[0]), S(rd[1]), S(rd[2]), S(rd[3]), S(rd[4]), S(rd[5]), S(rd[6]), S(rd[7]), S(rd[8]), S(rd[9]) });
+                }
+
+                foreach (var r in rows)
+                {
+                    string id = r[0], regno = r[1], email = r[2], newPrimary = r[3], org = r[4], action = r[5];
+                    string name = (r[6] + " " + r[7]).Trim(), rec = r[8], phone = r[9];
+                    string effective = newPrimary != "" ? newPrimary : email;
+
+                    try
+                    {
+                        using (var tx = c.BeginTransaction())
+                        {
+                            if (action == "ORPHAN")
+                            {
+                                UpsertDirectory(c, tx, effective, "GOOGLE", null, null, name, "ACTIVE",
+                                                "seen in Google import " + importRef);
+                                orphans++;
+                            }
+                            else if (action == "CONFIRM" || action == "SUSPEND")
+                            {
+                                using (var up = new MySqlCommand(
+                                    "UPDATE campus_dynamics_portal.sems_email_creations SET google_status=@gs, google_synced_at=NOW(), " +
+                                    "google_last_seen_at=NOW(), google_org_unit=COALESCE(NULLIF(@ou,''),google_org_unit), " +
+                                    "last_updated_by=@who, last_updated_at=NOW() WHERE regno=@r", c, tx))
+                                {
+                                    up.Parameters.AddWithValue("@gs", action == "SUSPEND" ? "SUSPENDED" : "IN_GOOGLE");
+                                    up.Parameters.AddWithValue("@ou", org);
+                                    up.Parameters.AddWithValue("@who", Actor());
+                                    up.Parameters.AddWithValue("@r", regno);
+                                    up.ExecuteNonQuery();
+                                }
+                                UpsertDirectory(c, tx, effective, "GOOGLE", "STUDENT", regno, name, "ACTIVE", "confirmed in Google " + importRef);
+                                if (action == "SUSPEND") suspended++; else confirmed++;
+                            }
+                            else if (action == "ADOPT" || action == "UPDATE_EMAIL")
+                            {
+                                using (var up = new MySqlCommand(
+                                    "UPDATE campus_dynamics_portal.sems_email_creations SET email_address=@e, google_status='IN_GOOGLE', " +
+                                    "google_synced_at=NOW(), google_last_seen_at=NOW(), google_org_unit=COALESCE(NULLIF(@ou,''),google_org_unit), " +
+                                    "recovery_email=COALESCE(NULLIF(@rc,''),recovery_email), recovery_phone=COALESCE(NULLIF(@ph,''),recovery_phone), " +
+                                    "current_stage=CASE WHEN current_stage='PENDING_CREATION' THEN 'READY_FOR_COLLECTION' ELSE current_stage END, " +
+                                    "current_status=CASE WHEN current_stage='PENDING_CREATION' THEN 'READY' ELSE current_status END, " +
+                                    "email_created_at=COALESCE(email_created_at,NOW()), last_updated_by=@who, last_updated_at=NOW() " +
+                                    "WHERE regno=@r", c, tx))
+                                {
+                                    up.Parameters.AddWithValue("@e", effective);
+                                    up.Parameters.AddWithValue("@ou", org);
+                                    up.Parameters.AddWithValue("@rc", rec);
+                                    up.Parameters.AddWithValue("@ph", ToE164(phone));
+                                    up.Parameters.AddWithValue("@who", Actor());
+                                    up.Parameters.AddWithValue("@r", regno);
+                                    up.ExecuteNonQuery();
+                                }
+                                UpsertDirectory(c, tx, effective, "GOOGLE", "STUDENT", regno, name, "ACTIVE", "adopted from Google " + importRef);
+                                LogTx(c, tx, 0, regno, action == "ADOPT" ? "google_adopt_email" : "google_change_email", null, null,
+                                      effective + " (import " + importRef + ")");
+                                if (action == "ADOPT") adopted++; else changed++;
+                            }
+
+                            using (var up = new MySqlCommand(
+                                "UPDATE campus_dynamics_portal.sems_import_staging SET applied=1, message=CONCAT(IFNULL(message,''),' — applied') WHERE id=@id", c, tx))
+                            { up.Parameters.AddWithValue("@id", id); up.ExecuteNonQuery(); }
+
+                            tx.Commit();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        failures.Add(new { regno, email = effective, message = ex.Message });
+                        try
+                        {
+                            using (var up = new MySqlCommand(
+                                "UPDATE campus_dynamics_portal.sems_import_staging SET severity='ERROR', message=@m WHERE id=@id", c))
+                            { up.Parameters.AddWithValue("@m", Trunc("apply failed: " + ex.Message, 250)); up.Parameters.AddWithValue("@id", id); up.ExecuteNonQuery(); }
+                        }
+                        catch { }
+                    }
+                }
+
+                using (var up = new MySqlCommand(
+                    "UPDATE campus_dynamics_portal.sems_email_batches SET status=@s, ok_rows=@o, failed_rows=@f, completed_at=NOW() WHERE batch_ref=@r", c))
+                {
+                    up.Parameters.AddWithValue("@s", failed == 0 ? "APPLIED" : "PARTIAL");
+                    up.Parameters.AddWithValue("@o", confirmed + adopted + changed + suspended + orphans);
+                    up.Parameters.AddWithValue("@f", failed);
+                    up.Parameters.AddWithValue("@r", importRef);
+                    up.ExecuteNonQuery();
+                }
+
+                return Js().Serialize(new
+                {
+                    success = true, importRef, confirmed, adopted, changed, suspended, orphans, failed, failures,
+                    message = "Applied: " + confirmed + " confirmed, " + adopted + " adopted, " + changed + " address change(s), " +
+                              suspended + " suspended, " + orphans + " external account(s) recorded" +
+                              (failed > 0 ? ", " + failed + " failed" : "") + "."
+                });
+            }
+        }
+        catch (Exception ex) { return Fail(ex.Message); }
+    }
+
+    private static void UpsertDirectory(MySqlConnection c, MySqlTransaction tx, string email, string source,
+                                        string ownerType, string ownerRef, string name, string status, string note)
+    {
+        email = (email ?? "").Trim().ToLowerInvariant();
+        if (email.IndexOf('@') <= 0) return;
+        string local = email.Substring(0, email.IndexOf('@'));
+        string dom = email.Substring(email.IndexOf('@') + 1);
+        using (var cmd = new MySqlCommand(
+            "INSERT INTO campus_dynamics_portal.sems_email_directory " +
+            "(email,local_part,domain,source,owner_type,owner_ref,display_name,status,first_seen_at,last_seen_at,notes) " +
+            "VALUES (@e,@l,@d,@s,@ot,@o,@n,@st,NOW(),NOW(),@nt) " +
+            "ON DUPLICATE KEY UPDATE last_seen_at=NOW(), status=@st, " +
+            "  owner_ref=COALESCE(NULLIF(@o,''),owner_ref), display_name=COALESCE(NULLIF(@n,''),display_name), notes=@nt", c, tx))
+        {
+            cmd.Parameters.AddWithValue("@e", email);
+            cmd.Parameters.AddWithValue("@l", local);
+            cmd.Parameters.AddWithValue("@d", dom);
+            cmd.Parameters.AddWithValue("@s", source);
+            cmd.Parameters.AddWithValue("@ot", N(ownerType));
+            cmd.Parameters.AddWithValue("@o", ownerRef ?? "");
+            cmd.Parameters.AddWithValue("@n", Trunc(name ?? "", 150));
+            cmd.Parameters.AddWithValue("@st", status);
+            cmd.Parameters.AddWithValue("@nt", Trunc(note ?? "", 250));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Throws away a parsed import that the admin decided not to apply.</summary>
+    public static string ImportDiscard(string importRef)
+    {
+        importRef = (importRef ?? "").Trim();
+        try
+        {
+            using (var c = new MySqlConnection(Conn))
+            {
+                c.Open();
+                using (var d = new MySqlCommand("DELETE FROM campus_dynamics_portal.sems_import_staging WHERE import_ref=@r AND applied=0", c))
+                { d.Parameters.AddWithValue("@r", importRef); d.ExecuteNonQuery(); }
+                using (var u = new MySqlCommand(
+                    "UPDATE campus_dynamics_portal.sems_email_batches SET status='CANCELLED', completed_at=NOW() WHERE batch_ref=@r AND status='DRAFT'", c))
+                { u.Parameters.AddWithValue("@r", importRef); u.ExecuteNonQuery(); }
+                return Js().Serialize(new { success = true, message = "Import discarded." });
+            }
+        }
+        catch (Exception ex) { return Fail(ex.Message); }
+    }
+}
