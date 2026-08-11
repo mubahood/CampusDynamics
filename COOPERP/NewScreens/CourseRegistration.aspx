@@ -68,7 +68,29 @@
             background: #fff;
         }
         .cr-filter-select:focus { border-color: #174DA4; outline: none; }
-        
+
+        /* Course-code filter: typed code + the resolved-course hint beside it */
+        .cr-ccode-wrap { display: inline-flex; align-items: center; gap: 6px; }
+        .cr-ccode-hint {
+            font-size: 10px;
+            max-width: 260px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .cr-ccode-hint--ok { color: #0f766e; }
+        .cr-ccode-hint--warn { color: #b45309; }
+        .cr-ccode-clear {
+            border: 1px solid #ddd;
+            background: #fff;
+            color: #666;
+            font-size: 11px;
+            line-height: 1;
+            padding: 5px 7px;
+            cursor: pointer;
+        }
+        .cr-ccode-clear:hover { background: #f1f5f9; color: #05275C; }
+
         /* Status Badges */
         .cr-status-badge {
             display: inline-block;
@@ -575,7 +597,21 @@
 
         <span class="cr-filter-row__label">Course:</span>
         <asp:DropDownList ID="ddlCourse" runat="server" CssClass="cr-filter-select" Width="300px"></asp:DropDownList>
-        
+
+        <%-- Type any course code to filter straight to it — no need to pick a programme /
+             study year / semester first. A typed code overrides the Course dropdown. --%>
+        <span class="cr-filter-row__label">Course Code:</span>
+        <span class="cr-ccode-wrap">
+            <asp:TextBox ID="txtCourseCode" runat="server" CssClass="cr-filter-select" Width="170px"
+                placeholder="e.g. BIT1101" autocomplete="off" list="ccodeList"></asp:TextBox>
+            <datalist id="ccodeList"></datalist>
+            <%-- mousedown + preventDefault: keeps focus in the box so its 'change' handler
+                 doesn't re-apply the old code before this click is delivered. --%>
+            <button type="button" class="cr-ccode-clear" onmousedown="event.preventDefault(); clearCourseCode();"
+                title="Clear the course code filter">&times;</button>
+            <asp:Literal ID="litCourseCodeHint" runat="server"></asp:Literal>
+        </span>
+
         <span class="cr-filter-row__label">Status:</span>
         <asp:DropDownList ID="ddlStatus" runat="server" CssClass="cr-filter-select">
             <asp:ListItem Value="Pending" Text="Pending"></asp:ListItem>
@@ -978,6 +1014,7 @@
             var entyr = document.getElementById('<%= ddlEntryYear.ClientID %>').value;
             var intake = document.getElementById('<%= ddlIntake.ClientID %>').value;
             var course = document.getElementById('<%= ddlCourse.ClientID %>').value;
+            var ccode = courseCodeValue();
             var status = document.getElementById('<%= ddlStatus.ClientID %>').value;
             var student = document.getElementById('<%= txtStudentFilter.ClientID %>').value.trim();
 
@@ -987,7 +1024,9 @@
             setOrRemove(params, 'sem', sem);
             setOrRemove(params, 'entyr', entyr && entyr !== '-' ? entyr : '');
             setOrRemove(params, 'intake', intake && intake !== '-' ? intake : '');
-            setOrRemove(params, 'course', course);
+            // A typed course code wins over the dropdown — don't carry both in the URL.
+            setOrRemove(params, 'course', ccode ? '' : course);
+            setOrRemove(params, 'ccode', ccode);
             setOrRemove(params, 'status', status);
             setOrRemove(params, 'student', student);
 
@@ -1000,6 +1039,67 @@
             } else {
                 params.delete(key);
             }
+        }
+
+        // ── Course-code filter ───────────────────────────────────────────────
+        // The box accepts a bare code ("BIT1101") or a picked suggestion
+        // ("BIT1101 — Introduction to IT"); only the code is sent to the server.
+        function courseCodeValue() {
+            var el = document.getElementById('<%= txtCourseCode.ClientID %>');
+            if (!el) return '';
+            var v = (el.value || '').trim();
+            if (!v) return '';
+            return v.split(/\s+—\s+|\s+-\s+/)[0].trim().toUpperCase();
+        }
+
+        function clearCourseCode() {
+            var el = document.getElementById('<%= txtCourseCode.ClientID %>');
+            if (!el) return;
+            if (!el.value) { el.focus(); return; }
+            el.value = '';
+            applyFiltersGet();
+        }
+
+        // Type-ahead: suggest matching codes from the course catalogue.
+        var ccodeTimer = null, ccodeLast = '';
+        function loadCourseCodeSuggestions(term) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', 'CourseRegistration.aspx/SearchCourses', true);
+            xhr.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
+            xhr.onload = function () {
+                var r;
+                try { var o = JSON.parse(xhr.responseText); r = typeof o.d === 'string' ? JSON.parse(o.d) : o.d; }
+                catch (e) { return; }
+                if (!r || !r.success) return;
+                var dl = document.getElementById('ccodeList');
+                if (!dl) return;
+                var h = '';
+                (r.courses || []).forEach(function (c) {
+                    var lbl = c.code + (c.name ? ' — ' + c.name : '');
+                    h += '<option value="' + c.code.replace(/"/g, '&quot;') + '">' + lbl.replace(/</g, '&lt;') + '</option>';
+                });
+                dl.innerHTML = h;
+            };
+            xhr.send(JSON.stringify({ term: term }));
+        }
+
+        function wireCourseCode() {
+            var el = document.getElementById('<%= txtCourseCode.ClientID %>');
+            if (!el) return;
+            el.addEventListener('input', function () {
+                var v = (el.value || '').trim();
+                if (v.length < 2 || v === ccodeLast) return;
+                ccodeLast = v;
+                if (ccodeTimer) clearTimeout(ccodeTimer);
+                ccodeTimer = setTimeout(function () { loadCourseCodeSuggestions(v); }, 250);
+            });
+            el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); applyFiltersGet(); }
+            });
+            // Picking a suggestion from the datalist fires 'change' — apply it straight away.
+            el.addEventListener('change', function () {
+                if (courseCodeValue()) applyFiltersGet();
+            });
         }
 
         function wireGetFilters() {
@@ -1030,6 +1130,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', wireGetFilters);
+        document.addEventListener('DOMContentLoaded', wireCourseCode);
         // Filters are always visible now (GET-driven; each change re-navigates with the new query).
 
         document.addEventListener('keydown', function (e) {
@@ -1158,8 +1259,10 @@
             var h = hf();
             var keys = h && h.value ? h.value.split(',').filter(Boolean) : [];
             if (keys.length === 0) { alert('Select at least one student by ticking the checkboxes.'); return false; }
+            // A course is set either by the dropdown or by the typed course-code filter.
             var course = document.getElementById('<%= ddlCourse.ClientID %>');
-            if (!course || !course.value) { alert('Please select a course first.'); return false; }
+            var typed = (window.courseCodeValue ? courseCodeValue() : '');
+            if (!typed && (!course || !course.value)) { alert('Please select a course, or type a course code, first.'); return false; }
             return confirm(action === 'register'
                 ? ('Register ' + keys.length + ' selected student(s) for the selected course?')
                 : ('Remove registration for ' + keys.length + ' selected student(s)?'));
@@ -1246,7 +1349,8 @@
             // Pre-fill sitting context from the page filters (editable).
             var a = pageVal('<%= ddlAcadYear.ClientID %>'); if (a) qs('addAcad').value = a;
             var s = pageVal('<%= ddlSemester.ClientID %>'); if (s && qs('addSem').querySelector('option[value="' + s + '"]')) qs('addSem').value = s;
-            var t = pageVal('<%= ddlCourse.ClientID %>');  // if a course filter is active, seed it after courses load
+            // if a course filter is active (typed code wins), seed it after courses load
+            var t = (window.courseCodeValue ? courseCodeValue() : '') || pageVal('<%= ddlCourse.ClientID %>');
             qs('addModalOverlay').classList.add('show');
             setTimeout(function () { qs('addRegNo').focus(); }, 60);
             window._addSeedCourse = t || '';

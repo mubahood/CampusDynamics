@@ -30,6 +30,37 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         }
     }
     
+    /// <summary>
+    /// Course code typed into the "Course Code" box (normalised). Lets an admin filter
+    /// straight to any course without first picking programme / study year / semester.
+    /// </summary>
+    private string TypedCourseCode
+    {
+        get
+        {
+            string v = (txtCourseCode.Text ?? string.Empty).Trim();
+            // Tolerate a pasted "CODE - Course Name" suggestion; only the code matters.
+            // — is the em dash the suggestion list renders between code and name.
+            int dash = v.IndexOf(" — ", StringComparison.Ordinal);
+            if (dash < 0) dash = v.IndexOf(" - ", StringComparison.Ordinal);
+            if (dash > 0) v = v.Substring(0, dash).Trim();
+            return v.ToUpperInvariant();
+        }
+    }
+
+    /// <summary>
+    /// The course every query and batch action works on: the typed code when present,
+    /// otherwise the Course dropdown selection.
+    /// </summary>
+    private string SelectedCourseCode
+    {
+        get
+        {
+            string typed = TypedCourseCode;
+            return typed.Length > 0 ? typed : (ddlCourse.SelectedValue ?? string.Empty);
+        }
+    }
+
     protected void Page_Load(object sender, EventArgs e)
     {
         // Master page has EnableViewState="false", so dynamic dropdowns must
@@ -221,6 +252,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         SetDropDownFromQuery(ddlIntake, "intake");
         SetDropDownFromQuery(ddlStatus, "status");
         txtStudentFilter.Text = (Request.QueryString["student"] ?? string.Empty).Trim();
+        txtCourseCode.Text = (Request.QueryString["ccode"] ?? string.Empty).Trim();
     }
 
     private void ApplyCourseFromQueryString()
@@ -239,13 +271,51 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     {
         litAcadYearDisplay.Text = ddlAcadYear.SelectedValue;
         litSemesterDisplay.Text = "Yr " + ddlStudyYear.SelectedValue + ", Sem " + ddlSemester.SelectedValue;
+        UpdateCourseCodeHint();
+    }
+
+    /// <summary>
+    /// Names the typed course beside the box so the admin can see they hit the right code —
+    /// and warns when the code is not in the catalogue (a legacy code can still hold
+    /// registrations, so filtering continues either way).
+    /// </summary>
+    private void UpdateCourseCodeHint()
+    {
+        litCourseCodeHint.Text = string.Empty;
+        string code = TypedCourseCode;
+        if (code.Length == 0) return;
+
+        string name = null;
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT courseName FROM acad_course WHERE courseID = @c LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@c", code);
+                    object o = cmd.ExecuteScalar();
+                    if (o != null) name = (o == DBNull.Value ? code : o.ToString());
+                }
+            }
+        }
+        catch { return; }
+
+        if (string.IsNullOrEmpty(name))
+            litCourseCodeHint.Text = string.Format(
+                "<span class='cr-ccode-hint cr-ccode-hint--warn'>{0} is not in the course catalogue</span>", H(code));
+        else
+            litCourseCodeHint.Text = string.Format(
+                "<span class='cr-ccode-hint cr-ccode-hint--ok' title=\"{0}\">{0}</span>", H(name));
     }
     
     private void LoadStats()
     {
         bool hasProgramme = !string.IsNullOrEmpty(ddlProgramme.SelectedValue);
-        bool hasCourse = !string.IsNullOrEmpty(ddlCourse.SelectedValue);
-        
+        string courseCode = SelectedCourseCode;
+        bool hasCourse = !string.IsNullOrEmpty(courseCode);
+
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
@@ -271,7 +341,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     cmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
                     cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
                     cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                    cmd.Parameters.AddWithValue("@course", ddlCourse.SelectedValue);
+                    cmd.Parameters.AddWithValue("@course", courseCode);
                     cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
                     litPendingCount.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString();
                 }
@@ -291,7 +361,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             
             using (MySqlCommand cmd = new MySqlCommand(sqlRegistered, conn))
             {
-                cmd.Parameters.AddWithValue("@course", hasCourse ? ddlCourse.SelectedValue : "");
+                cmd.Parameters.AddWithValue("@course", hasCourse ? courseCode : "");
                 cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
                 cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
                 cmd.Parameters.AddWithValue("@prog", hasProgramme ? ddlProgramme.SelectedValue : "");
@@ -308,7 +378,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             
             using (MySqlCommand cmd = new MySqlCommand(sqlRetake, conn))
             {
-                cmd.Parameters.AddWithValue("@course", hasCourse ? ddlCourse.SelectedValue : "");
+                cmd.Parameters.AddWithValue("@course", hasCourse ? courseCode : "");
                 cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
                 cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
                 cmd.Parameters.AddWithValue("@prog", hasProgramme ? ddlProgramme.SelectedValue : "");
@@ -325,7 +395,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         DataTable dt = QueryRegistrations(true, ref requestedPage, out totalRows, out totalPages, out isPendingView);
 
         btnRegisterSelected.Visible = isPendingView;
-        btnRemoveSelected.Visible = (!isPendingView && !string.IsNullOrEmpty(ddlCourse.SelectedValue));
+        btnRemoveSelected.Visible = (!isPendingView && !string.IsNullOrEmpty(SelectedCourseCode));
 
         RenderTable(dt, requestedPage, totalPages, totalRows, isPendingView);
 
@@ -343,7 +413,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     private DataTable QueryRegistrations(bool paged, ref int requestedPage, out int totalRows, out int totalPages, out bool isPendingView)
     {
         bool hasProgramme = !string.IsNullOrEmpty(ddlProgramme.SelectedValue);
-        bool hasCourse = !string.IsNullOrEmpty(ddlCourse.SelectedValue);
+        bool hasCourse = !string.IsNullOrEmpty(SelectedCourseCode);
         string studentTerm = (txtStudentFilter.Text ?? string.Empty).Trim();
         isPendingView = (ddlStatus.SelectedValue == "Pending" && hasProgramme && hasCourse);
 
@@ -463,7 +533,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         cmd.Parameters.AddWithValue("@prog", hasProgramme ? ddlProgramme.SelectedValue : "");
         cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
         cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-        cmd.Parameters.AddWithValue("@course", hasCourse ? ddlCourse.SelectedValue : "");
+        cmd.Parameters.AddWithValue("@course", hasCourse ? SelectedCourseCode : "");
         cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
         cmd.Parameters.AddWithValue("@student", studentTerm);
         cmd.Parameters.AddWithValue("@studentLike", string.IsNullOrEmpty(studentTerm) ? "%" : ("%" + studentTerm + "%"));
@@ -506,7 +576,12 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
         if (dt.Rows.Count == 0)
         {
-            litRows.Text = "<tr><td colspan='11' class='crx-empty'>No course-registration records match the current filters.</td></tr>";
+            // A typed course code is sitting-scoped like every other filter, so spell the
+            // sitting out — an empty list is nearly always the wrong year/semester.
+            string extra = string.IsNullOrEmpty(TypedCourseCode) ? "" : string.Format(
+                " Nothing is registered under <b>{0}</b> for {1}, Semester {2} &mdash; check the academic year and semester above.",
+                H(TypedCourseCode), H(ddlAcadYear.SelectedValue), H(ddlSemester.SelectedValue));
+            litRows.Text = "<tr><td colspan='11' class='crx-empty'>No course-registration records match the current filters." + extra + "</td></tr>";
             return;
         }
 
@@ -612,7 +687,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             query["entyr"] = ddlEntryYear.SelectedValue;
         if (!string.IsNullOrEmpty(ddlIntake.SelectedValue) && ddlIntake.SelectedValue != "-")
             query["intake"] = ddlIntake.SelectedValue;
-        if (!string.IsNullOrEmpty(ddlCourse.SelectedValue))
+        // A typed course code overrides the dropdown — carry only the one in force.
+        if (!string.IsNullOrEmpty(TypedCourseCode))
+            query["ccode"] = TypedCourseCode;
+        else if (!string.IsNullOrEmpty(ddlCourse.SelectedValue))
             query["course"] = ddlCourse.SelectedValue;
         if (!string.IsNullOrEmpty(ddlStatus.SelectedValue))
             query["status"] = ddlStatus.SelectedValue;
@@ -702,9 +780,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     
     protected void btnRegisterSelected_Click(object sender, EventArgs e)
     {
-        if (string.IsNullOrEmpty(ddlCourse.SelectedValue))
+        string courseCode = SelectedCourseCode;
+        if (string.IsNullOrEmpty(courseCode))
         {
-            ShowMessage("Please select a course first.", "error");
+            ShowMessage("Please select a course, or type a course code, first.", "error");
             LoadStats();
             BindGrid();
             return;
@@ -758,7 +837,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         using (MySqlCommand checkCmd = new MySqlCommand(checkSql, conn))
                         {
                             checkCmd.Parameters.AddWithValue("@regno", regno);
-                            checkCmd.Parameters.AddWithValue("@course", ddlCourse.SelectedValue);
+                            checkCmd.Parameters.AddWithValue("@course", courseCode);
                             checkCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
                             checkCmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
                             
@@ -775,7 +854,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         {
                             spCmd.CommandType = CommandType.StoredProcedure;
                             spCmd.Parameters.AddWithValue("@reg", regno);
-                            spCmd.Parameters.AddWithValue("@csid", ddlCourse.SelectedValue);
+                            spCmd.Parameters.AddWithValue("@csid", courseCode);
                             spCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
                             spCmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
                             spCmd.Parameters.AddWithValue("@cs_stat", "REGULAR");
@@ -828,9 +907,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     
     protected void btnRemoveSelected_Click(object sender, EventArgs e)
     {
-        if (string.IsNullOrEmpty(ddlCourse.SelectedValue))
+        string courseCode = SelectedCourseCode;
+        if (string.IsNullOrEmpty(courseCode))
         {
-            ShowMessage("Please select a course first.", "error");
+            ShowMessage("Please select a course, or type a course code, first.", "error");
             LoadStats();
             BindGrid();
             return;
@@ -868,7 +948,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         {
                             spCmd.CommandType = CommandType.StoredProcedure;
                             spCmd.Parameters.AddWithValue("@reg", regno);
-                            spCmd.Parameters.AddWithValue("@csid", ddlCourse.SelectedValue);
+                            spCmd.Parameters.AddWithValue("@csid", courseCode);
                             spCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
                             spCmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
                             spCmd.Parameters.AddWithValue("@cs_stat", "NORMAL");
@@ -926,7 +1006,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         gvCourseReg.DataBind();
 
         string fileName = string.Format("CourseRegistration_{0}_{1}_Sem{2}",
-            ddlProgramme.SelectedValue, ddlAcadYear.SelectedValue.Replace("/", "-"), ddlSemester.SelectedValue);
+            string.IsNullOrEmpty(SelectedCourseCode) ? ddlProgramme.SelectedValue : SelectedCourseCode,
+            ddlAcadYear.SelectedValue.Replace("/", "-"), ddlSemester.SelectedValue);
         gvExporter.WriteXlsxToResponse(fileName, new XlsxExportOptionsEx { ExportType = DevExpress.Export.ExportType.WYSIWYG });
     }
 
@@ -1078,6 +1159,46 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     }
             }
             return js.Serialize(new { success = true, prog = prog, student = studentName, courses = courses, taken = taken });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>
+    /// Type-ahead for the "Course Code" filter: up to 15 catalogue courses whose code or name
+    /// matches what the admin is typing. Code matches are ranked first (a code prefix first of all)
+    /// so the exact paper being looked for tops the list.
+    /// </summary>
+    [WebMethod]
+    public static string SearchCourses(string term)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string t = (term ?? "").Trim();
+            if (t.Length < 2)
+                return js.Serialize(new { success = true, courses = new List<object>() });
+
+            var courses = new List<object>();
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    @"SELECT courseID, courseName
+                        FROM acad_course
+                       WHERE courseID LIKE @like OR courseName LIKE @like
+                       ORDER BY CASE WHEN courseID LIKE @prefix THEN 0
+                                     WHEN courseID LIKE @like   THEN 1
+                                     ELSE 2 END, courseID
+                       LIMIT 15", conn))
+                {
+                    cmd.Parameters.AddWithValue("@like", "%" + t + "%");
+                    cmd.Parameters.AddWithValue("@prefix", t + "%");
+                    using (var rdr = cmd.ExecuteReader())
+                        while (rdr.Read())
+                            courses.Add(new { code = SR(rdr, "courseID"), name = SR(rdr, "courseName") });
+                }
+            }
+            return js.Serialize(new { success = true, courses = courses });
         }
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
     }
