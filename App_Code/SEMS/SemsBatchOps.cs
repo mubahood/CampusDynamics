@@ -568,11 +568,15 @@ public static partial class SemsBatch
                             if (curEmail.Equals(email, StringComparison.OrdinalIgnoreCase))
                             { tx.Rollback(); MarkItem(c, itemId, "OK", "already applied"); ok++; continue; }
 
+                            // PROPOSED, not issued. The address and password are recorded and
+                            // reserved so the Google sheet can carry them, but the student's
+                            // stage does not move and they are told nothing: the mailbox does
+                            // not exist until Google says it does. The import promotes them.
                             using (var up = new MySqlCommand(
                                 "UPDATE campus_dynamics_portal.sems_email_creations SET " +
-                                " email_address=@e, temp_password=@p, google_status='NOT_CREATED', google_org_unit=@ou, " +
-                                " recovery_email=@rc, recovery_phone=@ph, current_stage=@stg, current_status=@sts, " +
-                                " email_created_at=NOW(), last_batch_id=@b, last_updated_by=@who, last_updated_at=NOW() " +
+                                " email_address=@e, temp_password=@p, google_status='PROPOSED', google_org_unit=@ou, " +
+                                " recovery_email=@rc, recovery_phone=@ph, " +
+                                " last_batch_id=@b, last_updated_by=@who, last_updated_at=NOW() " +
                                 "WHERE id=@id", c, tx))
                             {
                                 up.Parameters.AddWithValue("@e", email);
@@ -580,8 +584,6 @@ public static partial class SemsBatch
                                 up.Parameters.AddWithValue("@ou", N(org));
                                 up.Parameters.AddWithValue("@rc", N(rec));
                                 up.Parameters.AddWithValue("@ph", N(phone));
-                                up.Parameters.AddWithValue("@stg", o.TargetStage == "EMAIL_CREATED" ? "EMAIL_CREATED" : "READY_FOR_COLLECTION");
-                                up.Parameters.AddWithValue("@sts", o.TargetStage == "EMAIL_CREATED" ? "CREATED" : "READY");
                                 up.Parameters.AddWithValue("@b", batchId);
                                 up.Parameters.AddWithValue("@who", Actor());
                                 up.Parameters.AddWithValue("@id", pipeId);
@@ -598,10 +600,11 @@ public static partial class SemsBatch
                                 d.ExecuteNonQuery();
                             }
 
-                            LogTx(c, tx, pipeId, regno, "batch_create_email", stage, o.TargetStage, email + " (batch " + batchRef + ")");
-                            if (o.Notify)
-                                NotifyTx(c, tx, regno, "Your University Email is Ready",
-                                    "Open the portal and complete a short guide to access it.", "mail");
+                            LogTx(c, tx, pipeId, regno, "propose_email", stage, stage,
+                                  email + " proposed (batch " + batchRef + ") — awaiting Google");
+                            // No student notification here on purpose: nothing has been created
+                            // in Google yet, and a student told to collect an address that does
+                            // not exist is worse than a student told nothing.
                             tx.Commit();
                         }
                         MarkItem(c, itemId, "OK", "created");
@@ -638,7 +641,8 @@ public static partial class SemsBatch
                     failed,
                     status,
                     failures,
-                    message = ok + " email address(es) created" + (skipped > 0 ? ", " + skipped + " skipped" : "") + (failed > 0 ? ", " + failed + " failed" : "") + "."
+                    message = ok + " address(es) allocated and reserved" + (skipped > 0 ? ", " + skipped + " skipped" : "") + (failed > 0 ? ", " + failed + " failed" : "") +
+                              ". They are not live until Google confirms them."
                 });
             }
         }

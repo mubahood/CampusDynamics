@@ -86,8 +86,41 @@ public class NewScreens_SemsFile : IHttpHandler, IRequiresSessionState
 
     private static void Export(HttpContext ctx)
     {
+        string mode = (ctx.Request["mode"] ?? "create").Trim().ToLowerInvariant();
+
+        // "pending" is the start of the protocol: allocate addresses for the students who
+        // are eligible, generated and waiting, then hand back the sheet that creates them
+        // in Google. Nothing is issued to a student here — that happens on import.
+        if (mode == "pending")
+        {
+            var opts = new System.Collections.Generic.Dictionary<string, object>();
+            opts["scope"] = "filter";
+            opts["stage"] = "PENDING_CREATION";
+            opts["campus"] = (ctx.Request["campus"] ?? "").Trim();
+            opts["year"] = (ctx.Request["year"] ?? "").Trim();
+            opts["limit"] = ToInt(ctx.Request["limit"], 2000);
+            opts["otherLen"] = ToInt(ctx.Request["otherLen"], 3);
+            opts["changePwNext"] = (ctx.Request["changePwNext"] ?? "true").Trim().ToLowerInvariant() != "false";
+            opts["notify"] = false;
+
+            int nRows; string bref, message;
+            string sheet = SemsBatch.BuildPendingSheet(
+                new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(opts),
+                out nRows, out bref, out message);
+
+            if (nRows == 0)
+            {
+                ctx.Response.ContentType = "application/json; charset=utf-8";
+                ctx.Response.Write(new System.Web.Script.Serialization.JavaScriptSerializer()
+                    .Serialize(new { success = false, message = string.IsNullOrEmpty(message) ? "There are no pending students to export." : message }));
+                return;
+            }
+            SendCsv(ctx, sheet, "mru-google-new-accounts-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + "-" + nRows + "users.csv");
+            return;
+        }
+
         var sc = new SemsBatch.ExportScope();
-        sc.Mode = (ctx.Request["mode"] ?? "create").Trim().ToLowerInvariant();
+        sc.Mode = mode;
         sc.BatchRef = (ctx.Request["batchRef"] ?? "").Trim();
         sc.Stage = (ctx.Request["stage"] ?? "").Trim();
         sc.Campus = (ctx.Request["campus"] ?? "").Trim();
@@ -106,6 +139,9 @@ public class NewScreens_SemsFile : IHttpHandler, IRequiresSessionState
         }
         SendCsv(ctx, csv, "mru-google-" + sc.Mode + "-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + "-" + rows + "users.csv");
     }
+
+    private static int ToInt(string v, int dflt)
+    { int n; return int.TryParse((v ?? "").Trim(), out n) && n > 0 ? n : dflt; }
 
     private static void Credentials(HttpContext ctx)
     {

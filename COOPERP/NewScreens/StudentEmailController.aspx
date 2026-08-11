@@ -203,54 +203,48 @@
         <!-- Where the intake actually is. Every action on this tab moves students left to
              right, and each step says how many are waiting in it. -->
         <div class="bx-flow" id="bxFlow">
-            <div class="bx-flow__s" onclick="wizOpen()" title="Create addresses for these students">
+            <div class="bx-flow__s" onclick="expOpen()" title="Allocate addresses and build the Google sheet">
                 <div class="bx-flow__v" id="flowPending">–</div>
-                <div class="bx-flow__l">Pending creation</div>
-                <div class="bx-flow__h">generated, no address yet</div>
+                <div class="bx-flow__l">Pending</div>
+                <div class="bx-flow__h">generated, no address yet &mdash; export to allocate</div>
             </div>
             <div class="bx-flow__a">&rarr;</div>
-            <div class="bx-flow__s" onclick="expOpen()" title="Build the Google sheet for these students">
+            <div class="bx-flow__s" onclick="impOpen()" title="Import the Google export to confirm these accounts">
                 <div class="bx-flow__v" id="flowCreate">–</div>
-                <div class="bx-flow__l">Address issued</div>
-                <div class="bx-flow__h">ready for the Google upload</div>
+                <div class="bx-flow__l">Awaiting Google</div>
+                <div class="bx-flow__h">address reserved, not yet the student's</div>
             </div>
             <div class="bx-flow__a">&rarr;</div>
-            <div class="bx-flow__s" onclick="impOpen()" title="Confirm these against a Google export">
+            <div class="bx-flow__s" onclick="setTab('pipe')" title="See these students in the pipeline">
                 <div class="bx-flow__v" id="flowGoogle">–</div>
-                <div class="bx-flow__l">Live in Google</div>
-                <div class="bx-flow__h">confirmed by an import</div>
+                <div class="bx-flow__l">Confirmed &amp; issued</div>
+                <div class="bx-flow__h">live in Google, student notified</div>
             </div>
         </div>
 
         <div class="bx-cards">
             <div class="bx-card">
                 <div class="bx-card__i">1</div>
-                <div class="bx-card__t">Create addresses in bulk</div>
-                <div class="bx-card__d">Allocate <b>surname + first 3 letters of the other name + intake year</b> for a whole
-                    intake at once. Every address is checked against students, staff and Google before it is offered, and you
-                    review the full list before anything is written.</div>
-                <button type="button" class="bx-btn bx-btn--p" onclick="wizOpen()">Start batch creation</button>
-            </div>
-            <div class="bx-card">
-                <div class="bx-card__i">2</div>
-                <div class="bx-card__t">Export to Google Workspace</div>
-                <div class="bx-card__d">The exact 28-column bulk-upload sheet. A <b>create</b> sheet carries passwords for new
-                    accounts; an <b>update</b> sheet never does, so re-uploading can't lock a student out of live mail.</div>
-                <button type="button" class="bx-btn bx-btn--p" onclick="expOpen()">Build export sheet</button>
+                <div class="bx-card__t">Export new accounts to Google</div>
+                <div class="bx-card__d">Allocates <b>surname + first 3 letters of the other name + intake year</b> for every
+                    pending student and hands back the 28-column upload sheet. The addresses are reserved so nobody else can
+                    be given them &mdash; but they are <b>not the student's yet</b>, and the student is told nothing.</div>
+                <button type="button" class="bx-btn bx-btn--p" onclick="expOpen()">Build the Google sheet</button>
                 <button type="button" class="bx-btn" onclick="dl('template')">Blank template</button>
             </div>
             <div class="bx-card">
-                <div class="bx-card__i">3</div>
-                <div class="bx-card__t">Import from Google</div>
-                <div class="bx-card__d">Upload a Google export to confirm which accounts exist, adopt addresses created
-                    outside the system, catch address changes and record external accounts so they are never re-issued.</div>
+                <div class="bx-card__i">2</div>
+                <div class="bx-card__t">Import back from Google</div>
+                <div class="bx-card__d">Upload the Google export after the accounts exist. <b>This is what sets the address on
+                    the student's account</b> &mdash; confirmed rows move the student to Ready for collection and notify them.
+                    Addresses created outside the system are adopted, and external accounts recorded.</div>
                 <button type="button" class="bx-btn bx-btn--p" onclick="impOpen()">Upload Google sheet</button>
             </div>
             <div class="bx-card">
-                <div class="bx-card__i">4</div>
+                <div class="bx-card__i">3</div>
                 <div class="bx-card__t">Address directory</div>
                 <div class="bx-card__d">Every address known on the domain, and any that has been issued twice. This is the
-                    list the allocator checks — if it is here, nobody else can be given it.</div>
+                    list the allocator checks &mdash; if it is here, nobody else can be given it.</div>
                 <button type="button" class="bx-btn bx-btn--p" onclick="dirOpen()">Open directory</button>
                 <button type="button" class="bx-btn" onclick="dl('credentials')">Credentials sheet</button>
             </div>
@@ -869,16 +863,12 @@ window.saveResp=function(){ajax('RespondComplaint',{id:_rId,status:qs('rStatus')
                     <input type="text" id="wPwFixed" class="bx-in" style="display:none;margin-top:6px" placeholder="at least 8 characters" />
                     <div class="bx-hint">Google rejects anything under 8 characters.</div>
                 </div>
-                <div class="bx-fld">
-                    <label class="bx-fl">Stage after creation</label>
-                    <select id="wTarget" class="bx-sel">
-                        <option value="READY_FOR_COLLECTION">Ready for collection — student can start onboarding</option>
-                        <option value="EMAIL_CREATED">Email created — hold until the Google upload is done</option>
-                    </select>
-                </div>
             </div>
             <label class="bx-chk"><input type="checkbox" id="wChangePw" checked /> <span>Force a password change at first sign-in (written into the Google sheet).</span></label>
-            <label class="bx-chk"><input type="checkbox" id="wNotify" checked /> <span>Notify each student in the portal that their address is ready.</span></label>
+            <div class="bx-msg bx-msg--info" style="display:block">
+                These addresses are <b>reserved, not issued</b>. Students stay Pending and are told nothing until the Google
+                export is imported back and the accounts are confirmed to exist.
+            </div>
         </div>
 
         <!-- step 3 -->
@@ -919,36 +909,33 @@ window.saveResp=function(){ajax('RespondComplaint',{id:_rId,status:qs('rStatus')
     <div class="bx-b">
         <div class="bx-msg" id="expMsg"></div>
 
-        <!-- The pipeline population, stated before anything is chosen. A sheet can only
-             contain students who already hold an address; everyone still Pending creation
-             has to go through the wizard first, and saying so here is the difference
-             between an obvious next step and an empty download. -->
-        <div class="bx-msg bx-msg--warn" id="expPending" style="display:none">
-            <b><span id="expNPending">0</span> student(s) are still <b>Pending creation</b></b> &mdash; they have no
-            address yet, so they cannot be in a Google sheet.
-            <button type="button" class="bx-btn bx-btn--p" style="margin-top:8px" onclick="expToWizard()">Create their addresses first</button>
-        </div>
-
         <div class="bx-fld">
             <label class="bx-fl">What to export</label>
-            <label class="bx-chk"><input type="radio" name="expMode" value="create" checked onchange="expSync()" />
-                <span><b>New accounts</b> &mdash; have an address, not yet confirmed in Google. Includes passwords.
-                    <b id="expNCreate" class="bx-hint"></b></span></label>
+            <label class="bx-chk"><input type="radio" name="expMode" value="pending" checked onchange="expSync()" />
+                <span><b>New accounts to create</b> &mdash; pending students. Addresses are allocated now, reserved, and put in
+                    the sheet with passwords. <b id="expNPending" class="bx-hint"></b></span></label>
+            <label class="bx-chk"><input type="radio" name="expMode" value="awaiting" onchange="expSync()" />
+                <span><b>Re-download a sheet already built</b> &mdash; allocated but not yet confirmed by Google. Same addresses,
+                    same passwords. <b id="expNAwaiting" class="bx-hint"></b></span></label>
             <label class="bx-chk"><input type="radio" name="expMode" value="update" onchange="expSync()" />
-                <span><b>Existing accounts</b> &mdash; already in Google. <b>Password column left blank</b> so nobody is locked out.
-                    <b id="expNUpdate" class="bx-hint"></b></span></label>
-            <label class="bx-chk"><input type="radio" name="expMode" value="all" onchange="expSync()" />
-                <span><b>Everything with an address</b> &mdash; use only for a full audit.
-                    <b id="expNAll" class="bx-hint"></b></span></label>
+                <span><b>Update accounts already in Google</b> &mdash; <b>Password column left blank</b> so nobody is locked out of
+                    live mail. <b id="expNUpdate" class="bx-hint"></b></span></label>
         </div>
         <div class="bx-grid">
             <div class="bx-fld"><label class="bx-fl">Campus</label><select id="eCampus" class="bx-sel"><option value="">All</option></select></div>
             <div class="bx-fld"><label class="bx-fl">Intake year</label><input type="text" id="eYear" class="bx-in" placeholder="all" /></div>
         </div>
+        <div class="bx-hint" id="expReview" style="margin:-4px 0 10px">
+            Allocation is automatic and collision-checked. If you would rather see the addresses and correct any before they
+            go to Google, <a href="javascript:void(0)" onclick="expToWizard()" style="color:#174DA4;font-weight:700">review them first</a>.
+        </div>
         <label class="bx-chk"><input type="checkbox" id="eChangePw" checked /> <span>Set “Change Password at Next Sign-In” for new accounts.</span></label>
         <div class="bx-msg bx-msg--info" style="display:block;margin-top:10px">
-            In the Google Admin console: <b>Directory &rarr; Users &rarr; Bulk update users</b>, then upload this file.
-            Employee ID carries the student number, which is how the sheet finds its way home on import.
+            <b>What happens next.</b> Upload this file in the Google Admin console
+            (<b>Directory &rarr; Users &rarr; Bulk update users</b>), then come back and
+            <b>Import back from Google</b>. Nothing reaches a student until that import confirms the account exists —
+            the addresses in this sheet are reserved, not issued. Employee ID carries the student number, which is how
+            the sheet finds its way home.
         </div>
     </div>
     <div class="bx-f">
@@ -1095,8 +1082,8 @@ function wizPaint() {
     qs('wizBack').style.display = (wz.step > 1 && wz.step < 4) ? 'inline-block' : 'none';
     var n = qs('wizNext');
     n.style.display = wz.step < 4 ? 'inline-block' : 'none';
-    n.textContent = wz.step === 1 ? 'Continue' : wz.step === 2 ? 'Build the list' : 'Create these addresses';
-    qs('wizTitle').textContent = wz.step === 3 ? 'Review before anything is written' : 'Create university email addresses';
+    n.textContent = wz.step === 1 ? 'Continue' : wz.step === 2 ? 'Build the list' : 'Reserve these addresses';
+    qs('wizTitle').textContent = wz.step === 3 ? 'Review before anything is written' : 'Allocate addresses for the Google sheet';
 }
 
 function wizOptions() {
@@ -1115,8 +1102,7 @@ function wizOptions() {
         pwMode: qs('wPwMode').value,
         pwFixed: qs('wPwFixed').value,
         changePwNext: qs('wChangePw').checked,
-        targetStage: qs('wTarget').value,
-        notify: qs('wNotify').checked
+        notify: false            // nobody is told anything until Google confirms
     };
 }
 
@@ -1277,9 +1263,9 @@ window.wizSetEmail = function (regno) {
 function wizCommit() {
     var keep = wz.rows.filter(function (x) { return !wz.excluded[x.regno]; });
     if (keep.length === 0) { msg('wizMsg', 'Nothing is selected.', 'err'); return; }
-    if (!confirm('Create ' + keep.length + ' university email address(es)?\n\nThis writes the addresses and temporary passwords, and moves each student to the next stage.')) return;
+    if (!confirm('Reserve ' + keep.length + ' address(es) for the Google sheet?\n\nThey are recorded and locked so nobody else can be given them. No student is told anything until the Google export is imported back.')) return;
     wz.busy = true;
-    var n = qs('wizNext'); n.disabled = true; n.innerHTML = '<span class="bx-spin"></span>Creating…';
+    var n = qs('wizNext'); n.disabled = true; n.innerHTML = '<span class="bx-spin"></span>Reserving…';
     var exclude = Object.keys(wz.excluded);
     ajax('BatchCommit', { batchRef: wz.batchRef, exclude: JSON.stringify(exclude) }, function (r) {
         wz.busy = false; n.disabled = false;
@@ -1288,10 +1274,10 @@ function wizCommit() {
         var fails = (r.failures || []).map(function (f) { return '<li>' + esc(f.regno) + ' — ' + esc(f.message) + '</li>'; }).join('');
         qs('wizDone').innerHTML =
             '<div class="bx-msg bx-msg--' + (r.failed ? 'warn' : 'ok') + '" style="display:block">' + esc(r.message) + '</div>' +
-            '<div class="bx-stats">' + stat(r.created, 'Created', 'ok') + stat(r.skipped, 'Skipped', '') + stat(r.failed, 'Failed', r.failed ? 'err' : '') + '</div>' +
+            '<div class="bx-stats">' + stat(r.created, 'Reserved', 'ok') + stat(r.skipped, 'Skipped', '') + stat(r.failed, 'Failed', r.failed ? 'err' : '') + '</div>' +
             (fails ? '<div class="bx-sec">Rows that failed</div><ul style="font-size:12px;color:#b91c1c;margin:0 0 12px 18px">' + fails + '</ul>' : '') +
             '<div class="bx-sec">Next step</div>' +
-            '<div class="bx-hint" style="margin-bottom:10px">Download the Google sheet and upload it in the Admin console, then bring the Google export back here to confirm the accounts exist.</div>' +
+            '<div class="bx-hint" style="margin-bottom:10px">Download the Google sheet, upload it in the Admin console, then bring the Google export back here. <b>That import is what gives each student their address</b> and notifies them.</div>' +
             '<button type="button" class="bx-btn bx-btn--p" onclick="dl(\'export\',{batchRef:\'' + esc(wz.batchRef) + '\',mode:\'create\'},\'wizMsg\')">Google sheet for this batch</button>' +
             '<button type="button" class="bx-btn" onclick="dl(\'credentials\',{batchRef:\'' + esc(wz.batchRef) + '\'},\'wizMsg\')">Credentials sheet</button>' +
             '<button type="button" class="bx-btn" onclick="bxClose();location.reload();">Done</button>';
@@ -1326,13 +1312,11 @@ window.expOpen = function () {
     ajax('ExportCount', { scope: '{}' }, function (r) {
         if (!r || !r.success) { qs('expFoot').textContent = ''; msg('expMsg', (r && r.message) || 'Could not read the pipeline.', 'err'); return; }
         expCounts = r;
-        qs('expNCreate').textContent = fmt(r.create) + ' student(s)';
+        qs('expNPending').textContent = fmt(r.pending) + ' student(s)';
+        qs('expNAwaiting').textContent = fmt(r.awaiting) + ' student(s)';
         qs('expNUpdate').textContent = fmt(r.update) + ' student(s)';
-        qs('expNAll').textContent = fmt(r.all) + ' student(s)';
-        qs('expNPending').textContent = fmt(r.pending);
-        qs('expPending').style.display = r.pending > 0 ? 'block' : 'none';
-        // Default to whichever mode actually has students, so the first click works.
-        if (r.create === 0 && r.update > 0) setExpMode('update');
+        // Default to whichever step the intake is actually at, so the first click works.
+        if (r.pending === 0) setExpMode(r.awaiting > 0 ? 'awaiting' : 'update');
         expSync();
     });
 };
@@ -1351,24 +1335,34 @@ function expMode() {
 window.expSync = function () {
     if (!expCounts) return;
     var m = expMode();
-    var n = m === 'create' ? expCounts.create : (m === 'update' ? expCounts.update : expCounts.all);
+    var n = m === 'pending' ? expCounts.pending : (m === 'awaiting' ? expCounts.awaiting : expCounts.update);
     qs('expBtn').disabled = (n === 0);
+    qs('expBtn').textContent = m === 'pending' ? 'Allocate & download sheet' : 'Download sheet';
     if (n === 0) {
-        qs('expFoot').textContent = 'No students in this selection.';
-        msg('expMsg', expCounts.pending > 0
-            ? ('Nothing to export yet — the ' + fmt(expCounts.pending) + ' pending student(s) need addresses created first.')
-            : 'No students match this selection.', 'warn');
+        qs('expFoot').textContent = 'No students at this step.';
+        msg('expMsg', m === 'pending'
+            ? 'No pending students — every generated student already has an address allocated.'
+            : (m === 'awaiting'
+                ? 'Nothing is waiting on Google. Start with “New accounts to create”.'
+                : 'No accounts are confirmed in Google yet — import a Google export first.'), 'warn');
     } else {
         qs('expFoot').innerHTML = '<b>' + fmt(n) + '</b> student(s) will be in the sheet.';
-        msg('expMsg', '');
+        msg('expMsg', m === 'pending'
+            ? 'Addresses are allocated when you download. They are reserved immediately, and stay unissued until a Google import confirms them.'
+            : '', m === 'pending' ? 'info' : 'err');
     }
 };
 
+// The optional review path: same allocation, shown before it is committed, with every
+// address editable. Ends in the same sheet.
 window.expToWizard = function () { bxClose(); wizOpen(); };
 
 window.expDownload = function () {
     if (qs('expBtn').disabled) return;
-    dl('export', { mode: expMode(), campus: qs('eCampus').value, year: qs('eYear').value.trim(), changePwNext: qs('eChangePw').checked }, 'expMsg');
+    var m = expMode();
+    if (m === 'pending' && !confirm('Allocate addresses for ' + fmt(expCounts.pending) + ' pending student(s) and download the Google sheet?\n\nThe addresses are reserved so nobody else can be given them. No student is told anything until you import the Google export back.')) return;
+    dl('export', { mode: m, campus: qs('eCampus').value, year: qs('eYear').value.trim(), changePwNext: qs('eChangePw').checked }, 'expMsg');
+    if (m === 'pending') setTimeout(bxLoadBatches, 2500);
 };
 
 // Downloads go through the file handler — a PageMethod cannot stream a file.
@@ -1577,7 +1571,7 @@ window.bxLoadBatches = function () {
     ajax('ExportCount', { scope: '{}' }, function (r) {
         if (!r || !r.success) return;
         qs('flowPending').textContent = fmt(r.pending);
-        qs('flowCreate').textContent = fmt(r.create);
+        qs('flowCreate').textContent = fmt(r.awaiting);
         qs('flowGoogle').textContent = fmt(r.update);
     });
     ajax('BatchList', { limit: 30 }, function (r) {

@@ -103,11 +103,12 @@ public static partial class SemsBatch
             if (!string.IsNullOrEmpty(sc.GoogleStatus)) { w.Append("AND p.google_status=@gs "); ps.Add(new MySqlParameter("@gs", sc.GoogleStatus)); }
         }
 
-        // The safety rail: a "create" sheet only ever contains accounts Google has not
-        // confirmed, and an "update" sheet never contains a password.
-        // EXPORTED counts as "not created yet" — the sheet may have been lost, or the upload
-        // may not have been done; a second download of the same batch must still work.
-        if (sc.Mode == "create") w.Append("AND p.google_status IN ('NOT_CREATED','EXPORTED') ");
+        // The safety rail: a sheet that creates accounts only ever contains accounts Google
+        // has not confirmed, and an "update" sheet never contains a password.
+        // PROPOSED and EXPORTED both mean "not live yet" — the sheet may have been lost, or
+        // the upload never done; a second download must give the same addresses.
+        if (sc.Mode == "create" || sc.Mode == "awaiting")
+            w.Append("AND p.google_status IN ('NOT_CREATED','PROPOSED','EXPORTED') ");
         else if (sc.Mode == "update") w.Append("AND p.google_status IN ('IN_GOOGLE','SUSPENDED') ");
 
         using (var c = new MySqlConnection(Conn))
@@ -150,8 +151,8 @@ public static partial class SemsBatch
                         string phone = S(rd["ph"]); if (phone == "") phone = ToE164(S(rd["sphone"]));
                         string org = S(rd["ou"]);
                         if (org == "") org = "/Students/" + S(rd["admission_year"]);
-                        // Only a CONFIRMED Google account suppresses the password. Merely having
-                        // been exported does not — that sheet may never have been uploaded.
+                        // Only a CONFIRMED Google account suppresses the password. A proposed or
+                        // exported one does not — that sheet may never have been uploaded.
                         string gst = S(rd["google_status"]);
                         bool inGoogle = (gst == "IN_GOOGLE" || gst == "SUSPENDED");
 
@@ -222,7 +223,7 @@ public static partial class SemsBatch
                     { names.Add("@x" + k); cmdPs.Add(new MySqlParameter("@x" + k, chunk[k])); }
                     using (var cmd = new MySqlCommand(
                         "UPDATE campus_dynamics_portal.sems_email_creations SET exported_at=NOW(), export_count=export_count+1, " +
-                        "google_status=CASE WHEN google_status='NOT_CREATED' THEN 'EXPORTED' ELSE google_status END " +
+                        "google_status=CASE WHEN google_status IN ('NOT_CREATED','PROPOSED') THEN 'EXPORTED' ELSE google_status END " +
                         "WHERE regno IN (" + string.Join(",", names.ToArray()) + ")", c))
                     { foreach (var p in cmdPs) cmd.Parameters.Add(p); cmd.ExecuteNonQuery(); }
 
@@ -239,6 +240,42 @@ public static partial class SemsBatch
             }
         }
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// The whole first half of the protocol in one action: take the students who are eligible,
+    /// generated and still pending, allocate a collision-free address for each, record it as
+    /// PROPOSED (reserved, but not yet the student's — their stage does not move and they are
+    /// told nothing), and return the Google sheet that will create the accounts.
+    ///
+    /// The addresses only become real when that sheet has been uploaded and the Google export
+    /// is imported back, which is what promotes each student and notifies them.
+    /// </summary>
+    public static string BuildPendingSheet(string optionsJson, out int rowCount, out string batchRef, out string message)
+    {
+        rowCount = 0; batchRef = ""; message = "";
+        try
+        {
+            var prev = Js().Deserialize<Dictionary<string, object>>(PreviewBatch(optionsJson));
+            if (!GetB(prev, "success", false))
+            { message = GetS(prev, "message", "There are no pending students to export."); return ""; }
+
+            batchRef = GetS(prev, "batchRef", "");
+            if (batchRef == "") { message = "The allocation did not produce a batch."; return ""; }
+
+            var com = Js().Deserialize<Dictionary<string, object>>(CommitBatch(batchRef, "[]"));
+            if (!GetB(com, "success", false))
+            { message = GetS(com, "message", "The allocated addresses could not be reserved."); return ""; }
+
+            var sc = new ExportScope { Mode = "create", BatchRef = batchRef };
+            object cp; if (prev.TryGetValue("changePwNext", out cp)) { }
+            string bref2;
+            string csv = BuildExportCsv(sc, out rowCount, out bref2);
+            if (rowCount == 0)
+                message = "Addresses were allocated but the sheet came back empty — check the batch in Recent batches.";
+            return csv;
+        }
+        catch (Exception ex) { message = ex.Message; return ""; }
     }
 
     /// <summary>
@@ -319,8 +356,9 @@ public static partial class SemsBatch
                 {
                     success = true,
                     pending,
-                    create = cnt("AND p.google_status IN ('NOT_CREATED','EXPORTED')"),
-                    exported = cnt("AND p.google_status='EXPORTED'"),
+                    // Allocated and in a sheet, but Google has not confirmed them yet.
+                    awaiting = cnt("AND p.google_status IN ('NOT_CREATED','PROPOSED','EXPORTED')"),
+                    create = cnt("AND p.google_status IN ('NOT_CREATED','PROPOSED','EXPORTED')"),
                     update = cnt("AND p.google_status IN ('IN_GOOGLE','SUSPENDED')"),
                     all = cnt("")
                 });
@@ -649,9 +687,15 @@ public static partial class SemsBatch
                             }
                             else if (action == "CONFIRM" || action == "SUSPEND")
                             {
+                                // Confirmation is the moment the address becomes the student's.
+                                // Everything before this was a proposal on paper.
+                                string wasStage = StageOf(c, tx, regno);
+                                bool promote = (action == "CONFIRM" && wasStage == "PENDING_CREATION");
+
                                 using (var up = new MySqlCommand(
                                     "UPDATE campus_dynamics_portal.sems_email_creations SET google_status=@gs, google_synced_at=NOW(), " +
                                     "google_last_seen_at=NOW(), google_org_unit=COALESCE(NULLIF(@ou,''),google_org_unit), " +
+                                    (promote ? "current_status='READY', current_stage='READY_FOR_COLLECTION', email_created_at=COALESCE(email_created_at,NOW()), " : "") +
                                     "last_updated_by=@who, last_updated_at=NOW() WHERE regno=@r", c, tx))
                                 {
                                     up.Parameters.AddWithValue("@gs", action == "SUSPEND" ? "SUSPENDED" : "IN_GOOGLE");
@@ -661,16 +705,28 @@ public static partial class SemsBatch
                                     up.ExecuteNonQuery();
                                 }
                                 UpsertDirectory(c, tx, effective, "GOOGLE", "STUDENT", regno, name, "ACTIVE", "confirmed in Google " + importRef);
+                                if (promote)
+                                {
+                                    LogTx(c, tx, 0, regno, "google_confirm_email", wasStage, "READY_FOR_COLLECTION",
+                                          effective + " confirmed live (import " + importRef + ")");
+                                    NotifyTx(c, tx, regno, "Your University Email is Ready",
+                                             "Open the portal and complete a short guide to access it.", "mail");
+                                }
                                 if (action == "SUSPEND") suspended++; else confirmed++;
                             }
                             else if (action == "ADOPT" || action == "UPDATE_EMAIL")
                             {
+                                string wasStage = StageOf(c, tx, regno);
+                                bool promote = (wasStage == "PENDING_CREATION");
+
+                                // current_status is assigned BEFORE current_stage: MySQL applies
+                                // assignments left to right, so testing the stage after changing
+                                // it would always miss.
                                 using (var up = new MySqlCommand(
                                     "UPDATE campus_dynamics_portal.sems_email_creations SET email_address=@e, google_status='IN_GOOGLE', " +
                                     "google_synced_at=NOW(), google_last_seen_at=NOW(), google_org_unit=COALESCE(NULLIF(@ou,''),google_org_unit), " +
                                     "recovery_email=COALESCE(NULLIF(@rc,''),recovery_email), recovery_phone=COALESCE(NULLIF(@ph,''),recovery_phone), " +
-                                    "current_stage=CASE WHEN current_stage='PENDING_CREATION' THEN 'READY_FOR_COLLECTION' ELSE current_stage END, " +
-                                    "current_status=CASE WHEN current_stage='PENDING_CREATION' THEN 'READY' ELSE current_status END, " +
+                                    (promote ? "current_status='READY', current_stage='READY_FOR_COLLECTION', " : "") +
                                     "email_created_at=COALESCE(email_created_at,NOW()), last_updated_by=@who, last_updated_at=NOW() " +
                                     "WHERE regno=@r", c, tx))
                                 {
@@ -683,8 +739,11 @@ public static partial class SemsBatch
                                     up.ExecuteNonQuery();
                                 }
                                 UpsertDirectory(c, tx, effective, "GOOGLE", "STUDENT", regno, name, "ACTIVE", "adopted from Google " + importRef);
-                                LogTx(c, tx, 0, regno, action == "ADOPT" ? "google_adopt_email" : "google_change_email", null, null,
-                                      effective + " (import " + importRef + ")");
+                                LogTx(c, tx, 0, regno, action == "ADOPT" ? "google_adopt_email" : "google_change_email", wasStage,
+                                      promote ? "READY_FOR_COLLECTION" : wasStage, effective + " (import " + importRef + ")");
+                                if (promote)
+                                    NotifyTx(c, tx, regno, "Your University Email is Ready",
+                                             "Open the portal and complete a short guide to access it.", "mail");
                                 if (action == "ADOPT") adopted++; else changed++;
                             }
 
@@ -729,6 +788,13 @@ public static partial class SemsBatch
             }
         }
         catch (Exception ex) { return Fail(ex.Message); }
+    }
+
+    private static string StageOf(MySqlConnection c, MySqlTransaction tx, string regno)
+    {
+        using (var q = new MySqlCommand(
+            "SELECT current_stage FROM campus_dynamics_portal.sems_email_creations WHERE regno=@r LIMIT 1", c, tx))
+        { q.Parameters.AddWithValue("@r", regno); return S(q.ExecuteScalar()); }
     }
 
     private static void UpsertDirectory(MySqlConnection c, MySqlTransaction tx, string email, string source,
