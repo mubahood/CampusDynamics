@@ -37,7 +37,8 @@ public static partial class SemsBatch
         public string NameOrder = "OTHER_IS_SURNAME";   // or FIRST_IS_SURNAME
         public string PwMode = "unique";                // unique | fixed
         public string PwFixed = "";
-        public string OrgUnit = "/Students/{year}";
+        /// <summary>Must already exist in Google — "/" is the root and always does.</summary>
+        public string OrgUnit = "/";
         public bool ChangePwNext = true;
         public string TargetStage = "READY_FOR_COLLECTION";
         public bool Notify = true;

@@ -36,8 +36,9 @@ public static partial class SemsBatch
         public string Stage = "", Campus = "", Programme = "", Year = "", GoogleStatus = "";
         public List<string> Regnos = new List<string>();
         public bool ChangePwNext = true;
-        public bool IncludePhone = true;
         public string Domain = DefaultDomain;
+        /// <summary>Must already exist in Google. "/" is the root and always does.</summary>
+        public string OrgUnit = "/";
         public int Limit = HardBatchCap;
     }
 
@@ -54,8 +55,8 @@ public static partial class SemsBatch
         s.Year = GetS(d, "year", "");
         s.GoogleStatus = GetS(d, "googleStatus", "");
         s.ChangePwNext = GetB(d, "changePwNext", true);
-        s.IncludePhone = GetB(d, "includePhone", true);
         s.Domain = GetS(d, "domain", s.Domain).ToLowerInvariant().TrimStart('@');
+        s.OrgUnit = GetS(d, "orgUnit", s.OrgUnit);
         s.Limit = Math.Max(1, Math.Min(HardBatchCap * 5, GetI(d, "limit", s.Limit)));
         object rr;
         if (d != null && d.TryGetValue("regnos", out rr) && rr is System.Collections.IEnumerable && !(rr is string))
@@ -157,11 +158,11 @@ public static partial class SemsBatch
 
                         string personal = S(rd["personal"]).ToLowerInvariant();
                         if (personal.EndsWith("@" + DefaultDomain)) personal = "";
-                        string rec = S(rd["rec"]); if (rec == "") rec = personal;
-                        string phone = sc.IncludePhone ? S(rd["ph"]) : "";
-                        if (sc.IncludePhone && phone == "") phone = ToE164(S(rd["sphone"]));
-                        string org = S(rd["ou"]);
-                        if (org == "") org = "/Students/" + S(rd["admission_year"]);
+                        // Org unit must ALREADY EXIST in Google — it will not be created by an
+                        // upload, and a missing one fails every row with OU_INVALID. "/" is the
+                        // root org unit, which always exists.
+                        string org = sc.OrgUnit;
+                        if (org.Trim().Length == 0) org = "/";
                         string email = S(rd["email_address"]);
                         string pw = S(rd["pw"]);
                         // Only a CONFIRMED Google account suppresses the password. A proposed or
@@ -179,36 +180,43 @@ public static partial class SemsBatch
                             fixedPasswords.Add(new[] { regno, pw });
                         }
 
+                        // Deliberately minimal: the five fields Google REQUIRES to create an
+                        // account, plus Employee ID (the student number, which is how the sheet
+                        // finds its way home on import) and the first-sign-in password flag.
+                        // Every other column is left blank. Each extra field was a way for the
+                        // upload to fail — a phone Excel had rewritten, an org unit that did not
+                        // exist, a department nobody had created — for data the university
+                        // already holds in its own records.
                         var cells = new string[]
                         {
-                            given,                                      // First Name
-                            surname,                                    // Last Name
-                            email,                                      // Email Address
-                            inGoogle ? "" : pw,                         // Password — blank for updates
-                            "",                                         // Password Hash Function (plain text)
-                            org,                                        // Org Unit Path
+                            given,                                      // First Name      [required]
+                            surname,                                    // Last Name       [required]
+                            email,                                      // Email Address   [required]
+                            inGoogle ? "" : pw,                         // Password        [required] — blank for updates
+                            "",                                         // Password Hash Function
+                            org,                                        // Org Unit Path   [required]
                             "",                                         // New Primary Email
-                            rec,                                        // Recovery Email
-                            personal,                                   // Home Secondary Email
+                            "",                                         // Recovery Email
+                            "",                                         // Home Secondary Email
                             "",                                         // Work Secondary Email
-                            phone,                                      // Recovery Phone (E.164)
+                            "",                                         // Recovery Phone
                             "",                                         // Work Phone
                             "",                                         // Home Phone
-                            phone,                                      // Mobile Phone
+                            "",                                         // Mobile Phone
                             "",                                         // Work Address
-                            S(rd["dist"]),                              // Home Address
-                            regno,                                      // Employee ID — the join key
-                            "Student",                                  // Employee Type
-                            S(rd["progname"]) == "" ? S(rd["prog"]) : S(rd["progname"]),   // Employee Title
+                            "",                                         // Home Address
+                            regno,                                      // Employee ID — the import join key
+                            "",                                         // Employee Type
+                            "",                                         // Employee Title
                             "",                                         // Manager Email
-                            S(rd["prog"]),                              // Department
-                            CampusName(S(rd["campus"])),                // Cost Center
+                            "",                                         // Department
+                            "",                                         // Cost Center
                             "",                                         // Building ID
                             "",                                         // Floor Name
                             "",                                         // Floor Section
                             inGoogle ? "" : (sc.ChangePwNext ? "TRUE" : "FALSE"),   // Change Password at Next Sign-In
                             "",                                         // New Status
-                            "FALSE"                                     // Advanced Protection
+                            ""                                          // Advanced Protection
                         };
                         sb.Append(string.Join(",", cells.Select(CsvCell).ToArray())).Append("\r\n");
                         regnos.Add(regno);
@@ -303,7 +311,7 @@ public static partial class SemsBatch
                 BatchRef = batchRef,
                 Domain = o.Domain,
                 ChangePwNext = o.ChangePwNext,
-                IncludePhone = GetB(Js().Deserialize<Dictionary<string, object>>(optionsJson ?? "{}"), "includePhone", true)
+                OrgUnit = o.OrgUnit
             };
             string bref2;
             string csv = BuildExportCsv(sc, out rowCount, out bref2);
