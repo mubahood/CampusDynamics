@@ -428,9 +428,152 @@ public static partial class SemsBatch
     /// Parses an uploaded sheet into staging and decides what each row means. Writes nothing
     /// to student records — the admin sees the classification first.
     /// </summary>
+    /// <summary>
+    /// Google's bulk-upload RESULT log — "2:dineabd26@mru.ac.ug:ACTION_SUCCEEDED" or
+    /// "…:ACTION_FAILED:INSUFFICIENT_LICENSES". It has no header and is not a CSV, so it is
+    /// recognised by shape before the CSV parser is reached.
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex ResultLine =
+        new System.Text.RegularExpressions.Regex(
+            @"^\s*(\d+)\s*:\s*([^:\s]+@[^:\s]+)\s*:\s*ACTION_(SUCCEEDED|FAILED)\s*(?::\s*(.*))?$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    private static bool LooksLikeResultLog(string text)
+    {
+        int looked = 0, matched = 0;
+        foreach (string raw in text.Split('\n'))
+        {
+            string line = (raw ?? "").Trim();
+            if (line.Length == 0) continue;
+            looked++;
+            if (ResultLine.IsMatch(line)) matched++;
+            if (looked >= 20) break;
+        }
+        return looked > 0 && matched > 0 && matched * 2 >= looked;
+    }
+
+    /// <summary>
+    /// Applies the meaning of an upload result: SUCCEEDED means the mailbox now exists, which
+    /// is the only evidence that lets an address become the student's. FAILED rows are recorded
+    /// with Google's reason and touch nothing — a student whose account hit the licence ceiling
+    /// must stay exactly where they were, ready for the next attempt.
+    /// </summary>
+    private static string ImportResultLog(string fileName, string text)
+    {
+        string importRef = "SIM" + DateTime.Now.ToString("yyyyMMddHHmmss") + "-" +
+                           Guid.NewGuid().ToString("N").Substring(0, 4).ToUpperInvariant();
+        int confirm = 0, orphan = 0, failed = 0, skip = 0;
+        var reasons = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        using (var c = new MySqlConnection(Conn))
+        {
+            c.Open();
+            SyncDirectory(c, DefaultDomain);
+
+            foreach (string raw in text.Split('\n'))
+            {
+                string line = (raw ?? "").Trim();
+                if (line.Length == 0) continue;
+                var m = ResultLine.Match(line);
+                if (!m.Success) continue;
+
+                int rowNo; int.TryParse(m.Groups[1].Value, out rowNo);
+                string email = m.Groups[2].Value.Trim().ToLowerInvariant();
+                bool ok = m.Groups[3].Value.Equals("SUCCEEDED", StringComparison.OrdinalIgnoreCase);
+                string reason = (m.Groups[4].Value ?? "").Trim();
+
+                string action, severity, message, matchRegno = "", matchType = "NONE";
+
+                if (!seen.Add(email))
+                { action = "SKIP"; severity = "WARN"; message = "Repeated in the file."; skip++; }
+                else if (ok)
+                {
+                    using (var q = new MySqlCommand(
+                        "SELECT regno FROM campus_dynamics_portal.sems_email_creations WHERE email_address=@e LIMIT 1", c))
+                    { q.Parameters.AddWithValue("@e", email); matchRegno = S(q.ExecuteScalar()); }
+
+                    if (matchRegno != "")
+                    { matchType = "EMAIL"; action = "CONFIRM"; severity = "OK"; message = "Created in Google."; confirm++; }
+                    else
+                    { action = "ORPHAN"; severity = "WARN"; message = "Created in Google but no student holds this address."; orphan++; }
+                }
+                else
+                {
+                    action = "FAILED"; severity = "ERROR";
+                    message = "Google refused this account" + (reason == "" ? "." : ": " + reason);
+                    failed++;
+                    string key = reason == "" ? "(no reason given)" : reason;
+                    int n; reasons[key] = reasons.TryGetValue(key, out n) ? n + 1 : 1;
+
+                    using (var q = new MySqlCommand(
+                        "SELECT regno FROM campus_dynamics_portal.sems_email_creations WHERE email_address=@e LIMIT 1", c))
+                    { q.Parameters.AddWithValue("@e", email); matchRegno = S(q.ExecuteScalar()); if (matchRegno != "") matchType = "EMAIL"; }
+                }
+
+                using (var ins = new MySqlCommand(
+                    "INSERT INTO campus_dynamics_portal.sems_import_staging " +
+                    "(import_ref,row_no,email,google_status,raw_json,match_regno,match_type,action,severity,message,created_at) " +
+                    "VALUES (@ref,@no,@em,@st,@raw,@mr,@mt,@ac,@sv,@msg,NOW())", c))
+                {
+                    ins.Parameters.AddWithValue("@ref", importRef);
+                    ins.Parameters.AddWithValue("@no", rowNo);
+                    ins.Parameters.AddWithValue("@em", Trunc(email, 150));
+                    ins.Parameters.AddWithValue("@st", Trunc(ok ? "SUCCEEDED" : "FAILED", 35));
+                    ins.Parameters.AddWithValue("@raw", Trunc(line, 4000));
+                    ins.Parameters.AddWithValue("@mr", Trunc(matchRegno, 40));
+                    ins.Parameters.AddWithValue("@mt", matchType);
+                    ins.Parameters.AddWithValue("@ac", action);
+                    ins.Parameters.AddWithValue("@sv", severity);
+                    ins.Parameters.AddWithValue("@msg", Trunc(message, 250));
+                    ins.ExecuteNonQuery();
+                }
+            }
+
+            int total = confirm + orphan + failed + skip;
+            using (var cmd = new MySqlCommand(
+                "INSERT INTO campus_dynamics_portal.sems_email_batches " +
+                "(batch_ref,batch_type,status,params_json,total_rows,created_by,created_at,notes) " +
+                "VALUES (@r,'IMPORT','DRAFT',@p,@t,@who,NOW(),@n)", c))
+            {
+                cmd.Parameters.AddWithValue("@r", importRef);
+                cmd.Parameters.AddWithValue("@p", Js().Serialize(new { fileName, format = "google-result-log" }));
+                cmd.Parameters.AddWithValue("@t", total);
+                cmd.Parameters.AddWithValue("@who", Actor());
+                cmd.Parameters.AddWithValue("@n", Trunc("upload result " + (fileName ?? "log"), 250));
+                cmd.ExecuteNonQuery();
+            }
+
+            var reasonList = new List<object>();
+            foreach (var kv in reasons) reasonList.Add(new { reason = kv.Key, count = kv.Value });
+
+            return Js().Serialize(new
+            {
+                success = true,
+                importRef,
+                fileName,
+                format = "Google upload result",
+                total,
+                confirm,
+                adopt = 0,
+                change = 0,
+                suspend = 0,
+                orphan,
+                error = failed,
+                failed,
+                skip,
+                reasons = reasonList
+            });
+        }
+    }
+
     public static string ImportParse(string fileName, string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return Fail("The file is empty.");
+
+        // The result Google hands back after an upload is not a CSV and has no header.
+        if (LooksLikeResultLog(text)) return ImportResultLog(fileName, text);
+
         char delim;
         var rows = ParseDelimited(text, out delim);
         if (rows.Count < 2) return Fail("The file has no data rows.");

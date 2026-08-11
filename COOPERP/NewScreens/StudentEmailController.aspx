@@ -1482,9 +1482,15 @@ function impSend(file) {
             stat(r.change, 'Address changed', 'warn') +
             stat(r.suspend, 'Suspended', 'warn') +
             stat(r.orphan, 'No student', 'warn') +
+            ((r.failed || 0) ? stat(r.failed, 'Refused by Google', 'err') : '') +
             stat(r.error, 'Errors', r.error ? 'err' : '');
-        qs('impFoot').innerHTML = esc(r.fileName || 'sheet') + ' — ' + r.columns + ' columns, ' +
-            (r.delimiter === 'tab' ? 'tab' : 'comma') + '-separated. Import <b>' + esc(r.importRef) + '</b>';
+        // Google's own reason for each refusal, grouped — "you ran out of licences" is a
+        // different problem from "that address already exists", and the operator needs to know which.
+        var why = (r.reasons || []).map(function (x) { return esc(x.reason) + ' × ' + fmt(x.count); }).join(' · ');
+        qs('impFoot').innerHTML = esc(r.fileName || 'sheet') + ' — '
+            + (r.format ? esc(r.format) : (r.columns + ' columns, ' + (r.delimiter === 'tab' ? 'tab' : 'comma') + '-separated'))
+            + '. Import <b>' + esc(r.importRef) + '</b>'
+            + (why ? '<br><span style="color:#b91c1c">' + why + '</span>' : '');
         impChips(); impRows();
     };
     x.onerror = function () { im.busy = false; msg('impMsg', 'Upload failed — check the connection.', 'err'); };
@@ -1495,7 +1501,8 @@ function impChips() {
     var c = im.counts;
     var chips = [['ALL', 'All', c.total], ['CONFIRM', 'Confirm', c.confirm], ['ADOPT', 'Adopt', c.adopt],
                  ['UPDATE_EMAIL', 'Changed', c.change], ['SUSPEND', 'Suspended', c.suspend],
-                 ['ORPHAN', 'No student', c.orphan], ['ERROR', 'Errors', c.error]];
+                 ['ORPHAN', 'No student', c.orphan], ['FAILED', 'Refused by Google', c.failed || 0],
+                 ['ERROR', 'Errors', c.error]];
     qs('impChips').innerHTML = chips.map(function (x) {
         return '<span class="bx-chip' + (im.filter === x[0] ? ' on' : '') + '" onclick="impFilter(\'' + x[0] + '\')">' +
                x[1] + ' <b>' + fmt(x[2] || 0) + '</b></span>';
