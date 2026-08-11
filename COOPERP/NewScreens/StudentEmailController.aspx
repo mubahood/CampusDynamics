@@ -930,6 +930,14 @@ window.saveResp=function(){ajax('RespondComplaint',{id:_rId,status:qs('rStatus')
             go to Google, <a href="javascript:void(0)" onclick="expToWizard()" style="color:#174DA4;font-weight:700">review them first</a>.
         </div>
         <label class="bx-chk"><input type="checkbox" id="eChangePw" checked /> <span>Set “Change Password at Next Sign-In” for new accounts.</span></label>
+        <label class="bx-chk"><input type="checkbox" id="ePhone" checked /> <span>Include recovery / mobile phone numbers in E.164 form.</span></label>
+
+        <div class="bx-msg bx-msg--warn" style="display:block">
+            <b>Upload this file to Google exactly as it downloads.</b> If you open it in Excel, Excel rewrites
+            <code>+256772…</code> into <code>2.56772E+11</code> — the leading “+” is read as a formula sign — and a sheet
+            re-saved from Excel will fail Google's E.164 check on every row that has a phone.
+            To inspect the contents, use the <b>Credentials sheet</b> (it has no “+” values) or untick the phone box above.
+        </div>
         <div class="bx-msg bx-msg--info" style="display:block;margin-top:10px">
             <b>What happens next.</b> Upload this file in the Google Admin console
             (<b>Directory &rarr; Users &rarr; Bulk update users</b>), then come back and
@@ -1361,7 +1369,8 @@ window.expDownload = function () {
     if (qs('expBtn').disabled) return;
     var m = expMode();
     if (m === 'pending' && !confirm('Allocate addresses for ' + fmt(expCounts.pending) + ' pending student(s) and download the Google sheet?\n\nThe addresses are reserved so nobody else can be given them. No student is told anything until you import the Google export back.')) return;
-    dl('export', { mode: m, campus: qs('eCampus').value, year: qs('eYear').value.trim(), changePwNext: qs('eChangePw').checked }, 'expMsg');
+    dl('export', { mode: m, campus: qs('eCampus').value, year: qs('eYear').value.trim(),
+                   changePwNext: qs('eChangePw').checked, includePhone: qs('ePhone').checked }, 'expMsg');
     if (m === 'pending') setTimeout(bxLoadBatches, 2500);
 };
 

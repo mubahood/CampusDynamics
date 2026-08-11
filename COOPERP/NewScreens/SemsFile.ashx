@@ -101,6 +101,7 @@ public class NewScreens_SemsFile : IHttpHandler, IRequiresSessionState
             opts["limit"] = ToInt(ctx.Request["limit"], 2000);
             opts["otherLen"] = ToInt(ctx.Request["otherLen"], 3);
             opts["changePwNext"] = (ctx.Request["changePwNext"] ?? "true").Trim().ToLowerInvariant() != "false";
+            opts["includePhone"] = (ctx.Request["includePhone"] ?? "true").Trim().ToLowerInvariant() != "false";
             opts["notify"] = false;
 
             int nRows; string bref, message;
@@ -128,6 +129,7 @@ public class NewScreens_SemsFile : IHttpHandler, IRequiresSessionState
         sc.Year = (ctx.Request["year"] ?? "").Trim();
         sc.GoogleStatus = (ctx.Request["googleStatus"] ?? "").Trim();
         sc.ChangePwNext = (ctx.Request["changePwNext"] ?? "true").Trim().ToLowerInvariant() != "false";
+        sc.IncludePhone = (ctx.Request["includePhone"] ?? "true").Trim().ToLowerInvariant() != "false";
 
         int rows; string batchRef;
         string csv = SemsBatch.BuildExportCsv(sc, out rows, out batchRef);

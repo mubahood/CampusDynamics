@@ -36,6 +36,8 @@ public static partial class SemsBatch
         public string Stage = "", Campus = "", Programme = "", Year = "", GoogleStatus = "";
         public List<string> Regnos = new List<string>();
         public bool ChangePwNext = true;
+        public bool IncludePhone = true;
+        public string Domain = DefaultDomain;
         public int Limit = HardBatchCap;
     }
 
@@ -52,6 +54,8 @@ public static partial class SemsBatch
         s.Year = GetS(d, "year", "");
         s.GoogleStatus = GetS(d, "googleStatus", "");
         s.ChangePwNext = GetB(d, "changePwNext", true);
+        s.IncludePhone = GetB(d, "includePhone", true);
+        s.Domain = GetS(d, "domain", s.Domain).ToLowerInvariant().TrimStart('@');
         s.Limit = Math.Max(1, Math.Min(HardBatchCap * 5, GetI(d, "limit", s.Limit)));
         object rr;
         if (d != null && d.TryGetValue("regnos", out rr) && rr is System.Collections.IEnumerable && !(rr is string))
@@ -78,7 +82,12 @@ public static partial class SemsBatch
         sb.Append(string.Join(",", GoogleHeaders.Select(CsvCell).ToArray())).Append("\r\n");
 
         var ps = new List<MySqlParameter>();
-        var w = new StringBuilder("WHERE IFNULL(p.email_address,'') <> '' ");
+
+        // A Google Workspace sheet can only contain addresses ON the domain it is uploaded to.
+        // One legacy pipeline row carried a gmail address (with the address itself stored as
+        // the password); it has no business in this file and Google would reject the row.
+        var w = new StringBuilder("WHERE IFNULL(p.email_address,'') <> '' AND LOWER(TRIM(p.email_address)) LIKE @dom ");
+        ps.Add(new MySqlParameter("@dom", "%@" + (string.IsNullOrEmpty(sc.Domain) ? DefaultDomain : sc.Domain)));
 
         if (!string.IsNullOrEmpty(sc.BatchRef))
         {
@@ -115,6 +124,7 @@ public static partial class SemsBatch
         {
             c.Open();
             var regnos = new List<string>();
+            var fixedPasswords = new List<string[]>();
             using (var cmd = new MySqlCommand(
                 "SELECT p.regno, IFNULL(p.student_name,'') nm, p.email_address, IFNULL(p.temp_password,'') pw, " +
                 "  IFNULL(p.google_org_unit,'') ou, IFNULL(p.recovery_email,'') rec, IFNULL(p.recovery_phone,'') ph, " +
@@ -148,20 +158,33 @@ public static partial class SemsBatch
                         string personal = S(rd["personal"]).ToLowerInvariant();
                         if (personal.EndsWith("@" + DefaultDomain)) personal = "";
                         string rec = S(rd["rec"]); if (rec == "") rec = personal;
-                        string phone = S(rd["ph"]); if (phone == "") phone = ToE164(S(rd["sphone"]));
+                        string phone = sc.IncludePhone ? S(rd["ph"]) : "";
+                        if (sc.IncludePhone && phone == "") phone = ToE164(S(rd["sphone"]));
                         string org = S(rd["ou"]);
                         if (org == "") org = "/Students/" + S(rd["admission_year"]);
+                        string email = S(rd["email_address"]);
+                        string pw = S(rd["pw"]);
                         // Only a CONFIRMED Google account suppresses the password. A proposed or
                         // exported one does not — that sheet may never have been uploaded.
                         string gst = S(rd["google_status"]);
                         bool inGoogle = (gst == "IN_GOOGLE" || gst == "SUSPENDED");
 
+                        // A new account needs a usable password. Some legacy rows have none, or
+                        // have the address itself stored as the password — Google would take
+                        // that literally. Issue a proper one and keep it, so the sheet and the
+                        // record agree about what the student was given.
+                        if (!inGoogle && (pw.Length < 8 || pw.Equals(email, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            pw = NewPassword();
+                            fixedPasswords.Add(new[] { regno, pw });
+                        }
+
                         var cells = new string[]
                         {
                             given,                                      // First Name
                             surname,                                    // Last Name
-                            S(rd["email_address"]),                     // Email Address
-                            inGoogle ? "" : S(rd["pw"]),                // Password — blank for updates
+                            email,                                      // Email Address
+                            inGoogle ? "" : pw,                         // Password — blank for updates
                             "",                                         // Password Hash Function (plain text)
                             org,                                        // Org Unit Path
                             "",                                         // New Primary Email
@@ -192,6 +215,12 @@ public static partial class SemsBatch
                         rowCount++;
                     }
             }
+
+            // Persist any password the sheet had to invent, before the sheet leaves.
+            foreach (var f in fixedPasswords)
+                using (var up = new MySqlCommand(
+                    "UPDATE campus_dynamics_portal.sems_email_creations SET temp_password=@p, last_updated_at=NOW() WHERE regno=@r", c))
+                { up.Parameters.AddWithValue("@p", f[1]); up.Parameters.AddWithValue("@r", f[0]); up.ExecuteNonQuery(); }
 
             if (rowCount > 0)
             {
@@ -267,8 +296,15 @@ public static partial class SemsBatch
             if (!GetB(com, "success", false))
             { message = GetS(com, "message", "The allocated addresses could not be reserved."); return ""; }
 
-            var sc = new ExportScope { Mode = "create", BatchRef = batchRef };
-            object cp; if (prev.TryGetValue("changePwNext", out cp)) { }
+            var o = ReadOptions(optionsJson);
+            var sc = new ExportScope
+            {
+                Mode = "create",
+                BatchRef = batchRef,
+                Domain = o.Domain,
+                ChangePwNext = o.ChangePwNext,
+                IncludePhone = GetB(Js().Deserialize<Dictionary<string, object>>(optionsJson ?? "{}"), "includePhone", true)
+            };
             string bref2;
             string csv = BuildExportCsv(sc, out rowCount, out bref2);
             if (rowCount == 0)
@@ -332,10 +368,13 @@ public static partial class SemsBatch
             using (var c = new MySqlConnection(Conn))
             {
                 c.Open();
+                // Counted with the same domain rule the sheet uses, so the number on screen is
+                // the number of rows that come out.
                 Func<string, int> cnt = extra =>
                 {
                     using (var cmd = new MySqlCommand(
-                        "SELECT COUNT(*) FROM campus_dynamics_portal.sems_email_creations p WHERE IFNULL(p.email_address,'')<>'' " + extra, c))
+                        "SELECT COUNT(*) FROM campus_dynamics_portal.sems_email_creations p WHERE IFNULL(p.email_address,'')<>'' " +
+                        "AND LOWER(TRIM(p.email_address)) LIKE '%@" + DefaultDomain + "' " + extra, c))
                     {
                         cmd.CommandTimeout = 120;
                         var v = cmd.ExecuteScalar(); return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v);
