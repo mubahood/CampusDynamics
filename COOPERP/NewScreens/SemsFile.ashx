@@ -49,6 +49,11 @@ public class NewScreens_SemsFile : IHttpHandler, IRequiresSessionState
                     break;
             }
         }
+        catch (System.Threading.ThreadAbortException)
+        {
+            // Never rewrite a response that has already been sent.
+            throw;
+        }
         catch (Exception ex)
         {
             ctx.Response.Clear();
@@ -66,7 +71,12 @@ public class NewScreens_SemsFile : IHttpHandler, IRequiresSessionState
         // UTF-8 BOM: without it Excel mangles any non-ASCII name in the sheet.
         ctx.Response.BinaryWrite(new byte[] { 0xEF, 0xBB, 0xBF });
         ctx.Response.Write(csv);
-        ctx.Response.End();
+        ctx.Response.Flush();
+        // CompleteRequest, NOT Response.End(). End() raises ThreadAbortException, which the
+        // handler's own catch then turned into {"success":false,"message":"Thread was being
+        // aborted."} written over the sheet that had just been sent — so Excel opened the
+        // error instead of the export.
+        ctx.ApplicationInstance.CompleteRequest();
     }
 
     private static void Template(HttpContext ctx)
