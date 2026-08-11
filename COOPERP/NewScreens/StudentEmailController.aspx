@@ -198,6 +198,30 @@
 
     <!-- ============ Batch & Google Workspace ============ -->
     <div id="paneB" style="display:none;">
+        <div class="bx-msg" id="bxMsg"></div>
+
+        <!-- Where the intake actually is. Every action on this tab moves students left to
+             right, and each step says how many are waiting in it. -->
+        <div class="bx-flow" id="bxFlow">
+            <div class="bx-flow__s" onclick="wizOpen()" title="Create addresses for these students">
+                <div class="bx-flow__v" id="flowPending">–</div>
+                <div class="bx-flow__l">Pending creation</div>
+                <div class="bx-flow__h">generated, no address yet</div>
+            </div>
+            <div class="bx-flow__a">&rarr;</div>
+            <div class="bx-flow__s" onclick="expOpen()" title="Build the Google sheet for these students">
+                <div class="bx-flow__v" id="flowCreate">–</div>
+                <div class="bx-flow__l">Address issued</div>
+                <div class="bx-flow__h">ready for the Google upload</div>
+            </div>
+            <div class="bx-flow__a">&rarr;</div>
+            <div class="bx-flow__s" onclick="impOpen()" title="Confirm these against a Google export">
+                <div class="bx-flow__v" id="flowGoogle">–</div>
+                <div class="bx-flow__l">Live in Google</div>
+                <div class="bx-flow__h">confirmed by an import</div>
+            </div>
+        </div>
+
         <div class="bx-cards">
             <div class="bx-card">
                 <div class="bx-card__i">1</div>
@@ -671,6 +695,14 @@ window.saveResp=function(){ajax('RespondComplaint',{id:_rId,status:qs('rStatus')
      single-student modals: separate ids, separate close handler.
      ===================================================================== -->
 <style>
+.bx-flow{display:flex;align-items:stretch;gap:0;margin-bottom:16px;flex-wrap:wrap;}
+.bx-flow__s{flex:1 1 180px;background:#fff;border:1px solid #e0e5ed;border-top:3px solid #05275C;padding:12px 14px;cursor:pointer;min-width:0;}
+.bx-flow__s:hover{border-color:#174DA4;box-shadow:0 2px 10px rgba(5,39,92,.09);}
+.bx-flow__v{font-size:24px;font-weight:800;color:#05275C;line-height:1;font-variant-numeric:tabular-nums;}
+.bx-flow__l{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#334155;margin-top:6px;}
+.bx-flow__h{font-size:10px;color:#94a3b8;margin-top:3px;}
+.bx-flow__a{display:flex;align-items:center;padding:0 10px;color:#cbd5e1;font-size:18px;font-weight:700;}
+@media(max-width:640px){.bx-flow__a{display:none;}}
 .bx-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:20px;}
 .bx-card{background:#fff;border:1px solid #e0e5ed;border-top:3px solid #05275C;padding:16px 16px 14px;display:flex;flex-direction:column;}
 .bx-card__i{width:22px;height:22px;background:#05275C;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-bottom:9px;}
@@ -886,14 +918,28 @@ window.saveResp=function(){ajax('RespondComplaint',{id:_rId,status:qs('rStatus')
     <div class="bx-h"><span class="bx-h__t">Export to Google Workspace</span><button type="button" class="bx-h__x" onclick="bxClose()">&times;</button></div>
     <div class="bx-b">
         <div class="bx-msg" id="expMsg"></div>
+
+        <!-- The pipeline population, stated before anything is chosen. A sheet can only
+             contain students who already hold an address; everyone still Pending creation
+             has to go through the wizard first, and saying so here is the difference
+             between an obvious next step and an empty download. -->
+        <div class="bx-msg bx-msg--warn" id="expPending" style="display:none">
+            <b><span id="expNPending">0</span> student(s) are still <b>Pending creation</b></b> &mdash; they have no
+            address yet, so they cannot be in a Google sheet.
+            <button type="button" class="bx-btn bx-btn--p" style="margin-top:8px" onclick="expToWizard()">Create their addresses first</button>
+        </div>
+
         <div class="bx-fld">
             <label class="bx-fl">What to export</label>
-            <label class="bx-chk"><input type="radio" name="expMode" value="create" checked />
-                <span><b>New accounts</b> &mdash; never uploaded to Google. Includes passwords. <span id="expNCreate" class="bx-hint"></span></span></label>
-            <label class="bx-chk"><input type="radio" name="expMode" value="update" />
-                <span><b>Existing accounts</b> &mdash; already in Google. <b>Password column left blank</b> so nobody is locked out. <span id="expNUpdate" class="bx-hint"></span></span></label>
-            <label class="bx-chk"><input type="radio" name="expMode" value="all" />
-                <span><b>Everything with an address</b> &mdash; use only for a full audit. <span id="expNAll" class="bx-hint"></span></span></label>
+            <label class="bx-chk"><input type="radio" name="expMode" value="create" checked onchange="expSync()" />
+                <span><b>New accounts</b> &mdash; have an address, not yet confirmed in Google. Includes passwords.
+                    <b id="expNCreate" class="bx-hint"></b></span></label>
+            <label class="bx-chk"><input type="radio" name="expMode" value="update" onchange="expSync()" />
+                <span><b>Existing accounts</b> &mdash; already in Google. <b>Password column left blank</b> so nobody is locked out.
+                    <b id="expNUpdate" class="bx-hint"></b></span></label>
+            <label class="bx-chk"><input type="radio" name="expMode" value="all" onchange="expSync()" />
+                <span><b>Everything with an address</b> &mdash; use only for a full audit.
+                    <b id="expNAll" class="bx-hint"></b></span></label>
         </div>
         <div class="bx-grid">
             <div class="bx-fld"><label class="bx-fl">Campus</label><select id="eCampus" class="bx-sel"><option value="">All</option></select></div>
@@ -905,10 +951,13 @@ window.saveResp=function(){ajax('RespondComplaint',{id:_rId,status:qs('rStatus')
             Employee ID carries the student number, which is how the sheet finds its way home on import.
         </div>
     </div>
-    <div class="bx-f"><span></span><div>
-        <button type="button" class="bx-btn" onclick="bxClose()">Cancel</button>
-        <button type="button" class="bx-btn bx-btn--p" onclick="expDownload()">Download sheet</button>
-    </div></div>
+    <div class="bx-f">
+        <div style="font-size:11.5px;color:#64748b" id="expFoot"></div>
+        <div>
+            <button type="button" class="bx-btn" onclick="bxClose()">Cancel</button>
+            <button type="button" class="bx-btn bx-btn--p" id="expBtn" onclick="expDownload()">Download sheet</button>
+        </div>
+    </div>
 </div>
 
 <!-- ── Import wizard ── -->
@@ -1243,8 +1292,8 @@ function wizCommit() {
             (fails ? '<div class="bx-sec">Rows that failed</div><ul style="font-size:12px;color:#b91c1c;margin:0 0 12px 18px">' + fails + '</ul>' : '') +
             '<div class="bx-sec">Next step</div>' +
             '<div class="bx-hint" style="margin-bottom:10px">Download the Google sheet and upload it in the Admin console, then bring the Google export back here to confirm the accounts exist.</div>' +
-            '<button type="button" class="bx-btn bx-btn--p" onclick="dl(\'export\',{batchRef:\'' + esc(wz.batchRef) + '\',mode:\'create\'})">Google sheet for this batch</button>' +
-            '<button type="button" class="bx-btn" onclick="dl(\'credentials\',{batchRef:\'' + esc(wz.batchRef) + '\'})">Credentials sheet</button>' +
+            '<button type="button" class="bx-btn bx-btn--p" onclick="dl(\'export\',{batchRef:\'' + esc(wz.batchRef) + '\',mode:\'create\'},\'wizMsg\')">Google sheet for this batch</button>' +
+            '<button type="button" class="bx-btn" onclick="dl(\'credentials\',{batchRef:\'' + esc(wz.batchRef) + '\'},\'wizMsg\')">Credentials sheet</button>' +
             '<button type="button" class="bx-btn" onclick="bxClose();location.reload();">Done</button>';
         qs('wizFoot').innerHTML = 'Batch <b>' + esc(wz.batchRef) + '</b> — ' + esc(r.status);
         bxLoadBatches();
@@ -1265,33 +1314,111 @@ window.wizCancel = function () {
 // =====================================================================
 //  Export
 // =====================================================================
+var expCounts = null;
+
 window.expOpen = function () {
     msg('expMsg', '');
     copyFilterOptions('eCampus', 'fCampus');
+    expCounts = null;
+    qs('expFoot').textContent = 'Counting…';
+    qs('expBtn').disabled = true;
     show('bxExp');
     ajax('ExportCount', { scope: '{}' }, function (r) {
-        if (!r || !r.success) return;
-        qs('expNCreate').textContent = '(' + fmt(r.create) + ' ready)';
-        qs('expNUpdate').textContent = '(' + fmt(r.update) + ')';
-        qs('expNAll').textContent = '(' + fmt(r.all) + ')';
+        if (!r || !r.success) { qs('expFoot').textContent = ''; msg('expMsg', (r && r.message) || 'Could not read the pipeline.', 'err'); return; }
+        expCounts = r;
+        qs('expNCreate').textContent = fmt(r.create) + ' student(s)';
+        qs('expNUpdate').textContent = fmt(r.update) + ' student(s)';
+        qs('expNAll').textContent = fmt(r.all) + ' student(s)';
+        qs('expNPending').textContent = fmt(r.pending);
+        qs('expPending').style.display = r.pending > 0 ? 'block' : 'none';
+        // Default to whichever mode actually has students, so the first click works.
+        if (r.create === 0 && r.update > 0) setExpMode('update');
+        expSync();
     });
 };
+function setExpMode(v) {
+    var rs = document.getElementsByName('expMode');
+    for (var i = 0; i < rs.length; i++) rs[i].checked = (rs[i].value === v);
+}
 function expMode() {
     var rs = document.getElementsByName('expMode');
     for (var i = 0; i < rs.length; i++) if (rs[i].checked) return rs[i].value;
     return 'create';
 }
+
+// An empty selection is stated up front and the button is disabled, rather than letting
+// the download run and hand back a file with nothing in it.
+window.expSync = function () {
+    if (!expCounts) return;
+    var m = expMode();
+    var n = m === 'create' ? expCounts.create : (m === 'update' ? expCounts.update : expCounts.all);
+    qs('expBtn').disabled = (n === 0);
+    if (n === 0) {
+        qs('expFoot').textContent = 'No students in this selection.';
+        msg('expMsg', expCounts.pending > 0
+            ? ('Nothing to export yet — the ' + fmt(expCounts.pending) + ' pending student(s) need addresses created first.')
+            : 'No students match this selection.', 'warn');
+    } else {
+        qs('expFoot').innerHTML = '<b>' + fmt(n) + '</b> student(s) will be in the sheet.';
+        msg('expMsg', '');
+    }
+};
+
+window.expToWizard = function () { bxClose(); wizOpen(); };
+
 window.expDownload = function () {
-    dl('export', { mode: expMode(), campus: qs('eCampus').value, year: qs('eYear').value.trim(), changePwNext: qs('eChangePw').checked });
+    if (qs('expBtn').disabled) return;
+    dl('export', { mode: expMode(), campus: qs('eCampus').value, year: qs('eYear').value.trim(), changePwNext: qs('eChangePw').checked }, 'expMsg');
 };
 
 // Downloads go through the file handler — a PageMethod cannot stream a file.
-window.dl = function (action, params) {
+//
+// Fetched as a blob rather than by navigating the browser. Navigating means EVERY failure
+// — an expired session, an empty selection, a server fault — arrives as a downloaded file,
+// which is how {"success":false,"message":"..."} ended up being opened in Excel. Here the
+// response is inspected first: JSON is shown as a message, only a real sheet is saved.
+window.dl = function (action, params, msgId) {
+    msgId = msgId || 'bxMsg';
     var u = 'SemsFile.ashx?action=' + encodeURIComponent(action);
     params = params || {};
     for (var k in params) if (params.hasOwnProperty(k) && params[k] !== '' && params[k] != null)
         u += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
-    window.location.href = u;
+
+    var target = msgId;
+    msg(target, 'Building the sheet…', 'info');
+
+    var x = new XMLHttpRequest();
+    x.open('GET', u, true);
+    x.responseType = 'blob';
+    x.onload = function () {
+        var type = (x.getResponseHeader('Content-Type') || '').toLowerCase();
+        if (x.status !== 200 || type.indexOf('json') >= 0) {
+            // Read the JSON back out of the blob so the reason reaches the screen.
+            var fr = new FileReader();
+            fr.onload = function () {
+                var m = 'The sheet could not be built.';
+                try { var o = JSON.parse(fr.result); if (o && o.message) m = o.message; } catch (e) { }
+                if (x.status === 403) m = 'Your session has expired — sign in again and retry.';
+                msg(target, m, 'err');
+            };
+            fr.onerror = function () { msg(target, 'The sheet could not be built.', 'err'); };
+            fr.readAsText(x.response);
+            return;
+        }
+        // Filename from the handler, so the sheet is named for what it contains.
+        var name = 'export.csv';
+        var cd = x.getResponseHeader('Content-Disposition') || '';
+        var m2 = /filename="?([^";]+)"?/i.exec(cd);
+        if (m2) name = m2[1];
+        var url = URL.createObjectURL(x.response);
+        var a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        msg(target, 'Downloaded ' + name, 'ok');
+    };
+    x.onerror = function () { msg(target, 'Network error — the sheet was not downloaded.', 'err'); };
+    x.send();
 };
 
 // =====================================================================
@@ -1446,6 +1573,13 @@ window.dirOpen = function () {
 };
 
 window.bxLoadBatches = function () {
+    // The pipeline strip first — it is the thing that tells the operator what to do next.
+    ajax('ExportCount', { scope: '{}' }, function (r) {
+        if (!r || !r.success) return;
+        qs('flowPending').textContent = fmt(r.pending);
+        qs('flowCreate').textContent = fmt(r.create);
+        qs('flowGoogle').textContent = fmt(r.update);
+    });
     ajax('BatchList', { limit: 30 }, function (r) {
         var b = qs('bBody'); if (!b) return;
         b.innerHTML = '';

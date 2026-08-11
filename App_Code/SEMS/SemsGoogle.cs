@@ -304,9 +304,21 @@ public static partial class SemsBatch
                         var v = cmd.ExecuteScalar(); return v == null || v == DBNull.Value ? 0 : Convert.ToInt32(v);
                     }
                 };
+                // "pending" is the population this whole module exists for: eligible students
+                // who were generated into the pipeline and are still waiting for an address.
+                // They CANNOT be exported — there is nothing to put in the Email column yet —
+                // so the count is returned to say so plainly instead of handing back an empty
+                // sheet and letting the admin guess why.
+                int pending;
+                using (var cmd = new MySqlCommand(
+                    "SELECT COUNT(*) FROM campus_dynamics_portal.sems_email_creations " +
+                    "WHERE IFNULL(email_address,'')='' AND current_stage='PENDING_CREATION'", c))
+                { cmd.CommandTimeout = 120; pending = Convert.ToInt32(cmd.ExecuteScalar()); }
+
                 return Js().Serialize(new
                 {
                     success = true,
+                    pending,
                     create = cnt("AND p.google_status IN ('NOT_CREATED','EXPORTED')"),
                     exported = cnt("AND p.google_status='EXPORTED'"),
                     update = cnt("AND p.google_status IN ('IN_GOOGLE','SUSPENDED')"),
