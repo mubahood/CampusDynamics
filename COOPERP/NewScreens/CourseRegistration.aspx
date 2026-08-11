@@ -558,18 +558,21 @@
         <span class="cr-filter-row__label">Programme:</span>
         <asp:DropDownList ID="ddlProgramme" runat="server" CssClass="cr-filter-select" Width="250px"></asp:DropDownList>
         
+        <%-- Every filter starts on "All". Nothing is narrowed until somebody narrows it. --%>
         <span class="cr-filter-row__label">Study Year:</span>
         <asp:DropDownList ID="ddlStudyYear" runat="server" CssClass="cr-filter-select">
-            <asp:ListItem Value="1" Text="Year 1" Selected="True"></asp:ListItem>
+            <asp:ListItem Value="" Text="All years" Selected="True"></asp:ListItem>
+            <asp:ListItem Value="1" Text="Year 1"></asp:ListItem>
             <asp:ListItem Value="2" Text="Year 2"></asp:ListItem>
             <asp:ListItem Value="3" Text="Year 3"></asp:ListItem>
             <asp:ListItem Value="4" Text="Year 4"></asp:ListItem>
             <asp:ListItem Value="5" Text="Year 5"></asp:ListItem>
         </asp:DropDownList>
-        
+
         <span class="cr-filter-row__label">Semester:</span>
         <asp:DropDownList ID="ddlSemester" runat="server" CssClass="cr-filter-select">
-            <asp:ListItem Value="1" Text="Sem 1" Selected="True"></asp:ListItem>
+            <asp:ListItem Value="" Text="All semesters" Selected="True"></asp:ListItem>
+            <asp:ListItem Value="1" Text="Sem 1"></asp:ListItem>
             <asp:ListItem Value="2" Text="Sem 2"></asp:ListItem>
             <asp:ListItem Value="3" Text="Sem 3"></asp:ListItem>
         </asp:DropDownList>

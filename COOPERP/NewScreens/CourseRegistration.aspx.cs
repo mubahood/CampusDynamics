@@ -72,11 +72,9 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         
         if (!IsPostBack)
         {
-            // Set defaults on first load
-            string defaultYear = AcademicYearHelper.GetCurrentAcademicYear();
-            if (ddlAcadYear.Items.FindByValue(defaultYear) != null)
-                ddlAcadYear.SelectedValue = defaultYear;
-            
+            // No pre-set filters. The page opens on everything; the operator narrows it.
+            // It used to open pinned to the current academic year, Year 1, Semester 1, which
+            // meant the list you were shown was never the list you asked for.
             ddlEntryYear.SelectedValue = "-";
 
             ApplyFiltersFromQueryString();
@@ -146,7 +144,23 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     
     private void LoadAcademicYears()
     {
-        AcademicYearHelper.PopulateDropDown(ddlAcadYear, false, false);
+        // "All Academic Years" first, and NOT pre-selected to the current year. The screen
+        // opens showing everything; a filter only narrows it once somebody chooses one.
+        AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, false);
+    }
+
+    /// <summary>A filter dropdown's value, or "" when it is on its "all" entry.</summary>
+    private static string Val(DropDownList ddl)
+    {
+        string v = (ddl == null ? "" : (ddl.SelectedValue ?? "")).Trim();
+        return (v == "-" || v == "0") ? "" : v;
+    }
+
+    /// <summary>A numeric filter, or 0 when the dropdown is on "all".</summary>
+    private static int Num(DropDownList ddl)
+    {
+        int n;
+        return int.TryParse(Val(ddl), out n) ? n : 0;
     }
     
     private void LoadEntryYears()
@@ -215,19 +229,21 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
             conn.Open();
+            // With study year / semester on "all", the picker offers the programme's whole
+            // catalogue rather than nothing at all.
             string sql = @"SELECT DISTINCT pc.course_code, c.courseName as course_name
                           FROM acad_programmecourses pc
                           INNER JOIN acad_course c ON pc.course_code = c.courseID
-                          WHERE pc.progcode = @prog 
-                            AND pc.study_year = @yr 
-                            AND pc.semester = @sem
+                          WHERE pc.progcode = @prog
+                            AND (@yr = 0 OR pc.study_year = @yr)
+                            AND (@sem = 0 OR pc.semester = @sem)
                           ORDER BY c.courseName";
-            
+
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
                 cmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
-                cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
-                cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+                cmd.Parameters.AddWithValue("@yr", Num(ddlStudyYear));
+                cmd.Parameters.AddWithValue("@sem", Num(ddlSemester));
                 
                 using (MySqlDataReader reader = cmd.ExecuteReader())
                 {
@@ -269,8 +285,11 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     
     private void UpdateDisplayLabels()
     {
-        litAcadYearDisplay.Text = ddlAcadYear.SelectedValue;
-        litSemesterDisplay.Text = "Yr " + ddlStudyYear.SelectedValue + ", Sem " + ddlSemester.SelectedValue;
+        // The header states what is actually on screen, including when that is everything.
+        string ay = Val(ddlAcadYear);
+        int yr = Num(ddlStudyYear), sm = Num(ddlSemester);
+        litAcadYearDisplay.Text = ay == "" ? "All years" : ay;
+        litSemesterDisplay.Text = (yr > 0 ? "Yr " + yr : "All years") + ", " + (sm > 0 ? "Sem " + sm : "all semesters");
         UpdateCourseCodeHint();
     }
 
@@ -339,10 +358,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 using (MySqlCommand cmd = new MySqlCommand(sqlPending, conn))
                 {
                     cmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
-                    cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
-                    cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
+                    cmd.Parameters.AddWithValue("@yr", Num(ddlStudyYear));
+                    cmd.Parameters.AddWithValue("@acad", Val(ddlAcadYear));
                     cmd.Parameters.AddWithValue("@course", courseCode);
-                    cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+                    cmd.Parameters.AddWithValue("@sem", Num(ddlSemester));
                     litPendingCount.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString();
                 }
             }
@@ -362,8 +381,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             using (MySqlCommand cmd = new MySqlCommand(sqlRegistered, conn))
             {
                 cmd.Parameters.AddWithValue("@course", hasCourse ? courseCode : "");
-                cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+                cmd.Parameters.AddWithValue("@acad", Val(ddlAcadYear));
+                cmd.Parameters.AddWithValue("@sem", Num(ddlSemester));
                 cmd.Parameters.AddWithValue("@prog", hasProgramme ? ddlProgramme.SelectedValue : "");
                 litRegisteredCount.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString();
             }
@@ -379,8 +398,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             using (MySqlCommand cmd = new MySqlCommand(sqlRetake, conn))
             {
                 cmd.Parameters.AddWithValue("@course", hasCourse ? courseCode : "");
-                cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+                cmd.Parameters.AddWithValue("@acad", Val(ddlAcadYear));
+                cmd.Parameters.AddWithValue("@sem", Num(ddlSemester));
                 cmd.Parameters.AddWithValue("@prog", hasProgramme ? ddlProgramme.SelectedValue : "");
                 litRetakeCount.Text = Convert.ToInt32(cmd.ExecuteScalar()).ToString();
             }
@@ -415,7 +434,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         bool hasProgramme = !string.IsNullOrEmpty(ddlProgramme.SelectedValue);
         bool hasCourse = !string.IsNullOrEmpty(SelectedCourseCode);
         string studentTerm = (txtStudentFilter.Text ?? string.Empty).Trim();
-        isPendingView = (ddlStatus.SelectedValue == "Pending" && hasProgramme && hasCourse);
+        // "Pending" answers "who in this programme has NOT taken this course this sitting?",
+        // so unlike the register it needs a specific academic year and semester to compare to.
+        isPendingView = (ddlStatus.SelectedValue == "Pending" && hasProgramme && hasCourse
+                         && Val(ddlAcadYear) != "" && Num(ddlSemester) > 0);
 
         DataTable dt = new DataTable();
         totalRows = 0;
@@ -442,7 +464,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                        FROM acad_registration r
                        INNER JOIN acad_student s ON r.regno = s.regno
                        WHERE s.progid = @prog
-                         AND r.studyyear = @yr
+                         AND (@yr = 0 OR r.studyyear = @yr)
                          AND r.acad_year = @acad
                          AND r.regstatus IN ('REGISTERED', 'CLEARED', 'LATE REGISTERED')
                          AND r.regno NOT IN (
@@ -474,7 +496,9 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             else
             {
                                 // Default/simple view: show already registered rows (all when no course/programme selected)
-                                                                sql = @"SELECT cr.regno,
+                // Every filter is optional. An empty academic year or a zero semester means
+                // "all", so the page opens on the whole register and narrows only when asked.
+                sql = @"SELECT cr.regno,
                                                             CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) as stud_name,
                                                             cr.courseID AS course_code,
                                                             cr.acad_year AS acad_year,
@@ -485,8 +509,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                                                             cr.course_status
                        FROM campus_dynamics_portal.acad_course_registration cr
                        INNER JOIN acad_student s ON cr.regno = s.regno
-                                             WHERE cr.acad_year = @acad
-                         AND cr.semester = @sem
+                                             WHERE (@acad = '' OR cr.acad_year = @acad)
+                         AND (@sem = 0 OR cr.semester = @sem)
                                                  AND (@prog = '' OR cr.prog_id = @prog)
                                                  AND (@course = '' OR cr.courseID = @course)
                                                  AND (@entyr = 0 OR s.entryyear = @entyr)
@@ -570,8 +594,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         var years = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
-            cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-            cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+            cmd.Parameters.AddWithValue("@acad", Val(ddlAcadYear));
+            cmd.Parameters.AddWithValue("@sem", Num(ddlSemester));
             if (useInList)
                 for (int i = 0; i < wanted.Count; i++)
                     cmd.Parameters.AddWithValue("@r" + i, wanted[i]);
@@ -596,10 +620,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     private void AddGridParameters(MySqlCommand cmd, bool hasProgramme, bool hasCourse, string studentTerm)
     {
         cmd.Parameters.AddWithValue("@prog", hasProgramme ? ddlProgramme.SelectedValue : "");
-        cmd.Parameters.AddWithValue("@yr", int.Parse(ddlStudyYear.SelectedValue));
-        cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
+        cmd.Parameters.AddWithValue("@yr", Num(ddlStudyYear));       // 0 = all study years
+        cmd.Parameters.AddWithValue("@acad", Val(ddlAcadYear));      // "" = all academic years
         cmd.Parameters.AddWithValue("@course", hasCourse ? SelectedCourseCode : "");
-        cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+        cmd.Parameters.AddWithValue("@sem", Num(ddlSemester));       // 0 = all semesters
         cmd.Parameters.AddWithValue("@student", studentTerm);
         cmd.Parameters.AddWithValue("@studentLike", string.IsNullOrEmpty(studentTerm) ? "%" : ("%" + studentTerm + "%"));
 
@@ -641,11 +665,14 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
         if (dt.Rows.Count == 0)
         {
-            // A typed course code is sitting-scoped like every other filter, so spell the
-            // sitting out — an empty list is nearly always the wrong year/semester.
+            // When a year or semester IS set, an empty list is usually the wrong sitting —
+            // so say which one was searched. With both on "all" there is nothing to blame.
+            string sitting = (Val(ddlAcadYear) == "" && Num(ddlSemester) <= 0)
+                ? "" : " for " + H(Val(ddlAcadYear) == "" ? "any year" : Val(ddlAcadYear))
+                       + (Num(ddlSemester) > 0 ? ", Semester " + Num(ddlSemester) : "")
+                       + " &mdash; check the academic year and semester above";
             string extra = string.IsNullOrEmpty(TypedCourseCode) ? "" : string.Format(
-                " Nothing is registered under <b>{0}</b> for {1}, Semester {2} &mdash; check the academic year and semester above.",
-                H(TypedCourseCode), H(ddlAcadYear.SelectedValue), H(ddlSemester.SelectedValue));
+                " Nothing is registered under <b>{0}</b>{1}.", H(TypedCourseCode), sitting);
             litRows.Text = "<tr><td colspan='11' class='crx-empty'>No course-registration records match the current filters." + extra + "</td></tr>";
             return;
         }
@@ -751,14 +778,17 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     {
         var query = HttpUtility.ParseQueryString(string.Empty);
         query["page"] = page.ToString();
-        query["acad"] = ddlAcadYear.SelectedValue;
+        // Only filters that are actually set travel in the URL — an "all" filter is the
+        // absence of a filter, so paging an unfiltered list keeps it unfiltered.
+        if (Val(ddlAcadYear) != "")
+            query["acad"] = Val(ddlAcadYear);
 
         if (!string.IsNullOrEmpty(ddlProgramme.SelectedValue))
             query["prog"] = ddlProgramme.SelectedValue;
-        if (!string.IsNullOrEmpty(ddlStudyYear.SelectedValue))
-            query["yr"] = ddlStudyYear.SelectedValue;
-        if (!string.IsNullOrEmpty(ddlSemester.SelectedValue))
-            query["sem"] = ddlSemester.SelectedValue;
+        if (Val(ddlStudyYear) != "")
+            query["yr"] = Val(ddlStudyYear);
+        if (Val(ddlSemester) != "")
+            query["sem"] = Val(ddlSemester);
         if (!string.IsNullOrEmpty(ddlEntryYear.SelectedValue) && ddlEntryYear.SelectedValue != "-")
             query["entyr"] = ddlEntryYear.SelectedValue;
         if (!string.IsNullOrEmpty(ddlIntake.SelectedValue) && ddlIntake.SelectedValue != "-")
@@ -865,9 +895,19 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             return;
         }
 
+        // Registering writes a specific sitting, so "all years / all semesters" cannot stand in
+        // for one. The filters may be open; the write may not.
+        if (Val(ddlAcadYear) == "" || Num(ddlSemester) <= 0)
+        {
+            ShowMessage("Choose the academic year and semester you are registering these students into.", "error");
+            LoadStats();
+            BindGrid();
+            return;
+        }
+
         // Enforce semester active status — block registration if the semester is closed
-        int semNumReg;
-        if (!int.TryParse(ddlSemester.SelectedValue, out semNumReg) || !AcademicYearHelper.IsSemesterActive(semNumReg))
+        int semNumReg = Num(ddlSemester);
+        if (!AcademicYearHelper.IsSemesterActive(semNumReg))
         {
             ShowMessage(string.Format(
                 "Semester {0} is not currently open for course registration. " +
@@ -914,8 +954,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         {
                             checkCmd.Parameters.AddWithValue("@regno", regno);
                             checkCmd.Parameters.AddWithValue("@course", courseCode);
-                            checkCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                            checkCmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+                            checkCmd.Parameters.AddWithValue("@acad", Val(ddlAcadYear));
+                            checkCmd.Parameters.AddWithValue("@sem", Num(ddlSemester));
                             
                             if (Convert.ToInt32(checkCmd.ExecuteScalar()) > 0)
                             {
@@ -931,8 +971,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                             spCmd.CommandType = CommandType.StoredProcedure;
                             spCmd.Parameters.AddWithValue("@reg", regno);
                             spCmd.Parameters.AddWithValue("@csid", courseCode);
-                            spCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                            spCmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+                            spCmd.Parameters.AddWithValue("@acad", Val(ddlAcadYear));
+                            spCmd.Parameters.AddWithValue("@sem", Num(ddlSemester));
                             spCmd.Parameters.AddWithValue("@cs_stat", "REGULAR");
                             spCmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
                             spCmd.Parameters.AddWithValue("@usr", username);
@@ -991,6 +1031,13 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             BindGrid();
             return;
         }
+        if (Val(ddlAcadYear) == "" || Num(ddlSemester) <= 0)
+        {
+            ShowMessage("Choose the academic year and semester the registration should be removed from.", "error");
+            LoadStats();
+            BindGrid();
+            return;
+        }
 
         int count = 0;
         List<string> errors = new List<string>();
@@ -1025,8 +1072,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                             spCmd.CommandType = CommandType.StoredProcedure;
                             spCmd.Parameters.AddWithValue("@reg", regno);
                             spCmd.Parameters.AddWithValue("@csid", courseCode);
-                            spCmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
-                            spCmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+                            spCmd.Parameters.AddWithValue("@acad", Val(ddlAcadYear));
+                            spCmd.Parameters.AddWithValue("@sem", Num(ddlSemester));
                             spCmd.Parameters.AddWithValue("@cs_stat", "NORMAL");
                             spCmd.Parameters.AddWithValue("@prog", ddlProgramme.SelectedValue);
                             spCmd.Parameters.AddWithValue("@usr", username);
@@ -1081,9 +1128,13 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         gvCourseReg.DataSource = dt;
         gvCourseReg.DataBind();
 
-        string fileName = string.Format("CourseRegistration_{0}_{1}_Sem{2}",
-            string.IsNullOrEmpty(SelectedCourseCode) ? ddlProgramme.SelectedValue : SelectedCourseCode,
-            ddlAcadYear.SelectedValue.Replace("/", "-"), ddlSemester.SelectedValue);
+        // Name the file for what is in it, including "all" where nothing was narrowed.
+        string scopePart = string.IsNullOrEmpty(SelectedCourseCode)
+            ? (string.IsNullOrEmpty(ddlProgramme.SelectedValue) ? "AllProgrammes" : ddlProgramme.SelectedValue)
+            : SelectedCourseCode;
+        string yearPart = Val(ddlAcadYear) == "" ? "AllYears" : Val(ddlAcadYear).Replace("/", "-");
+        string semPart = Num(ddlSemester) > 0 ? "Sem" + Num(ddlSemester) : "AllSemesters";
+        string fileName = string.Format("CourseRegistration_{0}_{1}_{2}", scopePart, yearPart, semPart);
         gvExporter.WriteXlsxToResponse(fileName, new XlsxExportOptionsEx { ExportType = DevExpress.Export.ExportType.WYSIWYG });
     }
 
