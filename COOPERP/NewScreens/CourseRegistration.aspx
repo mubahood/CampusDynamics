@@ -770,7 +770,7 @@
                 <thead>
                     <tr>
                         <th class="crx-sel"><input type="checkbox" id="crxChkAll" onclick="toggleAll(this)" title="Select all on this page" /></th>
-                        <th>Reg No</th><th>Student</th><th>Course</th><th>Acad Yr</th><th>Sem</th>
+                        <th>Reg No</th><th>Student</th><th>Course</th><th>Acad Yr</th><th>Yr / Sem</th>
                         <th>Entry Yr</th><th>Intake</th><th>Reg Status</th><th>Course Status</th><th class="crx-act">Actions</th>
                     </tr>
                 </thead>

@@ -434,6 +434,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                               @course AS course_code,
                               @acad AS acad_year,
                               @sem AS semester,
+                              r.studyyear AS study_year,
                               COALESCE(s.entryyear, 0) AS entryyear,
                               COALESCE(s.intake, '-') AS intake,
                               COALESCE(r.regstatus, 'REGISTERED') AS reg_status,
@@ -523,9 +524,73 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     adapter.Fill(dt);
                 }
             }
+
+            if (!isPendingView)
+                AttachStudyYears(conn, dt);
         }
 
         return dt;
+    }
+
+    /// <summary>
+    /// A portal course-registration row carries no study year, so take it from the student's
+    /// semester registration for the same sitting. One extra query per render: an IN-list for a
+    /// page of rows, or the whole sitting in one indexed range for the (unpaged) Excel export.
+    /// </summary>
+    private void AttachStudyYears(MySqlConnection conn, DataTable dt)
+    {
+        if (!dt.Columns.Contains("study_year"))
+        {
+            dt.Columns.Add("study_year", typeof(string));
+            if (dt.Columns.Contains("semester"))
+                dt.Columns["study_year"].SetOrdinal(dt.Columns["semester"].Ordinal + 1);
+        }
+        if (dt.Rows.Count == 0) return;
+
+        var wanted = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (DataRow r in dt.Rows)
+        {
+            string rn = SafeCell(r, "regno").Trim();
+            if (rn.Length > 0 && seen.Add(rn)) wanted.Add(rn);
+        }
+        if (wanted.Count == 0) return;
+
+        string sql = "SELECT regno, MIN(studyyear) AS sy FROM acad_registration " +
+                     "WHERE acad_year = @acad AND semester = @sem";
+        bool useInList = wanted.Count <= 500;
+        if (useInList)
+        {
+            var names = new List<string>();
+            for (int i = 0; i < wanted.Count; i++) names.Add("@r" + i);
+            sql += " AND regno IN (" + string.Join(",", names.ToArray()) + ")";
+        }
+        sql += " GROUP BY regno";
+
+        var years = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+        {
+            cmd.Parameters.AddWithValue("@acad", ddlAcadYear.SelectedValue);
+            cmd.Parameters.AddWithValue("@sem", int.Parse(ddlSemester.SelectedValue));
+            if (useInList)
+                for (int i = 0; i < wanted.Count; i++)
+                    cmd.Parameters.AddWithValue("@r" + i, wanted[i]);
+
+            using (MySqlDataReader rdr = cmd.ExecuteReader())
+                while (rdr.Read())
+                {
+                    string rn = (rdr["regno"] ?? "").ToString().Trim();
+                    if (rn.Length > 0 && rdr["sy"] != DBNull.Value)
+                        years[rn] = rdr["sy"].ToString();
+                }
+        }
+
+        foreach (DataRow r in dt.Rows)
+        {
+            string sy;
+            if (years.TryGetValue(SafeCell(r, "regno").Trim(), out sy))
+                r["study_year"] = sy;
+        }
     }
 
     private void AddGridParameters(MySqlCommand cmd, bool hasProgramme, bool hasCourse, string studentTerm)
@@ -592,7 +657,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             string name = SafeCell(r, "stud_name");
             string course = SafeCell(r, "course_code");
             string acad = SafeCell(r, "acad_year");
-            string sem = SafeCell(r, "semester");
+            string sem = SafeCell(r, "semester");            // raw — row actions key on it
+            string yrSem = FormatYearSem(SafeCell(r, "study_year"), sem);
             string entry = SafeCell(r, "entryyear");
             string intake = SafeCell(r, "intake");
             string regStatus = SafeCell(r, "reg_status");
@@ -610,7 +676,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             sb.AppendFormat("<td title=\"{0}\">{0}</td>", H(name));
             sb.AppendFormat("<td><span class='crx-code'>{0}</span></td>", H(course));
             sb.AppendFormat("<td>{0}</td>", H(acad));
-            sb.AppendFormat("<td class='c'>{0}</td>", H(sem));
+            sb.AppendFormat("<td class='c'>{0}</td>", H(yrSem));
             sb.AppendFormat("<td class='c'>{0}</td>", H(entry));
             sb.AppendFormat("<td>{0}</td>", H(intake));
             sb.AppendFormat("<td>{0}</td>", H(regStatus));
@@ -649,6 +715,16 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         if (page < totalPages)
             sb.AppendFormat("<a href='{0}'>Next &raquo;</a>", BuildPagerUrl(page + 1));
         return sb.ToString();
+    }
+
+    /// <summary>Sitting label for the Yr / Sem column: "Yr1, Sem1" — semester alone when the
+    /// student's study year for that sitting could not be resolved.</summary>
+    private static string FormatYearSem(string studyYear, string semester)
+    {
+        string sem = string.IsNullOrEmpty(semester) ? "-" : semester;
+        return (string.IsNullOrEmpty(studyYear) || studyYear == "0")
+            ? "Sem" + sem
+            : "Yr" + studyYear + ", Sem" + sem;
     }
 
     private static string SafeCell(DataRow r, string col)
