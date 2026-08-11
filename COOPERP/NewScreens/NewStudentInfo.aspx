@@ -2747,6 +2747,20 @@
                         <span>Also regenerate the registration / entry number for the new programme</span>
                     </label>
                     <div id="cpPreview" style="display:none;background:#fff8e1;border:1px solid #ffe0a3;padding:8px 10px;font-size:11px;color:#7a5c00;margin-top:6px;"></div>
+
+                    <!-- Campus segment of the entry number: 26/U/BEICT/0106/[M]/DAY.
+                         K = Kakeeka, M = Kirumba (Masaka). Shown whenever the number is rebuilt,
+                         and highlighted when the letter disagrees with the campus on record. -->
+                    <div id="cpCampusWrap" style="display:none;margin-top:6px;padding:8px 10px;border:1px solid #dbe6f5;background:#f7faff;font-size:11px;color:#334155;">
+                        <div style="font-weight:700;margin-bottom:5px;">Campus letter in the number</div>
+                        <div id="cpCampusInfo" style="margin-bottom:6px;"></div>
+                        <label style="margin-right:12px;cursor:pointer;">
+                            <input type="radio" name="cpCampus" value="K" onchange="cpOnCampusChange()"> K &mdash; Kakeeka
+                        </label>
+                        <label style="cursor:pointer;">
+                            <input type="radio" name="cpCampus" value="M" onchange="cpOnCampusChange()"> M &mdash; Kirumba (Masaka)
+                        </label>
+                    </div>
                 </div>
 
                 <div id="cpStatus" style="display:none;padding:8px 10px;font-size:11px;margin-top:8px;"></div>
@@ -3212,7 +3226,7 @@
         // number) is locked behind an explicit "Change programme" checkbox; regenerating the reg number
         // is a second opt-in + confirmation. So the identifier never changes unless the user asks for it,
         // and if the programme itself doesn't change the reg number is never touched.
-        var _cpRegno = '', _cpCurProg = '', _cpCurSpec = '', _cpNewRegno = '', _cpOldRegno = '';
+        var _cpRegno = '', _cpCurProg = '', _cpCurSpec = '', _cpNewRegno = '', _cpOldRegno = '', _cpCampus = '';
         function openChangeProgModal(regno, student) {
             if (!regno) { alert('No registration number.'); return; }
             _cpRegno = regno; _cpCurProg = ''; _cpCurSpec = ''; _cpNewRegno = ''; _cpOldRegno = '';
@@ -3224,6 +3238,8 @@
             document.getElementById('cpProgWrap').style.display = 'none';
             document.getElementById('cpRegnoWrap').style.display = 'none';
             document.getElementById('cpPreview').style.display = 'none';
+            document.getElementById('cpCampusWrap').style.display = 'none';
+            _cpCampus = '';
             document.getElementById('cpProg').innerHTML = '<option value="">Loading…</option>';
             document.getElementById('cpProg').disabled = true;
             document.getElementById('cpSpec').innerHTML = '<option value="">-- None --</option>';
@@ -3276,13 +3292,62 @@
             cpLoadSpecs(prog, '');
             // Reg-number regeneration only applies when the programme actually DIFFERS from the current one.
             var changed = document.getElementById('cpChangeProg').checked && prog && prog !== _cpCurProg;
-            if (!changed) { document.getElementById('cpRegnoWrap').style.display = 'none'; document.getElementById('cpPreview').style.display = 'none'; _cpNewRegno = ''; return; }
+            if (!changed) {
+                document.getElementById('cpRegnoWrap').style.display = 'none';
+                document.getElementById('cpPreview').style.display = 'none';
+                document.getElementById('cpCampusWrap').style.display = 'none';
+                _cpNewRegno = ''; return;
+            }
             document.getElementById('cpRegnoWrap').style.display = 'block';
-            _njPost('PreviewProgRegno', 'regno=' + encodeURIComponent(_cpRegno) + '&prog=' + encodeURIComponent(prog), function (r) {
+            cpPreviewRegno();
+        }
+
+        // Asks the server for the rebuilt number. The campus letter goes with the request, so the
+        // preview always shows the number that would actually be written.
+        function cpPreviewRegno() {
+            var prog = document.getElementById('cpProg').value;
+            if (!prog) return;
+            var body = 'regno=' + encodeURIComponent(_cpRegno) + '&prog=' + encodeURIComponent(prog)
+                     + (_cpCampus ? '&campusLetter=' + encodeURIComponent(_cpCampus) : '');
+            _njPost('PreviewProgRegno', body, function (r) {
                 if (r && r.success && r.newEntryno) { _cpNewRegno = r.newEntryno; _cpOldRegno = r.oldEntryno || ''; }
                 else { _cpNewRegno = ''; _cpOldRegno = ''; }
+                if (r && r.success) cpRenderCampus(r);
                 cpRenderPreview();
             });
+        }
+
+        // The campus segment: what the record says, what the old number says, and which one the
+        // rebuilt number will use. A disagreement is put in front of the operator rather than
+        // resolved quietly — only they know where the student actually sits.
+        function cpRenderCampus(r) {
+            var wrap = document.getElementById('cpCampusWrap');
+            var used = (r.letterUsed || '').toUpperCase();
+            if (!used) { wrap.style.display = 'none'; return; }
+            _cpCampus = used;
+            var radios = document.getElementsByName('cpCampus');
+            for (var i = 0; i < radios.length; i++) radios[i].checked = (radios[i].value === used);
+
+            var html = 'On record: <b>' + _njEsc(r.campusName || r.campusOnRecordName || '—') + '</b>'
+                     + (r.letterOnRecord ? ' (' + _njEsc(r.letterOnRecord) + ')' : '');
+            if (r.letterInNumber)
+                html += ' &nbsp;·&nbsp; current number says <b>' + _njEsc(r.letterInNumber) + '</b>'
+                      + (r.campusInNumberName ? ' &mdash; ' + _njEsc(r.campusInNumberName) : '');
+            if (r.campusConflict) {
+                html = '<span style="color:#b91c1c;font-weight:700;">These disagree.</span> ' + html
+                     + '<br><span style="color:#b91c1c;">Pick the campus this student really belongs to &mdash; it is written into the new number.</span>';
+                wrap.style.borderColor = '#fecaca'; wrap.style.background = '#fef2f2';
+            } else {
+                wrap.style.borderColor = '#dbe6f5'; wrap.style.background = '#f7faff';
+            }
+            document.getElementById('cpCampusInfo').innerHTML = html;
+            wrap.style.display = 'block';
+        }
+
+        function cpOnCampusChange() {
+            var radios = document.getElementsByName('cpCampus');
+            for (var i = 0; i < radios.length; i++) if (radios[i].checked) _cpCampus = radios[i].value;
+            cpPreviewRegno();
         }
         function cpRenderPreview() {
             var pv = document.getElementById('cpPreview');
@@ -3310,6 +3375,7 @@
                     var m = 'Move ' + _cpRegno + ' from programme ' + _cpCurProg + ' to ' + prog + '.';
                     m += updateRegno
                         ? '\n\nThe registration / entry number WILL be regenerated to:\n' + (_cpNewRegno || '(new number)') + (_cpOldRegno ? '\n(was ' + _cpOldRegno + ')' : '')
+                          + (_cpCampus ? '\n\nCampus letter: ' + _cpCampus + (_cpCampus === 'M' ? ' (Kirumba / Masaka)' : ' (Kakeeka)') : '')
                         : '\n\nThe registration / entry number will be KEPT unchanged.';
                     if (!confirm(m + '\n\nProceed?')) return;
                 }
@@ -3319,7 +3385,8 @@
 
             var btn = document.getElementById('btnChangeProg'); btn.disabled = true; var o = btn.innerText; btn.innerText = 'Saving…';
             var data = 'regno=' + encodeURIComponent(_cpRegno) + '&prog=' + encodeURIComponent(prog)
-                     + '&spec=' + encodeURIComponent(spec) + '&changeProg=' + changeProg + '&updateRegNo=' + updateRegno;
+                     + '&spec=' + encodeURIComponent(spec) + '&changeProg=' + changeProg + '&updateRegNo=' + updateRegno
+                     + (_cpCampus ? '&campusLetter=' + encodeURIComponent(_cpCampus) : '');
             _njPost('ChangeProgramme', data, function (r) {
                 if (r && r.success) { _njStatus('cpStatus', r.message + ' Refreshing…', false); setTimeout(function () { window.location.reload(); }, 800); }
                 else { _njStatus('cpStatus', (r && r.message) || 'Failed.', true); btn.disabled = false; btn.innerText = o; }

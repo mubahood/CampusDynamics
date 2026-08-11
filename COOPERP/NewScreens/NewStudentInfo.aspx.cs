@@ -7050,16 +7050,23 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             {
                 conn.Open();
 
-                string oldProg = "", oldEntryno = "";
-                using (var cmd = new MySqlCommand("SELECT progid, entryno FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                string oldProg = "", oldEntryno = "", studCampus = "";
+                using (var cmd = new MySqlCommand("SELECT progid, entryno, studCampus FROM acad_student WHERE regno=@r LIMIT 1", conn))
                 {
                     cmd.Parameters.AddWithValue("@r", regno);
                     using (var rdr = cmd.ExecuteReader())
                     {
                         if (!rdr.Read()) { WriteJsonAndComplete(js, new { success = false, message = "Student not found." }); return; }
-                        oldProg = SafeStr(rdr, "progid"); oldEntryno = SafeStr(rdr, "entryno");
+                        oldProg = SafeStr(rdr, "progid"); oldEntryno = SafeStr(rdr, "entryno"); studCampus = SafeStr(rdr, "studCampus");
                     }
                 }
+
+                // Campus letter for the rebuilt number. The operator's explicit choice wins;
+                // otherwise it comes from the campus on the student's record, not from the old
+                // number — 1,710 students carry an "M" while their record says Kakeeka, and
+                // carrying that letter forward would keep propagating the wrong one.
+                string campusLetter = (Request.Form["campusLetter"] ?? "").Trim().ToUpperInvariant();
+                if (campusLetter != "K" && campusLetter != "M") campusLetter = CampusLetterFor(studCampus);
 
                 // Backend enforcement (independent of the UI checkboxes — defence in depth):
                 //  • the programme changes ONLY when the caller asked to change it AND picked a *different* one;
@@ -7080,7 +7087,14 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 // The formatted registration number (entryno) embeds the programme code + the per-programme
                 // student number. It is regenerated ONLY when the programme actually moves AND the caller
                 // opted in. The canonical acad_student.regno (PRIMARY KEY / system-wide FK) is never changed.
-                string newEntryno = regenEntryno ? ComputeNewEntryno(conn, oldEntryno, prog) : "";
+                string newEntryno = regenEntryno ? ComputeNewEntryno(conn, oldEntryno, prog, campusLetter) : "";
+
+                // If the operator settles a campus conflict, the campus FIELD moves with the letter.
+                // Writing "M" into the number while the record still says Kakeeka would just recreate
+                // the disagreement this dialog exists to resolve.
+                string newCampusCode = campusLetter == "M" ? "2" : (campusLetter == "K" ? "1" : "");
+                bool campusChanged = regenEntryno && newCampusCode != "" &&
+                                     newCampusCode != (studCampus ?? "").Trim().TrimStart('0');
 
                 using (var tx = conn.BeginTransaction())
                 {
@@ -7089,6 +7103,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         var sets = new System.Collections.Generic.List<string> { "specialisation=@s" };
                         if (progChanged)      sets.Add("progid=@p");
                         if (newEntryno != "") sets.Add("entryno=@e");
+                        if (campusChanged)    sets.Add("studCampus=@cm");
                         using (var cmd = new MySqlCommand("UPDATE acad_student SET " + string.Join(", ", sets) + " WHERE regno=@r", conn, tx))
                         {
                             // acad_student.specialisation is NOT NULL (default '-'). For programmes/faculties
@@ -7098,6 +7113,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             cmd.Parameters.AddWithValue("@s", spec == "" ? (object)"-" : spec);
                             if (progChanged)      cmd.Parameters.AddWithValue("@p", prog);
                             if (newEntryno != "") cmd.Parameters.AddWithValue("@e", newEntryno);
+                            if (campusChanged)    cmd.Parameters.AddWithValue("@cm", newCampusCode);
                             cmd.Parameters.AddWithValue("@r", regno);
                             cmd.ExecuteNonQuery();
                         }
@@ -7110,14 +7126,18 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     catch { tx.Rollback(); throw; }
                 }
 
+                string campusNote = campusChanged
+                    ? ("; Campus " + studCampus + " -> " + newCampusCode + " (" + CampusNameForLetter(campusLetter) + ")") : "";
                 string logMsg = progChanged
                     ? ("Programme " + oldProg + " -> " + prog + (spec != "" ? " (spec " + spec + ")" : "")
-                        + (newEntryno != "" ? "; Reg No " + oldEntryno + " -> " + newEntryno : "; Reg No kept " + oldEntryno))
+                        + (newEntryno != "" ? "; Reg No " + oldEntryno + " -> " + newEntryno : "; Reg No kept " + oldEntryno)
+                        + campusNote)
                     : ("Specialisation updated" + (spec != "" ? " (spec " + spec + ")" : " (cleared)") + "; programme & reg no unchanged");
                 LogStudentAction(conn, regno, "ChangeProgramme", logMsg);
 
                 string userMsg = progChanged
-                    ? ("Programme updated to " + prog + "." + (newEntryno != "" ? " New Reg No: " + newEntryno : " Registration number kept unchanged."))
+                    ? ("Programme updated to " + prog + "." + (newEntryno != "" ? " New Reg No: " + newEntryno : " Registration number kept unchanged.")
+                        + (campusChanged ? " Campus set to " + CampusNameForLetter(campusLetter) + "." : ""))
                     : "Specialisation updated. Programme and registration number were left unchanged.";
                 WriteJsonAndComplete(js, new { success = true, newEntryno = newEntryno, message = userMsg });
             }
@@ -7125,17 +7145,55 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
     }
 
+    /// <summary>
+    /// Campus letter used in segment 5 of an entry number: <b>K</b> = Kakeeka (campus 1),
+    /// <b>M</b> = Kirumba / Masaka (campus 2). "" when the campus is unknown, in which case the
+    /// existing letter is left alone rather than guessed at.
+    /// </summary>
+    private static string CampusLetterFor(string studCampus)
+    {
+        string c = (studCampus ?? "").Trim().TrimStart('0');
+        return c == "2" ? "M" : (c == "1" ? "K" : "");
+    }
+
+    private static string CampusNameForLetter(string letter)
+    {
+        letter = (letter ?? "").Trim().ToUpperInvariant();
+        if (letter.StartsWith("M")) return "Kirumba (Masaka)";
+        if (letter.StartsWith("K")) return "Kakeeka";
+        return "";
+    }
+
+    /// <summary>Segment 5 of an entry number — the campus letter — or "" when the number is too short.</summary>
+    private static string CampusSegmentOf(string entryno)
+    {
+        if (string.IsNullOrWhiteSpace(entryno)) return "";
+        string[] seg = entryno.Split('/');
+        return seg.Length >= 5 ? (seg[4] ?? "").Trim() : "";
+    }
+
     /// <summary>Rebuilds the formatted registration number (entryno) for a new programme: keeps the year
-    /// prefix / level / campus / session segments, sets segment 3 = new programme code, and segment 4 =
-    /// the next free student-number for that (year, programme). Returns "" when the entryno isn't in the
+    /// prefix / level / session segments, sets segment 3 = new programme code, segment 4 =
+    /// the next free student-number for that (year, programme), and segment 5 = the campus letter when the
+    /// caller supplies one. Returns "" when the entryno isn't in the
     /// standard slash format (then only progid/specialisation change). Guards against a duplicate entryno.</summary>
-    private string ComputeNewEntryno(MySqlConnection conn, string oldEntryno, string newProg)
+    private string ComputeNewEntryno(MySqlConnection conn, string oldEntryno, string newProg, string campusLetter)
     {
         if (string.IsNullOrWhiteSpace(oldEntryno)) return "";
         string[] seg = oldEntryno.Split('/');
         if (seg.Length < 4) return "";                 // not the YY/U/PROG/SEQ/... form → leave identifiers alone
         string yearPrefix = seg[0];
         string oldSeq = (seg[3] ?? "").Trim();
+
+        // Campus letter. Only the FIRST character is replaced: legacy numbers carry two-letter
+        // codes there (KD, MJ, MM) whose second character means something we do not model, and
+        // rewriting the whole segment would throw that away.
+        campusLetter = (campusLetter ?? "").Trim().ToUpperInvariant();
+        if (seg.Length >= 5 && campusLetter.Length == 1)
+        {
+            string cur = (seg[4] ?? "").Trim();
+            seg[4] = cur.Length > 1 ? campusLetter + cur.Substring(1) : campusLetter;
+        }
 
         long next = 1;
         using (var cmd = new MySqlCommand(
@@ -7178,11 +7236,44 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             using (var conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
-                string oldEntryno = "";
-                using (var cmd = new MySqlCommand("SELECT entryno FROM acad_student WHERE regno=@r LIMIT 1", conn))
-                { cmd.Parameters.AddWithValue("@r", regno); var o = cmd.ExecuteScalar(); oldEntryno = (o == null || o == DBNull.Value) ? "" : o.ToString(); }
-                string preview = ComputeNewEntryno(conn, oldEntryno, prog);
-                WriteJsonAndComplete(js, new { success = true, oldEntryno = oldEntryno, newEntryno = preview });
+                string oldEntryno = "", studCampus = "", campusName = "";
+                using (var cmd = new MySqlCommand(
+                    "SELECT s.entryno, IFNULL(s.studCampus,'') sc, IFNULL(c.campus_name,'') cn FROM acad_student s " +
+                    "LEFT JOIN acad_campuses c ON TRIM(LEADING '0' FROM c.campus_code) = TRIM(LEADING '0' FROM s.studCampus) " +
+                    "WHERE s.regno=@r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rdr = cmd.ExecuteReader())
+                        if (rdr.Read())
+                        { oldEntryno = SafeStr(rdr, "entryno"); studCampus = SafeStr(rdr, "sc"); campusName = SafeStr(rdr, "cn"); }
+                }
+
+                string letterFromRecord = CampusLetterFor(studCampus);
+                string letterInOldNumber = CampusSegmentOf(oldEntryno);
+                string chosen = (Request.Form["campusLetter"] ?? Request.QueryString["campusLetter"] ?? "").Trim().ToUpperInvariant();
+                if (chosen != "K" && chosen != "M") chosen = letterFromRecord;
+
+                string preview = ComputeNewEntryno(conn, oldEntryno, prog, chosen);
+
+                // A conflict is reported, never resolved silently: only a human knows whether the
+                // student sits in Masaka or Kakeeka when the record and the number disagree.
+                bool conflict = letterFromRecord != "" && letterInOldNumber != "" &&
+                                !letterInOldNumber.StartsWith(letterFromRecord, StringComparison.OrdinalIgnoreCase);
+
+                WriteJsonAndComplete(js, new
+                {
+                    success = true,
+                    oldEntryno = oldEntryno,
+                    newEntryno = preview,
+                    campusCode = studCampus,
+                    campusName = campusName,
+                    letterOnRecord = letterFromRecord,
+                    letterInNumber = letterInOldNumber,
+                    letterUsed = chosen,
+                    campusOnRecordName = CampusNameForLetter(letterFromRecord),
+                    campusInNumberName = CampusNameForLetter(letterInOldNumber),
+                    campusConflict = conflict
+                });
             }
         }
         catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
