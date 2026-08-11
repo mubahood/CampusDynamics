@@ -1335,9 +1335,9 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
 
                 // Load the current record
                 string curRegno = "", curYear = "";
-                int curSem = 0;
+                int curSem = 0, curStudyYear = 0;
                 using (var cmd = new MySqlCommand(
-                    "SELECT regno, acad_year, semester FROM acad_registration WHERE ID=@id LIMIT 1", conn))
+                    "SELECT regno, acad_year, semester, COALESCE(studyyear,0) studyyear FROM acad_registration WHERE ID=@id LIMIT 1", conn))
                 {
                     cmd.Parameters.AddWithValue("@id", id);
                     using (var rdr = cmd.ExecuteReader())
@@ -1346,6 +1346,7 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                         curRegno = rdr["regno"].ToString();
                         curYear  = rdr["acad_year"].ToString();
                         curSem   = Convert.ToInt32(rdr["semester"]);
+                        curStudyYear = Convert.ToInt32(rdr["studyyear"]);
                     }
                 }
 
@@ -1367,6 +1368,19 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                                 Server.HtmlEncode(curRegno), Server.HtmlEncode(acadYear), semester));
                             return;
                         }
+                    }
+
+                    // A course the student ALREADY holds at the destination would collide with
+                    // the one being moved there. Refuse the whole edit and name the courses,
+                    // rather than move some and silently drop the rest.
+                    string clash = CourseClashAtTarget(curRegno, curYear, curSem, acadYear, semester);
+                    if (clash.Length > 0)
+                    {
+                        ShowEditError(string.Format(
+                            "Cannot move this registration to {0} Semester {1}: the student already has {2} there. "
+                            + "Resolve the duplicate course registration(s) first.",
+                            Server.HtmlEncode(acadYear), semester, Server.HtmlEncode(clash)));
+                        return;
                     }
                 }
 
@@ -1414,13 +1428,26 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                     ok = cmd.ExecuteNonQuery() >= 0;   // >=0: update may set identical values (0 rows) yet still succeed
                 }
 
+                // ── Harmonise everything keyed to the sitting that just moved ──────────
+                // acad_course_registration and acad_results are both keyed on
+                // (regno, acad_year, semester). Moving the registration on its own left them
+                // behind at the old sitting: the student's courses and published marks became
+                // detached from the registration they belong to, which is why editing a
+                // registration looked like it deleted the course registrations.
+                string harmonised = "";
+                if (periodChanged || studyYear != curStudyYear)
+                    harmonised = HarmoniseSitting(curRegno, curYear, curSem, acadYear, semester, studyYear, user);
+
                 // Audit log
                 using (var logCmd = new MySqlCommand(
                     "INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date) VALUES (@usr, 'Edit Registration', @par, @cmt, NOW())", conn))
                 {
                     logCmd.Parameters.AddWithValue("@usr", user);
                     logCmd.Parameters.AddWithValue("@par", string.Format("{0} | {1} Sem {2}", curRegno, acadYear, semester));
-                    logCmd.Parameters.AddWithValue("@cmt", string.Format("Status={0}; StudyYr={1}; Res={2}; IDCard={3}; ExamClr={4}", regStatus, studyYear, residence, idCard, examClear));
+                    string cmt = string.Format("Status={0}; StudyYr={1}; Res={2}; IDCard={3}; ExamClr={4}", regStatus, studyYear, residence, idCard, examClear);
+                    if (periodChanged) cmt += string.Format("; Moved from {0} Sem {1}", curYear, curSem);
+                    if (harmonised.Length > 0) cmt += "; " + harmonised;
+                    logCmd.Parameters.AddWithValue("@cmt", cmt.Length > 200 ? cmt.Substring(0, 200) : cmt);
                     logCmd.ExecuteNonQuery();
                 }
 
@@ -1430,7 +1457,11 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
                     billWarn = AutoBillStudent(id);
 
                 ScriptManager.RegisterStartupScript(this, GetType(), "closeEdit", "closeModal('editRegModal');", true);
-                ShowToast(ok, "Registration record updated.");
+                // Say what moved with the registration — an operator who changes a semester
+                // needs to see that the courses and marks came too, not hope that they did.
+                ShowToast(ok, harmonised.Length > 0
+                    ? "Registration record updated — " + harmonised + "."
+                    : "Registration record updated.");
                 if (!string.IsNullOrEmpty(billWarn))
                     ScriptManager.RegisterStartupScript(this, GetType(), "editBillWarn",
                         "setTimeout(function(){showToast(false,'" + billWarn.Replace("'", "\\'") + "');},700);", true);
@@ -1711,6 +1742,142 @@ public partial class COOPERP_NewScreens_StudentsRegistration : System.Web.UI.Pag
             }
         }
         catch { return false; }
+    }
+
+    // ===================================================================
+    //  SITTING HARMONISATION
+    //
+    //  A semester registration is not a standalone row. Two other tables are
+    //  keyed on exactly the same (regno, acad_year, semester):
+    //
+    //     campus_dynamics_portal.acad_course_registration  — the courses taken
+    //     campus_dynamics.acad_results                     — the marks published
+    //
+    //  Editing the registration's year or semester used to move only the
+    //  registration, leaving both behind at the sitting it came from. The
+    //  courses stopped belonging to any registration and the marks stopped
+    //  belonging to the semester they were earned in — which is what looked,
+    //  from the screen, like the course registrations had been deleted.
+    //
+    //  Both are now carried across with it, in one transaction on a connection
+    //  that can reach all three databases.
+    // ===================================================================
+
+    /// <summary>
+    /// Courses the student already holds at the destination sitting that would collide with
+    /// the ones being moved there. Empty when the move is clean.
+    /// </summary>
+    private string CourseClashAtTarget(string regno, string fromYear, int fromSem, string toYear, int toSem)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    @"SELECT GROUP_CONCAT(DISTINCT dst.courseID ORDER BY dst.courseID SEPARATOR ', ')
+                        FROM campus_dynamics_portal.acad_course_registration dst
+                        JOIN campus_dynamics_portal.acad_course_registration src
+                          ON src.regno = dst.regno AND src.courseID = dst.courseID
+                       WHERE dst.regno=@r AND dst.acad_year=@ty AND dst.semester=@ts
+                         AND src.acad_year=@fy AND src.semester=@fs", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    cmd.Parameters.AddWithValue("@ty", toYear);
+                    cmd.Parameters.AddWithValue("@ts", toSem);
+                    cmd.Parameters.AddWithValue("@fy", fromYear);
+                    cmd.Parameters.AddWithValue("@fs", fromSem);
+                    object v = cmd.ExecuteScalar();
+                    return v == null || v == DBNull.Value ? "" : v.ToString();
+                }
+            }
+        }
+        catch { return ""; }   // a failed check must not block a legitimate edit
+    }
+
+    /// <summary>
+    /// Moves the course registrations and published results of a sitting to the sitting the
+    /// registration has just been changed to, and keeps the study year on the results in step.
+    /// Returns a short summary for the audit log.
+    /// </summary>
+    private string HarmoniseSitting(string regno, string fromYear, int fromSem,
+                                    string toYear, int toSem, int toStudyYear, string user)
+    {
+        int courses = 0, results = 0;
+        bool periodMoved = !string.Equals(fromYear, toYear, StringComparison.OrdinalIgnoreCase) || fromSem != toSem;
+
+        try
+        {
+            using (var conn = new MySqlConnection(AcctConnStr))
+            {
+                conn.Open();
+                using (var tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        if (periodMoved)
+                        {
+                            using (var cmd = new MySqlCommand(
+                                @"UPDATE campus_dynamics_portal.acad_course_registration
+                                     SET acad_year=@ty, semester=@ts
+                                   WHERE regno=@r AND acad_year=@fy AND semester=@fs", conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@ty", toYear);
+                                cmd.Parameters.AddWithValue("@ts", toSem);
+                                cmd.Parameters.AddWithValue("@r", regno);
+                                cmd.Parameters.AddWithValue("@fy", fromYear);
+                                cmd.Parameters.AddWithValue("@fs", fromSem);
+                                courses = cmd.ExecuteNonQuery();
+                            }
+
+                            // Published marks move with the sitting, or the transcript would
+                            // keep reporting them under a semester the student is no longer
+                            // registered for.
+                            using (var cmd = new MySqlCommand(
+                                @"UPDATE campus_dynamics.acad_results
+                                     SET acad=@ty, semester=@ts, studyyear=@sy
+                                   WHERE TRIM(regno)=@r AND TRIM(acad)=@fy AND semester=@fs", conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@ty", toYear);
+                                cmd.Parameters.AddWithValue("@ts", toSem);
+                                cmd.Parameters.AddWithValue("@sy", toStudyYear);
+                                cmd.Parameters.AddWithValue("@r", regno.Trim());
+                                cmd.Parameters.AddWithValue("@fy", fromYear.Trim());
+                                cmd.Parameters.AddWithValue("@fs", fromSem);
+                                results = cmd.ExecuteNonQuery();
+                            }
+                        }
+                        else
+                        {
+                            // Only the study year changed — the sitting stays put, but the
+                            // results' year label has to follow it.
+                            using (var cmd = new MySqlCommand(
+                                @"UPDATE campus_dynamics.acad_results SET studyyear=@sy
+                                   WHERE TRIM(regno)=@r AND TRIM(acad)=@ty AND semester=@ts", conn, tx))
+                            {
+                                cmd.Parameters.AddWithValue("@sy", toStudyYear);
+                                cmd.Parameters.AddWithValue("@r", regno.Trim());
+                                cmd.Parameters.AddWithValue("@ty", toYear.Trim());
+                                cmd.Parameters.AddWithValue("@ts", toSem);
+                                results = cmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        tx.Commit();
+                    }
+                    catch { try { tx.Rollback(); } catch { } throw; }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            return "harmonise FAILED: " + ex.Message;
+        }
+
+        if (courses == 0 && results == 0) return "";
+        return periodMoved
+            ? string.Format("moved {0} course reg(s) + {1} result(s) to {2} Sem {3}", courses, results, toYear, toSem)
+            : string.Format("restamped {0} result(s) to study year {1}", results, toStudyYear);
     }
 
     private bool ForceStatus(int id, string newStatus)
