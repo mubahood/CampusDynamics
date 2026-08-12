@@ -515,7 +515,9 @@
         .crx-pager a:hover{border-color:#174DA4;color:#174DA4;background:#f4f8ff;}
         .crx-pager .active{background:#05275C;border-color:#05275C;color:#fff;}
         .crx-table-wrap{overflow:auto;background:#fff;}
-        .crx-table{width:100%;min-width:980px;border-collapse:collapse;table-layout:fixed;}
+        /* No min-width: the fixed 980px is what made the whole list slide left and right
+           inside the panel. With Intake and Reg Status gone the remaining columns fit. */
+        .crx-table{width:100%;border-collapse:collapse;table-layout:fixed;}
         .crx-table th{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e0e5ed;font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;padding:6px 5px;text-align:left;white-space:nowrap;z-index:1;}
         .crx-table td{border-bottom:1px solid #eef2f6;font-size:10.5px;color:#1f2937;padding:5px 5px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;}
         .crx-table tbody tr:hover td{background:#fafcff;}
@@ -526,22 +528,23 @@
         .crx-empty{padding:26px 12px;text-align:center;color:#6b7280;font-size:11px;}
 
         /* ── Column widths ──
-           table-layout:fixed means the FIRST row decides everything, so widths are declared
-           here rather than left to the browser. Student took whatever was left over and ran to
-           half the table; it is now a bounded, wrapping column and the space goes to the
-           course title, which is what people actually read across. */
+           Intake and Reg Status are gone: they were context nobody reads across a register,
+           and their 162px was what pushed the table past the panel and made it slide.
+           Everything else is a fixed width except Student, which takes the remainder — so the
+           name gets the space and the table still fits without a horizontal scrollbar.
+           Every cell stays on ONE line: a wrapping name made rows three times as tall and the
+           list impossible to scan. The full name is on the title attribute. */
         .crx-table col.c-sel   { width:30px; }
-        .crx-table col.c-reg   { width:118px; }
-        .crx-table col.c-name  { width:22%; }
-        .crx-table col.c-course{ width:88px; }
-        .crx-table col.c-acad  { width:82px; }
-        .crx-table col.c-yrsem { width:96px; }
-        .crx-table col.c-entry { width:52px; }
-        .crx-table col.c-intake{ width:74px; }
-        .crx-table col.c-reg2  { width:88px; }
-        .crx-table col.c-stat  { width:92px; }
-        .crx-table col.c-act   { width:46px; }
-        .crx-table td.crx-name{ white-space:normal; line-height:1.3; word-break:break-word; }
+        .crx-table col.c-reg   { width:120px; }
+        .crx-table col.c-name  { width:auto; }
+        .crx-table col.c-course{ width:92px; }
+        .crx-table col.c-acad  { width:84px; }
+        .crx-table col.c-yrsem { width:98px; }
+        .crx-table col.c-entry { width:56px; }
+        .crx-table col.c-stat  { width:96px; }
+        .crx-table col.c-act   { width:44px; }
+        .crx-table td, .crx-table th { white-space:nowrap; }
+        .crx-table td.crx-name{ max-width:0; overflow:hidden; text-overflow:ellipsis; }
         .crx-sel{text-align:center;}
         .crx-act{text-align:center;overflow:visible;}
 
@@ -567,18 +570,15 @@
         .crx-a--danger:hover{background:#fef2f2;border-color:#dc3545;color:#b42318;}
 
         /* ── Narrow screens ──
-           Rather than force a 980px table through a phone, the columns that are context
-           (intake, entry year, registration status) drop away and the ones that identify the
-           record stay. */
-        @media (max-width: 1100px) {
-            .crx-table{min-width:820px;}
-            .crx-table .hide-lg{display:none;}
-        }
+           The table no longer forces a fixed minimum, so it shrinks with the panel instead of
+           sliding under it. Below 820px entry year drops as well — it is the only remaining
+           column that is context rather than identity. */
         @media (max-width: 820px) {
-            .crx-table{min-width:0;}
             .crx-table .hide-md{display:none;}
-            .crx-table col.c-name{width:34%;}
             .crx-table th,.crx-table td{padding:5px 4px;font-size:10px;}
+            .crx-table col.c-reg{width:104px;}
+            .crx-table col.c-acad{width:74px;}
+            .crx-table col.c-yrsem{width:88px;}
         }
 
         /* Print Styles */
@@ -881,21 +881,20 @@
 
         <div class="crx-table-wrap">
             <table class="crx-table">
-                <colgroup>
-                    <col style="width:30px;" /><col style="width:120px;" /><col />
-                    <col style="width:96px;" /><col style="width:86px;" /><col style="width:50px;" /><col style="width:70px;" />
-                    <col style="width:80px;" /><col style="width:96px;" /><col style="width:104px;" /><col style="width:150px;" />
-                </colgroup>
+                <%-- ONE colgroup. There were two: an older inline-width set for the original
+                     eleven columns, and mine. A browser applies the first and ignores the rest,
+                     so the widths being honoured belonged to a table that no longer existed —
+                     which is what made the columns look wrong and the list slide sideways. --%>
                 <colgroup>
                     <col class="c-sel" /><col class="c-reg" /><col class="c-name" /><col class="c-course" />
-                    <col class="c-acad" /><col class="c-yrsem" /><col class="c-entry" /><col class="c-intake" />
-                    <col class="c-reg2" /><col class="c-stat" /><col class="c-act" />
+                    <col class="c-acad" /><col class="c-yrsem" /><col class="c-entry" />
+                    <col class="c-stat" /><col class="c-act" />
                 </colgroup>
                 <thead>
                     <tr>
                         <th class="crx-sel"><input type="checkbox" id="crxChkAll" onclick="toggleAll(this)" title="Select all on this page" /></th>
                         <th>Reg No</th><th>Student</th><th>Course</th><th>Acad Yr</th><th>Yr / Sem</th>
-                        <th class="hide-lg">Entry Yr</th><th class="hide-lg">Intake</th><th class="hide-md">Reg Status</th><th>Course Status</th><th class="crx-act"></th>
+                        <th class="hide-md">Entry Yr</th><th>Course Status</th><th class="crx-act"></th>
                     </tr>
                 </thead>
                 <tbody><asp:Literal ID="litRows" runat="server"></asp:Literal></tbody>

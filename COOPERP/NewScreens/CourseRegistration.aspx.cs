@@ -720,7 +720,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                        + " &mdash; check the academic year and semester above";
             string extra = string.IsNullOrEmpty(TypedCourseCode) ? "" : string.Format(
                 " Nothing is registered under <b>{0}</b>{1}.", H(TypedCourseCode), sitting);
-            litRows.Text = "<tr><td colspan='11' class='crx-empty'>No course-registration records match the current filters." + extra + "</td></tr>";
+            litRows.Text = "<tr><td colspan='9' class='crx-empty'>No course-registration records match the current filters." + extra + "</td></tr>";
             return;
         }
 
@@ -734,9 +734,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             string sem = SafeCell(r, "semester");            // raw — row actions key on it
             string yrSem = FormatYearSem(SafeCell(r, "study_year"), sem);
             string entry = SafeCell(r, "entryyear");
-            string intake = SafeCell(r, "intake");
-            string regStatus = SafeCell(r, "reg_status");
             string courseStatus = SafeCell(r, "course_status");
+            // Intake and registration status are still SELECTed and still go into the Excel
+            // export — they are just no longer columns on screen, where they cost more width
+            // than they earned.
 
             string regnoA = HttpUtility.HtmlAttributeEncode(regno);
             string courseA = HttpUtility.HtmlAttributeEncode(course);
@@ -751,9 +752,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             sb.AppendFormat("<td><span class='crx-code'>{0}</span></td>", H(course));
             sb.AppendFormat("<td>{0}</td>", H(acad));
             sb.AppendFormat("<td class='c'>{0}</td>", H(yrSem));
-            sb.AppendFormat("<td class='c hide-lg'>{0}</td>", H(entry));
-            sb.AppendFormat("<td class='hide-lg'>{0}</td>", H(intake));
-            sb.AppendFormat("<td class='hide-md'>{0}</td>", H(regStatus));
+            sb.AppendFormat("<td class='c hide-md'>{0}</td>", H(entry));
             sb.AppendFormat("<td>{0}</td>", GetCourseStatusBadge(courseStatus));
 
             // One trigger per row. The menu itself is built by the client from these
