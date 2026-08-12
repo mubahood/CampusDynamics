@@ -15,6 +15,9 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 {
     private const int QueryPageSize = 50;
 
+    /// <summary>Above this many matching rows the list stops sorting by student name — see BindGrid.</summary>
+    private const int NameSortCeiling = 5000;
+
     private string ConnectionString
     {
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
@@ -147,6 +150,16 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         // "All Academic Years" first, and NOT pre-selected to the current year. The screen
         // opens showing everything; a filter only narrows it once somebody chooses one.
         AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, false);
+    }
+
+    /// <summary>Identifies the current filter set, so cached counts belong to one filter set only.</summary>
+    private string FilterSignature(string studentTerm)
+    {
+        return string.Join("~", new string[] {
+            Val(ddlAcadYear), Num(ddlSemester).ToString(), Num(ddlStudyYear).ToString(),
+            ddlProgramme.SelectedValue ?? "", SelectedCourseCode, ddlStatus.SelectedValue ?? "",
+            ddlEntryYear.SelectedValue ?? "", ddlIntake.SelectedValue ?? "", studentTerm ?? ""
+        });
     }
 
     /// <summary>A filter dropdown's value, or "" when it is on its "all" entry.</summary>
@@ -508,27 +521,50 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                                                             'REGISTERED' AS reg_status,
                                                             cr.course_status
                        FROM campus_dynamics_portal.acad_course_registration cr
-                       INNER JOIN acad_student s ON cr.regno = s.regno
+                       -- CONVERT on the portal side makes this an eq_ref on acad_student's
+                       -- primary key. Comparing utf8mb4 to utf8 directly cannot use the index,
+                       -- and cost 1,296ms a page against 107ms with it.
+                       INNER JOIN acad_student s ON s.regno = CONVERT(cr.regno USING utf8)
                                              WHERE (@acad = '' OR cr.acad_year = @acad)
                          AND (@sem = 0 OR cr.semester = @sem)
                                                  AND (@prog = '' OR cr.prog_id = @prog)
                                                  AND (@course = '' OR cr.courseID = @course)
                                                  AND (@entyr = 0 OR s.entryyear = @entyr)
                                                  AND (@intake = '-' OR s.intake = @intake)
-                                                 AND (@student = '' OR cr.regno LIKE @studentLike OR CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) LIKE @studentLike)
-                                             ORDER BY cr.acad_year DESC, cr.semester DESC, s.firstname, s.othername";
+                                                 AND (@student = '' OR cr.regno LIKE @studentLike OR CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) LIKE @studentLike)";
             }
 
-            string countSql = "SELECT COUNT(*) FROM (" + sql + ") AS x";
-            using (MySqlCommand countCmd = new MySqlCommand(countSql, conn))
+            // The row count is the same for every page of the same filter set, so paging used to
+            // re-count 687,000 rows on every click. Held for a minute against the filter
+            // signature: a register does not change materially between two clicks of a pager.
+            string countKey = "crx.count|" + FilterSignature(studentTerm);
+            object cached = Context.Cache[countKey];
+            if (cached != null) totalRows = (int)cached;
+            else
             {
-                AddGridParameters(countCmd, hasProgramme, hasCourse, studentTerm);
-                totalRows = Convert.ToInt32(countCmd.ExecuteScalar());
+                string countSql = "SELECT COUNT(*) FROM (" + sql + ") AS x";
+                using (MySqlCommand countCmd = new MySqlCommand(countSql, conn))
+                {
+                    countCmd.CommandTimeout = 180;
+                    AddGridParameters(countCmd, hasProgramme, hasCourse, studentTerm);
+                    totalRows = Convert.ToInt32(countCmd.ExecuteScalar());
+                }
+                Context.Cache.Insert(countKey, totalRows, null, DateTime.UtcNow.AddSeconds(60),
+                                     System.Web.Caching.Cache.NoSlidingExpiration);
             }
 
             totalPages = totalRows > 0 ? (int)Math.Ceiling(totalRows / (double)QueryPageSize) : 1;
             if (requestedPage > totalPages)
                 requestedPage = totalPages;
+
+            // Sorting by student name means walking and sorting the whole result set, which is
+            // worth it for a list somebody is reading and pointless for 687,000 rows they will
+            // never scroll. Narrowed lists sort by name; the wide-open view sorts newest-first
+            // off the primary key, which is what an unfiltered register is actually for.
+            if (!isPendingView)
+                sql += (totalRows <= NameSortCeiling)
+                    ? " ORDER BY cr.acad_year DESC, cr.semester DESC, s.firstname, s.othername"
+                    : " ORDER BY cr.ID DESC";
 
             string finalSql = sql;
             if (paged) finalSql += " LIMIT @offset, @pageSize";
@@ -711,25 +747,23 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             sb.Append("<tr>");
             sb.AppendFormat("<td class='crx-sel'><input type='checkbox' class='crx-row-sel' data-key=\"{0}\" onclick='onRowSel(this)' /></td>", regnoA);
             sb.AppendFormat("<td><a class='crx-link' title='View course &amp; semester enrolment' onclick=\"openEnrolment('{0}')\"><span class='crx-code'>{1}</span></a></td>", JsEnc(regno), H(regno));
-            sb.AppendFormat("<td title=\"{0}\">{0}</td>", H(name));
+            sb.AppendFormat("<td class='crx-name' title=\"{0}\">{0}</td>", H(name));
             sb.AppendFormat("<td><span class='crx-code'>{0}</span></td>", H(course));
             sb.AppendFormat("<td>{0}</td>", H(acad));
             sb.AppendFormat("<td class='c'>{0}</td>", H(yrSem));
-            sb.AppendFormat("<td class='c'>{0}</td>", H(entry));
-            sb.AppendFormat("<td>{0}</td>", H(intake));
-            sb.AppendFormat("<td>{0}</td>", H(regStatus));
+            sb.AppendFormat("<td class='c hide-lg'>{0}</td>", H(entry));
+            sb.AppendFormat("<td class='hide-lg'>{0}</td>", H(intake));
+            sb.AppendFormat("<td class='hide-md'>{0}</td>", H(regStatus));
             sb.AppendFormat("<td>{0}</td>", GetCourseStatusBadge(courseStatus));
 
+            // One trigger per row. The menu itself is built by the client from these
+            // attributes, so fifty rows cost fifty buttons rather than two hundred and fifty.
             sb.Append("<td class='crx-act'>");
-            sb.AppendFormat("<a class='crx-a' onclick=\"openEnrolment('{0}')\" title='View course &amp; semester enrolment'>Enrolment</a>", JsEnc(regno));
-            if (!isPendingView)
-            {
-                sb.AppendFormat("<button type='button' class='crx-a crx-a--edit' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" onclick='crxEdit(this)' title='Edit this registration — sitting and course status'>Edit</button>", regnoA, courseA, acadA, semA);
-                sb.AppendFormat("<button type='button' class='crx-a' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" data-status=\"{4}\" onclick='crxStatus(this)' title='Change course status'>Status</button>", regnoA, courseA, acadA, semA, statusA);
-                sb.AppendFormat("<button type='button' class='crx-a crx-a--move' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" data-name=\"{5}\" onclick='crxMove(this)' title='Move this student to the correct course code'>Move</button>", regnoA, courseA, acadA, semA, statusA, HttpUtility.HtmlAttributeEncode(name));
-                sb.AppendFormat("<a class='crx-a' href='StudentResultsView.aspx?regno={0}' target='_blank' title='View results'>Results</a>", HttpUtility.UrlEncode(regno));
-                sb.AppendFormat("<button type='button' class='crx-a crx-a--danger' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" onclick='crxDelete(this)' title='Delete registration'>Delete</button>", regnoA, courseA, acadA, semA);
-            }
+            sb.AppendFormat(
+                "<button type='button' class='crx-kebab' aria-haspopup='true' aria-expanded='false' title='Actions' " +
+                "data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" data-status=\"{4}\" " +
+                "data-name=\"{5}\" data-pending=\"{6}\" onclick='crxMenu(this,event)'>&#8942;</button>",
+                regnoA, courseA, acadA, semA, statusA, HttpUtility.HtmlAttributeEncode(name), isPendingView ? "1" : "0");
             sb.Append("</td></tr>");
         }
         litRows.Text = sb.ToString();
@@ -1342,7 +1376,15 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                     "       (SELECT r2.score FROM acad_results r2 WHERE TRIM(r2.regno)=TRIM(cr.regno) AND r2.courseid=cr.courseID " +
                     "          AND r2.acad=cr.acad_year AND r2.semester=cr.semester LIMIT 1) score, " +
                     "       (SELECT r3.grade FROM acad_results r3 WHERE TRIM(r3.regno)=TRIM(cr.regno) AND r3.courseid=cr.courseID " +
-                    "          AND r3.acad=cr.acad_year AND r3.semester=cr.semester LIMIT 1) grade " +
+                    "          AND r3.acad=cr.acad_year AND r3.semester=cr.semester LIMIT 1) grade, " +
+                    "       (SELECT r4.gradept FROM acad_results r4 WHERE TRIM(r4.regno)=TRIM(cr.regno) AND r4.courseid=cr.courseID " +
+                    "          AND r4.acad=cr.acad_year AND r4.semester=cr.semester LIMIT 1) gp, " +
+                    "       (SELECT r5.CreditUnits FROM acad_results r5 WHERE TRIM(r5.regno)=TRIM(cr.regno) AND r5.courseid=cr.courseID " +
+                    "          AND r5.acad=cr.acad_year AND r5.semester=cr.semester LIMIT 1) cu, " +
+                    // The provisional components, so the modal can show where a mark has reached
+                    // even before anything is published.
+                    "       cr.provisional_course_work_marks cw, cr.provisional_exam_marks ex, cr.provisional_total_marks tot, " +
+                    "       IFNULL(c.CreditUnit,0) cat_cu " +
                     "FROM campus_dynamics_portal.acad_course_registration cr " +
                     "LEFT JOIN acad_course c ON c.courseID = cr.courseID " +
                     "LEFT JOIN acad_student s ON s.regno = CONVERT(cr.regno USING utf8) " +
@@ -1369,7 +1411,12 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                             stage = SR2(rd, "stage"),
                             hasResult = SR2(rd, "has_result") != "0",
                             score = SR2(rd, "score"),
-                            grade = SR2(rd, "grade")
+                            grade = SR2(rd, "grade"),
+                            gp = SR2(rd, "gp"),
+                            cu = SR2(rd, "cu") != "" ? SR2(rd, "cu") : SR2(rd, "cat_cu"),
+                            cw = SR2(rd, "cw"),
+                            exam = SR2(rd, "ex"),
+                            total = SR2(rd, "tot")
                         };
                     }
                 }

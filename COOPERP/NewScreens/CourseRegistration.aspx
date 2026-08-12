@@ -97,6 +97,12 @@
         .cr-eb__tag { display:inline-block; font-size:9px; font-weight:700; letter-spacing:.3px; padding:1px 6px; margin-left:5px; background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; }
         .cr-inline-msg--warn { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; }
         .crx-a--edit { color:#05275C; font-weight:700; }
+        /* Marks panel in the edit modal */
+        .cr-mk__hd { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+        .cr-mks { display:grid; grid-template-columns:repeat(auto-fit,minmax(52px,1fr)); gap:5px; }
+        .cr-mk { background:rgba(255,255,255,.75); border:1px solid rgba(0,0,0,.07); padding:5px 6px; text-align:center; }
+        .cr-mk__l { font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; opacity:.65; }
+        .cr-mk__v { font-size:14px; font-weight:800; line-height:1.15; margin-top:2px; font-variant-numeric:tabular-nums; }
 
         /* Status Badges */
         .cr-status-badge {
@@ -498,7 +504,11 @@
         .crx-btn--danger{background:#c62828;color:#fff;border-color:#c62828;}
         .crx-bulk{display:none;padding:6px 10px;border-bottom:1px solid #fdba74;background:#fff7ed;align-items:center;gap:8px;flex-wrap:wrap;}
         .crx-bulk.show{display:flex;}
-        .crx-bulk__lbl{font-size:11px;font-weight:700;color:#92400e;}
+        .crx-bulk__lbl{font-size:11px;font-weight:700;color:#92400e;white-space:nowrap;}
+        .crx-bulk__ctx{font-size:10.5px;color:#92400e;opacity:.9;}
+        .crx-bulk__ctx b{font-family:Consolas,monospace;}
+        .crx-bulk__ctx--bad{color:#b42318;font-weight:700;opacity:1;}
+        .crx-bulk__spacer{flex:1 1 auto;}
         .crx-meta{padding:6px 10px;border-bottom:1px solid #eef2f6;font-size:10px;color:#64748b;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;}
         .crx-pager{display:flex;gap:3px;flex-wrap:wrap;}
         .crx-pager a,.crx-pager span{border:1px solid #d4dbe8;background:#fff;color:#334155;font-size:9px;text-decoration:none;padding:4px 7px;border-radius:6px;}
@@ -512,19 +522,69 @@
         .crx-table .c{text-align:center;}
         .crx-code{font-family:Consolas,monospace;font-size:10px;color:#174DA4;font-weight:700;}
         .crx-link{color:#174DA4;text-decoration:underline;cursor:pointer;}
-        .crx-sel{width:30px;text-align:center;}
-        .crx-act{width:150px;}
         .crx-row-sel{width:14px;height:14px;cursor:pointer;accent-color:#174DA4;}
         .crx-empty{padding:26px 12px;text-align:center;color:#6b7280;font-size:11px;}
+
+        /* ── Column widths ──
+           table-layout:fixed means the FIRST row decides everything, so widths are declared
+           here rather than left to the browser. Student took whatever was left over and ran to
+           half the table; it is now a bounded, wrapping column and the space goes to the
+           course title, which is what people actually read across. */
+        .crx-table col.c-sel   { width:30px; }
+        .crx-table col.c-reg   { width:118px; }
+        .crx-table col.c-name  { width:22%; }
+        .crx-table col.c-course{ width:88px; }
+        .crx-table col.c-acad  { width:82px; }
+        .crx-table col.c-yrsem { width:96px; }
+        .crx-table col.c-entry { width:52px; }
+        .crx-table col.c-intake{ width:74px; }
+        .crx-table col.c-reg2  { width:88px; }
+        .crx-table col.c-stat  { width:92px; }
+        .crx-table col.c-act   { width:46px; }
+        .crx-table td.crx-name{ white-space:normal; line-height:1.3; word-break:break-word; }
+        .crx-sel{text-align:center;}
+        .crx-act{text-align:center;overflow:visible;}
+
+        /* ── Row action menu ──
+           Five buttons per row multiplied by fifty rows was 250 competing targets. One trigger
+           opens a menu positioned in a fixed-position layer, so it is never clipped by the
+           table's own scroll container. */
+        .crx-kebab{display:inline-flex;align-items:center;justify-content:center;width:26px;height:22px;border:1px solid #d6deea;background:#fff;color:#475569;cursor:pointer;border-radius:5px;padding:0;line-height:1;font-size:13px;font-weight:800;letter-spacing:1px;}
+        .crx-kebab:hover,.crx-kebab.on{border-color:#174DA4;color:#174DA4;background:#f4f8ff;}
+        .crx-menu{position:fixed;z-index:2000;display:none;min-width:186px;background:#fff;border:1px solid #d6deea;border-radius:6px;box-shadow:0 10px 30px rgba(5,39,92,.18);padding:4px;}
+        .crx-menu.show{display:block;}
+        .crx-menu__hd{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#94a3b8;padding:5px 8px 4px;border-bottom:1px solid #eef2f6;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .crx-mi{display:flex;align-items:center;gap:7px;width:100%;box-sizing:border-box;padding:7px 9px;border:0;background:none;text-align:left;font-size:11px;font-weight:600;color:#334155;cursor:pointer;border-radius:4px;font-family:inherit;text-decoration:none;}
+        .crx-mi:hover{background:#f4f8ff;color:#174DA4;}
+        .crx-mi--danger{color:#b42318;}
+        .crx-mi--danger:hover{background:#fef2f2;color:#b42318;}
+        .crx-mi__i{width:13px;flex:0 0 13px;opacity:.75;}
+        .crx-menu__sep{height:1px;background:#eef2f6;margin:3px 0;}
+
         .crx-a{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border:1px solid #d6deea;background:#fff;color:#334155;font-size:9px;font-weight:700;cursor:pointer;border-radius:4px;margin:1px;text-decoration:none;}
         .crx-a:hover{border-color:#174DA4;color:#174DA4;background:#f4f8ff;}
         .crx-a--danger{color:#b42318;border-color:#f3c2c2;}
         .crx-a--danger:hover{background:#fef2f2;border-color:#dc3545;color:#b42318;}
 
+        /* ── Narrow screens ──
+           Rather than force a 980px table through a phone, the columns that are context
+           (intake, entry year, registration status) drop away and the ones that identify the
+           record stay. */
+        @media (max-width: 1100px) {
+            .crx-table{min-width:820px;}
+            .crx-table .hide-lg{display:none;}
+        }
+        @media (max-width: 820px) {
+            .crx-table{min-width:0;}
+            .crx-table .hide-md{display:none;}
+            .crx-table col.c-name{width:34%;}
+            .crx-table th,.crx-table td{padding:5px 4px;font-size:10px;}
+        }
+
         /* Print Styles */
         @media print {
             .cr-batch-bar, .cr-filter-row, .cr-retake-panel, .qe-overlay,
-            .crx-toolbar, .crx-filters, .crx-bulk, .crx-act, .crx-sel { display: none !important; }
+            .crx-toolbar, .crx-filters, .crx-bulk, .crx-act, .crx-sel, .crx-menu { display: none !important; }
         }
     </style>
 </asp:Content>
@@ -800,9 +860,15 @@
         <!-- Bulk action bar (shown when rows are selected) -->
         <div class="crx-bulk" id="crxBulk">
             <span class="crx-bulk__lbl" id="crxBulkLbl">0 selected</span>
+            <%-- The batch acts on ONE sitting, so the bar names it. Acting on fifty students
+                 without seeing which academic year and semester you are writing into is how a
+                 whole cohort lands in the wrong term. --%>
+            <span class="crx-bulk__ctx" id="crxBulkCtx"></span>
+            <span class="crx-bulk__spacer"></span>
             <asp:Button ID="btnRegisterSelected" runat="server" Text="Register Selected" CssClass="crx-btn crx-btn--success" OnClick="btnRegisterSelected_Click" OnClientClick="return prepBulk('register');" />
             <asp:Button ID="btnRemoveSelected" runat="server" Text="Remove Selected" CssClass="crx-btn crx-btn--danger" OnClick="btnRemoveSelected_Click" OnClientClick="return prepBulk('remove');" Visible="false" />
-            <button type="button" class="crx-btn" onclick="clearSel()">Clear Selection</button>
+            <button type="button" class="crx-btn" onclick="selectAllMatching()" id="crxSelAll" title="Tick every row on this page">Select page</button>
+            <button type="button" class="crx-btn" onclick="clearSel()">Clear</button>
         </div>
 
         <!-- Meta + pager -->
@@ -820,11 +886,16 @@
                     <col style="width:96px;" /><col style="width:86px;" /><col style="width:50px;" /><col style="width:70px;" />
                     <col style="width:80px;" /><col style="width:96px;" /><col style="width:104px;" /><col style="width:150px;" />
                 </colgroup>
+                <colgroup>
+                    <col class="c-sel" /><col class="c-reg" /><col class="c-name" /><col class="c-course" />
+                    <col class="c-acad" /><col class="c-yrsem" /><col class="c-entry" /><col class="c-intake" />
+                    <col class="c-reg2" /><col class="c-stat" /><col class="c-act" />
+                </colgroup>
                 <thead>
                     <tr>
                         <th class="crx-sel"><input type="checkbox" id="crxChkAll" onclick="toggleAll(this)" title="Select all on this page" /></th>
                         <th>Reg No</th><th>Student</th><th>Course</th><th>Acad Yr</th><th>Yr / Sem</th>
-                        <th>Entry Yr</th><th>Intake</th><th>Reg Status</th><th>Course Status</th><th class="crx-act">Actions</th>
+                        <th class="hide-lg">Entry Yr</th><th class="hide-lg">Intake</th><th class="hide-md">Reg Status</th><th>Course Status</th><th class="crx-act"></th>
                     </tr>
                 </thead>
                 <tbody><asp:Literal ID="litRows" runat="server"></asp:Literal></tbody>
@@ -1283,10 +1354,43 @@
         function updateBulk() {
             var keys = Object.keys(selected);
             var bar = qs('crxBulk'), lbl = qs('crxBulkLbl');
-            if (lbl) lbl.textContent = keys.length + ' selected';
+            if (lbl) lbl.textContent = keys.length + (keys.length === 1 ? ' student selected' : ' students selected');
             if (bar) bar.classList.toggle('show', keys.length > 0);
             var h = hf(); if (h) h.value = keys.join(',');
+
+            // Spell out the sitting and course the batch will write into, and disable the
+            // buttons outright when that target is not fully chosen.
+            var ctx = qs('crxBulkCtx');
+            if (ctx) {
+                var acad = pageVal('<%= ddlAcadYear.ClientID %>');
+                var sem = pageVal('<%= ddlSemester.ClientID %>');
+                var course = (window.courseCodeValue ? courseCodeValue() : '') || pageVal('<%= ddlCourse.ClientID %>');
+                var missing = [];
+                if (!acad) missing.push('academic year');
+                if (!sem) missing.push('semester');
+                if (!course) missing.push('course');
+                if (missing.length) {
+                    ctx.className = 'crx-bulk__ctx crx-bulk__ctx--bad';
+                    ctx.textContent = 'Choose a ' + missing.join(', ') + ' before acting on these students.';
+                } else {
+                    ctx.className = 'crx-bulk__ctx';
+                    ctx.innerHTML = 'into <b>' + esc(course) + '</b> &middot; ' + esc(acad) + ' Semester ' + esc(sem);
+                }
+                var bad = missing.length > 0;
+                ['<%= btnRegisterSelected.ClientID %>', '<%= btnRemoveSelected.ClientID %>'].forEach(function (id) {
+                    var b = qs(id); if (b) { b.disabled = bad; b.style.opacity = bad ? '.5' : ''; b.style.cursor = bad ? 'not-allowed' : ''; }
+                });
+            }
         }
+
+        // Tick every row currently rendered. Deliberately page-scoped: "select all 687,000"
+        // is not an action anybody should be one click away from.
+        window.selectAllMatching = function () {
+            var boxes = document.querySelectorAll('.crx-row-sel');
+            for (var i = 0; i < boxes.length; i++) { boxes[i].checked = true; selected[boxes[i].getAttribute('data-key')] = 1; }
+            var m = qs('crxChkAll'); if (m) m.checked = true;
+            updateBulk();
+        };
         window.onRowSel = function (cb) {
             var k = cb.getAttribute('data-key');
             if (cb.checked) selected[k] = 1; else delete selected[k];
@@ -1447,6 +1551,85 @@
             });
         };
 
+        // ===== ROW ACTION MENU ===================================================
+        // Built once and reused. It lives in a fixed-position layer appended to <body>, so the
+        // table's own overflow:auto can never clip it, and it repositions itself if it would
+        // fall off the bottom of the viewport.
+        var menuEl = null, menuOwner = null;
+
+        function buildMenu() {
+            if (menuEl) return menuEl;
+            menuEl = document.createElement('div');
+            menuEl.className = 'crx-menu';
+            menuEl.setAttribute('role', 'menu');
+            document.body.appendChild(menuEl);
+            return menuEl;
+        }
+
+        window.crxMenu = function (btn, ev) {
+            if (ev) ev.stopPropagation();
+            var m = buildMenu();
+            if (menuOwner === btn && m.classList.contains('show')) { crxMenuClose(); return; }
+            crxMenuClose();
+            menuOwner = btn;
+            btn.classList.add('on');
+            btn.setAttribute('aria-expanded', 'true');
+
+            var d = btn.dataset, pending = d.pending === '1';
+            var h = '<div class="crx-menu__hd">' + _e(d.regno) + ' &middot; ' + _e(d.course) + '</div>';
+            h += mi('Enrolment', "openEnrolment('" + _q(d.regno) + "')");
+            if (!pending) {
+                h += mi('Edit registration', 'crxFromMenu("edit")');
+                h += mi('Change course status', 'crxFromMenu("status")');
+                h += mi('Move to another course code', 'crxFromMenu("move")');
+                h += '<div class="crx-menu__sep"></div>';
+                h += '<a class="crx-mi" role="menuitem" target="_blank" href="StudentResultsView.aspx?regno='
+                   + encodeURIComponent(d.regno) + '">View results</a>';
+                h += '<div class="crx-menu__sep"></div>';
+                h += mi('Delete registration', 'crxFromMenu("delete")', 'crx-mi--danger');
+            }
+            m.innerHTML = h;
+            m.classList.add('show');
+
+            // Position under the trigger, flipped up when there is no room below.
+            var r = btn.getBoundingClientRect();
+            var mw = m.offsetWidth, mh = m.offsetHeight;
+            var left = Math.min(r.right - mw, window.innerWidth - mw - 8);
+            var top = (r.bottom + mh + 8 > window.innerHeight) ? (r.top - mh - 4) : (r.bottom + 4);
+            m.style.left = Math.max(8, left) + 'px';
+            m.style.top = Math.max(8, top) + 'px';
+        };
+
+        function mi(label, call, cls) {
+            return '<button type="button" role="menuitem" class="crx-mi' + (cls ? ' ' + cls : '') +
+                   '" onclick=\'' + call + '\'>' + label + '</button>';
+        }
+        function _e(s) { return esc(s == null ? '' : String(s)); }
+        function _q(s) { return String(s == null ? '' : s).replace(/'/g, ''); }
+
+        window.crxMenuClose = function () {
+            if (menuEl) menuEl.classList.remove('show');
+            if (menuOwner) { menuOwner.classList.remove('on'); menuOwner.setAttribute('aria-expanded', 'false'); }
+            menuOwner = null;
+        };
+
+        // Every action still receives the same element it always did — the menu only decides
+        // which one to call, so the handlers below were not touched.
+        window.crxFromMenu = function (what) {
+            var b = menuOwner; crxMenuClose(); if (!b) return;
+            if (what === 'edit') crxEdit(b);
+            else if (what === 'status') crxStatus(b);
+            else if (what === 'move') crxMove(b);
+            else if (what === 'delete') crxDelete(b);
+        };
+
+        document.addEventListener('click', function (e) {
+            if (menuEl && menuEl.classList.contains('show') && !menuEl.contains(e.target)) crxMenuClose();
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') crxMenuClose(); });
+        window.addEventListener('scroll', function () { crxMenuClose(); }, true);
+        window.addEventListener('resize', function () { crxMenuClose(); });
+
         // ===== EDIT ONE REGISTRATION (sitting + status) ==========================
         // The sitting list comes from the student's own enrolment history, so the modal can
         // only ever offer a semester they actually attended.
@@ -1483,17 +1666,44 @@
                 var st = (rec.status || '').toUpperCase();
                 qs('editStatus').value = (st === 'RETAKE') ? 'RETAKE' : 'NORMAL';
 
-                // Moving a course that already carries a published mark moves the mark too —
-                // say so before the click, not after.
-                if (rec.hasResult) {
-                    var w = qs('editResultWarn');
-                    w.className = 'cr-inline-msg show cr-inline-msg--warn';
-                    w.innerHTML = 'This course has a <b>published result</b> (' + esc(rec.score || '-') + ' ' + esc(rec.grade || '') +
-                                  '). Moving it carries the result to the new semester and re-stamps its year of study, so the transcript stays consistent.';
-                    w.style.display = 'block';
-                }
+                // Show the marks this registration actually carries. An operator moving a
+                // course between semesters is moving a mark, and ought to see it first.
+                renderEditMarks(rec);
             });
         };
+
+        // Marks panel: published result if there is one, otherwise whatever the lecturer has
+        // entered so far, otherwise an explicit "no marks" so the operator is never left
+        // guessing whether the blank means none or means not-loaded.
+        function renderEditMarks(rec) {
+            var w = qs('editResultWarn');
+            var has = function (v) { return v !== null && v !== undefined && String(v).trim() !== ''; };
+            var cell = function (lbl, val) {
+                return '<div class="cr-mk"><div class="cr-mk__l">' + lbl + '</div><div class="cr-mk__v">'
+                     + (has(val) ? esc(val) : '&ndash;') + '</div></div>';
+            };
+
+            if (rec.hasResult) {
+                w.className = 'cr-inline-msg show cr-inline-msg--warn';
+                w.innerHTML =
+                    '<div class="cr-mk__hd">Published result</div>' +
+                    '<div class="cr-mks">' + cell('CW', rec.cw) + cell('Exam', rec.exam) +
+                        cell('Mark', rec.score) + cell('Grade', rec.grade) + cell('GP', rec.gp) + cell('CU', rec.cu) + '</div>' +
+                    '<div style="margin-top:7px">Moving this course carries the result to the new semester and re-stamps its ' +
+                    'year of study, so the transcript stays consistent.</div>';
+            } else if (has(rec.cw) || has(rec.exam) || has(rec.total)) {
+                w.className = 'cr-inline-msg show';
+                w.innerHTML =
+                    '<div class="cr-mk__hd">Marks entered, not yet published' + (rec.stage ? ' &middot; ' + esc(rec.stage) : '') + '</div>' +
+                    '<div class="cr-mks">' + cell('CW', rec.cw) + cell('Exam', rec.exam) + cell('Total', rec.total) + cell('CU', rec.cu) + '</div>';
+            } else {
+                w.className = 'cr-inline-msg show';
+                w.innerHTML = '<div class="cr-mk__hd">No marks recorded</div>' +
+                    '<div style="font-size:11px;color:#64748b">Nothing has been entered for this course yet' +
+                    (rec.stage ? ' (' + esc(rec.stage) + ')' : '') + '.</div>';
+            }
+            w.style.display = 'block';
+        }
 
         window.closeEditReg = function () { var m = qs('editModalOverlay'); if (m) m.classList.remove('show'); editCtx = null; };
 
