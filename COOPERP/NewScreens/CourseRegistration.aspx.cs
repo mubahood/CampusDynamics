@@ -1205,7 +1205,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 conn.Open();
                 using (var cmd = new MySqlCommand(@"
                     DELETE FROM campus_dynamics_portal.acad_course_registration
-                    WHERE TRIM(regno) = @r AND courseID = @c AND acad_year = @a AND semester = @s", conn))
+                    WHERE regno = @r AND courseID = @c AND acad_year = @a AND semester = @s", conn))
                 {
                     cmd.Parameters.AddWithValue("@r", regno.Trim());
                     cmd.Parameters.AddWithValue("@c", course.Trim());
@@ -1238,7 +1238,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 using (var cmd = new MySqlCommand(@"
                     UPDATE campus_dynamics_portal.acad_course_registration
                     SET course_status = @st
-                    WHERE TRIM(regno) = @r AND courseID = @c AND acad_year = @a AND semester = @s", conn))
+                    WHERE regno = @r AND courseID = @c AND acad_year = @a AND semester = @s", conn))
                 {
                     cmd.Parameters.AddWithValue("@st", st);
                     cmd.Parameters.AddWithValue("@r", regno.Trim());
@@ -1321,7 +1321,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 if (!string.IsNullOrWhiteSpace(acad))
                     using (var cmd = new MySqlCommand(
                         @"SELECT courseID FROM campus_dynamics_portal.acad_course_registration
-                          WHERE TRIM(regno)=@r AND acad_year=@a AND semester=@s", conn))
+                          WHERE regno=@r AND acad_year=@a AND semester=@s", conn))
                     {
                         cmd.Parameters.AddWithValue("@r", regno);
                         cmd.Parameters.AddWithValue("@a", (acad ?? "").Trim());
@@ -1366,28 +1366,30 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             {
                 conn.Open();
 
+                // One join, no TRIM. The previous version asked acad_results five separate
+                // times and wrapped both sides of every match in TRIM(), which makes the
+                // (regno, courseid) index unusable — five full scans of 636,000 rows to open
+                // one modal, which is where the two-minute wait came from. TRIM is also what
+                // stopped the WHERE using the portal table's own unique index.
                 using (var cmd = new MySqlCommand(
                     "SELECT cr.id, cr.regno, cr.courseID, cr.acad_year, cr.semester, IFNULL(cr.course_status,'') cstatus, " +
                     "       IFNULL(cr.mark_stage,'') stage, IFNULL(c.courseName,cr.courseID) cname, " +
                     "       TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) nm, IFNULL(s.progid,'') prog, " +
-                    "       (SELECT COUNT(*) FROM acad_results r WHERE TRIM(r.regno)=TRIM(cr.regno) AND r.courseid=cr.courseID " +
-                    "          AND r.acad=cr.acad_year AND r.semester=cr.semester) has_result, " +
-                    "       (SELECT r2.score FROM acad_results r2 WHERE TRIM(r2.regno)=TRIM(cr.regno) AND r2.courseid=cr.courseID " +
-                    "          AND r2.acad=cr.acad_year AND r2.semester=cr.semester LIMIT 1) score, " +
-                    "       (SELECT r3.grade FROM acad_results r3 WHERE TRIM(r3.regno)=TRIM(cr.regno) AND r3.courseid=cr.courseID " +
-                    "          AND r3.acad=cr.acad_year AND r3.semester=cr.semester LIMIT 1) grade, " +
-                    "       (SELECT r4.gradept FROM acad_results r4 WHERE TRIM(r4.regno)=TRIM(cr.regno) AND r4.courseid=cr.courseID " +
-                    "          AND r4.acad=cr.acad_year AND r4.semester=cr.semester LIMIT 1) gp, " +
-                    "       (SELECT r5.CreditUnits FROM acad_results r5 WHERE TRIM(r5.regno)=TRIM(cr.regno) AND r5.courseid=cr.courseID " +
-                    "          AND r5.acad=cr.acad_year AND r5.semester=cr.semester LIMIT 1) cu, " +
-                    // The provisional components, so the modal can show where a mark has reached
-                    // even before anything is published.
                     "       cr.provisional_course_work_marks cw, cr.provisional_exam_marks ex, cr.provisional_total_marks tot, " +
-                    "       IFNULL(c.CreditUnit,0) cat_cu " +
+                    "       IFNULL(c.CreditUnit,0) cat_cu, " +
+                    "       r.score, r.grade, r.gradept gp, r.CreditUnits cu, " +
+                    "       CASE WHEN r.ID IS NULL THEN 0 ELSE 1 END has_result " +
                     "FROM campus_dynamics_portal.acad_course_registration cr " +
-                    "LEFT JOIN acad_course c ON c.courseID = cr.courseID " +
+                    // CONVERT always on the portal side: the portal DB is utf8mb4 and this one
+                    // is utf8, and MySQL widens to utf8mb4 — which would convert the *indexed*
+                    // campus_dynamics column and scan it instead.
+                    "LEFT JOIN acad_course c ON c.courseID = CONVERT(cr.courseID USING utf8) " +
                     "LEFT JOIN acad_student s ON s.regno = CONVERT(cr.regno USING utf8) " +
-                    "WHERE TRIM(cr.regno)=@r AND cr.courseID=@c AND cr.acad_year=@a AND cr.semester=@s LIMIT 1", conn))
+                    "LEFT JOIN acad_results r ON r.regno = CONVERT(cr.regno USING utf8) " +
+                    "                        AND r.courseid = CONVERT(cr.courseID USING utf8) " +
+                    "                        AND r.acad = CONVERT(cr.acad_year USING utf8) " +
+                    "                        AND r.semester = cr.semester " +
+                    "WHERE cr.regno=@r AND cr.courseID=@c AND cr.acad_year=@a AND cr.semester=@s LIMIT 1", conn))
                 {
                     cmd.Parameters.AddWithValue("@r", regno);
                     cmd.Parameters.AddWithValue("@c", course);
@@ -1423,12 +1425,13 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 // Where this course may legitimately be moved to: every sitting the student has
                 // a semester registration for, plus any sitting they already hold courses in.
                 using (var cmd = new MySqlCommand(
+                    // No TRIM here either: both tables index regno, and wrapping it hides that.
                     "SELECT acad_year, semester, MAX(sy) sy, MAX(src) src FROM (" +
                     "  SELECT acad_year, CAST(semester AS UNSIGNED) semester, MIN(studyyear) sy, 'registration' src " +
-                    "    FROM acad_registration WHERE TRIM(regno)=@r AND IFNULL(acad_year,'')<>'' GROUP BY acad_year, semester " +
+                    "    FROM acad_registration WHERE regno=@r AND IFNULL(acad_year,'')<>'' GROUP BY acad_year, semester " +
                     "  UNION ALL " +
                     "  SELECT acad_year, CAST(semester AS UNSIGNED) semester, 0 sy, 'courses' src " +
-                    "    FROM campus_dynamics_portal.acad_course_registration WHERE TRIM(regno)=@r AND IFNULL(acad_year,'')<>'' " +
+                    "    FROM campus_dynamics_portal.acad_course_registration WHERE regno=@r AND IFNULL(acad_year,'')<>'' " +
                     "   GROUP BY acad_year, semester" +
                     ") x GROUP BY acad_year, semester ORDER BY acad_year, semester", conn))
                 {
@@ -1482,8 +1485,8 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 {
                     // The destination must be a sitting the student actually has.
                     using (var q = new MySqlCommand(
-                        "SELECT (SELECT COUNT(*) FROM acad_registration WHERE TRIM(regno)=@r AND acad_year=@a AND semester=@s) " +
-                        "     + (SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE TRIM(regno)=@r AND acad_year=@a AND semester=@s)", conn))
+                        "SELECT (SELECT COUNT(*) FROM acad_registration WHERE regno=@r AND acad_year=@a AND semester=@s) " +
+                        "     + (SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno=@r AND acad_year=@a AND semester=@s)", conn))
                     {
                         q.Parameters.AddWithValue("@r", regno); q.Parameters.AddWithValue("@a", toAcad); q.Parameters.AddWithValue("@s", toSem);
                         if (Convert.ToInt64(q.ExecuteScalar()) == 0)
@@ -1492,7 +1495,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
                     using (var q = new MySqlCommand(
                         "SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration " +
-                        "WHERE TRIM(regno)=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn))
+                        "WHERE regno=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn))
                     {
                         q.Parameters.AddWithValue("@r", regno); q.Parameters.AddWithValue("@c", course);
                         q.Parameters.AddWithValue("@a", toAcad); q.Parameters.AddWithValue("@s", toSem);
@@ -1503,7 +1506,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
                 int toStudyYear = 0;
                 using (var q = new MySqlCommand(
-                    "SELECT MIN(studyyear) FROM acad_registration WHERE TRIM(regno)=@r AND acad_year=@a AND IFNULL(studyyear,0)>0", conn))
+                    "SELECT MIN(studyyear) FROM acad_registration WHERE regno=@r AND acad_year=@a AND IFNULL(studyyear,0)>0", conn))
                 {
                     q.Parameters.AddWithValue("@r", regno); q.Parameters.AddWithValue("@a", toAcad);
                     var o = q.ExecuteScalar();
@@ -1518,7 +1521,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         using (var up = new MySqlCommand(
                             "UPDATE campus_dynamics_portal.acad_course_registration " +
                             "SET acad_year=@ta, semester=@ts, course_status=@st " +
-                            "WHERE TRIM(regno)=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn, tx))
+                            "WHERE regno=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn, tx))
                         {
                             up.Parameters.AddWithValue("@ta", toAcad); up.Parameters.AddWithValue("@ts", toSem);
                             up.Parameters.AddWithValue("@st", status == "REGULAR" ? "NORMAL" : status);
@@ -1532,7 +1535,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                             using (var up = new MySqlCommand(
                                 "UPDATE acad_results SET acad=@ta, semester=@ts" +
                                 (toStudyYear > 0 ? ", studyyear=@sy" : "") +
-                                " WHERE TRIM(regno)=@r AND courseid=@c AND TRIM(acad)=@a AND semester=@s", conn, tx))
+                                " WHERE regno=@r AND courseid=@c AND acad=@a AND semester=@s", conn, tx))
                             {
                                 up.Parameters.AddWithValue("@ta", toAcad); up.Parameters.AddWithValue("@ts", toSem);
                                 if (toStudyYear > 0) up.Parameters.AddWithValue("@sy", toStudyYear);
@@ -1678,7 +1681,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
                 using (var cmd = new MySqlCommand(
                     @"SELECT acad_year, studyyear, semester, regstatus
-                        FROM acad_registration WHERE TRIM(regno) = @r
+                        FROM acad_registration WHERE regno = @r
                        ORDER BY acad_year DESC, studyyear DESC, semester DESC", conn))
                 {
                     cmd.Parameters.AddWithValue("@r", regno);
@@ -1695,7 +1698,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                              IFNULL(c.CreditUnit,0) AS cu
                         FROM campus_dynamics_portal.acad_course_registration cr
                         LEFT JOIN acad_course c ON c.courseID = cr.courseID
-                       WHERE TRIM(cr.regno) = @r
+                       WHERE cr.regno = @r
                        ORDER BY cr.acad_year DESC, cr.semester DESC, cr.courseID", conn))
                 {
                     cmd.Parameters.AddWithValue("@r", regno);
@@ -1776,7 +1779,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 // Collision guard: refuse if the student already holds the target code this sitting.
                 using (var cmd = new MySqlCommand(
                     @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration
-                      WHERE TRIM(regno)=@r AND courseID=@n AND acad_year=@a AND semester=@s", conn))
+                      WHERE regno=@r AND courseID=@n AND acad_year=@a AND semester=@s", conn))
                 {
                     cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@n", newCourse);
                     cmd.Parameters.AddWithValue("@a", acad); cmd.Parameters.AddWithValue("@s", sem);
@@ -1792,7 +1795,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         using (var cmd = new MySqlCommand(
                             @"UPDATE campus_dynamics_portal.acad_course_registration
                               SET courseID=@n
-                              WHERE TRIM(regno)=@r AND courseID=@o AND acad_year=@a AND semester=@s", conn, tx))
+                              WHERE regno=@r AND courseID=@o AND acad_year=@a AND semester=@s", conn, tx))
                         {
                             cmd.Parameters.AddWithValue("@n", newCourse); cmd.Parameters.AddWithValue("@r", regno);
                             cmd.Parameters.AddWithValue("@o", oldCourse); cmd.Parameters.AddWithValue("@a", acad); cmd.Parameters.AddWithValue("@s", sem);
@@ -1806,7 +1809,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                                 "UPDATE " + tbl + " SET courseid=@n" +
                                 (newCu.HasValue ? ", CreditUnits=@cu" : "") +
                                 (newSy.HasValue ? ", studyyear=@sy" : "") +
-                                " WHERE TRIM(regno)=@r AND courseid=@o AND acad=@a AND semester=@s", conn, tx))
+                                " WHERE regno=@r AND courseid=@o AND acad=@a AND semester=@s", conn, tx))
                             {
                                 cmd.Parameters.AddWithValue("@n", newCourse); cmd.Parameters.AddWithValue("@r", regno);
                                 cmd.Parameters.AddWithValue("@o", oldCourse); cmd.Parameters.AddWithValue("@a", acad); cmd.Parameters.AddWithValue("@s", sem);
@@ -1890,7 +1893,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
                 using (var cmd = new MySqlCommand(
                     @"SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration
-                      WHERE TRIM(regno)=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn))
+                      WHERE regno=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn))
                 {
                     cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@c", course);
                     cmd.Parameters.AddWithValue("@a", acad); cmd.Parameters.AddWithValue("@s", sem);
