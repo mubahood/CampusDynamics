@@ -689,7 +689,7 @@
         </asp:DropDownList>
 
         <span class="cr-filter-row__label">Student:</span>
-        <asp:TextBox ID="txtStudentFilter" runat="server" CssClass="cr-filter-select" Width="220px" placeholder="Reg No or Name"></asp:TextBox>
+        <asp:TextBox ID="txtStudentFilter" runat="server" CssClass="cr-filter-select" Width="240px" placeholder="Reg No, Entry No or Name"></asp:TextBox>
         <button type="button" class="cr-batch-btn" onclick="applyFiltersGet()">Apply</button>
     </div>
     

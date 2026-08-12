@@ -18,6 +18,12 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// <summary>Above this many matching rows the list stops sorting by student name — see BindGrid.</summary>
     private const int NameSortCeiling = 5000;
 
+    /// <summary>
+    /// Above this many matching students the search stops resolving them up front and falls back
+    /// to matching inside the register itself — see ResolveStudentRegnos.
+    /// </summary>
+    private const int StudentMatchCeiling = 8000;
+
     private string ConnectionString
     {
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
@@ -461,6 +467,11 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             conn.Open();
             string sql = "";
 
+            // Resolve the Student box to actual students once, before either branch builds its
+            // query — both then reach the register through the indexed reg number instead of
+            // scanning it. null means "too broad to resolve, match in the register instead".
+            List<string> matchedStudents = ResolveStudentRegnos(conn, studentTerm);
+
             if (isPendingView)
             {
                 // Show students who are registered in the programme but not in this course
@@ -489,7 +500,11 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
                                 if (!string.IsNullOrEmpty(studentTerm))
                                 {
-                                        sql += " AND (r.regno LIKE @studentLike OR CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) LIKE @studentLike)";
+                                        if (matchedStudents == null)
+                                                sql += " AND (r.regno LIKE @studentLike OR COALESCE(s.entryno,'') LIKE @studentLike" +
+                                                       " OR CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) LIKE @studentLike)";
+                                        else if (matchedStudents.Count == 0) sql += " AND 1=0 ";
+                                        else sql += " AND r.regno IN (" + RegnoInList(matchedStudents) + ") ";
                                 }
                 
                 // Apply entry year filter
@@ -530,8 +545,20 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                                                  AND (@prog = '' OR cr.prog_id = @prog)
                                                  AND (@course = '' OR cr.courseID = @course)
                                                  AND (@entyr = 0 OR s.entryyear = @entyr)
-                                                 AND (@intake = '-' OR s.intake = @intake)
-                                                 AND (@student = '' OR cr.regno LIKE @studentLike OR CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) LIKE @studentLike)";
+                                                 AND (@intake = '-' OR s.intake = @intake)";
+
+                // The Student box takes a reg number, an entry number or a name. It is normally
+                // resolved to a set of students first (see ResolveStudentRegnos) so the register is
+                // reached through its indexed regno; only a term too broad to resolve falls back to
+                // matching row by row.
+                if (!string.IsNullOrEmpty(studentTerm))
+                {
+                    if (matchedStudents == null)
+                        sql += " AND (cr.regno LIKE @studentLike OR COALESCE(s.entryno,'') LIKE @studentLike" +
+                               " OR CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) LIKE @studentLike)";
+                    else if (matchedStudents.Count == 0) sql += " AND 1=0 ";
+                    else sql += " AND cr.regno IN (" + RegnoInList(matchedStudents) + ") ";
+                }
             }
 
             // The row count is the same for every page of the same filter set, so paging used to
@@ -662,6 +689,59 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 byYearOnly.TryGetValue(rn + "|" + ay, out sy))
                 r["study_year"] = sy;
         }
+    }
+
+    /// <summary>
+    /// Turns the Student box into the set of students it names. The box takes a canonical reg
+    /// number, the legacy entry number staff read off paper (24/U/BEICT/0008/K/DAY), or a name.
+    ///
+    /// This runs against acad_student — 32,000 rows — instead of matching inside the register,
+    /// which is 687,000 rows and, because these are leading-wildcard matches, unindexable either
+    /// way. Searching one entry number over the register took 5,325ms; resolving the student first
+    /// and then looking their rows up by the indexed regno takes 37ms.
+    ///
+    /// Returns null when the term is so broad that the list would be unwieldy (over
+    /// StudentMatchCeiling students), which tells the caller to match in the register instead —
+    /// slower, but the same answer. An empty list means the term named nobody, which is a real
+    /// answer, not a failure.
+    /// </summary>
+    private List<string> ResolveStudentRegnos(MySqlConnection conn, string term)
+    {
+        if (string.IsNullOrEmpty(term)) return null;
+
+        var regnos = new List<string>();
+        using (MySqlCommand cmd = new MySqlCommand(
+            "SELECT regno FROM acad_student " +
+            " WHERE regno LIKE @t OR COALESCE(entryno,'') LIKE @t " +
+            "    OR CONCAT(COALESCE(firstname,''),' ',COALESCE(othername,'')) LIKE @t " +
+            " LIMIT " + (StudentMatchCeiling + 1), conn))
+        {
+            cmd.CommandTimeout = 60;
+            cmd.Parameters.AddWithValue("@t", "%" + term + "%");
+            using (MySqlDataReader rd = cmd.ExecuteReader())
+                while (rd.Read())
+                {
+                    string rn = rd.IsDBNull(0) ? "" : Convert.ToString(rd.GetValue(0)).Trim();
+                    // Reg numbers are inlined rather than parameterised — thousands of parameters
+                    // bind slowly — so anything carrying a character a reg number cannot contain
+                    // is dropped rather than trusted.
+                    if (rn.Length > 0 && System.Text.RegularExpressions.Regex.IsMatch(rn, @"^[A-Za-z0-9/_\-\.]+$"))
+                        regnos.Add(rn);
+                }
+        }
+        return regnos.Count > StudentMatchCeiling ? null : regnos;
+    }
+
+    /// <summary>SQL IN list for a resolved set of reg numbers (values are whitelisted above).</summary>
+    private static string RegnoInList(List<string> regnos)
+    {
+        var sb = new StringBuilder(regnos.Count * 16);
+        for (int i = 0; i < regnos.Count; i++)
+        {
+            if (i > 0) sb.Append(',');
+            sb.Append('\'').Append(regnos[i]).Append('\'');
+        }
+        return sb.ToString();
     }
 
     private void AddGridParameters(MySqlCommand cmd, bool hasProgramme, bool hasCourse, string studentTerm)
