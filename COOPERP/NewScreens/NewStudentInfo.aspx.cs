@@ -2641,6 +2641,111 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         return 4;
     }
 
+    /// <summary>
+    /// Checks every course code the report is about to print against the approved curriculum for
+    /// this programme, year and semester, and returns one line per problem found. The report is
+    /// still produced — refusing to print would help nobody at results time — but it now carries
+    /// the warnings on its face, so nothing is published on the quiet assumption that the codes
+    /// are sound.
+    ///
+    /// A course code is a key. These checks exist because the same subject was being carried under
+    /// two codes, a Semester 1 code was appearing in a Semester 2 report, and codes differing only
+    /// by a space were splitting one cohort in two.
+    /// </summary>
+    private List<string> BuildCourseValidationIssues(DataTable data, string studyYear, string semester)
+    {
+        var issues = new List<string>();
+        try
+        {
+            string prog = "";
+            var codes = new List<string>();
+            var namesByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (DataRow r in data.Rows)
+            {
+                if (prog == "" && data.Columns.Contains("progid") && r["progid"] != DBNull.Value)
+                    prog = Convert.ToString(r["progid"]).Trim();
+                if (r["courseid"] == DBNull.Value) continue;
+                string code = Convert.ToString(r["courseid"]).Trim();
+                if (code == "" || codes.Contains(code)) continue;
+                codes.Add(code);
+                namesByCode[code] = data.Columns.Contains("course_title") && r["course_title"] != DBNull.Value
+                    ? Convert.ToString(r["course_title"]).Trim() : "";
+            }
+            if (codes.Count == 0) return issues;
+
+            int yr, sem;
+            int.TryParse((studyYear ?? "").Trim(), out yr);
+            int.TryParse((semester ?? "").Trim(), out sem);
+
+            var approved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                if (prog != "" && yr > 0 && sem > 0)
+                    using (MySqlCommand cmd = new MySqlCommand(
+                        "SELECT DISTINCT course_code FROM acad_programmecourses WHERE progcode=@p AND study_year=@y AND semester=@s", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@p", prog);
+                        cmd.Parameters.AddWithValue("@y", yr);
+                        cmd.Parameters.AddWithValue("@s", sem);
+                        using (MySqlDataReader rd = cmd.ExecuteReader())
+                            while (rd.Read()) approved.Add(Convert.ToString(rd[0]).Trim());
+                    }
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT courseID, IFNULL(course_state,'ACTIVE'), IFNULL(merged_into,'') FROM acad_course", conn))
+                using (MySqlDataReader rd = cmd.ExecuteReader())
+                    while (rd.Read())
+                    {
+                        string cid = Convert.ToString(rd[0]).Trim();
+                        known.Add(cid);
+                        string st = Convert.ToString(rd[1]).Trim();
+                        if (st != "ACTIVE") merged[cid] = st + (Convert.ToString(rd[2]).Trim() != "" ? " into " + Convert.ToString(rd[2]).Trim() : "");
+                    }
+            }
+
+            // Expected level digits for this sitting, e.g. Year 2 Semester 2 -> "22".
+            string expect = (yr > 0 && sem > 0) ? yr.ToString() + sem.ToString() : "";
+            foreach (string code in codes)
+            {
+                if (code.IndexOf(' ') >= 0)
+                    issues.Add(code + " — code contains a space. The same course also exists without it, which splits one cohort across two codes.");
+                if (!known.Contains(code))
+                    issues.Add(code + " — no record in the course master, so its name and credit unit cannot be resolved.");
+                string state;
+                if (merged.TryGetValue(code, out state))
+                    issues.Add(code + " — the course master marks this code " + state + "; results should not still be recorded against it.");
+                if (expect != "")
+                {
+                    var m = System.Text.RegularExpressions.Regex.Match(code, @"^[A-Za-z]+(\d{2})");
+                    if (m.Success && m.Groups[1].Value != expect)
+                        issues.Add(code + " — code says year/semester " + m.Groups[1].Value[0] + "/" + m.Groups[1].Value[1] +
+                                   ", but this is a Year " + yr + " Semester " + sem + " report.");
+                }
+                if (approved.Count > 0 && !approved.Contains(code))
+                    issues.Add(code + " — not in the approved curriculum for this programme, year and semester.");
+            }
+
+            // Two codes, one subject: the split this whole exercise is about.
+            var byName = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in namesByCode)
+            {
+                string key = System.Text.RegularExpressions.Regex.Replace((kv.Value ?? "").ToUpperInvariant(), @"\s+", "");
+                if (key == "") continue;
+                if (!byName.ContainsKey(key)) byName[key] = new List<string>();
+                byName[key].Add(kv.Key);
+            }
+            foreach (var kv in byName)
+                if (kv.Value.Count > 1)
+                    issues.Add(string.Join(" + ", kv.Value.ToArray()) + " — same course name under more than one code. Verify whether these are genuinely different papers.");
+
+            issues.Sort(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) { issues.Add("Course validation could not run: " + ex.Message); }
+        return issues;
+    }
+
     private void GenerateSummaryReportPdf(DataTable data, string studyYear, string semester, string entryYear, int minCourses)
     {
         GenerateSummaryReportPdf(data, studyYear, semester, entryYear, minCourses, "");
@@ -2880,6 +2985,56 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 
                 y = filterBoxY + filterBoxHeight + 8;
                 
+                // ========== COURSE VALIDATION WARNING ==========
+                // Printed on the face of the report when a code does not agree with the curriculum,
+                // so results are never published on the silent assumption that the codes are sound.
+                {
+                    List<string> codeIssues = BuildCourseValidationIssues(data, studyYear, semester);
+                    if (codeIssues.Count > 0)
+                    {
+                        DevExpress.XtraPrinting.TextBrick warnTitle = new DevExpress.XtraPrinting.TextBrick();
+                        warnTitle.Text = "  COURSE VALIDATION WARNING — " + codeIssues.Count + " issue" + (codeIssues.Count == 1 ? "" : "s") +
+                                         " found. Verify the official curriculum / course master before publishing these results.";
+                        warnTitle.Font = new System.Drawing.Font("Tahoma", 8, System.Drawing.FontStyle.Bold);
+                        warnTitle.ForeColor = System.Drawing.Color.FromArgb(133, 100, 4);
+                        warnTitle.BackColor = System.Drawing.Color.FromArgb(255, 243, 205);
+                        warnTitle.BorderColor = System.Drawing.Color.FromArgb(255, 224, 130);
+                        warnTitle.Sides = DevExpress.XtraPrinting.BorderSide.All;
+                        warnTitle.Padding = new DevExpress.XtraPrinting.PaddingInfo(6, 6, 5, 5);
+                        gr.DrawBrick(warnTitle, new System.Drawing.RectangleF(0, y, pageWidth, 18));
+                        y += 18;
+
+                        int shown = Math.Min(codeIssues.Count, 12);
+                        for (int i = 0; i < shown; i++)
+                        {
+                            DevExpress.XtraPrinting.TextBrick line = new DevExpress.XtraPrinting.TextBrick();
+                            line.Text = "     • " + codeIssues[i];
+                            line.Font = new System.Drawing.Font("Tahoma", 6.5f, System.Drawing.FontStyle.Regular);
+                            line.ForeColor = System.Drawing.Color.FromArgb(90, 68, 3);
+                            line.BackColor = System.Drawing.Color.FromArgb(255, 250, 230);
+                            line.BorderColor = System.Drawing.Color.FromArgb(255, 224, 130);
+                            line.Sides = DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Right;
+                            line.Padding = new DevExpress.XtraPrinting.PaddingInfo(6, 6, 2, 2);
+                            gr.DrawBrick(line, new System.Drawing.RectangleF(0, y, pageWidth, 12));
+                            y += 12;
+                        }
+                        if (codeIssues.Count > shown)
+                        {
+                            DevExpress.XtraPrinting.TextBrick more = new DevExpress.XtraPrinting.TextBrick();
+                            more.Text = "     … and " + (codeIssues.Count - shown) + " more.";
+                            more.Font = new System.Drawing.Font("Tahoma", 6.5f, System.Drawing.FontStyle.Italic);
+                            more.ForeColor = System.Drawing.Color.FromArgb(90, 68, 3);
+                            more.BackColor = System.Drawing.Color.FromArgb(255, 250, 230);
+                            more.BorderColor = System.Drawing.Color.FromArgb(255, 224, 130);
+                            more.Sides = DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Right | DevExpress.XtraPrinting.BorderSide.Bottom;
+                            more.Padding = new DevExpress.XtraPrinting.PaddingInfo(6, 6, 2, 2);
+                            gr.DrawBrick(more, new System.Drawing.RectangleF(0, y, pageWidth, 12));
+                            y += 12;
+                        }
+                        y += 8;
+                    }
+                }
+
                 // ========== COURSE PERFORMANCE ANALYSIS TABLE ==========
                 {
                     // Aggregate stats per course across ALL specializations
@@ -3170,22 +3325,30 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 
                     if (students.Count == 0) continue;
 
-                    // Calculate column widths - fixed cols: SN, Name, Reg, CGPA, Status
-                    float snWidth = 22;
-                    float nameWidth = 100;
-                    float regWidth = 130;
+                    // Calculate column widths - fixed cols: SN, Name, Reg, CGPA, Status.
+                    // '#' is wide enough for three digits: at 22pt it clipped every serial from 10
+                    // upwards to its first character, so a 41-student group appeared to restart its
+                    // numbering on each page.
+                    float snWidth = 30;
+                    float nameWidth = 132;
+                    float regWidth = 112;
                     float cgpaWidth = 40;   // cumulative GPA column
-                    float statusWidth = 55; // Status column
+                    float statusWidth = 66; // Status column - fits "INCOMPLETE 1/5"
                     float fixedWidth = snWidth + nameWidth + regWidth + cgpaWidth + statusWidth;
                     float availableWidth = pageWidth - fixedWidth;
-                    
-                    // Min width for grade+score display like "C (60)"
-                    int maxCourses = (int)(availableWidth / 48);
-                    int displayedCourses = Math.Min(courses.Count, maxCourses);
-                    
-                    // Calculate course column width to fill remaining space exactly
-                    float courseColWidth = displayedCourses > 0 ? availableWidth / displayedCourses : 48;
-                    
+
+                    // A course column is sized from the LONGEST code in this table, never the other
+                    // way round: a code is a key, and a shortened key is a different key. Five
+                    // different Mathematics papers used to print as an identical "BME220".
+                    // When the codes will not all fit, the table is split into column groups and
+                    // repeated - so every course is shown in full, and none is dropped.
+                    float widestCode = 0f;
+                    for (int i = 0; i < courses.Count; i++)
+                        widestCode = Math.Max(widestCode, courses[i].Code.Trim().Length * 5.4f);
+                    float minCourseColWidth = Math.Max(50f, widestCode + 11f);
+                    int coursesPerGroup = Math.Max(1, (int)(availableWidth / minCourseColWidth));
+                    int courseGroupCount = Math.Max(1, (int)Math.Ceiling(courses.Count / (double)coursesPerGroup));
+
                     // Keep a specialization's header with at least its first row: if there isn't room
                     // for spec header (26) + table header (24) + one row (22), start on a new page.
                     if ((y % pageHeight) + 72 > pageHeight)
@@ -3212,6 +3375,33 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     
                     y += 26;
                     
+                    // One pass per column group. Group 0 carries the specialization header; a later
+                    // group repeats the student columns under a "continued" bar so the reader can
+                    // still tell whose marks they are looking at.
+                    for (int courseGroup = 0; courseGroup < courseGroupCount; courseGroup++)
+                    {
+                    int firstCourse = courseGroup * coursesPerGroup;
+                    int groupCourseCount = Math.Min(coursesPerGroup, courses.Count - firstCourse);
+                    if (groupCourseCount <= 0) break;
+                    bool lastCourseGroup = (courseGroup == courseGroupCount - 1);
+                    float courseColWidth = availableWidth / groupCourseCount;
+
+                    if (courseGroup > 0)
+                    {
+                        // Continuation bar for this specialization's remaining courses.
+                        if ((y % pageHeight) + 72 > pageHeight)
+                            y = ((float)Math.Floor(y / pageHeight) + 1) * pageHeight;
+                        DevExpress.XtraPrinting.TextBrick contBar = new DevExpress.XtraPrinting.TextBrick();
+                        contBar.Text = "  " + specName + " (continued — courses " + (firstCourse + 1) + "–" + (firstCourse + groupCourseCount) + " of " + courses.Count + ")";
+                        contBar.Font = subtitleFont;
+                        contBar.ForeColor = System.Drawing.Color.White;
+                        contBar.BackColor = specHeaderBg;
+                        contBar.Sides = DevExpress.XtraPrinting.BorderSide.None;
+                        contBar.Padding = new DevExpress.XtraPrinting.PaddingInfo(5, 5, 6, 6);
+                        gr.DrawBrick(contBar, new System.Drawing.RectangleF(0, y, pageWidth, 24));
+                        y += 26;
+                    }
+
                     // Table header — defined as a reusable action so it can be REPEATED at the top of
                     // each page this specialization's table spills onto (manual BrickGraphics paging).
                     float x = 0;
@@ -3253,10 +3443,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         gr.DrawBrick(regHeader, new System.Drawing.RectangleF(x, y, regWidth, headerHeight));
                         x += regWidth;
 
-                        for (int i = 0; i < displayedCourses; i++)
+                        for (int i = firstCourse; i < firstCourse + groupCourseCount; i++)
                         {
                             DevExpress.XtraPrinting.TextBrick courseHeader = new DevExpress.XtraPrinting.TextBrick();
-                            courseHeader.Text = courses[i].Code;
+                            // The official code from the course master, in full, always.
+                            courseHeader.Text = courses[i].Code.Trim();
                             courseHeader.Font = headerFont;
                             courseHeader.ForeColor = System.Drawing.Color.White;
                             courseHeader.BackColor = headerBg;
@@ -3324,7 +3515,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         x += snWidth;
                         
                         // Name Cell
-                        string displayName = student.Name.Length > 24 ? student.Name.Substring(0, 24) + ".." : student.Name;
+                        string displayName = student.Name.Length > 32 ? student.Name.Substring(0, 32) + ".." : student.Name;
                         DevExpress.XtraPrinting.TextBrick nameCell = new DevExpress.XtraPrinting.TextBrick();
                         nameCell.Text = displayName;
                         nameCell.Font = cellFont;
@@ -3346,10 +3537,21 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         gr.DrawBrick(regCell, new System.Drawing.RectangleF(x, y, regWidth, rowHeight));
                         x += regWidth;
                         
-                        // Course Grade + Score Cells
+                        // Papers sat and papers passed are counted over the student's WHOLE result
+                        // set, not the columns that happen to be on screen. Counting the visible
+                        // subset meant a course pushed off the page silently lowered the student's
+                        // paper count and could turn a PASS into a FAIL.
                         int studentResultCount = 0;
                         int studentPassedCount = 0;
-                        for (int i = 0; i < displayedCourses; i++)
+                        foreach (DataRow rr in student.Results)
+                        {
+                            if (rr["grade"] == DBNull.Value) continue;
+                            studentResultCount++;
+                            if (rr["grade"].ToString() != "F") studentPassedCount++;
+                        }
+
+                        // Course Grade + Score Cells (this column group only)
+                        for (int i = firstCourse; i < firstCourse + groupCourseCount; i++)
                         {
                             string courseCode = courses[i].Code;
                             var result = student.Results.FirstOrDefault(r => 
@@ -3378,10 +3580,6 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                                 }
 
                                 gradeColor = (grade == "F") ? System.Drawing.Color.FromArgb(192, 57, 43) : System.Drawing.Color.Black;
-
-                                // Count results for status
-                                studentResultCount++;
-                                if (grade != "F") studentPassedCount++;
                             }
 
                             DevExpress.XtraPrinting.TextBrick gradeCell = new DevExpress.XtraPrinting.TextBrick();
@@ -3413,16 +3611,25 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         // Status Cell — curriculum-free rule. A student FAILS the semester if they have
                         // any F (score < 50) OR sat fewer than the level minimum (Diploma 5 / Bachelor 6)
                         // courses; otherwise PASS. studentPassedCount = non-F results.
+                        // Three distinct outcomes, because two of them used to read the same.
+                        //   FAIL        - the student actually failed a paper (an F exists)
+                        //   INCOMPLETE  - no F, but fewer papers than the sitting requires; usually a
+                        //                 student from another year carrying one paper. "FAIL (1/5)"
+                        //                 made a B+ in that single paper look like a failure.
+                        //   PASS        - no F and enough papers
                         int studentFailCount = studentResultCount - studentPassedCount;
-                        bool studentFail = studentFailCount > 0 || studentResultCount < minCourses;
-                        string statusText = studentFail
-                            ? "FAIL (" + (studentFailCount > 0 ? studentFailCount + "F" : studentResultCount + "/" + minCourses) + ")"
-                            : "PASS";
-                        System.Drawing.Color statusBgColor = studentFail
-                            ? System.Drawing.Color.FromArgb(248, 215, 218) : System.Drawing.Color.FromArgb(212, 237, 218);
-                        System.Drawing.Color statusTextColor = studentFail
-                            ? System.Drawing.Color.FromArgb(114, 28, 36) : System.Drawing.Color.FromArgb(21, 87, 36);
-                        
+                        bool hasF = studentFailCount > 0;
+                        bool tooFew = studentResultCount < minCourses;
+                        string statusText = hasF
+                            ? "FAIL - " + studentFailCount + "F"
+                            : (tooFew ? "INCOMPLETE " + studentResultCount + "/" + minCourses : "PASS");
+                        System.Drawing.Color statusBgColor = hasF
+                            ? System.Drawing.Color.FromArgb(248, 215, 218)
+                            : (tooFew ? System.Drawing.Color.FromArgb(255, 243, 205) : System.Drawing.Color.FromArgb(212, 237, 218));
+                        System.Drawing.Color statusTextColor = hasF
+                            ? System.Drawing.Color.FromArgb(114, 28, 36)
+                            : (tooFew ? System.Drawing.Color.FromArgb(133, 100, 4) : System.Drawing.Color.FromArgb(21, 87, 36));
+
                         DevExpress.XtraPrinting.TextBrick statusCell = new DevExpress.XtraPrinting.TextBrick();
                         statusCell.Text = statusText;
                         statusCell.Font = new System.Drawing.Font("Tahoma", 5, System.Drawing.FontStyle.Bold);
@@ -3433,11 +3640,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         statusCell.Padding = new DevExpress.XtraPrinting.PaddingInfo(3, 3, 6, 6);
                         statusCell.StringFormat = new DevExpress.XtraPrinting.BrickStringFormat(System.Drawing.StringAlignment.Center);
                         gr.DrawBrick(statusCell, new System.Drawing.RectangleF(x, y, statusWidth, rowHeight));
-                        
+
                         y += rowHeight;
                     }
-                    
-                    y += 12; // Space between sections
+
+                    y += 12; // Space between column groups / sections
+                    }        // end column-group loop
                 }
                 
                 // ========== SUMMARY STATISTICS SECTION ==========
@@ -3536,7 +3744,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 gr.DrawBrick(legendTitle, new System.Drawing.RectangleF(sumCol1X, summaryY, 50, 12));
 
                 DevExpress.XtraPrinting.TextBrick legendText = new DevExpress.XtraPrinting.TextBrick();
-                legendText.Text = "PASS = no F and at least 4 papers      FAIL = one or more F, or fewer than 4 papers";
+                // Reads the figure the report was actually run with. It used to say "4" whatever the
+                // operator chose, so a report built on 5 contradicted its own legend.
+                legendText.Text = "PASS = no F and at least " + minCourses + " papers"
+                                + "      FAIL = one or more failed paper (F)"
+                                + "      INCOMPLETE = no F but fewer than " + minCourses + " papers sat this sitting";
                 legendText.Font = smallFont;
                 legendText.ForeColor = lightGray;
                 legendText.Sides = DevExpress.XtraPrinting.BorderSide.None;
