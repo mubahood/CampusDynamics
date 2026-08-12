@@ -91,6 +91,13 @@
         }
         .cr-ccode-clear:hover { background: #f1f5f9; color: #05275C; }
 
+        /* Edit-registration modal */
+        .cr-eb { background:#f7faff; border:1px solid #dbe6f5; padding:9px 11px; margin-bottom:12px; font-size:12px; color:#334155; line-height:1.55; }
+        .cr-eb .cr-code { font-family:Consolas,"Courier New",monospace; font-weight:700; color:#05275C; }
+        .cr-eb__tag { display:inline-block; font-size:9px; font-weight:700; letter-spacing:.3px; padding:1px 6px; margin-left:5px; background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; }
+        .cr-inline-msg--warn { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; }
+        .crx-a--edit { color:#05275C; font-weight:700; }
+
         /* Status Badges */
         .cr-status-badge {
             display: inline-block;
@@ -708,6 +715,49 @@
             <div class="cr-modal__foot">
                 <button type="button" class="cr-batch-btn" onclick="closeMoveModal()">Cancel</button>
                 <button type="button" class="cr-batch-btn cr-batch-btn--primary" id="moveSubmitBtn" onclick="submitMove(this)">Move Student</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Edit one registration: sitting + course status ===== -->
+    <div class="cr-modal-overlay" id="editModalOverlay" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <div class="cr-modal">
+            <div class="cr-modal__head">
+                <span class="cr-modal__title" id="editModalTitle">Edit Registration</span>
+                <button type="button" class="cr-modal__close" onclick="closeEditReg()" aria-label="Close">&times;</button>
+            </div>
+            <div class="cr-modal__body">
+                <div id="editMsg" class="cr-inline-msg"></div>
+
+                <div class="cr-eb" id="editWho"></div>
+
+                <div class="cr-fld">
+                    <label>Enrolled in</label>
+                    <select id="editSitting" class="cr-in"></select>
+                    <span class="cr-hint" id="editSittingHint">
+                        Only sittings this student has actually enrolled for are listed &mdash; a course cannot
+                        be moved into a semester the student never attended.
+                    </span>
+                </div>
+
+                <div class="cr-fld">
+                    <label>Course status</label>
+                    <select id="editStatus" class="cr-in">
+                        <option value="NORMAL">Normal / Regular</option>
+                        <option value="RETAKE">Retake</option>
+                    </select>
+                </div>
+
+                <div class="cr-fld">
+                    <label>Reason / note (optional)</label>
+                    <input type="text" id="editNote" class="cr-in" autocomplete="off" placeholder="why this is being changed" />
+                </div>
+
+                <div class="cr-inline-msg show cr-inline-msg--warn" id="editResultWarn" style="display:none;"></div>
+            </div>
+            <div class="cr-modal__foot">
+                <button type="button" class="cr-batch-btn" onclick="closeEditReg()">Cancel</button>
+                <button type="button" class="cr-batch-btn cr-batch-btn--primary" id="editSaveBtn" onclick="saveEditReg(this)">Save changes</button>
             </div>
         </div>
     </div>
@@ -1394,6 +1444,76 @@
             callAjax('AddCourseRegistration', { regno: reg, course: course, acad: acad, sem: sem, type: type }, function (r) {
                 if (r && r.success) { window.location.reload(); }
                 else { msg('addMsg', (r && r.message) || 'Could not add the record.'); btn.disabled = false; btn.textContent = orig; }
+            });
+        };
+
+        // ===== EDIT ONE REGISTRATION (sitting + status) ==========================
+        // The sitting list comes from the student's own enrolment history, so the modal can
+        // only ever offer a semester they actually attended.
+        var editCtx = null;
+
+        window.crxEdit = function (btn) {
+            var d = btn.dataset;
+            editCtx = { regno: d.regno, course: d.course, acad: d.acad, sem: d.sem };
+            msg('editMsg', '');
+            qs('editWho').textContent = 'Loading…';
+            qs('editSitting').innerHTML = '';
+            qs('editNote').value = '';
+            qs('editResultWarn').style.display = 'none';
+            qs('editModalOverlay').classList.add('show');
+
+            callAjax('GetRegistrationEdit', { regno: d.regno, course: d.course, acad: d.acad, sem: parseInt(d.sem, 10) || 0 }, function (r) {
+                if (!r || !r.success) { msg('editMsg', (r && r.message) || 'Could not load this registration.'); qs('editWho').textContent = ''; return; }
+                var rec = r.record;
+                qs('editWho').innerHTML =
+                    '<b>' + esc(rec.student || rec.regno) + '</b> &middot; ' + esc(rec.regno) +
+                    '<br><span class="cr-code">' + esc(rec.course) + '</span> ' + esc(rec.courseName) +
+                    (rec.stage ? ' <span class="cr-eb__tag">' + esc(rec.stage) + '</span>' : '');
+
+                var sel = qs('editSitting'), h = '';
+                (r.sittings || []).forEach(function (s) {
+                    var lbl = s.acad + '  ·  Semester ' + s.sem + (s.studyYear ? '  (Year ' + s.studyYear + ')' : '')
+                            + (s.source === 'courses' ? '  — courses only, no semester registration' : '');
+                    var v = s.acad + '|' + s.sem;
+                    var cur = (s.acad === rec.acad && String(s.sem) === String(rec.sem));
+                    h += '<option value="' + esc(v) + '"' + (cur ? ' selected' : '') + '>' + esc(lbl) + (cur ? '  ← current' : '') + '</option>';
+                });
+                sel.innerHTML = h || '<option value="">No sittings on record</option>';
+
+                var st = (rec.status || '').toUpperCase();
+                qs('editStatus').value = (st === 'RETAKE') ? 'RETAKE' : 'NORMAL';
+
+                // Moving a course that already carries a published mark moves the mark too —
+                // say so before the click, not after.
+                if (rec.hasResult) {
+                    var w = qs('editResultWarn');
+                    w.className = 'cr-inline-msg show cr-inline-msg--warn';
+                    w.innerHTML = 'This course has a <b>published result</b> (' + esc(rec.score || '-') + ' ' + esc(rec.grade || '') +
+                                  '). Moving it carries the result to the new semester and re-stamps its year of study, so the transcript stays consistent.';
+                    w.style.display = 'block';
+                }
+            });
+        };
+
+        window.closeEditReg = function () { var m = qs('editModalOverlay'); if (m) m.classList.remove('show'); editCtx = null; };
+
+        window.saveEditReg = function (btn) {
+            if (!editCtx) return;
+            var v = (qs('editSitting').value || '').split('|');
+            if (v.length < 2 || !v[0]) { msg('editMsg', 'Choose the sitting this course belongs to.'); return; }
+            var toAcad = v[0], toSem = parseInt(v[1], 10) || 0;
+            var moving = (toAcad !== editCtx.acad || String(toSem) !== String(editCtx.sem));
+            if (moving && !confirm('Move ' + editCtx.course + ' for ' + editCtx.regno + '\n\nfrom ' + editCtx.acad + ' Semester ' + editCtx.sem +
+                                   '\nto ' + toAcad + ' Semester ' + toSem + '?\n\nAny published result moves with it.')) return;
+
+            msg('editMsg', '');
+            btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Saving…';
+            callAjax('SaveRegistrationEdit', {
+                regno: editCtx.regno, course: editCtx.course, acad: editCtx.acad, sem: parseInt(editCtx.sem, 10) || 0,
+                toAcad: toAcad, toSem: toSem, status: qs('editStatus').value, note: qs('editNote').value.trim()
+            }, function (r) {
+                if (r && r.success) { window.location.reload(); }
+                else { msg('editMsg', (r && r.message) || 'Could not save the change.'); btn.disabled = false; btn.textContent = orig; }
             });
         };
 

@@ -580,39 +580,50 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         }
         if (wanted.Count == 0) return;
 
-        string sql = "SELECT regno, MIN(studyyear) AS sy FROM acad_registration " +
-                     "WHERE acad_year = @acad AND semester = @sem";
-        bool useInList = wanted.Count <= 500;
-        if (useInList)
-        {
-            var names = new List<string>();
-            for (int i = 0; i < wanted.Count; i++) names.Add("@r" + i);
-            sql += " AND regno IN (" + string.Join(",", names.ToArray()) + ")";
-        }
-        sql += " GROUP BY regno";
-
+        // The study year is a property of the ROW's own sitting, not of the page's filter.
+        // It used to be looked up for one fixed (acad_year, semester) taken from the
+        // dropdowns; once those could be left on "All" that lookup asked for acad_year='' and
+        // semester=0, matched nothing, and every Yr/Sem cell lost its year. Each row is now
+        // resolved against its own academic year and semester.
         var years = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var byYearOnly = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        var names2 = new List<string>();
+        for (int i = 0; i < wanted.Count; i++) names2.Add("@r" + i);
+        string sql = "SELECT regno, acad_year, semester, MIN(studyyear) AS sy FROM acad_registration " +
+                     "WHERE IFNULL(studyyear,0) > 0 AND regno IN (" + string.Join(",", names2.ToArray()) + ") " +
+                     "GROUP BY regno, acad_year, semester";
+
         using (MySqlCommand cmd = new MySqlCommand(sql, conn))
         {
-            cmd.Parameters.AddWithValue("@acad", Val(ddlAcadYear));
-            cmd.Parameters.AddWithValue("@sem", Num(ddlSemester));
-            if (useInList)
-                for (int i = 0; i < wanted.Count; i++)
-                    cmd.Parameters.AddWithValue("@r" + i, wanted[i]);
+            cmd.CommandTimeout = 120;
+            for (int i = 0; i < wanted.Count; i++)
+                cmd.Parameters.AddWithValue("@r" + i, wanted[i]);
 
             using (MySqlDataReader rdr = cmd.ExecuteReader())
                 while (rdr.Read())
                 {
                     string rn = (rdr["regno"] ?? "").ToString().Trim();
-                    if (rn.Length > 0 && rdr["sy"] != DBNull.Value)
-                        years[rn] = rdr["sy"].ToString();
+                    string ay = (rdr["acad_year"] ?? "").ToString().Trim();
+                    string sm = (rdr["semester"] ?? "").ToString().Trim();
+                    if (rn.Length == 0 || rdr["sy"] == DBNull.Value) continue;
+                    string sy = rdr["sy"].ToString();
+                    years[rn + "|" + ay + "|" + sm] = sy;
+                    // Same academic year, other semester — a student is in one year of study
+                    // for the whole year, so this is a safe second-best.
+                    string k2 = rn + "|" + ay;
+                    if (!byYearOnly.ContainsKey(k2)) byYearOnly[k2] = sy;
                 }
         }
 
         foreach (DataRow r in dt.Rows)
         {
+            string rn = SafeCell(r, "regno").Trim();
+            string ay = SafeCell(r, "acad_year").Trim();
+            string sm = SafeCell(r, "semester").Trim();
             string sy;
-            if (years.TryGetValue(SafeCell(r, "regno").Trim(), out sy))
+            if (years.TryGetValue(rn + "|" + ay + "|" + sm, out sy) ||
+                byYearOnly.TryGetValue(rn + "|" + ay, out sy))
                 r["study_year"] = sy;
         }
     }
@@ -713,6 +724,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             sb.AppendFormat("<a class='crx-a' onclick=\"openEnrolment('{0}')\" title='View course &amp; semester enrolment'>Enrolment</a>", JsEnc(regno));
             if (!isPendingView)
             {
+                sb.AppendFormat("<button type='button' class='crx-a crx-a--edit' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" onclick='crxEdit(this)' title='Edit this registration — sitting and course status'>Edit</button>", regnoA, courseA, acadA, semA);
                 sb.AppendFormat("<button type='button' class='crx-a' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" data-status=\"{4}\" onclick='crxStatus(this)' title='Change course status'>Status</button>", regnoA, courseA, acadA, semA, statusA);
                 sb.AppendFormat("<button type='button' class='crx-a crx-a--move' data-regno=\"{0}\" data-course=\"{1}\" data-acad=\"{2}\" data-sem=\"{3}\" data-name=\"{5}\" onclick='crxMove(this)' title='Move this student to the correct course code'>Move</button>", regnoA, courseA, acadA, semA, statusA, HttpUtility.HtmlAttributeEncode(name));
                 sb.AppendFormat("<a class='crx-a' href='StudentResultsView.aspx?regno={0}' target='_blank' title='View results'>Results</a>", HttpUtility.UrlEncode(regno));
@@ -1289,6 +1301,239 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         }
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
     }
+
+    // ===============================================================
+    //  EDIT ONE REGISTRATION
+    //  Moving a course to a different sitting is not a single-column update: the
+    //  published result is keyed on the same (regno, acad_year, semester) and has
+    //  to travel with it, or the transcript keeps reporting the mark under a
+    //  semester the student no longer has that course in. The destinations offered
+    //  are the sittings the student has actually enrolled for — inventing one is
+    //  how a course ends up in a year the student never attended.
+    // ===============================================================
+
+    /// <summary>
+    /// Everything the edit modal needs: the registration as it stands, and the sittings this
+    /// student has ever been enrolled in (semester registrations + any sitting they already
+    /// hold courses in), each labelled with its year of study.
+    /// </summary>
+    [WebMethod]
+    public static string GetRegistrationEdit(string regno, string course, string acad, int sem)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            regno = (regno ?? "").Trim(); course = (course ?? "").Trim(); acad = (acad ?? "").Trim();
+            if (regno == "" || course == "") return js.Serialize(new { success = false, message = "Missing record key." });
+
+            object record = null;
+            var sittings = new List<object>();
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+
+                using (var cmd = new MySqlCommand(
+                    "SELECT cr.id, cr.regno, cr.courseID, cr.acad_year, cr.semester, IFNULL(cr.course_status,'') cstatus, " +
+                    "       IFNULL(cr.mark_stage,'') stage, IFNULL(c.courseName,cr.courseID) cname, " +
+                    "       TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) nm, IFNULL(s.progid,'') prog, " +
+                    "       (SELECT COUNT(*) FROM acad_results r WHERE TRIM(r.regno)=TRIM(cr.regno) AND r.courseid=cr.courseID " +
+                    "          AND r.acad=cr.acad_year AND r.semester=cr.semester) has_result, " +
+                    "       (SELECT r2.score FROM acad_results r2 WHERE TRIM(r2.regno)=TRIM(cr.regno) AND r2.courseid=cr.courseID " +
+                    "          AND r2.acad=cr.acad_year AND r2.semester=cr.semester LIMIT 1) score, " +
+                    "       (SELECT r3.grade FROM acad_results r3 WHERE TRIM(r3.regno)=TRIM(cr.regno) AND r3.courseid=cr.courseID " +
+                    "          AND r3.acad=cr.acad_year AND r3.semester=cr.semester LIMIT 1) grade " +
+                    "FROM campus_dynamics_portal.acad_course_registration cr " +
+                    "LEFT JOIN acad_course c ON c.courseID = cr.courseID " +
+                    "LEFT JOIN acad_student s ON s.regno = CONVERT(cr.regno USING utf8) " +
+                    "WHERE TRIM(cr.regno)=@r AND cr.courseID=@c AND cr.acad_year=@a AND cr.semester=@s LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    cmd.Parameters.AddWithValue("@c", course);
+                    cmd.Parameters.AddWithValue("@a", acad);
+                    cmd.Parameters.AddWithValue("@s", sem);
+                    using (var rd = cmd.ExecuteReader())
+                    {
+                        if (!rd.Read()) return js.Serialize(new { success = false, message = "That registration no longer exists." });
+                        record = new
+                        {
+                            id = Convert.ToInt32(rd["id"]),
+                            regno = SR2(rd, "regno"),
+                            course = SR2(rd, "courseID"),
+                            courseName = SR2(rd, "cname"),
+                            student = SR2(rd, "nm"),
+                            programme = SR2(rd, "prog"),
+                            acad = SR2(rd, "acad_year"),
+                            sem = SR2(rd, "semester"),
+                            status = SR2(rd, "cstatus"),
+                            stage = SR2(rd, "stage"),
+                            hasResult = SR2(rd, "has_result") != "0",
+                            score = SR2(rd, "score"),
+                            grade = SR2(rd, "grade")
+                        };
+                    }
+                }
+
+                // Where this course may legitimately be moved to: every sitting the student has
+                // a semester registration for, plus any sitting they already hold courses in.
+                using (var cmd = new MySqlCommand(
+                    "SELECT acad_year, semester, MAX(sy) sy, MAX(src) src FROM (" +
+                    "  SELECT acad_year, CAST(semester AS UNSIGNED) semester, MIN(studyyear) sy, 'registration' src " +
+                    "    FROM acad_registration WHERE TRIM(regno)=@r AND IFNULL(acad_year,'')<>'' GROUP BY acad_year, semester " +
+                    "  UNION ALL " +
+                    "  SELECT acad_year, CAST(semester AS UNSIGNED) semester, 0 sy, 'courses' src " +
+                    "    FROM campus_dynamics_portal.acad_course_registration WHERE TRIM(regno)=@r AND IFNULL(acad_year,'')<>'' " +
+                    "   GROUP BY acad_year, semester" +
+                    ") x GROUP BY acad_year, semester ORDER BY acad_year, semester", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var rd = cmd.ExecuteReader())
+                        while (rd.Read())
+                            sittings.Add(new
+                            {
+                                acad = SR2(rd, "acad_year"),
+                                sem = SR2(rd, "semester"),
+                                studyYear = SR2(rd, "sy") == "0" ? "" : SR2(rd, "sy"),
+                                source = SR2(rd, "src")
+                            });
+                }
+            }
+            return js.Serialize(new { success = true, record, sittings });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>
+    /// Applies an edit: course status and/or a move to another sitting. The published result
+    /// moves with the registration and is re-stamped with the destination's year of study.
+    /// Refuses a move that would collide with a course the student already holds there.
+    /// </summary>
+    [WebMethod]
+    public static string SaveRegistrationEdit(string regno, string course, string acad, int sem,
+                                              string toAcad, int toSem, string status, string note)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            regno = (regno ?? "").Trim(); course = (course ?? "").Trim(); acad = (acad ?? "").Trim();
+            toAcad = (toAcad ?? "").Trim();
+            status = (status ?? "").Trim().ToUpperInvariant();
+            if (regno == "" || course == "" || acad == "") return js.Serialize(new { success = false, message = "Missing record key." });
+            if (toAcad == "" || toSem <= 0) return js.Serialize(new { success = false, message = "Choose the academic year and semester to move this course to." });
+            if (status != "NORMAL" && status != "REGULAR" && status != "RETAKE")
+                return js.Serialize(new { success = false, message = "Course status must be Normal/Regular or Retake." });
+
+            bool moving = !string.Equals(acad, toAcad, StringComparison.OrdinalIgnoreCase) || sem != toSem;
+            string actor = "";
+            try { actor = HttpContext.Current.User.Identity.Name; } catch { }
+            if (string.IsNullOrEmpty(actor)) actor = "admin";
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+
+                if (moving)
+                {
+                    // The destination must be a sitting the student actually has.
+                    using (var q = new MySqlCommand(
+                        "SELECT (SELECT COUNT(*) FROM acad_registration WHERE TRIM(regno)=@r AND acad_year=@a AND semester=@s) " +
+                        "     + (SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE TRIM(regno)=@r AND acad_year=@a AND semester=@s)", conn))
+                    {
+                        q.Parameters.AddWithValue("@r", regno); q.Parameters.AddWithValue("@a", toAcad); q.Parameters.AddWithValue("@s", toSem);
+                        if (Convert.ToInt64(q.ExecuteScalar()) == 0)
+                            return js.Serialize(new { success = false, message = "This student has never enrolled for " + toAcad + " Semester " + toSem + ". Register that semester first." });
+                    }
+
+                    using (var q = new MySqlCommand(
+                        "SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration " +
+                        "WHERE TRIM(regno)=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn))
+                    {
+                        q.Parameters.AddWithValue("@r", regno); q.Parameters.AddWithValue("@c", course);
+                        q.Parameters.AddWithValue("@a", toAcad); q.Parameters.AddWithValue("@s", toSem);
+                        if (Convert.ToInt64(q.ExecuteScalar()) > 0)
+                            return js.Serialize(new { success = false, message = "The student already has " + course + " in " + toAcad + " Semester " + toSem + ". Delete that duplicate first." });
+                    }
+                }
+
+                int toStudyYear = 0;
+                using (var q = new MySqlCommand(
+                    "SELECT MIN(studyyear) FROM acad_registration WHERE TRIM(regno)=@r AND acad_year=@a AND IFNULL(studyyear,0)>0", conn))
+                {
+                    q.Parameters.AddWithValue("@r", regno); q.Parameters.AddWithValue("@a", toAcad);
+                    var o = q.ExecuteScalar();
+                    if (o != null && o != DBNull.Value) int.TryParse(o.ToString(), out toStudyYear);
+                }
+
+                int movedReg = 0, movedRes = 0;
+                using (var tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        using (var up = new MySqlCommand(
+                            "UPDATE campus_dynamics_portal.acad_course_registration " +
+                            "SET acad_year=@ta, semester=@ts, course_status=@st " +
+                            "WHERE TRIM(regno)=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn, tx))
+                        {
+                            up.Parameters.AddWithValue("@ta", toAcad); up.Parameters.AddWithValue("@ts", toSem);
+                            up.Parameters.AddWithValue("@st", status == "REGULAR" ? "NORMAL" : status);
+                            up.Parameters.AddWithValue("@r", regno); up.Parameters.AddWithValue("@c", course);
+                            up.Parameters.AddWithValue("@a", acad); up.Parameters.AddWithValue("@s", sem);
+                            movedReg = up.ExecuteNonQuery();
+                        }
+                        if (movedReg == 0) { tx.Rollback(); return js.Serialize(new { success = false, message = "That registration no longer exists." }); }
+
+                        if (moving)
+                            using (var up = new MySqlCommand(
+                                "UPDATE acad_results SET acad=@ta, semester=@ts" +
+                                (toStudyYear > 0 ? ", studyyear=@sy" : "") +
+                                " WHERE TRIM(regno)=@r AND courseid=@c AND TRIM(acad)=@a AND semester=@s", conn, tx))
+                            {
+                                up.Parameters.AddWithValue("@ta", toAcad); up.Parameters.AddWithValue("@ts", toSem);
+                                if (toStudyYear > 0) up.Parameters.AddWithValue("@sy", toStudyYear);
+                                up.Parameters.AddWithValue("@r", regno); up.Parameters.AddWithValue("@c", course);
+                                up.Parameters.AddWithValue("@a", acad); up.Parameters.AddWithValue("@s", sem);
+                                movedRes = up.ExecuteNonQuery();
+                            }
+
+                        using (var log = new MySqlCommand(
+                            "INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date) " +
+                            "VALUES (@u,'CourseRegistration:EditRegistration',@p,@c,NOW())", conn, tx))
+                        {
+                            string par = regno + "|" + course;
+                            string cmt = moving
+                                ? ("Moved " + acad + " S" + sem + " -> " + toAcad + " S" + toSem +
+                                   " (result rows " + movedRes + (toStudyYear > 0 ? ", study year " + toStudyYear : "") + ")")
+                                : ("Status set to " + status);
+                            if (!string.IsNullOrWhiteSpace(note)) cmt += " — " + note.Trim();
+                            log.Parameters.AddWithValue("@u", actor.Length > 100 ? actor.Substring(0, 100) : actor);
+                            log.Parameters.AddWithValue("@p", par.Length > 300 ? par.Substring(0, 300) : par);
+                            log.Parameters.AddWithValue("@c", cmt.Length > 200 ? cmt.Substring(0, 200) : cmt);
+                            log.ExecuteNonQuery();
+                        }
+
+                        tx.Commit();
+                    }
+                    catch { try { tx.Rollback(); } catch { } throw; }
+                }
+
+                string msg = moving
+                    ? ("Moved to " + toAcad + " Semester " + toSem +
+                       (movedRes > 0 ? " with its published result" : "") +
+                       (toStudyYear > 0 ? " (Year " + toStudyYear + ")" : "") + ".")
+                    : "Course status updated.";
+                return js.Serialize(new { success = true, message = msg, movedResult = movedRes });
+            }
+        }
+        catch (MySqlException mex)
+        {
+            if (mex.Number == 1062) return js.Serialize(new { success = false, message = "That would duplicate a registration the student already has." });
+            return js.Serialize(new { success = false, message = mex.Message });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    private static string SR2(MySqlDataReader r, string col)
+    { try { object o = r[col]; return o == null || o == DBNull.Value ? "" : o.ToString().Trim(); } catch { return ""; } }
 
     /// <summary>
     /// Type-ahead for the "Course Code" filter: up to 15 catalogue courses whose code or name
