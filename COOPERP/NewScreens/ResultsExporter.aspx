@@ -164,6 +164,17 @@
     .sr-div { border:none; border-top:1px solid #eef2f7; margin:14px 0; }
     .sr-chk { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:#334155; cursor:pointer; }
     .sr-chk input { width:15px; height:15px; margin:0; cursor:pointer; }
+    /* Yes/No question pair (specialisation) */
+    .sr-ask { display:flex; gap:8px; flex-wrap:wrap; }
+    .sr-ask label { flex:1 1 0; min-width:0; display:flex; align-items:center; gap:7px; padding:7px 10px; border:1px solid #cdd5e1; border-radius:4px; background:#fff; font-size:11.5px; font-weight:600; color:#475569; cursor:pointer; }
+    .sr-ask label:hover { border-color:#174DA4; }
+    .sr-ask input { width:14px; height:14px; margin:0; cursor:pointer; flex-shrink:0; }
+    .sr-ask input:checked + span { color:#05275C; }
+    .sr-ask label.on { border-color:#174DA4; background:#f0f7ff; }
+    .sr-ask label.off { opacity:.5; cursor:not-allowed; }
+    .sr-ask label.off:hover { border-color:#cdd5e1; }
+    .sr-spec { display:none; margin-top:8px; }
+    .sr-spec.show { display:block; }
     .sr-prev { display:none; align-items:center; gap:14px; margin-top:14px; padding:12px 14px; background:#f0f7ff; border:1px solid #cfe0f5; border-radius:4px; }
     .sr-prev.show { display:flex; }
     .sr-prev__n { font-size:26px; font-weight:800; color:#05275C; line-height:1; font-variant-numeric:tabular-nums; }
@@ -616,6 +627,18 @@ document.addEventListener('DOMContentLoaded',function(){
                 <select id="srYear" class="sr-sel" disabled><option value="">All intakes</option></select>
             </div>
 
+            <div class="sr-fg">
+                <label>Specialisation</label>
+                <div class="sr-ask">
+                    <label id="srSpecNoL" class="on"><input type="radio" name="srSpecMode" id="srSpecNo" value="no" checked="checked" /><span>No &mdash; all specialisations</span></label>
+                    <label id="srSpecYesL"><input type="radio" name="srSpecMode" id="srSpecYes" value="yes" /><span>Yes &mdash; limit to one</span></label>
+                </div>
+                <div class="sr-spec" id="srSpecWrap">
+                    <select id="srSpec" class="sr-sel"><option value="">-- Select Specialisation --</option></select>
+                </div>
+                <span class="sr-hint" id="srSpecHint">Only this programme&rsquo;s specialisations are offered, each with the number of students holding it.</span>
+            </div>
+
             <div class="sr-fg" style="margin-bottom:8px;">
                 <label class="sr-chk"><input type="checkbox" id="srExcludePromoted" /> Only students still at this year/semester</label>
                 <span class="sr-hint">Off (default): include everyone who sat this sitting, even if they have since moved on — their completed marks are never dropped. On: keep only students whose latest registration is not beyond this semester.</span>
@@ -668,7 +691,7 @@ document.addEventListener('DOMContentLoaded',function(){
    to the NewStudentInfo feature. Self-contained; exposes only the 4 window.* entry points. */
 (function(){
     var BACKEND='NewStudentInfo.aspx';
-    var srProgs=[], srCombos=[], srAllYears=[];   // srCombos: [{y,sy,s,n}] terms WITH data; srAllYears: all entry years for the programme
+    var srProgs=[], srCombos=[], srAllYears=[], srSpecs=[];   // srCombos: [{y,sy,s,n}] terms WITH data; srAllYears: all entry years for the programme; srSpecs: [{id,name,abbrev,n}] for the chosen programme
     function d(id){ return document.getElementById(id); }
     function e2(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function stu(n){ return n+' student'+(n==1?'':'s'); }
@@ -721,15 +744,54 @@ document.addEventListener('DOMContentLoaded',function(){
     }
 
     function clearPreview(){ d('srPrev').classList.remove('show'); d('srPrevN').textContent='0'; d('srBtnMarks').disabled=true; d('srBtnPerf').disabled=true; }
+
+    /* ── Specialisation (optional narrowing) ──────────────────────────────────────────────
+       The list is rebuilt from the cascade every time the programme changes, and the answer
+       is forced back to "No" at the same moment. That reset is the important part: a spec_id
+       belongs to exactly one programme, so a stale selection carried across a programme
+       change would silently export nobody. */
+    function specAsking(){ var y=d('srSpecYes'); return !!(y && y.checked); }
+    function specValue(){ return specAsking() ? ((d('srSpec')||{}).value||'') : ''; }
+    function paintSpecMode(){
+        var yes=specAsking(), a=d('srSpecNoL'), b=d('srSpecYesL'), w=d('srSpecWrap');
+        if(a) a.classList.toggle('on', !yes);
+        if(b) b.classList.toggle('on', yes);
+        if(w) w.classList.toggle('show', yes);
+    }
+    function specReset(){
+        var no=d('srSpecNo'); if(no) no.checked=true;
+        var sel=d('srSpec'); if(sel) sel.value='';
+        paintSpecMode();
+    }
+    function populateSpecs(){
+        var sel=d('srSpec'), yesL=d('srSpecYesL'), yes=d('srSpecYes'), hint=d('srSpecHint');
+        specReset();
+        if(!sel) return;
+        var h='<option value="">-- Select Specialisation --</option>';
+        for(var i=0;i<srSpecs.length;i++){
+            var sp=srSpecs[i], lbl=sp.name+(sp.abbrev?(' ('+sp.abbrev+')'):'')+'  ·  '+stu(sp.n);
+            h+='<option value="'+e2(sp.id)+'">'+e2(lbl)+'</option>';
+        }
+        sel.innerHTML=h;
+        // A programme with no specialisations on record cannot be narrowed — say so and lock
+        // the Yes option rather than offering an empty dropdown.
+        var none=(srSpecs.length===0);
+        if(yes) yes.disabled=none;
+        if(yesL) yesL.classList.toggle('off', none);
+        if(hint) hint.innerHTML = none
+            ? 'This programme has no specialisations on record &mdash; every student is reported together.'
+            : 'Only this programme&rsquo;s specialisations are offered, each with the number of students holding it.';
+    }
     var SRC_LBL={all:'all-results',published:'published',approved:'approved',captured:'captured',entered:'entered'};
 
     function fetchCascade(){
         var prog=d('srProg').value;
-        srCombos=[]; srAllYears=[];
+        srCombos=[]; srAllYears=[]; srSpecs=[];
         setSel('srAcadYear',[], 'Select a programme first…', false);
         setSel('srStudyYear',[], 'Select academic year first…', false);
         setSel('srSem',[], 'Select year of study first…', false);
         setSel('srYear',[], 'All intakes', false);
+        populateSpecs();
         clearPreview();
         if(!prog){ status('Pick a programme &mdash; the fields below fill in automatically.'); return; }
         status('<span class="sr-spin"></span> Loading&hellip;','sr-status--load');
@@ -740,7 +802,8 @@ document.addEventListener('DOMContentLoaded',function(){
             if(xhr.readyState!==4) return;
             var r=null; try{ r=JSON.parse(xhr.responseText); }catch(ex){}
             if(!r){ status('Could not load. Please retry.','sr-status--warn'); return; }
-            srCombos=r.combos||[]; srAllYears=r.years||[];
+            srCombos=r.combos||[]; srAllYears=r.years||[]; srSpecs=r.specs||[];
+            populateSpecs();
             populateAcadYears();
         };
         xhr.onerror=function(){ status('Network error. Please retry.','sr-status--warn'); };
@@ -791,11 +854,12 @@ document.addEventListener('DOMContentLoaded',function(){
     function reset(){
         d('srSource').value='all';
         d('srProg').value=''; d('srProgInput').value='';
-        srCombos=[]; srAllYears=[];
+        srCombos=[]; srAllYears=[]; srSpecs=[];
         setSel('srAcadYear',[], 'Select a programme first…', false);
         setSel('srStudyYear',[], 'Select academic year first…', false);
         setSel('srSem',[], 'Select year of study first…', false);
         setSel('srYear',[], 'All intakes', false);
+        populateSpecs();
         var xp=d('srExcludePromoted'); if(xp) xp.checked=false;
         d('srReg').value=''; var mc=d('srMinCourses'); if(mc) mc.value='5';
         clearPreview();
@@ -807,9 +871,16 @@ document.addEventListener('DOMContentLoaded',function(){
         if(!ay){ if(!silent) alert('Please select an Academic Year.'); return null; }
         if(!sy){ if(!silent) alert('Please select a Year of Study.'); return null; }
         if(!sm){ if(!silent) alert('Please select a Semester.'); return null; }
+        // Answering "Yes" without choosing one is the only way this field can go wrong, and it
+        // must not fall through as "all" — that would hand back a report the user did not ask for.
+        if(specAsking() && !specValue()){
+            if(!silent){ alert('Please choose a Specialisation, or answer "No — all specialisations".'); d('srSpec').focus(); }
+            return null;
+        }
         return { programme:p, acadYear:ay, entryYear:(d('srYear').value||''), studyYear:sy, semester:sm,
                  source:d('srSource').value||'all', entryNumbers:(d('srReg').value||'').trim(),
                  minCourses:((d('srMinCourses')||{}).value||''),
+                 specialisation:specValue(),
                  excludePromoted:(d('srExcludePromoted')&&d('srExcludePromoted').checked)?'1':'' };
     }
     function query(action,c){
@@ -818,6 +889,7 @@ document.addEventListener('DOMContentLoaded',function(){
             +'&studyYear='+encodeURIComponent(c.studyYear)+'&semester='+encodeURIComponent(c.semester)+'&source='+encodeURIComponent(c.source)
             +'&minCourses='+encodeURIComponent(c.minCourses||'');
         if(c.excludePromoted) q+='&excludePromoted=1';
+        if(c.specialisation) q+='&specialisation='+encodeURIComponent(c.specialisation);
         if(c.entryNumbers) q+='&entryNumbers='+encodeURIComponent(c.entryNumbers);
         return q;
     }
@@ -865,6 +937,13 @@ document.addEventListener('DOMContentLoaded',function(){
         var sy=d('srStudyYear'); if(sy) sy.addEventListener('change',onStudy);
         var sm=d('srSem'); if(sm) sm.addEventListener('change',maybeAutoPreview);
         var xp=d('srExcludePromoted'); if(xp) xp.addEventListener('change',function(){ if(d('srProg').value&&d('srAcadYear').value&&d('srStudyYear').value&&d('srSem').value) window.srPreview(true); });
+        // Answering the specialisation question re-counts, so the preview figure on screen always
+        // describes the export that the buttons would actually produce.
+        var sNo=d('srSpecNo'), sYes=d('srSpecYes'), sSel=d('srSpec');
+        function onSpecChange(){ paintSpecMode(); if(specAsking() && !specValue()) { clearPreview(); return; } maybeAutoPreview(); }
+        if(sNo)  sNo.addEventListener('change', onSpecChange);
+        if(sYes) sYes.addEventListener('change', onSpecChange);
+        if(sSel) sSel.addEventListener('change', onSpecChange);
         document.addEventListener('click',function(ev){ var c=d('srProgCombo'); if(c && !c.contains(ev.target)) c.classList.remove('open'); });
         document.addEventListener('keydown',function(ev){ if(ev.key==='Escape' && d('srModal').classList.contains('show')) window.closeSRModal(); });
         var ov=d('srModal'); if(ov) ov.addEventListener('click',function(ev){ if(ev.target===ov) window.closeSRModal(); });

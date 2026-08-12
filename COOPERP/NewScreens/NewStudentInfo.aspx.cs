@@ -1152,6 +1152,58 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         if (!string.IsNullOrWhiteSpace(acadYear)) cmd.Parameters.AddWithValue("@acadYear", acadYear);
     }
 
+    // ----- Specialisation (optional) scoping -----------------------------------------------------
+    // A student's specialisation lives in acad_student.specialisation, which holds the spec_id of an
+    // acad_specialisation row (NOT its name) — spec_id 13 is the institution's "-" placeholder that
+    // 30k students carry to mean "no specialisation". The filter is therefore an id comparison, and
+    // it is only ever applied when the caller asked for one.
+    //
+    // SR_SpecId is the single gate: anything that is not a positive integer becomes 0 = no filter.
+    // A bad or absent value can only ever WIDEN to "all specialisations", never silently narrow to
+    // an empty set, and never reaches SQL as text.
+    private static int SR_SpecId(string spec)
+    {
+        int id;
+        if (string.IsNullOrWhiteSpace(spec)) return 0;
+        if (!int.TryParse(spec.Trim(), out id)) return 0;
+        return id > 0 ? id : 0;
+    }
+    private static string SR_SpecFilter(string spec)
+    {
+        return SR_SpecId(spec) > 0 ? " AND s.specialisation = @specId" : "";
+    }
+    private static void SR_BindSpec(MySqlCommand cmd, string spec)
+    {
+        int id = SR_SpecId(spec);
+        if (id > 0) cmd.Parameters.AddWithValue("@specId", id);
+    }
+
+    /// <summary>
+    /// Display name of a specialisation, for report headings. Empty when none is selected or the
+    /// id no longer resolves, so a caller can append it unconditionally.
+    /// </summary>
+    private string SR_SpecName(string spec)
+    {
+        int id = SR_SpecId(spec);
+        if (id <= 0) return "";
+        try
+        {
+            using (MySqlConnection conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (MySqlCommand cmd = new MySqlCommand(
+                    "SELECT TRIM(IFNULL(spec,'')) FROM acad_specialisation WHERE spec_id=@id LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", id);
+                    object o = cmd.ExecuteScalar();
+                    string nm = o == null || o == DBNull.Value ? "" : Convert.ToString(o).Trim();
+                    return nm == "-" ? "" : nm;
+                }
+            }
+        }
+        catch { return ""; }
+    }
+
     /// <summary>
     /// Cascade helper for the Summary Report modal: given a source + programme, returns every
     /// (entryYear, studyYear, semester) combination that actually has gradeable data, with a
@@ -1169,6 +1221,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string source = Request.QueryString["source"] ?? "approved";
             var combos = new List<object>();
             var years = new List<string>();   // ALL entry years the programme has (not limited to ones with marks)
+            var specs = new List<object>();   // specialisations actually held by this programme's students
 
             if (!string.IsNullOrWhiteSpace(programme))
             {
@@ -1244,10 +1297,39 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         using (MySqlDataReader ry = cmdY.ExecuteReader())
                             while (ry.Read()) years.Add(Convert.ToString(ry["entryyear"]).Trim());
                     }
+
+                    // Specialisations the programme's students ACTUALLY hold, counted, newest-heaviest
+                    // first. Driven from acad_student rather than from acad_specialisation.prog_id so
+                    // the list can never offer an option that matches nobody — a specialisation
+                    // declared against the programme but carried by no student would return an empty
+                    // report, and a specialisation carried by students but declared against another
+                    // programme (there is drift in this data) would be missing. Placeholder rows
+                    // (spec_id 13 / a "-" name / blank) are what "no specialisation" is stored as,
+                    // so they are not offered as a choice.
+                    using (MySqlCommand cmdS = new MySqlCommand(
+                        "SELECT sp.spec_id, TRIM(sp.spec) spec, TRIM(IFNULL(sp.abbrev,'')) abbrev, COUNT(*) n " +
+                        "FROM acad_student s " +
+                        "JOIN acad_specialisation sp ON sp.spec_id = s.specialisation " +
+                        "WHERE s.progid = @programme " +
+                        "  AND TRIM(IFNULL(sp.spec,'')) NOT IN ('','-') " +
+                        "GROUP BY sp.spec_id, sp.spec, sp.abbrev " +
+                        "ORDER BY n DESC, sp.spec", conn))
+                    {
+                        cmdS.Parameters.AddWithValue("@programme", programme);
+                        using (MySqlDataReader rs = cmdS.ExecuteReader())
+                            while (rs.Read())
+                                specs.Add(new
+                                {
+                                    id = Convert.ToString(rs["spec_id"]),
+                                    name = Convert.ToString(rs["spec"]).Trim(),
+                                    abbrev = Convert.ToString(rs["abbrev"]).Trim(),
+                                    n = rs["n"] == DBNull.Value ? 0 : Convert.ToInt32(rs["n"])
+                                });
+                    }
                 }
             }
 
-            Response.Write(new JavaScriptSerializer().Serialize(new { combos = combos, years = years }));
+            Response.Write(new JavaScriptSerializer().Serialize(new { combos = combos, years = years, specs = specs }));
         }
         catch (Exception ex)
         {
@@ -1271,11 +1353,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             string source = Request.QueryString["source"] ?? "approved";
             string acadYear = Request.QueryString["acadYear"] ?? "";
             bool excludePromoted = (Request.QueryString["excludePromoted"] ?? "") == "1";
+            string specialisation = Request.QueryString["specialisation"] ?? "";
 
             // Guard: never count the whole database. Require a programme (or explicit reg numbers).
             int count = (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
                 ? 0
-                : GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted);
+                : GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted, specialisation);
 
             JavaScriptSerializer serializer = new JavaScriptSerializer();
             Response.Write(serializer.Serialize(new { count = count }));
@@ -1304,6 +1387,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     }
 
     private int GetSummaryReportStudentCount(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source, string acadYear, bool excludePromoted)
+    {
+        return GetSummaryReportStudentCount(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted, "");
+    }
+
+    private int GetSummaryReportStudentCount(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source, string acadYear, bool excludePromoted, string specialisation)
     {
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -1344,6 +1432,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             // Academic-year sitting filter: the "all" branch scans the raw portal cr (acad_year);
             // every other source uses the derived/results alias r (acad).
             sql += SR_SittingFilter(all ? "cr.acad_year" : "r.acad", acadYear, semester, excludePromoted);
+            sql += SR_SpecFilter(specialisation);
 
             using (MySqlCommand cmd = new MySqlCommand(sql, conn))
             {
@@ -1362,6 +1451,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 if (!string.IsNullOrEmpty(semester))
                     cmd.Parameters.AddWithValue("@semester", semester);
                 SR_BindSitting(cmd, acadYear);
+                SR_BindSpec(cmd, specialisation);
 
                 object result = cmd.ExecuteScalar();
                 return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
@@ -1386,6 +1476,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             int minCourses = ParseMinCourses(Request.QueryString["minCourses"]);   // provided figure, else 4
             string acadYear = Request.QueryString["acadYear"] ?? "";               // sitting anchor (blank = all years)
             bool excludePromoted = (Request.QueryString["excludePromoted"] ?? "") == "1";
+            string specialisation = Request.QueryString["specialisation"] ?? "";   // optional: one specialisation only
 
             // Guard: refuse an unscoped export (would pull the whole database).
             if (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
@@ -1398,7 +1489,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             }
 
             // Get students with their results (source-aware)
-            DataTable reportData = GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted);
+            DataTable reportData = GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted, specialisation);
 
             if (reportData.Rows.Count == 0)
             {
@@ -1442,6 +1533,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             int minCourses = ParseMinCourses(Request.QueryString["minCourses"]);   // provided figure, else 4
             string acadYear = Request.QueryString["acadYear"] ?? "";               // sitting anchor (blank = all years)
             bool excludePromoted = (Request.QueryString["excludePromoted"] ?? "") == "1";
+            string specialisation = Request.QueryString["specialisation"] ?? "";   // optional: one specialisation only
 
             // Guard: refuse an unscoped export (would pull the whole database).
             if (string.IsNullOrWhiteSpace(programme) && string.IsNullOrWhiteSpace(entryNumbers))
@@ -1454,7 +1546,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             }
 
             // Get students with CGPA data (source-aware: published or a staged stage)
-            DataTable studentData = GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted);
+            DataTable studentData = GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted, specialisation);
 
             if (studentData.Rows.Count == 0)
             {
@@ -1465,8 +1557,13 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 return;
             }
 
-            // Get programme name
+            // Get programme name. When one specialisation was asked for, it goes into the report's
+            // title line — the Performance Report has no per-specialisation section headings (unlike
+            // the Summary Report), so without this two exports of the same sitting would be
+            // indistinguishable once printed.
             string programmeName = GetProgrammeName(programme);
+            string specName = SR_SpecName(specialisation);
+            if (specName != "") programmeName = programmeName + " - " + specName;
 
             // Generate Performance Report PDF
             GeneratePerformanceReportPdf(studentData, programmeName, entryYear, studyYear, semester, source, minCourses, acadYear);
@@ -1510,6 +1607,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 
     private DataTable GetPerformanceReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source, string acadYear, bool excludePromoted)
     {
+        return GetPerformanceReportData(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted, "");
+    }
+
+    private DataTable GetPerformanceReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source, string acadYear, bool excludePromoted, string specialisation)
+    {
         DataTable dt = new DataTable();
 
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
@@ -1545,6 +1647,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 sql += " AND s.entryyear = @entryYear";
             // Academic-year sitting filter (+ optional exclude-promoted). r exposes .acad in every source.
             sql += SR_SittingFilter("r.acad", acadYear, semester, excludePromoted);
+            sql += SR_SpecFilter(specialisation);
 
             List<string> entryParams = new List<string>();
             string[] entries = null;
@@ -1572,6 +1675,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 cmd.Parameters.AddWithValue("@studyYear", studyYear);
                 cmd.Parameters.AddWithValue("@semester", semester);
                 SR_BindSitting(cmd, acadYear);
+                SR_BindSpec(cmd, specialisation);
 
                 if (!string.IsNullOrEmpty(entryNumbers) && entries != null && entries.Length > 0)
                 {
@@ -2136,6 +2240,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 
     private DataTable GetSummaryReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source, string acadYear, bool excludePromoted)
     {
+        return GetSummaryReportData(programme, entryYear, studyYear, semester, entryNumbers, source, acadYear, excludePromoted, "");
+    }
+
+    private DataTable GetSummaryReportData(string programme, string entryYear, string studyYear, string semester, string entryNumbers, string source, string acadYear, bool excludePromoted, string specialisation)
+    {
         // Published: sourced from acad_results, ENRICHED with CW/Exam/Total + status from the
         // portal provisional ledger (with a transparent fallback if that cross-DB join is
         // unavailable). Staged (approved/captured/entered): sourced directly from the ledger at
@@ -2143,7 +2252,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         Exception lastEx = null;
         foreach (bool includeProvisional in new[] { true, false })
         {
-            try { return BuildSummaryReportTable(programme, entryYear, studyYear, semester, entryNumbers, includeProvisional, source, acadYear, excludePromoted); }
+            try { return BuildSummaryReportTable(programme, entryYear, studyYear, semester, entryNumbers, includeProvisional, source, acadYear, excludePromoted, specialisation); }
             catch (Exception ex) { lastEx = ex; }
         }
         throw lastEx;
@@ -2155,6 +2264,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     }
 
     private DataTable BuildSummaryReportTable(string programme, string entryYear, string studyYear, string semester, string entryNumbers, bool includeProvisional, string source, string acadYear, bool excludePromoted)
+    {
+        return BuildSummaryReportTable(programme, entryYear, studyYear, semester, entryNumbers, includeProvisional, source, acadYear, excludePromoted, "");
+    }
+
+    private DataTable BuildSummaryReportTable(string programme, string entryYear, string studyYear, string semester, string entryNumbers, bool includeProvisional, string source, string acadYear, bool excludePromoted, string specialisation)
     {
         using (MySqlConnection conn = new MySqlConnection(ConnectionString))
         {
@@ -2247,6 +2361,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             if (!string.IsNullOrEmpty(semester))
                 sql += " AND r.semester = @semester";
             sql += SR_SittingFilter("r.acad", acadYear, semester, excludePromoted);
+            sql += SR_SpecFilter(specialisation);
 
             sql += " ORDER BY s.entryno, r.semester, r.courseid";
 
@@ -2268,6 +2383,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 if (!string.IsNullOrEmpty(semester))
                     cmd.Parameters.AddWithValue("@semester", semester);
                 SR_BindSitting(cmd, acadYear);
+                SR_BindSpec(cmd, specialisation);
 
                 using (MySqlDataAdapter da = new MySqlDataAdapter(cmd))
                 {
