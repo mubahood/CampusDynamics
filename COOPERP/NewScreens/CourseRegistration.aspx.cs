@@ -510,6 +510,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 sql = @"SELECT r.regno,
                               CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) as stud_name,
                               @course AS course_code,
+                              COALESCE((SELECT courseName FROM acad_course WHERE courseID = @course LIMIT 1), '') AS course_name,
                               @acad AS acad_year,
                               @sem AS semester,
                               r.studyyear AS study_year,
@@ -561,6 +562,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 sql = @"SELECT cr.regno,
                                                             CONCAT(COALESCE(s.firstname,''), ' ', COALESCE(s.othername,'')) as stud_name,
                                                             cr.courseID AS course_code,
+                                                            COALESCE(co.courseName, '') AS course_name,
                                                             cr.acad_year AS acad_year,
                                                             cr.semester AS semester,
                                                             COALESCE(s.entryyear, 0) AS entryyear,
@@ -572,6 +574,9 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                        -- primary key. Comparing utf8mb4 to utf8 directly cannot use the index,
                        -- and cost 1,296ms a page against 107ms with it.
                        INNER JOIN acad_student s ON s.regno = CONVERT(cr.regno USING utf8)
+                       -- Course title comes from the course master, never from anywhere else, and
+                       -- CONVERT stays on the portal side for the same index reason as above.
+                       LEFT JOIN acad_course co ON co.courseID = CONVERT(cr.courseID USING utf8)
                                              WHERE (@acad = '' OR cr.acad_year = @acad)
                          AND (@sem = 0 OR cr.semester = @sem)
                                                  AND (@prog = '' OR cr.prog_id = @prog)
@@ -867,7 +872,16 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                 regnoA, courseA, acadA, semA);
             sb.AppendFormat("<td><a class='crx-link' title='View course &amp; semester enrolment' onclick=\"openEnrolment('{0}')\"><span class='crx-code'>{1}</span></a></td>", JsEnc(regno), H(regno));
             sb.AppendFormat("<td class='crx-name' title=\"{0}\">{0}</td>", H(name));
-            sb.AppendFormat("<td><span class='crx-code'>{0}</span></td>", H(course));
+            // Code AND title, on one line. The code stays first and monospaced because it is the
+            // key people search and quote; the title follows in muted text so a row can be read
+            // without anyone having to know what BCU2203 is. Deliberately not a second line —
+            // taller rows were a regression here once already — so it clips with an ellipsis and
+            // the cell's tooltip carries the full text.
+            string courseName = SafeCell(r, "course_name");
+            sb.AppendFormat("<td title=\"{0}\"><span class='crx-code'>{1}</span>{2}</td>",
+                HttpUtility.HtmlAttributeEncode(courseName == "" ? course : course + " — " + courseName),
+                H(course),
+                courseName == "" ? "" : "<span class='crx-cname'>" + H(courseName) + "</span>");
             sb.AppendFormat("<td>{0}</td>", H(acad));
             sb.AppendFormat("<td class='c'>{0}</td>", H(yrSem));
             sb.AppendFormat("<td class='c hide-md'>{0}</td>", H(entry));

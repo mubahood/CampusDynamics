@@ -539,6 +539,9 @@
         .crx-table tbody tr:hover td{background:#fafcff;}
         .crx-table .c{text-align:center;}
         .crx-code{font-family:Consolas,monospace;font-size:10px;color:#174DA4;font-weight:700;}
+        /* Course title beside its code — muted so the code still reads first, and it must not
+           add a second line: the row height is what makes this list scannable. */
+        .crx-cname{margin-left:6px;color:#64748b;font-size:10px;}
         .crx-link{color:#174DA4;text-decoration:underline;cursor:pointer;}
         .crx-row-sel{width:14px;height:14px;cursor:pointer;accent-color:#174DA4;}
         .crx-empty{padding:26px 12px;text-align:center;color:#6b7280;font-size:11px;}
@@ -553,7 +556,9 @@
         .crx-table col.c-sel   { width:30px; }
         .crx-table col.c-reg   { width:120px; }
         .crx-table col.c-name  { width:auto; }
-        .crx-table col.c-course{ width:92px; }
+        /* Wide enough for "CODE — TITLE". The Student column is width:auto and simply gives up
+           the difference, so the table total is unchanged and nothing slides sideways. */
+        .crx-table col.c-course{ width:270px; }
         .crx-table col.c-acad  { width:84px; }
         .crx-table col.c-yrsem { width:98px; }
         .crx-table col.c-entry { width:56px; }
@@ -595,6 +600,10 @@
             .crx-table col.c-reg{width:104px;}
             .crx-table col.c-acad{width:74px;}
             .crx-table col.c-yrsem{width:88px;}
+            /* On a narrow screen the code alone has to do the work; the title is still in the
+               cell's tooltip. */
+            .crx-table col.c-course{width:110px;}
+            .crx-cname{display:none;}
         }
 
         /* Print Styles */
