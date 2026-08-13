@@ -5,6 +5,12 @@ using System.Linq;
 using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
+// fin_GetStudentFeesTrackListTableAdapter (used by the SemesterRegistration branch below) lives
+// here. Without it this whole page fails to COMPILE, not merely to run — every request to it
+// returned 500 and, because a failed compile is retried on each hit, it churned the ASP.NET build
+// manager roughly once a minute. RegistrationManager.aspx.cs and studentbilling.ascx.cs, which
+// call the same adapter, have always had this line.
+using StudentAccountingDataTableAdapters;
 
 public partial class API_mobileapi : System.Web.UI.Page
 {
