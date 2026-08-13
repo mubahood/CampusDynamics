@@ -509,6 +509,22 @@
         .crx-bulk__ctx b{font-family:Consolas,monospace;}
         .crx-bulk__ctx--bad{color:#b42318;font-weight:700;opacity:1;}
         .crx-bulk__spacer{flex:1 1 auto;}
+        .crx-btn--move{background:#05275C;color:#fff;border-color:#05275C;}
+        .crx-btn--move:hover{background:#041d45;}
+        /* Batch-move preview */
+        .bm-tally{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 8px;}
+        .bm-pill{font-size:10.5px;font-weight:700;padding:5px 9px;border:1px solid;border-radius:0;white-space:nowrap;}
+        .bm-pill--go{background:#eaf7ee;border-color:#a7dfba;color:#15803d;}
+        .bm-pill--skip{background:#fff7ed;border-color:#fdba74;color:#9a3412;}
+        .bm-pill--none{background:#f5f7fa;border-color:#e0e5ed;color:#64748b;}
+        .bm-list{max-height:240px;overflow:auto;border:1px solid #e0e5ed;}
+        .bm-list table{width:100%;border-collapse:collapse;font-size:10.5px;}
+        .bm-list th{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e0e5ed;text-align:left;padding:5px 7px;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;}
+        .bm-list td{border-bottom:1px solid #eef2f6;padding:4px 7px;white-space:nowrap;}
+        .bm-list tr.go td{background:#fbfefc;}
+        .bm-list tr.skip td{background:#fffaf5;color:#7c2d12;}
+        .bm-v{font-weight:800;font-size:9px;letter-spacing:.4px;}
+        .bm-v--go{color:#15803d;} .bm-v--skip{color:#b45309;}
         .crx-meta{padding:6px 10px;border-bottom:1px solid #eef2f6;font-size:10px;color:#64748b;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;}
         .crx-pager{display:flex;gap:3px;flex-wrap:wrap;}
         .crx-pager a,.crx-pager span{border:1px solid #d4dbe8;background:#fff;color:#334155;font-size:9px;text-decoration:none;padding:4px 7px;border-radius:6px;}
@@ -822,6 +838,54 @@
         </div>
     </div>
 
+    <!-- ===== Batch move to a sitting (two-step: preview, then apply what was shown) ===== -->
+    <div class="cr-modal-overlay" id="bmOverlay" role="dialog" aria-modal="true" aria-labelledby="bmTitle">
+        <div class="cr-modal cr-modal--wide">
+            <div class="cr-modal__head">
+                <span class="cr-modal__title" id="bmTitle">Move registrations to another sitting</span>
+                <button type="button" class="cr-modal__close" onclick="closeBatchMove()" aria-label="Close">&times;</button>
+            </div>
+            <div class="cr-modal__body">
+                <div id="bmMsg" class="cr-inline-msg"></div>
+
+                <div class="cr-eb" id="bmWho"></div>
+
+                <div class="cr-fld">
+                    <label>Move into &mdash; Academic Year</label>
+                    <select id="bmAcad" class="cr-in"></select>
+                </div>
+                <div class="cr-fld">
+                    <label>Move into &mdash; Semester</label>
+                    <select id="bmSem" class="cr-in">
+                        <option value="">-- Select semester --</option>
+                        <option value="1">Semester 1</option>
+                        <option value="2">Semester 2</option>
+                        <option value="3">Semester 3</option>
+                    </select>
+                    <span class="cr-hint">
+                        Every selected registration is checked one by one before anything moves: a student
+                        who never enrolled for the destination, or who already holds that course there, is
+                        skipped and named rather than forced through.
+                    </span>
+                </div>
+                <div class="cr-fld">
+                    <label>Reason / note (optional)</label>
+                    <input type="text" id="bmNote" class="cr-in" autocomplete="off" placeholder="why this batch is being moved" />
+                </div>
+
+                <div id="bmPreview" style="display:none;">
+                    <div class="bm-tally" id="bmTally"></div>
+                    <div class="bm-list" id="bmList"></div>
+                </div>
+            </div>
+            <div class="cr-modal__foot">
+                <button type="button" class="cr-batch-btn" onclick="closeBatchMove()">Cancel</button>
+                <button type="button" class="cr-batch-btn cr-batch-btn--primary" id="bmPreviewBtn" onclick="previewBatchMove(this)">Check what will happen</button>
+                <button type="button" class="cr-batch-btn cr-batch-btn--success" id="bmApplyBtn" onclick="applyBatchMove(this)" disabled="disabled">Move them</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== Course & Semester Enrolment (read-only, AJAX) ===== -->
     <div class="cr-modal-overlay" id="enrModalOverlay" role="dialog" aria-modal="true" aria-labelledby="enrModalTitle">
         <div class="cr-modal cr-modal--wide">
@@ -867,6 +931,10 @@
             <span class="crx-bulk__spacer"></span>
             <asp:Button ID="btnRegisterSelected" runat="server" Text="Register Selected" CssClass="crx-btn crx-btn--success" OnClick="btnRegisterSelected_Click" OnClientClick="return prepBulk('register');" />
             <asp:Button ID="btnRemoveSelected" runat="server" Text="Remove Selected" CssClass="crx-btn crx-btn--danger" OnClick="btnRemoveSelected_Click" OnClientClick="return prepBulk('remove');" Visible="false" />
+            <%-- Unlike Register Selected, a batch move needs no filter set up front: it acts on the
+                 rows already ticked, and its own modal names the destination. --%>
+            <button type="button" class="crx-btn crx-btn--move" onclick="openBatchMove()" id="crxBtnMove"
+                    title="Move the ticked registrations to another academic year and semester">Move to sitting&hellip;</button>
             <button type="button" class="crx-btn" onclick="selectAllMatching()" id="crxSelAll" title="Tick every row on this page">Select page</button>
             <button type="button" class="crx-btn" onclick="clearSel()">Clear</button>
         </div>
@@ -1723,6 +1791,114 @@
             }, function (r) {
                 if (r && r.success) { window.location.reload(); }
                 else { msg('editMsg', (r && r.message) || 'Could not save the change.'); btn.disabled = false; btn.textContent = orig; }
+            });
+        };
+
+        // ===== BATCH MOVE TO A SITTING ===========================================
+        // Two steps on purpose. Step one asks the server what WOULD happen to every ticked row
+        // and shows it. Step two sends back only the rows the preview said would move — so the
+        // operator acts on what they read, not on a count. Changing the destination after a
+        // preview disarms the Move button until it is checked again.
+        var bmRows = [];        // every ticked registration key
+        var bmGo = [];          // the keys the preview said will move
+        function bmKeys() {
+            var out = [], boxes = document.querySelectorAll('.crx-row-sel');
+            for (var i = 0; i < boxes.length; i++)
+                if (boxes[i].checked) { var k = boxes[i].getAttribute('data-row'); if (k) out.push(k); }
+            return out;
+        }
+        function bmDisarm() {
+            bmGo = [];
+            var b = qs('bmApplyBtn'); if (b) { b.disabled = true; b.textContent = 'Move them'; }
+            var p = qs('bmPreview'); if (p) p.style.display = 'none';
+        }
+        window.openBatchMove = function () {
+            bmRows = bmKeys();
+            if (!bmRows.length) { alert('Tick the registrations you want to move first.'); return; }
+
+            // Summarise the selection so the operator sees the shape of what they ticked.
+            var studs = {}, crs = {}, sits = {};
+            bmRows.forEach(function (k) {
+                var p = k.split('|');
+                studs[p[0]] = 1; crs[p[1]] = 1; sits[p[2] + ' S' + p[3]] = 1;
+            });
+            var sitList = Object.keys(sits);
+            qs('bmWho').innerHTML =
+                '<b>' + bmRows.length + '</b> registration' + (bmRows.length === 1 ? '' : 's') +
+                ' &middot; <b>' + Object.keys(studs).length + '</b> student' + (Object.keys(studs).length === 1 ? '' : 's') +
+                ' &middot; <b>' + Object.keys(crs).length + '</b> course' + (Object.keys(crs).length === 1 ? '' : 's') +
+                '<br /><span style="color:#64748b;">from ' +
+                (sitList.length === 1 ? esc(sitList[0]) : sitList.length + ' different sittings (' + esc(sitList.slice(0, 4).join(', ')) + (sitList.length > 4 ? ', …' : '') + ')') +
+                '</span>';
+
+            // Destination years: the page's own academic-year list, minus its "All" entry.
+            var src = qs('<%= ddlAcadYear.ClientID %>'), sel = qs('bmAcad'), h = '<option value="">-- Select academic year --</option>';
+            if (src) for (var i = 0; i < src.options.length; i++) {
+                var o = src.options[i];
+                if (!o.value) continue;
+                h += '<option value="' + esc(o.value) + '">' + esc(o.text) + '</option>';
+            }
+            sel.innerHTML = h; sel.value = '';
+            qs('bmSem').value = ''; qs('bmNote').value = '';
+            // Changing the destination invalidates the preview: the Move button goes back to
+            // disabled so a batch can never be applied against a target nobody checked.
+            if (!window.__bmWired) {
+                window.__bmWired = true;
+                qs('bmAcad').addEventListener('change', bmDisarm);
+                qs('bmSem').addEventListener('change', bmDisarm);
+            }
+            msg('bmMsg', ''); bmDisarm();
+            qs('bmOverlay').classList.add('show');
+        };
+        window.closeBatchMove = function () { var m = qs('bmOverlay'); if (m) m.classList.remove('show'); };
+
+        window.previewBatchMove = function (btn) {
+            var acad = qs('bmAcad').value, sem = parseInt(qs('bmSem').value, 10) || 0;
+            if (!acad || !sem) { msg('bmMsg', 'Choose the academic year and semester to move into.'); return; }
+            msg('bmMsg', ''); bmDisarm();
+            btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Checking…';
+            callAjax('PreviewBatchMove', { keys: bmRows.join('\n'), toAcad: acad, toSem: sem }, function (r) {
+                btn.disabled = false; btn.textContent = orig;
+                if (!r || !r.success) { msg('bmMsg', (r && r.message) || 'Could not check the batch.'); return; }
+
+                var t = '';
+                t += '<span class="bm-pill ' + (r.willMove ? 'bm-pill--go' : 'bm-pill--none') + '">' + r.willMove + ' will move</span>';
+                if (r.withResult) t += '<span class="bm-pill bm-pill--go">' + r.withResult + ' carry a published result</span>';
+                if (r.same)  t += '<span class="bm-pill bm-pill--skip">' + r.same + ' already there</span>';
+                if (r.dup)   t += '<span class="bm-pill bm-pill--skip">' + r.dup + ' would duplicate</span>';
+                if (r.noSit) t += '<span class="bm-pill bm-pill--skip">' + r.noSit + ' never enrolled for it</span>';
+                if (r.gone)  t += '<span class="bm-pill bm-pill--skip">' + r.gone + ' no longer exist</span>';
+                qs('bmTally').innerHTML = t;
+
+                var h = '<table><thead><tr><th>Reg No</th><th>Course</th><th>From</th><th>Outcome</th><th>Why</th></tr></thead><tbody>';
+                bmGo = [];
+                (r.rows || []).forEach(function (row) {
+                    var go = row.verdict === 'MOVE';
+                    if (go) bmGo.push(row.id);
+                    h += '<tr class="' + (go ? 'go' : 'skip') + '"><td>' + esc(row.regno) + '</td><td>' + esc(row.course) + '</td>' +
+                         '<td>' + esc(row.from) + '</td>' +
+                         '<td class="bm-v ' + (go ? 'bm-v--go' : 'bm-v--skip') + '">' + (go ? 'MOVE' : 'SKIP') + '</td>' +
+                         '<td>' + esc(row.reason) + '</td></tr>';
+                });
+                qs('bmList').innerHTML = h + '</tbody></table>';
+                qs('bmPreview').style.display = 'block';
+
+                var ab = qs('bmApplyBtn');
+                ab.disabled = (bmGo.length === 0);
+                ab.textContent = bmGo.length ? ('Move ' + bmGo.length + ' to ' + r.target) : 'Nothing to move';
+                if (!bmGo.length) msg('bmMsg', 'None of the selected registrations can move into ' + r.target + '. Nothing will be changed.');
+            });
+        };
+
+        window.applyBatchMove = function (btn) {
+            if (!bmGo.length) return;
+            var acad = qs('bmAcad').value, sem = parseInt(qs('bmSem').value, 10) || 0;
+            if (!confirm('Move ' + bmGo.length + ' registration(s) into ' + acad + ' Semester ' + sem +
+                         '?\n\nAny published result moves with its registration.')) return;
+            btn.disabled = true; var orig = btn.textContent; btn.textContent = 'Moving…';
+            callAjax('ApplyBatchMove', { keys: bmGo.join('\n'), toAcad: acad, toSem: sem, note: qs('bmNote').value.trim() }, function (r) {
+                if (r && r.success) { alert(r.message); window.location.reload(); }
+                else { msg('bmMsg', (r && r.message) || 'Could not move the batch.'); btn.disabled = false; btn.textContent = orig; }
             });
         };
 

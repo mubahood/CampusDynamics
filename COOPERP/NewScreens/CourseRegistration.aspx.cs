@@ -156,6 +156,38 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         // "All Academic Years" first, and NOT pre-selected to the current year. The screen
         // opens showing everything; a filter only narrows it once somebody chooses one.
         AcademicYearHelper.PopulateDropDown(ddlAcadYear, true, false);
+
+        // The calendar lists the years the institution recognises. The register also contains
+        // years it does not — '2202/2203', '20222/2023', '2023/204', '0/1' — typed by hand at
+        // some point and never noticed. Without an entry for them those rows cannot be filtered
+        // to at all, which is precisely why nobody has ever fixed them. They are appended, marked
+        // as malformed, so they can be found and corrected.
+        try
+        {
+            var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (ListItem li in ddlAcadYear.Items) known.Add(li.Value ?? "");
+
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand(
+                    "SELECT acad_year, COUNT(*) n FROM campus_dynamics_portal.acad_course_registration " +
+                    " WHERE IFNULL(acad_year,'') <> '' GROUP BY acad_year ORDER BY acad_year DESC", conn))
+                {
+                    cmd.CommandTimeout = 60;
+                    using (var rd = cmd.ExecuteReader())
+                        while (rd.Read())
+                        {
+                            string yr = Convert.ToString(rd["acad_year"]).Trim();
+                            if (yr == "" || known.Contains(yr)) continue;
+                            known.Add(yr);
+                            ddlAcadYear.Items.Add(new ListItem(
+                                yr + "  (malformed — " + Convert.ToInt64(rd["n"]) + " rows)", yr));
+                        }
+                }
+            }
+        }
+        catch { /* the official list alone is still a working filter */ }
     }
 
     /// <summary>Identifies the current filter set, so cached counts belong to one filter set only.</summary>
@@ -826,7 +858,13 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             string statusA = HttpUtility.HtmlAttributeEncode(courseStatus);
 
             sb.Append("<tr>");
-            sb.AppendFormat("<td class='crx-sel'><input type='checkbox' class='crx-row-sel' data-key=\"{0}\" onclick='onRowSel(this)' /></td>", regnoA);
+            // data-key is the student (what "Register Selected" acts on). data-row is the whole
+            // registration, which is what a batch move has to act on — moving "the student" would
+            // be meaningless when a student has twelve rows and only one of them is being moved.
+            sb.AppendFormat(
+                "<td class='crx-sel'><input type='checkbox' class='crx-row-sel' data-key=\"{0}\" " +
+                "data-row=\"{0}|{1}|{2}|{3}\" onclick='onRowSel(this)' /></td>",
+                regnoA, courseA, acadA, semA);
             sb.AppendFormat("<td><a class='crx-link' title='View course &amp; semester enrolment' onclick=\"openEnrolment('{0}')\"><span class='crx-code'>{1}</span></a></td>", JsEnc(regno), H(regno));
             sb.AppendFormat("<td class='crx-name' title=\"{0}\">{0}</td>", H(name));
             sb.AppendFormat("<td><span class='crx-code'>{0}</span></td>", H(course));
@@ -1663,6 +1701,258 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
 
     private static string SR2(MySqlDataReader r, string col)
     { try { object o = r[col]; return o == null || o == DBNull.Value ? "" : o.ToString().Trim(); } catch { return ""; } }
+
+    // ================================================================
+    //  BATCH MOVE TO A SITTING
+    //  Moving fifty registrations at once is the fastest way to put a whole cohort in the
+    //  wrong term, so this is deliberately two-step: PreviewBatchMove decides an outcome for
+    //  every selected row and shows it, then ApplyBatchMove acts on the rows the operator
+    //  actually saw. Nothing is ever moved on the strength of a count alone.
+    // ================================================================
+
+    /// <summary>One selected registration, as sent by the client: regno|course|acad|sem.</summary>
+    private class MoveKey
+    {
+        public string Regno, Course, Acad; public int Sem;
+        public string Id { get { return Regno + "|" + Course + "|" + Acad + "|" + Sem; } }
+    }
+
+    private static List<MoveKey> ParseKeys(string keysJson)
+    {
+        var list = new List<MoveKey>();
+        if (string.IsNullOrEmpty(keysJson)) return list;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        string[] rows = keysJson.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (string raw in rows)
+        {
+            string[] p = raw.Split('|');
+            if (p.Length < 4) continue;
+            var k = new MoveKey { Regno = p[0].Trim(), Course = p[1].Trim(), Acad = p[2].Trim() };
+            int s; int.TryParse(p[3].Trim(), out s); k.Sem = s;
+            if (k.Regno == "" || k.Course == "" || k.Acad == "" || k.Sem <= 0) continue;
+            if (seen.Add(k.Id)) list.Add(k);
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Decides, per selected registration, what a move to (toAcad, toSem) would do — without
+    /// changing anything. Verdicts: MOVE / SAME (already there) / DUP (the student already holds
+    /// that course there) / NOSIT (the student has never enrolled for that sitting) / GONE.
+    /// </summary>
+    [WebMethod]
+    public static string PreviewBatchMove(string keys, string toAcad, int toSem)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            toAcad = (toAcad ?? "").Trim();
+            var items = ParseKeys(keys);
+            if (items.Count == 0) return js.Serialize(new { success = false, message = "Nothing selected." });
+            if (toAcad == "" || toSem <= 0) return js.Serialize(new { success = false, message = "Choose the academic year and semester to move into." });
+
+            var rows = new List<object>();
+            int willMove = 0, same = 0, dup = 0, noSit = 0, gone = 0, withResult = 0;
+            int toStudyYear = 0;
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+                foreach (MoveKey k in items)
+                {
+                    string verdict, reason = "";
+                    bool sameSitting = string.Equals(k.Acad, toAcad, StringComparison.OrdinalIgnoreCase) && k.Sem == toSem;
+
+                    if (sameSitting) { verdict = "SAME"; reason = "Already in this sitting"; same++; }
+                    else if (!RegistrationExists(conn, k)) { verdict = "GONE"; reason = "Registration no longer exists"; gone++; }
+                    else if (HoldsCourseAt(conn, k.Regno, k.Course, toAcad, toSem)) { verdict = "DUP"; reason = "Student already has " + k.Course + " there"; dup++; }
+                    else if (!HasSitting(conn, k.Regno, toAcad, toSem)) { verdict = "NOSIT"; reason = "Student never enrolled for this sitting"; noSit++; }
+                    else
+                    {
+                        verdict = "MOVE"; willMove++;
+                        int sy = StudyYearAt(conn, k.Regno, toAcad);
+                        if (sy > 0 && toStudyYear == 0) toStudyYear = sy;
+                        bool hasRes = HasPublishedResult(conn, k);
+                        if (hasRes) withResult++;
+                        reason = hasRes ? "Moves with its published result" : "Moves";
+                        if (sy > 0) reason += " (Year " + sy + ")";
+                    }
+
+                    rows.Add(new { id = k.Id, regno = k.Regno, course = k.Course, from = k.Acad + " S" + k.Sem, verdict, reason });
+                }
+            }
+
+            return js.Serialize(new
+            {
+                success = true,
+                target = toAcad + " Semester " + toSem,
+                total = items.Count,
+                willMove, same, dup, noSit, gone, withResult,
+                rows
+            });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
+
+    private static bool RegistrationExists(MySqlConnection conn, MoveKey k)
+    {
+        using (var q = new MySqlCommand(
+            "SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration " +
+            "WHERE regno=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn))
+        {
+            q.Parameters.AddWithValue("@r", k.Regno); q.Parameters.AddWithValue("@c", k.Course);
+            q.Parameters.AddWithValue("@a", k.Acad); q.Parameters.AddWithValue("@s", k.Sem);
+            return Convert.ToInt64(q.ExecuteScalar()) > 0;
+        }
+    }
+    private static bool HoldsCourseAt(MySqlConnection conn, string regno, string course, string acad, int sem)
+    {
+        using (var q = new MySqlCommand(
+            "SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration " +
+            "WHERE regno=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn))
+        {
+            q.Parameters.AddWithValue("@r", regno); q.Parameters.AddWithValue("@c", course);
+            q.Parameters.AddWithValue("@a", acad); q.Parameters.AddWithValue("@s", sem);
+            return Convert.ToInt64(q.ExecuteScalar()) > 0;
+        }
+    }
+    private static bool HasSitting(MySqlConnection conn, string regno, string acad, int sem)
+    {
+        using (var q = new MySqlCommand(
+            "SELECT (SELECT COUNT(*) FROM acad_registration WHERE regno=@r AND acad_year=@a AND semester=@s) " +
+            "     + (SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno=@r AND acad_year=@a AND semester=@s)", conn))
+        {
+            q.Parameters.AddWithValue("@r", regno); q.Parameters.AddWithValue("@a", acad); q.Parameters.AddWithValue("@s", sem);
+            return Convert.ToInt64(q.ExecuteScalar()) > 0;
+        }
+    }
+    private static int StudyYearAt(MySqlConnection conn, string regno, string acad)
+    {
+        using (var q = new MySqlCommand(
+            "SELECT MIN(studyyear) FROM acad_registration WHERE regno=@r AND acad_year=@a AND IFNULL(studyyear,0)>0", conn))
+        {
+            q.Parameters.AddWithValue("@r", regno); q.Parameters.AddWithValue("@a", acad);
+            object o = q.ExecuteScalar(); int sy = 0;
+            if (o != null && o != DBNull.Value) int.TryParse(o.ToString(), out sy);
+            return sy;
+        }
+    }
+    private static bool HasPublishedResult(MySqlConnection conn, MoveKey k)
+    {
+        using (var q = new MySqlCommand(
+            "SELECT COUNT(*) FROM acad_results WHERE regno=@r AND courseid=@c AND acad=@a AND semester=@s", conn))
+        {
+            q.Parameters.AddWithValue("@r", k.Regno); q.Parameters.AddWithValue("@c", k.Course);
+            q.Parameters.AddWithValue("@a", k.Acad); q.Parameters.AddWithValue("@s", k.Sem);
+            return Convert.ToInt64(q.ExecuteScalar()) > 0;
+        }
+    }
+
+    /// <summary>
+    /// Moves the registrations the operator was shown. Every row is re-checked against the same
+    /// rules the preview used — if anything changed in between, that row is skipped and reported
+    /// rather than forced through. The published result moves with its registration and is
+    /// re-stamped with the destination's year of study. All or nothing, in one transaction.
+    /// </summary>
+    [WebMethod]
+    public static string ApplyBatchMove(string keys, string toAcad, int toSem, string note)
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            toAcad = (toAcad ?? "").Trim();
+            var items = ParseKeys(keys);
+            if (items.Count == 0) return js.Serialize(new { success = false, message = "Nothing to move." });
+            if (toAcad == "" || toSem <= 0) return js.Serialize(new { success = false, message = "Choose the academic year and semester to move into." });
+            if (items.Count > 500) return js.Serialize(new { success = false, message = "Too many rows in one batch (" + items.Count + "). Move at most 500 at a time." });
+
+            string actor = "";
+            try { actor = HttpContext.Current.User.Identity.Name; } catch { }
+            if (string.IsNullOrEmpty(actor)) actor = "admin";
+
+            int moved = 0, results = 0;
+            var skipped = new List<object>();
+
+            using (var conn = new MySqlConnection(ActionConn))
+            {
+                conn.Open();
+                using (var tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        foreach (MoveKey k in items)
+                        {
+                            if (string.Equals(k.Acad, toAcad, StringComparison.OrdinalIgnoreCase) && k.Sem == toSem)
+                            { skipped.Add(new { id = k.Id, why = "Already in this sitting" }); continue; }
+                            if (!RegistrationExists(conn, k))
+                            { skipped.Add(new { id = k.Id, why = "Registration no longer exists" }); continue; }
+                            if (HoldsCourseAt(conn, k.Regno, k.Course, toAcad, toSem))
+                            { skipped.Add(new { id = k.Id, why = "Already has " + k.Course + " there" }); continue; }
+                            if (!HasSitting(conn, k.Regno, toAcad, toSem))
+                            { skipped.Add(new { id = k.Id, why = "Never enrolled for this sitting" }); continue; }
+
+                            int sy = StudyYearAt(conn, k.Regno, toAcad);
+
+                            using (var up = new MySqlCommand(
+                                "UPDATE campus_dynamics_portal.acad_course_registration SET acad_year=@ta, semester=@ts " +
+                                "WHERE regno=@r AND courseID=@c AND acad_year=@a AND semester=@s", conn, tx))
+                            {
+                                up.Parameters.AddWithValue("@ta", toAcad); up.Parameters.AddWithValue("@ts", toSem);
+                                up.Parameters.AddWithValue("@r", k.Regno); up.Parameters.AddWithValue("@c", k.Course);
+                                up.Parameters.AddWithValue("@a", k.Acad); up.Parameters.AddWithValue("@s", k.Sem);
+                                if (up.ExecuteNonQuery() == 0)
+                                { skipped.Add(new { id = k.Id, why = "Registration no longer exists" }); continue; }
+                            }
+                            moved++;
+
+                            using (var up = new MySqlCommand(
+                                "UPDATE acad_results SET acad=@ta, semester=@ts" + (sy > 0 ? ", studyyear=@sy" : "") +
+                                " WHERE regno=@r AND courseid=@c AND acad=@a AND semester=@s", conn, tx))
+                            {
+                                up.Parameters.AddWithValue("@ta", toAcad); up.Parameters.AddWithValue("@ts", toSem);
+                                if (sy > 0) up.Parameters.AddWithValue("@sy", sy);
+                                up.Parameters.AddWithValue("@r", k.Regno); up.Parameters.AddWithValue("@c", k.Course);
+                                up.Parameters.AddWithValue("@a", k.Acad); up.Parameters.AddWithValue("@s", k.Sem);
+                                results += up.ExecuteNonQuery();
+                            }
+                        }
+
+                        using (var log = new MySqlCommand(
+                            "INSERT INTO acad_activity_log (user_id, page_function, par, comments, access_date) " +
+                            "VALUES (@u,'CourseRegistration:BatchMove',@p,@c,NOW())", conn, tx))
+                        {
+                            string par = ("-> " + toAcad + " S" + toSem);
+                            string cmt = "Moved " + moved + " registration(s), " + results + " result row(s); " +
+                                         skipped.Count + " skipped of " + items.Count + " selected";
+                            if (!string.IsNullOrWhiteSpace(note)) cmt += " — " + note.Trim();
+                            log.Parameters.AddWithValue("@u", actor.Length > 100 ? actor.Substring(0, 100) : actor);
+                            log.Parameters.AddWithValue("@p", par.Length > 300 ? par.Substring(0, 300) : par);
+                            log.Parameters.AddWithValue("@c", cmt.Length > 200 ? cmt.Substring(0, 200) : cmt);
+                            log.ExecuteNonQuery();
+                        }
+
+                        tx.Commit();
+                    }
+                    catch { try { tx.Rollback(); } catch { } throw; }
+                }
+            }
+
+            return js.Serialize(new
+            {
+                success = true,
+                moved, results, skippedCount = skipped.Count, total = items.Count, skipped,
+                message = "Moved " + moved + " registration(s) to " + toAcad + " Semester " + toSem +
+                          (results > 0 ? " with " + results + " published result row(s)" : "") +
+                          (skipped.Count > 0 ? "; " + skipped.Count + " skipped" : "") + "."
+            });
+        }
+        catch (MySqlException mex)
+        {
+            if (mex.Number == 1062) return js.Serialize(new { success = false, message = "That batch would duplicate a registration the student already has. Nothing was moved." });
+            return js.Serialize(new { success = false, message = mex.Message });
+        }
+        catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
+    }
 
     /// <summary>
     /// Type-ahead for the "Course Code" filter: up to 15 catalogue courses whose code or name
