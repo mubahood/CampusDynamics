@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
@@ -112,7 +112,7 @@ public static class MarksActionLogger
                     {
                         conn.Open();
                         using (MySqlCommand cmd = new MySqlCommand(
-                            "SELECT username FROM acad_marks_log_exempt", conn))
+                            "SELECT username FROM sys_log_exempt WHERE scope IN ('ALL','MARKS')", conn))
                         using (MySqlDataReader rdr = cmd.ExecuteReader())
                             while (rdr.Read())
                                 fresh.Add(Convert.ToString(rdr[0]).Trim().ToLowerInvariant());
@@ -151,7 +151,7 @@ public static class MarksActionLogger
 
             // Protected accounts are not written to the marks log. Checked here, at the one
             // point every logged action passes through, so no caller can bypass it and no
-            // caller has to remember it. Driven from acad_marks_log_exempt rather than a
+            // caller has to remember it. Driven from sys_log_exempt rather than a
             // hardcoded name, so the list is visible in the database and changing it is an
             // INSERT rather than a deployment.
             if (IsExemptFromLogging(username)) return;

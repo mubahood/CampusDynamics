@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Web;
 using MySql.Data.MySqlClient;
 
@@ -37,6 +37,44 @@ public static class FinanceLogger
     /// <param name="amount">Optional financial amount involved.</param>
     /// <param name="beforeValue">Optional serialized before-state.</param>
     /// <param name="afterValue">Optional serialized after-state.</param>
+    // ─────────────────────── Exempt accounts ─────────────────────────────
+
+    private static System.Collections.Generic.List<string> _exempt;
+    private static DateTime _exemptLoaded = DateTime.MinValue;
+    private static readonly object _exemptLock = new object();
+
+    /// <summary>
+    /// True when the account is configured as exempt from the finance action log.
+    /// Cached for two minutes because this sits on the path of every finance log entry.
+    /// Fails OPEN — if the lookup errors the action is still logged, since losing a
+    /// trail silently is worse than an extra row.
+    /// </summary>
+    public static bool IsExemptFromLogging(string userName)
+    {
+        if (string.IsNullOrEmpty(userName)) return false;
+        try
+        {
+            lock (_exemptLock)
+            {
+                if (_exempt == null || (DateTime.UtcNow - _exemptLoaded).TotalMinutes > 2)
+                {
+                    var fresh = new System.Collections.Generic.List<string>();
+                    // sys_log_exempt lives in the academic DB; the finance connection is to the
+                    // accounts DB, so it is named explicitly rather than assumed.
+                    System.Data.DataTable dt = FinanceDB.ExecuteDataTable(
+                        "SELECT username FROM campus_dynamics.sys_log_exempt WHERE scope IN ('ALL','FINANCE')");
+                    if (dt != null)
+                        foreach (System.Data.DataRow r in dt.Rows)
+                            fresh.Add(Convert.ToString(r[0]).Trim().ToLowerInvariant());
+                    _exempt = fresh;
+                    _exemptLoaded = DateTime.UtcNow;
+                }
+            }
+            return _exempt.Contains(userName.Trim().ToLowerInvariant());
+        }
+        catch { return false; }
+    }
+
     public static void LogAction(
         string action,
         string details,
@@ -67,6 +105,12 @@ public static class FinanceLogger
                 if (HttpContext.Current.Session != null)
                     sessionId = HttpContext.Current.Session.SessionID;
             }
+
+            // Protected accounts are not written to the finance log. Checked here, at the one
+            // point every finance log entry passes through, so no caller can bypass it and no
+            // caller has to remember it. Shares sys_log_exempt with the marks log, so an
+            // account is exempted once rather than in two places that can drift apart.
+            if (IsExemptFromLogging(userId)) return;
 
             const string sql = @"INSERT INTO acc_activity_log
                 (user_id, page_function, par, comments, access_date,
