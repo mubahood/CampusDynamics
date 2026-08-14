@@ -2,7 +2,8 @@
 ## Report to Senate — Continuing Student Body, Academic Year 2026/2027
 
 **Prepared:** 14 August 2026
-**Revised:** 15 August 2026 — §13 added in response to the Academic Registrar's query on Year 3
+**Revised:** 15 August 2026 — §13 (Year 3 query) and §14 (entry-year basis, graduands, and a
+financial-activity test) added at the Academic Registrar's request
 **Source:** Campus Dynamics EMIS — semester registrations for 2026/2027, live extract
 **Scope:** Students in Years 1, 2 and 3 who are **continuing**. Finalists are excluded.
 
@@ -390,6 +391,145 @@ continuing cohort reads Year 1 1,105 · Year 2 829 · Year 3 128, against 1,088 
 
 ---
 
+## 14. Alternative basis — year of study from entry year, with a financial-activity test
+
+*Added 15 August 2026 at the Academic Registrar's request.*
+
+Sections 1–13 take a student's year of study from what the register says. This section rebuilds
+the cohort a different way, which the Registrar proposed for two reasons: it does not depend on
+`studyyear` being recorded correctly, and it tests whether a student is genuinely present rather
+than merely on a list.
+
+**The two rules:**
+
+1. **Year of study comes from entry year** — 2026 → Year 1, 2025 → Year 2, 2024 → Year 3,
+   2023 → Year 4.
+2. **Everyone past Year 1 must show more than UGX 500,000 in payments.** A student beyond their
+   first year who has paid essentially nothing is not counted.
+
+Programme length is still needed on top of rule 1, because entry year alone cannot say who is
+finishing: a 2026 entrant on a one-year certificate is graduating in their first year, while a
+2024 entrant on a four-year degree is not. So *graduating* remains "has reached the length of
+their own programme", exactly as in §1.
+
+### a) The cohort on this basis
+
+| Year of study | Students |
+|---|---:|
+| Year 1 (entry 2026) | 1,037 |
+| Year 2 (entry 2025) | 817 |
+| Year 3 (entry 2024) | 74 |
+| **Continuing total** | **1,928** |
+
+| Campus | Yr 1 | Yr 2 | Yr 3 | Total |
+|---|---:|---:|---:|---:|
+| Kirumba | 533 | 457 | 74 | **1,064** |
+| Kakeeka | 504 | 360 | 0 | **864** |
+
+| Faculty | Yr 1 | Yr 2 | Yr 3 | Total |
+|---|---:|---:|---:|---:|
+| Education | 387 | 367 | 0 | **754** |
+| STEAD | 362 | 263 | 74 | **699** |
+| Business and Management | 219 | 160 | 0 | **379** |
+| Social Sciences, Arts & Humanities | 69 | 27 | 0 | **96** |
+
+### b) Expected to graduate this year
+
+Reported separately, as requested, and described by what they are rather than by a year number.
+
+| Award length | Graduating |
+|---|---:|
+| One-year programmes | 66 |
+| Two-year programmes (Diploma) | 203 |
+| Three-year programmes (Bachelor) | 663 |
+| Four-year programmes (Engineering) | 17 |
+| **Total expected to graduate** | **949** |
+
+| Campus | Graduating |
+|---|---:|
+| Kakeeka | 536 |
+| Kirumba | 413 |
+
+**Kakeeka graduates more students than Kirumba (536 v 413) while having the smaller continuing
+body.** Its programmes are shorter — diplomas and three-year degrees — so it turns cohorts over
+faster. Kirumba's four-year engineering intake stays longer.
+
+### c) What the financial test removes, and whether it is safe
+
+| | Students |
+|---|---:|
+| Past Year 1, more than 500,000 paid — counted | 1,776 |
+| Past Year 1, 500,000 or less — **excluded** | **435** |
+| Year 1 (entry 2026) — test not applied | 1,101 |
+
+The 435 removed break down as 326 in Year 2 and 109 in Year 3, and they had paid an average of
+about **46,000** each. Every one of them holds a 2026/2027 registration, which is precisely the
+Registrar's point: the registration alone was not evidence that they are here.
+
+**An independent check supports the test.** Of the 435 removed, **383 sat no examination papers
+at all in 2025/2026**. They neither paid nor sat. Two unrelated signals agreeing is strong
+evidence the exclusion is right.
+
+The remaining **52 did sit papers** — but an average of only 2.2 each, having paid about 56,000.
+None holds a bill waiver. They are marginal rather than obviously genuine, but they are the group
+to look at before the figure is treated as final.
+
+Whether "payments" includes balance-fix adjustments makes almost no difference: only **2**
+students pass the threshold on adjustments alone.
+
+### d) How the two bases compare
+
+| | §§1–12 (register) | §14 (entry year + money) | Difference |
+|---|---:|---:|---:|
+| Year 1 | 1,088 | 1,037 | −51 |
+| Year 2 | 827 | 817 | −10 |
+| **Year 3** | **127** | **74** | **−53** |
+| **Continuing total** | **2,042** | **1,928** | **−114** |
+
+**Senate should note that this basis makes Year 3 smaller, not larger.** If the concern was that
+Year 3 looked implausibly low, this approach sharpens rather than softens it — the money test
+removes 109 of the Year 3 population. That is not an argument against the method; it is evidence
+that the Year 3 figure was never the problem. §13 already established why: the eligible pool is
+small by curriculum design.
+
+### e) Two limitations to weigh before adopting it
+
+**Entry-year arithmetic mis-states about one student in twelve.** Checked against the register,
+the two agree for **3,047** students and disagree for **265** — 8%. The four largest patterns,
+accounting for 227 of them:
+
+| Situation | Students | Effect |
+|---|---:|---|
+| Entered 2025, registered in Year 3 | 81 | Advanced or direct entry — called Year 2 here, understating them |
+| Entered 2025, registered in Year 1 | 61 | Repeating — called Year 2 here, overstating them |
+| Entered 2024, registered in Year 4 | 46 | Advanced entry — called Year 3 here |
+| Entered 2025, registered in Year 4 | 39 | Advanced entry — called Year 2 here |
+| Other smaller patterns | 38 | |
+
+Direct entry is the larger issue: a diploma holder admitted straight into Year 3 of a degree
+entered recently but is not a junior student. Entry-year arithmetic cannot see that; the register
+can.
+
+**Scholarship and sponsored students have not been separated out.** The 500,000 test assumes a
+genuine student pays. None of the 435 holds a bill waiver, but sponsorship is held in other
+tables that were not cross-checked here. That check should be run before anyone is removed from
+a roll on this basis.
+
+### f) Recommendation
+
+Use the two bases for different questions rather than choosing between them:
+
+- **The register (§§1–12) for official enrolment.** It handles direct entry and repeating
+  correctly, and it is the auditable record.
+- **This basis (§14) as an assurance test.** It answers "how many of these students are actually
+  here?", and its answer is **1,928 against 2,042** — with **435 registered students showing
+  neither payment nor examination activity.**
+
+That gap of 114, and the 435 behind it, is the useful output. It is a follow-up list, not a
+correction to the enrolment figure.
+
+---
+
 ## Summary for Senate
 
 1. **2,042 continuing students** in Years 1–3, after removing 1,250 finalists — of whom 739 are
@@ -411,6 +551,10 @@ continuing cohort reads Year 1 1,105 · Year 2 829 · Year 3 128, against 1,088 
    pass rate.
 7. **64% of the cohort is on a programme taught at both campuses.** The same awards are issued
    from two sites, which argues for common curriculum governance and shared external examination.
+8. **On an assurance basis (§14) the cohort is 1,928 rather than 2,042, and 949 students are
+   expected to graduate.** Counting only students past Year 1 who have paid more than 500,000
+   removes **435** who hold a registration but show no real activity — **383 of them sat no
+   examination paper at all last year.** That list, not the enrolment figure, is the finding.
 
 ---
 
