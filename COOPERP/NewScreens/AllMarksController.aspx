@@ -199,10 +199,10 @@
 		<div class="pm-marks-edit">
 			<div class="pm-fg"><label>Course Work (0–100)</label><input type="number" class="pm-input" id="editCW" min="0" max="100" placeholder="CW" /></div>
 			<div class="pm-fg"><label>Exam Marks (0–100)</label><input type="number" class="pm-input" id="editExam" min="0" max="100" placeholder="Exam" /></div>
-			<div class="pm-fg"><label>Total (auto or override)</label><input type="number" class="pm-input" id="editTotal" min="0" max="100" placeholder="Total" /></div>
+			<div class="pm-fg"><label>Total <span id="editTotalMode" style="font-weight:600;color:#16a34a;">(auto)</span></label><input type="number" class="pm-input" id="editTotal" min="0" max="100" placeholder="Total" /></div>
 		</div>
 		<div class="pm-fg" style="margin-bottom:0;"><label style="font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800;">Admin Note (reason for override)</label><textarea class="pm-comment-area" id="editNote" placeholder="Reason for admin mark edit…"></textarea></div>
-		<div id="editCWInfo" style="font-size:10px;color:#6b7280;margin-top:6px;">Total will be auto-computed from CW + Exam if left blank.</div><div class="pm-alert" id="editAlert"></div>
+		<div id="editCWInfo" style="font-size:10px;color:#6b7280;margin-top:6px;">Total is computed from Course Work + Exam as you type. Type your own figure to override it; clear the box to go back to automatic.</div><div class="pm-alert" id="editAlert"></div>
 	</div>
 	<div class="pm-modal__foot"><button type="button" class="pm-btn pm-btn--ghost" onclick="closeModal('modalEdit')">Cancel</button><button type="button" class="pm-btn pm-btn--primary" id="btnEditSave" onclick="submitEdit()">Save Marks</button></div>
 </div>
@@ -415,8 +415,44 @@ window.openReview=function(id){ _id=id; clearAlert('reviewAlert'); qs('reviewDet
 window.submitReview=function(action){ if(!_id)return; var comment=qs('reviewComment').value.trim(); if(action==='rejected'&&!comment){showAlert('reviewAlert','A comment is required when rejecting.','err');return;} clearAlert('reviewAlert'); qs('btnApprove').disabled=true; qs('btnReject').disabled=true; callAJAX('ReviewProvisionalMarks',{id:_id,action:action,comment:comment},function(d){ qs('btnApprove').disabled=false; qs('btnReject').disabled=false; if(d.success){showToast(action==='approved'?'Marks approved.':'Marks rejected.','ok');window.closeModal('modalReview');setTimeout(function(){location.reload();},800);} else showAlert('reviewAlert',d.message||'Operation failed.','err'); }); };
 window.openPublish=function(id){ _id=id; clearAlert('publishAlert'); qs('publishMarksDisp').innerHTML='<div style="padding:10px;color:#6b7280;font-size:11px;">Loading…</div>'; qs('publishInfo').innerHTML=''; openModal('modalPublish'); callAJAX('GetProvisionalRecord',{id:id},function(d){ if(!d.success){showToast(d.message||'Error','err');window.closeModal('modalPublish');return;} var r=d.record; qs('publishMarksDisp').innerHTML=marksBanner(r.provisional_course_work_marks,r.provisional_exam_marks,r.provisional_total_marks); qs('publishInfo').innerHTML='<strong>'+r.regno+'</strong> — '+r.courseID+' &nbsp;|&nbsp; '+r.acad_year+' · Yr '+(r.study_year||'—')+', Sem '+r.semester; }); };
 window.submitPublish=function(){ if(!_id)return; clearAlert('publishAlert'); qs('btnPublishConfirm').disabled=true; callAJAX('PublishMarks',{id:_id},function(d){ qs('btnPublishConfirm').disabled=false; if(d.success){showToast('Marks published to final results.','ok');window.closeModal('modalPublish');setTimeout(function(){location.reload();},800);} else showAlert('publishAlert',d.message||'Publish failed.','err'); }); };
-window.openEdit=function(id){ _id=id; clearAlert('editAlert'); qs('editDetailGrid').innerHTML='<dt style="font-size:10px;color:#6b7280;">Loading…</dt>'; qs('editCW').value=''; qs('editExam').value=''; qs('editTotal').value=''; qs('editNote').value=''; openModal('modalEdit'); callAJAX('GetProvisionalRecord',{id:id},function(d){ if(!d.success){showToast(d.message||'Error','err');window.closeModal('modalEdit');return;} var r=d.record; qs('editModalTitle').textContent='Edit Marks: '+r.regno+' — '+r.courseID; qs('editDetailGrid').innerHTML=dlRow('Reg No',r.regno)+dlRow('Course',r.courseID)+dlRow('Programme',r.prog_id)+dlRow('Year / Sem','Yr '+(r.study_year||'—')+', Sem '+r.semester)+dlRow('Current Status',statusPill(r.provisional_marks_status))+dlRow('Submitted By',r.submitted_by||'—'); if(r.provisional_course_work_marks!=null) qs('editCW').value=r.provisional_course_work_marks; if(r.provisional_exam_marks!=null) qs('editExam').value=r.provisional_exam_marks; if(r.provisional_total_marks!=null) qs('editTotal').value=r.provisional_total_marks; }); };
-window.submitEdit=function(){ if(!_id)return; var cw=qs('editCW').value.trim(), ex=qs('editExam').value.trim(), tot=qs('editTotal').value.trim(), note=qs('editNote').value.trim(); clearAlert('editAlert'); qs('btnEditSave').disabled=true; callAJAX('SaveAdminMarks',{id:_id,cw:cw===''?null:parseInt(cw,10),exam:ex===''?null:parseInt(ex,10),total:tot===''?null:parseInt(tot,10),note:note},function(d){ qs('btnEditSave').disabled=false; if(d.success){showToast('Marks saved.','ok');window.closeModal('modalEdit');setTimeout(function(){location.reload();},800);} else showAlert('editAlert',d.message||'Save failed.','err'); }); };
+window.openEdit=function(id){ _id=id; clearAlert('editAlert'); qs('editDetailGrid').innerHTML='<dt style="font-size:10px;color:#6b7280;">Loading…</dt>'; qs('editCW').value=''; qs('editExam').value=''; qs('editTotal').value=''; qs('editNote').value=''; openModal('modalEdit'); callAJAX('GetProvisionalRecord',{id:id},function(d){ if(!d.success){showToast(d.message||'Error','err');window.closeModal('modalEdit');return;} var r=d.record; qs('editModalTitle').textContent='Edit Marks: '+r.regno+' — '+r.courseID; qs('editDetailGrid').innerHTML=dlRow('Reg No',r.regno)+dlRow('Course',r.courseID)+dlRow('Programme',r.prog_id)+dlRow('Year / Sem','Yr '+(r.study_year||'—')+', Sem '+r.semester)+dlRow('Current Status',statusPill(r.provisional_marks_status))+dlRow('Submitted By',r.submitted_by||'—'); if(r.provisional_course_work_marks!=null) qs('editCW').value=r.provisional_course_work_marks; if(r.provisional_exam_marks!=null) qs('editExam').value=r.provisional_exam_marks; if(r.provisional_total_marks!=null) qs('editTotal').value=r.provisional_total_marks; _totalOverridden=false; editSyncTotal(); }); };
+
+/* ---- Total: computed, not remembered -------------------------------------------------
+   The Total box is pre-filled from the record so the operator can see the current figure.
+   That display value must NOT be mistaken for an override: before this, editing CW or Exam
+   left the OLD total sitting in the box, it was posted as an explicit total, and the wrong
+   figure was saved. _totalOverridden is only set when the operator types in the box
+   themselves, and clearing the box hands control back to the automatic sum. */
+var _totalOverridden=false;
+(function(){
+    function bind(){
+        var cw=qs('editCW'), ex=qs('editExam'), tt=qs('editTotal');
+        if(!cw||!ex||!tt) return;
+        cw.addEventListener('input', editSyncTotal);
+        ex.addEventListener('input', editSyncTotal);
+        /* Typing in the Total box is what makes it an override. Emptying it releases the
+           override, so the sum takes over again — otherwise there would be no way back. */
+        tt.addEventListener('input', function(){
+            _totalOverridden = (tt.value.trim() !== '');
+            if(!_totalOverridden) editSyncTotal(); else editSyncTotal();
+        });
+    }
+    if(document.readyState!=='loading') bind(); else document.addEventListener('DOMContentLoaded', bind);
+})();
+function editSyncTotal(){
+    var cwEl=qs('editCW'), exEl=qs('editExam'), tEl=qs('editTotal'), mode=qs('editTotalMode');
+    var cw=cwEl.value.trim(), ex=exEl.value.trim();
+    var both=(cw!=='' && ex!=='');
+    if(!_totalOverridden){
+        tEl.value = both ? String((parseInt(cw,10)||0)+(parseInt(ex,10)||0)) : '';
+        tEl.readOnly = both;
+        if(mode){ mode.textContent = both ? '(auto = CW + Exam)' : '(enter CW and Exam)'; mode.style.color='#16a34a'; }
+    } else {
+        tEl.readOnly = false;
+        if(mode){ mode.textContent='(overridden — clear to auto)'; mode.style.color='#b45309'; }
+    }
+}
+window.submitEdit=function(){ if(!_id)return; var cw=qs('editCW').value.trim(), ex=qs('editExam').value.trim(), note=qs('editNote').value.trim(); var tot=_totalOverridden ? qs('editTotal').value.trim() : ''; clearAlert('editAlert'); qs('btnEditSave').disabled=true; callAJAX('SaveAdminMarks',{id:_id,cw:cw===''?null:parseInt(cw,10),exam:ex===''?null:parseInt(ex,10),total:tot===''?null:parseInt(tot,10),note:note},function(d){ qs('btnEditSave').disabled=false; if(d.success){showToast('Marks saved.','ok');window.closeModal('modalEdit');setTimeout(function(){location.reload();},800);} else showAlert('editAlert',d.message||'Save failed.','err'); }); };
 window.resetToPending=function(id){ if(!confirm('Reset this record back to Pending status? The lecturer will need to re-submit.')) return; callAJAX('ResetToPending',{id:id},function(d){ if(d.success){showToast('Record reset to pending.','ok');setTimeout(function(){location.reload();},800);} else showToast(d.message||'Reset failed.','err'); }); };
 window.openBulkModal=function(action){ if(_selectedIds.length===0){showToast('No records selected.','err');return;} _bulkAction=action; var labels={approved:'Approve '+_selectedIds.length+' records',rejected:'Reject '+_selectedIds.length+' records',published:'Publish '+_selectedIds.length+' records to final results'}; qs('bulkModalTitle').textContent='Bulk '+action.charAt(0).toUpperCase()+action.slice(1); qs('bulkDesc').textContent=labels[action]+'.'; qs('bulkComment').value=''; clearAlert('bulkAlert'); qs('bulkReqNote').style.display=action==='rejected'?'':'none'; qs('bulkCommentWrap').style.display=action==='published'?'none':''; openModal('modalBulk'); };
 window.submitBulk=function(){ if(!_bulkAction||_selectedIds.length===0)return; var comment=qs('bulkComment').value.trim(); if(_bulkAction==='rejected'&&!comment){showAlert('bulkAlert','Comment required for bulk rejection.','err');return;} clearAlert('bulkAlert'); qs('btnBulkConfirm').disabled=true; callAJAX('BulkAction',{ids:_selectedIds,action:_bulkAction,comment:comment},function(d){ qs('btnBulkConfirm').disabled=false; if(d.success){showToast(d.message||'Bulk action completed.','ok');window.closeModal('modalBulk');setTimeout(function(){location.reload();},800);} else showAlert('bulkAlert',d.message||'Bulk action failed.','err'); }); };

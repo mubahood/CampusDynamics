@@ -746,9 +746,23 @@ public static class MarksControllerShared
             if (cw == null && exam == null && total == null)
                 return js.Serialize(new { success = false, message = "At least one mark value is required." });
 
+            // Total rule, enforced here as well as in the browser: when BOTH course work and
+            // exam are present the total is their sum, unless a block figure was deliberately
+            // typed. The client only sends a total when the operator overrode it — a total it
+            // merely displayed is sent as null — so a value arriving here is an override and is
+            // honoured. Recomputing server-side matters because the browser is not the only
+            // caller and a stale total must never be able to overwrite a corrected mark.
             int? computedTotal = total;
             if (computedTotal == null && cw != null && exam != null)
                 computedTotal = cw.Value + exam.Value;
+
+            if (cw != null && (cw.Value < 0 || cw.Value > 100))
+                return js.Serialize(new { success = false, message = "Course work must be between 0 and 100." });
+            if (exam != null && (exam.Value < 0 || exam.Value > 100))
+                return js.Serialize(new { success = false, message = "Exam marks must be between 0 and 100." });
+            if (computedTotal != null && (computedTotal.Value < 0 || computedTotal.Value > 100))
+                return js.Serialize(new { success = false,
+                    message = "Total works out to " + computedTotal.Value + ", which is outside 0–100. Check the course work and exam marks." });
 
             string actor = MarksAuthorizationService.GetCurrentUser();
             string reviewComment = string.IsNullOrWhiteSpace(note) ? "Admin mark override" : note.Trim();
