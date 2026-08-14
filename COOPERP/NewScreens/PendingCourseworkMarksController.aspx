@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="PendingCourseworkMarksController.aspx.cs" Inherits="COOPERP_NewScreens_PendingCourseworkMarksController" Title="Pending Coursework Marks Controller - Admin" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="PendingCourseworkMarksController.aspx.cs" Inherits="COOPERP_NewScreens_PendingCourseworkMarksController" Title="Pending Coursework Marks Controller - Admin" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
@@ -48,8 +48,11 @@
 .pm-pager .active{background:#05275C;border-color:#05275C;color:#fff;}
 .pm-table-wrap{overflow:auto;scrollbar-color:#b6c5db #f5f8fc;scrollbar-width:thin;background:#fff;position:relative;padding:0;}
 .pm-table{width:100%;min-width:920px;border-collapse:collapse;table-layout:fixed;}
-.pm-table th{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e0e5ed;font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;padding:4px 4px;text-align:left;white-space:nowrap;z-index:1;}
-.pm-table td{border-bottom:1px solid #eef2f6;font-size:10px;color:#1f2937;padding:4px 4px;vertical-align:middle;background:#fff;overflow:visible;}
+.pm-table th{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e0e5ed;font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;padding:3px 3px;text-align:left;white-space:nowrap;z-index:1;}
+.pm-table td{border-bottom:1px solid #eef2f6;font-size:10px;color:#1f2937;padding:2px 3px;vertical-align:middle;background:#fff;overflow:visible;}
+/* Course title under its code — shared row markup renders this on all four
+   marks controllers, so the rule has to exist on each of them. */
+.pm-subname{display:block;font-size:8px;line-height:1.2;color:#94a3b8;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:1px;}
 .pm-table tbody tr:hover td{background:#fafcff;}
 .pm-table tr.row--pending td:first-child{border-left:3px solid #f59e0b;}
 .pm-table tr.row--approved td:first-child{border-left:3px solid #22c55e;}
@@ -58,7 +61,7 @@
 .pm-table .col-sel{width:30px;text-align:center;}
 .pm-table .col-regno{width:88px;}
 .pm-table .col-student{width:112px;}
-.pm-table .col-course{width:64px;}
+.pm-table .col-course{width:126px;}
 .pm-table .col-prog{width:58px;}
 .pm-table .col-yr{width:68px;}
 .pm-table .col-sem{width:84px;text-align:left;}

@@ -368,7 +368,16 @@ public static class MarksControllerShared
                     sb.AppendFormat("<td class='col-sel pm-center'><input type='checkbox' class='pm-row-chk pm-row-sel' value='{0}' title='Select for batch action' /></td>", id);
                     sb.AppendFormat("<td class='col-regno' title='{0}'><span class='pm-code pm-ellipsis'>{0}</span></td>", HtmlEnc(regno));
                     sb.AppendFormat("<td class='col-student' title='{0}'><span class='pm-ellipsis'>{0}</span></td>", HtmlEnc(studentName));
-                    sb.AppendFormat("<td class='col-course' title='{1}'><span class='pm-code pm-ellipsis'>{0}</span>{2}</td>", HtmlEnc(courseID), HtmlEnc(courseName), rtBadge);
+                    // Code on top, title beneath it in small muted type. The name was only ever a
+                    // tooltip, which is invisible on a phone and useless when scanning a list —
+                    // a row could not be read without already knowing what the code meant.
+                    // Suppressed when the name is just the code repeated (no catalogue entry).
+                    string courseNameLine =
+                        (!string.IsNullOrEmpty(courseName) &&
+                         !string.Equals(courseName.Trim(), (courseID ?? "").Trim(), StringComparison.OrdinalIgnoreCase))
+                            ? "<span class='pm-subname'>" + HtmlEnc(courseName) + "</span>" : "";
+                    sb.AppendFormat("<td class='col-course' title='{0} — {1}'><span class='pm-code pm-ellipsis'>{0}</span>{2}{3}</td>",
+                        HtmlEnc(courseID), HtmlEnc(courseName), rtBadge, courseNameLine);
                     sb.AppendFormat("<td class='col-prog pm-muted'><span class='pm-ellipsis'>{0}</span></td>", HtmlEnc(progId));
                     sb.AppendFormat("<td class='col-yr pm-muted'>{0}</td>", HtmlEnc(acadYear));
                     sb.AppendFormat("<td class='col-sem pm-muted'><strong>Yr {0}, Sem {1}</strong></td>", HtmlEnc(studyYear), HtmlEnc(semester));

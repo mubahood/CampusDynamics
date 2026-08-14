@@ -51,25 +51,56 @@
 .pm-pager .active{background:#05275C;border-color:#05275C;color:#fff;}
 .pm-table-wrap{overflow:auto;scrollbar-color:#b6c5db #f5f8fc;scrollbar-width:thin;background:#fff;position:relative;padding:0;}
 .pm-table{width:100%;min-width:920px;border-collapse:collapse;table-layout:fixed;}
-.pm-table th{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e0e5ed;font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;padding:4px 4px;text-align:left;white-space:nowrap;z-index:1;}
-.pm-table td{border-bottom:1px solid #eef2f6;font-size:10px;color:#1f2937;padding:4px 4px;vertical-align:middle;background:#fff;overflow:visible;}
+.pm-table th{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e0e5ed;font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800;padding:3px 3px;text-align:left;white-space:nowrap;z-index:1;}
+.pm-table td{border-bottom:1px solid #eef2f6;font-size:10px;color:#1f2937;padding:2px 3px;vertical-align:middle;background:#fff;overflow:visible;line-height:1.25;}
+/* Course title under its code — deliberately tiny, it is context not the key. */
+.pm-subname{display:block;font-size:8px;line-height:1.2;color:#94a3b8;font-weight:500;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:1px;}
 .pm-table tbody tr:hover td{background:#fafcff;}
 .pm-table tr.row--pending td:first-child{border-left:3px solid #f59e0b;}
 .pm-table tr.row--approved td:first-child{border-left:3px solid #22c55e;}
 .pm-table tr.row--rejected td:first-child{border-left:3px solid #ef4444;}
 .pm-table tr.row--published td:first-child{border-left:3px solid #3b82f6;}
-.pm-table .col-sel{width:30px;text-align:center;}
-.pm-table .col-regno{width:88px;}
-.pm-table .col-student{width:112px;}
-.pm-table .col-course{width:64px;}
-.pm-table .col-prog{width:58px;}
-.pm-table .col-yr{width:68px;}
-.pm-table .col-sem{width:84px;text-align:left;}
-.pm-table .col-mark{width:38px;text-align:center;}
-.pm-table .col-pub{width:46px;text-align:center;}
-.pm-table .col-grade{width:46px;text-align:center;}
-.pm-table .col-status{width:62px;text-align:center;}
-.pm-table .col-act{width:34px;text-align:center;overflow:visible;}
+.pm-table .col-sel{width:26px;text-align:center;}
+.pm-table .col-regno{width:84px;}
+.pm-table .col-student{width:108px;}
+/* Wider now that it carries the course title as well. */
+.pm-table .col-course{width:132px;}
+.pm-table .col-prog{width:52px;}
+.pm-table .col-yr{width:62px;}
+.pm-table .col-sem{width:76px;text-align:left;}
+.pm-table .col-mark{width:34px;text-align:center;}
+.pm-table .col-pub{width:42px;text-align:center;}
+.pm-table .col-grade{width:42px;text-align:center;}
+.pm-table .col-status{width:58px;text-align:center;}
+.pm-table .col-act{width:30px;text-align:center;overflow:visible;}
+
+/* ── Narrower screens ────────────────────────────────────────────────────────
+   Fourteen columns of marks data cannot be reflowed into a phone, so the table
+   keeps every column and scrolls sideways inside its own wrapper — the page
+   itself never scrolls horizontally. Columns are NOT hidden at breakpoints:
+   under table-layout:fixed the <colgroup> widths map to the columns that are
+   actually rendered, so dropping one silently shifts every width after it.
+   What steps down is padding, type size and the minimum width. */
+@media (max-width:1100px){
+    .pm-table th,.pm-table td{padding:2px;font-size:9.5px;}
+    .pm-table{min-width:860px;}
+}
+@media (max-width:820px){
+    .pm-table .col-student{width:96px;}
+    .pm-table .col-course{width:118px;}
+    .pm-table{min-width:800px;}
+}
+@media (max-width:560px){
+    .pm-table th{font-size:8px;letter-spacing:.3px;padding:2px;}
+    .pm-table td{font-size:9.5px;padding:2px;}
+    .pm-subname{font-size:7.5px;}
+    .pm-table .col-regno{width:78px;}
+    .pm-table .col-student{width:88px;}
+    .pm-table{min-width:760px;}
+    .pm-table-wrap{-webkit-overflow-scrolling:touch;}
+    .pm-meta{font-size:9.5px;}
+}
 .pm-head-act{display:flex;align-items:center;justify-content:center;gap:4px;}
 .pm-row-sel{width:14px;height:14px;cursor:pointer;accent-color:#174DA4;}
 .pm-ellipsis{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
