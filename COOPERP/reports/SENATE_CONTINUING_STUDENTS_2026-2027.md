@@ -2,8 +2,14 @@
 ## Report to Senate — Continuing Student Body, Academic Year 2026/2027
 
 **Prepared:** 14 August 2026
+**Revised:** 15 August 2026 — §13 added in response to the Academic Registrar's query on Year 3
 **Source:** Campus Dynamics EMIS — semester registrations for 2026/2027, live extract
 **Scope:** Students in Years 1, 2 and 3 who are **continuing**. Finalists are excluded.
+
+> **Revision note.** The figures in §§2–12 are the 14 August extract and are unchanged, so they
+> remain the numbers Senate was given. §13 was added on 15 August and carries its own, later
+> figures. Where the two differ it is because registration is still open, not because anything
+> was corrected — the drift is quantified at the end of §13.
 
 ---
 
@@ -397,18 +403,19 @@ continuing cohort reads Year 1 1,105 · Year 2 829 · Year 3 128, against 1,088 
    number in the report and the figures here will not be final until it is resolved. Cohort
    tracking (§13) confirms it independently: **37.3% of last year's Year 1 and 22.8% of its
    Year 2 have not come back**, once students who were legitimately finishing are excluded.
-4b. **Year 3 is correct, and was queried by the Academic Registrar.** Only 150 students in the
+5. **Year 3 is correct, and was queried by the Academic Registrar.** Only 150 students in the
    University are eligible to be a continuing Year 3 — everyone else on Year 3 is a graduand —
-   and 122 of them registered. §13 shows the working.
-5. **One student in five carries a failed paper forward; among Kirumba Year 3, more than one in
+   and 122 of them registered, an 81% continuation rate. §13 shows the working.
+6. **One student in five carries a failed paper forward; among Kirumba Year 3, more than one in
    four.** Retake capacity should be planned against the per-student figure, not the 96% paper
    pass rate.
-6. **64% of the cohort is on a programme taught at both campuses.** The same awards are issued
+7. **64% of the cohort is on a programme taught at both campuses.** The same awards are issued
    from two sites, which argues for common curriculum governance and shared external examination.
 
 ---
 
-*Figures are a live extract taken on 14 August 2026 while registration for 2026/2027 remains
-open. The cohort is defined by semester registration in `acad_registration` for 2026/2027;
-programme length is taken from the student's own recorded duration where set and from the
-programme catalogue otherwise.*
+*Sections 1–12 are a live extract taken on 14 August 2026; §13 was added on 15 August 2026 and
+uses figures of that date. Registration for 2026/2027 remains open throughout, so all counts are
+a position rather than a final census. The cohort is defined by semester registration in
+`acad_registration` for 2026/2027; programme length is taken from the student's own recorded
+duration where set and from the programme catalogue otherwise.*
