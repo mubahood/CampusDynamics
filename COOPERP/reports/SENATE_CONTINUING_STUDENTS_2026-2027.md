@@ -3,10 +3,12 @@
 
 **Prepared:** 14 August 2026
 **Revised:** 15 August 2026 — §13 (Year 3 query) and §14 added at the Academic Registrar's
-request. §14 rebuilds the cohort from three components only — entry year, programme length and
-positive transactions — **without using semester registration at all**, reports graduands by
-award, and grades its own result by how much corroboration each figure carries. §12 carries the
-data-quality findings that verifying programme length produced.
+request. §14 rebuilds the picture from three components only — entry year, programme length and
+positive transactions — **without using semester registration at all**, and **counts final-year
+students as current students**, which §§1–12 do not. On that basis the student body is **3,835**
+and Year 3 is **935**, against 2,042 and 127 here. Both are correct answers to different
+questions; §14 opens by setting out which is which. §12 carries the data-quality findings that
+verifying programme length produced.
 **Source:** Campus Dynamics EMIS — semester registrations for 2026/2027, live extract
 **Scope:** Students in Years 1, 2 and 3 who are **continuing**. Finalists are excluded.
 
@@ -403,46 +405,57 @@ continuing cohort reads Year 1 1,105 · Year 2 829 · Year 3 128, against 1,088 
 
 ---
 
-## 14. Alternative basis — entry year, programme length, and positive transactions
+## 14. The student body seen from entry year, programme length and money
 
 *Added 15 August 2026 at the Academic Registrar's request.*
 
 Sections 1–13 take a student's year of study from the semester register. This section rebuilds
-the cohort **without using the register at all.** It rests on three components and nothing else:
+the picture **without using the register at all**, from three components and nothing else:
 
 1. **Entry year gives the year of study** — 2026 → Year 1, 2025 → Year 2, 2024 → Year 3,
    2023 → Year 4.
-2. **Programme length says who is finishing** — a student who has reached the length of their own
-   award is graduating, not continuing. This is needed because entry year alone cannot tell:
-   a 2026 entrant on a one-year certificate is already finishing, while a 2024 entrant on a
-   four-year degree is not.
+2. **Programme length says whether a student is still on their course.** A 2024 entrant on a
+   three-year degree is in Year 3 and still studying; a 2024 entrant on a two-year diploma
+   finished last year and is not.
 3. **Anyone past Year 1 must show more than UGX 500,000 in positive transactions.** Any credit
-   counts — fee payment, bursary, waiver, or adjustment. What matters is that value has moved
+   counts — fee payment, bursary, waiver or adjustment. What matters is that value has moved
    through the account, not where it came from.
 
-The purpose of dropping the register is to answer a different question from §§1–12. The register
-says who is *on the list*. This basis asks who the University has **independent evidence of** —
-an entry record, a programme with a known length, and money.
+### An important difference from §§1–12
+
+**This section counts final-year students as current students, because they are.** A student in
+the third year of a three-year degree is sitting in a lecture room this year; they graduate at the
+*end* of it. Sections 1–12 removed them under Senate's instruction to exclude "third years who are
+about to graduate", which is why §2 reports a Year 3 of only 127 — that figure is the students who
+will *still be here next year*, not the students who are here now.
+
+Both are legitimate answers to different questions:
+
+| Question | Basis | Year 3 |
+|---|---|---:|
+| Who will still be enrolled next year? | §§1–12 | 127 |
+| **Who is studying this year?** | **§14** | **935** |
+
+The graduating group in this section is therefore the **2023 entrants** — the students who have
+reached the end of their programme and are leaving — not the 2024 entrants, who are still here.
 
 ### a) The base population
-
-Every student record with an entry year of 2023–2026, whether or not they registered:
 
 | Entry year | Year of study | Student records |
 |---|---:|---:|
 | 2026 | Year 1 | 1,670 |
 | 2025 | Year 2 | 2,238 |
 | 2024 | Year 3 | 2,114 |
-| 2023 | Year 4 | 1,453 |
+| 2023 | Year 4 — the graduating group | 1,453 |
 | **Base** | | **7,475** |
 
-This is more than twice the 3,312 who hold a 2026/2027 registration. The money test does the
-filtering that the register was doing before.
+No registration filter is applied. This is more than twice the 3,312 students who hold a 2026/2027
+registration; the money test does the filtering the register was doing before.
 
 ### b) Programme length — where it comes from, and how it was checked
 
-Programme length is load-bearing here, so it was verified against every source the system holds
-before any figure below was computed.
+Programme length decides whether a student is still on their course, so it was verified against
+every source the system holds before any figure below was computed.
 
 | Source | What it is |
 |---|---|
@@ -465,9 +478,8 @@ diplomas, every one of which bills exactly two years.** Only three disagree, and
 | "TES PROGRAM" | 3 | 2 | 2 | A test record — but it carries 5 live students; see §12 |
 
 **The per-student `duration` field is the weaker source and was not used.** It contradicts the
-master for 52 students, and the contradictions land where this section is most sensitive —
-**15 are diploma students whose record claims 3 or 4 years against a two-year award.** Using the
-master moves those 15 out of "continuing" and into the graduating class, where they belong.
+master for 52 students, 15 of them diploma students whose record claims 3 or 4 years against a
+two-year award.
 
 **Two diplomas have courses tagged to a Year 3** — 1 course in Public Administration and 17 in
 Primary Education. These are mis-tagged curriculum rows, not a third year: no diploma student
@@ -479,187 +491,177 @@ Credits are held in two places: the general ledger and the fee-tracking table. T
 the two must not simply be added. **70 students would have passed the 500,000 threshold only
 because a payment was counted twice.** The higher of the two sources is used instead of the sum,
 which is the conservative direction for a threshold test. Consulting the second source rescues
-exactly **1** student who is missing from the ledger — so the ledger is very nearly complete, but
-the double-counting risk was real.
+exactly **1** student missing from the ledger — so the ledger is very nearly complete, but the
+double-counting risk was real.
 
-### d) The money test
+### d) The continuing student body
 
-| | Students | Average positive transactions |
-|---|---:|---:|
-| Entry 2026 (Year 1) — exempt by rule | 1,670 | 278,734 |
-| Past Year 1, over 500,000 — **counted** | **3,637** | 4,352,169 |
-| Past Year 1, 500,000 or less — **excluded** | **2,168** | 28,655 |
+Within each entry year, students whose programme has already ended are set aside first — a 2024
+entrant on a two-year diploma completed in 2025/2026 and cannot be a Year 3. The money test is
+then applied to everyone past Year 1.
 
-**An independent signal confirms the exclusions almost exactly.** Of the 2,168 removed, **2,084 —
-96% — sat no examination paper at all in 2025/2026.** Their average is 0.1 papers. The students
-who pass average **12 to 13 papers**. These are not two ends of one distribution; they are two
-different populations, and money and examinations identify the same one.
+| Year of study | Entry year | Admitted | Course already ended | Still on course | **Counted** |
+|---|---:|---:|---:|---:|---:|
+| Year 1 | 2026 | 1,670 | 0 | 1,670 | **1,670** |
+| Year 2 | 2025 | 2,238 | 105 | 2,133 | **1,230** |
+| Year 3 | 2024 | 2,114 | 685 | 1,429 | **935** |
+| **Total** | | **6,022** | **790** | **5,232** | **3,835** |
 
-### e) Continuing students
-
-| Year of study | Students |
-|---|---:|
-| Year 1 (entry 2026) | 1,569 |
-| Year 2 (entry 2025) | 975 |
-| Year 3 (entry 2024) | 111 |
-| **Continuing total** | **2,655** |
+The 790 whose course has ended are the short awards: 685 of the 2024 intake were on two-year
+diplomas, one-year certificates or two-year masters and finished before this year; 105 of the 2025
+intake were on one-year certificates.
 
 | Campus | Yr 1 | Yr 2 | Yr 3 | Total |
 |---|---:|---:|---:|---:|
-| Kirumba | 847 | 523 | 110 | **1,480** |
-| Kakeeka | 722 | 452 | 1 | **1,175** |
+| Kirumba | 896 | 674 | 421 | **1,991** |
+| Kakeeka | 774 | 556 | 514 | **1,844** |
 
 | Faculty | Yr 1 | Yr 2 | Yr 3 | Total |
 |---|---:|---:|---:|---:|
-| Education | 582 | 444 | 0 | **1,026** |
-| STEAD | 578 | 273 | 111 | **962** |
-| Business and Management | 310 | 183 | 0 | **493** |
-| Social Sciences, Arts & Humanities | 99 | 75 | 0 | **174** |
+| Education | 680 | 517 | 430 | **1,627** |
+| STEAD | 578 | 404 | 212 | **1,194** |
+| Business and Management | 313 | 226 | 208 | **747** |
+| Social Sciences, Arts & Humanities | 99 | 83 | 85 | **267** |
 
-**Year 3 is small here for the same structural reason given in §13, and this basis makes it
-plain.** A third-year student on a three-year degree is *finishing*, not continuing — they appear
-in the graduating table below, not this one. The only continuing third-years the University has
-are the civil and electrical engineering students on its two four-year programmes, which is why
-Year 3 is 111 and why all but one of them are at Kirumba.
+| Award | Yr 1 | Yr 2 | Yr 3 | Total |
+|---|---:|---:|---:|---:|
+| Bachelor | 1,211 | 975 | 935 | **3,121** |
+| Diploma | 338 | 243 | 0 | **581** |
+| Certificate | 98 | 0 | 0 | **98** |
+| Masters | 20 | 12 | 0 | **32** |
+| Postgraduate Diploma | 3 | 0 | 0 | **3** |
 
-### f) Expected to graduate
+Gender is 1,997 female to 1,837 male — **52.1% female**, close to the parity §5 reports on the
+register basis.
 
-Reported separately, and described by award rather than by a year number.
+**Year 3 is a full cohort on this basis, and the two campuses swap places within it.** Kakeeka has
+more third-years than Kirumba (514 v 421) even though Kirumba is larger overall, because Kakeeka's
+2024 intake went mainly into three-year degrees while a large part of Kirumba's went into
+two-year diplomas that have already finished.
 
-| Award | Length | Graduands |
-|---|---:|---:|
-| Certificate | 1 yr | 98 |
-| **Diploma** | **2 yr** | **243** |
-| Bachelor | 3 yr | 824 |
-| Bachelor (engineering) | 4 yr | 65 |
-| Postgraduate Diploma | 1 yr | 3 |
-| Masters | 2 yr | 12 |
-| **Total expected to graduate** | | **1,245** |
+**Year 3 is entirely bachelors.** Every diploma, certificate and masters student from the 2024
+intake has completed, which is why the diploma line shows 581 students in Years 1 and 2 and none
+in Year 3. That is the structure of the awards, not attrition.
 
-| Campus | Certificate | Diploma | Bachelor | Postgraduate | Total |
-|---|---:|---:|---:|---:|---:|
-| Kakeeka | 51 | 98 | 513 | 7 | **669** |
-| Kirumba | 47 | 145 | 376 | 8 | **576** |
+### e) The money test, and whether it is safe
 
-| Faculty | Graduands |
-|---|---:|
-| Education | 601 |
-| STEAD | 297 |
-| Business and Management | 254 |
-| Social Sciences, Arts & Humanities | 93 |
+| Year of study | Excluded | Of those, sat no paper in 2025/26 | Average transactions, excluded | Average papers, counted |
+|---|---:|---:|---:|---:|
+| Year 1 | 0 — exempt by rule | — | — | — |
+| Year 2 | 903 | 836 | 29,649 | 12.0 |
+| Year 3 | 494 | 485 | 34,518 | 13.1 |
+| **Total** | **1,397** | **1,321 (95%)** | | |
 
-**Kakeeka produces more graduands than Kirumba (669 v 576) despite the smaller continuing body**,
-because its programmes are shorter and it turns cohorts over faster. The composition reverses by
-award: **Kirumba produces most of the diploma graduands (145 v 98), Kakeeka most of the degree
-graduands (513 v 376).** Graduands are 685 female to 560 male.
+**An unrelated signal confirms the exclusions.** 95% of the students the money test removes sat no
+examination paper at all last year, while those it keeps averaged twelve to thirteen papers. Money
+and examinations identify the same population, which is why the test can be relied on.
 
-### g) The diploma cohort in particular
+### f) Students expected to graduate
 
-Diplomas run two years, so a diploma student is either in Year 1 or finishing — there is no middle
-year. That makes this population unusually clean to read, and it exposes the sharpest finding in
-the section:
+The 2023 entrants — the group Senate asked to have taken out of the continuing figures.
 
-| Diploma students | Total | Counted | Excluded by the money test |
-|---|---:|---:|---:|
-| Continuing (Year 1, entry 2026) | 338 | 338 | 0 |
-| **Finishing (entry 2025)** | **487** | **243** | **244 (50%)** |
-| Past two years | 797 | 569 | 228 |
+| Award | Length | Total admitted 2023 | Counted | Position |
+|---|---:|---:|---:|---|
+| Bachelor | 3 yr | 955 | **624** | Completed at the end of 2025/2026 — **this year's degree graduands** |
+| Diploma | 2 yr | 323 | **225** | Completed earlier; awaiting or already given their award |
+| Certificate | 1 yr | 57 | **24** | Completed earlier |
+| Bachelor (engineering) | 4 yr | 118 | **65** | **Still studying** — in Year 4 of a four-year degree |
+| **Total** | | **1,453** | **938** | |
 
-**Half of all diploma finalists fail the money test, while not one continuing diploma student
-does.** The asymmetry is structural rather than coincidental — Year 1 is exempt by rule, and every
-continuing diploma student is in Year 1, so the finalists are the first diploma group the test is
-actually applied to.
+| Campus | Graduating group | | Faculty | Graduating group |
+|---|---:|---|---|---:|
+| Kakeeka | 544 | | Education | 390 |
+| Kirumba | 394 | | STEAD | 226 |
+| | | | Business and Management | 208 |
+| | | | Social Sciences, Arts & Humanities | 114 |
 
-The independent check is emphatic:
+**The core of this year's graduation list is the 624 three-year degree students** who finished at
+the end of 2025/2026. The 65 engineering students who entered in 2023 are the exception noted
+above — a four-year degree means they are still on course, in Year 4, and have not left.
 
-| Diploma finalists | Papers sat 2025/26 | Average positive transactions |
+**515 of the 1,453 fail the money test, and 514 of those sat no examination paper last year.**
+They should not appear on a graduation list without being checked.
+
+### g) The diploma cohort
+
+Diplomas run two years, so the diploma population sits entirely in Years 1 and 2 — and every
+diploma student in Year 2 is in their final year:
+
+| Entry year | Year of study | Diploma students | Still on course | Counted |
+|---|---:|---:|---:|---:|
+| 2026 | Year 1 | 338 | 338 | **338** |
+| 2025 | **Year 2 — final year** | 487 | 487 | **243** |
+| 2024 | Year 3 | 474 | 0 — completed 2025/26 | — |
+| 2023 | Year 4 | 323 | 0 — completed 2024/25 | — |
+
+**Half of the diploma final-year students fail the money test — 244 of 487 — while not one of the
+338 in Year 1 does.** The asymmetry is structural: Year 1 is exempt from the test by rule, so the
+second-years are the first diploma group it is actually applied to.
+
+| Diploma final-years | Papers sat 2025/26 | Average positive transactions |
 |---|---|---:|
 | 243 counted | 11.6 average — only 3 sat nothing | 2,446,815 |
 | **244 excluded** | **0.2 average — 225 sat nothing** | **35,111** |
 
-**A diploma graduation list built from records alone would carry 487 names, and half of those
-students show neither money nor examinations for the year they are supposed to be completing.**
-
-Where the 243 genuine diploma graduands sit:
-
-| Programme | Graduands | | Programme | Graduands |
-|---|---:|---|---|---:|
-| Primary Education | 48 | | Early Child Development | 17 |
-| Information Technology | 47 | | Business Administration | 11 |
-| Electrical Engineering | 36 | | Art and Design | 8 |
-| Civil Engineering | 30 | | Mechanical Engineering | 7 |
-| Accounting and Finance | 20 | | Public Administration and others | 19 |
+**A diploma completion list built from records alone would carry 487 names, and half of those
+students show neither money nor examinations for the year they are supposed to be finishing.**
+This is the sharpest single finding in the section.
 
 ### h) How much confidence each figure carries
 
-The three components are deliberately independent of the register, but the register is still
-useful for *testing* the result. Grading each counted student by how much corroboration exists
-turns a single number into a number with a known core:
+The three components are independent of the register, but the register is still useful for
+*testing* the result. Grading each counted student by how much corroboration exists turns one
+number into a number with a known core:
 
-| Evidence | Continuing | Graduands |
-|---|---:|---:|
-| **A** — passes the money test **and** holds a 2026/2027 registration | **1,933** | **921** |
-| **B** — no registration, but paying **in the current year** | 151 | 40 |
-| **C** — no registration, passes on **historical** transactions only | 571 | 284 |
-| **Total on this basis** | **2,655** | **1,245** |
+| Evidence | Yr 1 | Yr 2 | Yr 3 | Total |
+|---|---:|---:|---:|---:|
+| **A** — passes the money test **and** holds a 2026/2027 registration | 1,101 | 1,010 | 727 | **2,838** |
+| **B** — no registration, but paying **in the current year** | 122 | 45 | 19 | **186** |
+| **C** — no registration, passes on **historical** transactions only | 447 | 175 | 189 | **811** |
+| **Total** | **1,670** | **1,230** | **935** | **3,835** |
 
-**Tier A is the hard core** and it reproduces the register-based figures exactly. **Tier B is the
-most interesting group in this report**: 191 students who are paying the University money *this
-year* but hold no registration for it. They are almost certainly present and their registration
-has not been captured — which is the billing-and-registration gap already noted in §8, seen from
-the other side.
+**Tier A, 2,838 students, is the hard core** — corroborated by two independent systems.
 
-**Tier C is where the method is weakest**, and it should not be presented to Senate as equivalent
-to Tier A. Those 855 students clear the threshold on money paid in earlier years, and cumulative
-transactions cannot distinguish "still here" from "left after paying". They are candidates for
-follow-up, not confirmed students.
+**Tier B is the most actionable group in this report**: 186 students paying the University money
+*this year* who appear on no register. They are almost certainly present with their registration
+uncaptured — the billing-and-registration gap of §8 seen from the other side.
+
+**Tier C is where the method is weakest** and should not be presented as equivalent to Tier A.
+Those 811 clear the threshold on money paid in earlier years, and cumulative transactions cannot
+distinguish "still here" from "left after paying".
 
 ### i) Two places where the method is soft
 
-**The Year 1 exemption is doing a great deal of work.** Exempting entry-2026 students is right in
-principle — they cannot have a payment history — but it means Year 1 is admitted without any test
-at all, and **776 of the 1,670 Year 1 records have no positive transaction of any kind.** The
-examination check cannot help here either, because a 2026 entrant is not expected to have sat
-anything in 2025/2026. Year 1 therefore rests on the admission record alone.
+**The Year 1 exemption is doing a great deal of work.** Exempting the 2026 entrants is right in
+principle — they cannot have a payment history — but it means the whole of Year 1 is admitted
+untested, and **776 of the 1,670 Year 1 records show no positive transaction of any kind.** The
+examination check cannot help either, since a 2026 entrant is not expected to have sat anything in
+2025/2026. Year 1 rests on the admission record alone.
 
-That said, **418 of those 776 do hold a current registration**, which suggests most are genuine
-students who have not yet been billed rather than absentees. The remaining **358 have neither a
-transaction nor a registration** and are the group to verify.
-
-For reference, had the same 500,000 threshold been applied to Year 1, it would fall from 1,569 to
-339; requiring merely *some* positive transaction would give 826. Neither is recommended — both
-punish students for the University's billing timing — but the spread shows how much of the Year 1
-figure is untested.
+That said, **418 of those 776 do hold a current registration**, so most are likely genuine students
+not yet billed rather than absentees. The remaining **358 have neither a transaction nor a
+registration** and are the group to verify.
 
 **Cumulative money cannot date a student's presence.** A student who paid 2 million in 2025/2026
-and left still passes a test written against lifetime transactions. That is what Tier C isolates,
-and it is why the tiering in (h) matters more than the headline.
+and then left still passes a test written against lifetime transactions. That is precisely what
+Tier C isolates, and it is why the grading in (h) matters more than the headline total.
 
-### j) Students already past their programme length
-
-**1,407 students pass the money test but have exceeded the length of their award** — 624 bachelors
-who entered 2023 on three-year degrees, 344 diploma students who entered 2024, 225 diploma
-students from 2023, and others. They are excluded from both tables above, and they should be:
-**only 22 of the 1,407 hold a 2026/2027 registration**, which is exactly what one expects of
-students who have completed and left. Programme length is doing useful work here — without it,
-entry-year arithmetic alone would have swept these 1,407 alumni back into the cohort.
-
-### k) Recommendation
+### j) Recommendation
 
 Use the two bases for different questions rather than choosing between them:
 
-- **The register (§§1–12) for official enrolment.** It handles direct and advanced entry
-  correctly, and it is the auditable record.
-- **This basis (§14) as an assurance test**, reported with its tiers rather than as a single
-  number: **a confirmed core of 1,933 continuing and 921 graduands, 191 students who are paying
-  now but are not on any register, and 855 who need checking.**
+- **The register (§§1–12) for official enrolment**, and for the question Senate originally asked —
+  who continues *beyond* this year.
+- **This basis (§14) for the size of the current student body**, reported with its tiers rather
+  than as a single number: **a confirmed core of 2,838, plus 186 who are paying now but registered
+  nowhere, and 811 who need checking.**
 
-Two lists come out of it, and both are more useful than the headline totals:
+Two follow-up lists come out of it, and both are more useful than any headline total:
 
-1. **The 191 in Tier B** — paying this year, registered nowhere. Capture their registrations.
-2. **The 244 excluded diploma finalists and 734 excluded finalists overall** — no money, no
-   examinations, but on course to appear on a graduation list. **This should be resolved before
-   any graduation list is approved.**
+1. **The 186 in Tier B** — paying this year, on no register. Capture their registrations.
+2. **The 244 excluded diploma final-years, and 515 of the 2023 leaving group** — no money, no
+   examinations, but on course to appear on a completion or graduation list. **This should be
+   resolved before any graduation list is approved.**
 
 ---
 
@@ -684,22 +686,26 @@ Two lists come out of it, and both are more useful than the headline totals:
    pass rate.
 7. **64% of the cohort is on a programme taught at both campuses.** The same awards are issued
    from two sites, which argues for common curriculum governance and shared external examination.
-8. **§14 rebuilds the cohort without the register, from entry year, programme length and money
-   alone.** It gives **2,655 continuing and 1,245 expected to graduate** — but its value is that
-   it grades its own answer: **1,933 continuing and 921 graduands are corroborated by a
-   registration**, 191 more are **paying the University this year while appearing on no register**,
-   and 855 pass only on historical transactions and need checking.
-9. **Year 3 is small for a structural reason, not attrition.** On a three-year degree, a
-   third-year is *finishing* — so the University's third-years are graduands, and the only
-   continuing ones are the civil and electrical engineering students on its two four-year
-   programmes. §§13 and 14(e) both reach this independently, and it should close the query.
-10. **Half of all diploma finalists — 244 of 487 — show neither money nor examinations.** 225 of
-    them sat no paper at all in 2025/2026, against 3 of the 243 who pass. **This should be
-    resolved before any diploma graduation list is approved**, since a list built from records
-    alone would carry all 487 names. Across all awards, 734 finalists fall in this category.
-11. **The money test is confirmed by an unrelated signal.** Of the 2,168 students it excludes,
-    **2,084 — 96% — sat no examination paper at all last year.** Money and examinations identify
-    the same population, which is why the exclusions can be relied on.
+8. **§14 answers a different question and gets a much larger answer: 3,835 students are studying
+   this year, with a Year 3 of 935.** The gap with the 2,042 above is not a contradiction —
+   §§1–12 remove final-year students under Senate's instruction, so they report who will *still
+   be here next year*, while §14 reports who is *here now*. Senate should be clear which figure
+   it is quoting, and to whom.
+9. **The 2023 entrants are the group leaving: 938 of them.** Of those, **624 are the three-year
+   degree students who finished at the end of 2025/2026** and are this year's degree graduands.
+   The 65 engineering students who entered in 2023 are still on course, in Year 4 of a four-year
+   degree.
+10. **Half of all diploma final-year students — 244 of 487 — show neither money nor
+    examinations.** 225 of them sat no paper at all in 2025/2026, against 3 of the 243 who pass.
+    **This should be resolved before any diploma completion list is approved**, since a list
+    built from records alone would carry all 487 names. A further 515 of the 2023 leaving group
+    fail the same test, 514 of them having sat nothing.
+11. **The money test is confirmed by an unrelated signal.** 95% of the students it removes from
+    the continuing body sat no examination paper at all last year, while those it keeps averaged
+    twelve to thirteen papers. Money and examinations identify the same population.
+12. **186 students are paying the University this year but appear on no register.** They are
+    almost certainly present with their registration uncaptured — the clearest actionable list
+    in this report, and the same gap §8 describes from the other direction.
 
 ---
 
@@ -707,9 +713,12 @@ Two lists come out of it, and both are more useful than the headline totals:
 and use figures of that date. Registration for 2026/2027 remains open throughout, so all counts
 are a position rather than a final census.*
 
-*The two bases differ deliberately. §§1–12 define the cohort by semester registration in
-`acad_registration` for 2026/2027, taking programme length from the student's own recorded
-duration where set. §14 does not use registration at all: it works from entry year, programme
-length taken from the programme master (`acad_programme.couselength`, verified against the fee
-structures and curriculum), and positive transactions drawn from the general ledger and
-fee-tracking table — the higher of the two, never the sum, so that no payment is counted twice.*
+*The two bases differ deliberately, in two ways. §§1–12 define the cohort by semester
+registration in `acad_registration` for 2026/2027, take programme length from the student's own
+recorded duration where set, and **exclude final-year students**. §14 uses no registration at all:
+it works from entry year, programme length taken from the programme master
+(`acad_programme.couselength`, verified against the fee structures and curriculum), and positive
+transactions drawn from the general ledger and fee-tracking table — the higher of the two, never
+the sum, so no payment is counted twice — and it **includes final-year students, because they are
+studying this year.** That second difference, not the method, is what accounts for most of the
+gap between 2,042 and 3,835.*
