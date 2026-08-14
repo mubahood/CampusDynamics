@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.Globalization;
 using System.Text;
+using System.Web;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 using MySql.Data.MySqlClient;
@@ -28,9 +30,19 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
     // LIFECYCLE
     // ================================================================
 
+    /// <summary>Set once an AJAX response has been written, so the page renders nothing after it.</summary>
+    private bool _ajaxHandled;
+
     protected override void OnInit(EventArgs e)
     {
         base.OnInit(e);
+
+        // Answered here, before any of the page's own setup runs. CompleteRequest() alone is not
+        // enough in WebForms — it skips the remaining pipeline events but the Page still renders,
+        // which appended the whole HTML document after the JSON.
+        string ajaxAction = Request.QueryString["ajax"];
+        if (!string.IsNullOrEmpty(ajaxAction)) { HandleAdjustAjax(ajaxAction); return; }
+
         // Must populate programme dropdown BEFORE ProcessPostData runs,
         // otherwise the posted selection is lost (ViewState disabled on
         // master page means items are gone, and ProcessPostData's first
@@ -41,12 +53,411 @@ public partial class COOPERP_NewScreens_FeesStructure : System.Web.UI.Page
 
     protected void Page_Load(object sender, EventArgs e)
     {
+        if (_ajaxHandled) return;
+
         // On initial load, re-populate to filter out programmes
         // that already have fee structures (cosmetic for the Add modal).
         if (!IsPostBack)
         {
             PopulatePFProgrammeDropdown("");
         }
+    }
+
+    // ================================================================
+    //  BATCH FEE ADJUSTMENT  (wizard backend)
+    // ================================================================
+    //  A fee structure decides what every student on that programme is billed, so
+    //  this is deliberately preview-then-commit, and the commit acts on the rows the
+    //  operator was shown. Three rules protect the figures:
+    //
+    //    * a cell holding 0 is left alone. Zero means "not charged for this
+    //      semester", and adding a block figure to it would invent a fee that the
+    //      programme never had.
+    //    * a year the programme does not offer (has_year_N = 'No') is never touched.
+    //    * a decrease that would take a cell below zero is skipped, not clamped.
+    //
+    //  Everything that does change is written to fin_fee_adjustment_line first, so
+    //  the batch can be reversed exactly.
+    // ================================================================
+
+    private static readonly string[] AdjSems = { "1", "2", "3" };
+
+    /// <summary>Emits nothing once an AJAX response has already been written.</summary>
+    protected override void Render(HtmlTextWriter writer)
+    {
+        if (_ajaxHandled) return;
+        base.Render(writer);
+    }
+
+    private void HandleAdjustAjax(string action)
+    {
+        _ajaxHandled = true;
+        Response.Clear();
+        Response.ContentType = "application/json";
+        Response.Cache.SetCacheability(HttpCacheability.NoCache);
+        string json;
+        try
+        {
+            switch ((action ?? "").ToLowerInvariant())
+            {
+                case "adjpreview": json = AdjustPreviewJson(); break;
+                case "adjapply":   json = AdjustApplyJson();   break;
+                case "adjundo":    json = AdjustUndoJson();    break;
+                case "adjhistory": json = AdjustHistoryJson(); break;
+                default: json = "{\"success\":false,\"message\":\"Unknown action\"}"; break;
+            }
+        }
+        catch (Exception ex)
+        {
+            json = "{\"success\":false,\"message\":" + JsStr(ex.Message) + "}";
+        }
+        Response.Write(json);
+        Response.Flush();
+        HttpContext.Current.ApplicationInstance.CompleteRequest();
+    }
+
+    private static string JsStr(string s)
+    {
+        return new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(s ?? "");
+    }
+
+    /// <summary>The 24 money columns, filtered to the years and semesters asked for.</summary>
+    private static List<string> AdjustColumns(string feeType, List<string> years, List<string> sems)
+    {
+        var cols = new List<string>();
+        string suffix = feeType == "TUITION" ? "tuition" : "functional";
+        foreach (string y in years)
+            foreach (string s in sems)
+                cols.Add("y" + y + "_s" + s + "_" + suffix);
+        return cols;
+    }
+
+    private class AdjustRequest
+    {
+        public List<int> Ids = new List<int>();
+        public string FeeType = "FUNCTIONAL";
+        public int Sign = 1;                       // +1 or -1
+        public decimal Amount = 0m;
+        public List<string> Years = new List<string>();
+        public List<string> Sems = new List<string>();
+        public string Note = "";
+        public string Error = "";
+    }
+
+    private AdjustRequest ReadAdjustRequest()
+    {
+        var q = new AdjustRequest();
+        foreach (string part in (Request["ids"] ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+        { int id; if (int.TryParse(part.Trim(), out id) && id > 0 && !q.Ids.Contains(id)) q.Ids.Add(id); }
+
+        q.FeeType = (Request["feeType"] ?? "").Trim().ToUpperInvariant();
+        if (q.FeeType != "TUITION" && q.FeeType != "FUNCTIONAL")
+        { q.Error = "Choose whether this applies to Tuition or Functional fees."; return q; }
+
+        string dir = (Request["direction"] ?? "").Trim();
+        if (dir != "+" && dir != "-")
+        { q.Error = "Choose whether this is an increase or a decrease."; return q; }
+        q.Sign = dir == "+" ? 1 : -1;
+
+        if (!decimal.TryParse((Request["amount"] ?? "").Trim(), out q.Amount) || q.Amount <= 0)
+        { q.Error = "Enter the amount to add or subtract. It must be greater than zero."; return q; }
+        if (q.Amount > 100000000m)
+        { q.Error = "That amount looks wrong (over 100,000,000). Check it before continuing."; return q; }
+
+        foreach (string y in (Request["years"] ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+        { string t = y.Trim(); if ("1234".Contains(t) && t.Length == 1 && !q.Years.Contains(t)) q.Years.Add(t); }
+        foreach (string s in (Request["sems"] ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+        { string t = s.Trim(); if (Array.IndexOf(AdjSems, t) >= 0 && !q.Sems.Contains(t)) q.Sems.Add(t); }
+
+        if (q.Ids.Count == 0) q.Error = "No fee structures were selected.";
+        else if (q.Years.Count == 0) q.Error = "Choose at least one year of study.";
+        else if (q.Sems.Count == 0) q.Error = "Choose at least one semester.";
+
+        q.Note = (Request["note"] ?? "").Trim();
+        q.Years.Sort(); q.Sems.Sort();
+        return q;
+    }
+
+    /// <summary>
+    /// Works out exactly what would change, and changes nothing. Returns one line per
+    /// cell with its current and proposed value, plus every cell it would refuse to
+    /// touch and why — so the reviewer sees the skips, not just the successes.
+    /// </summary>
+    private string AdjustPreviewJson()
+    {
+        AdjustRequest q = ReadAdjustRequest();
+        if (q.Error != "") return "{\"success\":false,\"message\":" + JsStr(q.Error) + "}";
+
+        var cols = AdjustColumns(q.FeeType, q.Years, q.Sems);
+        var sb = new StringBuilder();
+        int changed = 0, skippedZero = 0, skippedNoYear = 0, skippedNegative = 0;
+        decimal totalBefore = 0m, totalAfter = 0m, totalDelta = 0m;
+        var rows = new List<string>();
+
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            string sel = "SELECT ID, progcode, has_year_1, has_year_2, has_year_3, has_year_4, " +
+                         string.Join(", ", cols.ToArray()) +
+                         " FROM fin_programme_fees WHERE ID IN (" + string.Join(",", q.Ids.ConvertAll(i => i.ToString()).ToArray()) + ")";
+            using (var cmd = new MySqlCommand(sel, conn))
+            using (var rd = cmd.ExecuteReader())
+            {
+                while (rd.Read())
+                {
+                    int pfId = Convert.ToInt32(rd["ID"]);
+                    string prog = Convert.ToString(rd["progcode"]).Trim();
+                    var cells = new List<string>();
+                    decimal rowBefore = 0m, rowAfter = 0m;
+
+                    foreach (string col in cols)
+                    {
+                        string yr = col.Substring(1, 1);
+                        bool yearOffered = string.Equals(Convert.ToString(rd["has_year_" + yr]).Trim(), "Yes", StringComparison.OrdinalIgnoreCase);
+                        decimal cur = rd[col] == DBNull.Value ? 0m : Convert.ToDecimal(rd[col]);
+                        string verdict, why;
+                        decimal next = cur;
+
+                        if (!yearOffered) { verdict = "SKIP"; why = "Programme has no Year " + yr; skippedNoYear++; }
+                        else if (cur <= 0)  { verdict = "SKIP"; why = "Not charged (currently 0)"; skippedZero++; }
+                        else
+                        {
+                            next = cur + (q.Sign * q.Amount);
+                            if (next < 0) { verdict = "SKIP"; why = "Would go below zero"; next = cur; skippedNegative++; }
+                            else { verdict = "CHANGE"; why = ""; changed++; rowBefore += cur; rowAfter += next; totalBefore += cur; totalAfter += next; }
+                        }
+
+                        cells.Add("{\"col\":" + JsStr(col) +
+                                  ",\"label\":" + JsStr("Year " + yr + " · Sem " + col.Substring(4, 1)) +
+                                  ",\"before\":" + cur.ToString("0.##", CultureInfo.InvariantCulture) +
+                                  ",\"after\":" + next.ToString("0.##", CultureInfo.InvariantCulture) +
+                                  ",\"verdict\":" + JsStr(verdict) + ",\"why\":" + JsStr(why) + "}");
+                    }
+
+                    rows.Add("{\"id\":" + pfId + ",\"progcode\":" + JsStr(prog) +
+                             ",\"before\":" + rowBefore.ToString("0.##", CultureInfo.InvariantCulture) +
+                             ",\"after\":" + rowAfter.ToString("0.##", CultureInfo.InvariantCulture) +
+                             ",\"cells\":[" + string.Join(",", cells.ToArray()) + "]}");
+                }
+            }
+        }
+        totalDelta = totalAfter - totalBefore;
+
+        sb.Append("{\"success\":true")
+          .Append(",\"structures\":").Append(rows.Count)
+          .Append(",\"cellsChanged\":").Append(changed)
+          .Append(",\"skippedZero\":").Append(skippedZero)
+          .Append(",\"skippedNoYear\":").Append(skippedNoYear)
+          .Append(",\"skippedNegative\":").Append(skippedNegative)
+          .Append(",\"totalBefore\":").Append(totalBefore.ToString("0.##", CultureInfo.InvariantCulture))
+          .Append(",\"totalAfter\":").Append(totalAfter.ToString("0.##", CultureInfo.InvariantCulture))
+          .Append(",\"totalDelta\":").Append(totalDelta.ToString("0.##", CultureInfo.InvariantCulture))
+          .Append(",\"rows\":[").Append(string.Join(",", rows.ToArray())).Append("]}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Applies the adjustment. Every rule the preview applied is re-applied here rather
+    /// than trusting what the browser sent back, and each changed cell is recorded with
+    /// its old value before the UPDATE runs. All of it in one transaction.
+    /// </summary>
+    private string AdjustApplyJson()
+    {
+        AdjustRequest q = ReadAdjustRequest();
+        if (q.Error != "") return "{\"success\":false,\"message\":" + JsStr(q.Error) + "}";
+
+        string actor = "";
+        try { actor = HttpContext.Current.User.Identity.Name; } catch { }
+        if (string.IsNullOrEmpty(actor)) actor = "admin";
+
+        var cols = AdjustColumns(q.FeeType, q.Years, q.Sems);
+        int changed = 0, skipped = 0, structures = 0;
+        long batchId = 0;
+
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (var tx = conn.BeginTransaction())
+            {
+                try
+                {
+                    using (var ins = new MySqlCommand(
+                        "INSERT INTO fin_fee_adjustment_batch (performed_by, performed_at, fee_type, direction, amount, years_csv, sems_csv, structures, cells_changed, cells_skipped, note) " +
+                        "VALUES (@u, NOW(), @ft, @dir, @amt, @yrs, @sems, 0, 0, 0, @note)", conn, tx))
+                    {
+                        ins.Parameters.AddWithValue("@u", actor.Length > 100 ? actor.Substring(0, 100) : actor);
+                        ins.Parameters.AddWithValue("@ft", q.FeeType);
+                        ins.Parameters.AddWithValue("@dir", q.Sign > 0 ? "+" : "-");
+                        ins.Parameters.AddWithValue("@amt", q.Amount);
+                        ins.Parameters.AddWithValue("@yrs", string.Join(",", q.Years.ToArray()));
+                        ins.Parameters.AddWithValue("@sems", string.Join(",", q.Sems.ToArray()));
+                        ins.Parameters.AddWithValue("@note", q.Note.Length > 255 ? q.Note.Substring(0, 255) : q.Note);
+                        ins.ExecuteNonQuery();
+                        batchId = ins.LastInsertedId;
+                    }
+
+                    // Read current values inside the transaction, so what is recorded as the
+                    // "before" is the value actually being overwritten.
+                    var plan = new List<string[]>();   // pfId, progcode, col, old, new
+                    string sel = "SELECT ID, progcode, has_year_1, has_year_2, has_year_3, has_year_4, " +
+                                 string.Join(", ", cols.ToArray()) +
+                                 " FROM fin_programme_fees WHERE ID IN (" + string.Join(",", q.Ids.ConvertAll(i => i.ToString()).ToArray()) + ") FOR UPDATE";
+                    using (var cmd = new MySqlCommand(sel, conn, tx))
+                    using (var rd = cmd.ExecuteReader())
+                    {
+                        while (rd.Read())
+                        {
+                            structures++;
+                            int pfId = Convert.ToInt32(rd["ID"]);
+                            string prog = Convert.ToString(rd["progcode"]).Trim();
+                            foreach (string col in cols)
+                            {
+                                string yr = col.Substring(1, 1);
+                                bool yearOffered = string.Equals(Convert.ToString(rd["has_year_" + yr]).Trim(), "Yes", StringComparison.OrdinalIgnoreCase);
+                                decimal cur = rd[col] == DBNull.Value ? 0m : Convert.ToDecimal(rd[col]);
+                                if (!yearOffered || cur <= 0) { skipped++; continue; }
+                                decimal next = cur + (q.Sign * q.Amount);
+                                if (next < 0) { skipped++; continue; }
+                                plan.Add(new[] { pfId.ToString(), prog, col,
+                                                 cur.ToString("0.##", CultureInfo.InvariantCulture),
+                                                 next.ToString("0.##", CultureInfo.InvariantCulture) });
+                            }
+                        }
+                    }
+
+                    foreach (string[] p in plan)
+                    {
+                        using (var log = new MySqlCommand(
+                            "INSERT INTO fin_fee_adjustment_line (batch_id, pf_id, progcode, col_name, old_value, new_value) " +
+                            "VALUES (@b,@p,@c,@col,@o,@n)", conn, tx))
+                        {
+                            log.Parameters.AddWithValue("@b", batchId);
+                            log.Parameters.AddWithValue("@p", p[0]);
+                            log.Parameters.AddWithValue("@c", p[1]);
+                            log.Parameters.AddWithValue("@col", p[2]);
+                            log.Parameters.AddWithValue("@o", p[3]);
+                            log.Parameters.AddWithValue("@n", p[4]);
+                            log.ExecuteNonQuery();
+                        }
+                        using (var up = new MySqlCommand(
+                            "UPDATE fin_programme_fees SET `" + p[2] + "` = @v WHERE ID = @id", conn, tx))
+                        {
+                            up.Parameters.AddWithValue("@v", p[4]);
+                            up.Parameters.AddWithValue("@id", p[0]);
+                            changed += up.ExecuteNonQuery();
+                        }
+                    }
+
+                    using (var fin = new MySqlCommand(
+                        "UPDATE fin_fee_adjustment_batch SET structures=@s, cells_changed=@c, cells_skipped=@k WHERE batch_id=@b", conn, tx))
+                    {
+                        fin.Parameters.AddWithValue("@s", structures);
+                        fin.Parameters.AddWithValue("@c", plan.Count);
+                        fin.Parameters.AddWithValue("@k", skipped);
+                        fin.Parameters.AddWithValue("@b", batchId);
+                        fin.ExecuteNonQuery();
+                    }
+                    tx.Commit();
+                }
+                catch { try { tx.Rollback(); } catch { } throw; }
+            }
+        }
+
+        return "{\"success\":true,\"batchId\":" + batchId +
+               ",\"structures\":" + structures + ",\"cellsChanged\":" + changed + ",\"cellsSkipped\":" + skipped +
+               ",\"message\":" + JsStr(string.Format("{0} fee cell(s) across {1} structure(s) {2} by {3}. Batch #{4} — reversible.",
+                    changed, structures, q.Sign > 0 ? "increased" : "reduced",
+                    q.Amount.ToString("N0", CultureInfo.InvariantCulture), batchId)) + "}";
+    }
+
+    /// <summary>Puts every cell in a batch back to the value it held before that batch ran.</summary>
+    private string AdjustUndoJson()
+    {
+        long batchId;
+        if (!long.TryParse((Request["batchId"] ?? "").Trim(), out batchId) || batchId <= 0)
+            return "{\"success\":false,\"message\":\"Which batch should be reversed?\"}";
+
+        string actor = "";
+        try { actor = HttpContext.Current.User.Identity.Name; } catch { }
+        if (string.IsNullOrEmpty(actor)) actor = "admin";
+
+        int restored = 0;
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (var chk = new MySqlCommand("SELECT reverted_at FROM fin_fee_adjustment_batch WHERE batch_id=@b", conn))
+            {
+                chk.Parameters.AddWithValue("@b", batchId);
+                object o = chk.ExecuteScalar();
+                if (o == null) return "{\"success\":false,\"message\":\"That batch does not exist.\"}";
+                if (o != DBNull.Value) return "{\"success\":false,\"message\":\"That batch has already been reversed.\"}";
+            }
+            using (var tx = conn.BeginTransaction())
+            {
+                try
+                {
+                    var lines = new List<string[]>();
+                    using (var cmd = new MySqlCommand("SELECT pf_id, col_name, old_value FROM fin_fee_adjustment_line WHERE batch_id=@b", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@b", batchId);
+                        using (var rd = cmd.ExecuteReader())
+                            while (rd.Read())
+                                lines.Add(new[] { Convert.ToString(rd["pf_id"]), Convert.ToString(rd["col_name"]),
+                                                  Convert.ToDecimal(rd["old_value"]).ToString("0.##", CultureInfo.InvariantCulture) });
+                    }
+                    foreach (string[] l in lines)
+                    {
+                        // The column name comes from our own audit row, but it is still
+                        // whitelisted before being concatenated into SQL.
+                        if (!System.Text.RegularExpressions.Regex.IsMatch(l[1], @"^y[1-4]_s[1-3]_(tuition|functional)$")) continue;
+                        using (var up = new MySqlCommand("UPDATE fin_programme_fees SET `" + l[1] + "` = @v WHERE ID=@id", conn, tx))
+                        {
+                            up.Parameters.AddWithValue("@v", l[2]);
+                            up.Parameters.AddWithValue("@id", l[0]);
+                            restored += up.ExecuteNonQuery();
+                        }
+                    }
+                    using (var mark = new MySqlCommand("UPDATE fin_fee_adjustment_batch SET reverted_at=NOW(), reverted_by=@u WHERE batch_id=@b", conn, tx))
+                    {
+                        mark.Parameters.AddWithValue("@u", actor.Length > 100 ? actor.Substring(0, 100) : actor);
+                        mark.Parameters.AddWithValue("@b", batchId);
+                        mark.ExecuteNonQuery();
+                    }
+                    tx.Commit();
+                }
+                catch { try { tx.Rollback(); } catch { } throw; }
+            }
+        }
+        return "{\"success\":true,\"restored\":" + restored +
+               ",\"message\":" + JsStr(restored + " fee cell(s) restored to their previous values. Batch #" + batchId + " reversed.") + "}";
+    }
+
+    /// <summary>Recent adjustment batches, so an operator can see and undo what was done.</summary>
+    private string AdjustHistoryJson()
+    {
+        var rows = new List<string>();
+        using (var conn = new MySqlConnection(AcctConnStr))
+        {
+            conn.Open();
+            using (var cmd = new MySqlCommand(
+                "SELECT batch_id, performed_by, performed_at, fee_type, direction, amount, years_csv, sems_csv, " +
+                "       structures, cells_changed, reverted_at " +
+                "  FROM fin_fee_adjustment_batch ORDER BY batch_id DESC LIMIT 10", conn))
+            using (var rd = cmd.ExecuteReader())
+                while (rd.Read())
+                    rows.Add("{\"batchId\":" + Convert.ToString(rd["batch_id"]) +
+                             ",\"by\":" + JsStr(Convert.ToString(rd["performed_by"])) +
+                             ",\"at\":" + JsStr(Convert.ToDateTime(rd["performed_at"]).ToString("dd MMM yyyy HH:mm")) +
+                             ",\"feeType\":" + JsStr(Convert.ToString(rd["fee_type"])) +
+                             ",\"direction\":" + JsStr(Convert.ToString(rd["direction"])) +
+                             ",\"amount\":" + Convert.ToDecimal(rd["amount"]).ToString("0.##", CultureInfo.InvariantCulture) +
+                             ",\"years\":" + JsStr(Convert.ToString(rd["years_csv"])) +
+                             ",\"sems\":" + JsStr(Convert.ToString(rd["sems_csv"])) +
+                             ",\"structures\":" + Convert.ToString(rd["structures"]) +
+                             ",\"cells\":" + Convert.ToString(rd["cells_changed"]) +
+                             ",\"reverted\":" + (rd["reverted_at"] == DBNull.Value ? "false" : "true") + "}");
+        }
+        return "{\"success\":true,\"batches\":[" + string.Join(",", rows.ToArray()) + "]}";
     }
 
     protected override void OnPreRender(EventArgs e)

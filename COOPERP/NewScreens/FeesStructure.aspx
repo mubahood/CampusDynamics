@@ -309,6 +309,68 @@
 .fs-check { width: 15px; height: 15px; cursor: pointer; accent-color: #174DA4; }
 .fs-table tbody tr.fs-row--selected td { background: #eef3fc; }
 
+/* ---- Fee adjustment wizard ---- */
+.fs-modal--wizard { max-width: 780px; width: 96%; }
+.fw-rail { display:flex; border-bottom:1px solid #e0e5ed; background:#f8f9fb; }
+.fw-step { flex:1 1 0; display:flex; align-items:center; gap:7px; padding:10px 12px; font-size:11px; color:#94a3b8; border-bottom:2px solid transparent; min-width:0; }
+.fw-step__n { width:19px; height:19px; flex:0 0 19px; display:inline-flex; align-items:center; justify-content:center; background:#e2e8f0; color:#64748b; font-weight:800; font-size:10px; }
+.fw-step__t { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fw-step.is-on { color:#05275C; border-bottom-color:#174DA4; background:#fff; }
+.fw-step.is-on .fw-step__n { background:#174DA4; color:#fff; }
+.fw-step.is-done .fw-step__n { background:#16a34a; color:#fff; }
+.fw-body { min-height:320px; }
+.fw-pane { display:none; }
+.fw-pane.is-on { display:block; }
+.fw-lead { font-size:12px; color:#475569; margin:0 0 14px; line-height:1.5; }
+.fw-field { margin-bottom:16px; }
+.fw-label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.5px; font-weight:800; color:#64748b; margin-bottom:6px; }
+.fw-hint { display:block; font-size:10px; color:#94a3b8; margin-top:5px; line-height:1.45; }
+.fw-radios { display:flex; gap:8px; flex-wrap:wrap; }
+.fw-radio { flex:1 1 210px; display:flex; align-items:center; gap:9px; padding:10px 12px; border:1px solid #cdd5e1; background:#fff; cursor:pointer; }
+.fw-radio:hover { border-color:#174DA4; }
+.fw-radio input { margin:0; }
+.fw-radio.is-on { border-color:#174DA4; background:#f0f7ff; }
+.fw-radio__sign { font-size:19px; font-weight:800; width:22px; text-align:center; color:#94a3b8; }
+.fw-radio--up.is-on   .fw-radio__sign { color:#16a34a; }
+.fw-radio--down.is-on .fw-radio__sign { color:#dc3545; }
+.fw-radio--up.is-on   { border-color:#16a34a; background:#f0fdf4; }
+.fw-radio--down.is-on { border-color:#dc3545; background:#fef2f2; }
+.fw-radio__body { display:flex; flex-direction:column; min-width:0; }
+.fw-radio__body b { font-size:12px; color:#1a1a2e; }
+.fw-radio__body em { font-style:normal; font-size:10px; color:#94a3b8; }
+.fw-amount { display:flex; align-items:stretch; border:1px solid #cdd5e1; background:#fff; max-width:300px; }
+.fw-amount__sign { width:38px; flex:0 0 38px; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:800; background:#f0fdf4; color:#16a34a; border-right:1px solid #cdd5e1; }
+.fw-amount__sign.is-down { background:#fef2f2; color:#dc3545; }
+.fw-amount__in { flex:1 1 auto; border:none; outline:none; padding:10px 12px; font-size:15px; font-weight:700; color:#05275C; font-family:inherit; text-align:right; min-width:0; }
+.fw-checks { display:flex; gap:7px; flex-wrap:wrap; }
+.fw-check { display:flex; align-items:center; gap:7px; padding:8px 13px; border:1px solid #cdd5e1; background:#fff; cursor:pointer; font-size:11.5px; font-weight:600; color:#475569; }
+.fw-check:hover { border-color:#174DA4; }
+.fw-check.is-on { border-color:#174DA4; background:#f0f7ff; color:#05275C; }
+.fw-check input { margin:0; }
+.fw-grid-note { font-size:11px; color:#475569; background:#f8f9fb; border:1px solid #e0e5ed; padding:9px 11px; }
+.fw-scroll { max-height:210px; overflow:auto; border:1px solid #e0e5ed; }
+.fw-scroll--tall { max-height:250px; }
+.fw-scroll table { width:100%; border-collapse:collapse; font-size:11px; }
+.fw-scroll th { position:sticky; top:0; background:#f8f9fb; border-bottom:1px solid #e0e5ed; text-align:left; padding:6px 9px; font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; color:#64748b; font-weight:800; }
+.fw-scroll td { border-bottom:1px solid #f2f4f7; padding:5px 9px; }
+.fw-scroll tr.fw-skip td { background:#fffaf5; color:#9a3412; }
+.fw-was { color:#94a3b8; text-decoration:line-through; }
+.fw-now { font-weight:800; color:#05275C; }
+.fw-now--up { color:#15803d; } .fw-now--down { color:#b91c1c; }
+.fw-sentence { font-size:13px; line-height:1.6; color:#1a1a2e; background:#f0f7ff; border:1px solid #cfe0f5; padding:12px 14px; margin-bottom:12px; }
+.fw-sentence b { color:#05275C; }
+.fw-tally { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:11px; }
+.fw-pill { font-size:10.5px; font-weight:800; padding:5px 10px; border:1px solid; }
+.fw-pill--go { background:#f0fdf4; border-color:#a7dfba; color:#15803d; }
+.fw-pill--skip { background:#fff7ed; border-color:#fdba74; color:#9a3412; }
+.fw-pill--neutral { background:#f5f7fa; border-color:#e0e5ed; color:#64748b; }
+.fw-msg { display:none; font-size:11.5px; padding:9px 11px; margin-bottom:12px; border:1px solid; }
+.fw-msg.show { display:block; }
+.fw-msg--bad { background:#fef2f2; border-color:#fca5a5; color:#991b1b; }
+.fw-msg--ok  { background:#f0fdf4; border-color:#a7dfba; color:#15803d; }
+.fw-foot__sp { flex:1 1 auto; }
+@media (max-width:640px){ .fw-step__t{display:none;} .fw-rail{gap:0;} }
+
 /* ---- Batch adjust preview ---- */
 .fs-adjust-preview { background: #f8f9fb; border: 1px solid #e0e5ed; padding: 10px; margin-top: 10px; max-height: 200px; overflow-y: auto; font-size: 11px; }
 .fs-adjust-preview table { width: 100%; border-collapse: collapse; }
@@ -742,8 +804,8 @@
             <button type="button" class="fs-batch-btn fs-batch-btn--deactivate" onclick="doBatchAction('DEACTIVATE');" title="Deactivate selected structures">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg> Deactivate
             </button>
-            <button type="button" class="fs-batch-btn fs-batch-btn--adjust" onclick="openBatchAdjust();" title="Adjust fees by percentage">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> % Adjust
+            <button type="button" class="fs-batch-btn fs-batch-btn--adjust" onclick="openBatchAdjust();" title="Add or subtract a fixed amount from the selected structures">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> Adjust Fees
             </button>
             <button type="button" class="fs-batch-btn fs-batch-btn--delete" onclick="doBatchAction('DELETE');" title="Delete selected structures">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete
@@ -1261,37 +1323,124 @@
 </div>
 </div>
 
-<!-- Modal: Batch Percentage Adjustment -->
+<!-- Modal: Batch Fee Adjustment — four-step wizard -->
 <div id="modal-batch-adjust" class="fs-modal-overlay">
-<div class="fs-modal">
+<div class="fs-modal fs-modal--wizard">
     <div class="fs-modal__header">
         <div class="fs-modal__title">Batch Fee Adjustment</div>
         <button type="button" class="fs-modal__close" onclick="closeModal('modal-batch-adjust');">&times;</button>
     </div>
-    <div class="fs-modal__body">
-        <p style="font-size:12px;color:#555;margin:0 0 14px;">Apply a percentage increase or decrease to all selected fee structures.</p>
-        <div class="fs-form-row">
-            <div class="fs-form-group" style="flex:0 0 160px;">
-                <label class="fs-form-label">Adjustment %</label>
-                <input type="number" id="txtBatchPercent" class="fs-form-input" style="text-align:right;font-weight:700;" value="10" step="0.5" min="-50" max="100" />
-                <span style="font-size:9px;color:#999;margin-top:2px;">Positive = increase, Negative = decrease</span>
-            </div>
-            <div class="fs-form-group">
-                <label class="fs-form-label">Apply to</label>
-                <select id="ddlBatchFeeType" class="fs-filter-select" style="min-width:180px;">
-                    <option value="ALL">All Fees (Tuition + Functional)</option>
-                    <option value="TUITION">Tuition Only</option>
-                    <option value="FUNCTIONAL">Functional Fees Only</option>
-                </select>
-            </div>
-        </div>
-        <div class="fs-adjust-preview" id="batchAdjustPreview">
-            <div style="text-align:center;color:#999;padding:8px;">Select rows and configure adjustment to see preview.</div>
-        </div>
+
+    <!-- Step rail -->
+    <div class="fw-rail">
+        <div class="fw-step is-on" data-step="1"><span class="fw-step__n">1</span><span class="fw-step__t">Structures</span></div>
+        <div class="fw-step" data-step="2"><span class="fw-step__n">2</span><span class="fw-step__t">Adjustment</span></div>
+        <div class="fw-step" data-step="3"><span class="fw-step__n">3</span><span class="fw-step__t">Where it applies</span></div>
+        <div class="fw-step" data-step="4"><span class="fw-step__n">4</span><span class="fw-step__t">Review &amp; commit</span></div>
     </div>
-    <div class="fs-modal__footer">
+
+    <div class="fs-modal__body fw-body">
+        <div class="fw-msg" id="fwMsg"></div>
+
+        <!-- ── STEP 1 ─────────────────────────────────────────────── -->
+        <section class="fw-pane is-on" data-pane="1">
+            <p class="fw-lead">These are the fee structures the adjustment will run against. Close this
+               window and change your ticks if the list is not right.</p>
+            <div class="fw-scroll" id="fwScope"></div>
+        </section>
+
+        <!-- ── STEP 2 ─────────────────────────────────────────────── -->
+        <section class="fw-pane" data-pane="2">
+            <p class="fw-lead">A fixed amount is added to or taken off each fee &mdash; not a percentage,
+               so every programme moves by exactly the same figure.</p>
+
+            <div class="fw-field">
+                <label class="fw-label">Direction</label>
+                <div class="fw-radios">
+                    <label class="fw-radio fw-radio--up is-on" id="fwDirUpL">
+                        <input type="radio" name="fwDir" id="fwDirUp" value="+" checked="checked" />
+                        <span class="fw-radio__sign">+</span>
+                        <span class="fw-radio__body"><b>Increase</b><em>Add to the current fee</em></span>
+                    </label>
+                    <label class="fw-radio fw-radio--down" id="fwDirDownL">
+                        <input type="radio" name="fwDir" id="fwDirDown" value="-" />
+                        <span class="fw-radio__sign">&minus;</span>
+                        <span class="fw-radio__body"><b>Decrease</b><em>Take off the current fee</em></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="fw-field">
+                <label class="fw-label">Amount per fee (UGX)</label>
+                <div class="fw-amount">
+                    <span class="fw-amount__sign" id="fwAmtSign">+</span>
+                    <input type="text" id="fwAmount" class="fw-amount__in" inputmode="numeric" autocomplete="off" placeholder="e.g. 50,000" />
+                </div>
+                <span class="fw-hint" id="fwAmountWords">Enter a block figure. It is applied to each selected fee, not shared between them.</span>
+            </div>
+
+            <div class="fw-field">
+                <label class="fw-label">Which fee</label>
+                <div class="fw-radios">
+                    <label class="fw-radio is-on" id="fwFtFuncL">
+                        <input type="radio" name="fwFt" id="fwFtFunc" value="FUNCTIONAL" checked="checked" />
+                        <span class="fw-radio__body"><b>Functional fee</b><em>Leaves tuition untouched</em></span>
+                    </label>
+                    <label class="fw-radio" id="fwFtTuitL">
+                        <input type="radio" name="fwFt" id="fwFtTuit" value="TUITION" />
+                        <span class="fw-radio__body"><b>Tuition</b><em>Leaves functional fees untouched</em></span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── STEP 3 ─────────────────────────────────────────────── -->
+        <section class="fw-pane" data-pane="3">
+            <p class="fw-lead">Tick the years of study and the semesters to change. Anything left unticked
+               keeps its current figure.</p>
+
+            <div class="fw-field">
+                <label class="fw-label">Year of study</label>
+                <div class="fw-checks" id="fwYears">
+                    <label class="fw-check is-on"><input type="checkbox" class="fw-yr" value="1" checked="checked" /><span>Year 1</span></label>
+                    <label class="fw-check is-on"><input type="checkbox" class="fw-yr" value="2" checked="checked" /><span>Year 2</span></label>
+                    <label class="fw-check is-on"><input type="checkbox" class="fw-yr" value="3" checked="checked" /><span>Year 3</span></label>
+                    <label class="fw-check is-on"><input type="checkbox" class="fw-yr" value="4" checked="checked" /><span>Year 4</span></label>
+                </div>
+                <span class="fw-hint">A year a programme does not offer is skipped automatically.</span>
+            </div>
+
+            <div class="fw-field">
+                <label class="fw-label">Due semester</label>
+                <div class="fw-checks" id="fwSems">
+                    <label class="fw-check is-on"><input type="checkbox" class="fw-sem" value="1" checked="checked" /><span>Semester 1</span></label>
+                    <label class="fw-check is-on"><input type="checkbox" class="fw-sem" value="2" checked="checked" /><span>Semester 2</span></label>
+                    <label class="fw-check"><input type="checkbox" class="fw-sem" value="3" /><span>Semester 3</span></label>
+                </div>
+                <span class="fw-hint">Semester 3 is only charged on some programmes; where it is 0 it stays 0.</span>
+            </div>
+
+            <div class="fw-grid-note" id="fwCellCount"></div>
+        </section>
+
+        <!-- ── STEP 4 ─────────────────────────────────────────────── -->
+        <section class="fw-pane" data-pane="4">
+            <div class="fw-sentence" id="fwSentence"></div>
+            <div class="fw-tally" id="fwTally"></div>
+            <div class="fw-scroll fw-scroll--tall" id="fwReview"></div>
+            <div class="fw-field" style="margin-top:12px;">
+                <label class="fw-label">Reason / minute reference <span style="font-weight:400;color:#94a3b8;">(optional, stored with the batch)</span></label>
+                <input type="text" id="fwNote" class="fw-amount__in" style="width:100%;" autocomplete="off" placeholder="e.g. Senate minute 14/2026 — functional fee revision" />
+            </div>
+        </section>
+    </div>
+
+    <div class="fs-modal__footer fw-foot">
         <button type="button" class="fs-btn fs-btn--ghost" onclick="closeModal('modal-batch-adjust');">Cancel</button>
-        <button type="button" class="fs-btn fs-btn--primary" onclick="applyBatchAdjust();">Apply Adjustment</button>
+        <span class="fw-foot__sp"></span>
+        <button type="button" class="fs-btn fs-btn--ghost" id="fwBack" onclick="fwGo(-1);">Back</button>
+        <button type="button" class="fs-btn fs-btn--primary" id="fwNext" onclick="fwGo(1);">Continue</button>
+        <button type="button" class="fs-btn fs-btn--primary" id="fwCommit" style="display:none;background:#16a34a;border-color:#16a34a;" onclick="fwCommit();">Commit adjustment</button>
     </div>
 </div>
 </div>
@@ -1596,52 +1745,232 @@ function doBatchAction(action) {
     __doPostBack('<%= btnBatchAction.UniqueID %>', '');
 }
 
+/* ===== BATCH FEE ADJUSTMENT WIZARD ==========================================
+   Four steps, and nothing is written until the last one. Step 4 asks the server
+   what WOULD change and shows it cell by cell — old figure struck through, new
+   figure beside it — so the adjustment is read before it is committed, not
+   after. Changing anything on steps 2 or 3 throws the review away, so a commit
+   can never act on a preview of different settings.
+   ========================================================================== */
+var _fwStep = 1, _fwIds = [], _fwPreview = null, _fwBusy = false;
+
+function fwEl(id){ return document.getElementById(id); }
+function fwEsc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fwNum(n){ return (Number(n)||0).toLocaleString('en-US'); }
+function fwMsg(text, kind){
+    var m = fwEl('fwMsg');
+    if (!text) { m.className = 'fw-msg'; m.innerHTML = ''; return; }
+    m.className = 'fw-msg show fw-msg--' + (kind || 'bad');
+    m.innerHTML = text;
+}
+function fwAmount(){ return parseFloat((fwEl('fwAmount').value || '').replace(/[^0-9.]/g,'')) || 0; }
+function fwDir(){ return fwEl('fwDirUp').checked ? '+' : '-'; }
+function fwFeeType(){ return fwEl('fwFtFunc').checked ? 'FUNCTIONAL' : 'TUITION'; }
+function fwFeeLabel(){ return fwFeeType() === 'FUNCTIONAL' ? 'functional fee' : 'tuition'; }
+function fwPicked(cls){
+    var out = [], b = document.querySelectorAll('.' + cls);
+    for (var i=0;i<b.length;i++) if (b[i].checked) out.push(b[i].value);
+    return out;
+}
+
+/* Any change to the settings invalidates a review that was already fetched. */
+function fwDirty(){ _fwPreview = null; }
+
 function openBatchAdjust() {
-    var ids = getSelectedIds();
-    if (ids.length === 0) { alert('No rows selected.'); return; }
+    _fwIds = getSelectedIds();
+    if (_fwIds.length === 0) { alert('Tick the fee structures you want to adjust first.'); return; }
 
-    document.getElementById('txtBatchPercent').value = '10';
-    document.getElementById('ddlBatchFeeType').value = 'ALL';
+    fwEl('fwAmount').value = '';
+    fwEl('fwNote').value = '';
+    fwEl('fwDirUp').checked = true;
+    fwEl('fwFtFunc').checked = true;
+    fwPaintChoices();
+    fwDirty();
+    fwMsg('');
 
-    var preview = document.getElementById('batchAdjustPreview');
-    var h = '<table><thead><tr><th>#</th><th>Programme</th><th>Current Total</th></tr></thead><tbody>';
+    var h = '<table><thead><tr><th>#</th><th>Programme</th><th style="text-align:right;">Current total</th></tr></thead><tbody>';
     var cbs = document.querySelectorAll('.fs-row-check:checked');
     for (var i = 0; i < cbs.length; i++) {
-        var name = cbs[i].getAttribute('data-name') || '';
-        var total = cbs[i].getAttribute('data-total') || '0';
-        h += '<tr><td>' + (i + 1) + '</td><td style="font-weight:600;">' + name + '</td><td style="text-align:right;font-weight:600;">' + Number(total).toLocaleString() + '</td></tr>';
+        h += '<tr><td>' + (i+1) + '</td><td style="font-weight:600;">' + fwEsc(cbs[i].getAttribute('data-name') || '') +
+             '</td><td style="text-align:right;font-weight:700;">' + fwNum(cbs[i].getAttribute('data-total') || 0) + '</td></tr>';
     }
-    h += '</tbody></table>';
-    preview.innerHTML = h;
+    fwEl('fwScope').innerHTML = h + '</tbody></table>';
 
+    _fwStep = 1; fwPaintStep();
     openModal('modal-batch-adjust');
 }
 
-function applyBatchAdjust() {
-    var ids = getSelectedIds();
-    if (ids.length === 0) { alert('No rows selected.'); return; }
+function fwPaintChoices(){
+    fwEl('fwDirUpL').className   = 'fw-radio fw-radio--up'   + (fwEl('fwDirUp').checked ? ' is-on' : '');
+    fwEl('fwDirDownL').className = 'fw-radio fw-radio--down' + (fwEl('fwDirDown').checked ? ' is-on' : '');
+    fwEl('fwFtFuncL').className  = 'fw-radio' + (fwEl('fwFtFunc').checked ? ' is-on' : '');
+    fwEl('fwFtTuitL').className  = 'fw-radio' + (fwEl('fwFtTuit').checked ? ' is-on' : '');
+    var up = fwEl('fwDirUp').checked;
+    fwEl('fwAmtSign').textContent = up ? '+' : '−';
+    fwEl('fwAmtSign').className = 'fw-amount__sign' + (up ? '' : ' is-down');
 
-    var pct = parseFloat(document.getElementById('txtBatchPercent').value);
-    if (isNaN(pct) || pct === 0) { alert('Please enter a valid non-zero percentage.'); return; }
-    if (pct < -50 || pct > 100) { alert('Percentage must be between -50% and +100%.'); return; }
+    var amt = fwAmount();
+    fwEl('fwAmountWords').innerHTML = amt > 0
+        ? 'Every selected ' + fwFeeLabel() + ' will ' + (up ? 'go up' : 'come down') + ' by <b>UGX ' + fwNum(amt) + '</b>.'
+        : 'Enter a block figure. It is applied to each selected fee, not shared between them.';
 
-    var feeType = document.getElementById('ddlBatchFeeType').value;
-    var direction = pct > 0 ? 'increase' : 'decrease';
-    var msg = 'Apply ' + Math.abs(pct) + '% ' + direction + ' to ' + feeType.toLowerCase().replace('all','all fees') + ' across ' + ids.length + ' structure(s)?';
-    if (!confirm(msg)) return;
+    var boxes = document.querySelectorAll('.fw-yr, .fw-sem');
+    for (var i=0;i<boxes.length;i++) boxes[i].parentNode.className = 'fw-check' + (boxes[i].checked ? ' is-on' : '');
 
-    var hfIds = document.getElementById('<%= hfBatchIds.ClientID %>');
-    var hfAction = document.getElementById('<%= hfBatchAction.ClientID %>');
-    var hfPct = document.getElementById('<%= hfBatchPercent.ClientID %>');
-    var hfFt = document.getElementById('<%= hfBatchFeeType.ClientID %>');
-    if (hfIds) hfIds.value = ids.join(',');
-    if (hfAction) hfAction.value = 'ADJUST';
-    if (hfPct) hfPct.value = pct.toString();
-    if (hfFt) hfFt.value = feeType;
-
-    closeModal('modal-batch-adjust');
-    __doPostBack('<%= btnBatchAction.UniqueID %>', '');
+    var yrs = fwPicked('fw-yr'), sems = fwPicked('fw-sem');
+    var note = fwEl('fwCellCount');
+    if (note) note.innerHTML = (yrs.length && sems.length)
+        ? 'This targets <b>' + (yrs.length * sems.length) + '</b> fee cell(s) per programme &mdash; ' +
+          yrs.length + ' year(s) &times; ' + sems.length + ' semester(s) &mdash; across <b>' + _fwIds.length + '</b> structure(s).'
+        : 'Choose at least one year and one semester.';
 }
+
+function fwPaintStep(){
+    var steps = document.querySelectorAll('.fw-step');
+    for (var i=0;i<steps.length;i++){
+        var n = parseInt(steps[i].getAttribute('data-step'),10);
+        steps[i].className = 'fw-step' + (n === _fwStep ? ' is-on' : (n < _fwStep ? ' is-done' : ''));
+    }
+    var panes = document.querySelectorAll('.fw-pane');
+    for (var j=0;j<panes.length;j++){
+        var p = parseInt(panes[j].getAttribute('data-pane'),10);
+        panes[j].className = 'fw-pane' + (p === _fwStep ? ' is-on' : '');
+    }
+    fwEl('fwBack').style.display   = _fwStep > 1 ? '' : 'none';
+    fwEl('fwNext').style.display   = _fwStep < 4 ? '' : 'none';
+    fwEl('fwCommit').style.display = _fwStep === 4 ? '' : 'none';
+    fwEl('fwCommit').disabled = !(_fwPreview && _fwPreview.cellsChanged > 0);
+}
+
+function fwValidate(step){
+    if (step === 2){
+        if (fwAmount() <= 0) return 'Enter the amount to add or take off. It must be more than zero.';
+        if (fwAmount() > 100000000) return 'That amount looks wrong (over 100,000,000). Check it before continuing.';
+    }
+    if (step === 3){
+        if (fwPicked('fw-yr').length === 0)  return 'Choose at least one year of study.';
+        if (fwPicked('fw-sem').length === 0) return 'Choose at least one semester.';
+    }
+    return '';
+}
+
+function fwGo(delta){
+    fwMsg('');
+    if (delta > 0){
+        var err = fwValidate(_fwStep);
+        if (err) { fwMsg(err); return; }
+    }
+    var next = _fwStep + delta;
+    if (next < 1 || next > 4) return;
+    _fwStep = next;
+    if (_fwStep === 4) { fwPaintStep(); fwReview(); }
+    else fwPaintStep();
+}
+
+function fwQuery(){
+    return 'ids=' + encodeURIComponent(_fwIds.join(',')) +
+           '&feeType=' + encodeURIComponent(fwFeeType()) +
+           '&direction=' + encodeURIComponent(fwDir()) +
+           '&amount=' + encodeURIComponent(fwAmount()) +
+           '&years=' + encodeURIComponent(fwPicked('fw-yr').join(',')) +
+           '&sems=' + encodeURIComponent(fwPicked('fw-sem').join(',')) +
+           '&note=' + encodeURIComponent(fwEl('fwNote').value || '');
+}
+
+function fwReview(){
+    fwEl('fwReview').innerHTML = '<div style="padding:14px;color:#94a3b8;font-size:11px;">Working out what would change&hellip;</div>';
+    fwEl('fwTally').innerHTML = '';
+    fwEl('fwSentence').innerHTML = '';
+    _fwPreview = null; fwPaintStep();
+
+    var x = new XMLHttpRequest();
+    x.open('POST', 'FeesStructure.aspx?ajax=adjpreview', true);
+    x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+    x.onreadystatechange = function(){
+        if (x.readyState !== 4) return;
+        var r = null; try { r = JSON.parse(x.responseText); } catch(e){}
+        if (!r || !r.success){ fwMsg((r && r.message) || 'Could not work out the change.'); fwEl('fwReview').innerHTML=''; return; }
+        _fwPreview = r;
+
+        var up = fwDir() === '+';
+        fwEl('fwSentence').innerHTML =
+            '<b>' + (up ? 'Increase' : 'Decrease') + '</b> the <b>' + fwFeeLabel() + '</b> by <b>UGX ' + fwNum(fwAmount()) + '</b> ' +
+            'for <b>Year ' + fwPicked('fw-yr').join(', ') + '</b>, <b>Semester ' + fwPicked('fw-sem').join(', ') + '</b>, ' +
+            'across <b>' + r.structures + '</b> fee structure(s).<br />' +
+            'Total charged across the affected cells moves from <b>UGX ' + fwNum(r.totalBefore) + '</b> to ' +
+            '<b>UGX ' + fwNum(r.totalAfter) + '</b> &mdash; a change of <b>' + (r.totalDelta >= 0 ? '+' : '−') +
+            'UGX ' + fwNum(Math.abs(r.totalDelta)) + '</b>.';
+
+        var t = '<span class="fw-pill ' + (r.cellsChanged ? 'fw-pill--go' : 'fw-pill--neutral') + '">' + r.cellsChanged + ' fee(s) will change</span>';
+        if (r.skippedZero)     t += '<span class="fw-pill fw-pill--skip">' + r.skippedZero + ' not charged (left at 0)</span>';
+        if (r.skippedNoYear)   t += '<span class="fw-pill fw-pill--skip">' + r.skippedNoYear + ' year not offered</span>';
+        if (r.skippedNegative) t += '<span class="fw-pill fw-pill--skip">' + r.skippedNegative + ' would go below zero</span>';
+        fwEl('fwTally').innerHTML = t;
+
+        var h = '<table><thead><tr><th>Programme</th><th>Fee</th><th style="text-align:right;">Was</th><th style="text-align:right;">Becomes</th><th>Note</th></tr></thead><tbody>';
+        for (var i=0;i<r.rows.length;i++){
+            var row = r.rows[i];
+            for (var c=0;c<row.cells.length;c++){
+                var cell = row.cells[c], go = cell.verdict === 'CHANGE';
+                h += '<tr' + (go ? '' : ' class="fw-skip"') + '>' +
+                     '<td style="font-weight:600;">' + fwEsc(row.progcode) + '</td>' +
+                     '<td>' + fwEsc(cell.label) + '</td>' +
+                     '<td style="text-align:right;" class="' + (go ? 'fw-was' : '') + '">' + fwNum(cell.before) + '</td>' +
+                     '<td style="text-align:right;" class="fw-now ' + (go ? (up ? 'fw-now--up' : 'fw-now--down') : '') + '">' +
+                        (go ? fwNum(cell.after) : '&mdash;') + '</td>' +
+                     '<td>' + fwEsc(cell.why) + '</td></tr>';
+            }
+        }
+        fwEl('fwReview').innerHTML = h + '</tbody></table>';
+
+        if (!r.cellsChanged) fwMsg('Nothing would change with these settings. Adjust the amount, years or semesters.', 'bad');
+        fwPaintStep();
+    };
+    x.onerror = function(){ fwMsg('Network error while preparing the review.'); };
+    x.send(fwQuery());
+}
+
+function fwCommit(){
+    if (_fwBusy || !_fwPreview || !_fwPreview.cellsChanged) return;
+    var up = fwDir() === '+';
+    if (!confirm((up ? 'Increase' : 'Decrease') + ' ' + fwFeeLabel() + ' by UGX ' + fwNum(fwAmount()) +
+                 ' on ' + _fwPreview.cellsChanged + ' fee(s) across ' + _fwPreview.structures + ' structure(s)?\n\n' +
+                 'This changes what students are billed. The batch is recorded and can be reversed.')) return;
+
+    _fwBusy = true;
+    var btn = fwEl('fwCommit'); var orig = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = 'Committing&hellip;';
+
+    var x = new XMLHttpRequest();
+    x.open('POST', 'FeesStructure.aspx?ajax=adjapply', true);
+    x.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+    x.onreadystatechange = function(){
+        if (x.readyState !== 4) return;
+        _fwBusy = false; btn.disabled = false; btn.innerHTML = orig;
+        var r = null; try { r = JSON.parse(x.responseText); } catch(e){}
+        if (!r || !r.success){ fwMsg((r && r.message) || 'The adjustment did not go through. Nothing was changed.'); return; }
+        alert(r.message);
+        window.location.reload();
+    };
+    x.onerror = function(){ _fwBusy=false; btn.disabled=false; btn.innerHTML=orig; fwMsg('Network error. Nothing was changed.'); };
+    x.send(fwQuery());
+}
+
+/* Wire the live repaint + review invalidation once the DOM is up. */
+(function fwWire(){
+    function bind(){
+        var watched = ['fwDirUp','fwDirDown','fwFtFunc','fwFtTuit'];
+        for (var i=0;i<watched.length;i++){
+            var el = fwEl(watched[i]);
+            if (el) el.addEventListener('change', function(){ fwDirty(); fwPaintChoices(); });
+        }
+        var amt = fwEl('fwAmount');
+        if (amt) amt.addEventListener('input', function(){ fwDirty(); fwPaintChoices(); });
+        var boxes = document.querySelectorAll('.fw-yr, .fw-sem');
+        for (var j=0;j<boxes.length;j++) boxes[j].addEventListener('change', function(){ fwDirty(); fwPaintChoices(); });
+    }
+    if (document.readyState !== 'loading') bind(); else document.addEventListener('DOMContentLoaded', bind);
+})();
 
 /* ===== PROCESS BILLING ===== */
 var _pbPfId = 0;
