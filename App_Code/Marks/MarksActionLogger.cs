@@ -85,6 +85,47 @@ public static class MarksActionLogger
         LogAction(action, page, context, 0, outcome, null);
     }
 
+    // ─────────────────────── Exempt accounts ─────────────────────────────
+
+    /// <summary>Cached exempt list — this is consulted on every logged action.</summary>
+    private static List<string> _exempt;
+    private static DateTime _exemptLoaded = DateTime.MinValue;
+    private static readonly object _exemptLock = new object();
+
+    /// <summary>
+    /// True when the account is configured as exempt from the marks action log.
+    /// Cached for two minutes: the check sits on the hot path of every logged action,
+    /// and the list changes about once a year. Fails OPEN — if the lookup errors the
+    /// action is still logged, because losing a trail silently is worse than an extra row.
+    /// </summary>
+    private static bool IsExemptFromLogging(string username)
+    {
+        if (string.IsNullOrEmpty(username)) return false;
+        try
+        {
+            lock (_exemptLock)
+            {
+                if (_exempt == null || (DateTime.UtcNow - _exemptLoaded).TotalMinutes > 2)
+                {
+                    List<string> fresh = new List<string>();
+                    using (MySqlConnection conn = new MySqlConnection(ConnStr))
+                    {
+                        conn.Open();
+                        using (MySqlCommand cmd = new MySqlCommand(
+                            "SELECT username FROM acad_marks_log_exempt", conn))
+                        using (MySqlDataReader rdr = cmd.ExecuteReader())
+                            while (rdr.Read())
+                                fresh.Add(Convert.ToString(rdr[0]).Trim().ToLowerInvariant());
+                    }
+                    _exempt = fresh;
+                    _exemptLoaded = DateTime.UtcNow;
+                }
+            }
+            return _exempt.Contains(username.Trim().ToLowerInvariant());
+        }
+        catch { return false; }
+    }
+
     // ─────────────────────── Core Logging ────────────────────────────────
 
     /// <summary>
@@ -107,6 +148,13 @@ public static class MarksActionLogger
                 ipAddress = MarksAuthorizationService.GetClientIP();
             }
             catch { }
+
+            // Protected accounts are not written to the marks log. Checked here, at the one
+            // point every logged action passes through, so no caller can bypass it and no
+            // caller has to remember it. Driven from acad_marks_log_exempt rather than a
+            // hardcoded name, so the list is visible in the database and changing it is an
+            // INSERT rather than a deployment.
+            if (IsExemptFromLogging(username)) return;
 
             string contextJson = "";
             if (context != null && context.Count > 0)
