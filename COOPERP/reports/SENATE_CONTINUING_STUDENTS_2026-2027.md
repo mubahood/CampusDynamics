@@ -60,6 +60,11 @@ while correctly keeping the Year 3 engineers, who still have a year to run.
 three years, so their Year 3 students are finalists and sit outside this report. The 127 who
 remain are all on four-year Engineering degrees.
 
+> **The Academic Registrar queried this figure.** It is correct, and §13 sets out the check:
+> only **150 students in the entire University are eligible** to be a continuing Year 3, and
+> **122 of them registered** — 81%. The query did, however, surface a genuine red flag
+> elsewhere. See §13.
+
 ---
 
 ## 3. Split by campus
@@ -289,6 +294,96 @@ flag.
 
 ---
 
+## 13. Addendum — the Academic Registrar's query on Year 3
+
+*Added 15 August 2026, in response to: "why is Year 3 so few? Year 3 cannot be as low as Year 2.
+Is it because students have not enrolled into Year 3? That shows as a red flag."*
+
+The question was the right one to ask. It has two answers, and **both are true**: the Year 3
+figure is sound, and there is a red flag — but not where it was expected.
+
+### a) Year 3 is correct, and here is the denominator the report should have shown
+
+Year 3 cannot be compared with Year 2, because the two are drawn from populations of completely
+different sizes. A student only appears as a *continuing* Year 3 if their programme runs **four**
+years. On a three-year degree, Year 3 is the final year — those students are graduands.
+
+Tracking last year's Year 2 cohort forward:
+
+| Last year's Year 2 students | Count |
+|---|---:|
+| Total registered in Year 2 in 2025/2026 | 1,639 |
+| On a **2-year** programme — last year was already their final year | 479 |
+| On a **3-year** programme — their Year 3 is their final year (graduands) | 995 |
+| On a **4-year** programme — the only ones who *can* be a continuing Year 3 | **150** |
+| Programme length not recorded | 15 |
+
+| Of those 150 eligible students | Count | |
+|---|---:|---|
+| Registered into Year 3 for 2026/2027 | **122** | **81% continuation** |
+| Not yet registered | 28 | 19% |
+
+**So the ceiling for continuing Year 3 is about 150, not 1,600.** The report shows 127 against an
+eligible pool of 150. Year 3 is not depressed; it is a small population by curriculum design, and
+its continuation rate (81%) is in fact **better** than the University's average.
+
+Where last year's 1,639 Year 2 students actually are now:
+
+| Position in 2026/2027 | Students | Of which finalists (excluded from this report) |
+|---|---:|---:|
+| Now Year 3 | 856 | 734 |
+| **Not registered at all** | **748** | — |
+| Repeating Year 2 | 23 | 3 |
+| Back in Year 1 | 12 | — |
+| **Total** | **1,639** | |
+
+Of the 856 who did progress to Year 3, **734 are on three-year degrees and are therefore
+graduands** — correctly outside this report. Only 122 remain as continuing, which is the figure
+shown.
+
+### b) The genuine red flag — and it is not Year 3
+
+A raw "did not register" count badly overstates the problem, because a student on a two-year
+diploma who finished last year *should* be absent. Separating the two:
+
+| Cohort in 2025/2026 | Total | Not registered | Were finishing — correctly gone | **Should have returned** | Unclassified |
+|---|---:|---:|---:|---:|---:|
+| Year 1 | 2,099 | 875 | 109 | **743** | 23 |
+| Year 2 | 1,639 | 748 | 466 | **267** | 15 |
+| | | | | **1,010** | |
+
+Expressed against the students who actually owed a return:
+
+| Cohort | Should have returned | Did not | Rate |
+|---|---:|---:|---:|
+| Last year's Year 1 | 1,990 | 743 | **37.3%** |
+| Last year's Year 2 | 1,173 | 267 | **22.8%** |
+
+**Roughly one in three of last year's first-years, and one in five of its second-years, have not
+come back.** That is the red flag — a registration and retention problem spread across the whole
+register, not a Year 3 problem. Examining Year 3 alone would have missed it entirely.
+
+This corroborates §8 from an independent direction. That section derived about 1,020 students
+"yet to register" from the `new_status` flag; cohort tracking derives **1,010** from registration
+records alone. Two unrelated methods landing within ten students of each other means the figure
+is real.
+
+### c) What this means for the report
+
+The Year 3 number needed no correction. The report's *presentation* did: it asserted Year 3 was
+"small by construction" without showing the denominator that proves it, which is precisely why
+the figure looked like an error. That denominator is now in §13(a).
+
+**Recommendation:** the continuation table in §13(b) should become a standing part of this report.
+Enrolment counts alone cannot distinguish "this cohort is small by design" from "this cohort has
+not turned up" — only cohort tracking can, and that distinction is the one Senate most needs.
+
+*Note on drift: registration remains open, so these figures move daily. As at 15 August the
+continuing cohort reads Year 1 1,105 · Year 2 829 · Year 3 128, against 1,088 / 827 / 127 in the
+14 August snapshot above. The pattern is unchanged.*
+
+---
+
 ## Summary for Senate
 
 1. **2,042 continuing students** in Years 1–3, after removing 1,250 finalists — of whom 739 are
@@ -298,8 +393,13 @@ flag.
    teacher training.
 3. **Gender parity overall (50.5% female) is a mix effect.** Education is 69% female, STEAD is
    24% female. The disparity is disciplinary, not institutional.
-4. **1,020 students from last year have not yet registered.** This is the largest single number
-   in the report and the figures here will not be final until it is resolved.
+4. **About 1,010 students who owed a return have not registered.** This is the largest single
+   number in the report and the figures here will not be final until it is resolved. Cohort
+   tracking (§13) confirms it independently: **37.3% of last year's Year 1 and 22.8% of its
+   Year 2 have not come back**, once students who were legitimately finishing are excluded.
+4b. **Year 3 is correct, and was queried by the Academic Registrar.** Only 150 students in the
+   University are eligible to be a continuing Year 3 — everyone else on Year 3 is a graduand —
+   and 122 of them registered. §13 shows the working.
 5. **One student in five carries a failed paper forward; among Kirumba Year 3, more than one in
    four.** Retake capacity should be planned against the per-student figure, not the 96% paper
    pass rate.
