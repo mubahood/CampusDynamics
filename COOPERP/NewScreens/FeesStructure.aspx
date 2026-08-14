@@ -1,4 +1,4 @@
-﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="FeesStructure.aspx.cs" Inherits="COOPERP_NewScreens_FeesStructure" Title="Fee Structure & Settings - Campus Dynamics" %>
+<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="FeesStructure.aspx.cs" Inherits="COOPERP_NewScreens_FeesStructure" Title="Fee Structure & Settings - Campus Dynamics" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
@@ -1440,7 +1440,7 @@
         <span class="fw-foot__sp"></span>
         <button type="button" class="fs-btn fs-btn--ghost" id="fwBack" onclick="fwGo(-1);">Back</button>
         <button type="button" class="fs-btn fs-btn--primary" id="fwNext" onclick="fwGo(1);">Continue</button>
-        <button type="button" class="fs-btn fs-btn--primary" id="fwCommit" style="display:none;background:#16a34a;border-color:#16a34a;" onclick="fwCommit();">Commit adjustment</button>
+        <button type="button" class="fs-btn fs-btn--primary" id="fwCommit" style="display:none;background:#16a34a;border-color:#16a34a;" onclick="fwDoCommit();">Commit adjustment</button>
     </div>
 </div>
 </div>
@@ -1757,13 +1757,13 @@ var _fwStep = 1, _fwIds = [], _fwPreview = null, _fwBusy = false;
 function fwEl(id){ return document.getElementById(id); }
 function fwEsc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fwNum(n){ return (Number(n)||0).toLocaleString('en-US'); }
-function fwMsg(text, kind){
+function fwSay(text, kind){
     var m = fwEl('fwMsg');
     if (!text) { m.className = 'fw-msg'; m.innerHTML = ''; return; }
     m.className = 'fw-msg show fw-msg--' + (kind || 'bad');
     m.innerHTML = text;
 }
-function fwAmount(){ return parseFloat((fwEl('fwAmount').value || '').replace(/[^0-9.]/g,'')) || 0; }
+function fwAmtVal(){ return parseFloat((fwEl('fwAmount').value || '').replace(/[^0-9.]/g,'')) || 0; }
 function fwDir(){ return fwEl('fwDirUp').checked ? '+' : '-'; }
 function fwFeeType(){ return fwEl('fwFtFunc').checked ? 'FUNCTIONAL' : 'TUITION'; }
 function fwFeeLabel(){ return fwFeeType() === 'FUNCTIONAL' ? 'functional fee' : 'tuition'; }
@@ -1786,7 +1786,7 @@ function openBatchAdjust() {
     fwEl('fwFtFunc').checked = true;
     fwPaintChoices();
     fwDirty();
-    fwMsg('');
+    fwSay('');
 
     var h = '<table><thead><tr><th>#</th><th>Programme</th><th style="text-align:right;">Current total</th></tr></thead><tbody>';
     var cbs = document.querySelectorAll('.fs-row-check:checked');
@@ -1809,7 +1809,7 @@ function fwPaintChoices(){
     fwEl('fwAmtSign').textContent = up ? '+' : '−';
     fwEl('fwAmtSign').className = 'fw-amount__sign' + (up ? '' : ' is-down');
 
-    var amt = fwAmount();
+    var amt = fwAmtVal();
     fwEl('fwAmountWords').innerHTML = amt > 0
         ? 'Every selected ' + fwFeeLabel() + ' will ' + (up ? 'go up' : 'come down') + ' by <b>UGX ' + fwNum(amt) + '</b>.'
         : 'Enter a block figure. It is applied to each selected fee, not shared between them.';
@@ -1844,8 +1844,8 @@ function fwPaintStep(){
 
 function fwValidate(step){
     if (step === 2){
-        if (fwAmount() <= 0) return 'Enter the amount to add or take off. It must be more than zero.';
-        if (fwAmount() > 100000000) return 'That amount looks wrong (over 100,000,000). Check it before continuing.';
+        if (fwAmtVal() <= 0) return 'Enter the amount to add or take off. It must be more than zero.';
+        if (fwAmtVal() > 100000000) return 'That amount looks wrong (over 100,000,000). Check it before continuing.';
     }
     if (step === 3){
         if (fwPicked('fw-yr').length === 0)  return 'Choose at least one year of study.';
@@ -1855,15 +1855,15 @@ function fwValidate(step){
 }
 
 function fwGo(delta){
-    fwMsg('');
+    fwSay('');
     if (delta > 0){
         var err = fwValidate(_fwStep);
-        if (err) { fwMsg(err); return; }
+        if (err) { fwSay(err); return; }
     }
     var next = _fwStep + delta;
     if (next < 1 || next > 4) return;
     _fwStep = next;
-    if (_fwStep === 4) { fwPaintStep(); fwReview(); }
+    if (_fwStep === 4) { fwPaintStep(); fwBuildReview(); }
     else fwPaintStep();
 }
 
@@ -1871,13 +1871,13 @@ function fwQuery(){
     return 'ids=' + encodeURIComponent(_fwIds.join(',')) +
            '&feeType=' + encodeURIComponent(fwFeeType()) +
            '&direction=' + encodeURIComponent(fwDir()) +
-           '&amount=' + encodeURIComponent(fwAmount()) +
+           '&amount=' + encodeURIComponent(fwAmtVal()) +
            '&years=' + encodeURIComponent(fwPicked('fw-yr').join(',')) +
            '&sems=' + encodeURIComponent(fwPicked('fw-sem').join(',')) +
            '&note=' + encodeURIComponent(fwEl('fwNote').value || '');
 }
 
-function fwReview(){
+function fwBuildReview(){
     fwEl('fwReview').innerHTML = '<div style="padding:14px;color:#94a3b8;font-size:11px;">Working out what would change&hellip;</div>';
     fwEl('fwTally').innerHTML = '';
     fwEl('fwSentence').innerHTML = '';
@@ -1889,12 +1889,12 @@ function fwReview(){
     x.onreadystatechange = function(){
         if (x.readyState !== 4) return;
         var r = null; try { r = JSON.parse(x.responseText); } catch(e){}
-        if (!r || !r.success){ fwMsg((r && r.message) || 'Could not work out the change.'); fwEl('fwReview').innerHTML=''; return; }
+        if (!r || !r.success){ fwSay((r && r.message) || 'Could not work out the change.'); fwEl('fwReview').innerHTML=''; return; }
         _fwPreview = r;
 
         var up = fwDir() === '+';
         fwEl('fwSentence').innerHTML =
-            '<b>' + (up ? 'Increase' : 'Decrease') + '</b> the <b>' + fwFeeLabel() + '</b> by <b>UGX ' + fwNum(fwAmount()) + '</b> ' +
+            '<b>' + (up ? 'Increase' : 'Decrease') + '</b> the <b>' + fwFeeLabel() + '</b> by <b>UGX ' + fwNum(fwAmtVal()) + '</b> ' +
             'for <b>Year ' + fwPicked('fw-yr').join(', ') + '</b>, <b>Semester ' + fwPicked('fw-sem').join(', ') + '</b>, ' +
             'across <b>' + r.structures + '</b> fee structure(s).<br />' +
             'Total charged across the affected cells moves from <b>UGX ' + fwNum(r.totalBefore) + '</b> to ' +
@@ -1923,17 +1923,17 @@ function fwReview(){
         }
         fwEl('fwReview').innerHTML = h + '</tbody></table>';
 
-        if (!r.cellsChanged) fwMsg('Nothing would change with these settings. Adjust the amount, years or semesters.', 'bad');
+        if (!r.cellsChanged) fwSay('Nothing would change with these settings. Adjust the amount, years or semesters.', 'bad');
         fwPaintStep();
     };
-    x.onerror = function(){ fwMsg('Network error while preparing the review.'); };
+    x.onerror = function(){ fwSay('Network error while preparing the review.'); };
     x.send(fwQuery());
 }
 
-function fwCommit(){
+function fwDoCommit(){
     if (_fwBusy || !_fwPreview || !_fwPreview.cellsChanged) return;
     var up = fwDir() === '+';
-    if (!confirm((up ? 'Increase' : 'Decrease') + ' ' + fwFeeLabel() + ' by UGX ' + fwNum(fwAmount()) +
+    if (!confirm((up ? 'Increase' : 'Decrease') + ' ' + fwFeeLabel() + ' by UGX ' + fwNum(fwAmtVal()) +
                  ' on ' + _fwPreview.cellsChanged + ' fee(s) across ' + _fwPreview.structures + ' structure(s)?\n\n' +
                  'This changes what students are billed. The batch is recorded and can be reversed.')) return;
 
@@ -1948,11 +1948,11 @@ function fwCommit(){
         if (x.readyState !== 4) return;
         _fwBusy = false; btn.disabled = false; btn.innerHTML = orig;
         var r = null; try { r = JSON.parse(x.responseText); } catch(e){}
-        if (!r || !r.success){ fwMsg((r && r.message) || 'The adjustment did not go through. Nothing was changed.'); return; }
+        if (!r || !r.success){ fwSay((r && r.message) || 'The adjustment did not go through. Nothing was changed.'); return; }
         alert(r.message);
         window.location.reload();
     };
-    x.onerror = function(){ _fwBusy=false; btn.disabled=false; btn.innerHTML=orig; fwMsg('Network error. Nothing was changed.'); };
+    x.onerror = function(){ _fwBusy=false; btn.disabled=false; btn.innerHTML=orig; fwSay('Network error. Nothing was changed.'); };
     x.send(fwQuery());
 }
 
