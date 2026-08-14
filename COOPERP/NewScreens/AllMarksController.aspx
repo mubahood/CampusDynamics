@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="AllMarksController.aspx.cs" Inherits="COOPERP_NewScreens_AllMarksController" Title="All Marks Controller - Admin" %>
+﻿<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="AllMarksController.aspx.cs" Inherits="COOPERP_NewScreens_AllMarksController" Title="All Marks Controller - Admin" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
@@ -16,7 +16,10 @@
 .pm-card{background:#fff;border:1px solid #e3e9f2;border-radius:8px;overflow:visible;}
 .pm-card__head{padding:8px 10px;border-bottom:1px solid #edf1f6;background:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
 .pm-card__title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#05275C;}
-.pm-filters{padding:8px 10px;border-bottom:1px solid #eef2f6;background:#fff;display:grid;grid-template-columns:minmax(110px,.75fr) minmax(90px,.6fr) minmax(100px,.7fr) minmax(120px,.85fr) minmax(120px,.85fr) minmax(170px,1.2fr) minmax(80px,.5fr) auto;gap:6px;align-items:flex-end;}
+/* 9 cells: year, sem, status, prog, lecturer, STUDENT, COURSE, per-page, apply. */
+.pm-filters{padding:8px 10px;border-bottom:1px solid #eef2f6;background:#fff;display:grid;grid-template-columns:minmax(104px,.7fr) minmax(84px,.55fr) minmax(94px,.62fr) minmax(112px,.78fr) minmax(112px,.78fr) minmax(150px,1.05fr) minmax(130px,.9fr) minmax(74px,.45fr) auto;gap:6px;align-items:flex-end;}
+@media (max-width:1200px){.pm-filters{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media (max-width:640px){.pm-filters{grid-template-columns:repeat(2,minmax(0,1fr));}}
 .pm-fg{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .pm-fg label{font-size:9px;text-transform:uppercase;letter-spacing:.45px;color:#64748b;font-weight:800;}
 .pm-input,.pm-select{height:30px;border:1px solid #cdd8e6;padding:4px 8px;font-size:11px;background:#fff;border-radius:6px;color:#1a1a2e;font-family:inherit;}
@@ -327,7 +330,10 @@
 		<div class="pm-fg"><label>Status</label><asp:DropDownList ID="ddlStatus" runat="server" CssClass="pm-select" Enabled="false"><asp:ListItem Value="pending" Selected="True">Pending Approval Only</asp:ListItem></asp:DropDownList></div>
 		<div class="pm-fg"><label>Programme</label><asp:DropDownList ID="ddlProg" runat="server" CssClass="pm-select" /></div>
 		<div class="pm-fg"><label>Lecturer</label><asp:DropDownList ID="ddlLecturer" runat="server" CssClass="pm-select" /></div>
-		<div class="pm-fg"><label>Search (Reg/Name/Course)</label><asp:TextBox ID="txtSearch" runat="server" CssClass="pm-input" placeholder="Reg no, name, course code" onkeydown="if(event.key==='Enter')applyFilters();" /></div>
+		<%-- Student and course are separate boxes so they can be combined: one student AND
+		     one paper. A single field could only ever OR them together. --%>
+		<div class="pm-fg"><label>Student</label><asp:TextBox ID="txtSearch" runat="server" CssClass="pm-input" placeholder="Reg no, entry no or name" onkeydown="if(event.key==='Enter')applyFilters();" /></div>
+		<div class="pm-fg"><label>Course</label><asp:TextBox ID="txtCourse" runat="server" CssClass="pm-input" placeholder="Course code or name" onkeydown="if(event.key==='Enter')applyFilters();" /></div>
 		<div class="pm-fg"><label>Per Page</label><asp:DropDownList ID="ddlPageSize" runat="server" CssClass="pm-select"><asp:ListItem Value="50">50</asp:ListItem><asp:ListItem Value="100" Selected="True">100</asp:ListItem><asp:ListItem Value="200">200</asp:ListItem><asp:ListItem Value="500">500</asp:ListItem></asp:DropDownList></div>
 		<div class="pm-fg" style="justify-content:flex-end;"><label>&nbsp;</label><button type="button" class="pm-btn pm-btn--primary" onclick="applyFilters()">Apply</button></div>
 	</div>
@@ -367,8 +373,8 @@ function openModal(id){ qs('pmOverlay').classList.add('show'); qs(id).classList.
 window.closeModal=function(id){ qs('pmOverlay').classList.remove('show'); qs(id).classList.remove('show'); _id=null; };
 window.closeAllModals=function(){ ['modalDetails','modalReview','modalPublish','modalEdit','modalBulk','modalBatchWizard','modalSetStatus','modalCreateReg','modalDeleteReg'].forEach(function(m){ var el=qs(m); if(el) el.classList.remove('show'); }); qs('pmOverlay').classList.remove('show'); _id=null; };
 function goWithQuery(params){ var query = new URLSearchParams(); Object.keys(params).forEach(function(k){ if(params[k]!==undefined && params[k]!==null) query.set(k, params[k]); }); window.location.href='AllMarksController.aspx?'+query.toString(); }
-window.applyFilters=function(){ var year=qs('<%= ddlYear.ClientID %>').value, sem=qs('<%= ddlSemester.ClientID %>').value, status=qs('<%= ddlStatus.ClientID %>').value, prog=qs('<%= ddlProg.ClientID %>').value, lect=qs('<%= ddlLecturer.ClientID %>').value, ps=qs('<%= ddlPageSize.ClientID %>').value, q=qs('<%= txtSearch.ClientID %>').value; goWithQuery({pg:'1',year:year,sem:sem,status:status,prog:prog,lect:lect,ps:ps,q:q}); };
-window.filterByStatus=function(){ var year=qs('<%= ddlYear.ClientID %>').value, sem=qs('<%= ddlSemester.ClientID %>').value, status=qs('<%= ddlStatus.ClientID %>').value, prog=qs('<%= ddlProg.ClientID %>').value, lect=qs('<%= ddlLecturer.ClientID %>').value, ps=qs('<%= ddlPageSize.ClientID %>').value, q=qs('<%= txtSearch.ClientID %>').value; goWithQuery({pg:'1',year:year,sem:sem,status:status,prog:prog,lect:lect,ps:ps,q:q}); };
+window.applyFilters=function(){ var year=qs('<%= ddlYear.ClientID %>').value, sem=qs('<%= ddlSemester.ClientID %>').value, status=qs('<%= ddlStatus.ClientID %>').value, prog=qs('<%= ddlProg.ClientID %>').value, lect=qs('<%= ddlLecturer.ClientID %>').value, ps=qs('<%= ddlPageSize.ClientID %>').value, q=qs('<%= txtSearch.ClientID %>').value, qc=qs('<%= txtCourse.ClientID %>').value; goWithQuery({pg:'1',year:year,sem:sem,status:status,prog:prog,lect:lect,ps:ps,q:q,qc:qc}); };
+window.filterByStatus=function(){ var year=qs('<%= ddlYear.ClientID %>').value, sem=qs('<%= ddlSemester.ClientID %>').value, status=qs('<%= ddlStatus.ClientID %>').value, prog=qs('<%= ddlProg.ClientID %>').value, lect=qs('<%= ddlLecturer.ClientID %>').value, ps=qs('<%= ddlPageSize.ClientID %>').value, q=qs('<%= txtSearch.ClientID %>').value, qc=qs('<%= txtCourse.ClientID %>').value; goWithQuery({pg:'1',year:year,sem:sem,status:status,prog:prog,lect:lect,ps:ps,q:q,qc:qc}); };
 function updateBulkBar(){ _selectedIds=[]; document.querySelectorAll('.pm-row-chk:checked').forEach(function(c){ _selectedIds.push(parseInt(c.value,10)); }); var bar=qs('bulkBar'); if(_selectedIds.length>0){ bar.classList.add('show'); qs('bulkCountLabel').textContent=_selectedIds.length+' selected'; } else bar.classList.remove('show'); }
 window.toggleAll=function(chk){ document.querySelectorAll('.pm-row-chk').forEach(function(c){ c.checked=chk.checked; }); updateBulkBar(); };
 document.addEventListener('change',function(e){ if(e.target&&e.target.classList.contains('pm-row-chk')) updateBulkBar(); });

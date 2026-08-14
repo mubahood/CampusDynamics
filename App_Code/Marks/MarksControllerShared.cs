@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Text;
@@ -100,9 +100,20 @@ public static class MarksControllerShared
         try { EnsureNullableColumn(conn, schema, table, "provisional_published_date", "DATETIME NULL"); } catch { }
     }
 
+    // Student and course are two different questions — "show me this student" and "show me this
+    // paper" — and one box could only ever answer them with an OR, which quietly makes
+    // "MRU2024001696" and "BIT2201B" together impossible to ask for. The second box is optional
+    // so the three pending/published controllers keep their single field untouched.
     public static void LoadFilters(HttpRequest request, MySqlConnection conn,
         DropDownList ddlYear, DropDownList ddlSemester, DropDownList ddlStatus, DropDownList ddlProg,
         DropDownList ddlLecturer, DropDownList ddlPageSize, TextBox txtSearch, AdminMarksPageKind kind)
+    {
+        LoadFilters(request, conn, ddlYear, ddlSemester, ddlStatus, ddlProg, ddlLecturer, ddlPageSize, txtSearch, null, kind);
+    }
+
+    public static void LoadFilters(HttpRequest request, MySqlConnection conn,
+        DropDownList ddlYear, DropDownList ddlSemester, DropDownList ddlStatus, DropDownList ddlProg,
+        DropDownList ddlLecturer, DropDownList ddlPageSize, TextBox txtSearch, TextBox txtCourse, AdminMarksPageKind kind)
     {
         ddlYear.Items.Clear();
         ddlYear.Items.Add(new ListItem("All Years", ""));
@@ -163,6 +174,7 @@ public static class MarksControllerShared
         SafeSelect(ddlLecturer, qLect);
         SafeSelect(ddlPageSize, qPs);
         txtSearch.Text = qSearch;
+        if (txtCourse != null) txtCourse.Text = request.QueryString["qc"] ?? "";
     }
 
     public static void LoadStats(MySqlConnection conn, Literal litStatTotal, Literal litPending, Literal litApproved, Literal litRejected, Literal litPublished, Literal litNotEntered)
@@ -200,6 +212,18 @@ public static class MarksControllerShared
         Literal litPage, Literal litPageCount, Literal litPager, Literal litPager2,
         AdminMarksPageKind kind)
     {
+        BindGrid(request, conn, ddlYear, ddlSemester, ddlStatus, ddlProg, ddlLecturer, ddlPageSize,
+                 txtSearch, null, litRows, litFrom, litTo, litTotal, litTotal2,
+                 litPage, litPageCount, litPager, litPager2, kind);
+    }
+
+    public static void BindGrid(HttpRequest request, MySqlConnection conn,
+        DropDownList ddlYear, DropDownList ddlSemester, DropDownList ddlStatus, DropDownList ddlProg,
+        DropDownList ddlLecturer, DropDownList ddlPageSize, TextBox txtSearch, TextBox txtCourse,
+        Literal litRows, Literal litFrom, Literal litTo, Literal litTotal, Literal litTotal2,
+        Literal litPage, Literal litPageCount, Literal litPager, Literal litPager2,
+        AdminMarksPageKind kind)
+    {
         int page = 1;
         if (!string.IsNullOrEmpty(request.QueryString["pg"])) int.TryParse(request.QueryString["pg"], out page);
         if (page < 1) page = 1;
@@ -214,6 +238,7 @@ public static class MarksControllerShared
         string prog = ddlProg.SelectedValue;
         string lect = ddlLecturer.SelectedValue;
         string search = txtSearch.Text.Trim();
+        string courseTerm = txtCourse != null ? txtCourse.Text.Trim() : "";
         string courseCol = GetCourseColumnExpression(conn, "cr");
 
         if (string.IsNullOrEmpty(courseCol))
@@ -234,8 +259,19 @@ public static class MarksControllerShared
         if (!string.IsNullOrEmpty(year)) where.Append(" AND cr.acad_year = @year");
         if (!string.IsNullOrEmpty(sem)) where.Append(" AND cr.semester = @sem");
         if (!string.IsNullOrEmpty(prog)) where.Append(" AND cr.prog_id = @prog");
+        // When the page supplies a course box, the student box stops matching course codes —
+        // otherwise typing a reg number would still pull in courses whose code happened to
+        // contain it, and the two boxes could not be combined. Entry number is included
+        // because it is what staff read off paper.
         if (!string.IsNullOrEmpty(search))
-            where.Append(" AND (cr.regno LIKE @q OR " + courseCol + " LIKE @q OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @q)");
+        {
+            if (txtCourse != null)
+                where.Append(" AND (cr.regno LIKE @q OR COALESCE(s.entryno,'') LIKE @q OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @q)");
+            else
+                where.Append(" AND (cr.regno LIKE @q OR " + courseCol + " LIKE @q OR TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) LIKE @q)");
+        }
+        if (!string.IsNullOrEmpty(courseTerm))
+            where.Append(" AND (" + courseCol + " LIKE @qc OR COALESCE(c.courseName,'') LIKE @qc)");
         if (!string.IsNullOrEmpty(lect))
             where.Append(" AND EXISTS (SELECT 1 FROM acad_programmecourses pc2 WHERE pc2.lecturer_id = @lect AND pc2.course_code = " + courseCol + " AND pc2.progcode = cr.prog_id)");
 
@@ -254,7 +290,7 @@ public static class MarksControllerShared
         int total;
         using (MySqlCommand cmd = new MySqlCommand("SELECT COUNT(*) " + joins + " " + where.ToString(), conn))
         {
-            AddParams(cmd, year, sem, prog, status, useStatusParam, lect, search);
+            AddParams(cmd, year, sem, prog, status, useStatusParam, lect, search, courseTerm);
             total = Convert.ToInt32(cmd.ExecuteScalar());
         }
 
@@ -288,7 +324,7 @@ public static class MarksControllerShared
         StringBuilder sb = new StringBuilder();
         using (MySqlCommand cmd = new MySqlCommand(dataSql, conn))
         {
-            AddParams(cmd, year, sem, prog, status, useStatusParam, lect, search);
+            AddParams(cmd, year, sem, prog, status, useStatusParam, lect, search, courseTerm);
             cmd.Parameters.AddWithValue("@offset", offset);
             cmd.Parameters.AddWithValue("@pageSize", pageSize);
             using (MySqlDataReader rdr = cmd.ExecuteReader())
@@ -364,7 +400,7 @@ public static class MarksControllerShared
         litTotal2.Text = total.ToString();
         litPage.Text = page.ToString();
         litPageCount.Text = pageCount.ToString();
-        string pagerHtml = BuildPager(page, pageCount, year, sem, prog, status, lect, search, pageSize.ToString());
+        string pagerHtml = BuildPager(page, pageCount, year, sem, prog, status, lect, search, pageSize.ToString(), courseTerm);
         litPager.Text = pagerHtml;
         litPager2.Text = pagerHtml;
     }
@@ -1320,15 +1356,21 @@ public static class MarksControllerShared
 
     private static void AddParams(MySqlCommand cmd, string year, string sem, string prog, string status, bool useStatusParam, string lect, string search)
     {
+        AddParams(cmd, year, sem, prog, status, useStatusParam, lect, search, "");
+    }
+
+    private static void AddParams(MySqlCommand cmd, string year, string sem, string prog, string status, bool useStatusParam, string lect, string search, string courseTerm)
+    {
         if (!string.IsNullOrEmpty(year)) cmd.Parameters.AddWithValue("@year", year);
         if (!string.IsNullOrEmpty(sem)) cmd.Parameters.AddWithValue("@sem", sem);
         if (!string.IsNullOrEmpty(prog)) cmd.Parameters.AddWithValue("@prog", prog);
         if (useStatusParam && !string.IsNullOrEmpty(status)) cmd.Parameters.AddWithValue("@status", status);
         if (!string.IsNullOrEmpty(lect)) cmd.Parameters.AddWithValue("@lect", lect);
         if (!string.IsNullOrEmpty(search)) cmd.Parameters.AddWithValue("@q", "%" + search + "%");
+        if (!string.IsNullOrEmpty(courseTerm)) cmd.Parameters.AddWithValue("@qc", "%" + courseTerm + "%");
     }
 
-    private static string BuildPager(int page, int pageCount, string year, string sem, string prog, string status, string lect, string q, string ps)
+    private static string BuildPager(int page, int pageCount, string year, string sem, string prog, string status, string lect, string q, string ps, string qc)
     {
         StringBuilder sb = new StringBuilder();
         int startP = Math.Max(1, page - 3);
@@ -1336,7 +1378,7 @@ public static class MarksControllerShared
 
         Func<int, string> url = delegate(int p)
         {
-            return string.Format("?pg={0}&year={1}&sem={2}&prog={3}&status={4}&lect={5}&ps={6}&q={7}",
+            return string.Format("?pg={0}&year={1}&sem={2}&prog={3}&status={4}&lect={5}&ps={6}&q={7}&qc={8}",
                 p,
                 Uri.EscapeDataString(year ?? string.Empty),
                 Uri.EscapeDataString(sem ?? string.Empty),
@@ -1344,7 +1386,8 @@ public static class MarksControllerShared
                 Uri.EscapeDataString(status ?? string.Empty),
                 Uri.EscapeDataString(lect ?? string.Empty),
                 Uri.EscapeDataString(ps ?? string.Empty),
-                Uri.EscapeDataString(q ?? string.Empty));
+                Uri.EscapeDataString(q ?? string.Empty),
+                Uri.EscapeDataString(qc ?? string.Empty));
         };
 
         if (page > 1) sb.AppendFormat("<a href='{0}'>&laquo;</a>", url(page - 1));

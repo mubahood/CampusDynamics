@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Web.Services;
 using MySql.Data.MySqlClient;
@@ -26,9 +26,9 @@ public partial class COOPERP_NewScreens_AllMarksController : System.Web.UI.Page
         {
             conn.Open();
             MarksControllerShared.EnsureProvisionalColumns(conn);
-            MarksControllerShared.LoadFilters(Request, conn, ddlYear, ddlSemester, ddlStatus, ddlProg, ddlLecturer, ddlPageSize, txtSearch, PageKind);
+            MarksControllerShared.LoadFilters(Request, conn, ddlYear, ddlSemester, ddlStatus, ddlProg, ddlLecturer, ddlPageSize, txtSearch, txtCourse, PageKind);
             MarksControllerShared.LoadStats(conn, litStatTotal, litPending, litApproved, litRejected, litPublished, litNotEntered);
-            MarksControllerShared.BindGrid(Request, conn, ddlYear, ddlSemester, ddlStatus, ddlProg, ddlLecturer, ddlPageSize, txtSearch, litRows, litFrom, litTo, litTotal, litTotal2, litPage, litPageCount, litPager, litPager2, PageKind);
+            MarksControllerShared.BindGrid(Request, conn, ddlYear, ddlSemester, ddlStatus, ddlProg, ddlLecturer, ddlPageSize, txtSearch, txtCourse, litRows, litFrom, litTo, litTotal, litTotal2, litPage, litPageCount, litPager, litPager2, PageKind);
         }
     }
 
