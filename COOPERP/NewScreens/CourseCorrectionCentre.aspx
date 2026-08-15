@@ -280,7 +280,7 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
     </div>
 
     <div class="cc-grid" style="margin-top:10px;">
-      <label class="cc-chk"><input type="checkbox" id="ccPub" /><span><b>Include records whose marks are published</b><em>Published marks are left alone unless you tick this. The marks move with the record; they are not altered.</em></span></label>
+      <label class="cc-chk"><input type="checkbox" id="ccPub" checked="checked" /><span><b>Include records whose marks are published</b><em>Included by default, since a wrong course code needs correcting whether or not the mark has been published. The mark travels with the record and is not altered. Untick to correct only unpublished records.</em></span></label>
       <label class="cc-chk"><input type="checkbox" id="ccRes" checked="checked" /><span><b>Carry results and transcript entries across</b><em>Keeps the mark attached to the corrected registration. Untick only if the results are being handled separately.</em></span></label>
       <label class="cc-chk" id="ccAllTermsWrap"><input type="checkbox" id="ccAllTerms" /><span><b>Also move related records from other terms</b><em>Use when the same wrong code appears in more than one term for the same student.</em></span></label>
     </div>
