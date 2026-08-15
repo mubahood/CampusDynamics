@@ -3279,11 +3279,28 @@
             var sel = document.getElementById('cpSpec');
             sel.innerHTML = '<option value="">Loading…</option>';
             if (!prog) { sel.innerHTML = '<option value="">-- None --</option>'; return; }
-            _njPost('SpecList', 'prog=' + encodeURIComponent(prog), function (r) {
-                var h = '<option value="">-- None --</option>';
+            // The student is sent too, so the server can guarantee their own specialisation is in
+            // the list — otherwise it silently reverts to "None" and saving would erase it.
+            _njPost('SpecList', 'prog=' + encodeURIComponent(prog) + '&regno=' + encodeURIComponent(_cpRegno || ''), function (r) {
+                var h = '<option value="">-- None --</option>', matched = false;
                 if (r && r.success) (r.items || []).forEach(function (s) {
-                    h += '<option value="' + _njEsc(s.id) + '"' + (String(s.id) === String(preselectSpec || '') ? ' selected' : '') + '>' + _njEsc(s.name) + '</option>';
+                    var on = String(s.id) === String(preselectSpec || '');
+                    if (on) matched = true;
+                    var label = s.name;
+                    if (s.abbrev) label += ' (' + s.abbrev + ')';
+                    if (s.foreign_) label += ' — belongs to another programme';
+                    else if (!s.active) label += ' — no longer offered';
+                    if (s.students) label += ' · ' + s.students + ' students';
+                    h += '<option value="' + _njEsc(s.id) + '"' + (on ? ' selected' : '') + '>' + _njEsc(label) + '</option>';
                 });
+                // Last resort: the student holds an id the catalogue no longer describes. Keep it
+                // selectable rather than quietly dropping the value on the next save.
+                // Not for the "-" placeholder (spec_id 13), which IS how "no specialisation" is
+                // stored for ~30,000 students — "-- None --" already represents that correctly.
+                var curName = (r && r.currentName ? String(r.currentName).trim() : '');
+                if (!matched && preselectSpec && curName && curName !== '-') {
+                    h += '<option value="' + _njEsc(preselectSpec) + '" selected>' + _njEsc(curName) + ' — current value, not offered on this programme</option>';
+                }
                 sel.innerHTML = h;
             });
         }

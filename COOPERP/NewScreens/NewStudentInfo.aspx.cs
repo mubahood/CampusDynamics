@@ -7332,30 +7332,109 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     }
 
     /// <summary>Specialisations for a programme (cascade). Empty list = the programme has none.</summary>
+    /// <summary>
+    /// Specialisations offerable for a programme, for the Change Programme / Specialisation dialog.
+    ///
+    /// This list used to be restricted to is_active='Active', which hid 214 of the 273
+    /// specialisations on record — 78% of them. The consequence was worse than a short list:
+    /// 703 students hold a specialisation that would not appear, so the dropdown fell back to
+    /// "-- None --" and saving any unrelated edit silently erased it. "Inactive" here means
+    /// "not offered to new intakes", not "never existed"; students already on one still have it.
+    ///
+    /// So everything for the programme is returned, flagged rather than filtered, and the
+    /// student's own current specialisation is ALWAYS included even when it belongs to another
+    /// programme (49 students are in that position). The caller can then never lose a value
+    /// simply because this list declined to mention it.
+    /// </summary>
     private void HandleSpecList()
     {
         var js = new JavaScriptSerializer();
         try
         {
-            string prog = (Request.Form["prog"] ?? Request.QueryString["prog"] ?? "").Trim();
+            string prog  = (Request.Form["prog"]  ?? Request.QueryString["prog"]  ?? "").Trim();
+            string regno = (Request.Form["regno"] ?? Request.QueryString["regno"] ?? "").Trim();
+
             var items = new List<object>();
-            if (prog != "")
-                using (var conn = new MySqlConnection(ConnectionString))
-                {
-                    conn.Open();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string currentSpec = "", currentSpecName = "";
+            bool currentIsForeign = false;
+
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+
+                // What the student holds now, so it can never be dropped from the list.
+                if (regno != "")
                     using (var cmd = new MySqlCommand(
-                        @"SELECT spec_id, spec FROM acad_specialisation
-                          WHERE prog_id=@p AND UPPER(TRIM(IFNULL(is_active,'Active')))='ACTIVE'
-                            AND TRIM(IFNULL(spec,''))<>'' AND TRIM(spec)<>'-'
-                          ORDER BY spec", conn))
+                        @"SELECT s.specialisation, TRIM(IFNULL(sp.spec,'')) spec, TRIM(IFNULL(sp.prog_id,'')) sprog
+                          FROM acad_student s
+                          LEFT JOIN acad_specialisation sp ON sp.spec_id = s.specialisation
+                          WHERE s.regno=@r LIMIT 1", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        using (var rdr = cmd.ExecuteReader())
+                            if (rdr.Read())
+                            {
+                                currentSpec = SafeStr(rdr, "specialisation");
+                                currentSpecName = SafeStr(rdr, "spec");
+                                string sprog = SafeStr(rdr, "sprog");
+                                currentIsForeign = sprog != "" && prog != "" &&
+                                                   !string.Equals(sprog, prog, StringComparison.OrdinalIgnoreCase);
+                            }
+                    }
+
+                if (prog != "")
+                    using (var cmd = new MySqlCommand(
+                        @"SELECT sp.spec_id, TRIM(sp.spec) spec, TRIM(IFNULL(sp.abbrev,'')) abbrev,
+                                 UPPER(TRIM(IFNULL(sp.is_active,'Active')))='ACTIVE' AS is_on,
+                                 (SELECT COUNT(*) FROM acad_student st WHERE st.specialisation = sp.spec_id) students
+                          FROM acad_specialisation sp
+                          WHERE sp.prog_id=@p
+                            AND TRIM(IFNULL(sp.spec,''))<>'' AND TRIM(sp.spec)<>'-'
+                          ORDER BY is_on DESC, students DESC, sp.spec", conn))
                     {
                         cmd.Parameters.AddWithValue("@p", prog);
                         using (var rdr = cmd.ExecuteReader())
                             while (rdr.Read())
-                                items.Add(new { id = SafeStr(rdr, "spec_id"), name = SafeStr(rdr, "spec") });
+                            {
+                                string id = SafeStr(rdr, "spec_id");
+                                if (id == "" || !seen.Add(id)) continue;
+                                items.Add(new
+                                {
+                                    id = id,
+                                    name = SafeStr(rdr, "spec"),
+                                    abbrev = SafeStr(rdr, "abbrev"),
+                                    active = SafeStr(rdr, "is_on") == "1",
+                                    students = SafeStr(rdr, "students"),
+                                    foreign_ = false
+                                });
+                            }
                     }
+
+                // The student's own specialisation, if the programme list did not already carry it.
+                if (currentSpec != "" && currentSpecName != "" && currentSpecName != "-" && !seen.Contains(currentSpec))
+                {
+                    items.Insert(0, new
+                    {
+                        id = currentSpec,
+                        name = currentSpecName,
+                        abbrev = "",
+                        active = true,
+                        students = "",
+                        foreign_ = currentIsForeign
+                    });
+                    seen.Add(currentSpec);
                 }
-            WriteJsonAndComplete(js, new { success = true, items = items, hasSpecs = items.Count > 0 });
+            }
+
+            WriteJsonAndComplete(js, new
+            {
+                success = true,
+                items = items,
+                hasSpecs = items.Count > 0,
+                current = currentSpec,
+                currentName = currentSpecName
+            });
         }
         catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
     }
@@ -7407,10 +7486,25 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 using (var cmd = new MySqlCommand("SELECT progname FROM acad_programme WHERE progcode=@p LIMIT 1", conn))
                 { cmd.Parameters.AddWithValue("@p", effProg); if (cmd.ExecuteScalar() == null) { WriteJsonAndComplete(js, new { success = false, message = "Programme '" + effProg + "' does not exist." }); return; } }
 
+                // The specialisation must belong to the effective programme — EXCEPT when it is
+                // simply the one the student already has. 49 students carry a specialisation
+                // declared against another programme; refusing it here would block every
+                // unrelated edit on those records, and re-saving an unchanged value should never
+                // be treated as an attempted move. Anything genuinely new is still checked.
                 if (spec != "")
-                    using (var cmd = new MySqlCommand("SELECT 1 FROM acad_specialisation WHERE spec_id=@s AND prog_id=@p LIMIT 1", conn))
-                    { cmd.Parameters.AddWithValue("@s", spec); cmd.Parameters.AddWithValue("@p", effProg);
-                      if (cmd.ExecuteScalar() == null) { WriteJsonAndComplete(js, new { success = false, message = "That specialisation does not belong to the selected programme." }); return; } }
+                {
+                    string existingSpec = "";
+                    using (var cmd = new MySqlCommand("SELECT IFNULL(specialisation,'') FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                    { cmd.Parameters.AddWithValue("@r", regno); object o = cmd.ExecuteScalar(); existingSpec = o == null ? "" : Convert.ToString(o).Trim(); }
+
+                    if (!string.Equals(spec, existingSpec, StringComparison.OrdinalIgnoreCase))
+                        using (var cmd = new MySqlCommand("SELECT 1 FROM acad_specialisation WHERE spec_id=@s AND prog_id=@p LIMIT 1", conn))
+                        {
+                            cmd.Parameters.AddWithValue("@s", spec); cmd.Parameters.AddWithValue("@p", effProg);
+                            if (cmd.ExecuteScalar() == null)
+                            { WriteJsonAndComplete(js, new { success = false, message = "That specialisation does not belong to the selected programme." }); return; }
+                        }
+                }
 
                 // The formatted registration number (entryno) embeds the programme code + the per-programme
                 // student number. It is regenerated ONLY when the programme actually moves AND the caller
