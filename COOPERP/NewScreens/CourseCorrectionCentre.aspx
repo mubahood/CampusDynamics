@@ -270,6 +270,15 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
       <span class="hint">Use this to correct one student, or to re-run a correction for the few that were skipped.</span>
     </div>
 
+    <div class="cc-f" style="margin-top:12px;">
+      <label>When the student already holds the destination</label>
+      <div class="cc-grid">
+        <label class="cc-chk"><input type="radio" name="ccPolicy" value="resolve" checked="checked" /><span><b>Settle the duplicate — keep the better mark, remove the leftover</b><em>The higher mark ends up on the destination and the duplicate on the retired code is removed, so nothing is left behind. Where the destination has no mark it takes the source's. Where both are equal, the duplicate is simply removed.</em></span></label>
+        <label class="cc-chk"><input type="radio" name="ccPolicy" value="leave" /><span><b>Leave duplicates alone and list them</b><em>Nothing is written for those students. Use this to see the conflicts first.</em></span></label>
+      </div>
+      <span class="hint">Either way both sides are recorded in full before anything changes, so the whole batch can be reversed &mdash; including a mark that was overwritten and a record that was removed.</span>
+    </div>
+
     <div class="cc-grid" style="margin-top:10px;">
       <label class="cc-chk"><input type="checkbox" id="ccPub" /><span><b>Include records whose marks are published</b><em>Published marks are left alone unless you tick this. The marks move with the record; they are not altered.</em></span></label>
       <label class="cc-chk"><input type="checkbox" id="ccRes" checked="checked" /><span><b>Carry results and transcript entries across</b><em>Keeps the mark attached to the corrected registration. Untick only if the results are being handled separately.</em></span></label>
@@ -292,7 +301,7 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
     <div id="ccPvBody" class="cc-hide">
       <div class="cc-kpis">
         <div class="cc-kpi"><div class="cc-kpi__l">Records examined</div><div class="cc-kpi__v" id="kScan">0</div></div>
-        <div class="cc-kpi cc-kpi--go"><div class="cc-kpi__l">Will be moved</div><div class="cc-kpi__v" id="kGo">0</div></div>
+        <div class="cc-kpi cc-kpi--go"><div class="cc-kpi__l">Will be acted on</div><div class="cc-kpi__v" id="kGo">0</div></div>
         <div class="cc-kpi cc-kpi--skip"><div class="cc-kpi__l">Left alone</div><div class="cc-kpi__v" id="kSkip">0</div></div>
         <div class="cc-kpi"><div class="cc-kpi__l">Students</div><div class="cc-kpi__v" id="kStu">0</div></div>
         <div class="cc-kpi"><div class="cc-kpi__l">Related records</div><div class="cc-kpi__v" id="kSat">0</div></div>
@@ -556,8 +565,15 @@ function cfg(){
         moveResults: q('ccRes').checked,
         allTerms: q('ccAllTerms').checked,
         creditUnitWinner: cuWinner(),
+        conflictPolicy: policy(),
         reason: q('ccReason').value.trim()
     };
+}
+
+function policy(){
+    var r=document.getElementsByName('ccPolicy');
+    for(var i=0;i<r.length;i++) if(r[i].checked) return r[i].value;
+    return 'resolve';
 }
 
 function cuWinner(){
@@ -603,17 +619,18 @@ function runPreview(){
 
         var rows=r.rows||[], h='', lim=Math.min(rows.length,400);
         for(var i=0;i<lim;i++){
-            var x=rows[i], go=x.verdict==='MOVED';
-            h+='<tr class="'+(go?'go':'no')+'">'+
+            var x=rows[i], act=ACT[x.verdict]||{cls:'no',label:'Leave'};
+            h+='<tr class="'+act.cls+'">'+
                '<td><span class="cc-mono">'+esc(x.regno)+'</span><span class="cc-nm">'+esc(x.studentName)+'</span></td>'+
                '<td>'+esc(x.progId)+'</td>'+
                '<td class="cc-mono">'+esc(x.courseCode)+'</td>'+
                '<td>'+esc(x.acadYear)+' &middot; S'+x.semester+'</td>'+
                '<td>'+esc(x.courseStatus)+'</td>'+
                '<td>'+esc((x.markStage||'').replace(/_/g,' '))+'</td>'+
-               '<td>'+(x.total==null?'&mdash;':x.total)+'</td>'+
-               '<td><span class="cc-badge '+(go?'go':'no')+'">'+(go?'Move':'Leave')+'</span>'+
-                   (go?'':'<span class="cc-nm">'+esc(verdictText(x.verdict))+'</span>')+'</td></tr>';
+               '<td>'+markCell(x)+'</td>'+
+               '<td><span class="cc-badge '+act.cls+'">'+esc(act.label)+'</span>'+
+                   '<span class="cc-nm">'+esc(verdictText(x.verdict))+'</span>'+
+                   (x.note?'<span class="cc-nm">'+esc(x.note)+'</span>':'')+'</td></tr>';
         }
         q('ccRows').innerHTML = h || '<tr><td colspan="8" style="text-align:center;padding:26px;color:#94a3b8;">Nothing matches this selection.</td></tr>';
         q('ccRowNote').textContent = rows.length>lim ? ('Showing the first '+n(lim)+' of '+n(rows.length)+' records. All of them are included when the correction runs.') : '';
@@ -623,13 +640,40 @@ function runPreview(){
     });
 }
 
+/* how each verdict is drawn, and what it is called */
+var ACT={
+  'MOVED':              {cls:'go', label:'Move'},
+  'RESOLVED_OVERWRITE': {cls:'go', label:'Replace'},
+  'RESOLVED_FILLED':    {cls:'go', label:'Fill'},
+  'RESOLVED_DISCARD':   {cls:'go', label:'Remove duplicate'},
+  'SKIPPED_DUPLICATE':  {cls:'no', label:'Leave'},
+  'SKIPPED_RESULT_CLASH':{cls:'no',label:'Leave'},
+  'SKIPPED_PUBLISHED':  {cls:'no', label:'Leave'},
+  'SKIPPED_SAME_TARGET':{cls:'no', label:'Leave'},
+  'SKIPPED_OUT_OF_SCOPE':{cls:'no',label:'Leave'}
+};
+
 function verdictText(v){
     var m={ 'SKIPPED_DUPLICATE':'Already holds the destination',
             'SKIPPED_RESULT_CLASH':'Already has a result on the destination code',
             'SKIPPED_PUBLISHED':'Marks are published',
             'SKIPPED_SAME_TARGET':'Already on the destination',
-            'SKIPPED_OUT_OF_SCOPE':'Outside your scope' };
-    return m[v]||v;
+            'SKIPPED_OUT_OF_SCOPE':'Outside your scope',
+            'MOVED':'',
+            'RESOLVED_OVERWRITE':'Higher mark replaces the one on the destination',
+            'RESOLVED_FILLED':'Destination has no mark — it takes this one',
+            'RESOLVED_DISCARD':'Destination is already as good or better' };
+    return m[v]!==undefined ? m[v] : v;
+}
+
+/* source mark, and the destination's when the two are being compared */
+function markCell(x){
+    var s = x.total==null ? '&mdash;' : x.total;
+    if(!x.targetId) return s;
+    var d = x.targetTotal==null ? 'no mark' : x.targetTotal;
+    var win = (x.verdict==='RESOLVED_OVERWRITE'||x.verdict==='RESOLVED_FILLED');
+    return '<b style="color:'+(win?'#166534':'#78716c')+'">'+s+'</b>'+
+           '<span class="cc-nm">destination: '+d+(win?'':' (kept)')+'</span>';
 }
 
 /* ---------- confirm ---------- */
@@ -644,13 +688,29 @@ function buildSummary(){
         item('Moving from', c.sourceCode);
         item('Moving to', c.targetCode);
     }
-    item('Registrations to move', n(PV.actionable));
+    item('Registrations to change', n(PV.actionable));
     item('Students affected', n(PV.students));
     item('Related records carried', n(PV.satelliteRows));
     item('Left alone', n(PV.skipped));
     item('Published marks', c.includePublished?'Included':'Excluded');
     item('Acting as', PV.roleNote+' — '+PV.scopeLabel);
     q('ccSum').innerHTML=s;
+
+    // Settling duplicates removes records and can replace a mark, so say so plainly here.
+    var nOver=0, nFill=0, nDrop=0;
+    (PV.rows||[]).forEach(function(x){
+        if(x.verdict==='RESOLVED_OVERWRITE') nOver++;
+        else if(x.verdict==='RESOLVED_FILLED') nFill++;
+        else if(x.verdict==='RESOLVED_DISCARD') nDrop++;
+    });
+    var dup=nOver+nFill+nDrop;
+    if(dup>0){
+        msg(n(dup)+' duplicate registration(s) will be settled: '+
+            n(nOver)+' where the higher mark replaces the one on the destination, '+
+            n(nFill)+' where the destination has no mark yet, and '+n(nDrop)+
+            ' removed because the destination is already as good. All '+n(dup)+
+            ' duplicate records are deleted — every one is recorded first and the batch can be reversed.','warn');
+    }
 
     var want = (OP==='TERM_TRANSFER') ? (c.sourceCode||c.sourceYear) : c.sourceCode;
     q('ccTypeIt').setAttribute('data-want', want);

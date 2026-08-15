@@ -32,6 +32,12 @@ public static class CorrectionVerdict
     public const string ChangedSince       = "CHANGED_SINCE";
     public const string Reversed           = "REVERSED";
 
+    // Conflict resolution (policy = "resolve"). A duplicate is settled rather than left:
+    // the better mark survives on the destination and the duplicate source row is removed.
+    public const string ResolvedOverwrite  = "RESOLVED_OVERWRITE";  // source mark was better — copied over, source removed
+    public const string ResolvedDiscard    = "RESOLVED_DISCARD";    // destination already as good or better — source removed
+    public const string ResolvedFilled     = "RESOLVED_FILLED";     // destination had no mark — filled from the source, source removed
+
     /// <summary>Human sentence for a verdict, shown in the preview and the register.</summary>
     public static string Explain(string v)
     {
@@ -45,10 +51,24 @@ public static class CorrectionVerdict
             case SkippedSameTarget:  return "Source and target are the same";
             case ChangedSince:       return "Record changed after the correction — left as it is";
             case Reversed:           return "Restored to its original value";
+            case ResolvedOverwrite:  return "Duplicate settled — the higher mark replaces the one on the destination, and the duplicate is removed";
+            case ResolvedFilled:     return "Duplicate settled — the destination had no mark, so it takes this one, and the duplicate is removed";
+            case ResolvedDiscard:    return "Duplicate settled — the destination already holds a mark as good or better, so the duplicate is removed";
             default:                 return v;
         }
     }
-    public static bool IsActionable(string v) { return v == Moved; }
+
+    /// <summary>True when the correction will act on the record.</summary>
+    public static bool IsActionable(string v)
+    {
+        return v == Moved || IsResolved(v);
+    }
+
+    /// <summary>True for the three duplicate-settling outcomes, all of which remove the source row.</summary>
+    public static bool IsResolved(string v)
+    {
+        return v == ResolvedOverwrite || v == ResolvedDiscard || v == ResolvedFilled;
+    }
 }
 
 /// <summary>One table that carries a student's course record, and the exact column names it uses.</summary>
@@ -258,6 +278,15 @@ public class CorrectionConfig
     public bool allTerms = false;          // course transfer: move satellites from any term
     public string creditUnitWinner = "";   // merge only: "source" | "target"
 
+    /// <summary>What to do when the student already holds the destination.
+    ///   "leave"   — report the duplicate and change nothing (cautious default).
+    ///   "resolve" — settle it: the higher mark ends up on the destination and the
+    ///               duplicate source record is removed, so no duplicate survives.
+    /// Both are fully snapshotted and reversible.</summary>
+    public string conflictPolicy = "leave";
+
+    public bool Resolving { get { return string.Equals(conflictPolicy, "resolve", StringComparison.OrdinalIgnoreCase); } }
+
     public string reason = "";
 
     public List<string> StudentList()
@@ -290,6 +319,12 @@ public class PreviewRow
     public string verdict = "";
     public string note = "";
     public int satelliteCount;
+
+    // The record already sitting at the destination, when there is one. Shown in the
+    // preview beside the source mark so the operator can see which one will survive.
+    public long targetId;
+    public int? targetTotal;
+    public string targetStage = "";
 }
 
 public class PreviewResult

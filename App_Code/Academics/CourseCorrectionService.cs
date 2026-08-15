@@ -214,14 +214,18 @@ public static class CourseCorrectionService
         var seenReg = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var r in rows) if (seenReg.Add(r.regno)) regnos.Add(r.regno);
 
-        // 1) Destination slots already occupied in the registration table.
-        var occupied = new HashSet<string>();
+        // 1) Destination slots already occupied in the registration table. The occupant's id,
+        //    mark and stage are carried too, so a duplicate can be settled on the evidence
+        //    rather than merely reported.
+        var occupied = new Dictionary<string, PreviewRow>();
         foreach (var chunk in Chunks(regnos, ReadChunk))
         {
             string sql = isTerm
-                ? "SELECT regno, courseID, course_status FROM campus_dynamics_portal.acad_course_registration " +
+                ? "SELECT regno, courseID, course_status, ID, provisional_total_marks, IFNULL(mark_stage,'NOT_ENTERED') " +
+                  "FROM campus_dynamics_portal.acad_course_registration " +
                   "WHERE regno IN (" + InList(chunk) + ") AND acad_year=@ty AND semester=@ts"
-                : "SELECT regno, acad_year, semester, course_status FROM campus_dynamics_portal.acad_course_registration " +
+                : "SELECT regno, acad_year, semester, course_status, ID, provisional_total_marks, IFNULL(mark_stage,'NOT_ENTERED') " +
+                  "FROM campus_dynamics_portal.acad_course_registration " +
                   "WHERE regno IN (" + InList(chunk) + ") AND courseID=@tc";
             using (var cmd = Cmd(sql, c, t))
             {
@@ -229,9 +233,24 @@ public static class CourseCorrectionService
                 else cmd.Parameters.AddWithValue("@tc", cfg.targetCode);
                 using (var r = cmd.ExecuteReader())
                     while (r.Read())
-                        occupied.Add(isTerm
-                            ? Key(S(r, 0), S(r, 1), S(r, 2))
-                            : Key(S(r, 0), S(r, 1), I(r, 2).ToString(CultureInfo.InvariantCulture), S(r, 3)));
+                    {
+                        string k; PreviewRow d = new PreviewRow();
+                        if (isTerm)
+                        {
+                            k = Key(S(r, 0), S(r, 1), S(r, 2));
+                            d.id = Convert.ToInt64(r[3]);
+                            d.total = r.IsDBNull(4) ? (int?)null : Convert.ToInt32(r[4]);
+                            d.markStage = S(r, 5);
+                        }
+                        else
+                        {
+                            k = Key(S(r, 0), S(r, 1), I(r, 2).ToString(CultureInfo.InvariantCulture), S(r, 3));
+                            d.id = Convert.ToInt64(r[4]);
+                            d.total = r.IsDBNull(5) ? (int?)null : Convert.ToInt32(r[5]);
+                            d.markStage = S(r, 6);
+                        }
+                        occupied[k] = d;
+                    }
             }
         }
 
@@ -278,18 +297,61 @@ public static class CourseCorrectionService
                 ? Key(row.regno, row.courseCode, row.courseStatus)
                 : Key(row.regno, row.acadYear, row.semester.ToString(CultureInfo.InvariantCulture), row.courseStatus);
 
-            if (occupied.Contains(slot))
-            { row.verdict = CorrectionVerdict.SkippedDuplicate; continue; }
+            PreviewRow dest;
+            if (occupied.TryGetValue(slot, out dest))
+            {
+                row.targetId = dest.id;
+                row.targetTotal = dest.total;
+                row.targetStage = dest.markStage;
+                row.verdict = cfg.Resolving ? Settle(row.total, dest.total) : CorrectionVerdict.SkippedDuplicate;
+                continue;
+            }
 
             if (!claimed.Add(slot))
             { row.verdict = CorrectionVerdict.SkippedDuplicate; row.note = "Another record in this same correction already moves to that slot."; continue; }
 
             if (!isTerm && cfg.moveResults && resultOnSource.Contains(row.regno) && resultOnTarget.Contains(row.regno))
-            { row.verdict = CorrectionVerdict.SkippedResultClash; continue; }
+            {
+                // Under the settling policy the two results are compared and the better one kept,
+                // exactly as for the registration; otherwise the record is left alone.
+                row.verdict = cfg.Resolving ? CorrectionVerdict.Moved : CorrectionVerdict.SkippedResultClash;
+                if (cfg.Resolving) row.note = "The result on the destination code is compared with this one; the higher mark is kept.";
+                continue;
+            }
 
             row.verdict = CorrectionVerdict.Moved;
         }
     }
+
+    /// <summary>Which way a duplicate is settled, comparing the source mark with the one already
+    /// on the destination. The better mark survives on the destination and the duplicate source
+    /// record is removed, so nothing is left behind on the retired code.
+    ///   destination has no mark      → fill it from the source
+    ///   source is higher             → overwrite the destination
+    ///   destination equal or higher  → keep it, discard the source
+    /// A missing mark never beats a real one, and equal marks never cause a needless rewrite.</summary>
+    private static string Settle(int? sourceMark, int? destMark)
+    {
+        if (sourceMark.HasValue && !destMark.HasValue) return CorrectionVerdict.ResolvedFilled;
+        if (sourceMark.HasValue && destMark.HasValue && sourceMark.Value > destMark.Value) return CorrectionVerdict.ResolvedOverwrite;
+        return CorrectionVerdict.ResolvedDiscard;
+    }
+
+    /// <summary>The mark-bearing columns copied from a source registration onto the destination
+    /// when the source wins. Provenance travels with the mark so the audit trail stays truthful
+    /// about who entered, approved and published it.</summary>
+    private static readonly string[] MarkColumns = {
+        "provisional_course_work_marks", "provisional_exam_marks", "provisional_total_marks",
+        "provisional_marks_status", "provisional_marks_review_comments", "provisional_marks_reviewed_by",
+        "provisional_marks_review_date", "provisional_submitted_by", "provisional_published_by",
+        "provisional_published_date", "mark_stage", "capture_record_id", "approve_record_id",
+        "publish_record_id", "mark_stage_changed_at", "mark_stage_changed_by"
+    };
+
+    /// <summary>The equivalent for a published result row.</summary>
+    private static readonly string[] ResultColumns = {
+        "score", "grade", "gradept", "gpa", "CreditUnits", "result_comment"
+    };
 
     /// <summary>Fingerprint of the candidate set and its relevant state. Any edit between
     /// preview and apply changes it, and the batch refuses to run.</summary>
@@ -299,7 +361,10 @@ public static class CourseCorrectionService
         foreach (var r in rows)
             sb.Append(r.id).Append('|').Append(r.courseCode).Append('|').Append(r.acadYear).Append('|')
               .Append(r.semester).Append('|').Append(r.courseStatus).Append('|').Append(r.markStage).Append('|')
-              .Append(r.total.HasValue ? r.total.Value.ToString(CultureInfo.InvariantCulture) : "-").Append(';');
+              .Append(r.total.HasValue ? r.total.Value.ToString(CultureInfo.InvariantCulture) : "-").Append('|')
+              // the destination is part of the decision, so a change there must invalidate it too
+              .Append(r.targetId).Append('|')
+              .Append(r.targetTotal.HasValue ? r.targetTotal.Value.ToString(CultureInfo.InvariantCulture) : "-").Append(';');
         using (var sha = SHA1.Create())
             return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString()))).Replace("-", "").Substring(0, 20);
     }
@@ -659,16 +724,30 @@ public static class CourseCorrectionService
                     var students = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     var pend = new List<Pending>();
                     bool isTerm = cfg.operation == CorrectionOp.TermTransfer;
+                    int satellitesResolved = 0;
 
                     var masterSets = isTerm
                         ? new Dictionary<string, object> { { "acad_year", cfg.targetYear }, { "semester", cfg.targetSemester } }
                         : new Dictionary<string, object> { { "courseID", cfg.targetCode } };
 
+                    var plainMove = actionable.FindAll(r => r.verdict == CorrectionVerdict.Moved);
+                    var settle = actionable.FindAll(r => CorrectionVerdict.IsResolved(r.verdict));
+
+                    // Duplicates are settled first: the surviving mark is placed on the destination
+                    // and the duplicate source registration is removed. Doing this before the plain
+                    // moves frees the destination slots, so no move can trip the unique index.
+                    int resolved = SettleDuplicates(c, t, batchId, cfg, settle, pend, touched, students);
+
                     int applied = MoveTable(c, t, batchId, CourseTableRegistry.Master, masterSets,
-                                            BuildMasterIdChunks(actionable), null, pend, touched, students);
+                                            BuildMasterIdChunks(plainMove), null, pend, touched, students) + resolved;
+
+                    // With the registrations settled, the single published result each student may
+                    // hold per code is settled the same way, before the generic satellite move runs.
+                    if (settle.Count > 0 && cfg.moveResults && !isTerm)
+                        satellitesResolved = SettleResults(c, t, batchId, cfg, settle, pend, touched);
 
                     // Satellites, grouped so each phase is a handful of statements.
-                    int satellites = 0;
+                    int satellites = satellitesResolved;
                     var groups = GroupActionable(rows);
                     foreach (var def in CourseTableRegistry.Satellites)
                     {
@@ -712,6 +791,237 @@ public static class CourseCorrectionService
             }
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Settling duplicates
+    //
+    //  A duplicate means the student holds the same course twice — once on the
+    //  code being retired and once on the code being kept. Leaving both is the
+    //  fault this module exists to remove, so the pair is reduced to one:
+    //  the better mark ends up on the destination, and the duplicate goes.
+    //
+    //  Both sides are snapshotted whole before anything is touched — the
+    //  destination before it is overwritten, and the source before it is
+    //  deleted — so the reversal restores the overwritten mark AND re-creates
+    //  the removed row.
+    // ─────────────────────────────────────────────────────────────────
+    private static int SettleDuplicates(MySqlConnection c, MySqlTransaction t, long batchId, CorrectionConfig cfg,
+                                        List<PreviewRow> settle, List<Pending> pend, HashSet<string> touched,
+                                        HashSet<string> students)
+    {
+        if (settle.Count == 0) return 0;
+        var master = CourseTableRegistry.Master;
+        int done = 0;
+
+        foreach (var chunk in Chunks(settle, ReadChunk))
+        {
+            // Read both sides of every pair in two statements.
+            var srcIds = new List<object>(); var dstIds = new List<object>();
+            foreach (var r in chunk) { srcIds.Add(r.id); if (r.targetId > 0) dstIds.Add(r.targetId); }
+
+            var srcRows = ReadMany(c, t, master, srcIds);
+            var dstRows = ReadMany(c, t, master, dstIds);
+
+            var toDelete = new List<object>();
+            foreach (var r in chunk)
+            {
+                Dictionary<string, object> src, dst;
+                if (!srcRows.TryGetValue(Convert.ToString(r.id), out src)) continue;
+                if (!dstRows.TryGetValue(Convert.ToString(r.targetId), out dst)) continue;
+
+                // The destination only changes when the source actually carries the better mark.
+                if (r.verdict == CorrectionVerdict.ResolvedOverwrite || r.verdict == CorrectionVerdict.ResolvedFilled)
+                {
+                    var sets = CopyColumns(src, MarkColumns);
+                    if (sets.Count > 0)
+                    {
+                        var rejected = new List<Pending>();
+                        var ok = UpdateChunk(c, t, master, new List<object> { r.targetId }, sets, rejected, null);
+                        if (ok.Count > 0)
+                        {
+                            pend.Add(new Pending
+                            {
+                                def = master, pk = r.targetId, regno = r.regno, course = cfg.targetCode,
+                                action = "UPDATE", verdict = r.verdict, before = dst, after = WithSets(dst, sets),
+                                note = "Mark taken from the duplicate on " + r.courseCode +
+                                       " (" + MarkText(r.total) + " against " + MarkText(r.targetTotal) + ")."
+                            });
+                            touched.Add(master.Table);
+                        }
+                    }
+                }
+
+                // The duplicate itself goes, whichever way the comparison fell.
+                pend.Add(new Pending
+                {
+                    def = master, pk = r.id, regno = r.regno, course = r.courseCode,
+                    action = "DELETE", verdict = r.verdict, before = src, after = null,
+                    note = r.verdict == CorrectionVerdict.ResolvedDiscard
+                        ? "Duplicate removed — the destination already held " + MarkText(r.targetTotal) + "."
+                        : "Duplicate removed after its mark was moved to the destination."
+                });
+                toDelete.Add(r.id);
+                students.Add(r.regno);
+                done++;
+            }
+
+            if (toDelete.Count > 0)
+            {
+                // Anything pointing at the row about to go is repointed at the survivor first,
+                // so no retake record is left hanging.
+                RepointRetakes(c, t, chunk);
+                using (var cmd = Cmd("DELETE FROM " + master.Qualified + " WHERE ID IN (" + InListRaw(toDelete) + ")", c, t))
+                    cmd.ExecuteNonQuery();
+                touched.Add(master.Table);
+            }
+            if (pend.Count >= 1000) FlushSnapshots(c, t, batchId, pend);
+        }
+        return done;
+    }
+
+    /// <summary>A retake row linked to the registration being removed is pointed at the survivor.</summary>
+    private static void RepointRetakes(MySqlConnection c, MySqlTransaction t, List<PreviewRow> pairs)
+    {
+        foreach (var r in pairs)
+        {
+            if (r.targetId <= 0) continue;
+            try
+            {
+                using (var cmd = Cmd("UPDATE campus_dynamics_portal.acad_retake_registrations " +
+                                     "SET course_reg_id=@d WHERE course_reg_id=@s", c, t))
+                {
+                    cmd.Parameters.AddWithValue("@d", r.targetId);
+                    cmd.Parameters.AddWithValue("@s", r.id);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            catch { }
+        }
+    }
+
+    /// <summary>acad_results allows one row per (student, course), so a settled student may hold
+    /// two: one on each code. The same comparison applies — the better mark stays on the
+    /// destination code and the other row is removed.</summary>
+    private static int SettleResults(MySqlConnection c, MySqlTransaction t, long batchId, CorrectionConfig cfg,
+                                     List<PreviewRow> settle, List<Pending> pend, HashSet<string> touched)
+    {
+        var def = CourseTableRegistry.Find(CourseTableRegistry.MainDb, "acad_results");
+        if (def == null) return 0;
+
+        var regnos = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in settle) if (seen.Add(r.regno)) regnos.Add(r.regno);
+
+        int done = 0;
+        foreach (var chunk in Chunks(regnos, ReadChunk))
+        {
+            var src = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase);
+            var dst = new Dictionary<string, Dictionary<string, object>>(StringComparer.OrdinalIgnoreCase);
+            using (var cmd = Cmd("SELECT * FROM " + def.Qualified + " WHERE regno IN (" + InList(chunk) + ") AND courseid IN (@sc,@tc)", c, t))
+            {
+                cmd.Parameters.AddWithValue("@sc", cfg.sourceCode);
+                cmd.Parameters.AddWithValue("@tc", cfg.targetCode);
+                using (var r = cmd.ExecuteReader())
+                    while (r.Read())
+                    {
+                        var row = RowToDict(r);
+                        string rg = Convert.ToString(row["regno"]).Trim();
+                        string cc = Convert.ToString(row["courseid"]).Trim();
+                        if (string.Equals(cc, cfg.targetCode, StringComparison.OrdinalIgnoreCase)) dst[rg] = row;
+                        else src[rg] = row;
+                    }
+            }
+
+            var drop = new List<object>();
+            foreach (var kv in src)
+            {
+                Dictionary<string, object> d;
+                if (!dst.TryGetValue(kv.Key, out d)) continue;   // no clash — the generic move handles it
+
+                int? sScore = AsInt(kv.Value, "score");
+                int? dScore = AsInt(d, "score");
+                string verdict = Settle(sScore, dScore);
+
+                if (verdict != CorrectionVerdict.ResolvedDiscard)
+                {
+                    var sets = CopyColumns(kv.Value, ResultColumns);
+                    if (sets.Count > 0)
+                    {
+                        var rejected = new List<Pending>();
+                        object dPk = d[def.PkCol];
+                        var ok = UpdateChunk(c, t, def, new List<object> { dPk }, sets, rejected, null);
+                        if (ok.Count > 0)
+                        {
+                            pend.Add(new Pending
+                            {
+                                def = def, pk = dPk, regno = kv.Key, course = cfg.targetCode,
+                                action = "UPDATE", verdict = verdict, before = d, after = WithSets(d, sets),
+                                note = "Result taken from the duplicate on " + cfg.sourceCode +
+                                       " (" + MarkText(sScore) + " against " + MarkText(dScore) + ")."
+                            });
+                            touched.Add(def.Table);
+                        }
+                    }
+                }
+
+                object sPk = kv.Value[def.PkCol];
+                pend.Add(new Pending
+                {
+                    def = def, pk = sPk, regno = kv.Key, course = cfg.sourceCode,
+                    action = "DELETE", verdict = verdict, before = kv.Value, after = null,
+                    note = "Duplicate result on the retired code removed."
+                });
+                drop.Add(sPk);
+                done++;
+            }
+
+            if (drop.Count > 0)
+            {
+                using (var cmd = Cmd("DELETE FROM " + def.Qualified + " WHERE " + def.PkCol + " IN (" + InListRaw(drop) + ")", c, t))
+                    cmd.ExecuteNonQuery();
+                touched.Add(def.Table);
+            }
+        }
+        return done;
+    }
+
+    private static Dictionary<string, Dictionary<string, object>> ReadMany(MySqlConnection c, MySqlTransaction t,
+                                                                          CourseTableDef def, List<object> pks)
+    {
+        var map = new Dictionary<string, Dictionary<string, object>>();
+        if (pks.Count == 0) return map;
+        using (var cmd = Cmd("SELECT * FROM " + def.Qualified + " WHERE " + def.PkCol + " IN (" + InListRaw(pks) + ")", c, t))
+        using (var r = cmd.ExecuteReader())
+            while (r.Read())
+            {
+                var row = RowToDict(r);
+                if (row.ContainsKey(def.PkCol)) map[Convert.ToString(row[def.PkCol])] = row;
+            }
+        return map;
+    }
+
+    /// <summary>The named columns of a row, using whatever casing the reader returned.</summary>
+    private static Dictionary<string, object> CopyColumns(Dictionary<string, object> row, string[] names)
+    {
+        var sets = new Dictionary<string, object>();
+        foreach (var want in names)
+            foreach (var k in row.Keys)
+                if (string.Equals(k, want, StringComparison.OrdinalIgnoreCase)) { sets[k] = row[k]; break; }
+        return sets;
+    }
+
+    private static int? AsInt(Dictionary<string, object> row, string col)
+    {
+        foreach (var k in row.Keys)
+            if (string.Equals(k, col, StringComparison.OrdinalIgnoreCase))
+            {
+                if (row[k] == null) return null;
+                int v; return int.TryParse(Convert.ToString(row[k], CultureInfo.InvariantCulture), out v) ? (int?)v : null;
+            }
+        return null;
+    }
+
+    private static string MarkText(int? m) { return m.HasValue ? m.Value.ToString(CultureInfo.InvariantCulture) : "no mark"; }
 
     private static Dictionary<string, object> NewCodeSets(CourseTableDef def, string target)
     {

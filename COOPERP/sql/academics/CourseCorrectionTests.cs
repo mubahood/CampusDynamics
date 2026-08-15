@@ -296,6 +296,87 @@ public static class CCTest
         Ok("every record back on the old code", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCPERF%' AND courseID=@c", "@c", OLD) == 2000);
         Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCPERF%'");
 
+        // ---------------- Scenario M: settling duplicates ----------------
+        Console.WriteLine("\nM. Duplicates settled — better mark survives, leftover removed");
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCDUP%'");
+        Ex("DELETE FROM campus_dynamics.acad_results WHERE regno LIKE 'CCDUP%'");
+        Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCDUP%'");
+        // four students, one per comparison case
+        string[] dups = { "CCDUP0001", "CCDUP0002", "CCDUP0003", "CCDUP0004" };
+        int?[] srcMark = { 78, 55, 66, null };
+        int?[] dstMark = { 60, 71, 66, 49 };
+        var srcIds = new long[4]; var dstIds = new long[4];
+        for (int i = 0; i < 4; i++)
+        {
+            Ex("INSERT INTO campus_dynamics.acad_student (regno,firstname,othername,progid,entryyear,duration) VALUES (@r,'Dup','Case','TEST',2026,3)", "@r", dups[i]);
+            srcIds[i] = AddReg(dups[i], OLD, "2026/2027", 1, "NORMAL", "NOT_ENTERED", srcMark[i]);
+            dstIds[i] = AddReg(dups[i], NEW, "2026/2027", 1, "NORMAL", "NOT_ENTERED", dstMark[i]);
+        }
+        var cfgM = new CorrectionConfig
+        {
+            operation = CorrectionOp.CourseTransfer, sourceCode = OLD, targetCode = NEW,
+            students = string.Join(",", dups), reason = "CCTEST scenario M", conflictPolicy = "resolve"
+        };
+        var pvM = CourseCorrectionService.Preview(cfgM, Admin());
+        var verd = new Dictionary<string, string>();
+        foreach (var r in pvM.rows) verd[r.regno] = r.verdict;
+        Ok("higher source mark -> overwrite", verd["CCDUP0001"] == CorrectionVerdict.ResolvedOverwrite, verd["CCDUP0001"]);
+        Ok("lower source mark  -> discard",   verd["CCDUP0002"] == CorrectionVerdict.ResolvedDiscard,   verd["CCDUP0002"]);
+        Ok("equal marks        -> discard",   verd["CCDUP0003"] == CorrectionVerdict.ResolvedDiscard,   verd["CCDUP0003"]);
+        Ok("source has no mark -> discard",   verd["CCDUP0004"] == CorrectionVerdict.ResolvedDiscard,   verd["CCDUP0004"]);
+        Ok("nothing is merely left alone", pvM.skipped == 0, "skipped=" + pvM.skipped);
+        Ok("all four are acted on", pvM.actionable == 4, "actionable=" + pvM.actionable);
+        Ok("preview shows the destination mark", pvM.rows[0].targetTotal == 60, "targetTotal=" + pvM.rows[0].targetTotal);
+
+        var apM = CourseCorrectionService.Apply(cfgM, Admin(), "cctest", "127.0.0.1", pvM.checksum);
+        Ok("settle applies", apM.success, apM.message);
+        Ok("every duplicate removed", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCDUP%' AND courseID=@c", "@c", OLD) == 0);
+        Ok("each student keeps exactly one record", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCDUP%'", "@x", 0) == 4);
+        Ok("78 replaced 60 on the destination", Num("SELECT provisional_total_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", dstIds[0]) == 78);
+        Ok("71 was kept over 55", Num("SELECT provisional_total_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", dstIds[1]) == 71);
+        Ok("equal mark untouched", Num("SELECT provisional_total_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", dstIds[2]) == 66);
+        Ok("destination mark kept when source had none", Num("SELECT provisional_total_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", dstIds[3]) == 49);
+        Ok("no residual on the retired code", apM.residual == 0, "residual=" + apM.residual);
+
+        var rvM = CourseCorrectionService.Reverse(apM.batchId, "CCTEST reversal M", Admin(), "cctest", "127.0.0.1", null);
+        Ok("settle reverses", rvM.success, rvM.message);
+        Ok("all four duplicates re-created", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCDUP%' AND courseID=@c", "@c", OLD) == 4);
+        Ok("overwritten mark restored to 60", Num("SELECT provisional_total_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", dstIds[0]) == 60);
+        Ok("re-created row keeps its own mark", Num("SELECT provisional_total_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", srcIds[0]) == 78);
+
+        // ---------------- Scenario N: duplicate results settled too ----------------
+        Console.WriteLine("\nN. The published result is settled the same way");
+        Ex("DELETE FROM campus_dynamics.acad_results WHERE regno='CCDUP0001'");
+        Ex("INSERT INTO campus_dynamics.acad_results (regno,courseid,semester,acad,studyyear,score,grade,gradept,gpa,CreditUnits,progid,is_retake) VALUES ('CCDUP0001',@c,1,'2026/2027',1,78,'B+',4.5,4.5,3,'TEST',0)", "@c", OLD);
+        Ex("INSERT INTO campus_dynamics.acad_results (regno,courseid,semester,acad,studyyear,score,grade,gradept,gpa,CreditUnits,progid,is_retake) VALUES ('CCDUP0001',@c,1,'2026/2027',1,60,'C',3.0,3.0,3,'TEST',0)", "@c", NEW);
+        var cfgN = new CorrectionConfig { operation = CorrectionOp.CourseTransfer, sourceCode = OLD, targetCode = NEW, students = "CCDUP0001", reason = "CCTEST scenario N", conflictPolicy = "resolve" };
+        var pvN = CourseCorrectionService.Preview(cfgN, Admin());
+        var apN = CourseCorrectionService.Apply(cfgN, Admin(), "cctest", "127.0.0.1", pvN.checksum);
+        Ok("result settle applies", apN.success, apN.message);
+        Ok("only one result survives", Num("SELECT COUNT(*) FROM campus_dynamics.acad_results WHERE regno='CCDUP0001'") == 1);
+        Ok("the better score won", Num("SELECT score FROM campus_dynamics.acad_results WHERE regno='CCDUP0001'") == 78);
+        Ok("it sits on the surviving code", Str("SELECT courseid FROM campus_dynamics.acad_results WHERE regno='CCDUP0001'") == NEW);
+        var rvN = CourseCorrectionService.Reverse(apN.batchId, "CCTEST reversal N", Admin(), "cctest", "127.0.0.1", null);
+        Ok("result settle reverses", rvN.success, rvN.message);
+        Ok("both results back", Num("SELECT COUNT(*) FROM campus_dynamics.acad_results WHERE regno='CCDUP0001'") == 2);
+        Ok("destination score restored to 60", Num("SELECT score FROM campus_dynamics.acad_results WHERE regno='CCDUP0001' AND courseid=@c", "@c", NEW) == 60);
+
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCDUP%'");
+        Ex("DELETE FROM campus_dynamics.acad_results WHERE regno LIKE 'CCDUP%'");
+        Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCDUP%'");
+
+        // ---------------- Scenario O: the cautious policy still available ----------------
+        Console.WriteLine("\nO. 'Leave alone' still behaves as before");
+        Ex("INSERT INTO campus_dynamics.acad_student (regno,firstname,othername,progid,entryyear,duration) VALUES ('CCDUP9999','Leave','Case','TEST',2026,3)");
+        AddReg("CCDUP9999", OLD, "2026/2027", 1, "NORMAL", "NOT_ENTERED", 50);
+        AddReg("CCDUP9999", NEW, "2026/2027", 1, "NORMAL", "NOT_ENTERED", 40);
+        var cfgO = new CorrectionConfig { operation = CorrectionOp.CourseTransfer, sourceCode = OLD, targetCode = NEW, students = "CCDUP9999", reason = "CCTEST scenario O", conflictPolicy = "leave" };
+        var pvO = CourseCorrectionService.Preview(cfgO, Admin());
+        Ok("duplicate reported, not settled", pvO.skipped == 1 && pvO.actionable == 0, "skipped=" + pvO.skipped + " actionable=" + pvO.actionable);
+        Ok("the lower destination mark is untouched", Num("SELECT provisional_total_marks FROM campus_dynamics_portal.acad_course_registration WHERE regno='CCDUP9999' AND courseID=@c", "@c", NEW) == 40);
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCDUP%'");
+        Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCDUP%'");
+
         Console.WriteLine("\n--- cleaning up ---");
         Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno IN (@a,@b) AND courseID IN (@o,@n,'ZZMANUAL')", "@a", STU, "@b", STU2, "@o", OLD, "@n", NEW);
         Cleanup();
