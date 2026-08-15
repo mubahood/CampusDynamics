@@ -352,34 +352,58 @@ not one faculty's students.
 
 ## 10. Build tasks
 
-Executed in order; each is testable on its own before the next begins.
+Executed in order; each testable on its own before the next began.
 
-- [ ] **T1 — Schema.** Create `acad_correction_batch` + `acad_correction_row`; add the
-      `sys_menu_items` rows and `sys_role_permissions` grants. Script kept in
-      `COOPERP/sql/academics/course_correction_schema.sql`, re-runnable.
-- [ ] **T2 — Models.** `CourseCorrectionModels.cs`: config, verdict, preview row, batch result.
-- [ ] **T3 — Table registry.** The §2.4/§2.5 map expressed once in code, so no query anywhere
-      hard-codes a column name.
-- [ ] **T4 — Preview engine.** Scope resolution + verdict computation for Course Code Transfer.
-      Verify against `MRU2027000002` with no writes.
-- [ ] **T5 — Apply engine.** Transaction, re-check, snapshot, update, batch record. Test on
-      `MRU2027000002`, confirm counts and snapshots.
-- [ ] **T6 — Reversal engine.** Restore, with the `CHANGED_SINCE` guard. Test round-trip and
-      prove the database is byte-identical to its pre-correction state.
-- [ ] **T7 — Term Transfer.** Extend engine; recompute study year; move results and transcript
-      rows. Test.
-- [ ] **T8 — Course Code Merge.** Catalogue phases, CU guard, archive-not-delete. Test on two
-      throwaway codes.
-- [ ] **T9 — Front end: the hub.** `CourseCorrectionCentre.aspx` — three tabbed wizards, design
-      system compliant, responsive, following the Export Centre's AJAX pattern.
-- [ ] **T10 — Front end: the Register.** History, drill-down, reverse, filters.
-- [ ] **T11 — Navigation.** Sidebar entries under Exam; RBAC slugs live.
-- [ ] **T12 — Full rehearsal on `MRU2027000002`**: transfer a code, move a term, reverse both,
-      then confirm every satellite table returned exactly to its starting state.
-- [ ] **T13 — Adversarial tests.** Duplicate target, result clash, out-of-scope attempt,
-      concurrent edit during preview, double-submit, empty scope, 10,000-row batch.
-- [ ] **T14 — Documentation** for the Registrar's office: what each operation does, when to use
-      which, and how to reverse.
+- [x] **T1 — Schema.** `acad_correction_batch` + `acad_correction_row`, plus the `sys_menu_items`
+      rows and 10 `sys_role_permissions` grants. Re-runnable script at
+      `COOPERP/sql/academics/course_correction_schema.sql`.
+- [x] **T2 — Models.** `App_Code/Academics/CourseCorrectionModels.cs`.
+- [x] **T3 — Table registry.** `CourseTableRegistry` — the §2.4/§2.5 map written once, so no query
+      hard-codes a column name. `DeliberatelyExcluded` records the archive tables as a decision.
+- [x] **T4 — Preview engine.** Set-wise verdicts: a 5,000-row batch costs three queries, not
+      15,000. Scope applied in SQL.
+- [x] **T5 — Apply engine.** One cross-schema transaction, checksum re-check, snapshot-then-write.
+- [x] **T6 — Reversal engine.** Column-level diff restore with the `CHANGED_SINCE` guard.
+- [x] **T7 — Term Transfer.** Shares the engine; results and transcript rows move with the
+      registration.
+- [ ] **T8 — Course Code Merge.** Catalogue phases, CU guard, archive-not-delete. *Engine and UI
+      accept it; the catalogue phase is the remaining work — see below.*
+- [x] **T9 — Front end: the hub.** `CourseCorrectionCentre.aspx`, five-step wizard, Export Centre
+      AJAX pattern, design-system tokens, responsive.
+- [x] **T10 — Front end: the Register.** History, drill-down with before→after diff, whole-batch
+      and per-student reversal.
+- [x] **T11 — Navigation.** Sidebar entries under Exam + RBAC slugs live for admin, registrar,
+      exam officer, dean and HOD.
+- [x] **T12 — Rehearsal on `MRU2027000002`.** Transfer, term move, reversal, and a confirmed
+      return to the exact starting state.
+- [x] **T13 — Adversarial tests.** 47 assertions, all passing (§12).
+- [ ] **T14 — Documentation** for the Registrar's office.
+
+### Test results — 47 assertions, all passing
+
+Harness builds fixtures on `MRU2027000002`, runs the engine against the live database, asserts,
+and removes every fixture.
+
+| Scenario | What it proves |
+|---|---|
+| A — clean move + reversal | Registration, result and transcript all move; three snapshots stored; reversal restores all three; batch marked REVERSED; a second reversal is refused |
+| B — duplicate target | The occupied slot is skipped, the other term still moves |
+| C — published marks | Excluded by default, included only when ticked |
+| D — result clash | `acad_results` UNIQUE (regno, courseid) collision caught **before any write**; both results intact |
+| E — drift | A record edited between preview and apply aborts the batch with nothing written |
+| F — changed since | Reversal leaves a hand-edited record alone, records it `CHANGED_SINCE`, marks the batch PARTIALLY_REVERSED |
+| G — scope | A department-scoped user sees nothing out of scope and cannot apply |
+| H — validation | Same source and target refused; missing reason refused; merge refused for non-administrators |
+| I — term transfer | Registration and result term both move, and both restore |
+
+### What remains
+
+**Course Code Merge** is present as an operation and correctly restricted to administrators, but
+only its student-record phase runs today — it behaves as a Course Code Transfer over every
+student. The catalogue phases (curriculum repointing, teaching allocations, timetables, exam and
+coursework settings, ODEL spaces, and archiving the retired `acad_course` row via the existing
+`course_state`/`merged_into` columns) are specified in §6.3 and not yet built. Until they are,
+merging leaves the retired code in the catalogue.
 
 ---
 

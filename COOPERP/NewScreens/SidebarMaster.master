@@ -326,6 +326,18 @@
                                     </asp:HyperLink>
                                 </li>
                                 <li class="cd-sidebar__subitem" data-roles="admin registrar exam_officer dean hod">
+                                    <asp:HyperLink ID="lnkCourseCorrection" runat="server" NavigateUrl="~/COOPERP/NewScreens/CourseCorrectionCentre.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                                        <span>Course Records Correction</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem" data-roles="admin registrar exam_officer dean hod">
+                                    <asp:HyperLink ID="lnkCorrectionRegister" runat="server" NavigateUrl="~/COOPERP/NewScreens/CourseCorrectionRegister.aspx" CssClass="cd-sidebar__sublink">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path></svg>
+                                        <span>Correction Register</span>
+                                    </asp:HyperLink>
+                                </li>
+                                <li class="cd-sidebar__subitem" data-roles="admin registrar exam_officer dean hod">
                                     <asp:HyperLink ID="lnkResultsExporter" runat="server" NavigateUrl="~/COOPERP/NewScreens/ResultsExporter.aspx" CssClass="cd-sidebar__sublink">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                                         <span>Results Export Centre</span>

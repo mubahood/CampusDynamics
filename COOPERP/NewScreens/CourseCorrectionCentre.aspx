@@ -1,0 +1,684 @@
+<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="CourseCorrectionCentre.aspx.cs" Inherits="COOPERP_NewScreens_CourseCorrectionCentre" Title="Course Records Correction Centre" %>
+
+<asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
+<style>
+*{box-sizing:border-box;}
+.cc-wrap{max-width:1320px;margin:0 auto;padding:10px 12px 24px;font-size:12px;color:#1a1a2e;}
+.cc-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;}
+.cc-title{font-size:17px;font-weight:800;color:#05275C;letter-spacing:-.02em;margin:0 0 3px;}
+.cc-sub{font-size:11px;color:#64748b;line-height:1.5;max-width:720px;margin:0;}
+.cc-scope{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;background:#f5f7fa;border:1px solid #e0e5ed;font-size:10.5px;color:#05275C;font-weight:700;}
+.cc-scope svg{flex:0 0 auto;}
+
+/* operation tabs */
+.cc-ops{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-bottom:14px;}
+.cc-op{border:1px solid #e0e5ed;background:#fff;border-radius:4px;padding:11px 12px;cursor:pointer;text-align:left;transition:border-color .12s,box-shadow .12s;min-width:0;}
+.cc-op:hover{border-color:#174DA4;}
+.cc-op.on{border-color:#05275C;box-shadow:inset 0 0 0 1px #05275C;background:#f8fafd;}
+.cc-op__t{display:flex;align-items:center;gap:7px;font-weight:800;color:#05275C;font-size:12px;margin-bottom:3px;}
+.cc-op__d{font-size:10.5px;color:#64748b;line-height:1.45;}
+.cc-op[disabled]{opacity:.45;cursor:not-allowed;}
+
+/* stepper */
+.cc-steps{display:flex;align-items:center;gap:0;margin:0 0 14px;flex-wrap:wrap;}
+.cc-step{display:flex;align-items:center;gap:6px;padding:6px 12px 6px 10px;background:#f5f7fa;border:1px solid #e0e5ed;font-size:10.5px;font-weight:700;color:#94a3b8;margin-right:-1px;}
+.cc-step.on{background:#05275C;border-color:#05275C;color:#fff;}
+.cc-step.done{background:#fff;color:#174DA4;border-color:#c7d4e8;}
+.cc-step__n{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.22);font-size:9.5px;}
+.cc-step.done .cc-step__n,.cc-step:not(.on) .cc-step__n{background:#e0e5ed;color:#64748b;}
+.cc-step.done .cc-step__n{background:#dbe7f8;color:#174DA4;}
+
+.cc-card{border:1px solid #e0e5ed;background:#fff;border-radius:4px;padding:14px;margin-bottom:12px;}
+.cc-card__h{font-size:12px;font-weight:800;color:#05275C;margin:0 0 3px;}
+.cc-card__s{font-size:10.5px;color:#64748b;margin:0 0 11px;line-height:1.5;}
+
+.cc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
+.cc-f{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.cc-f label{font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800;}
+.cc-f input[type=text],.cc-f select,.cc-f textarea{width:100%;padding:7px 8px;border:1px solid #e0e5ed;border-radius:0;font-size:12px;font-family:inherit;color:#1a1a2e;background:#fff;}
+.cc-f input:focus,.cc-f select:focus,.cc-f textarea:focus{outline:none;border-color:#174DA4;box-shadow:0 0 0 2px rgba(23,77,164,.10);}
+.cc-f .hint{font-size:9.5px;color:#94a3b8;line-height:1.4;}
+.cc-chk{display:flex;align-items:flex-start;gap:7px;padding:8px 9px;border:1px solid #e0e5ed;background:#fafbfd;cursor:pointer;}
+.cc-chk input{margin:1px 0 0;flex:0 0 auto;}
+.cc-chk span{font-size:11px;line-height:1.45;}
+.cc-chk b{display:block;font-size:11px;color:#05275C;}
+.cc-chk em{font-style:normal;color:#64748b;font-size:10px;}
+
+/* code picker */
+.cc-pick{position:relative;}
+.cc-drop{position:absolute;z-index:40;top:100%;left:0;right:0;max-height:270px;overflow:auto;background:#fff;border:1px solid #c7d4e8;border-top:none;display:none;box-shadow:0 6px 18px rgba(5,39,92,.10);}
+.cc-drop.show{display:block;}
+.cc-drop__i{padding:7px 9px;cursor:pointer;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+.cc-drop__i:hover,.cc-drop__i.hl{background:#f0f5fd;}
+.cc-drop__c{font-weight:800;color:#05275C;font-size:11.5px;font-family:ui-monospace,Menlo,Consolas,monospace;}
+.cc-drop__n{font-size:10px;color:#64748b;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cc-drop__r{font-size:9.5px;color:#94a3b8;white-space:nowrap;font-weight:700;}
+.cc-chosen{margin-top:5px;font-size:10.5px;color:#174DA4;font-weight:700;}
+.cc-chosen span{color:#64748b;font-weight:400;}
+
+/* similar-code helper */
+.cc-sim{margin-top:10px;border:1px solid #e0e5ed;background:#fafbfd;padding:9px 10px;border-radius:4px;}
+.cc-sim__h{font-size:10.5px;font-weight:800;color:#05275C;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.cc-sim__l{display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow:auto;}
+.cc-simg{border:1px solid #e0e5ed;background:#fff;padding:4px 7px;font-size:10px;cursor:pointer;font-family:ui-monospace,Menlo,Consolas,monospace;}
+.cc-simg:hover{border-color:#174DA4;}
+.cc-simg b{color:#05275C;}
+.cc-simg i{font-style:normal;color:#94a3b8;}
+
+/* preview */
+.cc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:11px;}
+.cc-kpi{border:1px solid #e0e5ed;border-radius:4px;padding:9px 10px;background:#fff;min-width:0;}
+.cc-kpi__l{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800;margin-bottom:3px;}
+.cc-kpi__v{font-size:20px;font-weight:800;color:#05275C;line-height:1;letter-spacing:-.02em;}
+.cc-kpi--go .cc-kpi__v{color:#16a34a;}
+.cc-kpi--skip .cc-kpi__v{color:#b45309;}
+.cc-verd{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px;}
+.cc-vd{border:1px solid #e0e5ed;background:#fff;padding:5px 9px;font-size:10.5px;border-radius:4px;}
+.cc-vd b{color:#05275C;font-weight:800;}
+.cc-vd.go{border-color:#bbf7d0;background:#f0fdf4;}
+.cc-vd.no{border-color:#fde68a;background:#fffbeb;}
+
+.cc-tblwrap{overflow-x:auto;border:1px solid #e0e5ed;border-radius:4px;}
+table.cc-tbl{width:100%;border-collapse:collapse;font-size:11px;min-width:820px;}
+table.cc-tbl th{background:#f5f7fa;color:#05275C;font-size:9.5px;text-transform:uppercase;letter-spacing:.35px;text-align:left;padding:6px 7px;border-bottom:1px solid #e0e5ed;white-space:nowrap;font-weight:800;}
+table.cc-tbl td{padding:5px 7px;border-bottom:1px solid #f1f5f9;vertical-align:top;}
+table.cc-tbl tr:last-child td{border-bottom:none;}
+table.cc-tbl tr.go td{background:#fbfefc;}
+table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
+.cc-mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:#05275C;}
+.cc-badge{display:inline-block;padding:1px 6px;font-size:9px;font-weight:800;border-radius:0;text-transform:uppercase;letter-spacing:.3px;}
+.cc-badge.go{background:#dcfce7;color:#166534;}
+.cc-badge.no{background:#fef3c7;color:#92400e;}
+.cc-nm{font-size:10px;color:#64748b;display:block;}
+
+/* actions */
+.cc-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:14px;}
+.cc-actions__r{display:flex;gap:8px;flex-wrap:wrap;}
+.cc-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border:1px solid #05275C;background:#05275C;color:#fff;font-size:11.5px;font-weight:700;cursor:pointer;border-radius:0;font-family:inherit;}
+.cc-btn:hover{background:#0a3573;}
+.cc-btn[disabled]{opacity:.45;cursor:not-allowed;}
+.cc-btn--ghost{background:#fff;color:#05275C;}
+.cc-btn--ghost:hover{background:#f5f7fa;}
+.cc-btn--go{background:#16803d;border-color:#16803d;}
+.cc-btn--go:hover{background:#146c34;}
+.cc-btn--danger{background:#b42318;border-color:#b42318;}
+
+.cc-msg{padding:9px 11px;border-radius:4px;font-size:11px;margin-bottom:11px;display:none;line-height:1.5;}
+.cc-msg.show{display:block;}
+.cc-msg.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;}
+.cc-msg.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;}
+.cc-msg.warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;}
+
+.cc-loader{display:none;align-items:center;gap:8px;font-size:11px;color:#64748b;padding:16px 0;}
+.cc-loader.show{display:flex;}
+.cc-spin{width:14px;height:14px;border:2px solid #e0e5ed;border-top-color:#174DA4;border-radius:50%;animation:ccspin .7s linear infinite;}
+@keyframes ccspin{to{transform:rotate(360deg);}}
+
+.cc-confirm{border:1px solid #fde68a;background:#fffbeb;padding:12px;border-radius:4px;}
+.cc-confirm__h{font-weight:800;color:#92400e;margin-bottom:6px;font-size:12px;}
+.cc-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:10px 0;}
+.cc-sum__i{background:#fff;border:1px solid #e0e5ed;padding:8px 10px;border-radius:4px;}
+.cc-sum__l{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:#64748b;font-weight:800;}
+.cc-sum__v{font-size:12px;font-weight:700;color:#05275C;margin-top:2px;word-break:break-word;}
+
+.cc-receipt{border:1px solid #bbf7d0;background:#f0fdf4;padding:14px;border-radius:4px;}
+.cc-receipt__r{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px;font-weight:800;color:#166534;letter-spacing:-.01em;}
+.cc-hide{display:none;}
+
+@media (max-width:640px){
+  .cc-wrap{padding:8px;}
+  .cc-steps{gap:4px;}
+  .cc-step{padding:5px 8px;font-size:9.5px;margin-right:0;}
+  .cc-actions{flex-direction:column;align-items:stretch;}
+  .cc-actions__r{width:100%;}
+  .cc-btn{flex:1;justify-content:center;}
+}
+</style>
+</asp:Content>
+
+<asp:Content ID="BodyContent" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+<div class="cc-wrap">
+
+  <div class="cc-head">
+    <div style="min-width:0;">
+      <h1 class="cc-title">Course Records Correction Centre</h1>
+      <p class="cc-sub">Move student registrations onto the right course code or the right semester, or consolidate two catalogue entries that are the same course. Every correction is previewed first, applied in one transaction, recorded record by record, and can be reversed later.</p>
+    </div>
+    <div class="cc-scope">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+      <asp:Literal ID="litScope" runat="server" />
+    </div>
+  </div>
+
+  <asp:HiddenField ID="hdnIsAdmin" runat="server" />
+
+  <!-- operation chooser -->
+  <div class="cc-ops" id="ccOps">
+    <button type="button" class="cc-op on" data-op="COURSE_TRANSFER">
+      <span class="cc-op__t">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+        Course Code Transfer</span>
+      <span class="cc-op__d">The registration is on the wrong code — a spaced variant, or a code without its stream suffix. Moves students from one code to another.</span>
+    </button>
+    <button type="button" class="cc-op" data-op="TERM_TRANSFER">
+      <span class="cc-op__t">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        Registration Term Transfer</span>
+      <span class="cc-op__d">The course was registered in the wrong academic year or semester. Moves registrations, and the marks attached to them, to the correct term.</span>
+    </button>
+    <button type="button" class="cc-op" data-op="COURSE_MERGE" id="ccOpMerge">
+      <span class="cc-op__t">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path></svg>
+        Course Code Merge</span>
+      <span class="cc-op__d">Two catalogue entries are genuinely one course. Consolidates students, curriculum, timetables and settings, and archives the retired code. Administrators only.</span>
+    </button>
+  </div>
+
+  <!-- stepper -->
+  <div class="cc-steps" id="ccStepper">
+    <div class="cc-step on" data-s="1"><span class="cc-step__n">1</span> What to correct</div>
+    <div class="cc-step" data-s="2"><span class="cc-step__n">2</span> Scope</div>
+    <div class="cc-step" data-s="3"><span class="cc-step__n">3</span> Preview</div>
+    <div class="cc-step" data-s="4"><span class="cc-step__n">4</span> Confirm</div>
+    <div class="cc-step" data-s="5"><span class="cc-step__n">5</span> Receipt</div>
+  </div>
+
+  <div class="cc-msg" id="ccMsg"></div>
+
+  <!-- ══ STEP 1 ══ -->
+  <div class="cc-card" id="ccS1">
+    <h2 class="cc-card__h" id="ccS1h">Choose the codes</h2>
+    <p class="cc-card__s" id="ccS1s">Pick the code the registrations are wrongly on, then the code they should be on. The number beside each code is how many registrations currently carry it — usually the larger one is the code to keep.</p>
+
+    <div class="cc-grid">
+      <div class="cc-f cc-pick" id="ccSrcWrap">
+        <label>Move from — course code</label>
+        <input type="text" id="ccSrc" placeholder="Type at least two characters" autocomplete="off" />
+        <div class="cc-drop" id="ccSrcDrop"></div>
+        <div class="cc-chosen" id="ccSrcInfo"></div>
+      </div>
+      <div class="cc-f cc-pick" id="ccTgtWrap">
+        <label>Move to — course code</label>
+        <input type="text" id="ccTgt" placeholder="Type at least two characters" autocomplete="off" />
+        <div class="cc-drop" id="ccTgtDrop"></div>
+        <div class="cc-chosen" id="ccTgtInfo"></div>
+      </div>
+    </div>
+
+    <div class="cc-grid cc-hide" id="ccTermRow" style="margin-top:10px;">
+      <div class="cc-f">
+        <label>Move from — academic year</label>
+        <select id="ccSrcYear"></select>
+      </div>
+      <div class="cc-f">
+        <label>Move from — semester</label>
+        <select id="ccSrcSem"><option value="">Any semester</option><option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option></select>
+      </div>
+      <div class="cc-f">
+        <label>Move to — academic year</label>
+        <select id="ccTgtYear"></select>
+      </div>
+      <div class="cc-f">
+        <label>Move to — semester</label>
+        <select id="ccTgtSem"><option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option></select>
+      </div>
+    </div>
+
+    <div class="cc-sim" id="ccSim" style="display:none;">
+      <div class="cc-sim__h">
+        <span>Codes that look like duplicates of each other</span>
+        <button type="button" class="cc-btn cc-btn--ghost" id="ccSimLoad" style="padding:4px 9px;font-size:10px;">Scan the catalogue</button>
+      </div>
+      <div class="cc-sim__l" id="ccSimList"><span style="font-size:10.5px;color:#94a3b8;">Scan to list codes that differ only by spacing, punctuation or case.</span></div>
+    </div>
+
+    <div class="cc-actions">
+      <span style="font-size:10.5px;color:#94a3b8;">Nothing is changed until you confirm at step 4.</span>
+      <div class="cc-actions__r"><button type="button" class="cc-btn" id="ccTo2">Continue to scope</button></div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 2 ══ -->
+  <div class="cc-card cc-hide" id="ccS2">
+    <h2 class="cc-card__h">Narrow who is affected</h2>
+    <p class="cc-card__s">Leave a filter blank to include everything you are allowed to see. Your own faculty or department limit always applies, whatever is set here.</p>
+
+    <div class="cc-grid">
+      <div class="cc-f"><label>Programme</label><select id="ccProg"><option value="">All programmes in my scope</option></select></div>
+      <div class="cc-f" id="ccFacWrap"><label>Faculty</label><select id="ccFac"><option value="">All faculties</option></select></div>
+      <div class="cc-f" id="ccYearWrap"><label>Academic year</label><select id="ccYear"><option value="">All years</option></select></div>
+      <div class="cc-f" id="ccSemWrap"><label>Semester</label><select id="ccSem"><option value="">All semesters</option><option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option></select></div>
+      <div class="cc-f"><label>Mark stage</label><select id="ccStage"><option value="">Any stage</option></select></div>
+      <div class="cc-f"><label>Registration type</label><select id="ccRtype"><option value="">Any type</option><option value="NORMAL">Normal</option><option value="RT">Retake</option></select></div>
+    </div>
+
+    <div class="cc-f" style="margin-top:10px;">
+      <label>Specific students (optional)</label>
+      <textarea id="ccStudents" rows="2" placeholder="Registration numbers separated by commas or spaces. Leave blank for everyone matching the filters above."></textarea>
+      <span class="hint">Use this to correct one student, or to re-run a correction for the few that were skipped.</span>
+    </div>
+
+    <div class="cc-grid" style="margin-top:10px;">
+      <label class="cc-chk"><input type="checkbox" id="ccPub" /><span><b>Include records whose marks are published</b><em>Published marks are left alone unless you tick this. The marks move with the record; they are not altered.</em></span></label>
+      <label class="cc-chk"><input type="checkbox" id="ccRes" checked="checked" /><span><b>Carry results and transcript entries across</b><em>Keeps the mark attached to the corrected registration. Untick only if the results are being handled separately.</em></span></label>
+      <label class="cc-chk" id="ccAllTermsWrap"><input type="checkbox" id="ccAllTerms" /><span><b>Also move related records from other terms</b><em>Use when the same wrong code appears in more than one term for the same student.</em></span></label>
+    </div>
+
+    <div class="cc-actions">
+      <button type="button" class="cc-btn cc-btn--ghost" id="ccBack1">Back</button>
+      <div class="cc-actions__r"><button type="button" class="cc-btn" id="ccTo3">Preview the effect</button></div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 3 ══ -->
+  <div class="cc-card cc-hide" id="ccS3">
+    <h2 class="cc-card__h">What this correction would do</h2>
+    <p class="cc-card__s">Every registration matching your selection, with the decision the system reached for each one. Nothing has been changed yet.</p>
+
+    <div class="cc-loader" id="ccLoad3"><span class="cc-spin"></span> Working out what would be affected…</div>
+
+    <div id="ccPvBody" class="cc-hide">
+      <div class="cc-kpis">
+        <div class="cc-kpi"><div class="cc-kpi__l">Records examined</div><div class="cc-kpi__v" id="kScan">0</div></div>
+        <div class="cc-kpi cc-kpi--go"><div class="cc-kpi__l">Will be moved</div><div class="cc-kpi__v" id="kGo">0</div></div>
+        <div class="cc-kpi cc-kpi--skip"><div class="cc-kpi__l">Left alone</div><div class="cc-kpi__v" id="kSkip">0</div></div>
+        <div class="cc-kpi"><div class="cc-kpi__l">Students</div><div class="cc-kpi__v" id="kStu">0</div></div>
+        <div class="cc-kpi"><div class="cc-kpi__l">Related records</div><div class="cc-kpi__v" id="kSat">0</div></div>
+      </div>
+      <div class="cc-verd" id="ccVerd"></div>
+      <div class="cc-msg warn" id="ccCu"></div>
+      <div class="cc-tblwrap">
+        <table class="cc-tbl">
+          <thead><tr><th>Student</th><th>Programme</th><th>Course</th><th>Term</th><th>Status</th><th>Stage</th><th>Mark</th><th>Decision</th></tr></thead>
+          <tbody id="ccRows"></tbody>
+        </table>
+      </div>
+      <p style="font-size:10px;color:#94a3b8;margin:7px 0 0;" id="ccRowNote"></p>
+    </div>
+
+    <div class="cc-actions">
+      <button type="button" class="cc-btn cc-btn--ghost" id="ccBack2">Back</button>
+      <div class="cc-actions__r"><button type="button" class="cc-btn" id="ccTo4" disabled="disabled">Continue to confirm</button></div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 4 ══ -->
+  <div class="cc-card cc-hide" id="ccS4">
+    <h2 class="cc-card__h">Confirm the correction</h2>
+    <p class="cc-card__s">This writes to student records. It is recorded against your name and can be reversed from the Correction Register afterwards.</p>
+
+    <div class="cc-sum" id="ccSum"></div>
+
+    <div class="cc-f" style="margin-bottom:10px;">
+      <label>Why is this correction being made? (required)</label>
+      <textarea id="ccReason" rows="2" placeholder="For example: registrations were captured against the spaced variant of the code during the 2024 migration."></textarea>
+      <span class="hint">Stored with the batch so anyone reviewing it later knows why.</span>
+    </div>
+
+    <div class="cc-confirm">
+      <div class="cc-confirm__h">Type the code you are moving away from to confirm</div>
+      <div class="cc-f"><input type="text" id="ccTypeIt" placeholder="Type it exactly" autocomplete="off" /></div>
+    </div>
+
+    <div class="cc-actions">
+      <button type="button" class="cc-btn cc-btn--ghost" id="ccBack3">Back</button>
+      <div class="cc-actions__r">
+        <button type="button" class="cc-btn cc-btn--go" id="ccApply" disabled="disabled">Apply the correction</button>
+      </div>
+    </div>
+    <div class="cc-loader" id="ccLoad4"><span class="cc-spin"></span> Applying — this runs in one transaction and will not stop halfway…</div>
+  </div>
+
+  <!-- ══ STEP 5 ══ -->
+  <div class="cc-card cc-hide" id="ccS5">
+    <h2 class="cc-card__h">Correction applied</h2>
+    <div class="cc-receipt">
+      <div class="cc-receipt__r" id="ccRef">—</div>
+      <p style="margin:6px 0 0;font-size:11.5px;color:#166534;" id="ccDone"></p>
+      <div class="cc-sum" id="ccRSum"></div>
+    </div>
+    <div class="cc-actions">
+      <a class="cc-btn cc-btn--ghost" href="CourseCorrectionRegister.aspx">Open the Correction Register</a>
+      <div class="cc-actions__r"><button type="button" class="cc-btn" id="ccAgain">Make another correction</button></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="text/javascript">
+(function(){
+'use strict';
+var OP='COURSE_TRANSFER', OPTS=null, PV=null, STEP=1;
+var srcSel=null, tgtSel=null;
+
+function q(id){ return document.getElementById(id); }
+function esc(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function n(v){ return (Number(v)||0).toLocaleString('en-US'); }
+function show(el,on){ if(el) el.className = el.className.replace(/\s*cc-hide/,'') + (on?'':' cc-hide'); }
+
+function ajax(method,params,cb){
+    var x=new XMLHttpRequest();
+    x.open('POST','CourseCorrectionCentre.aspx/'+method,true);
+    x.setRequestHeader('Content-Type','application/json; charset=utf-8');
+    x.timeout=600000;
+    x.onload=function(){
+        try{ var o=JSON.parse(x.responseText); cb(typeof o.d==='string'?JSON.parse(o.d):o.d); }
+        catch(e){ cb({success:false,message:'The server did not return valid data. It may still be starting up — try again in a moment.'}); }
+    };
+    x.onerror=function(){ cb({success:false,message:'Network error — the correction was not sent.'}); };
+    x.ontimeout=function(){ cb({success:false,message:'That took too long. Narrow the selection and try again.'}); };
+    x.send(JSON.stringify(params||{}));
+}
+
+function msg(t,kind){
+    var m=q('ccMsg');
+    if(!t){ m.className='cc-msg'; m.innerHTML=''; return; }
+    m.className='cc-msg show '+(kind||'err'); m.innerHTML=esc(t);
+    try{ m.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){}
+}
+
+function goStep(s){
+    STEP=s; msg('');
+    [1,2,3,4,5].forEach(function(i){ show(q('ccS'+i), i===s); });
+    var st=q('ccStepper').getElementsByClassName('cc-step');
+    for(var i=0;i<st.length;i++){
+        var num=Number(st[i].getAttribute('data-s'));
+        st[i].className='cc-step'+(num===s?' on':(num<s?' done':''));
+    }
+    try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
+}
+
+/* ---------- operation ---------- */
+function setOp(op){
+    OP=op;
+    var b=q('ccOps').getElementsByClassName('cc-op');
+    for(var i=0;i<b.length;i++) b[i].className='cc-op'+(b[i].getAttribute('data-op')===op?' on':'');
+    var isTerm = op==='TERM_TRANSFER', isMerge = op==='COURSE_MERGE';
+    show(q('ccTermRow'), isTerm);
+    q('ccSrcWrap').style.display = 'flex';
+    q('ccTgtWrap').style.display = isTerm ? 'none' : 'flex';
+    q('ccSim').style.display = isMerge||op==='COURSE_TRANSFER' ? 'block' : 'none';
+    q('ccYearWrap').style.display = isTerm ? 'none' : 'flex';
+    q('ccSemWrap').style.display = isTerm ? 'none' : 'flex';
+    q('ccAllTermsWrap').style.display = isTerm ? 'none' : 'flex';
+
+    if(isTerm){
+        q('ccS1h').textContent='Choose the term to correct';
+        q('ccS1s').textContent='Pick the term the registrations are wrongly in, then the term they belong to. You may limit it to a single course code, or leave the code blank to move every course in that term.';
+        q('ccSrcWrap').getElementsByTagName('label')[0].textContent='Limit to one course code (optional)';
+    }else if(isMerge){
+        q('ccS1h').textContent='Choose the codes to consolidate';
+        q('ccS1s').textContent='The retiring code is merged into the surviving code across students, curriculum, timetables and settings. The retired entry is archived, never deleted.';
+        q('ccSrcWrap').getElementsByTagName('label')[0].textContent='Retire this code';
+        q('ccTgtWrap').getElementsByTagName('label')[0].textContent='Keep this code';
+    }else{
+        q('ccS1h').textContent='Choose the codes';
+        q('ccS1s').textContent='Pick the code the registrations are wrongly on, then the code they should be on. The number beside each code is how many registrations currently carry it — usually the larger one is the code to keep.';
+        q('ccSrcWrap').getElementsByTagName('label')[0].textContent='Move from — course code';
+        q('ccTgtWrap').getElementsByTagName('label')[0].textContent='Move to — course code';
+    }
+    goStep(1);
+}
+
+/* ---------- code picker ---------- */
+function picker(inputId, dropId, infoId, onPick){
+    var inp=q(inputId), drop=q(dropId), info=q(infoId), timer=null, items=[];
+    function close(){ drop.className='cc-drop'; }
+    function render(list){
+        items=list||[];
+        if(!items.length){ drop.innerHTML='<div class="cc-drop__i"><span class="cc-drop__n">No matching course code.</span></div>'; drop.className='cc-drop show'; return; }
+        var h='';
+        items.forEach(function(it,i){
+            h+='<div class="cc-drop__i" data-i="'+i+'"><span class="cc-drop__c">'+esc(it.code)+'</span>'+
+               '<span class="cc-drop__n">'+esc(it.name||'(no title)')+'</span>'+
+               '<span class="cc-drop__r">'+n(it.regs)+' regs &middot; '+(Number(it.cu)||0)+' CU'+(it.state&&it.state!=='ACTIVE'?' &middot; '+esc(it.state):'')+'</span></div>';
+        });
+        drop.innerHTML=h; drop.className='cc-drop show';
+        var els=drop.getElementsByClassName('cc-drop__i');
+        for(var k=0;k<els.length;k++){
+            els[k].addEventListener('click',function(){
+                var it=items[Number(this.getAttribute('data-i'))];
+                if(!it) return;
+                inp.value=it.code;
+                info.innerHTML=esc(it.name||'(no title)')+' <span>&middot; '+(Number(it.cu)||0)+' CU &middot; '+n(it.regs)+' registrations</span>';
+                onPick(it); close();
+            });
+        }
+    }
+    inp.addEventListener('input',function(){
+        onPick(null); info.innerHTML='';
+        var v=inp.value.trim();
+        if(timer) clearTimeout(timer);
+        if(v.length<2){ close(); return; }
+        timer=setTimeout(function(){ ajax('SearchCourses',{term:v},function(r){ if(r&&r.success) render(r.items); else close(); }); },220);
+    });
+    inp.addEventListener('blur',function(){ setTimeout(close,180); });
+    inp.addEventListener('focus',function(){ if(inp.value.trim().length>=2 && items.length) drop.className='cc-drop show'; });
+}
+
+/* ---------- config ---------- */
+function cfg(){
+    return {
+        operation: OP,
+        sourceCode: q('ccSrc').value.trim(),
+        targetCode: OP==='TERM_TRANSFER' ? '' : q('ccTgt').value.trim(),
+        sourceYear: OP==='TERM_TRANSFER' ? q('ccSrcYear').value : q('ccYear').value,
+        sourceSemester: OP==='TERM_TRANSFER' ? q('ccSrcSem').value : q('ccSem').value,
+        targetYear: OP==='TERM_TRANSFER' ? q('ccTgtYear').value : '',
+        targetSemester: OP==='TERM_TRANSFER' ? q('ccTgtSem').value : '',
+        programme: q('ccProg').value,
+        faculty: q('ccFac') ? q('ccFac').value : '',
+        department: '',
+        studyYear: '',
+        markStage: q('ccStage').value,
+        registrationType: q('ccRtype').value,
+        courseStatus: '',
+        students: q('ccStudents').value,
+        includePublished: q('ccPub').checked,
+        moveResults: q('ccRes').checked,
+        allTerms: q('ccAllTerms').checked,
+        creditUnitWinner: '',
+        reason: q('ccReason').value.trim()
+    };
+}
+
+/* ---------- preview ---------- */
+function runPreview(){
+    goStep(3);
+    show(q('ccPvBody'),false); q('ccLoad3').className='cc-loader show';
+    q('ccTo4').disabled=true; q('ccCu').className='cc-msg';
+    ajax('Preview',{configJson:JSON.stringify(cfg())},function(r){
+        q('ccLoad3').className='cc-loader';
+        if(!r||!r.success){ msg((r&&r.message)||'Preview failed.'); return; }
+        PV=r;
+        q('kScan').textContent=n(r.scanned); q('kGo').textContent=n(r.actionable);
+        q('kSkip').textContent=n(r.skipped); q('kStu').textContent=n(r.students);
+        q('kSat').textContent=n(r.satelliteRows);
+
+        var vh='';
+        (r.verdictCounts||[]).forEach(function(v){
+            vh+='<span class="cc-vd '+(v.verdict==='MOVED'?'go':'no')+'"><b>'+n(v.count)+'</b> &middot; '+esc(v.label)+'</span>';
+        });
+        q('ccVerd').innerHTML=vh;
+
+        if(r.creditConflict){
+            q('ccCu').className='cc-msg warn show';
+            q('ccCu').innerHTML='These two codes carry different credit units — <b>'+r.sourceCredit+'</b> against <b>'+r.targetCredit+
+                '</b>. Moving students changes the credit their mark counts for, and every GPA computed from it. Confirm which value is correct before continuing.';
+        }
+        if(!r.targetExists && OP!=='TERM_TRANSFER'){
+            q('ccCu').className='cc-msg warn show';
+            q('ccCu').innerHTML='The destination code is not in the course catalogue. Add it first, otherwise the corrected registrations will have no course title or credit units.';
+        }
+
+        var rows=r.rows||[], h='', lim=Math.min(rows.length,400);
+        for(var i=0;i<lim;i++){
+            var x=rows[i], go=x.verdict==='MOVED';
+            h+='<tr class="'+(go?'go':'no')+'">'+
+               '<td><span class="cc-mono">'+esc(x.regno)+'</span><span class="cc-nm">'+esc(x.studentName)+'</span></td>'+
+               '<td>'+esc(x.progId)+'</td>'+
+               '<td class="cc-mono">'+esc(x.courseCode)+'</td>'+
+               '<td>'+esc(x.acadYear)+' &middot; S'+x.semester+'</td>'+
+               '<td>'+esc(x.courseStatus)+'</td>'+
+               '<td>'+esc((x.markStage||'').replace(/_/g,' '))+'</td>'+
+               '<td>'+(x.total==null?'&mdash;':x.total)+'</td>'+
+               '<td><span class="cc-badge '+(go?'go':'no')+'">'+(go?'Move':'Leave')+'</span>'+
+                   (go?'':'<span class="cc-nm">'+esc(verdictText(x.verdict))+'</span>')+'</td></tr>';
+        }
+        q('ccRows').innerHTML = h || '<tr><td colspan="8" style="text-align:center;padding:26px;color:#94a3b8;">Nothing matches this selection.</td></tr>';
+        q('ccRowNote').textContent = rows.length>lim ? ('Showing the first '+n(lim)+' of '+n(rows.length)+' records. All of them are included when the correction runs.') : '';
+        show(q('ccPvBody'),true);
+        q('ccTo4').disabled = !(r.actionable>0);
+        if(r.actionable===0) msg('Nothing in this selection can be moved. The decision against each record explains why.','warn');
+    });
+}
+
+function verdictText(v){
+    var m={ 'SKIPPED_DUPLICATE':'Already holds the destination',
+            'SKIPPED_RESULT_CLASH':'Already has a result on the destination code',
+            'SKIPPED_PUBLISHED':'Marks are published',
+            'SKIPPED_SAME_TARGET':'Already on the destination',
+            'SKIPPED_OUT_OF_SCOPE':'Outside your scope' };
+    return m[v]||v;
+}
+
+/* ---------- confirm ---------- */
+function buildSummary(){
+    var c=cfg(), s='';
+    function item(l,v){ s+='<div class="cc-sum__i"><div class="cc-sum__l">'+esc(l)+'</div><div class="cc-sum__v">'+esc(v)+'</div></div>'; }
+    if(OP==='TERM_TRANSFER'){
+        item('Moving from', c.sourceYear+' · Semester '+(c.sourceSemester||'any'));
+        item('Moving to', c.targetYear+' · Semester '+c.targetSemester);
+        if(c.sourceCode) item('Limited to course', c.sourceCode);
+    }else{
+        item('Moving from', c.sourceCode);
+        item('Moving to', c.targetCode);
+    }
+    item('Registrations to move', n(PV.actionable));
+    item('Students affected', n(PV.students));
+    item('Related records carried', n(PV.satelliteRows));
+    item('Left alone', n(PV.skipped));
+    item('Published marks', c.includePublished?'Included':'Excluded');
+    item('Acting as', PV.roleNote+' — '+PV.scopeLabel);
+    q('ccSum').innerHTML=s;
+
+    var want = (OP==='TERM_TRANSFER') ? (c.sourceCode||c.sourceYear) : c.sourceCode;
+    q('ccTypeIt').setAttribute('data-want', want);
+    q('ccTypeIt').setAttribute('placeholder','Type "'+want+'" exactly');
+    q('ccTypeIt').value=''; q('ccApply').disabled=true;
+}
+
+function checkConfirm(){
+    var want=(q('ccTypeIt').getAttribute('data-want')||'').toUpperCase();
+    var got=q('ccTypeIt').value.trim().toUpperCase();
+    var reasonOk=q('ccReason').value.trim().length>=5;
+    q('ccApply').disabled = !(want && got===want && reasonOk);
+}
+
+function runApply(){
+    q('ccApply').disabled=true; q('ccLoad4').className='cc-loader show'; msg('');
+    ajax('ApplyCorrection',{configJson:JSON.stringify(cfg()), checksum:PV.checksum},function(r){
+        q('ccLoad4').className='cc-loader';
+        if(!r||!r.success){ msg((r&&r.message)||'The correction did not run.'); q('ccApply').disabled=false; return; }
+        q('ccRef').textContent=r.batchRef;
+        q('ccDone').textContent=r.message;
+        var s='';
+        function item(l,v){ s+='<div class="cc-sum__i"><div class="cc-sum__l">'+esc(l)+'</div><div class="cc-sum__v">'+esc(v)+'</div></div>'; }
+        item('Registrations moved', n(r.rowsApplied));
+        item('Related records moved', n(r.satelliteRows));
+        item('Students', n(r.students));
+        item('Left alone', n(r.rowsSkipped));
+        item('Still on the old code', n(r.residual));
+        item('Tables written', r.tablesTouched||'—');
+        item('Took', (r.durationMs/1000).toFixed(1)+' seconds');
+        q('ccRSum').innerHTML=s;
+        goStep(5);
+        if(r.residual>0) msg(n(r.residual)+' record(s) still carry the old code for these students — usually rows outside the term you selected. Run the correction again without a term filter to catch them.','warn');
+    });
+}
+
+/* ---------- similar codes ---------- */
+function loadSimilar(){
+    var box=q('ccSimList');
+    box.innerHTML='<span style="font-size:10.5px;color:#94a3b8;">Scanning…</span>';
+    ajax('FindSimilarCodes',{},function(r){
+        if(!r||!r.success){ box.innerHTML='<span style="font-size:10.5px;color:#b42318;">'+esc((r&&r.message)||'Scan failed.')+'</span>'; return; }
+        var g=r.groups||[];
+        if(!g.length){ box.innerHTML='<span style="font-size:10.5px;color:#94a3b8;">No codes differ only by spacing or punctuation.</span>'; return; }
+        var h='';
+        g.forEach(function(x){
+            for(var i=0;i<x.codes.length;i++)
+                h+='<span class="cc-simg" data-code="'+esc(x.codes[i])+'" data-peer="'+esc(x.codes[0])+'"><b>'+esc(x.codes[i])+'</b> <i>'+n(x.counts[i])+'</i></span>';
+        });
+        box.innerHTML=h;
+        var els=box.getElementsByClassName('cc-simg');
+        for(var k=0;k<els.length;k++){
+            els[k].addEventListener('click',function(){
+                var code=this.getAttribute('data-code'), peer=this.getAttribute('data-peer');
+                if(code===peer){ q('ccTgt').value=code; } else { q('ccSrc').value=code; q('ccTgt').value=peer; }
+                msg('Loaded '+q('ccSrc').value+' → '+q('ccTgt').value+'. Check the two are really the same course before continuing.','warn');
+            });
+        }
+    });
+}
+
+/* ---------- boot ---------- */
+function fill(sel,items,all){
+    var el=q(sel); if(!el) return;
+    var h = all!=null ? '<option value="">'+esc(all)+'</option>' : '';
+    (items||[]).forEach(function(i){ h+='<option value="'+esc(i.value)+'">'+esc(i.text)+'</option>'; });
+    el.innerHTML=h;
+}
+
+function boot(){
+    ajax('GetOptions',{},function(r){
+        if(!r||!r.success){ msg((r&&r.message)||'Could not load the filters.'); return; }
+        if(!r.hasAccess){ msg('You do not have a marks-management scope, so no correction can be made. Contact the administrator.'); return; }
+        OPTS=r;
+        fill('ccProg', r.programmes, 'All programmes in my scope');
+        fill('ccYear', r.years, 'All years');
+        fill('ccStage', r.stages, 'Any stage');
+        fill('ccSrcYear', r.years, null);
+        fill('ccTgtYear', r.years, null);
+        if(r.faculties && r.faculties.length) fill('ccFac', r.faculties, 'All faculties');
+        else q('ccFacWrap').style.display='none';
+        if(!r.isAdmin){ var m=q('ccOpMerge'); m.disabled=true; m.title='Course Code Merge is restricted to administrators.'; }
+    });
+
+    picker('ccSrc','ccSrcDrop','ccSrcInfo',function(it){ srcSel=it; });
+    picker('ccTgt','ccTgtDrop','ccTgtInfo',function(it){ tgtSel=it; });
+
+    var ops=q('ccOps').getElementsByClassName('cc-op');
+    for(var i=0;i<ops.length;i++) ops[i].addEventListener('click',function(){ if(!this.disabled) setOp(this.getAttribute('data-op')); });
+
+    q('ccTo2').addEventListener('click',function(){
+        var c=cfg();
+        if(OP==='TERM_TRANSFER'){
+            if(!c.sourceYear||!c.targetYear){ msg('Choose both the term to move from and the term to move to.'); return; }
+            if(c.sourceYear===c.targetYear && c.sourceSemester===c.targetSemester){ msg('The two terms are the same.'); return; }
+        }else{
+            if(!c.sourceCode||!c.targetCode){ msg('Choose both course codes.'); return; }
+            if(c.sourceCode.toUpperCase()===c.targetCode.toUpperCase()){ msg('The two codes are the same.'); return; }
+        }
+        goStep(2);
+    });
+    q('ccBack1').addEventListener('click',function(){ goStep(1); });
+    q('ccTo3').addEventListener('click',runPreview);
+    q('ccBack2').addEventListener('click',function(){ goStep(2); });
+    q('ccTo4').addEventListener('click',function(){ buildSummary(); goStep(4); });
+    q('ccBack3').addEventListener('click',function(){ goStep(3); });
+    q('ccTypeIt').addEventListener('input',checkConfirm);
+    q('ccReason').addEventListener('input',checkConfirm);
+    q('ccApply').addEventListener('click',runApply);
+    q('ccSimLoad').addEventListener('click',loadSimilar);
+    q('ccAgain').addEventListener('click',function(){
+        q('ccSrc').value=''; q('ccTgt').value=''; q('ccStudents').value=''; q('ccReason').value='';
+        q('ccSrcInfo').innerHTML=''; q('ccTgtInfo').innerHTML=''; PV=null;
+        goStep(1);
+    });
+}
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+</asp:Content>
