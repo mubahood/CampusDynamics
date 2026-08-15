@@ -347,6 +347,13 @@ public class PreviewResult
     public double sourceCredit;
     public double targetCredit;
     public bool creditConflict;
+
+    /// <summary>Numbers typed into the student box that matched nothing — reported so a
+    /// mistyped number is never silently dropped from a correction.</summary>
+    public List<string> unmatchedStudents = new List<string>();
+
+    /// <summary>How many of the numbers given were entry numbers rather than student numbers.</summary>
+    public int resolvedFromEntryNo;
 }
 
 public class ApplyResult

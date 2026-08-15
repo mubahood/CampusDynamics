@@ -119,9 +119,64 @@ public static class CourseCorrectionService
     }
 
     // ─────────────────────────────────────────────────────────────────
+    //  Student list — accepts either form of number
+    //
+    //  Staff work from whichever number is in front of them: the student
+    //  number (MRU2027000002) or the entry number (27/U/BAED/0001/K/DAY).
+    //  Both are accepted in the same box and resolved to student numbers
+    //  here. Entry numbers contain slashes, which is why the list is split
+    //  on commas, semicolons and whitespace only.
+    //
+    //  A token that matches no entry number is still passed through as a
+    //  student number, because some students hold a registration without an
+    //  acad_student row (see the orphan backfill of August 2026) and must
+    //  not silently drop out of a correction.
+    // ─────────────────────────────────────────────────────────────────
+    private class StudentResolution
+    {
+        public List<string> Regnos = new List<string>();
+        public Dictionary<string, string> TokenToRegno = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        public int FromEntryNo;
+    }
+
+    private static StudentResolution ResolveStudents(MySqlConnection c, MySqlTransaction t, List<string> tokens)
+    {
+        var res = new StudentResolution();
+        if (tokens.Count == 0) return res;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tk in tokens)
+        {
+            res.TokenToRegno[tk] = tk;                 // assume it is a student number
+            if (seen.Add(tk)) res.Regnos.Add(tk);
+        }
+
+        foreach (var chunk in Chunks(tokens, ReadChunk))
+        {
+            string inl = InList(chunk);
+            try
+            {
+                using (var cmd = Cmd("SELECT regno, IFNULL(entryno,'') FROM campus_dynamics.acad_student " +
+                                     "WHERE entryno IN (" + inl + ")", c, t))
+                using (var r = cmd.ExecuteReader())
+                    while (r.Read())
+                    {
+                        string rg = S(r, 0), en = S(r, 1);
+                        if (rg == "" || en == "") continue;
+                        res.TokenToRegno[en] = rg;     // it was an entry number after all
+                        if (seen.Add(rg)) { res.Regnos.Add(rg); res.FromEntryNo++; }
+                    }
+            }
+            catch { /* an unreadable lookup must not lose the student numbers already collected */ }
+        }
+        return res;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     //  Candidate loading
     // ─────────────────────────────────────────────────────────────────
-    private static string BuildMasterWhere(CorrectionConfig cfg, MarksScope scope, Dictionary<string, object> p)
+    private static string BuildMasterWhere(CorrectionConfig cfg, MarksScope scope, Dictionary<string, object> p,
+                                           List<string> studentRegnos)
     {
         var w = new StringBuilder(" WHERE 1=1 ");
 
@@ -146,14 +201,13 @@ public static class CourseCorrectionService
         int dep;
         if (!string.IsNullOrEmpty(cfg.department) && int.TryParse(cfg.department, out dep)) { w.Append(" AND pr.department_id=@dep "); p["@dep"] = dep; }
 
-        var studs = cfg.StudentList();
-        if (studs.Count > 0)
+        if (studentRegnos != null && studentRegnos.Count > 0)
         {
             var sb = new StringBuilder();
-            for (int i = 0; i < studs.Count; i++)
+            for (int i = 0; i < studentRegnos.Count; i++)
             {
                 if (i > 0) sb.Append(",");
-                string pn = "@stu" + i; sb.Append(pn); p[pn] = studs[i];
+                string pn = "@stu" + i; sb.Append(pn); p[pn] = studentRegnos[i];
             }
             w.Append(" AND cr.regno IN (").Append(sb).Append(") ");
         }
@@ -163,11 +217,15 @@ public static class CourseCorrectionService
         return w.ToString();
     }
 
-    private static List<PreviewRow> LoadCandidates(MySqlConnection c, MySqlTransaction t, CorrectionConfig cfg, MarksScope scope)
+    private static List<PreviewRow> LoadCandidates(MySqlConnection c, MySqlTransaction t, CorrectionConfig cfg,
+                                                   MarksScope scope, StudentResolution resolution = null)
     {
         var rows = new List<PreviewRow>();
         var p = new Dictionary<string, object>();
-        string where = BuildMasterWhere(cfg, scope, p);
+        var tokens = cfg.StudentList();
+        var sr = tokens.Count > 0 ? ResolveStudents(c, t, tokens) : new StudentResolution();
+        if (resolution != null) { resolution.Regnos = sr.Regnos; resolution.TokenToRegno = sr.TokenToRegno; resolution.FromEntryNo = sr.FromEntryNo; }
+        string where = BuildMasterWhere(cfg, scope, p, sr.Regnos);
 
         string sql =
             "SELECT cr.ID, cr.regno, cr.courseID, cr.acad_year, cr.semester, cr.course_status, " +
@@ -383,7 +441,18 @@ public static class CourseCorrectionService
             c.Open();
             LoadCourseFacts(c, null, cfg, res);
 
-            var rows = LoadCandidates(c, null, cfg, scope);
+            var resolution = new StudentResolution();
+            var rows = LoadCandidates(c, null, cfg, scope, resolution);
+            res.resolvedFromEntryNo = resolution.FromEntryNo;
+
+            // Any number that produced no registration at all is named, so a typo or a student
+            // who simply is not on this course cannot pass unnoticed.
+            var withRows = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in rows) withRows.Add(r.regno);
+            foreach (var kv in resolution.TokenToRegno)
+                if (!withRows.Contains(kv.Value) && !res.unmatchedStudents.Contains(kv.Key))
+                    res.unmatchedStudents.Add(kv.Key);
+
             if (rows.Count > MaxBatchRows)
             {
                 res.success = false;

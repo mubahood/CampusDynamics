@@ -266,8 +266,8 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
 
     <div class="cc-f" style="margin-top:10px;">
       <label>Specific students (optional)</label>
-      <textarea id="ccStudents" rows="2" placeholder="Registration numbers separated by commas or spaces. Leave blank for everyone matching the filters above."></textarea>
-      <span class="hint">Use this to correct one student, or to re-run a correction for the few that were skipped.</span>
+      <textarea id="ccStudents" rows="2" placeholder="e.g. MRU2027000002, 27/U/BAED/0001/K/DAY — separate with commas, spaces or new lines. Leave blank for everyone matching the filters above."></textarea>
+      <span class="hint">Student numbers and entry numbers both work, and the two can be mixed in the same list. Use this to correct one student, or to re-run a correction for the few that were left alone.</span>
     </div>
 
     <div class="cc-f" style="margin-top:12px;">
@@ -636,7 +636,18 @@ function runPreview(){
         q('ccRowNote').textContent = rows.length>lim ? ('Showing the first '+n(lim)+' of '+n(rows.length)+' records. All of them are included when the correction runs.') : '';
         show(q('ccPvBody'),true);
         q('ccTo4').disabled = !(r.actionable>0);
-        if(r.actionable===0) msg('Nothing in this selection can be moved. The decision against each record explains why.','warn');
+
+        // A number that matched nothing is named rather than quietly dropped.
+        var notes=[];
+        if(r.resolvedFromEntryNo>0) notes.push(n(r.resolvedFromEntryNo)+' of the numbers you gave were entry numbers and were matched to their students.');
+        if(r.unmatchedStudents && r.unmatchedStudents.length){
+            var u=r.unmatchedStudents;
+            notes.push('No record was found for '+n(u.length)+' of the numbers given: '+
+                       u.slice(0,12).join(', ')+(u.length>12?' and '+n(u.length-12)+' more':'')+
+                       '. Check them — they are not part of this correction.');
+        }
+        if(r.actionable===0) notes.unshift('Nothing in this selection can be acted on. The decision against each record explains why.');
+        if(notes.length) msg(notes.join('  '),'warn');
     });
 }
 

@@ -377,6 +377,35 @@ public static class CCTest
         Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCDUP%'");
         Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCDUP%'");
 
+        // ---------------- Scenario P: student box takes either kind of number ----------------
+        Console.WriteLine("\nP. Student numbers and entry numbers both accepted");
+        string entryNo = Str("SELECT IFNULL(entryno,'') FROM campus_dynamics.acad_student WHERE regno=@r", "@r", STU);
+        Ok("test student has an entry number", entryNo.Length > 0, "entryno=" + entryNo);
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno=@r AND courseID IN (@o,@n)", "@r", STU, "@o", OLD, "@n", NEW);
+        AddReg(STU, OLD, "2026/2027", 1, "NORMAL", "NOT_ENTERED", null);
+
+        var byReg = CourseCorrectionService.Preview(new CorrectionConfig { sourceCode = OLD, targetCode = NEW, students = STU, reason = "CCTEST P1" }, Admin());
+        Ok("found by student number", byReg.actionable == 1, "actionable=" + byReg.actionable);
+
+        var byEntry = CourseCorrectionService.Preview(new CorrectionConfig { sourceCode = OLD, targetCode = NEW, students = entryNo, reason = "CCTEST P2" }, Admin());
+        Ok("found by entry number", byEntry.actionable == 1, "actionable=" + byEntry.actionable);
+        Ok("entry number reported as resolved", byEntry.resolvedFromEntryNo == 1, "fromEntry=" + byEntry.resolvedFromEntryNo);
+        Ok("entry number resolves to the same student", byEntry.rows.Count > 0 && byEntry.rows[0].regno == STU);
+
+        var mixed = CourseCorrectionService.Preview(new CorrectionConfig { sourceCode = OLD, targetCode = NEW, students = STU + ", " + entryNo, reason = "CCTEST P3" }, Admin());
+        Ok("the two forms mixed do not double-count", mixed.actionable == 1, "actionable=" + mixed.actionable);
+
+        var withBad = CourseCorrectionService.Preview(new CorrectionConfig { sourceCode = OLD, targetCode = NEW, students = entryNo + ", NOSUCHNUMBER123", reason = "CCTEST P4" }, Admin());
+        Ok("the good one still works", withBad.actionable == 1, "actionable=" + withBad.actionable);
+        Ok("the bad one is named, not swallowed", withBad.unmatchedStudents.Contains("NOSUCHNUMBER123"),
+            "unmatched=" + string.Join("|", withBad.unmatchedStudents.ToArray()));
+        Ok("the good one is not flagged", !withBad.unmatchedStudents.Contains(entryNo));
+
+        var apP = CourseCorrectionService.Apply(new CorrectionConfig { sourceCode = OLD, targetCode = NEW, students = entryNo, reason = "CCTEST P5 entry number apply" }, Admin(), "cctest", "127.0.0.1", byEntry.checksum);
+        Ok("a correction can be applied by entry number", apP.success && apP.rowsApplied == 1, apP.message);
+        CourseCorrectionService.Reverse(apP.batchId, "CCTEST reversal P", Admin(), "cctest", "127.0.0.1", null);
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno=@r AND courseID IN (@o,@n)", "@r", STU, "@o", OLD, "@n", NEW);
+
         Console.WriteLine("\n--- cleaning up ---");
         Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno IN (@a,@b) AND courseID IN (@o,@n,'ZZMANUAL')", "@a", STU, "@b", STU2, "@o", OLD, "@n", NEW);
         Cleanup();
