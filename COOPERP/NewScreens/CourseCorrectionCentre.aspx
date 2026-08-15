@@ -166,6 +166,12 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
         Registration Term Transfer</span>
       <span class="cc-op__d">The course was registered in the wrong academic year or semester. Moves registrations, and the marks attached to them, to the correct term.</span>
     </button>
+    <button type="button" class="cc-op" data-op="REGISTRATION_REMOVAL">
+      <span class="cc-op__t">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        Registration Removal</span>
+      <span class="cc-op__d">The student was never meant to be on the course &mdash; it is not on their curriculum, or it belongs to another specialisation. Removes the registration and everything recorded against it.</span>
+    </button>
     <button type="button" class="cc-op" data-op="COURSE_MERGE" id="ccOpMerge">
       <span class="cc-op__t">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path></svg>
@@ -224,6 +230,15 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
       </div>
     </div>
 
+    <div class="cc-f cc-hide" id="ccRemoveBasisWrap" style="margin-top:4px;">
+      <label>What should not have been registered</label>
+      <div class="cc-grid">
+        <label class="cc-chk"><input type="radio" name="ccBasis" value="code" checked="checked" /><span><b>A named course</b><em>Everyone in scope registered on the course code you choose above.</em></span></label>
+        <label class="cc-chk"><input type="radio" name="ccBasis" value="not_in_curriculum" /><span><b>Courses not on the student's curriculum</b><em>The course does not appear in their programme's curriculum at all &mdash; usually a registration made against the wrong programme.</em></span></label>
+        <label class="cc-chk"><input type="radio" name="ccBasis" value="other_specialisation" /><span><b>Courses belonging to another specialisation</b><em>The course is only offered under a specialisation the student is not taking. Students with no specialisation recorded are matched by this too.</em></span></label>
+      </div>
+    </div>
+
     <div class="cc-sim" id="ccSim" style="display:none;">
       <div class="cc-sim__h">
         <span>Codes that look like duplicates of each other</span>
@@ -251,6 +266,13 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
         <div class="cc-drop" id="ccProgDrop"></div>
         <span class="hint" id="ccProgPick">All programmes in my scope</span>
       </div>
+      <div class="cc-f cc-pick" id="ccSpecWrap">
+        <label>Specialisation</label>
+        <input type="text" id="ccSpecQ" placeholder="Choose a programme first" autocomplete="off" />
+        <input type="hidden" id="ccSpec" value="" />
+        <div class="cc-drop" id="ccSpecDrop"></div>
+        <span class="hint" id="ccSpecPick">All specialisations</span>
+      </div>
       <div class="cc-f cc-pick" id="ccFacWrap">
         <label>Faculty</label>
         <input type="text" id="ccFacQ" placeholder="Type to search faculties" autocomplete="off" />
@@ -270,7 +292,7 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
       <span class="hint">Student numbers and entry numbers both work, and the two can be mixed in the same list. Use this to correct one student, or to re-run a correction for the few that were left alone.</span>
     </div>
 
-    <div class="cc-f" style="margin-top:12px;">
+    <div class="cc-f" id="ccPolicyWrap" style="margin-top:12px;">
       <label>When the student already holds the destination</label>
       <div class="cc-grid">
         <label class="cc-chk"><input type="radio" name="ccPolicy" value="resolve" checked="checked" /><span><b>Settle the duplicate — keep the better mark, remove the leftover</b><em>The higher mark ends up on the destination and the duplicate on the retired code is removed, so nothing is left behind. Where the destination has no mark it takes the source's. Where both are equal, the duplicate is simply removed.</em></span></label>
@@ -281,8 +303,9 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
 
     <div class="cc-grid" style="margin-top:10px;">
       <label class="cc-chk"><input type="checkbox" id="ccPub" checked="checked" /><span><b>Include records whose marks are published</b><em>Included by default, since a wrong course code needs correcting whether or not the mark has been published. The mark travels with the record and is not altered. Untick to correct only unpublished records.</em></span></label>
-      <label class="cc-chk"><input type="checkbox" id="ccRes" checked="checked" /><span><b>Carry results and transcript entries across</b><em>Keeps the mark attached to the corrected registration. Untick only if the results are being handled separately.</em></span></label>
+      <label class="cc-chk" id="ccResWrap"><input type="checkbox" id="ccRes" checked="checked" /><span><b>Carry results and transcript entries across</b><em>Keeps the mark attached to the corrected registration. Untick only if the results are being handled separately.</em></span></label>
       <label class="cc-chk" id="ccAllTermsWrap"><input type="checkbox" id="ccAllTerms" /><span><b>Also move related records from other terms</b><em>Use when the same wrong code appears in more than one term for the same student.</em></span></label>
+      <label class="cc-chk cc-hide" id="ccRemMarkedWrap"><input type="checkbox" id="ccRemMarked" /><span><b>Also remove registrations that carry a mark</b><em>Off by default. A marked registration is left alone unless you tick this &mdash; and if you do, the result recorded against it is removed with it.</em></span></label>
     </div>
 
     <div class="cc-actions">
@@ -377,7 +400,7 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
 (function(){
 'use strict';
 var OP='COURSE_TRANSFER', OPTS=null, PV=null, STEP=1;
-var srcSel=null, tgtSel=null, IS_ADMIN=false, BUSY=false, progCombo=null, facCombo=null;
+var srcSel=null, tgtSel=null, IS_ADMIN=false, BUSY=false, progCombo=null, facCombo=null, specCombo=null;
 
 function q(id){ return document.getElementById(id); }
 function esc(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -427,16 +450,26 @@ function setOp(op){
     OP=op;
     var b=q('ccOps').getElementsByClassName('cc-op');
     for(var i=0;i<b.length;i++) b[i].className='cc-op'+(b[i].getAttribute('data-op')===op?' on':'');
-    var isTerm = op==='TERM_TRANSFER', isMerge = op==='COURSE_MERGE';
+    var isTerm = op==='TERM_TRANSFER', isMerge = op==='COURSE_MERGE', isDel = op==='REGISTRATION_REMOVAL';
     show(q('ccTermRow'), isTerm);
+    show(q('ccRemoveBasisWrap'), isDel);
     q('ccSrcWrap').style.display = 'flex';
-    q('ccTgtWrap').style.display = isTerm ? 'none' : 'flex';
-    q('ccSim').style.display = isMerge||op==='COURSE_TRANSFER' ? 'block' : 'none';
+    q('ccTgtWrap').style.display = (isTerm||isDel) ? 'none' : 'flex';
+    q('ccSim').style.display = (isMerge||op==='COURSE_TRANSFER') ? 'block' : 'none';
     q('ccYearWrap').style.display = isTerm ? 'none' : 'flex';
     q('ccSemWrap').style.display = isTerm ? 'none' : 'flex';
-    q('ccAllTermsWrap').style.display = isTerm ? 'none' : 'flex';
+    q('ccAllTermsWrap').style.display = (isTerm||isDel) ? 'none' : 'flex';
+    // conflict policy and mark handling are meaningless for a removal
+    var pol=q('ccPolicyWrap'); if(pol) pol.style.display = isDel ? 'none' : 'flex';
+    var rem=q('ccRemMarkedWrap'); if(rem) rem.style.display = isDel ? 'flex' : 'none';
+    var res=q('ccResWrap'); if(res) res.style.display = isDel ? 'none' : 'flex';
 
-    if(isTerm){
+    if(isDel){
+        q('ccS1h').textContent='Choose what to remove';
+        q('ccS1s').textContent='Registrations that should never have been made. Nothing is deleted until you confirm, every removed record is stored first, and the whole batch can be put back from the Correction Register.';
+        q('ccSrcWrap').getElementsByTagName('label')[0].textContent='Course code to remove';
+        syncBasis();
+    }else if(isTerm){
         q('ccS1h').textContent='Choose the term to correct';
         q('ccS1s').textContent='Pick the term the registrations are wrongly in, then the term they belong to. You may limit it to a single course code, or leave the code blank to move every course in that term.';
         q('ccSrcWrap').getElementsByTagName('label')[0].textContent='Limit to one course code (optional)';
@@ -554,8 +587,11 @@ function cfg(){
         targetYear: OP==='TERM_TRANSFER' ? q('ccTgtYear').value : '',
         targetSemester: OP==='TERM_TRANSFER' ? q('ccTgtSem').value : '',
         programme: q('ccProg').value,
+        specialisation: q('ccSpec').value,
         faculty: q('ccFac') ? q('ccFac').value : '',
         department: '',
+        removalBasis: basis(),
+        removeMarked: q('ccRemMarked') ? q('ccRemMarked').checked : false,
         studyYear: '',
         markStage: q('ccStage').value,
         registrationType: q('ccRtype').value,
@@ -574,6 +610,40 @@ function policy(){
     var r=document.getElementsByName('ccPolicy');
     for(var i=0;i<r.length;i++) if(r[i].checked) return r[i].value;
     return 'resolve';
+}
+
+function basis(){
+    var r=document.getElementsByName('ccBasis');
+    for(var i=0;i<r.length;i++) if(r[i].checked) return r[i].value;
+    return 'code';
+}
+
+/* A course code is only needed when removing one named course. */
+function syncBasis(){
+    if(OP!=='REGISTRATION_REMOVAL') return;
+    var byCode = basis()==='code';
+    q('ccSrcWrap').style.display = byCode ? 'flex' : 'none';
+    q('ccS1s').textContent = byCode
+        ? 'Everyone in scope registered on the course code you choose. Nothing is deleted until you confirm, and the whole batch can be put back.'
+        : 'The system finds the registrations itself, from the curriculum. Narrow the scope on the next step, preview what it found, and nothing is deleted until you confirm.';
+}
+
+/* Specialisations belong to a programme, so the list narrows as soon as one is chosen.
+   With no programme picked the full list is offered, each labelled with its programme. */
+function cascadeSpec(){
+    if(!specCombo || !OPTS) return;
+    var prog=q('ccProg').value;
+    var all=OPTS.specialisations||[];
+    var list=(prog ? all.filter(function(s){ return s.programme===prog; }) : all).map(function(s){
+        return { value:s.value,
+                 text:(prog?'':s.programme+' — ')+s.text+(s.abbrev?' ('+s.abbrev+')':'')+
+                      (s.active?'':' [inactive]')+(s.students?' · '+s.students+' students':'') };
+    });
+    specCombo.load(list);
+    var inp=q('ccSpecQ');
+    inp.placeholder = list.length ? 'Type to search '+list.length+' specialisation'+(list.length===1?'':'s')
+                                  : (prog ? 'This programme has no specialisations' : 'No specialisations available');
+    inp.disabled = list.length===0;
 }
 
 function cuWinner(){
@@ -654,6 +724,8 @@ function runPreview(){
 /* how each verdict is drawn, and what it is called */
 var ACT={
   'MOVED':              {cls:'go', label:'Move'},
+  'WILL_REMOVE':        {cls:'go', label:'Remove'},
+  'SKIPPED_HAS_MARKS':  {cls:'no', label:'Leave'},
   'RESOLVED_OVERWRITE': {cls:'go', label:'Replace'},
   'RESOLVED_FILLED':    {cls:'go', label:'Fill'},
   'RESOLVED_DISCARD':   {cls:'go', label:'Remove duplicate'},
@@ -671,6 +743,8 @@ function verdictText(v){
             'SKIPPED_SAME_TARGET':'Already on the destination',
             'SKIPPED_OUT_OF_SCOPE':'Outside your scope',
             'MOVED':'',
+            'WILL_REMOVE':'',
+            'SKIPPED_HAS_MARKS':'A mark is recorded against it',
             'RESOLVED_OVERWRITE':'Higher mark replaces the one on the destination',
             'RESOLVED_FILLED':'Destination has no mark — it takes this one',
             'RESOLVED_DISCARD':'Destination is already as good or better' };
@@ -691,7 +765,12 @@ function markCell(x){
 function buildSummary(){
     var c=cfg(), s='';
     function item(l,v){ s+='<div class="cc-sum__i"><div class="cc-sum__l">'+esc(l)+'</div><div class="cc-sum__v">'+esc(v)+'</div></div>'; }
-    if(OP==='TERM_TRANSFER'){
+    if(OP==='REGISTRATION_REMOVAL'){
+        item('Removing', c.removalBasis==='code' ? ('Registrations on '+c.sourceCode)
+             : (c.removalBasis==='not_in_curriculum' ? 'Courses not on the student’s curriculum'
+                                                     : 'Courses belonging to another specialisation'));
+        item('Marked registrations', c.removeMarked?'Included — their results go too':'Left alone');
+    }else if(OP==='TERM_TRANSFER'){
         item('Moving from', c.sourceYear+' · Semester '+(c.sourceSemester||'any'));
         item('Moving to', c.targetYear+' · Semester '+c.targetSemester);
         if(c.sourceCode) item('Limited to course', c.sourceCode);
@@ -699,7 +778,9 @@ function buildSummary(){
         item('Moving from', c.sourceCode);
         item('Moving to', c.targetCode);
     }
-    item('Registrations to change', n(PV.actionable));
+    if(c.programme) item('Programme', c.programme);
+    if(c.specialisation) item('Specialisation', (q('ccSpecQ').value||c.specialisation));
+    item(OP==='REGISTRATION_REMOVAL'?'Registrations to remove':'Registrations to change', n(PV.actionable));
     item('Students affected', n(PV.students));
     item('Related records carried', n(PV.satelliteRows));
     item('Left alone', n(PV.skipped));
@@ -723,7 +804,9 @@ function buildSummary(){
             ' duplicate records are deleted — every one is recorded first and the batch can be reversed.','warn');
     }
 
-    var want = (OP==='TERM_TRANSFER') ? (c.sourceCode||c.sourceYear) : c.sourceCode;
+    var want = (OP==='REGISTRATION_REMOVAL') ? (c.sourceCode || 'REMOVE')
+             : (OP==='TERM_TRANSFER') ? (c.sourceCode||c.sourceYear)
+             : c.sourceCode;
     q('ccTypeIt').setAttribute('data-want', want);
     q('ccTypeIt').setAttribute('placeholder','Type "'+want+'" exactly');
     q('ccTypeIt').value=''; q('ccApply').disabled=true;
@@ -798,6 +881,13 @@ function boot(){
     // built before the options arrive, so the callback can just load them
     progCombo = localCombo('ccProgQ','ccProg','ccProgDrop','ccProgPick','All programmes in my scope');
     facCombo  = localCombo('ccFacQ','ccFac','ccFacDrop','ccFacPick','All faculties');
+    specCombo = localCombo('ccSpecQ','ccSpec','ccSpecDrop','ccSpecPick','All specialisations');
+
+    // Picking a programme narrows the specialisation list; clearing it widens it again.
+    q('ccProgQ').addEventListener('change',cascadeSpec);
+    q('ccProgQ').addEventListener('blur',function(){ setTimeout(cascadeSpec,200); });
+    var bs=document.getElementsByName('ccBasis');
+    for(var b=0;b<bs.length;b++) bs[b].addEventListener('change',syncBasis);
 
     ajax('GetOptions',{},function(r){
         if(!r||!r.success){ msg((r&&r.message)||'Could not load the filters.'); return; }
@@ -809,6 +899,7 @@ function boot(){
         fill('ccSrcYear', r.years, null);
         fill('ccTgtYear', r.years, null);
         progCombo.load(r.programmes);
+        cascadeSpec();
         if(r.faculties && r.faculties.length) facCombo.load(r.faculties);
         else q('ccFacWrap').style.display='none';
         if(!r.isAdmin){ var m=q('ccOpMerge'); m.disabled=true; m.title='Course Code Merge is restricted to administrators.'; }
@@ -822,6 +913,10 @@ function boot(){
 
     q('ccTo2').addEventListener('click',function(){
         var c=cfg();
+        if(OP==='REGISTRATION_REMOVAL'){
+            if(c.removalBasis==='code' && !c.sourceCode){ msg('Choose the course code to remove.'); return; }
+            goStep(2); return;
+        }
         if(OP==='TERM_TRANSFER'){
             if(!c.sourceYear||!c.targetYear){ msg('Choose both the term to move from and the term to move to.'); return; }
             if(c.sourceYear===c.targetYear && c.sourceSemester===c.targetSemester){ msg('The two terms are the same.'); return; }

@@ -77,6 +77,30 @@ public static class CourseCorrectionService
         return "'" + (v ?? "").Replace("\\", "\\\\").Replace("'", "''") + "'";
     }
 
+    /// <summary>Which (student, course) pairs in the set already carry a published result. A
+    /// registration can look unmarked while a result exists, and removing it would orphan that
+    /// result — so the result counts as a mark for the purposes of the decision.</summary>
+    private static HashSet<string> ResultBearingStudents(MySqlConnection c, MySqlTransaction t, List<PreviewRow> rows)
+    {
+        var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var regnos = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in rows) if (seen.Add(r.regno)) regnos.Add(r.regno);
+        if (regnos.Count == 0) return found;
+
+        foreach (var chunk in Chunks(regnos, ReadChunk))
+        {
+            try
+            {
+                using (var cmd = Cmd("SELECT regno, courseid FROM campus_dynamics.acad_results WHERE regno IN (" + InList(chunk) + ")", c, t))
+                using (var r = cmd.ExecuteReader())
+                    while (r.Read()) found.Add(S(r, 0) + "|" + S(r, 1));
+            }
+            catch { }
+        }
+        return found;
+    }
+
     private static string InList(IEnumerable<string> vals)
     {
         var sb = new StringBuilder();
@@ -180,7 +204,35 @@ public static class CourseCorrectionService
     {
         var w = new StringBuilder(" WHERE 1=1 ");
 
-        if (cfg.operation == CorrectionOp.TermTransfer)
+        if (cfg.IsRemoval)
+        {
+            // What should not have been registered. The two curriculum-driven bases are the
+            // reason this operation exists: a student registered for a subject that was never
+            // theirs to take.
+            if (cfg.removalBasis == RemovalBasis.NotInCurriculum)
+            {
+                w.Append(" AND NOT EXISTS (SELECT 1 FROM campus_dynamics.acad_programmecourses pc " +
+                         "  WHERE pc.progcode=cr.prog_id AND pc.course_code=cr.courseID) ");
+            }
+            else if (cfg.removalBasis == RemovalBasis.OtherSpecialisation)
+            {
+                // The course is specialised, and none of its curriculum entries is either core
+                // (specialisation 0/NULL) or the student's own specialisation.
+                w.Append(" AND EXISTS (SELECT 1 FROM campus_dynamics.acad_programmecourses pc " +
+                         "  WHERE pc.progcode=cr.prog_id AND pc.course_code=cr.courseID AND IFNULL(pc.specialisation_id,0)>0) " +
+                         " AND NOT EXISTS (SELECT 1 FROM campus_dynamics.acad_programmecourses pc2 " +
+                         "  WHERE pc2.progcode=cr.prog_id AND pc2.course_code=cr.courseID " +
+                         "    AND (IFNULL(pc2.specialisation_id,0)=0 " +
+                         "         OR pc2.specialisation_id = CAST(NULLIF(TRIM(IFNULL(s.specialisation,'')),'') AS UNSIGNED))) ");
+            }
+            else
+            {
+                w.Append(" AND cr.courseID=@srcCode "); p["@srcCode"] = cfg.sourceCode;
+            }
+            if (!string.IsNullOrEmpty(cfg.sourceYear)) { w.Append(" AND cr.acad_year=@srcYear "); p["@srcYear"] = cfg.sourceYear; }
+            if (!string.IsNullOrEmpty(cfg.sourceSemester)) { w.Append(" AND cr.semester=@srcSem "); p["@srcSem"] = cfg.sourceSemester; }
+        }
+        else if (cfg.operation == CorrectionOp.TermTransfer)
         {
             w.Append(" AND cr.acad_year=@srcYear "); p["@srcYear"] = cfg.sourceYear;
             if (!string.IsNullOrEmpty(cfg.sourceSemester)) { w.Append(" AND cr.semester=@srcSem "); p["@srcSem"] = cfg.sourceSemester; }
@@ -194,6 +246,14 @@ public static class CourseCorrectionService
         }
 
         if (!string.IsNullOrEmpty(cfg.programme)) { w.Append(" AND cr.prog_id=@prog "); p["@prog"] = cfg.programme; }
+        int spec;
+        if (!string.IsNullOrEmpty(cfg.specialisation) && int.TryParse(cfg.specialisation, out spec) && spec > 0)
+        {
+            // acad_student.specialisation is text that holds a spec_id, so it is cast rather
+            // than compared as a string (see §2.5b of the plan).
+            w.Append(" AND CAST(NULLIF(TRIM(IFNULL(s.specialisation,'')),'') AS UNSIGNED)=@spec ");
+            p["@spec"] = spec;
+        }
         if (!string.IsNullOrEmpty(cfg.markStage)) { w.Append(" AND IFNULL(cr.mark_stage,'NOT_ENTERED')=@stage "); p["@stage"] = cfg.markStage; }
         if (!string.IsNullOrEmpty(cfg.registrationType)) { w.Append(" AND cr.registration_type=@rtype "); p["@rtype"] = cfg.registrationType; }
         if (!string.IsNullOrEmpty(cfg.courseStatus)) { w.Append(" AND cr.course_status=@cstatus "); p["@cstatus"] = cfg.courseStatus; }
@@ -266,6 +326,23 @@ public static class CourseCorrectionService
     private static void ApplyVerdicts(MySqlConnection c, MySqlTransaction t, CorrectionConfig cfg, List<PreviewRow> rows)
     {
         if (rows.Count == 0) return;
+
+        // Removal has no destination, so it needs no collision analysis — only a decision
+        // about marks, which is the one thing that makes a removal irreversible in spirit.
+        if (cfg.IsRemoval)
+        {
+            var hasResult = ResultBearingStudents(c, t, rows);
+            foreach (var row in rows)
+            {
+                bool marked = row.total.HasValue
+                              || (row.markStage != "" && row.markStage != "NOT_ENTERED")
+                              || hasResult.Contains(row.regno + "|" + row.courseCode);
+                if (marked && !cfg.removeMarked) { row.verdict = CorrectionVerdict.SkippedHasMarks; continue; }
+                if (marked) row.note = "A mark is recorded against this registration and will be removed with it.";
+                row.verdict = CorrectionVerdict.WillRemove;
+            }
+            return;
+        }
 
         bool isTerm = cfg.operation == CorrectionOp.TermTransfer;
         var regnos = new List<string>();
@@ -486,6 +563,16 @@ public static class CourseCorrectionService
     private static string Validate(CorrectionConfig cfg, MarksScope scope)
     {
         if (!scope.HasAccess) return "You do not have a marks-management scope. Contact the administrator.";
+
+        if (cfg.IsRemoval)
+        {
+            if (cfg.removalBasis == RemovalBasis.Code && string.IsNullOrEmpty(cfg.sourceCode))
+                return "Choose the course code whose registrations should be removed.";
+            if (cfg.removalBasis != RemovalBasis.Code
+                && string.IsNullOrEmpty(cfg.programme) && string.IsNullOrEmpty(cfg.students) && !scope.IsAdmin)
+                return "Narrow this to a programme or a list of students before removing registrations.";
+            return null;
+        }
 
         if (cfg.operation == CorrectionOp.TermTransfer)
         {
@@ -779,6 +866,32 @@ public static class CourseCorrectionService
                         return res;
                     }
 
+                    // Removal takes its own path: there is no destination to move anything to.
+                    if (cfg.IsRemoval)
+                    {
+                        long rid; string rref;
+                        CreateBatch(c, t, cfg, scope, user, ip, rows.Count, out rid, out rref);
+                        var rTouched = new HashSet<string>();
+                        var rStudents = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        var rPend = new List<Pending>();
+
+                        int removed = RemoveRegistrations(c, t, rid, cfg, actionable, rPend, rTouched, rStudents);
+                        FlushSnapshots(c, t, rid, rPend);
+                        FinishBatch(c, t, rid, removed, rows.Count - removed, rStudents.Count, 0,
+                                    string.Join(", ", new List<string>(rTouched).ToArray()), (int)sw.ElapsedMilliseconds);
+                        t.Commit();
+
+                        res.batchId = rid; res.batchRef = rref;
+                        res.rowsApplied = removed; res.rowsSkipped = rows.Count - removed;
+                        res.students = rStudents.Count;
+                        res.tablesTouched = string.Join(", ", new List<string>(rTouched).ToArray());
+                        res.durationMs = (int)sw.ElapsedMilliseconds;
+                        res.message = "Removal " + rref + " deleted " + removed.ToString("N0") + " registration" +
+                                      (removed == 1 ? "" : "s") + " across " + rStudents.Count.ToString("N0") + " student" +
+                                      (rStudents.Count == 1 ? "" : "s") + ". Everything removed is recorded and can be put back.";
+                        return res;
+                    }
+
                     bool isMerge = cfg.operation == CorrectionOp.CourseMerge;
                     if (isMerge)
                     {
@@ -859,6 +972,77 @@ public static class CourseCorrectionService
                 }
             }
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  Registration removal
+    //
+    //  For registrations that should never have been made — a subject that
+    //  was never on the student's curriculum, or one belonging to another
+    //  specialisation. The registration goes, and anything recorded against
+    //  it goes with it, so no orphan result or upload is left behind.
+    //
+    //  Every deleted row is snapshotted whole first, and the reversal
+    //  re-inserts it, so a removal is as undoable as a move.
+    // ─────────────────────────────────────────────────────────────────
+    private static int RemoveRegistrations(MySqlConnection c, MySqlTransaction t, long batchId, CorrectionConfig cfg,
+                                           List<PreviewRow> targets, List<Pending> pend, HashSet<string> touched,
+                                           HashSet<string> students)
+    {
+        if (targets.Count == 0) return 0;
+        var master = CourseTableRegistry.Master;
+        int removed = 0;
+
+        foreach (var chunk in Chunks(targets, ReadChunk))
+        {
+            // Dependants first, so nothing is left pointing at a row that has gone.
+            foreach (var def in CourseTableRegistry.Satellites)
+                foreach (var row in chunk)
+                {
+                    bool bound = TermBound(def, cfg);
+                    var ids = new List<object>();
+                    try
+                    {
+                        var g = new SatGroup { course = row.courseCode, year = row.acadYear, sem = row.semester, regnos = new List<string> { row.regno } };
+                        using (var cmd = Cmd("SELECT " + def.PkCol + " FROM " + def.Qualified + " WHERE " + SatWhere(def, cfg, g, bound), c, t))
+                        using (var r = cmd.ExecuteReader())
+                            while (r.Read()) ids.Add(r.GetValue(0));
+                    }
+                    catch { continue; }
+                    if (ids.Count == 0) continue;
+                    foreach (var idChunk in Chunks(ids, ReadChunk))
+                        DeleteChunk(c, t, def, idChunk, pend, touched,
+                                    "Removed with the registration it belonged to.");
+                }
+
+            // Then the registrations themselves.
+            var pks = new List<object>();
+            foreach (var row in chunk) pks.Add(row.id);
+            var before = ReadMany(c, t, master, pks);
+            var drop = new List<object>();
+            foreach (var row in chunk)
+            {
+                Dictionary<string, object> b;
+                if (!before.TryGetValue(Convert.ToString(row.id), out b)) continue;
+                pend.Add(new Pending
+                {
+                    def = master, pk = row.id, regno = row.regno, course = row.courseCode,
+                    action = "DELETE", verdict = CorrectionVerdict.WillRemove, before = b, after = null,
+                    note = "Removed — " + RemovalBasis.Explain(cfg.removalBasis) + "."
+                });
+                drop.Add(row.id);
+                students.Add(row.regno);
+                removed++;
+            }
+            if (drop.Count > 0)
+            {
+                using (var cmd = Cmd("DELETE FROM " + master.Qualified + " WHERE ID IN (" + InListRaw(drop) + ")", c, t))
+                    cmd.ExecuteNonQuery();
+                touched.Add(master.Table);
+            }
+            if (pend.Count >= 1000) FlushSnapshots(c, t, batchId, pend);
+        }
+        return removed;
     }
 
     // ─────────────────────────────────────────────────────────────────

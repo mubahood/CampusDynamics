@@ -406,6 +406,77 @@ public static class CCTest
         CourseCorrectionService.Reverse(apP.batchId, "CCTEST reversal P", Admin(), "cctest", "127.0.0.1", null);
         Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno=@r AND courseID IN (@o,@n)", "@r", STU, "@o", OLD, "@n", NEW);
 
+        // ---------------- Scenario Q: registration removal ----------------
+        Console.WriteLine("\nQ. Registration removal");
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCDEL%'");
+        Ex("DELETE FROM campus_dynamics.acad_results WHERE regno LIKE 'CCDEL%'");
+        Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCDEL%'");
+        Ex("DELETE FROM campus_dynamics.acad_programmecourses WHERE progcode='TEST' AND course_code IN (@o,@n)", "@o", OLD, "@n", NEW);
+        // Only ever remove the fixtures this harness created. An earlier version deleted by
+        // prog_id and destroyed a pre-existing row that 5 students and 14 curriculum entries
+        // still referenced — never widen this predicate.
+        Ex("DELETE FROM campus_dynamics.acad_specialisation WHERE prog_id='TEST' AND abbrev IN ('CC1','CC2')");
+
+        // two specialisations on the test programme; the student takes the first
+        Ex("INSERT INTO campus_dynamics.acad_specialisation (prog_id,spec,abbrev,is_fully_set,is_active) VALUES ('TEST','CC Spec One','CC1','Yes','Active')");
+        int spec1 = Num("SELECT LAST_INSERT_ID()");
+        Ex("INSERT INTO campus_dynamics.acad_specialisation (prog_id,spec,abbrev,is_fully_set,is_active) VALUES ('TEST','CC Spec Two','CC2','Yes','Active')");
+        int spec2 = Num("SELECT LAST_INSERT_ID()");
+        Ex("INSERT INTO campus_dynamics.acad_student (regno,firstname,othername,progid,entryyear,duration,specialisation) VALUES ('CCDEL0001','Del','Case','TEST',2026,3,@s)", "@s", spec1.ToString());
+
+        // OLD belongs to the other specialisation; NEW is not on the curriculum at all
+        Ex("INSERT INTO campus_dynamics.acad_programmecourses (progcode,course_code,study_year,semester,CurriculumID,specialisation_id,course_type,status) VALUES ('TEST',@c,1,1,0,@s,'CORE','Active')", "@c", OLD, "@s", spec2);
+        long delA = AddReg("CCDEL0001", OLD, "2026/2027", 1, "NORMAL", "NOT_ENTERED", null);
+        long delB = AddReg("CCDEL0001", NEW, "2026/2027", 1, "NORMAL", "NOT_ENTERED", null);
+
+        var cfgQ1 = new CorrectionConfig { operation = CorrectionOp.Removal, removalBasis = RemovalBasis.OtherSpecialisation, programme = "TEST", students = "CCDEL0001", reason = "CCTEST Q other-spec" };
+        var pvQ1 = CourseCorrectionService.Preview(cfgQ1, Admin());
+        Ok("finds the other-specialisation course", pvQ1.actionable == 1, "actionable=" + pvQ1.actionable + " msg=" + pvQ1.message);
+        Ok("and only that one", pvQ1.rows.Count == 1 && pvQ1.rows[0].courseCode == OLD, "rows=" + pvQ1.rows.Count);
+
+        var cfgQ2 = new CorrectionConfig { operation = CorrectionOp.Removal, removalBasis = RemovalBasis.NotInCurriculum, programme = "TEST", students = "CCDEL0001", reason = "CCTEST Q not-in-curriculum" };
+        var pvQ2 = CourseCorrectionService.Preview(cfgQ2, Admin());
+        Ok("finds the off-curriculum course", pvQ2.actionable == 1 && pvQ2.rows[0].courseCode == NEW, "actionable=" + pvQ2.actionable);
+
+        // a mark protects a registration unless marked ones are explicitly included
+        Ex("UPDATE campus_dynamics_portal.acad_course_registration SET provisional_total_marks=64 WHERE ID=@i", "@i", delA);
+        var pvQ3 = CourseCorrectionService.Preview(cfgQ1, Admin());
+        Ok("a marked registration is protected", pvQ3.actionable == 0 && pvQ3.skipped == 1, "actionable=" + pvQ3.actionable);
+        cfgQ1.removeMarked = true;
+        var pvQ4 = CourseCorrectionService.Preview(cfgQ1, Admin());
+        Ok("and removable when explicitly included", pvQ4.actionable == 1, "actionable=" + pvQ4.actionable);
+
+        var apQ = CourseCorrectionService.Apply(cfgQ1, Admin(), "cctest", "127.0.0.1", pvQ4.checksum);
+        Ok("removal applies", apQ.success && apQ.rowsApplied == 1, apQ.message);
+        Ok("the registration is gone", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", delA) == 0);
+        Ok("the other registration is untouched", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", delB) == 1);
+        Ok("the removal is snapshotted", Num("SELECT COUNT(*) FROM campus_dynamics.acad_correction_row WHERE batch_id=@b AND action='DELETE'", "@b", apQ.batchId) == 1);
+
+        var rvQ = CourseCorrectionService.Reverse(apQ.batchId, "CCTEST reversal Q", Admin(), "cctest", "127.0.0.1", null);
+        Ok("removal reverses", rvQ.success, rvQ.message);
+        Ok("the registration is back", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", delA) == 1);
+        Ok("with its mark intact", Num("SELECT provisional_total_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", delA) == 64);
+
+        // ---------------- Scenario R: specialisation as a scope filter ----------------
+        Console.WriteLine("\nR. Specialisation narrows the scope");
+        Ex("INSERT INTO campus_dynamics.acad_student (regno,firstname,othername,progid,entryyear,duration,specialisation) VALUES ('CCDEL0002','Other','Spec','TEST',2026,3,@s)", "@s", spec2.ToString());
+        AddReg("CCDEL0002", OLD, "2026/2027", 1, "NORMAL", "NOT_ENTERED", null);
+        var cfgR = new CorrectionConfig { sourceCode = OLD, targetCode = NEW, programme = "TEST", students = "CCDEL0001,CCDEL0002", reason = "CCTEST R" };
+        var pvRall = CourseCorrectionService.Preview(cfgR, Admin());
+        Ok("both students in scope without a specialisation", pvRall.rows.Count == 2, "rows=" + pvRall.rows.Count);
+        cfgR.specialisation = spec2.ToString();
+        var pvRspec = CourseCorrectionService.Preview(cfgR, Admin());
+        Ok("only the matching specialisation remains", pvRspec.rows.Count == 1 && pvRspec.rows[0].regno == "CCDEL0002",
+            "rows=" + pvRspec.rows.Count);
+
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCDEL%'");
+        Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCDEL%'");
+        Ex("DELETE FROM campus_dynamics.acad_programmecourses WHERE progcode='TEST' AND course_code IN (@o,@n)", "@o", OLD, "@n", NEW);
+        // Only ever remove the fixtures this harness created. An earlier version deleted by
+        // prog_id and destroyed a pre-existing row that 5 students and 14 curriculum entries
+        // still referenced — never widen this predicate.
+        Ex("DELETE FROM campus_dynamics.acad_specialisation WHERE prog_id='TEST' AND abbrev IN ('CC1','CC2')");
+
         Console.WriteLine("\n--- cleaning up ---");
         Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno IN (@a,@b) AND courseID IN (@o,@n,'ZZMANUAL')", "@a", STU, "@b", STU2, "@o", OLD, "@n", NEW);
         Cleanup();

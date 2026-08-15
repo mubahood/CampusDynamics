@@ -82,6 +82,7 @@ public partial class COOPERP_NewScreens_CourseCorrectionCentre : System.Web.UI.P
             var programmes = new List<object>();
             var faculties = new List<object>();
             var stages = new List<object>();
+            var specialisations = new List<object>();
             string pf = scope.ProgFilter("p", "progcode");
 
             using (var c = new MySqlConnection(CourseCorrectionService.ConnStr()))
@@ -104,6 +105,30 @@ public partial class COOPERP_NewScreens_CourseCorrectionCentre : System.Web.UI.P
                         "SELECT TRIM(faculty_code), faculty_name FROM acad_faculty WHERE TRIM(faculty_code)<>'00' ORDER BY faculty_name", c))
                     using (var r = cmd.ExecuteReader())
                         while (r.Read()) faculties.Add(new { value = r.GetString(0), text = r.GetString(1) });
+
+                // Specialisations are programme-scoped (acad_specialisation.prog_id), so each one
+                // carries its programme and the browser cascades locally. The placeholder rows
+                // ('-') and those with no students are dropped — they only clutter the list.
+                using (var cmd = new MySqlCommand(
+                    "SELECT sp.spec_id, TRIM(sp.prog_id), sp.spec, IFNULL(sp.abbrev,''), sp.is_active, " +
+                    "       (SELECT COUNT(*) FROM acad_student st WHERE st.specialisation = sp.spec_id) students " +
+                    "FROM acad_specialisation sp " +
+                    "WHERE TRIM(sp.spec) NOT IN ('','-') AND TRIM(sp.prog_id) NOT IN ('','-') " +
+                    "ORDER BY sp.prog_id, sp.spec", c))
+                {
+                    cmd.CommandTimeout = 120;
+                    using (var r = cmd.ExecuteReader())
+                        while (r.Read())
+                            specialisations.Add(new
+                            {
+                                value = Convert.ToString(r[0]),
+                                text = r.GetString(2),
+                                abbrev = r.GetString(3),
+                                programme = r.GetString(1),
+                                active = string.Equals(r.GetString(4), "Active", StringComparison.OrdinalIgnoreCase),
+                                students = Convert.ToInt32(r[5])
+                            });
+                }
             }
 
             foreach (var s in new[] { "NOT_ENTERED", "ENTERED", "CAPTURED", "APPROVED", "PUBLISHED", "RETURNED" })
@@ -119,7 +144,8 @@ public partial class COOPERP_NewScreens_CourseCorrectionCentre : System.Web.UI.P
                 years,
                 programmes,
                 faculties,
-                stages
+                stages,
+                specialisations
             });
         }
         catch (Exception ex) { return Fail(ex.Message); }

@@ -18,7 +18,32 @@ public static class CorrectionOp
     public const string CourseTransfer = "COURSE_TRANSFER";
     public const string TermTransfer   = "TERM_TRANSFER";
     public const string CourseMerge    = "COURSE_MERGE";
+    public const string Removal        = "REGISTRATION_REMOVAL";
     public const string Reversal       = "REVERSAL";
+}
+
+/// <summary>How the removal wizard decides what should not have been registered.</summary>
+public static class RemovalBasis
+{
+    /// <summary>One named course code.</summary>
+    public const string Code = "code";
+
+    /// <summary>The course is not in the student's programme curriculum at all.</summary>
+    public const string NotInCurriculum = "not_in_curriculum";
+
+    /// <summary>The course exists in the curriculum only under a specialisation the student
+    /// is not taking — the classic "registered for someone else's subject".</summary>
+    public const string OtherSpecialisation = "other_specialisation";
+
+    public static string Explain(string b)
+    {
+        switch (b)
+        {
+            case NotInCurriculum:     return "not on the student's programme curriculum";
+            case OtherSpecialisation: return "belongs to a specialisation the student is not taking";
+            default:                  return "the chosen course code";
+        }
+    }
 }
 
 public static class CorrectionVerdict
@@ -38,6 +63,10 @@ public static class CorrectionVerdict
     public const string ResolvedDiscard    = "RESOLVED_DISCARD";    // destination already as good or better — source removed
     public const string ResolvedFilled     = "RESOLVED_FILLED";     // destination had no mark — filled from the source, source removed
 
+    // Registration removal
+    public const string WillRemove         = "WILL_REMOVE";
+    public const string SkippedHasMarks    = "SKIPPED_HAS_MARKS";
+
     /// <summary>Human sentence for a verdict, shown in the preview and the register.</summary>
     public static string Explain(string v)
     {
@@ -54,6 +83,8 @@ public static class CorrectionVerdict
             case ResolvedOverwrite:  return "Duplicate settled — the higher mark replaces the one on the destination, and the duplicate is removed";
             case ResolvedFilled:     return "Duplicate settled — the destination had no mark, so it takes this one, and the duplicate is removed";
             case ResolvedDiscard:    return "Duplicate settled — the destination already holds a mark as good or better, so the duplicate is removed";
+            case WillRemove:         return "Registration will be removed";
+            case SkippedHasMarks:    return "A mark is recorded against it — not removed unless marked records are included";
             default:                 return v;
         }
     }
@@ -61,7 +92,7 @@ public static class CorrectionVerdict
     /// <summary>True when the correction will act on the record.</summary>
     public static bool IsActionable(string v)
     {
-        return v == Moved || IsResolved(v);
+        return v == Moved || v == WillRemove || IsResolved(v);
     }
 
     /// <summary>True for the three duplicate-settling outcomes, all of which remove the source row.</summary>
@@ -264,6 +295,7 @@ public class CorrectionConfig
 
     // Scope
     public string programme = "";
+    public string specialisation = "";     // acad_specialisation.spec_id, cascaded from programme
     public string faculty = "";
     public string department = "";
     public string studyYear = "";
@@ -286,6 +318,16 @@ public class CorrectionConfig
     public string conflictPolicy = "leave";
 
     public bool Resolving { get { return string.Equals(conflictPolicy, "resolve", StringComparison.OrdinalIgnoreCase); } }
+
+    // ── Registration removal ──
+    /// <summary>Which registrations the removal wizard targets — see RemovalBasis.</summary>
+    public string removalBasis = RemovalBasis.Code;
+
+    /// <summary>Registrations carrying a mark are kept out of a removal unless this is set.
+    /// Removing a marked registration also removes the result recorded against it.</summary>
+    public bool removeMarked = false;
+
+    public bool IsRemoval { get { return operation == CorrectionOp.Removal; } }
 
     public string reason = "";
 
