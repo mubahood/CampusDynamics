@@ -238,7 +238,10 @@ function open(id){
             h+='</tbody></table></div>';
         } else h+='<p style="font-size:11px;color:#94a3b8;">No student-level records.</p>';
 
-        h+='<div class="cr-sec">Every record touched ('+n(rows.length)+')</div><div class="cr-tblwrap"><table class="cr-tbl" style="min-width:0;">'+
+        var cap = (r.totalRows||rows.length) > rows.length
+            ? '<p style="font-size:10px;color:#b45309;margin:0 0 6px;">Showing the first '+n(rows.length)+' of '+n(r.totalRows)+' records. Reversal always covers every record, not just those listed.</p>'
+            : '';
+        h+='<div class="cr-sec">Every record touched ('+n(r.totalRows||rows.length)+')</div>'+cap+'<div class="cr-tblwrap"><table class="cr-tbl" style="min-width:0;">'+
            '<thead><tr><th>Table</th><th>Student</th><th>Before &rarr; after</th><th>Outcome</th></tr></thead><tbody>';
         rows.forEach(function(x){
             h+='<tr'+(x.reversed?' class="rev"':'')+'><td>'+esc(x.table)+'<span class="cr-sm">'+esc(x.pkCol)+' '+esc(x.pk)+'</span></td>'+

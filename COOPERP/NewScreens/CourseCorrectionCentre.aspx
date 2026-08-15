@@ -244,8 +244,20 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
     <p class="cc-card__s">Leave a filter blank to include everything you are allowed to see. Your own faculty or department limit always applies, whatever is set here.</p>
 
     <div class="cc-grid">
-      <div class="cc-f"><label>Programme</label><select id="ccProg"><option value="">All programmes in my scope</option></select></div>
-      <div class="cc-f" id="ccFacWrap"><label>Faculty</label><select id="ccFac"><option value="">All faculties</option></select></div>
+      <div class="cc-f cc-pick">
+        <label>Programme</label>
+        <input type="text" id="ccProgQ" placeholder="Type to search all programmes" autocomplete="off" />
+        <input type="hidden" id="ccProg" value="" />
+        <div class="cc-drop" id="ccProgDrop"></div>
+        <span class="hint" id="ccProgPick">All programmes in my scope</span>
+      </div>
+      <div class="cc-f cc-pick" id="ccFacWrap">
+        <label>Faculty</label>
+        <input type="text" id="ccFacQ" placeholder="Type to search faculties" autocomplete="off" />
+        <input type="hidden" id="ccFac" value="" />
+        <div class="cc-drop" id="ccFacDrop"></div>
+        <span class="hint" id="ccFacPick">All faculties</span>
+      </div>
       <div class="cc-f" id="ccYearWrap"><label>Academic year</label><select id="ccYear"><option value="">All years</option></select></div>
       <div class="cc-f" id="ccSemWrap"><label>Semester</label><select id="ccSem"><option value="">All semesters</option><option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option></select></div>
       <div class="cc-f"><label>Mark stage</label><select id="ccStage"><option value="">Any stage</option></select></div>
@@ -287,6 +299,13 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
       </div>
       <div class="cc-verd" id="ccVerd"></div>
       <div class="cc-msg warn" id="ccCu"></div>
+      <div class="cc-confirm cc-hide" id="ccCuPick" style="margin-bottom:11px;">
+        <div class="cc-confirm__h">Which credit-unit value should the merged course keep?</div>
+        <div class="cc-grid">
+          <label class="cc-chk"><input type="radio" name="ccCuW" value="target" /><span><b id="ccCuT">Keep the surviving code's value</b><em>Nothing changes for students already on it.</em></span></label>
+          <label class="cc-chk"><input type="radio" name="ccCuW" value="source" /><span><b id="ccCuS">Take the retiring code's value</b><em>The surviving course is updated, which changes every GPA computed from it.</em></span></label>
+        </div>
+      </div>
       <div class="cc-tblwrap">
         <table class="cc-tbl">
           <thead><tr><th>Student</th><th>Programme</th><th>Course</th><th>Term</th><th>Status</th><th>Stage</th><th>Mark</th><th>Decision</th></tr></thead>
@@ -349,7 +368,7 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
 (function(){
 'use strict';
 var OP='COURSE_TRANSFER', OPTS=null, PV=null, STEP=1;
-var srcSel=null, tgtSel=null;
+var srcSel=null, tgtSel=null, IS_ADMIN=false, BUSY=false, progCombo=null, facCombo=null;
 
 function q(id){ return document.getElementById(id); }
 function esc(s){ return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -363,7 +382,13 @@ function ajax(method,params,cb){
     x.timeout=600000;
     x.onload=function(){
         try{ var o=JSON.parse(x.responseText); cb(typeof o.d==='string'?JSON.parse(o.d):o.d); }
-        catch(e){ cb({success:false,message:'The server did not return valid data. It may still be starting up — try again in a moment.'}); }
+        catch(e){
+            // A sign-in redirect comes back as HTML, not JSON — the usual cause here.
+            var looksLikeLogin = /login|sign in|<!DOCTYPE/i.test(x.responseText||'');
+            cb({success:false, message: looksLikeLogin
+                ? 'Your session has expired. Open the page again and sign in — nothing was changed.'
+                : 'The server did not return valid data. It may still be starting up — try again in a moment.'});
+        }
     };
     x.onerror=function(){ cb({success:false,message:'Network error — the correction was not sent.'}); };
     x.ontimeout=function(){ cb({success:false,message:'That took too long. Narrow the selection and try again.'}); };
@@ -418,6 +443,59 @@ function setOp(op){
         q('ccTgtWrap').getElementsByTagName('label')[0].textContent='Move to — course code';
     }
     goStep(1);
+}
+
+/* ---------- searchable picker over a list already in the browser ----------
+   Programmes (131) and faculties are loaded once, so filtering happens locally
+   with no round trip. Keyboard: arrows to move, Enter to take, Escape to clear. */
+function localCombo(qId, hiddenId, dropId, pickId, allLabel){
+    var inp=q(qId), hid=q(hiddenId), drop=q(dropId), pick=q(pickId);
+    var items=[], view=[], hl=-1;
+
+    function close(){ drop.className='cc-drop'; hl=-1; }
+    function setPick(it){
+        hid.value = it ? it.value : '';
+        inp.value = it ? it.text : '';
+        pick.textContent = it ? ('Selected: '+it.text) : allLabel;
+        pick.style.color = it ? '#174DA4' : '#94a3b8';
+    }
+    function render(){
+        if(!view.length){ drop.innerHTML='<div class="cc-drop__i"><span class="cc-drop__n">Nothing matches.</span></div>'; drop.className='cc-drop show'; return; }
+        var h='<div class="cc-drop__i" data-i="-1"><span class="cc-drop__n"><em>'+esc(allLabel)+'</em></span></div>';
+        view.forEach(function(it,i){
+            h+='<div class="cc-drop__i'+(i===hl?' hl':'')+'" data-i="'+i+'">'+
+               '<span class="cc-drop__c">'+esc(it.value)+'</span>'+
+               '<span class="cc-drop__n">'+esc(it.text)+'</span></div>';
+        });
+        drop.innerHTML=h; drop.className='cc-drop show';
+        var els=drop.getElementsByClassName('cc-drop__i');
+        for(var k=0;k<els.length;k++){
+            els[k].addEventListener('mousedown',function(e){
+                e.preventDefault();
+                var i=Number(this.getAttribute('data-i'));
+                setPick(i<0?null:view[i]); close();
+            });
+        }
+    }
+    function filter(){
+        var v=inp.value.trim().toLowerCase();
+        view = !v ? items.slice(0,60) : items.filter(function(it){
+            return it.text.toLowerCase().indexOf(v)>=0 || it.value.toLowerCase().indexOf(v)>=0;
+        }).slice(0,60);
+        hl = view.length ? 0 : -1;
+        render();
+    }
+    inp.addEventListener('input',function(){ hid.value=''; pick.textContent=allLabel; pick.style.color='#94a3b8'; filter(); });
+    inp.addEventListener('focus',filter);
+    inp.addEventListener('blur',function(){ setTimeout(function(){ close(); if(!hid.value) setPick(null); },160); });
+    inp.addEventListener('keydown',function(e){
+        if(e.keyCode===40){ hl=Math.min(hl+1,view.length-1); render(); e.preventDefault(); }
+        else if(e.keyCode===38){ hl=Math.max(hl-1,0); render(); e.preventDefault(); }
+        else if(e.keyCode===13){ if(hl>=0&&view[hl]) setPick(view[hl]); close(); e.preventDefault(); }
+        else if(e.keyCode===27){ setPick(null); close(); }
+    });
+
+    return { load:function(list){ items=list||[]; setPick(null); }, clear:function(){ setPick(null); } };
 }
 
 /* ---------- code picker ---------- */
@@ -477,9 +555,15 @@ function cfg(){
         includePublished: q('ccPub').checked,
         moveResults: q('ccRes').checked,
         allTerms: q('ccAllTerms').checked,
-        creditUnitWinner: '',
+        creditUnitWinner: cuWinner(),
         reason: q('ccReason').value.trim()
     };
+}
+
+function cuWinner(){
+    var r=document.getElementsByName('ccCuW');
+    for(var i=0;i<r.length;i++) if(r[i].checked) return r[i].value;
+    return '';
 }
 
 /* ---------- preview ---------- */
@@ -501,10 +585,16 @@ function runPreview(){
         });
         q('ccVerd').innerHTML=vh;
 
+        show(q('ccCuPick'), false);
         if(r.creditConflict){
             q('ccCu').className='cc-msg warn show';
             q('ccCu').innerHTML='These two codes carry different credit units — <b>'+r.sourceCredit+'</b> against <b>'+r.targetCredit+
-                '</b>. Moving students changes the credit their mark counts for, and every GPA computed from it. Confirm which value is correct before continuing.';
+                '</b>. Moving students changes the credit their mark counts for, and every GPA computed from it.';
+            if(OP==='COURSE_MERGE'){
+                q('ccCuT').textContent='Keep '+esc(cfg().targetCode)+"'s value — "+r.targetCredit+' CU';
+                q('ccCuS').textContent='Take '+esc(cfg().sourceCode)+"'s value — "+r.sourceCredit+' CU';
+                show(q('ccCuPick'), true);
+            }
         }
         if(!r.targetExists && OP!=='TERM_TRANSFER'){
             q('ccCu').className='cc-msg warn show';
@@ -576,9 +666,12 @@ function checkConfirm(){
 }
 
 function runApply(){
-    q('ccApply').disabled=true; q('ccLoad4').className='cc-loader show'; msg('');
+    if(BUSY) return;                     // a second click must not start a second batch
+    BUSY=true;
+    q('ccApply').disabled=true; q('ccBack3').disabled=true; q('ccLoad4').className='cc-loader show'; msg('');
     ajax('ApplyCorrection',{configJson:JSON.stringify(cfg()), checksum:PV.checksum},function(r){
-        q('ccLoad4').className='cc-loader';
+        BUSY=false;
+        q('ccLoad4').className='cc-loader'; q('ccBack3').disabled=false;
         if(!r||!r.success){ msg((r&&r.message)||'The correction did not run.'); q('ccApply').disabled=false; return; }
         q('ccRef').textContent=r.batchRef;
         q('ccDone').textContent=r.message;
@@ -631,16 +724,21 @@ function fill(sel,items,all){
 }
 
 function boot(){
+    // built before the options arrive, so the callback can just load them
+    progCombo = localCombo('ccProgQ','ccProg','ccProgDrop','ccProgPick','All programmes in my scope');
+    facCombo  = localCombo('ccFacQ','ccFac','ccFacDrop','ccFacPick','All faculties');
+
     ajax('GetOptions',{},function(r){
         if(!r||!r.success){ msg((r&&r.message)||'Could not load the filters.'); return; }
         if(!r.hasAccess){ msg('You do not have a marks-management scope, so no correction can be made. Contact the administrator.'); return; }
         OPTS=r;
-        fill('ccProg', r.programmes, 'All programmes in my scope');
+        IS_ADMIN=!!r.isAdmin;
         fill('ccYear', r.years, 'All years');
         fill('ccStage', r.stages, 'Any stage');
         fill('ccSrcYear', r.years, null);
         fill('ccTgtYear', r.years, null);
-        if(r.faculties && r.faculties.length) fill('ccFac', r.faculties, 'All faculties');
+        progCombo.load(r.programmes);
+        if(r.faculties && r.faculties.length) facCombo.load(r.faculties);
         else q('ccFacWrap').style.display='none';
         if(!r.isAdmin){ var m=q('ccOpMerge'); m.disabled=true; m.title='Course Code Merge is restricted to administrators.'; }
     });
@@ -665,7 +763,12 @@ function boot(){
     q('ccBack1').addEventListener('click',function(){ goStep(1); });
     q('ccTo3').addEventListener('click',runPreview);
     q('ccBack2').addEventListener('click',function(){ goStep(2); });
-    q('ccTo4').addEventListener('click',function(){ buildSummary(); goStep(4); });
+    q('ccTo4').addEventListener('click',function(){
+        if(OP==='COURSE_MERGE' && PV && PV.creditConflict && !cuWinner()){
+            msg('Choose which credit-unit value the merged course should keep before continuing.'); return;
+        }
+        buildSummary(); goStep(4);
+    });
     q('ccBack3').addEventListener('click',function(){ goStep(3); });
     q('ccTypeIt').addEventListener('input',checkConfirm);
     q('ccReason').addEventListener('input',checkConfirm);
@@ -673,7 +776,10 @@ function boot(){
     q('ccSimLoad').addEventListener('click',loadSimilar);
     q('ccAgain').addEventListener('click',function(){
         q('ccSrc').value=''; q('ccTgt').value=''; q('ccStudents').value=''; q('ccReason').value='';
-        q('ccSrcInfo').innerHTML=''; q('ccTgtInfo').innerHTML=''; PV=null;
+        q('ccSrcInfo').innerHTML=''; q('ccTgtInfo').innerHTML=''; PV=null; srcSel=null; tgtSel=null;
+        if(progCombo) progCombo.clear();
+        if(facCombo) facCombo.clear();
+        var rb=document.getElementsByName('ccCuW'); for(var i=0;i<rb.length;i++) rb[i].checked=false;
         goStep(1);
     });
 }

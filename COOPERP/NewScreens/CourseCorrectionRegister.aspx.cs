@@ -126,10 +126,17 @@ public partial class COOPERP_NewScreens_CourseCorrectionRegister : System.Web.UI
 
             var rows = new List<object>();
             var students = new List<object>();
+            int totalRows = 0;
             using (var c = new MySqlConnection(CourseCorrectionService.ConnStr()))
             {
                 c.Open();
                 string extra = string.IsNullOrEmpty(search) ? "" : " AND (regno LIKE @q OR table_name LIKE @q) ";
+                using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_correction_row WHERE batch_id=@b" + extra, c))
+                {
+                    cmd.Parameters.AddWithValue("@b", batchId);
+                    if (extra != "") cmd.Parameters.AddWithValue("@q", "%" + search.Trim() + "%");
+                    totalRows = Convert.ToInt32(cmd.ExecuteScalar());
+                }
                 using (var cmd = new MySqlCommand(
                     "SELECT id, db_name, table_name, pk_column, pk_value, IFNULL(regno,''), IFNULL(course_code,''), " +
                     "       action, verdict, IFNULL(note,''), reversed, before_json, after_json " +
@@ -158,7 +165,7 @@ public partial class COOPERP_NewScreens_CourseCorrectionRegister : System.Web.UI
                             students.Add(new { regno = S(r, 0), rows = N(r, 1), reversed = N(r, 2) });
                 }
             }
-            return Json.Serialize(new { success = true, rows, students });
+            return Json.Serialize(new { success = true, rows, students, totalRows, shown = rows.Count });
         }
         catch (Exception ex) { return Fail(ex.Message); }
     }
