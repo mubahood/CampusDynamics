@@ -203,6 +203,96 @@ public static partial class IDCardService
     }
 
     // ==================================================================
+    // PHOTO GATE (students only)
+    //
+    // An ID card is a photograph with a name on it, so the photograph has to
+    // exist and have been approved before a card can be requested. Approving it
+    // afterwards would mean cards queued for printing with nothing to print.
+    //
+    // The state lives on acad_student: photo_status (defaulting to APPROVED for
+    // the long-standing photos that pre-date the approval workflow) plus
+    // photo_banned for students barred from changing their picture at all.
+    // A student can be APPROVED and still have no picture — 1,529 of the 3,286
+    // registered students are in exactly that position — so having a file is
+    // checked separately from the status, and is the more common obstacle.
+    // ==================================================================
+    private class PhotoGate
+    {
+        public bool Ok;
+        public string State = "";       // OK | MISSING | PENDING | REJECTED | BANNED
+        public string Message = "";
+        public string Reason = "";      // reviewer's comment, when there is one
+        public string Action = "";      // what the student should do next
+    }
+
+    private static PhotoGate RunPhoto(MySqlConnection conn, string regno)
+    {
+        var g = new PhotoGate();
+        string status = "APPROVED", file = ""; bool banned = false; string banReason = "";
+
+        using (var cmd = new MySqlCommand(
+            "SELECT COALESCE(NULLIF(TRIM(photo_status),''),'APPROVED'), COALESCE(photofile,''), " +
+            "       COALESCE(photo_banned,0), COALESCE(photo_ban_reason,'') " +
+            "FROM acad_student WHERE regno=@r LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@r", regno ?? "");
+            using (var r = cmd.ExecuteReader())
+                if (r.Read())
+                {
+                    status = S(r[0]).ToUpperInvariant();
+                    file = S(r[1]);
+                    banned = S(r[2]) == "1";
+                    banReason = S(r[3]);
+                }
+        }
+
+        bool hasFile = file != "" && file != "-" && !file.Equals("default.png", StringComparison.OrdinalIgnoreCase);
+
+        if (banned)
+        {
+            g.State = "BANNED";
+            g.Message = "Your photo has been locked by the administration, so an ID card cannot be requested.";
+            g.Reason = banReason;
+            g.Action = "Please visit the Academic Registrar's office.";
+            return g;
+        }
+        if (status == "REJECTED")
+        {
+            g.State = "REJECTED";
+            g.Message = "Your photo was not accepted, so it cannot be printed on a card.";
+            using (var cmd = new MySqlCommand(
+                "SELECT COALESCE(review_comment,'') FROM stud_photo_change WHERE regno=@r AND status='REJECTED' " +
+                "ORDER BY id DESC LIMIT 1", conn))
+            { cmd.Parameters.AddWithValue("@r", regno ?? ""); object v = cmd.ExecuteScalar(); g.Reason = v == null ? "" : S(v); }
+            g.Action = "Upload a clear passport photo, wait for it to be approved, then come back.";
+            return g;
+        }
+        if (status == "PENDING")
+        {
+            g.State = "PENDING";
+            g.Message = "Your photo is waiting to be approved.";
+            g.Action = "You can request your card as soon as it is approved — usually within a working day.";
+            return g;
+        }
+        if (!hasFile)
+        {
+            g.State = "MISSING";
+            g.Message = "There is no photo on your record, and a card cannot be printed without one.";
+            g.Action = "Upload a clear passport photo. Once it is approved you can request your card.";
+            return g;
+        }
+
+        g.Ok = true; g.State = "OK";
+        g.Message = "Photo approved.";
+        return g;
+    }
+
+    private static object PhotoObj(PhotoGate g)
+    {
+        return new { ok = g.Ok, state = g.State, message = g.Message, reason = g.Reason, action = g.Action };
+    }
+
+    // ==================================================================
     // FINANCE GATE (students only; 10% of current-semester fee)
     // ==================================================================
     private class Finance { public double Fee; public double Paid; public double Required; public bool Eligible; public bool Flagged;
@@ -337,9 +427,23 @@ public static partial class IDCardService
             shortfall = f.Eligible ? 0 : Math.Max(0, f.Required - f.Paid) };
     }
 
+    /// <summary>The two student gates in one call — the wizard needs both to decide what to show,
+    /// and asking for them separately would let the screen render half a verdict.</summary>
     public static string FinanceJson(string regno)
     {
-        try { using (var conn = new MySqlConnection(ConnStr)) { conn.Open(); return J.Serialize(new { success = true, finance = FinanceObj(RunFinance(conn, regno)) }); } }
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open();
+                return J.Serialize(new
+                {
+                    success = true,
+                    finance = FinanceObj(RunFinance(conn, regno)),
+                    photo = PhotoObj(RunPhoto(conn, regno))
+                });
+            }
+        }
         catch (Exception ex) { return Err(ex); }
     }
 
@@ -414,6 +518,14 @@ public static partial class IDCardService
                     TransitionResult ts = Transition(requestNo, SUBMITTED, actor, "staff", "eportal", "Submitted", null);
                     return J.Serialize(new { success = ts.Ok, status = ts.Status, message = ts.Ok ? "Submitted for approval." : ts.Message });
                 }
+
+                // STUDENT: the photo must exist and be approved before anything else. Checked here
+                // as well as in the wizard, because the wizard only decides what to show — this is
+                // the only place that decides what is allowed.
+                PhotoGate pg = RunPhoto(conn, regno);
+                if (!pg.Ok)
+                    return J.Serialize(new { success = false, photoBlocked = true, photo = PhotoObj(pg),
+                        message = pg.Message + (pg.Action == "" ? "" : " " + pg.Action) });
 
                 // STUDENT: run finance, persist snapshot, gate
                 Finance f = RunFinance(conn, regno);
