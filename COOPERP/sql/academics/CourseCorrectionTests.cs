@@ -477,6 +477,75 @@ public static class CCTest
         // still referenced — never widen this predicate.
         Ex("DELETE FROM campus_dynamics.acad_specialisation WHERE prog_id='TEST' AND abbrev IN ('CC1','CC2')");
 
+        // ---------------- Scenario S: marks reset ----------------
+        Console.WriteLine("\nS. Marks reset — every store cleared, CGPA moves, and it all comes back");
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCRST%'");
+        Ex("DELETE FROM campus_dynamics.acad_results WHERE regno LIKE 'CCRST%'");
+        Ex("DELETE FROM campus_dynamics.acad_transcript_results WHERE regno LIKE 'CCRST%'");
+        Ex("DELETE FROM campus_dynamics.acad_examresults_faculty WHERE regno LIKE 'CCRST%'");
+        Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCRST%'");
+        Ex("INSERT INTO campus_dynamics.acad_student (regno,firstname,othername,progid,entryyear,duration) VALUES ('CCRST0001','Reset','Case','TEST',2026,3)");
+
+        // one course to erase, one to keep — the CGPA must fall to the kept course's grade
+        long rst = AddReg("CCRST0001", OLD, "2026/2027", 1, "NORMAL", "PUBLISHED", 80);
+        Ex("UPDATE campus_dynamics_portal.acad_course_registration SET provisional_course_work_marks=30, provisional_exam_marks=50, provisional_marks_status='published', provisional_published_by='someone' WHERE ID=@i", "@i", rst);
+        Ex("INSERT INTO campus_dynamics.acad_results (regno,courseid,semester,acad,studyyear,score,grade,gradept,gpa,CreditUnits,progid,is_retake) VALUES ('CCRST0001',@c,1,'2026/2027',1,80,'A',5,5,3,'TEST',0)", "@c", OLD);
+        Ex("INSERT INTO campus_dynamics.acad_results (regno,courseid,semester,acad,studyyear,score,grade,gradept,gpa,CreditUnits,progid,is_retake) VALUES ('CCRST0001',@c,1,'2026/2027',1,60,'C',3,3,3,'TEST',0)", "@c", NEW);
+        Ex("INSERT INTO campus_dynamics.acad_transcript_results (regno,courseid,semester,acad,studyyear,progid) VALUES ('CCRST0001',@c,1,'2026/2027',1,'TEST')", "@c", OLD);
+        Ex("INSERT INTO campus_dynamics.acad_examresults_faculty (regno,course_id,acadyear,semester,cw_mark,ex_mark,total_mark,progid,stud_session,grade,gradept,exam_status,cyear,creditUnits,gpa) VALUES ('CCRST0001',@c,'2026/2027',1,30,50,80,'TEST','DAY','A',5,'PASS',1,3,5)", "@c", OLD);
+
+        double cgpaBefore = Convert.ToDouble(Sc("SELECT IFNULL(campus_dynamics.acad_CGPAFinder('CCRST0001'),0)"));
+        Ok("CGPA starts at the mean of both courses (4.00)", Math.Abs(cgpaBefore - 4.00) < 0.01, "cgpa=" + cgpaBefore);
+
+        var cfgS = new CorrectionConfig { operation = CorrectionOp.MarksReset, sourceCode = OLD, students = "CCRST0001", reason = "CCTEST scenario S" };
+        var pvS = CourseCorrectionService.Preview(cfgS, Admin());
+        Ok("reset preview finds the marked registration", pvS.actionable == 1, "actionable=" + pvS.actionable + " msg=" + pvS.message);
+        Ok("preview reports the CGPA impact", pvS.cgpaImpact.Count == 1, "impact rows=" + pvS.cgpaImpact.Count);
+        Ok("preview counts the published result", pvS.publishedResults == 1, "published=" + pvS.publishedResults);
+        Ok("a reset with no scope at all is refused",
+            !CourseCorrectionService.Preview(new CorrectionConfig { operation = CorrectionOp.MarksReset, reason = "CCTEST wide" }, Admin()).success);
+
+        var apS = CourseCorrectionService.Apply(cfgS, Admin(), "cctest", "127.0.0.1", pvS.checksum);
+        Ok("reset applies", apS.success, apS.message);
+        Ok("coursework is null",   Str("SELECT IFNULL(provisional_course_work_marks,'NULL') FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == "NULL");
+        Ok("exam is null",         Str("SELECT IFNULL(provisional_exam_marks,'NULL') FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == "NULL");
+        Ok("total is null",        Str("SELECT IFNULL(provisional_total_marks,'NULL') FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == "NULL");
+        Ok("stage back to NOT_ENTERED", Str("SELECT mark_stage FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == "NOT_ENTERED");
+        Ok("publisher trail cleared", Str("SELECT IFNULL(provisional_published_by,'NULL') FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == "NULL");
+        Ok("the student stays on the course", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == 1);
+        Ok("published result gone",   Num("SELECT COUNT(*) FROM campus_dynamics.acad_results WHERE regno='CCRST0001' AND courseid=@c", "@c", OLD) == 0);
+        Ok("the OTHER result is untouched", Num("SELECT COUNT(*) FROM campus_dynamics.acad_results WHERE regno='CCRST0001' AND courseid=@c", "@c", NEW) == 1);
+        Ok("transcript entry gone",   Num("SELECT COUNT(*) FROM campus_dynamics.acad_transcript_results WHERE regno='CCRST0001' AND courseid=@c", "@c", OLD) == 0);
+        Ok("faculty sheet row gone",  Num("SELECT COUNT(*) FROM campus_dynamics.acad_examresults_faculty WHERE regno='CCRST0001' AND course_id=@c", "@c", OLD) == 0);
+
+        double cgpaAfter = Convert.ToDouble(Sc("SELECT IFNULL(campus_dynamics.acad_CGPAFinder('CCRST0001'),0)"));
+        Ok("CGPA drops to the remaining course (3.00)", Math.Abs(cgpaAfter - 3.00) < 0.01, "cgpa=" + cgpaAfter);
+        var pred = pvS.cgpaImpact[0].GetType().GetProperty("cgpaAfter").GetValue(pvS.cgpaImpact[0], null);
+        Ok("the preview predicted that figure", Math.Abs(Convert.ToDouble(pred) - cgpaAfter) < 0.01, "predicted=" + pred + " actual=" + cgpaAfter);
+
+        var rvS = CourseCorrectionService.Reverse(apS.batchId, "CCTEST reversal S", Admin(), "cctest", "127.0.0.1", null);
+        Ok("reset reverses", rvS.success, rvS.message);
+        Ok("coursework restored", Num("SELECT provisional_course_work_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == 30);
+        Ok("exam restored",       Num("SELECT provisional_exam_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == 50);
+        Ok("total restored",      Num("SELECT provisional_total_marks FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == 80);
+        Ok("stage restored",      Str("SELECT mark_stage FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", rst) == "PUBLISHED");
+        Ok("published result back", Num("SELECT score FROM campus_dynamics.acad_results WHERE regno='CCRST0001' AND courseid=@c", "@c", OLD) == 80);
+        Ok("transcript entry back", Num("SELECT COUNT(*) FROM campus_dynamics.acad_transcript_results WHERE regno='CCRST0001' AND courseid=@c", "@c", OLD) == 1);
+        Ok("faculty sheet back",    Num("SELECT COUNT(*) FROM campus_dynamics.acad_examresults_faculty WHERE regno='CCRST0001' AND course_id=@c", "@c", OLD) == 1);
+        double cgpaBack = Convert.ToDouble(Sc("SELECT IFNULL(campus_dynamics.acad_CGPAFinder('CCRST0001'),0)"));
+        Ok("CGPA back to 4.00", Math.Abs(cgpaBack - 4.00) < 0.01, "cgpa=" + cgpaBack);
+
+        // an unmarked registration is left alone
+        AddReg("CCRST0001", "ZZUNMARKED", "2026/2027", 2, "NORMAL", "NOT_ENTERED", null);
+        var pvS2 = CourseCorrectionService.Preview(new CorrectionConfig { operation = CorrectionOp.MarksReset, sourceCode = "ZZUNMARKED", students = "CCRST0001", reason = "CCTEST S2" }, Admin());
+        Ok("nothing to erase is reported, not acted on", pvS2.actionable == 0 && pvS2.skipped == 1, "actionable=" + pvS2.actionable);
+
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCRST%'");
+        Ex("DELETE FROM campus_dynamics.acad_results WHERE regno LIKE 'CCRST%'");
+        Ex("DELETE FROM campus_dynamics.acad_transcript_results WHERE regno LIKE 'CCRST%'");
+        Ex("DELETE FROM campus_dynamics.acad_examresults_faculty WHERE regno LIKE 'CCRST%'");
+        Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCRST%'");
+
         Console.WriteLine("\n--- cleaning up ---");
         Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno IN (@a,@b) AND courseID IN (@o,@n,'ZZMANUAL')", "@a", STU, "@b", STU2, "@o", OLD, "@n", NEW);
         Cleanup();

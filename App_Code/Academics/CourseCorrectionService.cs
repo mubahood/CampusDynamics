@@ -204,7 +204,15 @@ public static class CourseCorrectionService
     {
         var w = new StringBuilder(" WHERE 1=1 ");
 
-        if (cfg.IsRemoval)
+        if (cfg.IsMarksReset)
+        {
+            // The course code is optional here: a reset may be aimed at one course, or at a
+            // programme or a named list of students across whatever they are registered for.
+            if (!string.IsNullOrEmpty(cfg.sourceCode)) { w.Append(" AND cr.courseID=@srcCode "); p["@srcCode"] = cfg.sourceCode; }
+            if (!string.IsNullOrEmpty(cfg.sourceYear)) { w.Append(" AND cr.acad_year=@srcYear "); p["@srcYear"] = cfg.sourceYear; }
+            if (!string.IsNullOrEmpty(cfg.sourceSemester)) { w.Append(" AND cr.semester=@srcSem "); p["@srcSem"] = cfg.sourceSemester; }
+        }
+        else if (cfg.IsRemoval)
         {
             // What should not have been registered. The two curriculum-driven bases are the
             // reason this operation exists: a student registered for a subject that was never
@@ -329,6 +337,20 @@ public static class CourseCorrectionService
 
         // Removal has no destination, so it needs no collision analysis — only a decision
         // about marks, which is the one thing that makes a removal irreversible in spirit.
+        // Marks reset needs no destination either — only whether there is a mark to erase.
+        if (cfg.IsMarksReset)
+        {
+            var hasResult = ResultBearingStudents(c, t, rows);
+            foreach (var row in rows)
+            {
+                bool marked = row.total.HasValue
+                              || (row.markStage != "" && row.markStage != "NOT_ENTERED")
+                              || hasResult.Contains(row.regno + "|" + row.courseCode);
+                row.verdict = marked ? CorrectionVerdict.WillReset : CorrectionVerdict.SkippedNoMarks;
+            }
+            return;
+        }
+
         if (cfg.IsRemoval)
         {
             var hasResult = ResultBearingStudents(c, t, rows);
@@ -538,7 +560,8 @@ public static class CourseCorrectionService
                 return res;
             }
             ApplyVerdicts(c, null, cfg, rows);
-            res.satelliteRows = CountSatellites(c, null, cfg, rows);
+            res.satelliteRows = cfg.IsMarksReset ? 0 : CountSatellites(c, null, cfg, rows);
+            if (cfg.IsMarksReset) PreviewResetImpact(c, cfg, rows, res);
 
             res.rows = rows;
             res.scanned = rows.Count;
@@ -560,9 +583,89 @@ public static class CourseCorrectionService
         return res;
     }
 
+    /// <summary>What a reset would cost, worked out before anything is written: how many
+    /// published results and component marks disappear, and what each student's CGPA becomes.
+    /// CGPA is derived, so this is the only way to see the effect in advance.</summary>
+    private static void PreviewResetImpact(MySqlConnection c, CorrectionConfig cfg, List<PreviewRow> rows, PreviewResult res)
+    {
+        var byStudent = new Dictionary<string, List<PreviewRow>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in rows)
+        {
+            if (r.verdict != CorrectionVerdict.WillReset) continue;
+            List<PreviewRow> l;
+            if (!byStudent.TryGetValue(r.regno, out l)) { l = new List<PreviewRow>(); byStudent[r.regno] = l; }
+            l.Add(r);
+        }
+        if (byStudent.Count == 0) return;
+
+        foreach (var kv in byStudent)
+        {
+            double before = Cgpa(c, null, kv.Key);
+
+            // What the CGPA becomes: the same credit-weighted mean, with the rows about to be
+            // erased taken out. Computed rather than guessed, and without touching anything.
+            var codes = new List<string>();
+            foreach (var r in kv.Value) if (!codes.Contains(r.courseCode)) codes.Add(r.courseCode);
+            // Both figures are read one after the other, never nested — a second command on a
+            // connection whose reader is still open throws, and a swallowed exception here would
+            // quietly report "no change" for a reset that does change the CGPA.
+            double after = before; int losing = 0;
+            double lostPts = 0, lostCu = 0, allPts = 0, allCu = 0;
+
+            using (var cmd = Cmd(
+                "SELECT IFNULL(SUM(CreditUnits*gradept),0), IFNULL(SUM(CreditUnits),0), COUNT(*) " +
+                "FROM campus_dynamics.acad_results WHERE regno=@r AND courseid IN (" + InList(codes) + ")", c, null))
+            {
+                cmd.Parameters.AddWithValue("@r", kv.Key);
+                using (var rr = cmd.ExecuteReader())
+                    if (rr.Read())
+                    {
+                        lostPts = rr.IsDBNull(0) ? 0 : Convert.ToDouble(rr[0]);
+                        lostCu = rr.IsDBNull(1) ? 0 : Convert.ToDouble(rr[1]);
+                        losing = rr.IsDBNull(2) ? 0 : Convert.ToInt32(rr[2]);
+                    }
+            }
+
+            using (var cmd = Cmd("SELECT IFNULL(SUM(CreditUnits*gradept),0), IFNULL(SUM(CreditUnits),0) " +
+                                 "FROM campus_dynamics.acad_results WHERE regno=@r", c, null))
+            {
+                cmd.Parameters.AddWithValue("@r", kv.Key);
+                using (var rr = cmd.ExecuteReader())
+                    if (rr.Read())
+                    {
+                        allPts = rr.IsDBNull(0) ? 0 : Convert.ToDouble(rr[0]);
+                        allCu = rr.IsDBNull(1) ? 0 : Convert.ToDouble(rr[1]);
+                    }
+            }
+
+            double cuLeft = allCu - lostCu;
+            after = cuLeft > 0 ? Math.Round((allPts - lostPts) / cuLeft, 2) : 0;
+
+            res.publishedResults += losing;
+            res.cgpaImpact.Add(new
+            {
+                regno = kv.Key,
+                courses = kv.Value.Count,
+                resultsLost = losing,
+                cgpaBefore = Math.Round(before, 2),
+                cgpaAfter = after,
+                change = Math.Round(after - Math.Round(before, 2), 2)
+            });
+        }
+    }
+
     private static string Validate(CorrectionConfig cfg, MarksScope scope)
     {
         if (!scope.HasAccess) return "You do not have a marks-management scope. Contact the administrator.";
+
+        if (cfg.IsMarksReset)
+        {
+            // Erasing marks is the most destructive thing in this module, so it may never run
+            // across the whole institution by accident — it must be aimed at something.
+            if (string.IsNullOrEmpty(cfg.sourceCode) && string.IsNullOrEmpty(cfg.programme) && string.IsNullOrEmpty(cfg.students))
+                return "Choose at least a course, a programme or a list of students. A marks reset cannot be run across everything.";
+            return null;
+        }
 
         if (cfg.IsRemoval)
         {
@@ -866,6 +969,35 @@ public static class CourseCorrectionService
                         return res;
                     }
 
+                    // Marks reset takes its own path: the registration stays, the mark goes.
+                    if (cfg.IsMarksReset)
+                    {
+                        long mid; string mref;
+                        CreateBatch(c, t, cfg, scope, user, ip, rows.Count, out mid, out mref);
+                        var mTouched = new HashSet<string>();
+                        var mStudents = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        var mPend = new List<Pending>();
+                        int pub, comp;
+
+                        int done = ResetMarks(c, t, mid, cfg, actionable, mPend, mTouched, mStudents, out pub, out comp);
+                        FlushSnapshots(c, t, mid, mPend);
+                        FinishBatch(c, t, mid, done, rows.Count - done, mStudents.Count, 0,
+                                    string.Join(", ", new List<string>(mTouched).ToArray()), (int)sw.ElapsedMilliseconds);
+                        t.Commit();
+
+                        res.batchId = mid; res.batchRef = mref;
+                        res.rowsApplied = done; res.rowsSkipped = rows.Count - done;
+                        res.students = mStudents.Count; res.satelliteRows = pub + comp;
+                        res.tablesTouched = string.Join(", ", new List<string>(mTouched).ToArray());
+                        res.durationMs = (int)sw.ElapsedMilliseconds;
+                        res.message = "Reset " + mref + " erased the marks on " + done.ToString("N0") + " registration" +
+                                      (done == 1 ? "" : "s") + " across " + mStudents.Count.ToString("N0") + " student" +
+                                      (mStudents.Count == 1 ? "" : "s") + " — " + pub.ToString("N0") + " published result" +
+                                      (pub == 1 ? "" : "s") + " and " + comp.ToString("N0") + " component mark" +
+                                      (comp == 1 ? "" : "s") + " removed. Everything erased is recorded and can be put back.";
+                        return res;
+                    }
+
                     // Removal takes its own path: there is no destination to move anything to.
                     if (cfg.IsRemoval)
                     {
@@ -970,6 +1102,226 @@ public static class CourseCorrectionService
                     res.message = "The correction was abandoned and nothing was changed. " + ex.Message;
                     return res;
                 }
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  MARKS RESET
+    //
+    //  Returns a registration to the state of never having been marked: the
+    //  student stays on the course, the mark goes. Used when a mark was
+    //  entered against the wrong student, captured twice, or approved on a
+    //  sheet that has since been withdrawn.
+    //
+    //  A mark is written in six places, and erasing some but not others is
+    //  how a record ends up saying "Not Entered" while a published result
+    //  still counts toward the GPA. All six are cleared together:
+    //
+    //    acad_course_registration   provisional CW / exam / total, status,
+    //                               stage and the capture-approve-publish trail
+    //    acad_results               the published result   (row deleted)
+    //    acad_transcript_results    the transcript entry   (row deleted)
+    //    acad_examresults_faculty   the faculty sheet row  (row deleted)
+    //    acad_coursework_marks      the component marks the total was built from
+    //    acad_practicalexam_marks   the practical equivalent
+    //
+    //  CGPA is NOT stored — acad_CGPAFinder derives it from acad_results — so
+    //  deleting those rows moves it on its own, with no field to rewrite. The
+    //  preview reports each student's CGPA before and after so the effect is
+    //  seen before anything is written. The single place a CGPA IS stored,
+    //  acad_graduands.cgpa, is a graduation snapshot and is refreshed here,
+    //  because leaving it would have a graduand's certificate disagree with
+    //  their transcript.
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>Everything on the registration that records a mark or how it got there.</summary>
+    private static Dictionary<string, object> ResetSets()
+    {
+        var d = new Dictionary<string, object>();
+        d["provisional_course_work_marks"] = null;
+        d["provisional_exam_marks"] = null;
+        d["provisional_total_marks"] = null;
+        d["provisional_marks_status"] = "not_entered";
+        d["provisional_marks_review_comments"] = null;
+        d["provisional_marks_reviewed_by"] = null;
+        d["provisional_marks_review_date"] = null;
+        d["provisional_submitted_by"] = null;
+        d["provisional_published_by"] = null;
+        d["provisional_published_date"] = null;
+        d["mark_stage"] = "NOT_ENTERED";
+        d["capture_record_id"] = null;
+        d["approve_record_id"] = null;
+        d["publish_record_id"] = null;
+        d["mark_stage_changed_at"] = null;
+        d["mark_stage_changed_by"] = null;
+        d["mark_returned_reason"] = null;
+        return d;
+    }
+
+    /// <summary>CGPA as the institution computes it — the same stored function the transcripts
+    /// use, so the figure shown here is the figure the student sees.</summary>
+    private static double Cgpa(MySqlConnection c, MySqlTransaction t, string regno)
+    {
+        try
+        {
+            using (var cmd = Cmd("SELECT IFNULL(campus_dynamics.acad_CGPAFinder(@r),0)", c, t))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                object o = cmd.ExecuteScalar();
+                return o == null || o == DBNull.Value ? 0 : Convert.ToDouble(o);
+            }
+        }
+        catch { return 0; }
+    }
+
+    private static int ResetMarks(MySqlConnection c, MySqlTransaction t, long batchId, CorrectionConfig cfg,
+                                  List<PreviewRow> targets, List<Pending> pend, HashSet<string> touched,
+                                  HashSet<string> students, out int published, out int components)
+    {
+        published = 0; components = 0;
+        if (targets.Count == 0) return 0;
+        var master = CourseTableRegistry.Master;
+        var sets = ResetSets();
+        int reset = 0;
+
+        foreach (var chunk in Chunks(targets, ReadChunk))
+        {
+            // 1. The registration itself — cleared, never deleted. The student stays on the course.
+            var ids = new List<object>();
+            foreach (var r in chunk) ids.Add(r.id);
+            reset += MoveTable(c, t, batchId, master, sets, Chunks(ids, ReadChunk), null, pend, touched, students);
+
+            foreach (var row in chunk)
+            {
+                students.Add(row.regno);
+
+                // 2. Published result, transcript entry and faculty sheet. A result row with a
+                //    null score would still be counted by every GPA query, so the row goes.
+                if (cfg.resetPublished)
+                {
+                    foreach (var def in new[] {
+                        CourseTableRegistry.Find(CourseTableRegistry.MainDb, "acad_results"),
+                        CourseTableRegistry.Find(CourseTableRegistry.MainDb, "acad_transcript_results"),
+                        CourseTableRegistry.Find(CourseTableRegistry.MainDb, "acad_examresults_faculty") })
+                    {
+                        if (def == null) continue;
+                        // acad_results holds one row per (student, course) with no term, so the
+                        // term is not used to find it; the other two are term-specific.
+                        var where = new StringBuilder(def.RegnoCol + "=@rg AND " + def.CourseCol + "=@cc");
+                        bool byTerm = !def.OnePerCourse && def.HasTerm;
+                        if (byTerm) where.Append(" AND ").Append(def.YearCol).Append("=@y AND ").Append(def.SemCol).Append("=@s");
+
+                        var hit = new List<object>();
+                        try
+                        {
+                            using (var cmd = Cmd("SELECT " + def.PkCol + " FROM " + def.Qualified + " WHERE " + where, c, t))
+                            {
+                                cmd.Parameters.AddWithValue("@rg", row.regno);
+                                cmd.Parameters.AddWithValue("@cc", row.courseCode);
+                                if (byTerm) { cmd.Parameters.AddWithValue("@y", row.acadYear); cmd.Parameters.AddWithValue("@s", row.semester); }
+                                using (var r = cmd.ExecuteReader()) while (r.Read()) hit.Add(r.GetValue(0));
+                            }
+                        }
+                        catch { continue; }
+                        foreach (var hc in Chunks(hit, ReadChunk))
+                        {
+                            int n = DeleteChunk(c, t, def, hc, pend, touched, "Erased with the mark reset.");
+                            if (def.Table == "acad_results") published += n;
+                        }
+                    }
+                }
+
+                // 3. The component marks the total was built from. These hang off a settings row
+                //    (course + term + programme), not off the course code, so they are reached
+                //    through it rather than by the registration's own columns.
+                if (cfg.resetComponents)
+                {
+                    components += ClearComponents(c, t, batchId, "acad_coursework_marks", "acad_coursework_settings", row, pend, touched);
+                    components += ClearComponents(c, t, batchId, "acad_practicalexam_marks", "acad_practicalexam_settings", row, pend, touched);
+                }
+            }
+            if (pend.Count >= 800) FlushSnapshots(c, t, batchId, pend);
+        }
+
+        // 4. The one stored CGPA. Recomputed rather than left to disagree with the transcript.
+        RefreshGraduandCgpa(c, t, batchId, students, pend, touched);
+        return reset;
+    }
+
+    /// <summary>Component marks for one registration, found through the coursework/practical
+    /// settings row that ties a course, term and programme together.</summary>
+    private static int ClearComponents(MySqlConnection c, MySqlTransaction t, long batchId,
+                                       string marksTable, string settingsTable, PreviewRow row,
+                                       List<Pending> pend, HashSet<string> touched)
+    {
+        var def = new CourseTableDef
+        {
+            Db = CourseTableRegistry.PortalDb, Table = marksTable, PkCol = "ID",
+            RegnoCol = "reg_no", CourseCol = "CSID", Label = marksTable
+        };
+        var ids = new List<object>();
+        try
+        {
+            using (var cmd = Cmd(
+                "SELECT m.ID FROM " + CourseTableRegistry.PortalDb + "." + marksTable + " m " +
+                " JOIN " + CourseTableRegistry.PortalDb + "." + settingsTable + " s ON s.ID=m.CSID " +
+                " WHERE m.reg_no=@rg AND s.courseID=@cc AND s.acadyear=@y AND s.semester=@sm", c, t))
+            {
+                cmd.Parameters.AddWithValue("@rg", row.regno);
+                cmd.Parameters.AddWithValue("@cc", row.courseCode);
+                cmd.Parameters.AddWithValue("@y", row.acadYear);
+                cmd.Parameters.AddWithValue("@sm", row.semester);
+                using (var r = cmd.ExecuteReader()) while (r.Read()) ids.Add(r.GetValue(0));
+            }
+        }
+        catch { return 0; }
+
+        int n = 0;
+        foreach (var ch in Chunks(ids, ReadChunk))
+            n += DeleteChunk(c, t, def, ch, pend, touched, "Component mark erased with the reset.");
+        return n;
+    }
+
+    /// <summary>acad_graduands.cgpa is a snapshot taken at graduation and is the only stored
+    /// CGPA in the system. If a graduand's marks are erased it must be recomputed, or the
+    /// certificate and the transcript will disagree.</summary>
+    private static void RefreshGraduandCgpa(MySqlConnection c, MySqlTransaction t, long batchId,
+                                            HashSet<string> students, List<Pending> pend, HashSet<string> touched)
+    {
+        if (students.Count == 0) return;
+        var def = new CourseTableDef
+        {
+            Db = CourseTableRegistry.MainDb, Table = "acad_graduands", PkCol = "ID",
+            RegnoCol = "regno", CourseCol = "regno", Label = "Graduand record"
+        };
+        var all = new List<string>(students);
+        foreach (var chunk in Chunks(all, ReadChunk))
+        {
+            var rows = new List<object[]>();
+            try
+            {
+                using (var cmd = Cmd("SELECT ID, regno FROM campus_dynamics.acad_graduands WHERE regno IN (" + InList(chunk) + ")", c, t))
+                using (var r = cmd.ExecuteReader())
+                    while (r.Read()) rows.Add(new object[] { r.GetValue(0), S(r, 1) });
+            }
+            catch { continue; }
+
+            foreach (var g in rows)
+            {
+                var before = ReadOne(c, t, def, g[0]);
+                if (before == null) continue;
+                double now = Cgpa(c, t, (string)g[1]);
+                var sets = new Dictionary<string, object> { { "cgpa", now } };
+                var rejected = new List<Pending>();
+                if (UpdateChunk(c, t, def, new List<object> { g[0] }, sets, rejected, null).Count == 0) continue;
+                pend.Add(new Pending
+                {
+                    def = def, pk = g[0], regno = (string)g[1], action = "UPDATE",
+                    verdict = CorrectionVerdict.WillReset, before = before, after = WithSets(before, sets),
+                    note = "Graduation CGPA recomputed after the mark reset."
+                });
+                touched.Add(def.Table);
             }
         }
     }

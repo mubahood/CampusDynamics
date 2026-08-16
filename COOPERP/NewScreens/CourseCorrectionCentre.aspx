@@ -172,6 +172,12 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
         Registration Removal</span>
       <span class="cc-op__d">The student was never meant to be on the course &mdash; it is not on their curriculum, or it belongs to another specialisation. Removes the registration and everything recorded against it.</span>
     </button>
+    <button type="button" class="cc-op" data-op="MARKS_RESET">
+      <span class="cc-op__t">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M3.51 13a9 9 0 1 0 2.13-9.36L3 7"></path></svg>
+        Marks Reset</span>
+      <span class="cc-op__d">The mark is wrong or was never theirs. Erases coursework, exam, total, the published result and the transcript entry, and returns the record to Not Entered. The student stays on the course.</span>
+    </button>
     <button type="button" class="cc-op" data-op="COURSE_MERGE" id="ccOpMerge">
       <span class="cc-op__t">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M6 21V9a9 9 0 0 0 9 9"></path></svg>
@@ -306,6 +312,8 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
       <label class="cc-chk" id="ccResWrap"><input type="checkbox" id="ccRes" checked="checked" /><span><b>Carry results and transcript entries across</b><em>Keeps the mark attached to the corrected registration. Untick only if the results are being handled separately.</em></span></label>
       <label class="cc-chk" id="ccAllTermsWrap"><input type="checkbox" id="ccAllTerms" /><span><b>Also move related records from other terms</b><em>Use when the same wrong code appears in more than one term for the same student.</em></span></label>
       <label class="cc-chk cc-hide" id="ccRemMarkedWrap"><input type="checkbox" id="ccRemMarked" /><span><b>Also remove registrations that carry a mark</b><em>Off by default. A marked registration is left alone unless you tick this &mdash; and if you do, the result recorded against it is removed with it.</em></span></label>
+      <label class="cc-chk cc-hide" id="ccResetPubWrap"><input type="checkbox" id="ccResetPub" checked="checked" /><span><b>Also erase the published result and transcript entry</b><em>On by default. Leaving a published result behind while the record reads Not Entered is the inconsistency this exists to remove &mdash; and the result would still count toward the CGPA.</em></span></label>
+      <label class="cc-chk cc-hide" id="ccResetCompWrap"><input type="checkbox" id="ccResetComp" checked="checked" /><span><b>Also erase the captured coursework and practical components</b><em>On by default. The assignment and test marks the total was built from, so a re-entry starts from a clean sheet.</em></span></label>
     </div>
 
     <div class="cc-actions">
@@ -331,6 +339,16 @@ table.cc-tbl tr.no td{background:#fffdf7;color:#78716c;}
       </div>
       <div class="cc-verd" id="ccVerd"></div>
       <div class="cc-msg warn" id="ccCu"></div>
+      <div class="cc-hide" id="ccCgpaWrap">
+        <h3 class="cc-card__h" style="margin-top:4px;">What this does to each student's CGPA</h3>
+        <p class="cc-card__s">CGPA is not a stored figure &mdash; it is worked out from the published results each time it is asked for. Erasing a result therefore moves it on its own; this is what it becomes.</p>
+        <div class="cc-tblwrap" style="margin-bottom:11px;">
+          <table class="cc-tbl" style="min-width:520px;">
+            <thead><tr><th>Student</th><th>Courses</th><th>Results erased</th><th>CGPA now</th><th>CGPA after</th><th>Change</th></tr></thead>
+            <tbody id="ccCgpaRows"></tbody>
+          </table>
+        </div>
+      </div>
       <div class="cc-confirm cc-hide" id="ccCuPick" style="margin-bottom:11px;">
         <div class="cc-confirm__h">Which credit-unit value should the merged course keep?</div>
         <div class="cc-grid">
@@ -450,21 +468,30 @@ function setOp(op){
     OP=op;
     var b=q('ccOps').getElementsByClassName('cc-op');
     for(var i=0;i<b.length;i++) b[i].className='cc-op'+(b[i].getAttribute('data-op')===op?' on':'');
-    var isTerm = op==='TERM_TRANSFER', isMerge = op==='COURSE_MERGE', isDel = op==='REGISTRATION_REMOVAL';
+    var isTerm = op==='TERM_TRANSFER', isMerge = op==='COURSE_MERGE',
+        isDel = op==='REGISTRATION_REMOVAL', isReset = op==='MARKS_RESET';
+    var noTarget = isTerm||isDel||isReset;
     show(q('ccTermRow'), isTerm);
     show(q('ccRemoveBasisWrap'), isDel);
     q('ccSrcWrap').style.display = 'flex';
-    q('ccTgtWrap').style.display = (isTerm||isDel) ? 'none' : 'flex';
+    q('ccTgtWrap').style.display = noTarget ? 'none' : 'flex';
     q('ccSim').style.display = (isMerge||op==='COURSE_TRANSFER') ? 'block' : 'none';
     q('ccYearWrap').style.display = isTerm ? 'none' : 'flex';
     q('ccSemWrap').style.display = isTerm ? 'none' : 'flex';
-    q('ccAllTermsWrap').style.display = (isTerm||isDel) ? 'none' : 'flex';
-    // conflict policy and mark handling are meaningless for a removal
-    var pol=q('ccPolicyWrap'); if(pol) pol.style.display = isDel ? 'none' : 'flex';
+    q('ccAllTermsWrap').style.display = noTarget ? 'none' : 'flex';
+    // conflict policy, result-carrying and mark handling only apply to the operation that needs them
+    var pol=q('ccPolicyWrap'); if(pol) pol.style.display = (isDel||isReset) ? 'none' : 'flex';
     var rem=q('ccRemMarkedWrap'); if(rem) rem.style.display = isDel ? 'flex' : 'none';
-    var res=q('ccResWrap'); if(res) res.style.display = isDel ? 'none' : 'flex';
+    var res=q('ccResWrap'); if(res) res.style.display = (isDel||isReset) ? 'none' : 'flex';
+    var rp=q('ccResetPubWrap'); if(rp) rp.style.display = isReset ? 'flex' : 'none';
+    var rc=q('ccResetCompWrap'); if(rc) rc.style.display = isReset ? 'flex' : 'none';
+    var pubw=q('ccPub'); if(pubw&&pubw.parentNode) pubw.parentNode.style.display = isReset ? 'none' : 'flex';
 
-    if(isDel){
+    if(isReset){
+        q('ccS1h').textContent='Choose whose marks to erase';
+        q('ccS1s').textContent='The student stays on the course; only the mark goes. Narrow it on the next step to a course, a programme or named students — a reset cannot be run across everything. You will see the effect on each CGPA before anything is written.';
+        q('ccSrcWrap').getElementsByTagName('label')[0].textContent='Course code (optional — leave blank to reset across a programme or a student list)';
+    }else if(isDel){
         q('ccS1h').textContent='Choose what to remove';
         q('ccS1s').textContent='Registrations that should never have been made. Nothing is deleted until you confirm, every removed record is stored first, and the whole batch can be put back from the Correction Register.';
         q('ccSrcWrap').getElementsByTagName('label')[0].textContent='Course code to remove';
@@ -592,6 +619,8 @@ function cfg(){
         department: '',
         removalBasis: basis(),
         removeMarked: q('ccRemMarked') ? q('ccRemMarked').checked : false,
+        resetPublished: q('ccResetPub') ? q('ccResetPub').checked : true,
+        resetComponents: q('ccResetComp') ? q('ccResetComp').checked : true,
         studyYear: '',
         markStage: q('ccStage').value,
         registrationType: q('ccRtype').value,
@@ -671,6 +700,22 @@ function runPreview(){
         });
         q('ccVerd').innerHTML=vh;
 
+        // Marks reset: show what each student's CGPA becomes before anything is written.
+        var ci=r.cgpaImpact||[];
+        show(q('ccCgpaWrap'), OP==='MARKS_RESET' && ci.length>0);
+        if(OP==='MARKS_RESET' && ci.length){
+            var ch='', lim=Math.min(ci.length,300);
+            for(var k=0;k<lim;k++){
+                var s=ci[k], d=Number(s.change)||0;
+                ch+='<tr><td class="cc-mono">'+esc(s.regno)+'</td><td>'+n(s.courses)+'</td><td>'+n(s.resultsLost)+'</td>'+
+                    '<td>'+(Number(s.cgpaBefore)||0).toFixed(2)+'</td><td>'+(Number(s.cgpaAfter)||0).toFixed(2)+'</td>'+
+                    '<td style="color:'+(d<0?'#b42318':(d>0?'#166534':'#64748b'))+';font-weight:700;">'+
+                    (d>0?'+':'')+d.toFixed(2)+'</td></tr>';
+            }
+            if(ci.length>lim) ch+='<tr><td colspan="6" style="color:#94a3b8;">…and '+n(ci.length-lim)+' more students.</td></tr>';
+            q('ccCgpaRows').innerHTML=ch;
+        }
+
         show(q('ccCuPick'), false);
         if(r.creditConflict){
             q('ccCu').className='cc-msg warn show';
@@ -726,6 +771,8 @@ var ACT={
   'MOVED':              {cls:'go', label:'Move'},
   'WILL_REMOVE':        {cls:'go', label:'Remove'},
   'SKIPPED_HAS_MARKS':  {cls:'no', label:'Leave'},
+  'WILL_RESET':         {cls:'go', label:'Erase marks'},
+  'SKIPPED_NO_MARKS':   {cls:'no', label:'Leave'},
   'RESOLVED_OVERWRITE': {cls:'go', label:'Replace'},
   'RESOLVED_FILLED':    {cls:'go', label:'Fill'},
   'RESOLVED_DISCARD':   {cls:'go', label:'Remove duplicate'},
@@ -744,6 +791,8 @@ function verdictText(v){
             'SKIPPED_OUT_OF_SCOPE':'Outside your scope',
             'MOVED':'',
             'WILL_REMOVE':'',
+            'WILL_RESET':'',
+            'SKIPPED_NO_MARKS':'No mark recorded',
             'SKIPPED_HAS_MARKS':'A mark is recorded against it',
             'RESOLVED_OVERWRITE':'Higher mark replaces the one on the destination',
             'RESOLVED_FILLED':'Destination has no mark — it takes this one',
@@ -765,7 +814,12 @@ function markCell(x){
 function buildSummary(){
     var c=cfg(), s='';
     function item(l,v){ s+='<div class="cc-sum__i"><div class="cc-sum__l">'+esc(l)+'</div><div class="cc-sum__v">'+esc(v)+'</div></div>'; }
-    if(OP==='REGISTRATION_REMOVAL'){
+    if(OP==='MARKS_RESET'){
+        item('Erasing marks on', c.sourceCode || 'every course in the scope below');
+        item('Published result & transcript', c.resetPublished?'Erased too':'Left in place');
+        item('Coursework components', c.resetComponents?'Erased too':'Left in place');
+        item('Published results affected', n(PV.publishedResults||0));
+    }else if(OP==='REGISTRATION_REMOVAL'){
         item('Removing', c.removalBasis==='code' ? ('Registrations on '+c.sourceCode)
              : (c.removalBasis==='not_in_curriculum' ? 'Courses not on the student’s curriculum'
                                                      : 'Courses belonging to another specialisation'));
@@ -780,7 +834,9 @@ function buildSummary(){
     }
     if(c.programme) item('Programme', c.programme);
     if(c.specialisation) item('Specialisation', (q('ccSpecQ').value||c.specialisation));
-    item(OP==='REGISTRATION_REMOVAL'?'Registrations to remove':'Registrations to change', n(PV.actionable));
+    item(OP==='REGISTRATION_REMOVAL'?'Registrations to remove'
+        :OP==='MARKS_RESET'?'Registrations to erase marks on'
+        :'Registrations to change', n(PV.actionable));
     item('Students affected', n(PV.students));
     item('Related records carried', n(PV.satelliteRows));
     item('Left alone', n(PV.skipped));
@@ -804,7 +860,8 @@ function buildSummary(){
             ' duplicate records are deleted — every one is recorded first and the batch can be reversed.','warn');
     }
 
-    var want = (OP==='REGISTRATION_REMOVAL') ? (c.sourceCode || 'REMOVE')
+    var want = (OP==='MARKS_RESET') ? (c.sourceCode || 'ERASE')
+             : (OP==='REGISTRATION_REMOVAL') ? (c.sourceCode || 'REMOVE')
              : (OP==='TERM_TRANSFER') ? (c.sourceCode||c.sourceYear)
              : c.sourceCode;
     q('ccTypeIt').setAttribute('data-want', want);
@@ -913,6 +970,7 @@ function boot(){
 
     q('ccTo2').addEventListener('click',function(){
         var c=cfg();
+        if(OP==='MARKS_RESET'){ goStep(2); return; }   // scope is checked on the next step
         if(OP==='REGISTRATION_REMOVAL'){
             if(c.removalBasis==='code' && !c.sourceCode){ msg('Choose the course code to remove.'); return; }
             goStep(2); return;

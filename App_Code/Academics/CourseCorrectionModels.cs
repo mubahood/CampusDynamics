@@ -19,6 +19,7 @@ public static class CorrectionOp
     public const string TermTransfer   = "TERM_TRANSFER";
     public const string CourseMerge    = "COURSE_MERGE";
     public const string Removal        = "REGISTRATION_REMOVAL";
+    public const string MarksReset     = "MARKS_RESET";
     public const string Reversal       = "REVERSAL";
 }
 
@@ -67,6 +68,10 @@ public static class CorrectionVerdict
     public const string WillRemove         = "WILL_REMOVE";
     public const string SkippedHasMarks    = "SKIPPED_HAS_MARKS";
 
+    // Marks reset
+    public const string WillReset          = "WILL_RESET";
+    public const string SkippedNoMarks     = "SKIPPED_NO_MARKS";
+
     /// <summary>Human sentence for a verdict, shown in the preview and the register.</summary>
     public static string Explain(string v)
     {
@@ -85,6 +90,8 @@ public static class CorrectionVerdict
             case ResolvedDiscard:    return "Duplicate settled — the destination already holds a mark as good or better, so the duplicate is removed";
             case WillRemove:         return "Registration will be removed";
             case SkippedHasMarks:    return "A mark is recorded against it — not removed unless marked records are included";
+            case WillReset:          return "Marks will be erased and the record returned to Not Entered";
+            case SkippedNoMarks:     return "There is no mark to erase";
             default:                 return v;
         }
     }
@@ -92,7 +99,7 @@ public static class CorrectionVerdict
     /// <summary>True when the correction will act on the record.</summary>
     public static bool IsActionable(string v)
     {
-        return v == Moved || v == WillRemove || IsResolved(v);
+        return v == Moved || v == WillRemove || v == WillReset || IsResolved(v);
     }
 
     /// <summary>True for the three duplicate-settling outcomes, all of which remove the source row.</summary>
@@ -125,6 +132,10 @@ public class CourseTableDef
 
     /// <summary>Catalogue tables are only touched by Course Code Merge.</summary>
     public bool IsCatalogue;
+
+    /// <summary>A place a mark is written that is not a transfer satellite — touched only
+    /// by Marks Reset.</summary>
+    public bool IsMarksStore;
 
     public string Qualified { get { return Db + "." + Table; } }
     public bool HasTerm { get { return !string.IsNullOrEmpty(YearCol); } }
@@ -174,6 +185,15 @@ public static class CourseTableRegistry
             Db = PortalDb, Table = "acad_results_complaints", PkCol = "ID",
             RegnoCol = "regno", CourseCol = "courseid", YearCol = "acadyear", SemCol = "semester",
             ProgCol = "progid", Label = "Result complaint" },
+
+        // ---------- Marks-only stores ----------
+        // Not satellites of a transfer: nothing here carries a course code that a code change
+        // would need to follow (the component marks hang off a settings row, not off the code).
+        // They exist for Marks Reset, which has to clear every place a mark is written.
+        new CourseTableDef {
+            Db = MainDb, Table = "acad_examresults_faculty", PkCol = "ID",
+            RegnoCol = "regno", CourseCol = "course_id", YearCol = "acadyear", SemCol = "semester",
+            ProgCol = "progid", IsMarksStore = true, Label = "Faculty result sheet" },
 
         // ---------- Catalogue: Course Code Merge only ----------
         new CourseTableDef {
@@ -251,13 +271,19 @@ public static class CourseTableRegistry
     /// <summary>Student-level satellites, in the order they are written.</summary>
     public static List<CourseTableDef> Satellites
     {
-        get { return _all.FindAll(t => !t.IsMaster && !t.IsCatalogue); }
+        get { return _all.FindAll(t => !t.IsMaster && !t.IsCatalogue && !t.IsMarksStore); }
     }
 
     /// <summary>Every student-level table, master first.</summary>
     public static List<CourseTableDef> StudentTables
     {
         get { var l = new List<CourseTableDef> { Master }; l.AddRange(Satellites); return l; }
+    }
+
+    /// <summary>Places a mark is written that a transfer does not follow — Marks Reset only.</summary>
+    public static List<CourseTableDef> MarksStores
+    {
+        get { return _all.FindAll(t => t.IsMarksStore); }
     }
 
     /// <summary>Catalogue tables, touched only by Course Code Merge.</summary>
@@ -329,6 +355,18 @@ public class CorrectionConfig
 
     public bool IsRemoval { get { return operation == CorrectionOp.Removal; } }
 
+    // ── Marks reset ──
+    /// <summary>Also erase the published result, the transcript entry and the faculty
+    /// result-sheet row. On by default: leaving a published result behind while the
+    /// registration reads "Not Entered" is the very inconsistency this exists to remove.</summary>
+    public bool resetPublished = true;
+
+    /// <summary>Also erase the captured coursework and practical-exam component marks
+    /// (acad_coursework_marks / acad_practicalexam_marks) that the total was built from.</summary>
+    public bool resetComponents = true;
+
+    public bool IsMarksReset { get { return operation == CorrectionOp.MarksReset; } }
+
     public string reason = "";
 
     public List<string> StudentList()
@@ -393,6 +431,14 @@ public class PreviewResult
     /// <summary>Numbers typed into the student box that matched nothing — reported so a
     /// mistyped number is never silently dropped from a correction.</summary>
     public List<string> unmatchedStudents = new List<string>();
+
+    /// <summary>Marks reset only: the CGPA each affected student holds now and what it
+    /// becomes once the marks are erased. CGPA is derived from acad_results rather than
+    /// stored, so it moves on its own — this shows the operator by how much, before
+    /// anything is written.</summary>
+    public List<object> cgpaImpact = new List<object>();
+    public int publishedResults;
+    public int componentRows;
 
     /// <summary>How many of the numbers given were entry numbers rather than student numbers.</summary>
     public int resolvedFromEntryNo;
