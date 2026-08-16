@@ -245,15 +245,57 @@ public static partial class IDCardService
                             if (r.Read()) { tuition = r[0] == DBNull.Value ? 0 : Convert.ToDouble(r[0]); functional = r[1] == DBNull.Value ? 0 : Convert.ToDouble(r[1]); }
                     }
                 }
-                // paid toward this semester (sub-ledger Payment rows)
-                using (var cmd = new MySqlCommand("SELECT IFNULL(SUM(Amount),0) FROM fin_studentfeestracking" +
-                    " WHERE regno=@r AND acadyear=@ay AND semester=@sm AND trans_type='Payment'", ac))
+                // ── What the student has actually put toward this semester ──────────────
+                //
+                // This used to read ONLY fin_studentfeestracking rows tagged with the exact
+                // acadyear + semester, and it under-reported badly:
+                //
+                //  • A payment that lands BEFORE the semester's bills are raised is written with
+                //    semester=0 and a blank acadyear, because at capture time there is nothing to
+                //    tag it to. 188 students in the current year hold such payments — 105.5m
+                //    shillings that the check simply could not see. MRU2026004755 paid 647,000 at
+                //    12:37 and was billed at 13:47 the same day, so the gate read "paid 0".
+                //  • 95 more students have credit in the ledger with no tracking row at all.
+                //
+                // Both groups were told to pay a fee they had already paid. The gate is a 10%
+                // threshold, not the fee-clearance rule, so it must not be stricter than reality.
+                //
+                // Two independent measures are taken and the HIGHER wins, which cannot
+                // double-count and cannot under-report when one source is incomplete:
+                //   A — tracking payments for this semester, PLUS untagged payments, which are
+                //       unallocated money and therefore available to this semester;
+                //   B — credits on the student's own ledger account since the academic year began.
+                //
+                // Bursaries and waivers count: a fully sponsored student owes nothing and must not
+                // be blocked. Reversals and balance-fix adjustments are excluded — they are
+                // corrections, not money the student put in.
+                double paidTracking = 0, paidLedger = 0;
+
+                using (var cmd = new MySqlCommand(
+                    "SELECT IFNULL(SUM(amount),0) FROM fin_studentfeestracking" +
+                    " WHERE regno=@r AND trans_type='Payment'" +
+                    "   AND ( (acadyear=@ay AND semester=@sm)" +
+                    "      OR semester=0 OR TRIM(IFNULL(acadyear,''))='' )", ac))
                 {
                     cmd.Parameters.AddWithValue("@r", regno ?? "");
                     cmd.Parameters.AddWithValue("@ay", f.AcadYear);
                     cmd.Parameters.AddWithValue("@sm", f.Semester);
-                    object v = cmd.ExecuteScalar(); f.Paid = v == null || v == DBNull.Value ? 0 : Convert.ToDouble(v);
+                    object v = cmd.ExecuteScalar(); paidTracking = v == null || v == DBNull.Value ? 0 : Convert.ToDouble(v);
                 }
+
+                using (var cmd = new MySqlCommand(
+                    "SELECT IFNULL(SUM(l.transaction_amount),0) FROM fin_ledger l" +
+                    " WHERE l.accountcode=@r AND l.transactionType='CR'" +
+                    "   AND l.transactionDate >= @start" +
+                    "   AND l.particulars NOT LIKE 'Reversal%'" +
+                    "   AND l.particulars NOT LIKE '%Balance Fix%'", ac))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno ?? "");
+                    cmd.Parameters.AddWithValue("@start", AcadYearStart(conn, f.AcadYear));
+                    object v = cmd.ExecuteScalar(); paidLedger = v == null || v == DBNull.Value ? 0 : Convert.ToDouble(v);
+                }
+
+                f.Paid = Math.Max(paidTracking, paidLedger);
             }
         }
         catch { f.Flagged = true; }
@@ -263,6 +305,29 @@ public static partial class IDCardService
         if (f.Fee <= 0) { f.Eligible = true; f.Flagged = true; }   // no fee structure -> do not hard-block; flag
         else f.Eligible = f.Paid >= f.Required;
         return f;
+    }
+
+    /// <summary>
+    /// When the academic year began, from acad_acadyears (2026/2027 starts 2026-08-01). Falls
+    /// back to 1 August of the leading year in the label, and to a wide-open date if even that
+    /// cannot be read — this window must never be the reason a student who has paid is refused.
+    /// </summary>
+    private static DateTime AcadYearStart(MySqlConnection conn, string acadYear)
+    {
+        try
+        {
+            using (var cmd = new MySqlCommand("SELECT start_date FROM acad_acadyears WHERE acadyear=@a LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@a", acadYear ?? "");
+                object v = cmd.ExecuteScalar();
+                if (v != null && v != DBNull.Value) return Convert.ToDateTime(v);
+            }
+        }
+        catch { }
+        int y;
+        if (!string.IsNullOrEmpty(acadYear) && acadYear.Length >= 4 && int.TryParse(acadYear.Substring(0, 4), out y))
+            return new DateTime(y, 8, 1);
+        return new DateTime(2000, 1, 1);
     }
 
     private static object FinanceObj(Finance f)
