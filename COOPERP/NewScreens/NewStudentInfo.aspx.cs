@@ -2659,6 +2659,9 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         {
             string prog = "";
             var codes = new List<string>();
+            // Case-insensitive, because the course-code columns are: a course written two ways is
+            // one course, and listing it twice would report the same issue against it twice.
+            var seenCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var namesByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (DataRow r in data.Rows)
             {
@@ -2666,7 +2669,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     prog = Convert.ToString(r["progid"]).Trim();
                 if (r["courseid"] == DBNull.Value) continue;
                 string code = Convert.ToString(r["courseid"]).Trim();
-                if (code == "" || codes.Contains(code)) continue;
+                if (code == "" || !seenCodes.Add(code)) continue;
                 codes.Add(code);
                 namesByCode[code] = data.Columns.Contains("course_title") && r["course_title"] != DBNull.Value
                     ? Convert.ToString(r["course_title"]).Trim() : "";
@@ -3037,11 +3040,20 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
 
                 // ========== COURSE PERFORMANCE ANALYSIS TABLE ==========
                 {
-                    // Aggregate stats per course across ALL specializations
+                    // Aggregate stats per course across ALL specializations.
+                    //
+                    // Grouped case-insensitively and on the trimmed code. The course-code columns
+                    // use utf8_general_ci, so mgt1201b and MGT1201B are ONE course to the database
+                    // — acad_course is keyed on the code and physically cannot hold both. But the
+                    // registration table has drifted, and 14 codes are written in more than one
+                    // casing across 11,294 rows. LINQ's default string comparer is case-sensitive,
+                    // so the report was splitting a single course into two lines with the marks
+                    // divided between them — MGT1201B appearing once with 26 students and again,
+                    // lower-case, with 3.
                     var courseStats = data.AsEnumerable()
                         .Where(r => r["courseid"] != DBNull.Value && !string.IsNullOrEmpty(r["courseid"].ToString())
                                  && r["grade"] != DBNull.Value && !string.IsNullOrEmpty(r["grade"].ToString()))
-                        .GroupBy(r => r["courseid"].ToString())
+                        .GroupBy(r => r["courseid"].ToString().Trim(), StringComparer.OrdinalIgnoreCase)
                         .Select(g => {
                             var scores = g.Where(r => r["score"] != DBNull.Value)
                                           .Select(r => { 
@@ -3063,7 +3075,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                             if (cuRow != null) decimal.TryParse(cuRow["CreditUnits"].ToString(), out creditUnits);
                             
                             return new {
-                                Code = g.Key,
+                                // Shown in the catalogue's own spelling. Every one of the 7,200
+                                // codes in acad_course is upper-case, so upper-casing here is the
+                                // canonical form rather than a cosmetic choice — and it stops the
+                                // line being labelled with whichever mis-cased row happened to
+                                // arrive first.
+                                Code = (g.Key ?? "").ToUpperInvariant(),
                                 Title = courseTitle,
                                 CreditUnits = creditUnits,
                                 TotalResults = totalResults,
@@ -3297,13 +3314,17 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                     string specId = specGroup.Key; // This is the actual spec_id from the database
                     
                     // Get unique courses for this specialization
+                    // Distinct() on the raw code is case-sensitive, so a course written two ways
+                    // listed twice. Collapsed on the canonical (upper-case) code instead — see
+                    // the note on the course-performance table.
                     var courses = specGroup
-                        .Select(r => new { 
-                            Code = r["courseid"] != DBNull.Value ? r["courseid"].ToString() : "",
-                            Title = r["course_title"] != DBNull.Value ? r["course_title"].ToString() : ""
+                        .Where(r => r["courseid"] != DBNull.Value && r["courseid"].ToString().Trim() != "")
+                        .GroupBy(r => r["courseid"].ToString().Trim().ToUpperInvariant())
+                        .Select(g => new {
+                            Code = g.Key,
+                            Title = g.Select(r => r["course_title"] != DBNull.Value ? r["course_title"].ToString() : "")
+                                     .FirstOrDefault(t => !string.IsNullOrEmpty(t)) ?? ""
                         })
-                        .Where(c => !string.IsNullOrEmpty(c.Code))
-                        .Distinct()
                         .OrderBy(c => c.Code)
                         .ToList();
                     
