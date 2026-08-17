@@ -168,9 +168,18 @@ public partial class COOPERP_NewScreens_CourseCorrectionCentre : System.Web.UI.P
             using (var c = new MySqlConnection(CourseCorrectionService.ConnStr()))
             {
                 c.Open();
+                // The code columns use utf8_general_ci, so mgt1201b and MGT1201B are the same
+                // course and the catalogue — a primary key — can only ever hold one of them.
+                // The registration table has no such guard and has drifted: MGT1201B alone is
+                // written three ways across 3,266 rows. The count is therefore the true
+                // case-insensitive total, and any stray casings are listed beside it so the
+                // operator can see the drift instead of it silently disappearing into the total.
                 using (var cmd = new MySqlCommand(
                     "SELECT c.courseID, IFNULL(c.courseName,''), IFNULL(c.CreditUnit,0), IFNULL(c.course_state,'ACTIVE'), " +
-                    "  (SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration cr WHERE cr.courseID=c.courseID) regs " +
+                    "  (SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration cr WHERE cr.courseID=c.courseID) regs, " +
+                    "  (SELECT GROUP_CONCAT(DISTINCT BINARY cr2.courseID ORDER BY cr2.courseID SEPARATOR '|') " +
+                    "     FROM campus_dynamics_portal.acad_course_registration cr2 " +
+                    "    WHERE cr2.courseID=c.courseID AND BINARY cr2.courseID <> BINARY c.courseID) othercase " +
                     "FROM acad_course c WHERE c.courseID LIKE @t OR c.courseName LIKE @t " +
                     "ORDER BY (c.courseID=@exact) DESC, regs DESC, c.courseID LIMIT 40", c))
                 {
@@ -178,14 +187,18 @@ public partial class COOPERP_NewScreens_CourseCorrectionCentre : System.Web.UI.P
                     cmd.Parameters.AddWithValue("@exact", term);
                     using (var r = cmd.ExecuteReader())
                         while (r.Read())
+                        {
+                            string other = r.IsDBNull(5) ? "" : r.GetString(5);
                             items.Add(new
                             {
                                 code = r.GetString(0),
                                 name = r.GetString(1),
                                 cu = r.IsDBNull(2) ? 0 : r.GetDouble(2),
                                 state = r.GetString(3),
-                                regs = r.IsDBNull(4) ? 0 : Convert.ToInt32(r[4])
+                                regs = r.IsDBNull(4) ? 0 : Convert.ToInt32(r[4]),
+                                otherCasings = other == "" ? new string[0] : other.Split('|')
                             });
+                        }
                 }
             }
             return Json.Serialize(new { success = true, items });

@@ -546,6 +546,46 @@ public static class CCTest
         Ex("DELETE FROM campus_dynamics.acad_examresults_faculty WHERE regno LIKE 'CCRST%'");
         Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCRST%'");
 
+        // ---------------- Scenario T: casing normalisation ----------------
+        Console.WriteLine("\nT. A code stored in the wrong case is corrected, not skipped");
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCCASE%'");
+        Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCCASE%'");
+        Ex("INSERT INTO campus_dynamics.acad_student (regno,firstname,othername,progid,entryyear,duration) VALUES ('CCCASE001','Case','Drift','TEST',2026,3)");
+
+        // the same course written two ways, as MGT1201B is in the live data
+        long lower = AddReg("CCCASE001", "zzold100", "2026/2027", 1, "NORMAL", "NOT_ENTERED", null);
+        long upper = AddReg("CCCASE001", OLD, "2026/2027", 2, "NORMAL", "NOT_ENTERED", null);
+        Ok("both casings sit in the table", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno='CCCASE001'") == 2);
+        Ok("the database treats them as one course", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno='CCCASE001' AND courseID=@c", "@c", OLD) == 2);
+
+        var cfgT = new CorrectionConfig { operation = CorrectionOp.CourseTransfer, sourceCode = "zzold100", targetCode = OLD, students = "CCCASE001", reason = "CCTEST scenario T" };
+        var pvT = CourseCorrectionService.Preview(cfgT, Admin());
+        int tMove = 0, tSame = 0, tDup = 0;
+        foreach (var r in pvT.rows) {
+            if (r.verdict == CorrectionVerdict.Moved) tMove++;
+            if (r.verdict == CorrectionVerdict.SkippedSameTarget) tSame++;
+            if (r.verdict == CorrectionVerdict.SkippedDuplicate) tDup++;
+        }
+        Ok("the wrong-case row is offered as a move", tMove == 1, "moved=" + tMove);
+        Ok("the already-correct row is left as same-target", tSame == 1, "same=" + tSame);
+        Ok("neither is mistaken for a duplicate of the other", tDup == 0, "dup=" + tDup);
+
+        var apT = CourseCorrectionService.Apply(cfgT, Admin(), "cctest", "127.0.0.1", pvT.checksum);
+        Ok("casing correction applies", apT.success && apT.rowsApplied == 1, apT.message);
+        Ok("the row is now stored in the canonical case",
+            Str("SELECT courseID FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", lower) == OLD);
+        Ok("no casing variants remain for this student",
+            Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno='CCCASE001' AND BINARY courseID<>BINARY @c", "@c", OLD) == 0);
+        Ok("both registrations still exist", Num("SELECT COUNT(*) FROM campus_dynamics_portal.acad_course_registration WHERE regno='CCCASE001'") == 2);
+
+        var rvT = CourseCorrectionService.Reverse(apT.batchId, "CCTEST reversal T", Admin(), "cctest", "127.0.0.1", null);
+        Ok("casing correction reverses", rvT.success, rvT.message);
+        Ok("the original lower-case spelling is back",
+            Str("SELECT courseID FROM campus_dynamics_portal.acad_course_registration WHERE ID=@i", "@i", lower) == "zzold100");
+
+        Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno LIKE 'CCCASE%'");
+        Ex("DELETE FROM campus_dynamics.acad_student WHERE regno LIKE 'CCCASE%'");
+
         Console.WriteLine("\n--- cleaning up ---");
         Ex("DELETE FROM campus_dynamics_portal.acad_course_registration WHERE regno IN (@a,@b) AND courseID IN (@o,@n,'ZZMANUAL')", "@a", STU, "@b", STU2, "@o", OLD, "@n", NEW);
         Cleanup();

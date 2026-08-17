@@ -576,8 +576,11 @@ function picker(inputId, dropId, infoId, onPick){
         if(!items.length){ drop.innerHTML='<div class="cc-drop__i"><span class="cc-drop__n">No matching course code.</span></div>'; drop.className='cc-drop show'; return; }
         var h='';
         items.forEach(function(it,i){
+            var oc=(it.otherCasings||[]);
             h+='<div class="cc-drop__i" data-i="'+i+'"><span class="cc-drop__c">'+esc(it.code)+'</span>'+
-               '<span class="cc-drop__n">'+esc(it.name||'(no title)')+'</span>'+
+               '<span class="cc-drop__n">'+esc(it.name||'(no title)')+
+                 (oc.length?'<br/><span style="color:#b45309;font-weight:700;">also written '+esc(oc.join(', '))+'</span>':'')+
+               '</span>'+
                '<span class="cc-drop__r">'+n(it.regs)+' regs &middot; '+(Number(it.cu)||0)+' CU'+(it.state&&it.state!=='ACTIVE'?' &middot; '+esc(it.state):'')+'</span></div>';
         });
         drop.innerHTML=h; drop.className='cc-drop show';

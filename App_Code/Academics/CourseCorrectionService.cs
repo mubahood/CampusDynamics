@@ -440,7 +440,15 @@ public static class CourseCorrectionService
 
         foreach (var row in rows)
         {
-            if (!isTerm && string.Equals(row.courseCode, cfg.targetCode, StringComparison.OrdinalIgnoreCase))
+            // Compared letter for letter, NOT case-insensitively. The course-code columns use
+            // utf8_general_ci, so mgt1201b and MGT1201B are one and the same course to the
+            // database — the catalogue is a primary key and physically cannot hold both. But the
+            // transactional tables have drifted: MGT1201B alone is written three different ways
+            // across 3,266 registrations. Treating a casing difference as "already there" left
+            // that drift in place forever; treating it as a move is what finally tidies it.
+            // Safe by construction: the unique index is case-insensitive too, so no student can
+            // hold two casings in the same slot for normalising to collide with.
+            if (!isTerm && string.Equals(row.courseCode, cfg.targetCode, StringComparison.Ordinal))
             { row.verdict = CorrectionVerdict.SkippedSameTarget; continue; }
 
             if (isTerm && string.Equals(row.acadYear, cfg.targetYear, StringComparison.OrdinalIgnoreCase)
@@ -455,7 +463,11 @@ public static class CourseCorrectionService
                 : Key(row.regno, row.acadYear, row.semester.ToString(CultureInfo.InvariantCulture), row.courseStatus);
 
             PreviewRow dest;
-            if (occupied.TryGetValue(slot, out dest))
+            // A record is never its own duplicate. This matters for a casing correction: the
+            // occupancy lookup matches case-insensitively, so a row being rewritten from
+            // mgt1201B to MGT1201B finds ITSELF sitting at the destination. Comparing the
+            // primary key tells the two apart.
+            if (occupied.TryGetValue(slot, out dest) && dest.id != row.id)
             {
                 row.targetId = dest.id;
                 row.targetTotal = dest.total;
@@ -689,7 +701,10 @@ public static class CourseCorrectionService
 
         if (string.IsNullOrEmpty(cfg.sourceCode)) return "Choose the course code to move registrations from.";
         if (string.IsNullOrEmpty(cfg.targetCode)) return "Choose the course code to move registrations to.";
-        if (string.Equals(cfg.sourceCode.Trim(), cfg.targetCode.Trim(), StringComparison.OrdinalIgnoreCase))
+        // Letter for letter, so correcting only the CASE of a code is a legitimate move.
+        // mgt1201b and MGT1201B are the same course to the database, but they are not the same
+        // text, and rewriting one to the other is exactly how the drift gets tidied.
+        if (string.Equals(cfg.sourceCode.Trim(), cfg.targetCode.Trim(), StringComparison.Ordinal))
             return "The source and destination course code are the same.";
         if (cfg.operation == CorrectionOp.CourseMerge && !scope.IsAdmin)
             return "Course Code Merge changes the catalogue for the whole institution and is restricted to administrators.";
@@ -1958,17 +1973,22 @@ public static class CourseCorrectionService
             {
                 try
                 {
+                    // Read the batch fully and close the reader BEFORE deciding anything. Rolling
+                    // back or issuing any other statement while a reader is still open fails with
+                    // "there is already an open DataReader" — which turned a plain "batch not
+                    // found" into an unrelated connection error.
                     string status = "", srcCode = "", tgtCode = "", ranBy = "";
+                    bool found = false;
                     using (var cmd = Cmd("SELECT status, IFNULL(source_code,''), IFNULL(target_code,''), performed_by " +
                                          "FROM campus_dynamics.acad_correction_batch WHERE id=@id FOR UPDATE", c, t))
                     {
                         cmd.Parameters.AddWithValue("@id", batchId);
                         using (var r = cmd.ExecuteReader())
-                        {
-                            if (!r.Read()) { t.Rollback(); res.success = false; res.message = "That correction batch was not found."; return res; }
-                            status = S(r, 0); srcCode = S(r, 1); tgtCode = S(r, 2); ranBy = S(r, 3);
-                        }
+                            if (r.Read())
+                            { found = true; status = S(r, 0); srcCode = S(r, 1); tgtCode = S(r, 2); ranBy = S(r, 3); }
                     }
+                    if (!found)
+                    { t.Rollback(); res.success = false; res.message = "That correction batch was not found."; return res; }
                     if (!scope.IsAdmin && !string.Equals(ranBy, user, StringComparison.OrdinalIgnoreCase))
                     { t.Rollback(); res.success = false; res.message = "You can only reverse corrections you made yourself."; return res; }
                     if (status == "REVERSED" && string.IsNullOrEmpty(onlyRegno))
