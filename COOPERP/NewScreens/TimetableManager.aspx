@@ -334,7 +334,7 @@ var TM = (function(){
     if(!CUR_PC) return;
     clearTimeout(PREV_T);
     PREV_T=setTimeout(function(){
-      api('PreviewConflicts',{itemId:parseInt(qs('itId').value,10)||0,pcId:CUR_PC.id,dayNo:parseInt(qs('itDay').value,10),start:qs('itStart').value,durationMin:parseInt(qs('itDur').value,10)||60,roomId:parseInt(roomCombo.value(),10)||0,teacherId:parseInt(teacherCombo.value(),10)||0,campusId:parseInt(campusGrp.value(),10)||0})
+      api('PreviewConflicts',{itemId:parseInt(qs('itId').value,10)||0,pcId:CUR_PC.id,dayNo:parseInt(qs('itDay').value,10),start:qs('itStart').value,durationMin:parseInt(qs('itDur').value,10)||60,roomId:parseInt(roomCombo.value(),10)||0,teacherId:parseInt(teacherCombo.value(),10)||0,campusId:parseInt(campusGrp.value(),10)||0,deliveryMode:(qs('itMode')&&qs('itMode').value)||'PHYSICAL'})
       .then(function(d){ var cf=(d&&d.conflicts)||[]; renderWarn(cf); updateAvail(cf); });
     },250);
   }

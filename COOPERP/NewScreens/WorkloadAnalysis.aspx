@@ -245,7 +245,15 @@ var WA = (function(){
         +'<td>'+esc(r.empCode)+'</td>'
         +'<td>'+esc(r.department)+'</td>'
         +'<td>'+esc(r.contractType||'—')+'</td>'
-        +'<td class="num" style="font-weight:700;">'+r.sessionCount+'</td>'
+        /* Classes actually held. Where several cohorts share a class the extra timetable rows
+           are noted rather than counted, so the figure is not silently smaller than the list. */
+        +'<td class="num" style="font-weight:700;">'+r.sessionCount
+          +(r.itemCount>r.sessionCount
+              ? '<span style="display:block;font-weight:400;font-size:9.5px;color:#b45309;" title="'
+                +(r.itemCount-r.sessionCount)+' further timetable row(s) share these classes — cohorts taught together, counted once">+'
+                +(r.itemCount-r.sessionCount)+' shared</span>'
+              : '')
+        +'</td>'
         +'<td class="num" style="font-weight:700;">'+r.weeklyHours.toFixed(1)+'</td>'
         +'<td class="num">'+monthly(r.weeklyHours).toFixed(1)+'</td>'
         +'<td class="num">'+r.courseCount+'</td>'

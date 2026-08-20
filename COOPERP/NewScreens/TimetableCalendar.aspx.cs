@@ -68,15 +68,34 @@ public partial class COOPERP_NewScreens_TimetableCalendar : Page
             "LEFT JOIN acad_lecturerooms r ON r.RoomID=it.room_id LEFT JOIN acad_building b ON b.building_id=it.building_id LEFT JOIN acad_campuses cp ON cp.ID=it.campus_id " +
             "WHERE it.status='ACTIVE'" + wh.ToString() + " ORDER BY it.day_no, it.start_time", ps.ToArray());
 
+        // Mark the rows that are one class shared by several cohorts, so the grid can say so
+        // instead of drawing what looks like a double-booking. Same lecturer, same slot, same
+        // place is combined teaching — normal delivery, not a clash.
+        Dictionary<string, int> shareCount = new Dictionary<string, int>();
+        foreach (DataRow r in dt.Rows)
+        {
+            string k = I(r, "eff_teacher") + "|" + I(r, "day_no") + "|" + I(r, "sm") + "|" + I(r, "em") + "|" +
+                       (I(r, "room_id") > 0 ? "R" + I(r, "room_id") : "L" + S(r, "room_label").Trim().ToUpperInvariant()) + "|" +
+                       I(r, "campus_id") + "|" + S(r, "delivery_mode").Trim().ToUpperInvariant();
+            shareCount[k] = shareCount.ContainsKey(k) ? shareCount[k] + 1 : 1;
+        }
+
         List<object> rows = new List<object>();
         foreach (DataRow r in dt.Rows)
+        {
+            string k = I(r, "eff_teacher") + "|" + I(r, "day_no") + "|" + I(r, "sm") + "|" + I(r, "em") + "|" +
+                       (I(r, "room_id") > 0 ? "R" + I(r, "room_id") : "L" + S(r, "room_label").Trim().ToUpperInvariant()) + "|" +
+                       I(r, "campus_id") + "|" + S(r, "delivery_mode").Trim().ToUpperInvariant();
+            int shared = I(r, "eff_teacher") > 0 && shareCount.ContainsKey(k) ? shareCount[k] : 1;
             rows.Add(new Dictionary<string, object> {
+                { "sessionKey", k }, { "sharedWith", shared }, { "combined", shared > 1 },
                 { "id", I(r, "item_id") }, { "pcId", I(r, "pc_id") }, { "dayNo", I(r, "day_no") }, { "start", S(r, "st") }, { "end", S(r, "et") },
                 { "sm", I(r, "sm") }, { "em", I(r, "em") }, { "course", S(r, "course") }, { "code", S(r, "code") },
                 { "progcode", S(r, "progcode") }, { "progname", S(r, "progname") }, { "studyYear", I(r, "study_year") }, { "semester", I(r, "semester") },
                 { "teacherId", I(r, "eff_teacher") }, { "teacher", S(r, "teacher") }, { "roomId", I(r, "room_id") },
                 { "room", S(r, "room") }, { "building", S(r, "building") }, { "roomLabel", S(r, "room_label") }, { "campusId", I(r, "campus_id") }, { "campus", S(r, "campus") }, { "campusFull", S(r, "campus_full") },
                 { "sessionType", S(r, "session_type") }, { "deliveryMode", S(r, "delivery_mode") }, { "meetLink", S(r, "meet_link") } });
+        }
         return new { ok = true, sessions = rows };
     }
 }

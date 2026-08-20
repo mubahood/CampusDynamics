@@ -219,16 +219,59 @@ public partial class COOPERP_NewScreens_WorkloadAnalysis : System.Web.UI.Page
             "SELECT t.eff AS staffCode, " +
             "  IFNULL(e.emp_name, CONCAT('Staff #', t.eff)) AS lecturerName, IFNULL(e.EMP_CODE,'') AS empCode, IFNULL(e.EmpType,'') AS empType, " +
             "  IFNULL(ct.contract_type,'') AS contractType, IFNULL(d.dept_name,'') AS department, " +
-            "  COUNT(*) AS sessionCount, COUNT(DISTINCT t.course_code) AS courseCount, COUNT(DISTINCT t.progcode) AS programmeCount, " +
-            "  COALESCE(SUM(t.duration_min),0)/60.0 AS weeklyHours, " +
+            "  COUNT(*) AS itemCount, COUNT(DISTINCT t.course_code) AS courseCount, COUNT(DISTINCT t.progcode) AS programmeCount, " +
+            // Kept only as a fallback; the real figures are recomputed below from the union of
+            // each lecturer's weekly intervals, because summing item durations charges a
+            // combined class once per cohort.
+            "  COALESCE(SUM(t.duration_min),0)/60.0 AS rawItemHours, " +
             "  GROUP_CONCAT(DISTINCT t.progcode) AS programmes_csv, GROUP_CONCAT(DISTINCT p.faculty_code) AS faculties_csv " +
             "FROM (SELECT IFNULL(it.teacher_id, pc.lecturer_id) eff, TRIM(it.course_code) course_code, it.progcode, it.duration_min" + baseFrom + ") t " +
             "LEFT JOIN hrm_employee e ON e.empID=t.eff " +
             "LEFT JOIN hrm_emp_contracts ct ON ct.empID=e.empID AND ct.contractStatus='VALID' " +
             "LEFT JOIN hrm_departments d ON d.ID=ct.departmentID " +
             "LEFT JOIN acad_programme p ON p.progcode=t.progcode " +
-            "WHERE t.eff>0 GROUP BY t.eff ORDER BY weeklyHours DESC, lecturerName";
+            "WHERE t.eff>0 GROUP BY t.eff ORDER BY rawItemHours DESC, lecturerName";
         DataTable dtSumm = ExecuteQuery(summSql, FilterParams(sem, campus));
+
+        // ── 1b. TRUE contact hours and class count, per lecturer ─────────
+        //
+        // A lecturer occupies a period of time once. Where several programme-courses share a
+        // slot — the same course taught to a degree and a diploma cohort, or one subject shared
+        // by several programmes — that is ONE class, not several, and it costs one set of hours.
+        // Summing item durations charged it once per cohort and inflated the load.
+        //
+        // Hours are therefore the union of each lecturer's weekly intervals (overlaps counted
+        // once, partial overlaps counted for their true span), and the class count is the number
+        // of distinct physical sessions rather than the number of rows.
+        var ivByStaff = new Dictionary<string, List<TimetableService.Interval>>();
+        var sessionKeys = new Dictionary<string, HashSet<string>>();
+        {
+            string ivSql =
+                "SELECT IFNULL(it.teacher_id, pc.lecturer_id) eff, it.day_no, " +
+                "  HOUR(it.start_time)*60+MINUTE(it.start_time) sm, HOUR(it.end_time)*60+MINUTE(it.end_time) em, " +
+                "  IFNULL(it.room_id,0) rid, IFNULL(it.room_label,'') rlab, IFNULL(it.campus_id,0) cid, IFNULL(it.delivery_mode,'') dmode" +
+                baseFrom;
+            DataTable dtIv = ExecuteQuery(ivSql, FilterParams(sem, campus));
+            foreach (DataRow r in dtIv.Rows)
+            {
+                string staff = Convert.ToString(r["eff"]);
+                if (string.IsNullOrEmpty(staff) || staff == "0") continue;
+                int day = SafeInt(r["day_no"]), sm = SafeInt(r["sm"]), em = SafeInt(r["em"]);
+                if (em <= sm) continue;
+
+                List<TimetableService.Interval> l;
+                if (!ivByStaff.TryGetValue(staff, out l)) { l = new List<TimetableService.Interval>(); ivByStaff[staff] = l; }
+                l.Add(new TimetableService.Interval(day, sm, em));
+
+                // One physical session = one lecturer, one place, one slot. Everything sharing
+                // that key is the same class addressing more than one cohort.
+                string room = SafeInt(r["rid"]) > 0 ? "R" + SafeInt(r["rid"]) : "L" + Convert.ToString(r["rlab"]).Trim().ToUpperInvariant();
+                string key = day + "|" + sm + "|" + em + "|" + room + "|" + SafeInt(r["cid"]) + "|" + Convert.ToString(r["dmode"]).Trim().ToUpperInvariant();
+                HashSet<string> ks;
+                if (!sessionKeys.TryGetValue(staff, out ks)) { ks = new HashSet<string>(); sessionKeys[staff] = ks; }
+                ks.Add(key);
+            }
+        }
 
         // ── 2. Detail sessions per lecturer ──────────────────────────────
         string detSql =
@@ -299,10 +342,18 @@ public partial class COOPERP_NewScreens_WorkloadAnalysis : System.Web.UI.Page
                 department      = SafeStr(row["department"]),
                 faculty         = facList.Length > 0 ? facList[0] : "",
                 faculties_list  = facList,
-                sessionCount    = SafeInt(row["sessionCount"]),
+                // Distinct classes actually held, and the hours those classes actually occupy.
+                // A slot shared by several cohorts is one class and one set of hours.
+                sessionCount    = sessionKeys.ContainsKey(sc) ? sessionKeys[sc].Count : SafeInt(row["itemCount"]),
                 courseCount     = SafeInt(row["courseCount"]),
                 programmeCount  = SafeInt(row["programmeCount"]),
-                weeklyHours     = SafeDouble(row["weeklyHours"]),
+                weeklyHours     = ivByStaff.ContainsKey(sc)
+                                    ? TimetableService.UnionHours(ivByStaff[sc])
+                                    : SafeDouble(row["rawItemHours"]),
+                // How many timetable rows sit behind those classes. Where it exceeds the class
+                // count the lecturer is teaching cohorts together, which is worth seeing rather
+                // than hiding — it is the difference between the old figure and the true one.
+                itemCount       = SafeInt(row["itemCount"]),
                 totalCredits    = credits,
                 programmes_list = progList
             });

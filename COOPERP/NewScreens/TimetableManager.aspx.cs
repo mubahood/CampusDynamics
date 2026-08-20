@@ -164,14 +164,14 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
     // ── live conflict preview ──
     [WebMethod(EnableSession = true)]
     [ScriptMethod(ResponseFormat = ResponseFormat.Json)]
-    public static object PreviewConflicts(int itemId, int pcId, int dayNo, string start, int durationMin, int roomId, int teacherId, int campusId)
+    public static object PreviewConflicts(int itemId, int pcId, int dayNo, string start, int durationMin, int roomId, int teacherId, int campusId, string deliveryMode)
     {
         if (!Authed()) return Denied();
         Dictionary<string, object> pc = LoadPc(pcId);
         if (pc == null) return new { ok = false, message = "Programme-course not found." };
         int effTeacher = teacherId > 0 ? teacherId : Convert.ToInt32(pc["lecturerId"]);
         List<TimetableService.Conflict> cs = TimetableService.CheckConflicts(itemId, dayNo, start, durationMin, roomId, effTeacher,
-            Convert.ToString(pc["progcode"]), Convert.ToInt32(pc["studyYear"]), Convert.ToInt32(pc["semester"]), campusId);
+            Convert.ToString(pc["progcode"]), Convert.ToInt32(pc["studyYear"]), Convert.ToInt32(pc["semester"]), campusId, deliveryMode);
         List<object> outc = new List<object>();
         foreach (TimetableService.Conflict c in cs) outc.Add(new Dictionary<string, object> { { "kind", c.Kind }, { "message", c.Message } });
         return new { ok = true, conflicts = outc };
@@ -202,7 +202,7 @@ public partial class COOPERP_NewScreens_TimetableManager : Page
             if (stat == "ACTIVE")
             {
                 List<TimetableService.Conflict> cs = TimetableService.CheckConflicts(itemId, dayNo, start, durationMin, roomId, effTeacher,
-                    Convert.ToString(pc["progcode"]), Convert.ToInt32(pc["studyYear"]), Convert.ToInt32(pc["semester"]), campusId);
+                    Convert.ToString(pc["progcode"]), Convert.ToInt32(pc["studyYear"]), Convert.ToInt32(pc["semester"]), campusId, deliveryMode);
                 bool engineError = false;
                 foreach (TimetableService.Conflict c in cs) if (c.Kind == "ERROR") engineError = true;
                 if (engineError) return new { ok = false, message = "Could not check for clashes right now — please try again." };
