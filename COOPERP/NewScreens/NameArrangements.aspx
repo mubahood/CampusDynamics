@@ -1,4 +1,4 @@
-<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="NameArrangements.aspx.cs" Inherits="COOPERP_NewScreens_NameArrangements" Title="Name Arrangements" %>
+<%@ Page Language="C#" MasterPageFile="~/COOPERP/NewScreens/SidebarMaster.master" AutoEventWireup="true" CodeFile="NameArrangements.aspx.cs" Inherits="COOPERP_NewScreens_NameArrangements" Title="Names &amp; Dates of Birth" %>
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
 <style>
@@ -43,6 +43,8 @@ table.na-tbl tr.rev td{background:#fafafa;}
 .na-badge--stud{background:#e8f0fc;color:#174DA4;}
 .na-badge--rev{background:#f1f5f9;color:#475569;}
 .na-badge--drift{background:#fef3c7;color:#92400e;}
+.na-badge--name{background:#eef2ff;color:#3730a3;}
+.na-badge--dob{background:#ecfdf5;color:#065f46;}
 
 .na-pager{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;font-size:11px;color:#64748b;}
 .na-msg{padding:9px 11px;border-radius:4px;font-size:11px;margin-bottom:11px;display:none;line-height:1.5;}
@@ -63,8 +65,8 @@ table.na-tbl tr.rev td{background:#fafafa;}
 
   <div class="na-head">
     <div style="min-width:0;">
-      <h1 class="na-title">Name Arrangements</h1>
-      <p class="na-sub">Every name a student has reordered in the portal, and the means to put one back. Students may reorder the words of their name but never change them &mdash; the words are checked to be identical &mdash; so nothing new is claimed here, only a different order.</p>
+      <h1 class="na-title">Names &amp; Dates of Birth</h1>
+      <p class="na-sub">What students have corrected about themselves in the portal, and the means to put any of it back. A name may only be <b>reordered</b> &mdash; the words are checked to be identical, so nothing new is ever claimed. A date of birth may be <b>corrected</b>, at most three times, within the bounds of a plausible age.</p>
     </div>
     <div class="na-scope">
       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
@@ -83,8 +85,10 @@ table.na-tbl tr.rev td{background:#fafafa;}
 
   <div class="na-bar">
     <div class="na-f"><label>Search</label><input type="text" id="naQ" placeholder="Reg no, entry no, name or who" /></div>
+    <div class="na-f"><label>What changed</label>
+      <select id="naType"><option value="">Names and dates of birth</option><option value="NAME">Names only</option><option value="DOB">Dates of birth only</option></select></div>
     <div class="na-f"><label>Show</label>
-      <select id="naKind"><option value="">Everything</option><option value="STUDENT">Student rearrangements</option><option value="REVERSAL">Put back by staff</option></select></div>
+      <select id="naKind"><option value="">Everything</option><option value="STUDENT">Student corrections</option><option value="REVERSAL">Put back by staff</option></select></div>
     <div class="na-f"><label>Per page</label><select id="naPs"><option>25</option><option>50</option><option>100</option></select></div>
     <div class="na-f"><label>&nbsp;</label><button type="button" class="na-btn" id="naGo">Apply</button></div>
   </div>
@@ -93,7 +97,7 @@ table.na-tbl tr.rev td{background:#fafafa;}
 
   <div class="na-tblwrap" id="naTblWrap" style="display:none;">
     <table class="na-tbl">
-      <thead><tr><th>Student</th><th>Programme</th><th>From &rarr; to</th><th>Now reads</th><th>Who and when</th><th>Type</th><th></th></tr></thead>
+      <thead><tr><th>Student</th><th>Programme</th><th>What</th><th>From &rarr; to</th><th>Now reads</th><th>Who and when</th><th>Type</th><th></th></tr></thead>
       <tbody id="naRows"></tbody>
     </table>
   </div>
@@ -138,7 +142,7 @@ function load(){
   q('naLoad').className='na-loader show';
   q('naTblWrap').style.display='none'; q('naPager').style.display='none';
   PS=Number(q('naPs').value)||25;
-  ajax('GetList',{q:q('naQ').value.trim(),kind:q('naKind').value,page:PAGE,pageSize:PS},function(r){
+  ajax('GetList',{q:q('naQ').value.trim(),kind:q('naKind').value,type:q('naType').value,page:PAGE,pageSize:PS},function(r){
     q('naLoad').className='na-loader';
     if(!r.success){ msg(r.message||'Could not load.'); return; }
     msg('');
@@ -149,6 +153,7 @@ function load(){
         +'<td><span class="na-mono">'+esc(x.regno)+'</span>'
           +'<span class="na-sm">#'+esc(x.id)+(x.entryno?' · '+esc(x.entryno):'')+'</span></td>'
         +'<td>'+esc(x.progid||'—')+'</td>'
+        +'<td><span class="na-badge '+(x.type==='DOB'?'na-badge--dob':'na-badge--name')+'">'+esc(x.typeLabel)+'</span></td>'
         +'<td><span class="na-from">'+esc(x.oldFull)+'</span><br/><span class="na-to">'+esc(x.newFull)+'</span></td>'
         +'<td>'+esc(x.currentFull||'—')
           +(x.drifted?'<span class="na-sm"><span class="na-badge na-badge--drift">changed since</span></span>':'')+'</td>'
@@ -158,11 +163,11 @@ function load(){
           +(x.reversalOf?'<span class="na-sm">undoes #'+esc(x.reversalOf)+'</span>':'')+'</td>'
         +'<td style="white-space:nowrap;">'
           +(x.canReverse
-              ? '<button type="button" class="na-btn na-btn--undo na-btn--sm" data-rev="'+x.id+'" data-old="'+esc(x.oldFull)+'" data-reg="'+esc(x.regno)+'">Put back</button>'
-              : '<span style="color:#94a3b8;font-size:10px;">'+(x.isReversal?'—':(x.drifted?'name changed since':'nothing to undo'))+'</span>')
+              ? '<button type="button" class="na-btn na-btn--undo na-btn--sm" data-rev="'+x.id+'" data-old="'+esc(x.oldFull)+'" data-reg="'+esc(x.regno)+'" data-what="'+esc(x.typeLabel.toLowerCase())+'">Put back</button>'
+              : '<span style="color:#94a3b8;font-size:10px;">'+(x.isReversal?'—':(x.drifted?'changed since':'nothing to undo'))+'</span>')
         +'</td></tr>';
     });
-    q('naRows').innerHTML = h || '<tr><td colspan="7" style="text-align:center;padding:30px;color:#94a3b8;">No name arrangements recorded yet.</td></tr>';
+    q('naRows').innerHTML = h || '<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;">Nothing recorded yet.</td></tr>';
     q('kAll').textContent=n(TOTAL); q('kStud').textContent=n(r.nStudent);
     q('kRev').textContent=n(r.nReversal); q('kDrift').textContent=n(r.nDrift);
     q('naTblWrap').style.display=''; q('naPager').style.display='flex';
@@ -176,8 +181,9 @@ function load(){
 function wire(){
   var b=q('naRows').querySelectorAll('[data-rev]');
   for(var i=0;i<b.length;i++) b[i].addEventListener('click',function(){
-    var id=+this.getAttribute('data-rev'), old=this.getAttribute('data-old'), reg=this.getAttribute('data-reg');
-    var reason=window.prompt('Put '+reg+"'s name back to:\n\n"+old+
+    var id=+this.getAttribute('data-rev'), old=this.getAttribute('data-old'),
+        reg=this.getAttribute('data-reg'), what=this.getAttribute('data-what');
+    var reason=window.prompt('Put '+reg+"'s "+what+' back to:\n\n'+old+
       '\n\nThis is recorded as a new entry against your name.\nWhy is it being put back?','');
     if(reason===null) return;
     if(reason.trim().length<5){ msg('Give a reason of at least five characters.'); return; }
@@ -192,6 +198,7 @@ function wire(){
 q('naGo').addEventListener('click',function(){PAGE=1;load();});
 q('naQ').addEventListener('keydown',function(e){ if(e.keyCode===13){PAGE=1;load();} });
 q('naKind').addEventListener('change',function(){PAGE=1;load();});
+q('naType').addEventListener('change',function(){PAGE=1;load();});
 q('naPs').addEventListener('change',function(){PAGE=1;load();});
 q('naPrev').addEventListener('click',function(){ if(PAGE>1){PAGE--;load();} });
 q('naNext').addEventListener('click',function(){ if(PAGE*PS<TOTAL){PAGE++;load();} });

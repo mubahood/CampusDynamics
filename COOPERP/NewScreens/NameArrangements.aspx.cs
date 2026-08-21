@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Text;
 using System.Web;
 using System.Web.Script.Serialization;
@@ -77,11 +78,31 @@ public partial class COOPERP_NewScreens_NameArrangements : Page
     /// one back — read from the source, so the two never blur together in the list.</summary>
     private static bool IsReversal(string source) { return (source ?? "").IndexOf("reversal", StringComparison.OrdinalIgnoreCase) >= 0; }
 
+    /// <summary>What the student record holds right now, in the same shape the entry stored it:
+    /// the rendered name for a name, the ISO date for a date of birth. One expression, so the
+    /// list, the counts and the reversal guard can never be comparing different things.</summary>
+    private const string CUR_SQL =
+        "CASE WHEN a.record_type='DOB' THEN IFNULL(DATE_FORMAT(s.dob,'%Y-%m-%d'),'') " +
+        "     ELSE TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) END";
+
+    /// <summary>A stored value made fit to read. Dates are held as ISO — that is what a reversal
+    /// writes back — but they are shown the way the transcript prints them.</summary>
+    private static string Show(string recordType, string stored)
+    {
+        if (recordType != "DOB") return stored;
+        if (string.IsNullOrEmpty(stored)) return "not recorded";
+        DateTime d;
+        if (!DateTime.TryParseExact(stored, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                                    DateTimeStyles.None, out d)) return stored;
+        return d.ToString("dd", CultureInfo.InvariantCulture) + " " +
+               CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(d.Month) + "," + d.Year;
+    }
+
     // ─────────────────────────────────────────────────────────────────
     //  List
     // ─────────────────────────────────────────────────────────────────
     [WebMethod(EnableSession = true)]
-    public static string GetList(string q, string kind, int page, int pageSize)
+    public static string GetList(string q, string kind, string type, int page, int pageSize)
     {
         try
         {
@@ -102,6 +123,13 @@ public partial class COOPERP_NewScreens_NameArrangements : Page
             if (k == "STUDENT") w.Append(" AND a.source NOT LIKE '%reversal%' ");
             else if (k == "REVERSAL") w.Append(" AND a.source LIKE '%reversal%' ");
 
+            string t = (type ?? "").Trim().ToUpperInvariant();
+            if (t == "NAME" || t == "DOB")
+            {
+                w.Append(" AND a.record_type=@t ");
+                ps["@t"] = t;
+            }
+
             // A Dean or HOD sees only students on programmes within their scope.
             w.Append(scope.ProgFilterExpr("IFNULL(s.progid,'')"));
 
@@ -118,9 +146,8 @@ public partial class COOPERP_NewScreens_NameArrangements : Page
                     "SELECT COUNT(*), " +
                     "  SUM(a.source NOT LIKE '%reversal%'), " +
                     "  SUM(a.source LIKE '%reversal%'), " +
-                    "  SUM(a.source NOT LIKE '%reversal%' " +
-                    "      AND TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) <> '' " +
-                    "      AND BINARY TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) <> BINARY IFNULL(a.new_full,'')) " +
+                    "  SUM(a.source NOT LIKE '%reversal%' AND s.regno IS NOT NULL " +
+                    "      AND BINARY " + CUR_SQL + " <> BINARY IFNULL(a.new_full,'')) " +
                     "FROM stud_name_arrangement a LEFT JOIN acad_student s ON s.regno=a.regno" + w, c))
                 {
                     foreach (var kv in ps) cmd.Parameters.AddWithValue(kv.Key, kv.Value);
@@ -140,8 +167,9 @@ public partial class COOPERP_NewScreens_NameArrangements : Page
                     "  DATE_FORMAT(a.changed_at,'%d %b %Y, %H:%i') at_, " +
                     // What the record says right now — the only way to tell whether the entry
                     // still describes reality, and therefore whether it can be put back.
-                    "  TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) current_full, " +
-                    "  IFNULL(a.reason,'') reason, IFNULL(a.reversal_of,0) reversal_of " +
+                    "  " + CUR_SQL + " current_full, " +
+                    "  IFNULL(a.reason,'') reason, IFNULL(a.reversal_of,0) reversal_of, " +
+                    "  a.record_type, (s.regno IS NOT NULL) have_record " +
                     "FROM stud_name_arrangement a LEFT JOIN acad_student s ON s.regno=a.regno" + w +
                     " ORDER BY a.id DESC LIMIT " + pageSize + " OFFSET " + ((page - 1) * pageSize), c))
                 {
@@ -151,24 +179,28 @@ public partial class COOPERP_NewScreens_NameArrangements : Page
                         {
                             string newFull = S(r, 5), curFull = S(r, 10), oldFull = S(r, 4);
                             bool reversal = IsReversal(S(r, 7));
+                            string rtype = S(r, 13);
+                            bool haveRecord = Convert.ToInt32(r[14]) == 1;
                             // Reversible only while the record still holds what this entry produced,
                             // and only when it would actually change something.
                             bool canReverse = !reversal
-                                && curFull.Length > 0
+                                && haveRecord
                                 && string.Equals(curFull, newFull, StringComparison.Ordinal)
                                 && !string.Equals(oldFull, newFull, StringComparison.Ordinal);
                             items.Add(new
                             {
                                 id = Convert.ToInt32(r[0]),
                                 regno = S(r, 1), entryno = S(r, 2), progid = S(r, 3),
-                                oldFull = oldFull, newFull = newFull,
+                                type = rtype,
+                                typeLabel = rtype == "DOB" ? "Date of birth" : "Name",
+                                oldFull = Show(rtype, oldFull), newFull = Show(rtype, newFull),
                                 by = S(r, 6), source = S(r, 7), ip = S(r, 8), at = S(r, 9),
                                 reason = S(r, 11),
                                 reversalOf = Convert.ToInt32(r[12]),
-                                currentFull = curFull,
+                                currentFull = Show(rtype, curFull),
                                 isReversal = reversal,
                                 canReverse = canReverse,
-                                drifted = !reversal && curFull.Length > 0 && !string.Equals(curFull, newFull, StringComparison.Ordinal)
+                                drifted = !reversal && haveRecord && !string.Equals(curFull, newFull, StringComparison.Ordinal)
                             });
                         }
                 }
@@ -186,80 +218,104 @@ public partial class COOPERP_NewScreens_NameArrangements : Page
     public static string Reverse(int id, string reason)
     {
         var sw = MarksActionLogger.StartTimer();
-        string outcome = MarksActionLogger.OUTCOME_SUCCESS, detail = "";
+        string outcome = MarksActionLogger.OUTCOME_SUCCESS, detail = "", logType = "";
         try
         {
             MarksScope scope = MarksScopeResolver.Resolve();
             if (!scope.HasAccess) { outcome = MarksActionLogger.OUTCOME_AUTH_FAIL; return Fail("You do not have access to student records."); }
             if (string.IsNullOrEmpty(reason) || reason.Trim().Length < 5)
-            { outcome = MarksActionLogger.OUTCOME_VALIDATION; return Fail("Give a reason for putting this name back (at least five characters). It is stored with the entry."); }
+            { outcome = MarksActionLogger.OUTCOME_VALIDATION; return Fail("Give a reason for putting this back (at least five characters). It is stored with the entry."); }
 
             using (var c = new MySqlConnection(ConnStr()))
             {
                 c.Open();
 
-                string regno = "", oldFirst = "", oldOther = "", oldFull = "", newFull = "", src = "";
+                string regno = "", oldFirst = "", oldOther = "", oldFull = "", newFull = "", src = "", rtype = "NAME";
                 bool found = false;
                 using (var cmd = new MySqlCommand(
                     "SELECT regno, IFNULL(old_firstname,''), IFNULL(old_othername,''), IFNULL(old_full,''), " +
-                    "       IFNULL(new_full,''), IFNULL(source,'') FROM stud_name_arrangement WHERE id=@i LIMIT 1", c))
+                    "       IFNULL(new_full,''), IFNULL(source,''), IFNULL(record_type,'NAME') " +
+                    "FROM stud_name_arrangement WHERE id=@i LIMIT 1", c))
                 {
                     cmd.Parameters.AddWithValue("@i", id);
                     using (var r = cmd.ExecuteReader())
                         if (r.Read())
-                        { found = true; regno = S(r, 0); oldFirst = S(r, 1); oldOther = S(r, 2); oldFull = S(r, 3); newFull = S(r, 4); src = S(r, 5); }
+                        { found = true; regno = S(r, 0); oldFirst = S(r, 1); oldOther = S(r, 2); oldFull = S(r, 3); newFull = S(r, 4); src = S(r, 5); rtype = S(r, 6); }
                 }
                 if (!found) { outcome = MarksActionLogger.OUTCOME_VALIDATION; return Fail("That entry was not found."); }
-                if (IsReversal(src)) { outcome = MarksActionLogger.OUTCOME_VALIDATION; return Fail("That entry is itself a reversal. Reverse the original instead, or ask the student to rearrange again."); }
+                if (IsReversal(src)) { outcome = MarksActionLogger.OUTCOME_VALIDATION; return Fail("That entry is itself a reversal. Reverse the original instead, or ask the student to correct it again."); }
 
-                string curFirst = "", curOther = "", progid = "";
+                bool isDob = rtype == "DOB";
+                string what = isDob ? "date of birth" : "name";
+                logType = rtype;
+
+                string curFirst = "", curOther = "", curDob = "", progid = "";
                 using (var cmd = new MySqlCommand(
-                    "SELECT IFNULL(firstname,''), IFNULL(othername,''), IFNULL(progid,'') FROM acad_student WHERE regno=@r LIMIT 1", c))
+                    "SELECT IFNULL(firstname,''), IFNULL(othername,''), IFNULL(progid,''), " +
+                    "       IFNULL(DATE_FORMAT(dob,'%Y-%m-%d'),'') FROM acad_student WHERE regno=@r LIMIT 1", c))
                 {
                     cmd.Parameters.AddWithValue("@r", regno);
                     using (var r = cmd.ExecuteReader())
                     {
                         if (!r.Read()) { outcome = MarksActionLogger.OUTCOME_VALIDATION; return Fail("That student record no longer exists."); }
-                        curFirst = S(r, 0); curOther = S(r, 1); progid = S(r, 2);
+                        curFirst = S(r, 0); curOther = S(r, 1); progid = S(r, 2); curDob = S(r, 3);
                     }
                 }
                 if (!scope.AllowsProg(progid))
                 { outcome = MarksActionLogger.OUTCOME_AUTH_FAIL; return Fail("That student is on a programme outside your scope."); }
 
                 // The guard: only put it back if the record still holds what this entry produced.
-                string curFull = (curFirst + " " + curOther).Trim();
+                // Compared in the shape it was stored — ISO for a date, the rendered name for a
+                // name — so the comparison is exact either way.
+                string curFull = isDob ? curDob : (curFirst + " " + curOther).Trim();
                 if (!string.Equals(curFull, newFull, StringComparison.Ordinal))
                 {
                     outcome = MarksActionLogger.OUTCOME_VALIDATION;
-                    return Fail("The name has changed since this entry, so it was left alone. It now reads \"" +
-                                curFull + "\", not \"" + newFull + "\". Reverse the most recent entry instead.");
+                    return Fail("The " + what + " has changed since this entry, so it was left alone. It now reads \"" +
+                                Show(rtype, curFull) + "\", not \"" + Show(rtype, newFull) + "\". Reverse the most recent entry instead.");
                 }
                 if (string.Equals(oldFull, newFull, StringComparison.Ordinal))
-                { outcome = MarksActionLogger.OUTCOME_SKIPPED; return Fail("That entry did not change the name, so there is nothing to put back."); }
+                { outcome = MarksActionLogger.OUTCOME_SKIPPED; return Fail("That entry did not change the " + what + ", so there is nothing to put back."); }
 
                 using (var tx = c.BeginTransaction())
                 {
-                    using (var cmd = new MySqlCommand("UPDATE acad_student SET firstname=@f, othername=@o WHERE regno=@r", c, tx))
+                    // A date of birth that was blank before goes back to blank, not to the epoch:
+                    // an empty old_full means the student filled in something the University never
+                    // held, and undoing that has to leave it empty again.
+                    string sql = isDob ? "UPDATE acad_student SET dob=@d WHERE regno=@r"
+                                       : "UPDATE acad_student SET firstname=@f, othername=@o WHERE regno=@r";
+                    using (var cmd = new MySqlCommand(sql, c, tx))
                     {
-                        cmd.Parameters.AddWithValue("@f", oldFirst);
-                        cmd.Parameters.AddWithValue("@o", oldOther);
+                        if (isDob)
+                        {
+                            DateTime back;
+                            cmd.Parameters.AddWithValue("@d",
+                                DateTime.TryParseExact(oldFull, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                                                       DateTimeStyles.None, out back) ? (object)back : DBNull.Value);
+                        }
+                        else
+                        {
+                            cmd.Parameters.AddWithValue("@f", oldFirst);
+                            cmd.Parameters.AddWithValue("@o", oldOther);
+                        }
                         cmd.Parameters.AddWithValue("@r", regno);
                         if (cmd.ExecuteNonQuery() == 0)
-                        { tx.Rollback(); outcome = MarksActionLogger.OUTCOME_ERROR; return Fail("The name could not be put back. Please try again."); }
+                        { tx.Rollback(); outcome = MarksActionLogger.OUTCOME_ERROR; return Fail("The " + what + " could not be put back. Please try again."); }
                     }
 
                     // Recorded as a new entry rather than by editing the old one, so the trail is
                     // append-only and a reversal is as visible as the change it undoes.
                     using (var cmd = new MySqlCommand(
-                        "INSERT INTO stud_name_arrangement (regno, old_firstname, old_othername, new_firstname, new_othername, " +
+                        "INSERT INTO stud_name_arrangement (regno, record_type, old_firstname, old_othername, new_firstname, new_othername, " +
                         " old_full, new_full, changed_by, reason, reversal_of, source, ip_address, changed_at) " +
-                        "VALUES (@r,@of,@oo,@nf,@no,@ofull,@nfull,@by,@why,@rev,'eadmin-reversal',@ip,NOW())", c, tx))
+                        "VALUES (@r,@rt,@of,@oo,@nf,@no,@ofull,@nfull,@by,@why,@rev,'eadmin-reversal',@ip,NOW())", c, tx))
                     {
                         cmd.Parameters.AddWithValue("@r", regno);
-                        cmd.Parameters.AddWithValue("@of", curFirst);
-                        cmd.Parameters.AddWithValue("@oo", curOther);
-                        cmd.Parameters.AddWithValue("@nf", oldFirst);
-                        cmd.Parameters.AddWithValue("@no", oldOther);
+                        cmd.Parameters.AddWithValue("@rt", rtype);
+                        cmd.Parameters.AddWithValue("@of", isDob ? (object)DBNull.Value : curFirst);
+                        cmd.Parameters.AddWithValue("@oo", isDob ? (object)DBNull.Value : curOther);
+                        cmd.Parameters.AddWithValue("@nf", isDob ? (object)DBNull.Value : oldFirst);
+                        cmd.Parameters.AddWithValue("@no", isDob ? (object)DBNull.Value : oldOther);
                         cmd.Parameters.AddWithValue("@ofull", curFull);
                         cmd.Parameters.AddWithValue("@nfull", oldFull);
                         // Actor and reason are kept apart, and each is cut to what its column
@@ -274,8 +330,9 @@ public partial class COOPERP_NewScreens_NameArrangements : Page
                     tx.Commit();
                 }
 
-                detail = regno + ": \"" + newFull + "\" put back to \"" + oldFull + "\"";
-                return J.Serialize(new { success = true, message = "Put back. " + regno + "'s name reads \"" + oldFull + "\" again." });
+                detail = regno + " (" + rtype + "): \"" + newFull + "\" put back to \"" + oldFull + "\"";
+                return J.Serialize(new { success = true, message = "Put back. " + regno + "'s " + what +
+                    (oldFull.Length == 0 ? " is blank again, as it was before." : " reads \"" + Show(rtype, oldFull) + "\" again.") });
             }
         }
         catch (Exception ex)
@@ -288,9 +345,9 @@ public partial class COOPERP_NewScreens_NameArrangements : Page
             try
             {
                 var ctx = new Dictionary<string, string> {
-                    { "entryId", id.ToString() }, { "reason", reason ?? "" },
+                    { "entryId", id.ToString() }, { "type", logType }, { "reason", reason ?? "" },
                     { "result", detail }, { "actor", CurrentUser() } };
-                MarksActionLogger.StopAndLog(sw, PAGE, "NAME_ARRANGEMENT_REVERSE", outcome, ctx, null);
+                MarksActionLogger.StopAndLog(sw, PAGE, "STUDENT_RECORD_REVERSE", outcome, ctx, null);
             }
             catch { }
         }
