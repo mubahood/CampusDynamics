@@ -279,7 +279,7 @@ public partial class API_v2_residence : System.Web.UI.Page
                           ELSE 0 END AS occupancy_pct
               FROM acad_halls h
               LEFT JOIN (
-                  SELECT hall_id, COUNT(*) AS occupied FROM acad_residence r" + occFilter + " GROUP BY hall_id
+                  SELECT hall_id, COUNT(*) AS occupied FROM acad_residence r" + occFilter + @" GROUP BY hall_id
               ) occ ON occ.hall_id = h.id
               ORDER BY occupancy_pct DESC",
             parms.ToArray());

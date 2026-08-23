@@ -40,6 +40,7 @@ public partial class API_v2_academic : System.Web.UI.Page
                 case "submit_semester_deletion":       HandleSubmitSemesterDeletion();         break;
                 case "decide_semester_deletion":       HandleDecideSemesterDeletion();         break;
                 case "batch_decide_semester_deletion": HandleBatchDecideSemesterDeletion();    break;
+                case "course_bank":                    HandleCourseBank();                     break;
                 default:
                     ApiHelper.Error(Response,
                         "Unknown action: " + action + ". Valid actions: results, transcript, gpa, " +
@@ -62,6 +63,72 @@ public partial class API_v2_academic : System.Web.UI.Page
     // ═══════════════════════════════════════════════════════════════════
     //  AUTH HELPER
     // ═══════════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  COURSE BANK — search the catalogue
+    //
+    //  The portal's Course Bank lets a student look a course code up and see what it is worth.
+    //  Archived and merged codes are excluded: they are history, and offering them for search
+    //  invites a student to register against a code that no longer exists.
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleCourseBank()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string q = ApiHelper.Param(Request, "q", "").Trim();
+        string prog = ApiHelper.Param(Request, "programme", "").Trim();
+        int page = ApiHelper.ParamInt(Request, "page", 1); if (page < 1) page = 1;
+        int limit = ApiHelper.ParamInt(Request, "limit", 25); if (limit < 1 || limit > 100) limit = 25;
+
+        // A blank code is a junk row, not a course; offering it for search is offering nothing.
+        string where = "WHERE IFNULL(c.course_state,'ACTIVE') = 'ACTIVE' AND TRIM(IFNULL(c.courseID,'')) <> ''";
+        var ps = new List<MySqlParameter>();
+        if (q != "")
+        {
+            where += " AND (TRIM(c.courseID) LIKE @q OR c.courseName LIKE @q)";
+            ps.Add(new MySqlParameter("@q", "%" + q + "%"));
+        }
+        if (prog != "")
+        {
+            where += " AND EXISTS (SELECT 1 FROM acad_programmecourses pc WHERE TRIM(pc.course_code)=TRIM(c.courseID) AND pc.progcode=@p)";
+            ps.Add(new MySqlParameter("@p", prog));
+        }
+
+        object totalObj = ApiHelper.Scalar("SELECT COUNT(*) FROM acad_course c " + where, ps.ToArray());
+        int total = totalObj == null ? 0 : Convert.ToInt32(totalObj);
+
+        var ps2 = new List<MySqlParameter>(ps);
+        DataTable dt = ApiHelper.Query(
+            "SELECT TRIM(c.courseID) AS course_code, IFNULL(c.courseName,'') AS course_name, " +
+            "  IFNULL(c.CreditUnit,0) AS credit_units, IFNULL(c.CoreStatus,'') AS core_status, " +
+            "  IFNULL(c.LectureHr,0) AS lecture_hours, IFNULL(c.PracticalHr,0) AS practical_hours, " +
+            "  (SELECT COUNT(DISTINCT pc.progcode) FROM acad_programmecourses pc " +
+            "     WHERE TRIM(pc.course_code)=TRIM(c.courseID)) AS programme_count " +
+            "FROM acad_course c " + where +
+            " ORDER BY c.courseID LIMIT " + limit + " OFFSET " + ((page - 1) * limit),
+            ps2.ToArray());
+
+        var items = new List<object>();
+        foreach (DataRow r in dt.Rows)
+            items.Add(new
+            {
+                course_code = Convert.ToString(r["course_code"]).Trim(),
+                course_name = Convert.ToString(r["course_name"]).Trim(),
+                credit_units = Convert.ToDouble(r["credit_units"]),
+                core_status = Convert.ToString(r["core_status"]).Trim(),
+                lecture_hours = Convert.ToDouble(r["lecture_hours"]),
+                practical_hours = Convert.ToDouble(r["practical_hours"]),
+                offered_on_programmes = Convert.ToInt32(r["programme_count"])
+            });
+
+        ApiHelper.Success(Response, new
+        {
+            courses = items,
+            pagination = new { page = page, limit = limit, total = total, total_pages = (int)Math.Ceiling(total / (double)limit) }
+        }, "Course bank");
+    }
 
     private string GetStudentRegNo(out TokenInfo auth)
     {

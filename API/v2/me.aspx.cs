@@ -58,11 +58,16 @@ public partial class API_v2_me : System.Web.UI.Page
                 case "save_dob":         HandleSaveDob();        break;
                 case "photo":            HandlePhoto();          break;
                 case "change_password":  HandleChangePassword(); break;
+                case "email_journey":    HandleEmailJourney();   break;
+                case "notifications":    HandleNotifications();  break;
+                case "read_notification": HandleReadNotification(); break;
+                case "fee_structure":    HandleFeeStructure();   break;
                 case "ping":             ApiHelper.Success(Response, new { service = "me", time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") }, "OK"); break;
                 default:
                     ApiHelper.Error(Response,
                         "Unknown action: " + action + ". Valid actions: summary, name, save_name, dob, " +
-                        "save_dob, photo, change_password, ping",
+                        "save_dob, photo, change_password, email_journey, notifications, " +
+                        "read_notification, fee_structure, ping",
                         "INVALID_ACTION");
                     break;
             }
@@ -596,6 +601,202 @@ public partial class API_v2_me : System.Web.UI.Page
         { ApiHelper.Error(Response, message, "PASSWORD_CHANGE_FAILED"); return; }
 
         ApiHelper.Success(Response, new { changed = true }, message);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  UNIVERSITY EMAIL (SEMS)
+    //
+    //  The 2026 intake onwards are issued a university email through an onboarding journey —
+    //  learn, practise, take a short quiz, then the address is revealed. 1,964 addresses,
+    //  586 creations and 403 quiz attempts sit behind it, and none of it was reachable.
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleEmailJourney()
+    {
+        string regno = Me(); if (regno == null) return;
+
+        string uniEmail = "";
+        string dirStatus = "";
+        try
+        {
+            DataTable d = ApiHelper.QueryPortal(
+                "SELECT email, IFNULL(status,'') AS status FROM sems_email_directory " +
+                "WHERE owner_type='STUDENT' AND TRIM(owner_ref)=@r ORDER BY id DESC LIMIT 1",
+                new MySqlParameter("@r", regno));
+            if (d.Rows.Count > 0)
+            {
+                uniEmail = Convert.ToString(d.Rows[0]["email"]).Trim();
+                dirStatus = Convert.ToString(d.Rows[0]["status"]).Trim();
+            }
+        }
+        catch { }
+
+        int attempts = 0, best = 0; bool passed = false; string lastAttempt = "";
+        try
+        {
+            DataTable q = ApiHelper.QueryPortal(
+                "SELECT COUNT(*) AS attempts, IFNULL(MAX(score),0) AS best, " +
+                "  MAX(CASE WHEN passed='Yes' THEN 1 ELSE 0 END) AS passed, " +
+                "  IFNULL(DATE_FORMAT(MAX(completed_at),'%Y-%m-%d %H:%i'),'') AS last_at " +
+                "FROM sems_quiz_attempts WHERE TRIM(regno)=@r", new MySqlParameter("@r", regno));
+            if (q.Rows.Count > 0)
+            {
+                attempts = Convert.ToInt32(q.Rows[0]["attempts"]);
+                best = Convert.ToInt32(q.Rows[0]["best"]);
+                passed = Convert.ToInt32(q.Rows[0]["passed"]) == 1;
+                lastAttempt = Convert.ToString(q.Rows[0]["last_at"]);
+            }
+        }
+        catch { }
+
+        int unread = 0;
+        try
+        {
+            object v = ApiHelper.ScalarPortal(
+                "SELECT COUNT(*) FROM sems_notifications WHERE TRIM(regno)=@r AND is_read='No'",
+                new MySqlParameter("@r", regno));
+            unread = v == null ? 0 : Convert.ToInt32(v);
+        }
+        catch { }
+
+        // The address is only revealed once the quiz is passed — that is the point of the
+        // journey, so the API keeps the same order rather than handing it over early.
+        bool revealed = passed && uniEmail != "";
+
+        ApiHelper.Success(Response, new
+        {
+            has_university_email = uniEmail != "",
+            university_email = revealed ? uniEmail : "",
+            directory_status = dirStatus,
+            revealed = revealed,
+            quiz = new
+            {
+                attempts = attempts,
+                best_score = best,
+                passed = passed,
+                last_attempt_at = lastAttempt
+            },
+            unread_notifications = unread,
+            next_step = uniEmail == "" ? "No university address has been created for you yet."
+                      : !passed ? "Take the short email quiz to reveal your address."
+                      : "Your university email is ready to use."
+        }, "University email");
+    }
+
+    private void HandleNotifications()
+    {
+        string regno = Me(); if (regno == null) return;
+        int limit = ApiHelper.ParamInt(Request, "limit", 25);
+        if (limit < 1 || limit > 100) limit = 25;
+
+        var items = new List<object>();
+        int unread = 0;
+        try
+        {
+            DataTable dt = ApiHelper.QueryPortal(
+                "SELECT id, IFNULL(title,'') AS title, IFNULL(message,'') AS message, IFNULL(icon,'') AS icon, " +
+                "  is_read, DATE_FORMAT(created_at,'%Y-%m-%d %H:%i') AS created_at " +
+                "FROM sems_notifications WHERE TRIM(regno)=@r ORDER BY id DESC LIMIT " + limit,
+                new MySqlParameter("@r", regno));
+            foreach (DataRow r in dt.Rows)
+            {
+                bool isRead = string.Equals(Convert.ToString(r["is_read"]), "Yes", StringComparison.OrdinalIgnoreCase);
+                if (!isRead) unread++;
+                items.Add(new
+                {
+                    id = Convert.ToInt64(r["id"]),
+                    title = Convert.ToString(r["title"]),
+                    message = Convert.ToString(r["message"]),
+                    icon = Convert.ToString(r["icon"]),
+                    is_read = isRead,
+                    created_at = Convert.ToString(r["created_at"])
+                });
+            }
+        }
+        catch { }
+
+        ApiHelper.Success(Response, new { notifications = items, unread_count = unread, count = items.Count },
+            "Notifications");
+    }
+
+    private void HandleReadNotification()
+    {
+        string regno = Me(); if (regno == null) return;
+        long id = 0;
+        long.TryParse(ApiHelper.Param(Request, "id", "0"), out id);
+
+        int n;
+        if (id > 0)
+            n = ApiHelper.ExecutePortal("UPDATE sems_notifications SET is_read='Yes' WHERE id=@i AND TRIM(regno)=@r",
+                new MySqlParameter("@i", id), new MySqlParameter("@r", regno));
+        else
+            n = ApiHelper.ExecutePortal("UPDATE sems_notifications SET is_read='Yes' WHERE TRIM(regno)=@r AND is_read='No'",
+                new MySqlParameter("@r", regno));
+
+        ApiHelper.Success(Response, new { marked_read = n }, id > 0 ? "Marked read." : "All marked read.");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  FEE STRUCTURE — the student's OWN programme, not the whole book
+    // ═══════════════════════════════════════════════════════════════════
+
+    private void HandleFeeStructure()
+    {
+        string regno = Me(); if (regno == null) return;
+
+        DataTable s = ApiHelper.Query(
+            "SELECT TRIM(IFNULL(progid,'')) AS prog, IFNULL(p.progname,'') AS prog_name " +
+            "FROM acad_student st LEFT JOIN acad_programme p ON p.progcode=TRIM(st.progid) " +
+            "WHERE TRIM(st.regno)=@r LIMIT 1", new MySqlParameter("@r", regno));
+        if (s.Rows.Count == 0) { ApiHelper.Error(Response, "No student record found.", "NOT_FOUND"); return; }
+        string prog = S(s.Rows[0], "prog");
+
+        DataTable f = ApiHelper.QueryAccounts(
+            "SELECT * FROM fin_programme_fees WHERE progcode=@p AND is_active='Yes' LIMIT 1",
+            new MySqlParameter("@p", prog));
+        if (f.Rows.Count == 0)
+        {
+            ApiHelper.Error(Response, "No active fee structure is set for your programme yet.", "NO_FEE_STRUCTURE");
+            return;
+        }
+        DataRow r0 = f.Rows[0];
+
+        // The table is one wide row of yN_sM_tuition / yN_sM_functional cells. Unfolded here so
+        // an app gets a list it can render, instead of forty column names to know about.
+        var years = new List<object>();
+        double grand = 0;
+        for (int y = 1; y <= 4; y++)
+        {
+            if (!r0.Table.Columns.Contains("has_year_" + y)) continue;
+            if (!string.Equals(S(r0, "has_year_" + y), "Yes", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var sems = new List<object>();
+            double yearTotal = 0;
+            for (int m = 1; m <= 3; m++)
+            {
+                string tc = "y" + y + "_s" + m + "_tuition", fc = "y" + y + "_s" + m + "_functional";
+                if (!r0.Table.Columns.Contains(tc)) continue;
+                double t = r0[tc] == DBNull.Value ? 0 : Convert.ToDouble(r0[tc]);
+                double fn = r0.Table.Columns.Contains(fc) && r0[fc] != DBNull.Value ? Convert.ToDouble(r0[fc]) : 0;
+                if (t == 0 && fn == 0) continue;
+                sems.Add(new { semester = m, tuition = t, functional = fn, total = t + fn });
+                yearTotal += t + fn;
+            }
+            if (sems.Count == 0) continue;
+            years.Add(new { study_year = y, semesters = sems, year_total = yearTotal });
+            grand += yearTotal;
+        }
+
+        ApiHelper.Success(Response, new
+        {
+            programme_code = prog,
+            programme_name = S(s.Rows[0], "prog_name"),
+            currency = "UGX",
+            years = years,
+            programme_total = grand,
+            note = "Tuition and functional fees as currently set for your programme. Retakes, " +
+                   "residence and other charges are billed separately."
+        }, "Fee structure");
     }
 
     // ═══════════════════════════════════════════════════════════════════

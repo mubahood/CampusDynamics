@@ -136,7 +136,7 @@ issues), and the app posts the image straight to it. One write path, no drift.
 | `auth.forgot_password` | Issue a reset PIN to the address on record |
 | `auth.reset_password` | Consume the PIN and set a new password |
 
-### Phase 3 — `requests.aspx`: everything a student asks the University for ⏳ SPECIFIED, NOT BUILT
+### Phase 3 — `requests.aspx`: everything a student asks the University for ✅ BUILT
 
 | Action | Does | Table |
 |---|---|---|
@@ -149,7 +149,7 @@ issues), and the app posts the image straight to it. One write path, no drift.
 | `requests.retakes` | Courses I may retake, and those I have registered | `acad_retake_registrations` |
 | `requests.register_retake` | Register a retake | " |
 
-### Phase 4 — `elections.aspx`: student elections ⏳ SPECIFIED, NOT BUILT
+### Phase 4 — `elections.aspx`: student elections ✅ BUILT
 
 | Action | Does |
 |---|---|
@@ -160,13 +160,18 @@ issues), and the app posts the image straight to it. One write path, no drift.
 | `elections.my_votes` | What I have already cast (not who for, if the ballot is secret) |
 | `elections.results` | Published results only |
 
-### Phase 5 — remaining ⏳ SPECIFIED, NOT BUILT
+### Phase 5 — remaining ✅ BUILT (two of them turned out not to need building)
 
-- `me.email_journey` / `me.email_complaint` — SEMS onboarding state, quiz, complaint (G9)
-- `me.enrollment_letter` — verification letter payload + verification code (G10)
-- `me.acknowledge_reading` — forced-reading acknowledgement (G12)
-- `academic.course_bank` — searchable course catalogue (G13)
-- `finance.my_fee_structure` — the student's own programme fee table (G14)
+| Item | Outcome |
+|---|---|
+| `me.email_journey` + `me.notifications` + `me.read_notification` (G9) | ✅ Built. The address is only returned once the quiz is passed — the API keeps the journey's own order rather than handing it over early |
+| `me.fee_structure` (G14) | ✅ Built. Unfolds the wide `fin_programme_fees` row into `years[] → semesters[]` so an app gets a list, not forty column names |
+| `academic.course_bank` (G13) | ✅ Built. Excludes archived, merged and blank codes |
+| **G10 — "enrollment verification letter"** | ❌ **The gap was misread.** `EnrollmentVerification.aspx` is an *email*-verification gate, not a letter. There is no letter to expose. The real need — proving current enrolment — is already answered by `academic.enrollment_status` and `me.summary`. **No endpoint built, and none needed.** |
+| **G12 — forced-reading acknowledgement** | ❌ **Already covered.** Forced-read notices live in `sys_communications` with `is_force_read`, and `campus.notices` already returns the flag while `campus.mark_read` already records the acknowledgement. Building a second endpoint would have duplicated a working one. |
+
+Both corrections are recorded rather than quietly dropped: the first was my misreading of a page
+name at analysis time, the second was a gap that closer reading showed was already closed.
 
 ---
 
@@ -199,9 +204,32 @@ matching the existing style. `API_DOCUMENTATION.md` is the long-form companion.
 |---|---|
 | 1 — `me.aspx` | ✅ Built, tested, documented |
 | 2 — `auth` password actions | ✅ Built, tested, documented |
-| 3 — `requests.aspx` | ⏳ Specified above; not built |
-| 4 — `elections.aspx` | ⏳ Specified above; not built |
-| 5 — SEMS / letter / reading / course bank / fee structure | ⏳ Specified above; not built |
+| 3 — `requests.aspx` | ✅ Built, tested, documented |
+| 4 — `elections.aspx` | ✅ Built, tested, documented |
+| 5 — SEMS / notifications / course bank / fee structure | ✅ Built, tested, documented |
+| 5 — enrollment letter (G10), forced reading (G12) | ❌ Not needed — see the table above |
 
-Phases 3–5 are written out in enough detail to be picked up directly. They are **not** built, and
-nothing in the docs claims they are.
+**All 14 gaps are closed.** Twelve by new endpoints, two by establishing that nothing was
+missing. The student API grew from 264 actions to **288**, in three new modules
+(`me`, `requests`, `elections`) plus additions to `auth` and `academic`.
+
+### What was verified
+
+Every endpoint was exercised against the **live database through real HTTP** with a genuine
+student token (`MRU2027000002`), asserting on auth, shape, each refusal path writing nothing, and
+cleanup. Elections were tested against a purpose-built `ZZ TEST` election — created Active,
+voted in, results published, then removed entirely, with an orphan check afterwards proving
+nothing was left behind. The test student's password was set temporarily and restored to its
+original hash.
+
+### Known limits, stated plainly
+
+- **Ballot secrecy is schema-deep, not cryptographic.** `elect_vote.voter_id` ties a ballot to a
+  voter; that is the existing design. The API declines to publish the link, but does not pretend
+  it is absent. Making elections genuinely secret would be a schema change and a separate piece
+  of work.
+- **Retake fees are not billed by the API.** `register_retake` records the registration with
+  `fee_billed='No'`; the Bursar's billing run raises the charge, as it does for the portal.
+- **Mark requests open at `PENDING_LECTURER` only.** Routing to a specific lecturer is honoured
+  via `assigned_lecturer_id` when supplied, but the API does not attempt the portal's fuller
+  lecturer-inference; an unrouted request is picked up at the department.

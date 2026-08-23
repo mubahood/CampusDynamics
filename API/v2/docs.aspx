@@ -175,6 +175,14 @@
                 <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ name / save_name</a>
                 <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ dob / save_dob</a>
                 <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ photo / change_password</a>
+                <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ email_journey / notifications / fee_structure</a>
+                <a href="#requests" class="api-sidebar__link">My Requests</a>
+                <a href="#requests" class="api-sidebar__link api-sidebar__link--sub">↳ mark corrections</a>
+                <a href="#requests" class="api-sidebar__link api-sidebar__link--sub">↳ course removals</a>
+                <a href="#requests" class="api-sidebar__link api-sidebar__link--sub">↳ retakes</a>
+                <a href="#elections" class="api-sidebar__link">Student Elections</a>
+                <a href="#elections" class="api-sidebar__link api-sidebar__link--sub">↳ list / detail / candidates</a>
+                <a href="#elections" class="api-sidebar__link api-sidebar__link--sub">↳ ballot / vote / my_ballot / results</a>
                 <div class="api-sidebar__heading">Project</div>
                 <a href="#changelog-v23" class="api-sidebar__link">Changelog v2.3</a>
                 <a href="#changelog" class="api-sidebar__link">Changelog v2.2</a>
@@ -491,6 +499,10 @@ Retry-After: 60
                     <div class="api-endpoint" data-status="live">
                         <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/academic.aspx?action=gpa&amp;token=...</div>
                         <div class="api-endpoint__info">Semester-by-semester GPA and cumulative GPA calculation.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> <span class="api-badge api-badge--live">NEW</span> /API/v2/academic.aspx?action=<strong>course_bank</strong></div>
+                        <div class="api-endpoint__info">Search the course catalogue — the portal's Course Bank. Params: <code>q</code> (code or name), <code>programme</code> (restrict to courses on a programme's curriculum), <code>page</code>, <code>limit</code>. Returns code, name, credit units, core status, contact hours and how many programmes offer it. Archived and merged codes are excluded, as are blank codes: they are history, and offering them for search invites registering against a code that no longer exists.</div>
                     </div>
                 </div>
             </div>
@@ -3629,8 +3641,112 @@ POST /API/v2/idcard.aspx?action=window_create&amp;title=2026/2027%20ID%20drive&a
                         <div class="api-endpoint__info">Identical to <code>auth.aspx?action=change_password</code>, on the module an app looks in for "change something about me". Body: <code>current_password</code>, <code>new_password</code>.</div>
                     </div>
                     <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>email_journey</strong></div>
+                        <div class="api-endpoint__info">The university-email onboarding state for the 2026 intake onwards: whether an address has been created, the quiz record (<code>attempts</code>, <code>best_score</code>, <code>passed</code>), unread notifications, and a plain <code>next_step</code>. <strong>The address is only returned once the quiz is passed</strong> — that is the point of the journey, so the API keeps the same order rather than handing it over early.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>notifications</strong></div>
+                        <div class="api-endpoint__info">The student's own notification feed with <code>unread_count</code>. Params: <code>limit</code> (default 25, max 100).</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>read_notification</strong></div>
+                        <div class="api-endpoint__info">Mark one notification read, or all of them. Body: <code>id</code> (omit or 0 = all). → <code>{ marked_read }</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>fee_structure</strong></div>
+                        <div class="api-endpoint__info">The fee structure for <em>this student's own programme</em>, unfolded from the wide <code>fin_programme_fees</code> row into <code>years[] → semesters[]</code> with tuition, functional and totals, plus <code>programme_total</code>. An app gets a list it can render instead of forty column names to know about. Errors: <code>NO_FEE_STRUCTURE</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
                         <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> me.aspx?action=<strong>ping</strong></div>
                         <div class="api-endpoint__info">Health check. No auth.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-section" id="requests">
+                <div class="api-section__header">
+                    <div class="api-section__title">My Requests — Marks, Course Removals &amp; Retakes <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">Everything a student <strong>asks the University for</strong>. Base: <code>requests.aspx</code>. Auth via <code>token</code>.
+                    Reads are self-scoped from the token; a staff token must name the student with <code>regno</code>. <strong>Writes are the student's own business</strong> — staff decide requests in eadmin, they do not raise them. Every write re-derives its preconditions from storage: that the course registration really belongs to the caller, that no duplicate request is already open, that a retake really is a failed course. Between them these three flows already hold 1,530 mark requests, 197 retakes and 35 removal requests.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> requests.aspx?action=<strong>marks</strong></div>
+                        <div class="api-endpoint__info">My mark correction requests. Params: <code>status</code> (<code>OPEN</code> / <code>CLOSED</code> / an exact status), <code>page</code>, <code>limit</code>. Each carries <code>status</code>, a human <code>stage</code> ("With the lecturer who taught the course", "With the Head of Department", "With the Academic Registrar"), <code>is_open</code>, and each desk's response. <code>pagination</code> is nested inside <code>data</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> requests.aspx?action=<strong>mark_detail</strong>&amp;id=1</div>
+                        <div class="api-endpoint__info">One request plus a <code>trail[]</code> in the order it happened — raised, lecturer, Head of Department, Registrar — so an app can draw a timeline. Another student's request is <code>NOT_FOUND</code>, not forbidden: the id simply does not exist for you.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> requests.aspx?action=<strong>submit_mark</strong></div>
+                        <div class="api-endpoint__info">Raise a mark correction. Body: <code>course_reg_id</code> (the registration the mark belongs to), <code>request_type</code> (<code>MISSING_MARK</code> | <code>MARK_CHANGE</code>), <code>reason</code> (≥10 characters — the lecturer reads it), <code>assigned_lecturer_id?</code> (who actually taught it). Opens at <code>PENDING_LECTURER</code>. Errors: <code>NOT_YOURS</code>, <code>ALREADY_OPEN</code>, <code>REASON_TOO_SHORT</code>, <code>BAD_PARAM</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> requests.aspx?action=<strong>cancel_mark</strong></div>
+                        <div class="api-endpoint__info">Withdraw a request. Body: <code>id</code>. <strong>Only while it is still with the lecturer</strong> — once a Head of Department or the Registrar has it, withdrawing would erase a decision in progress. Errors: <code>CANNOT_CANCEL</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> requests.aspx?action=<strong>course_removals</strong></div>
+                        <div class="api-endpoint__info">My course removal requests, each with <code>had_marks</code>, any published score/grade, the status and the Registrar's comment. Params: <code>page</code>, <code>limit</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> requests.aspx?action=<strong>submit_course_removal</strong></div>
+                        <div class="api-endpoint__info">Ask for a course registration to be removed. Body: <code>course_reg_id</code>, <code>reason</code> (≥10 characters). The current marks are snapshotted onto the request, and the reply says so when the course already carries marks. Errors: <code>NOT_YOURS</code>, <code>ALREADY_OPEN</code>, <code>REASON_TOO_SHORT</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> requests.aspx?action=<strong>cancel_course_removal</strong></div>
+                        <div class="api-endpoint__info">Withdraw a removal request while it is still <code>PENDING</code>. Body: <code>id</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> requests.aspx?action=<strong>retakes</strong></div>
+                        <div class="api-endpoint__info">Two lists: <code>eligible_courses[]</code> — every failed published result (grade F, or a score under 50 so a row with a missing grade still counts), each flagged <code>already_registered</code> — and <code>registered_retakes[]</code> with attempt number, fee, whether it has been billed, and the outcome once it exists.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> requests.aspx?action=<strong>register_retake</strong></div>
+                        <div class="api-endpoint__info">Register a retake. Body: <code>course_code</code>, <code>acad_year</code>, <code>semester</code> (the term it will be sat in). The failure is re-derived from <code>acad_results</code> rather than trusted — a retake carries a fee and a second attempt at a mark. The original score, grade and result id are copied onto the registration and the attempt number is computed. The fee is billed separately by the Bursar. Errors: <code>NOT_ELIGIBLE</code>, <code>ALREADY_REGISTERED</code>.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-section" id="elections">
+                <div class="api-section__header">
+                    <div class="api-section__title">Student Elections <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">Guild and faculty elections: what is running, who is standing, and casting a ballot. Base: <code>elections.aspx</code>. Auth via <code>token</code>.
+                    The rules are the portal's, reproduced in full: the election must be <code>Active</code>, the voter must be on the register and eligible, the ballot token must match the one stored against that voter, one vote per post, and the candidate must be <code>Approved</code> for that post in that election. Casting is a single transaction with the voter row locked, so two devices racing cannot produce two ballots for the same post.
+                    <strong>On secrecy:</strong> <code>elect_vote</code> stores <code>voter_id</code>, so a ballot is traceable in the schema — that is the existing design and this module does not pretend otherwise. What it will not do is publish it: <code>my_ballot</code> reports <em>which posts</em> a student has voted for, never which candidate, and results are served only once published.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> elections.aspx?action=<strong>list</strong></div>
+                        <div class="api-endpoint__info">Elections visible to this student (<code>Draft</code> ones are the Guild office's business and are excluded), each with a <code>me</code> block: <code>on_register</code>, <code>eligible</code>, <code>finished_voting</code>, <code>can_vote</code> and a plain <code>why_not</code> when they cannot.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> elections.aspx?action=<strong>detail</strong>&amp;election_id=1</div>
+                        <div class="api-endpoint__info">The ballot paper: only posts that actually have an approved candidate standing, each with <code>candidate_count</code> and <code>i_have_voted</code>, plus overall <code>progress</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> elections.aspx?action=<strong>candidates</strong>&amp;election_id=1&amp;post_id=2</div>
+                        <div class="api-endpoint__info">Approved candidates with name, photo, slogan and manifesto. <code>post_id</code> optional. The candidate's own registration number is deliberately <strong>not</strong> returned — a voter needs the name, the face and the manifesto, not a key to look them up by.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> elections.aspx?action=<strong>ballot</strong>&amp;election_id=1</div>
+                        <div class="api-endpoint__info">Issue the ballot token this student votes with. A fresh token each time, stored against the voter — the same scheme the web page uses, so opening the ballot again retires the previous one. Errors: <code>NOT_ACTIVE</code>, <code>NOT_ON_REGISTER</code>, <code>NOT_ELIGIBLE</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> elections.aspx?action=<strong>vote</strong></div>
+                        <div class="api-endpoint__info">Cast one vote. Body: <code>election_id</code>, <code>post_id</code>, <code>candidate_id</code>, <code>ballot_token</code>. Returns <code>progress</code> and <code>ballot_complete</code>; the voter is flagged finished once every post has been voted on. Errors: <code>NOT_ACTIVE</code>, <code>NOT_ON_REGISTER</code>, <code>NOT_ELIGIBLE</code>, <code>INVALID_BALLOT_TOKEN</code>, <code>ALREADY_VOTED</code>, <code>INVALID_CANDIDATE</code>.</div>
+                        <div class="api-code">{ <span class="c-key">"recorded"</span>: <span class="c-num">true</span>, <span class="c-key">"post_id"</span>: <span class="c-num">2</span>,
+  <span class="c-key">"progress"</span>: { <span class="c-key">"total_posts"</span>: <span class="c-num">4</span>, <span class="c-key">"voted_posts"</span>: <span class="c-num">1</span>, <span class="c-key">"remaining"</span>: <span class="c-num">3</span> },
+  <span class="c-key">"ballot_complete"</span>: <span class="c-num">false</span> }</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> elections.aspx?action=<strong>my_ballot</strong>&amp;election_id=1</div>
+                        <div class="api-endpoint__info">Which posts this student has voted for and when. <strong>Who they voted for is not reported.</strong></div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> elections.aspx?action=<strong>results</strong>&amp;election_id=1</div>
+                        <div class="api-endpoint__info">Results grouped by post, ranked, with winners and ties. Served only when <code>results_public</code> is set (or live results are on and the election is Closed) — otherwise <code>RESULTS_NOT_PUBLISHED</code>. Raw vote counts appear only if the Guild office enabled <code>show_vote_counts</code>; the ranking and percentage always do.</div>
                     </div>
                 </div>
             </div>
