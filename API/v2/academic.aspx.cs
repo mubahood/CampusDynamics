@@ -49,7 +49,7 @@ public partial class API_v2_academic : System.Web.UI.Page
                         "course_enrollments, programme_curriculum, grading_scheme, semester_status, " +
                         "retake_courses, student_academic_summary, academic_standing, " +
                         "semester_deletion_requests, semester_deletion_request, submit_semester_deletion, " +
-                        "decide_semester_deletion, batch_decide_semester_deletion",
+                        "decide_semester_deletion, batch_decide_semester_deletion, course_bank",
                         "INVALID_ACTION");
                     break;
             }

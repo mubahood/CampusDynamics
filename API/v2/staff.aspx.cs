@@ -55,6 +55,9 @@ public partial class API_v2_staff : System.Web.UI.Page
                 case "sheet_status":
                     HandleSheetStatus();
                     break;
+                case "deadlines":
+                    HandleDeadlines();
+                    break;
                 case "lookup":
                     HandleLookup();
                     break;
@@ -174,7 +177,7 @@ public partial class API_v2_staff : System.Web.UI.Page
                         "Course Allocation: course_allocation_search, course_allocation_submit, course_unassign | " +
                         "Course Registration: course_reg_summary, course_reg_list, course_reg_validate_student, course_reg_enroll, course_reg_student_courses, course_reg_popularity | " +
                         "Lecturer Mark Requests: lmr_requests, lmr_respond, lmr_reject | " +
-                        "Mark Sheet: mark_sheet, save_entry_marks, submit_for_approval, sheet_status | " +
+                        "Mark Sheet: mark_sheet, save_entry_marks, submit_for_approval, sheet_status, deadlines | " +
                         "Provisional Marks: provisional_marks_list, provisional_mark_detail, save_provisional_mark, save_provisional_mark_inline, bulk_save_marks, provisional_marks_summary, mark_stats | " +
                         "Student: student_search | " +
                         "Mark Requests: mark_requests_list, create_mark_request, mark_request_detail, cancel_mark_request, admin_mark_requests, decide_mark_request | " +
@@ -1976,6 +1979,92 @@ public partial class API_v2_staff : System.Web.UI.Page
     /// Returns the workflow status of a mark sheet from acad_results_status.
     /// Status values: DRAFT, SUBMITTED, DEAN_APPROVED, PROVISIONAL_PUBLISHED, FINAL_PUBLISHED.
     /// </summary>
+    /// <summary>
+    /// Mark submission deadlines, with how long is left.
+    ///
+    /// This endpoint was documented as live and never existed — a call to it returned
+    /// INVALID_ACTION while the docs promised it. The data was there the whole time
+    /// (acad_deadlines), so it is built rather than the promise withdrawn.
+    ///
+    /// Deadlines are per campus, academic year, semester and study system. A row with no campus
+    /// or no study system applies to all of them, so those match either exactly or as a wildcard
+    /// rather than being dropped.
+    /// </summary>
+    private void HandleDeadlines()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        if (auth.UserType != "staff")
+        {
+            ApiHelper.Error(Response, "This endpoint is for staff members only.", "ACCESS_DENIED");
+            return;
+        }
+
+        string acadYear = ApiHelper.Param(Request, "acad_year", "");
+        int semester = ApiHelper.ParamInt(Request, "semester", 0);
+        string studySystem = ApiHelper.Param(Request, "study_system", "");
+        int campusId = ApiHelper.ParamInt(Request, "campus_id", 0);
+        string type = ApiHelper.Param(Request, "deadline_type", "").Trim().ToUpperInvariant();
+
+        string where = "WHERE IFNULL(is_active,1) = 1";
+        var ps = new List<MySqlParameter>();
+        if (!string.IsNullOrEmpty(acadYear)) { where += " AND AcademicYear = @ay"; ps.Add(new MySqlParameter("@ay", acadYear)); }
+        if (semester > 0) { where += " AND Semester = @sem"; ps.Add(new MySqlParameter("@sem", semester)); }
+        if (campusId > 0) { where += " AND (CampusID = @cid OR CampusID IS NULL OR CampusID = 0)"; ps.Add(new MySqlParameter("@cid", campusId)); }
+        if (!string.IsNullOrEmpty(studySystem)) { where += " AND (StudySystem = @ss OR IFNULL(StudySystem,'') = '')"; ps.Add(new MySqlParameter("@ss", studySystem)); }
+        if (type != "") { where += " AND deadline_type = @dt"; ps.Add(new MySqlParameter("@dt", type)); }
+
+        DataTable dt = ApiHelper.Query(
+            "SELECT ID AS deadline_id, IFNULL(ActivityName,'') AS activity, IFNULL(CampusID,0) AS campus_id, " +
+            "  DATE_FORMAT(Deadline,'%Y-%m-%d') AS deadline_date, IFNULL(EndTime,'') AS end_time, " +
+            "  IFNULL(AcademicYear,'') AS acad_year, IFNULL(Semester,0) AS semester, " +
+            "  IFNULL(StudySystem,'') AS study_system, IFNULL(deadline_type,'OTHER') AS deadline_type " +
+            "FROM acad_deadlines " + where + " ORDER BY Deadline, ID", ps.ToArray());
+
+        var items = new List<object>();
+        int past = 0, upcoming = 0;
+        foreach (DataRow r in dt.Rows)
+        {
+            string dateStr = Convert.ToString(r["deadline_date"]);
+            string endTime = Convert.ToString(r["end_time"]).Trim();
+
+            // The date and the time of day are stored apart. Both matter: a deadline of "today"
+            // has not passed at nine in the morning if it closes at half past ten at night.
+            DateTime due;
+            if (!DateTime.TryParse(dateStr + (endTime == "" ? " 23:59:59" : " " + endTime), out due))
+                if (!DateTime.TryParse(dateStr, out due)) continue;
+
+            TimeSpan left = due - DateTime.Now;
+            bool isPast = left.TotalSeconds <= 0;
+            if (isPast) past++; else upcoming++;
+
+            items.Add(new
+            {
+                deadline_id = Convert.ToInt32(r["deadline_id"]),
+                activity = Convert.ToString(r["activity"]),
+                deadline_type = Convert.ToString(r["deadline_type"]),
+                acad_year = Convert.ToString(r["acad_year"]),
+                semester = Convert.ToInt32(r["semester"]),
+                study_system = Convert.ToString(r["study_system"]),
+                campus_id = Convert.ToInt32(r["campus_id"]),
+                deadline_date = dateStr,
+                end_time = endTime,
+                due_at = due.ToString("yyyy-MM-dd HH:mm"),
+                is_past_due = isPast,
+                hours_remaining = isPast ? 0 : Math.Round(left.TotalHours, 1),
+                days_remaining = isPast ? 0 : (int)Math.Floor(left.TotalDays)
+            });
+        }
+
+        ApiHelper.Success(Response, new
+        {
+            deadlines = items,
+            total = items.Count,
+            upcoming = upcoming,
+            past_due = past
+        }, "Mark submission deadlines");
+    }
+
     private void HandleSheetStatus()
     {
         TokenInfo auth = TokenManager.RequireAuth(Request, Response);
@@ -2374,6 +2463,14 @@ public partial class API_v2_staff : System.Web.UI.Page
         int    page      = Math.Max(1, ApiHelper.ParamInt(Request, "page", 1));
         int    size      = Math.Min(200, Math.Max(1, ApiHelper.ParamInt(Request, "size", 50)));
         int    offset    = (page - 1) * size;
+
+        // NOTE: an unfiltered call to this endpoint takes ~110 seconds. Narrowing it to the
+        // current academic year (14,060 rows of 693,761) was tried and made no difference, so
+        // the cost is the query SHAPE, not the row count — the cross-database join between
+        // campus_dynamics_portal.acad_course_registration and campus_dynamics.acad_student,
+        // which is the documented collation/TRIM pattern that defeats the indexes. Fixing it
+        // belongs with that work, not here; a half-fix with a reassuring message attached
+        // would be worse than the honest slow answer.
 
         var where = new System.Text.StringBuilder("WHERE cr.regno IS NOT NULL");
         var parms = new List<MySqlParameter>();

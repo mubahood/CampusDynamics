@@ -186,6 +186,7 @@
                 <div class="api-sidebar__heading">Project</div>
                 <a href="#changelog-v23" class="api-sidebar__link">Changelog v2.3</a>
                 <a href="#changelog" class="api-sidebar__link">Changelog v2.2</a>
+                <a href="#action-index" class="api-sidebar__link">Complete Action Index</a>
                 <a href="#roadmap" class="api-sidebar__link">Roadmap</a>
             </nav>
         </aside>
@@ -372,6 +373,335 @@ GET /API/v2/auth.aspx?action=ping
             </div>
 
             <!-- Rate Limiting -->
+            <div class="api-section" id="action-index">
+                <div class="api-section__header">
+                    <div class="api-section__title">Complete Action Index <span class="api-badge api-badge--live">284 ACTIONS</span></div>
+                    <div class="api-section__desc">Every action the API dispatches, generated from the <code>switch (action)</code> in each module rather than maintained by hand &mdash; so an action cannot exist without appearing here, and everything listed here can be called. Sub-switches on a parameter (for example the <code>type</code> of a student search) are deliberately excluded: they are argument values, not actions. <strong>AUTH</strong> means a token is required on some path; the rest are the deliberate public endpoints (login, applicant onboarding, reference data, health checks). The sections above carry the detail for each area.</div>
+                </div>
+                <div class="api-section__body">
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>academic.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>results</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>transcript</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>gpa</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>available_courses</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>registered_courses</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>register_course</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>drop_course</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>semester_registration</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>registration_history</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>enrollment_status</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_details</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_enrollments</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>programme_curriculum</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>grading_scheme</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>semester_status</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>retake_courses</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>student_academic_summary</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>academic_standing</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>semester_deletion_requests</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>semester_deletion_request</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit_semester_deletion</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>decide_semester_deletion</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>batch_decide_semester_deletion</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_bank</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>admissions.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>detail</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>review</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>admit</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>reject</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>withdraw</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>register</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>repair</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>ensure_account</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>add_note</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>notes</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>notify</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>stats</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>application_status</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>apply.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--get">PUBLIC</span> <code>register</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>login</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>verify_email</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>resend_otp</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>forgot_password</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>reset_password</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>my_profile</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>change_password</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>get_draft</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_step1</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_step2</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_step3</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>my_application</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>documents</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>upload_document</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>delete_document</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>get_document</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>notifications</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_read</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>programmes</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>faculties</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>campuses</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>intakes</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>check_status</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>appraisal.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>sessions</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>session</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>create_session</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_session</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>my_appraisals</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>appraisal_record</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_self_appraisal</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_supervisor_appraisal</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit_appraisal</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>report</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>export_report</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>competency_templates</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>auth.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--get">PUBLIC</span> <code>login</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>logout</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>validate</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>refresh</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>ping</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>change_password</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>forgot_password</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>reset_password</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>campus.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>notices</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_read</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>notice_detail</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>directory</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>academic_years</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>current_semester</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>programmes</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>campuses</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>faculties</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>departments</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>academic_calendar</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>elections.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>detail</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>candidates</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>ballot</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>vote</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>my_ballot</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>results</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>ping</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>finance.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>ledger</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>balance</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>fees_structure</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>payment_history</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>billing_summary</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>billing_breakdown</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>fee_status</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>bulk_fee_check</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>access_status</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>waivers</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>accommodation_status</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>student_financial_summary</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>chart_of_accounts</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>account</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>create_account</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_account</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>delete_account</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>residence_info</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>halls</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>allocate_residence</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>remove_residence</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>unallocated_residents</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>hall_utilization</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>residence_fees</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>residence_ledger</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>residence_report</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>idcard.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>queue</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>stats</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>windows</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>meta</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>detail</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>export</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>approve</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>printed</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>collected</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>batch</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>window_create</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>window_activate</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>window_close</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>my</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>finance</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>knowledgebase.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>categories</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>articles</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>article</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>search</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_category</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>delete_category</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_article</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>delete_article</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>me.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>summary</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>name</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_name</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>dob</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_dob</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>photo</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>change_password</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>email_journey</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>notifications</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>read_notification</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>fee_structure</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>ping</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>odel.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>my_learning</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>space</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>dashboard</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>lectures</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>updates</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>attendance</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit_autosave</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit_finalize</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_update_read</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>self_checkin</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>teaching_spaces</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_dashboard</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>roster</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignments</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_students</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>grading_queue</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>roll_roster</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>attendance_summary</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_grade</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_save</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_delete</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_attendance</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_set_status</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>ping</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>requests.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>marks</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_detail</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit_mark</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>cancel_mark</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_removals</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit_course_removal</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>cancel_course_removal</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>retakes</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>register_retake</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>ping</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>residence.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>halls</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>allocations</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>allocate</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>deallocate</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>residence_stats</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>staff.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>profile</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>photo</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>my_courses</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>class_list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>marks</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit_marks</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>filter_options</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>all_courses</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_sheet</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_entry_marks</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>submit_for_approval</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>sheet_status</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>deadlines</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>lookup</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>by_department</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>provisional_marks_list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>provisional_mark_detail</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_provisional_mark</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>save_provisional_mark_inline</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>provisional_marks_summary</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>bulk_save_marks</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_stats</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>student_search</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_allocation_search</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_allocation_submit</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_unassign</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_reg_summary</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_reg_list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_reg_validate_student</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_reg_enroll</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_reg_student_courses</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>course_reg_popularity</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>dashboard_stats</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>lmr_requests</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>lmr_respond</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>lmr_reject</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>employees</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>employee</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>create_employee</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_employee</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_contract</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>departments</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_requests_list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>create_mark_request</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_request_detail</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>cancel_mark_request</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>admin_mark_requests</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>decide_mark_request</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>student.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>profile</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>photo</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>lock_status</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>summary</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>lookup</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>verify</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>search</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>by_programme</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>bulk_enrollment</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>onboarding_list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>onboarding_stats</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>resolve_onboarding_email</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>application_detail</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_contact</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>guardian</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_guardian</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>enrollment_history</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>clearance</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>id_card</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>support.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>list</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>detail</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>create</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>reply</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_status</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>close</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>stats</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>attachment</code> &nbsp; 
+<span class="api-badge api-badge--get">PUBLIC</span> <code>issue_types</code> &nbsp; 
+</div></div>
+<div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>timetable.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
+<span class="api-badge api-badge--auth">AUTH</span> <code>lectures</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>exams</code> &nbsp; 
+</div></div>
+                </div>
+            </div>
+
             <div class="api-section" id="rate-limiting">
                 <div class="api-section__header">
                     <div class="api-section__title">Rate Limiting</div>
@@ -1580,8 +1910,8 @@ Content-Type: application/json
                     <div class="api-note">These endpoints integrate with the new marks management module. Marks flow through a workflow: <strong>DRAFT → SUBMITTED → DEAN_APPROVED → PUBLISHED</strong>.</div>
 
                     <div class="api-endpoint" data-status="live">
-                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/staff.aspx?action=teaching_assignments&amp;token=...&amp;acad_year=...&amp;semester=...</div>
-                        <div class="api-endpoint__info">Get courses assigned to this teacher. Uses new assignment table with legacy fallback.</div>
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/staff.aspx?action=my_courses&amp;token=...&amp;acad_year=...&amp;semester=...</div>
+                        <div class="api-endpoint__info">Courses assigned to this teacher. Uses the new assignment table with a legacy fallback. <em>(This card previously named a <code>teaching_assignments</code> action that has never existed; the working endpoint is <code>my_courses</code>.)</em></div>
                     </div>
 
                     <div class="api-endpoint" data-status="live">
@@ -3145,11 +3475,11 @@ Dr. Alice Nakato,ACADEMIC,School of Computing,ACADEMIC,COMPLETED,142,138,25,81.5
                         <div class="api-endpoint__info">Student submits a request to delete their semester registration. Params: <code>acad_year</code>, <code>semester</code>, <code>reason</code>. Blocked if a PENDING request already exists.</div>
                     </div>
                     <div class="api-endpoint" data-status="live">
-                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/academic.aspx?action=list_semester_deletion_requests&amp;token=... (staff only)</div>
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/academic.aspx?action=semester_deletion_requests&amp;token=... (staff only)</div>
                         <div class="api-endpoint__info">Paginated list. Filters: <code>status</code> (PENDING/APPROVED/REJECTED), <code>acad_year</code>, <code>prog</code>, <code>q</code>.</div>
                     </div>
                     <div class="api-endpoint" data-status="live">
-                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/academic.aspx?action=semester_deletion_detail&amp;id=&amp;token=... (staff only)</div>
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> /API/v2/academic.aspx?action=semester_deletion_request&amp;id=&amp;token=... (staff only)</div>
                         <div class="api-endpoint__info">Single request detail.</div>
                     </div>
                     <div class="api-endpoint" data-status="live">

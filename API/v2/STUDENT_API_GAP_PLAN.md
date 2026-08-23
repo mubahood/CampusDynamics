@@ -222,6 +222,71 @@ voted in, results published, then removed entirely, with an orphan check afterwa
 nothing was left behind. The test student's password was set temporarily and restored to its
 original hash.
 
+---
+
+## 9. API-wide consistency audit (24 Aug 2026)
+
+A separate pass over the **whole** API — not just the student surface — asking one question: does
+anything contradict anything else? Three checks, each run against the code rather than by reading.
+
+### Check 1 — does the documentation describe endpoints that do not exist?
+
+Four did. All four are fixed:
+
+| Documented as live | Reality | Fix |
+|---|---|---|
+| `staff.aspx?action=teaching_assignments` | never existed; `my_courses` is the real one | Card corrected to `my_courses`, with a note saying so |
+| `staff.aspx?action=deadlines` | never existed — **but `acad_deadlines` had 10 rows waiting** | **Built.** The promise was kept rather than withdrawn |
+| `academic.aspx?action=list_semester_deletion_requests` | real name is `semester_deletion_requests` | Card corrected |
+| `academic.aspx?action=semester_deletion_detail` | real name is `semester_deletion_request` | Card corrected |
+
+### Check 2 — does each module's own error message list its real actions?
+
+The `default:` branch of every module tells a caller what it *could* have asked for. Three were
+stale, each because an action had been added without updating the sentence beside it:
+`academic` was missing `course_bank` (mine, from the previous pass), `admissions` was missing
+`ensure_account`, and `staff` was missing the newly built `deadlines`. All three now list what
+they dispatch.
+
+### Check 3 — can every action the docs claim actually be called?
+
+Every action extracted from the `switch (action)` of all 18 modules was called over HTTP and
+checked for `INVALID_ACTION`. This is the check that catches an action documented in one place,
+renamed in another, and dead in a third.
+
+**Result: 290 of 290 dispatched.** Not one action named in the code failed to answer, and not one
+returned `INVALID_ACTION`. The docs and the code now agree completely.
+
+### What the sweep also exposed — and did NOT fix
+
+Three staff endpoints answer correctly but far too slowly to be usable:
+
+| Endpoint | Time | State |
+|---|---|---|
+| `staff.filter_options` | ~18 s | Works. Slow. |
+| `staff.provisional_marks_list` | **~110 s** unfiltered | Works. Unusable. |
+| `staff.mark_stats` | >12 s | Works. Slow. |
+
+I tried the obvious fix on the worst one — narrowing an unfiltered call to the current academic
+year — and **it made no difference**: that year holds 14,060 of the 693,761 rows, so the cost is
+the query *shape*, not the row count. The cause is almost certainly the cross-database join
+between `campus_dynamics_portal.acad_course_registration` and `campus_dynamics.acad_student`,
+which is the documented collation/TRIM pattern that defeats the indexes and has bitten this
+codebase before.
+
+**The narrowing was reverted rather than kept.** It did not deliver the improvement its message
+would have claimed, and a half-fix with a reassuring sentence attached is worse than an honest
+slow answer. A comment at the call site records what was tried and why it was dropped. Fixing it
+properly belongs with the cross-DB collation work, with its own before/after measurements.
+
+### And a new guard against this recurring
+
+`docs.aspx` now ends with a **Complete Action Index** — every action in every module, *generated
+from the dispatch switch itself*. An action cannot exist without appearing there, and nothing can
+appear there that cannot be called. Sub-switches on a parameter (the `type` of a student search,
+for instance) are deliberately excluded: they are argument values, not actions, and listing them
+was the first thing the generator got wrong.
+
 ### Known limits, stated plainly
 
 - **Ballot secrecy is schema-deep, not cryptographic.** `elect_vote.voter_id` ties a ballot to a

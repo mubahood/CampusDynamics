@@ -44,7 +44,7 @@ public partial class API_v2_admissions : System.Web.UI.Page
                 case "application_status": HandleApplicationStatus(); break;
                 default:
                     ApiHelper.Error(Response,
-                        "Unknown action: " + action + ". Valid actions: list, detail, review, admit, reject, withdraw, register, repair, add_note, notes, notify, stats, application_status",
+                        "Unknown action: " + action + ". Valid actions: list, detail, review, admit, reject, withdraw, register, repair, ensure_account, add_note, notes, notify, stats, application_status",
                         "INVALID_ACTION");
                     break;
             }
