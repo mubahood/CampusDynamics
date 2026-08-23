@@ -45,8 +45,19 @@ public partial class API_v2_auth : System.Web.UI.Page
                 case "ping":
                     HandlePing();
                     break;
+                // Account self-service. Until these existed an app could sign a student in and
+                // then strand them: no way to change a password, no way to recover an account.
+                case "change_password":
+                    HandleChangePassword();
+                    break;
+                case "forgot_password":
+                    HandleForgotPassword();
+                    break;
+                case "reset_password":
+                    HandleResetPassword();
+                    break;
                 default:
-                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: login, logout, validate, refresh, ping", "INVALID_ACTION");
+                    ApiHelper.Error(Response, "Unknown action: " + action + ". Valid actions: login, logout, validate, refresh, ping, change_password, forgot_password, reset_password", "INVALID_ACTION");
                     break;
             }
         }
@@ -403,6 +414,80 @@ public partial class API_v2_auth : System.Web.UI.Page
             { "full_name", newInfo.FullName },
             { "expires",   newInfo.ExpiresAt.ToString("o") }
         }, "Token refreshed successfully");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  ACCOUNT SELF-SERVICE
+    //
+    //  The mechanics live in App_Code/PasswordService.cs so that this module and API/v2/me
+    //  cannot drift apart, and so the membership hash is written in exactly one place. It is
+    //  the same algorithm the login path above verifies with — changing it would lock every
+    //  user out of the web portal too.
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>Change the password of the account this token belongs to. The token proves who
+    /// they are; the current password proves it is still them holding the device.</summary>
+    private void HandleChangePassword()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+
+        string current = ApiHelper.RequireParam(Request, Response, "current_password");
+        if (current == null) return;
+        string next = ApiHelper.RequireParam(Request, Response, "new_password");
+        if (next == null) return;
+
+        string message;
+        if (!PasswordService.ChangePassword(auth.UserId, auth.UserType, current, next, out message))
+        {
+            ApiHelper.Error(Response, message, "PASSWORD_CHANGE_FAILED");
+            return;
+        }
+        ApiHelper.Success(Response, new { changed = true }, message);
+    }
+
+    /// <summary>Ask for a reset code. The reply is the SAME whether or not the account exists —
+    /// otherwise this becomes a way to discover which registration numbers are real.</summary>
+    private void HandleForgotPassword()
+    {
+        string who = ApiHelper.RequireParam(Request, Response, "username");
+        if (who == null) return;
+
+        string ip = null;
+        try
+        {
+            ip = Request.ServerVariables["HTTP_X_FORWARDED_FOR"];
+            if (!string.IsNullOrEmpty(ip)) ip = ip.Split(',')[0].Trim();
+            else ip = Request.ServerVariables["REMOTE_ADDR"];
+        }
+        catch { }
+
+        string message, masked, unusedPin;
+        if (!PasswordService.StartReset(who, ip, out message, out masked, out unusedPin))
+        {
+            ApiHelper.Error(Response, message, "RESET_FAILED");
+            return;
+        }
+        ApiHelper.Success(Response, new { sent_to = masked, expires_in_minutes = 30 }, message);
+    }
+
+    /// <summary>Consume the code and set the new password.</summary>
+    private void HandleResetPassword()
+    {
+        string who = ApiHelper.RequireParam(Request, Response, "username");
+        if (who == null) return;
+        string pin = ApiHelper.RequireParam(Request, Response, "code");
+        if (pin == null) return;
+        string next = ApiHelper.RequireParam(Request, Response, "new_password");
+        if (next == null) return;
+
+        string message;
+        if (!PasswordService.CompleteReset(who, pin, next, out message))
+        {
+            ApiHelper.Error(Response, message, "RESET_FAILED");
+            return;
+        }
+        ApiHelper.Success(Response, new { reset = true }, message);
     }
 
     /// <summary>

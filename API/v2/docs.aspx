@@ -169,6 +169,12 @@
                 <a href="#odel-lecturer" class="api-sidebar__link">Lecturer Teaching</a>
                 <a href="#odel-lecturer" class="api-sidebar__link api-sidebar__link--sub">↳ spaces / dashboard / roster / assignments</a>
                 <a href="#odel-lecturer" class="api-sidebar__link api-sidebar__link--sub">↳ grading / lectures / attendance / announcements</a>
+                <div class="api-sidebar__heading">v2.6 — Student Self-Service</div>
+                <a href="#me-self" class="api-sidebar__link">My Record (me.aspx)</a>
+                <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ summary</a>
+                <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ name / save_name</a>
+                <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ dob / save_dob</a>
+                <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ photo / change_password</a>
                 <div class="api-sidebar__heading">Project</div>
                 <a href="#changelog-v23" class="api-sidebar__link">Changelog v2.3</a>
                 <a href="#changelog" class="api-sidebar__link">Changelog v2.2</a>
@@ -333,6 +339,26 @@ GET /API/v2/auth.aspx?action=ping
     <span class="c-key">"expires"</span>: <span class="c-str">"2035-05-16T10:00:00.0000000Z"</span>
   }
 }</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> <span class="api-badge api-badge--live">NEW</span> /API/v2/auth.aspx?action=<strong>change_password</strong></div>
+                        <div class="api-endpoint__info">Change the password of the account the token belongs to. Works for students and staff. Body: <code>current_password</code>, <code>new_password</code>. The token proves who they are; the current password proves it is still them holding the device. Minimum 6 characters, may not be the factory password (<code>123</code>) and may not equal the current one. Writes the same salted HMACSHA256 hash ASP.NET Membership uses, so the web portal accepts the new password immediately. Errors: <code>PASSWORD_CHANGE_FAILED</code>.</div>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{ <span class="c-key">"success"</span>: <span class="c-num">true</span>, <span class="c-key">"message"</span>: <span class="c-str">"Password changed."</span>, <span class="c-key">"data"</span>: { <span class="c-key">"changed"</span>: <span class="c-num">true</span> } }</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--live">NEW</span> /API/v2/auth.aspx?action=<strong>forgot_password</strong></div>
+                        <div class="api-endpoint__info">Send a 6-digit reset code to the address on record. Body: <code>username</code> — registration number, student number, email or staff username. <strong>The reply is identical whether or not the account exists</strong>, so this cannot be used to discover which registration numbers are real. The code expires in 30 minutes, allows 5 attempts, and is stored hashed and bound to the account. No auth required.</div>
+                        <div class="api-code"><span class="c-comm">// Response (always this shape)</span>
+{ <span class="c-key">"success"</span>: <span class="c-num">true</span>,
+  <span class="c-key">"message"</span>: <span class="c-str">"If that account exists, a reset code has been sent to the address on record."</span>,
+  <span class="c-key">"data"</span>: { <span class="c-key">"sent_to"</span>: <span class="c-str">"sa*****@mru.ac.ug"</span>, <span class="c-key">"expires_in_minutes"</span>: <span class="c-num">30</span> } }</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--live">NEW</span> /API/v2/auth.aspx?action=<strong>reset_password</strong></div>
+                        <div class="api-endpoint__info">Consume the code and set a new password. Body: <code>username</code>, <code>code</code>, <code>new_password</code>. The code is single-use; a wrong code counts an attempt and the fifth failure burns it. Errors: <code>RESET_FAILED</code>. No auth required.</div>
+                        <div class="api-code"><span class="c-comm">// Response</span>
+{ <span class="c-key">"success"</span>: <span class="c-num">true</span>, <span class="c-key">"message"</span>: <span class="c-str">"Password reset. You can sign in with the new password."</span>, <span class="c-key">"data"</span>: { <span class="c-key">"reset"</span>: <span class="c-num">true</span> } }</div>
                     </div>
                 </div>
             </div>
@@ -3559,6 +3585,56 @@ POST /API/v2/idcard.aspx?action=window_create&amp;title=2026/2027%20ID%20drive&a
             </div>
 
             <!-- v2.5 NEW MODULE: ODEL — Lecturer Teaching -->
+            <div class="api-section" id="me-self">
+                <div class="api-section__header">
+                    <div class="api-section__title">My Record — Student Self-Service <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">Everything a student does <strong>to their own record</strong>. Base: <code>me.aspx</code>. Auth via <code>token</code>.
+                    <strong>There is no <code>regno</code> parameter</strong> — the registration number is taken from the token and nowhere else, so there is nothing for a caller to tamper with. Staff tokens are refused (<code>STUDENT_TOKEN_REQUIRED</code>): a member of staff editing a student's name goes through eadmin, where it is attributed and reversible. The rules are the portal's own, re-derived server-side. Gap analysis and roadmap: <code>STUDENT_API_GAP_PLAN.md</code>.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>summary</strong></div>
+                        <div class="api-endpoint__info">One call to open an app home screen with. Returns <code>student</code> (identity, programme, entry year, status), <code>photo</code> (file, absolute URL, approval state, ban), <code>registration</code> (latest enrolled year/semester/study year), <code>academics</code> (<code>cgpa</code>, courses with results), and <code>pending_requests</code> (mark corrections, course removals, semester deletions + total) for badging.</div>
+                        <div class="api-code">{ <span class="c-key">"student"</span>: { <span class="c-key">"regno"</span>: <span class="c-str">"MRU2027000002"</span>, <span class="c-key">"full_name"</span>: <span class="c-str">"BIIRA SABIA MUTHEKE"</span>, <span class="c-key">"programme_code"</span>: <span class="c-str">"BAED"</span>, <span class="c-key">"date_of_birth_display"</span>: <span class="c-str">"18 August,1994"</span> },
+  <span class="c-key">"photo"</span>: { <span class="c-key">"has_photo"</span>: <span class="c-num">true</span>, <span class="c-key">"status"</span>: <span class="c-str">"APPROVED"</span>, <span class="c-key">"url"</span>: <span class="c-str">"https://eadmin.mru.ac.ug/..."</span> },
+  <span class="c-key">"registration"</span>: { <span class="c-key">"acad_year"</span>: <span class="c-str">"2026/2027"</span>, <span class="c-key">"semester"</span>: <span class="c-num">3</span>, <span class="c-key">"status"</span>: <span class="c-str">"REGISTERED"</span> },
+  <span class="c-key">"academics"</span>: { <span class="c-key">"cgpa"</span>: <span class="c-num">3.78</span>, <span class="c-key">"courses_with_results"</span>: <span class="c-num">17</span> },
+  <span class="c-key">"pending_requests"</span>: { <span class="c-key">"total"</span>: <span class="c-num">0</span> } }</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>name</strong></div>
+                        <div class="api-endpoint__info">The name as every document renders it, split into <code>words[]</code> for a reordering UI, plus <code>can_rearrange</code> and the <code>history[]</code> of past arrangements (each flagged <code>by_registrar</code> when staff put one back).</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>save_name</strong></div>
+                        <div class="api-endpoint__info">Reorder the words of the name. Body: <code>words</code> — comma-separated, in the wanted order. <strong>Only the order may change.</strong> The server re-derives the current name from storage and refuses anything that is not a permutation of it, compared <em>case-sensitively</em>, so this cannot be used to correct a spelling, add or drop a name, or change capitalisation. First word → <code>firstname</code>, the rest → <code>othername</code>, which is exactly what the transcript concatenates. Every change is written to <code>stud_name_arrangement</code> with <code>source='api'</code> and is reversible by the Registrar. Errors: <code>NOT_A_PERMUTATION</code>, <code>NOT_APPLICABLE</code>, <code>TOO_LONG</code>.</div>
+                        <div class="api-code"><span class="c-comm">// POST me.aspx?action=save_name  body: words=SABIA,MUTHEKE,BIIRA</span>
+{ <span class="c-key">"success"</span>: <span class="c-num">true</span>, <span class="c-key">"message"</span>: <span class="c-str">"Saved. Your name now reads \"SABIA MUTHEKE BIIRA\" everywhere, including your transcript."</span> }</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>dob</strong></div>
+                        <div class="api-endpoint__info">Date of birth as the transcript prints it (<code>"03 July,2001"</code>), the parts (<code>day</code>/<code>month</code>/<code>year</code>), the permitted year range, <code>corrections_used</code> / <code>corrections_remaining</code> / <code>can_change</code>, the <code>history[]</code>, and <code>day_month_swap</code> — the pre-computed swap for the commonest fault of all, a day and month entered the wrong way round.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>save_dob</strong></div>
+                        <div class="api-endpoint__info">Correct the date of birth. Body: either <code>date_of_birth</code> (<code>YYYY-MM-DD</code>) or <code>day</code>+<code>month</code>+<code>year</code>. Guards, all re-checked server-side: the date must exist in the calendar (31 February and 29 February in a common year are refused), may not be in the future, must leave the student between 14 and 90 today and at least 14 at their entry year, and a student may correct it <strong>at most 3 times</strong> before it becomes the Registrar's business. Logged to <code>stud_name_arrangement</code> as <code>record_type='DOB'</code>. Errors: <code>BAD_DATE</code>, <code>BAD_PARAM</code>, <code>IMPLAUSIBLE_AGE</code>, <code>LIMIT_REACHED</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>photo</strong></div>
+                        <div class="api-endpoint__info">Photograph state — current file and absolute URL, approval <code>status</code>, whether the student is <code>banned</code> from changing it, and <code>last_request</code> including the reviewer's comment on a rejection.
+                        <strong>The file is not posted here.</strong> <code>SelfPhotoUpload.ashx</code> is already the one place that validates an image, builds the thumbnail, names the file and writes both <code>acad_student.photofile</code> and the audit row — a second implementation would be a second set of rules to drift apart. So this returns an <code>upload</code> block with a short-lived HMAC ticket for that handler: <code>url</code>, <code>file_field</code> (<code>photoFile</code>), <code>token</code>, <code>expires_at</code>, <code>max_bytes</code> and the accepted extensions. POST the image there and the photograph becomes PENDING until an administrator approves it. <code>upload</code> is <code>null</code> for a banned student.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> me.aspx?action=<strong>change_password</strong></div>
+                        <div class="api-endpoint__info">Identical to <code>auth.aspx?action=change_password</code>, on the module an app looks in for "change something about me". Body: <code>current_password</code>, <code>new_password</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> me.aspx?action=<strong>ping</strong></div>
+                        <div class="api-endpoint__info">Health check. No auth.</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="api-section" id="odel-lecturer">
                 <div class="api-section__header">
                     <div class="api-section__title">ODEL — Lecturer Teaching <span class="api-badge api-badge--live">LIVE</span></div>
