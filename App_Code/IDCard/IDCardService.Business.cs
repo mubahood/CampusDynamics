@@ -296,25 +296,71 @@ public static partial class IDCardService
     // FINANCE GATE (students only; 10% of current-semester fee)
     // ==================================================================
     private class Finance { public double Fee; public double Paid; public double Required; public bool Eligible; public bool Flagged;
-        public string AcadYear = ""; public int Semester; public int StudyYear; public string Prog = ""; }
+        public string AcadYear = ""; public int Semester; public int StudyYear; public string Prog = "";
+        public bool Enrolled = true;    // false when no enrolled registration backs the semester below
+        public bool HasStudent = true;  // false when there is no student record to measure at all
+        public string State = "OK"; }   // OK | BELOW | NO_FEE_STRUCTURE | NO_RECORD
 
     private static Finance RunFinance(MySqlConnection conn, string regno)
     {
         var f = new Finance();
-        // latest enrolled registration + programme/study year
+
+        // The programme is the student's, not the registration's — it is needed in every
+        // case below, including the one where there is no registration to join to.
+        using (var cmd = new MySqlCommand("SELECT IFNULL(progid,'') FROM acad_student WHERE regno=@r LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@r", regno ?? "");
+            object v = cmd.ExecuteScalar();
+            if (v == null) { f.HasStudent = false; f.Flagged = true; f.Eligible = true; f.State = "NO_RECORD"; return f; }
+            f.Prog = Convert.ToString(v);
+        }
+
+        // WHICH SEMESTER IS THE FEE MEASURED AGAINST?
+        //
+        // An enrolled registration answers it outright, and is preferred. When there is
+        // none the question is still answerable, and it must be answered rather than
+        // refused: admission activates a student's account and leaves semester
+        // registration for later, so a newly admitted student legitimately has NO
+        // acad_registration row at all. 103 of the 2026 intake are in exactly that
+        // position — the intake that most needs an ID card.
+        //
+        // That case used to return here with a fee of 0, a requirement of 0 and
+        // Eligible=false, so the wizard told the student to pay 10% of 0 and reported a
+        // shortfall of 0. It refused them for failing a test it had not managed to set.
+        //
+        // A non-enrolled row still says which semester the student belongs to, so it is
+        // used when present; failing everything, the current academic year at year one,
+        // semester one — which is what a fresh admission is about to be billed for.
+        bool found = false;
         using (var cmd = new MySqlCommand(
-            "SELECT r.acad_year, r.semester, r.studyyear, s.progid FROM acad_registration r" +
-            " JOIN acad_student s ON s.regno=r.regno" +
-            " WHERE r.regno=@r AND r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')" +
-            " ORDER BY r.acad_year DESC, r.semester DESC LIMIT 1", conn))
+            "SELECT r.acad_year, r.semester, r.studyyear," +
+            "       (r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')) AS enrolled" +
+            "  FROM acad_registration r WHERE r.regno=@r" +
+            " ORDER BY (r.regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')) DESC," +
+            "          r.acad_year DESC, r.semester DESC LIMIT 1", conn))
         {
             cmd.Parameters.AddWithValue("@r", regno ?? "");
             using (var r = cmd.ExecuteReader())
+                if (r.Read())
+                {
+                    found = true;
+                    f.AcadYear = S(r["acad_year"]); f.Semester = ToI(r["semester"]);
+                    f.StudyYear = ToI(r["studyyear"]); f.Enrolled = ToI(r["enrolled"]) == 1;
+                }
+        }
+        if (!found)
+        {
+            f.Enrolled = false;
+            f.StudyYear = 1; f.Semester = 1;
+            using (var cmd = new MySqlCommand(
+                "SELECT acadyear FROM acad_acadyears WHERE is_current_year='Yes' ORDER BY acadyear DESC LIMIT 1", conn))
             {
-                if (!r.Read()) { f.Flagged = true; f.Eligible = false; return f; }   // no active registration
-                f.AcadYear = S(r["acad_year"]); f.Semester = ToI(r["semester"]); f.StudyYear = ToI(r["studyyear"]); f.Prog = S(r["progid"]);
+                object v = cmd.ExecuteScalar();
+                f.AcadYear = v == null || v == DBNull.Value ? "" : Convert.ToString(v);
             }
         }
+        // Not being registered is not a pass, but it is a fact the ID office should see.
+        if (!f.Enrolled) f.Flagged = true;
         // semester fee via the accounts DB procedure
         double tuition = 0, functional = 0;
         try
@@ -392,8 +438,11 @@ public static partial class IDCardService
 
         f.Fee = tuition + functional;
         f.Required = Math.Round(f.Fee * PASS_PCT / 100.0, 0);
-        if (f.Fee <= 0) { f.Eligible = true; f.Flagged = true; }   // no fee structure -> do not hard-block; flag
-        else f.Eligible = f.Paid >= f.Required;
+        // A threshold that cannot be computed cannot be failed. Where there is no fee
+        // structure the student is let through and flagged for review, exactly as before —
+        // the one thing never done again is refusing someone against a requirement of zero.
+        if (f.Fee <= 0) { f.Eligible = true; f.Flagged = true; f.State = "NO_FEE_STRUCTURE"; }
+        else { f.Eligible = f.Paid >= f.Required; f.State = f.Eligible ? "OK" : "BELOW"; }
         return f;
     }
 
@@ -424,6 +473,7 @@ public static partial class IDCardService
     {
         return new { fee = f.Fee, paid = f.Paid, requiredPct = PASS_PCT, required = f.Required, eligible = f.Eligible,
             flagged = f.Flagged, acadYear = f.AcadYear, semester = f.Semester, studyYear = f.StudyYear, prog = f.Prog,
+            state = f.State, enrolled = f.Enrolled, hasStudent = f.HasStudent,
             shortfall = f.Eligible ? 0 : Math.Max(0, f.Required - f.Paid) };
     }
 
@@ -546,9 +596,14 @@ public static partial class IDCardService
                 }
                 else
                 {
-                    Transition(requestNo, BLOCKED, actor, "student", "eportal", "Below 10% of semester fee", null);
+                    // Same rule as the wizard shows: never quote a requirement of zero.
+                    string why = f.Required > 0
+                        ? "You must pay at least " + PASS_PCT + "% of your semester fee (" + f.Required.ToString("N0") + ") first. Paid so far: " + f.Paid.ToString("N0") + "."
+                        : "Your fees for this semester could not be read, so this check could not be completed. Please contact the Bursar's office.";
+                    Transition(requestNo, BLOCKED, actor, "student", "eportal",
+                        f.Required > 0 ? "Below " + PASS_PCT + "% of semester fee" : "Semester fee could not be read", null);
                     return J.Serialize(new { success = false, blocked = true, status = BLOCKED, finance = FinanceObj(f),
-                        message = "You must pay at least " + PASS_PCT + "% of your semester fee (" + f.Required.ToString("N0") + ") first. Paid so far: " + f.Paid.ToString("N0") + "." });
+                        message = why });
                 }
             }
         }
