@@ -76,6 +76,7 @@
     <div class="aa-filters">
       <div class="aa-fl"><span>Entry year</span><select id="fYear" class="aa-sel"><option value="">All years</option></select></div>
       <div class="aa-fl"><span>Session</span><select id="fSession" class="aa-sel"><option value="">All sessions</option></select></div>
+      <div class="aa-fl"><span>Campus</span><select id="fCampus" class="aa-sel"><option value="">All campuses</option></select></div>
       <div class="aa-fl"><span>Source</span><select id="fSource" class="aa-sel"><option value="">All sources</option><option value="ONLINE">Online Portal</option><option value="WALKIN">Walk-in / Manual</option></select></div>
       <div class="aa-fl" style="min-width:190px;"><span>Faculty</span><div id="cFac"></div></div>
       <div class="aa-fl" style="min-width:210px;"><span>Programme</span><div id="cProg"></div></div>
@@ -83,6 +84,7 @@
       <div class="aa-fl"><span>&nbsp;</span><button type="button" class="aa-btn" onclick="AA.clear()">Clear</button></div>
     </div>
     <div id="aaKpis" class="aa-kpis" style="padding:0 10px;"></div>
+    <div id="aaNote" style="padding:6px 12px 2px;font-size:11.5px;color:#64748b;line-height:1.55;"></div>
   </div>
 
   <div class="aa-card" style="margin-top:12px;">
@@ -90,6 +92,7 @@
       <div class="aa-dims" id="aaDims">
         <button type="button" data-dim="byProg" class="on" onclick="AA.dim('byProg')">By Programme</button>
         <button type="button" data-dim="byFaculty" onclick="AA.dim('byFaculty')">By Faculty</button>
+        <button type="button" data-dim="byCampus" onclick="AA.dim('byCampus')">By Campus</button>
         <button type="button" data-dim="byYear" onclick="AA.dim('byYear')">By Year</button>
         <button type="button" data-dim="bySession" onclick="AA.dim('bySession')">By Session</button>
         <button type="button" data-dim="bySource" onclick="AA.dim('bySource')">By Source</button>
@@ -155,8 +158,8 @@ var AA = (function(){
   var D = window.__AA_INIT || {};
   var DIM='byProg', SORT='total', DIR=-1;
   var facCombo=null, progCombo=null;
-  var DIMLABEL={byProg:'By Programme',byFaculty:'By Faculty',byYear:'By Year',bySession:'By Session',bySource:'By Source'};
-  var DIMCOL={byProg:'Programme',byFaculty:'Faculty',byYear:'Entry Year',bySession:'Session',bySource:'Source'};
+  var DIMLABEL={byProg:'By Programme',byFaculty:'By Faculty',byCampus:'By Campus',byYear:'By Year',bySession:'By Session',bySource:'By Source'};
+  var DIMCOL={byProg:'Programme',byFaculty:'Faculty',byCampus:'Campus',byYear:'Entry Year',bySession:'Session',bySource:'Source'};
   function qs(id){return document.getElementById(id);}
   function esc(s){s=(s==null?'':''+s);return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function nf(n){ return (n||0).toLocaleString(); }
@@ -187,6 +190,7 @@ var AA = (function(){
     // native selects
     qs('fYear').innerHTML='<option value="">All years</option>'+(L.years||[]).map(function(y){return '<option value="'+esc(y)+'"'+(F.year==y?' selected':'')+'>'+esc(y)+'</option>';}).join('');
     qs('fSession').innerHTML='<option value="">All sessions</option>'+(L.sessions||[]).map(function(s){return '<option value="'+esc(s)+'"'+(F.session==s?' selected':'')+'>'+esc(s)+'</option>';}).join('');
+    qs('fCampus').innerHTML='<option value="">All campuses</option>'+(L.campuses||[]).map(function(c){return '<option value="'+esc(c.code)+'"'+(F.campus==c.code?' selected':'')+'>'+esc(c.name)+'</option>';}).join('');
     qs('fSource').value=F.source||'';
     // searchable combos
     facCombo=makeCombo(qs('cFac'), [{value:'',label:'All faculties'}].concat((L.faculties||[]).map(function(f){return {value:f.code,label:f.name};})), 'All faculties', F.fac||'');
@@ -200,7 +204,7 @@ var AA = (function(){
   function apply(){
     var sp=[];
     function add(k,v){ if(v) sp.push(k+'='+encodeURIComponent(v)); }
-    add('year',qs('fYear').value); add('session',qs('fSession').value); add('source',qs('fSource').value);
+    add('year',qs('fYear').value); add('session',qs('fSession').value); add('source',qs('fSource').value); add('campus',qs('fCampus').value);
     add('fac',facCombo?facCombo.value():''); add('prog',progCombo?progCombo.value():'');
     location.href='AdmissionAnalysis.aspx'+(sp.length?('?'+sp.join('&')):'');
   }
@@ -212,12 +216,19 @@ var AA = (function(){
     function cell(mod,n,l){ return '<div class="aa-kpi aa-kpi--'+mod+'"><div class="aa-kpi__n">'+n+'</div><div class="aa-kpi__l">'+l+'</div></div>'; }
     var h=cell('total',nf(t),'Total applicants')
       +cell('pending',nf(k.pending||0),'Pending')
-      +cell('admitted',nf(k.admitted||0),'Admitted')
-      +cell('registered',nf(k.registered||0),'Registered')
+      +cell('admitted',nf(k.admitted||0),'Admitted, not taken up')
+      +cell('registered',nf(k.registered||0),'Took up the place')
       +cell('rejected',nf((k.rejected||0)+(k.withdrawn||0)),'Rejected / Withdrawn')
+      +((k.other||0)?cell('pending',nf(k.other),'Other status'):'')
       +cell('rate',pct(offer,t),'Offer rate')
-      +cell('rate',pct(k.registered||0,t),'Reg rate');
+      +cell('rate',pct(k.registered||0,offer),'Take-up rate');
     qs('aaKpis').innerHTML=h;
+    /* Two figures changed meaning and the reader is told so rather than left to assume. */
+    var na=(D.notAnalysed||0);
+    qs('aaNote').innerHTML='<b>Took up the place</b> counts applicants who actually registered for a semester. '
+      +'It previously counted anyone holding an entry number, which is issued at admission, so nearly every '
+      +'admitted applicant was reported as registered. <b>Admitted, not taken up</b> is the remainder — an offer made and never acted on.'
+      +(na?(' &middot; '+nf(na)+' application'+(na==1?'':'s')+' carry no primary choice and are not included in any figure on this page.'):'');
   }
 
   function rows(){ return (D[DIM]||[]).slice(); }
@@ -236,16 +247,16 @@ var AA = (function(){
     qs('aaDimTitle').textContent=DIMLABEL[DIM]+' · '+list.length+' row'+(list.length===1?'':'s');
     if(!list.length){ qs('aaHost').innerHTML='<div class="aa-empty">No applicants match these filters.</div>'; return; }
     var maxTotal=0; list.forEach(function(r){ if(r.stat.total>maxTotal) maxTotal=r.stat.total; });
-    var showSessions=(DIM==='byProg'||DIM==='byFaculty'||DIM==='byYear');
-    var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0};
+    var showSessions=(DIM==='byProg'||DIM==='byFaculty'||DIM==='byCampus'||DIM==='byYear');
+    var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0,other:0};
     var h='<div class="aa-tbl-wrap"><table class="aa-table"><thead><tr><th class="aa-rank">#</th>'
       +th('name',esc(DIMCOL[DIM]))
       +(showSessions?th('sessions','Sessions','num'):'')
       +th('total','Applicants','num')+th('pending','Pending','num')+th('admitted','Admitted','num')
-      +th('registered','Registered','num')+th('rejected','Rejected','num')+th('withdrawn','Withdrawn','num')
+      +th('registered','Registered','num')+th('rejected','Rejected','num')+th('withdrawn','Withdrawn','num')+th('other','Other','num')
       +'<th class="num">Offer %</th><th class="num">Reg %</th></tr></thead><tbody>';
     list.forEach(function(r,i){
-      var s=r.stat; T.total+=s.total;T.pending+=s.pending;T.admitted+=s.admitted;T.registered+=s.registered;T.rejected+=s.rejected;T.withdrawn+=s.withdrawn;
+      var s=r.stat; T.total+=s.total;T.pending+=s.pending;T.admitted+=s.admitted;T.registered+=s.registered;T.rejected+=s.rejected;T.withdrawn+=s.withdrawn;T.other+=(s.other||0);
       var offer=s.admitted+s.registered, bw=maxTotal>0?Math.round(s.total/maxTotal*60):0;
       var sub=(DIM==='byProg'&&r.facCode)?('<div class="sub">'+esc(r.facName||r.facCode)+'</div>'):'';
       h+='<tr><td class="aa-rank">'+(i+1)+'</td>'
@@ -257,6 +268,7 @@ var AA = (function(){
         +'<td class="num">'+(s.registered?nf(s.registered):'<span class="aa-mut">0</span>')+'</td>'
         +'<td class="num">'+(s.rejected?nf(s.rejected):'<span class="aa-mut">0</span>')+'</td>'
         +'<td class="num">'+(s.withdrawn?nf(s.withdrawn):'<span class="aa-mut">0</span>')+'</td>'
+        +'<td class="num">'+(s.other?nf(s.other):'<span class="aa-mut">0</span>')+'</td>'
         +'<td class="num">'+pct(offer,s.total)+'</td>'
         +'<td class="num">'+pct(s.registered,s.total)+'</td></tr>';
     });
@@ -264,7 +276,7 @@ var AA = (function(){
     h+='</tbody><tfoot><tr><td></td><td>TOTAL — '+list.length+'</td>'
       +(showSessions?'<td></td>':'')
       +'<td class="num">'+nf(T.total)+'</td><td class="num">'+nf(T.pending)+'</td><td class="num">'+nf(T.admitted)+'</td>'
-      +'<td class="num">'+nf(T.registered)+'</td><td class="num">'+nf(T.rejected)+'</td><td class="num">'+nf(T.withdrawn)+'</td>'
+      +'<td class="num">'+nf(T.registered)+'</td><td class="num">'+nf(T.rejected)+'</td><td class="num">'+nf(T.withdrawn)+'</td><td class="num">'+nf(T.other)+'</td>'
       +'<td class="num">'+pct(toffer,T.total)+'</td><td class="num">'+pct(T.registered,T.total)+'</td></tr></tfoot></table></div>';
     qs('aaHost').innerHTML=h;
   }
@@ -276,13 +288,13 @@ var AA = (function(){
   function csvCell(v){ v=(v==null?'':''+v); if(/[",\n]/.test(v)) v='"'+v.replace(/"/g,'""')+'"'; return v; }
   function csv(){
     var list=sortRows(rows()); if(!list.length){ alert('Nothing to export.'); return; }
-    var ss=(DIM==='byProg'||DIM==='byFaculty'||DIM==='byYear');
+    var ss=(DIM==='byProg'||DIM==='byFaculty'||DIM==='byCampus'||DIM==='byYear');
     var head=[DIMCOL[DIM]].concat(ss?['Sessions']:[]).concat(['Applicants','Pending','Admitted','Registered','Rejected','Withdrawn','Offer%','Reg%']);
     var lines=[head.join(',')];
-    var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0};
-    list.forEach(function(r){ var s=r.stat; T.total+=s.total;T.pending+=s.pending;T.admitted+=s.admitted;T.registered+=s.registered;T.rejected+=s.rejected;T.withdrawn+=s.withdrawn;
-      lines.push([r.name].concat(ss?[r.sessions||0]:[]).concat([s.total,s.pending,s.admitted,s.registered,s.rejected,s.withdrawn,pctv(s.admitted+s.registered,s.total).toFixed(1),pctv(s.registered,s.total).toFixed(1)]).map(csvCell).join(',')); });
-    lines.push(['TOTAL'].concat(ss?['']:[]).concat([T.total,T.pending,T.admitted,T.registered,T.rejected,T.withdrawn,pctv(T.admitted+T.registered,T.total).toFixed(1),pctv(T.registered,T.total).toFixed(1)]).map(csvCell).join(','));
+    var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0,other:0};
+    list.forEach(function(r){ var s=r.stat; T.total+=s.total;T.pending+=s.pending;T.admitted+=s.admitted;T.registered+=s.registered;T.rejected+=s.rejected;T.withdrawn+=s.withdrawn;T.other+=(s.other||0);
+      lines.push([r.name].concat(ss?[r.sessions||0]:[]).concat([s.total,s.pending,s.admitted,s.registered,s.rejected,s.withdrawn,(s.other||0),pctv(s.admitted+s.registered,s.total).toFixed(1),pctv(s.registered,s.total).toFixed(1)]).map(csvCell).join(',')); });
+    lines.push(['TOTAL'].concat(ss?['']:[]).concat([T.total,T.pending,T.admitted,T.registered,T.rejected,T.withdrawn,T.other,pctv(T.admitted+T.registered,T.total).toFixed(1),pctv(T.registered,T.total).toFixed(1)]).map(csvCell).join(','));
     var blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
     var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='admission_analysis_'+DIM+'.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   }
@@ -290,10 +302,10 @@ var AA = (function(){
   /* ── branded print (KPIs + every dimension) ── */
   function ptable(title, list){
     if(!list||!list.length) return '';
-    var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0};
+    var T={total:0,pending:0,admitted:0,registered:0,rejected:0,withdrawn:0,other:0};
     var body='';
     list.slice().sort(function(a,b){return b.stat.total-a.stat.total;}).forEach(function(r,i){ var s=r.stat;
-      T.total+=s.total;T.pending+=s.pending;T.admitted+=s.admitted;T.registered+=s.registered;T.rejected+=s.rejected;T.withdrawn+=s.withdrawn;
+      T.total+=s.total;T.pending+=s.pending;T.admitted+=s.admitted;T.registered+=s.registered;T.rejected+=s.rejected;T.withdrawn+=s.withdrawn;T.other+=(s.other||0);
       body+='<tr><td class="n">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="c">'+nf(s.total)+'</td><td class="c">'+nf(s.pending)+'</td><td class="c">'+nf(s.admitted)+'</td><td class="c">'+nf(s.registered)+'</td><td class="c">'+nf(s.rejected)+'</td><td class="c">'+nf(s.withdrawn)+'</td><td class="c">'+pct(s.admitted+s.registered,s.total)+'</td><td class="c">'+pct(s.registered,s.total)+'</td></tr>';
     });
     body+='<tr class="tot"><td></td><td><b>TOTAL</b></td><td class="c">'+nf(T.total)+'</td><td class="c">'+nf(T.pending)+'</td><td class="c">'+nf(T.admitted)+'</td><td class="c">'+nf(T.registered)+'</td><td class="c">'+nf(T.rejected)+'</td><td class="c">'+nf(T.withdrawn)+'</td><td class="c">'+pct(T.admitted+T.registered,T.total)+'</td><td class="c">'+pct(T.registered,T.total)+'</td></tr>';
@@ -322,7 +334,7 @@ var AA = (function(){
       +'<div class="hd"><img src="'+logo+'" onerror="this.style.display=\'none\'" alt=""/><div>'
       +'<div class="u">Muteesa I Royal University</div><div class="t">Admission Analysis</div>'
       +'<div class="m">'+meta.map(esc).join('<span>&bull;</span>')+'</div></div></div>'
-      +ptable('By Programme', D.byProg)+ptable('By Faculty', D.byFaculty)+ptable('By Year', D.byYear)+ptable('By Session', D.bySession)+ptable('By Source', D.bySource)
+      +ptable('By Programme', D.byProg)+ptable('By Faculty', D.byFaculty)+ptable('By Campus', D.byCampus)+ptable('By Year', D.byYear)+ptable('By Session', D.bySession)+ptable('By Source', D.bySource)
       +'<div class="ft"><span>Generated '+stamp+'</span><span>eadmin.mru.ac.ug</span></div></body></html>';
     var w=window.open('','_blank'); if(!w){ alert('Please allow pop-ups to open the printable analysis.'); return; }
     w.document.open(); w.document.write(html); w.document.close(); w.focus();

@@ -35,18 +35,52 @@ public partial class COOPERP_NewScreens_AdmissionAnalysis : System.Web.UI.Page
         }
     }
 
-    // status-conditional counters (MySQL treats a boolean predicate as 1/0)
+    // ── STATUS BUCKETS ────────────────────────────────────────────────────
+    //
+    // One CASE, one bucket per applicant. Written this way on purpose: the previous version
+    // counted each status with its own SUM(), which let a row fall into two buckets or none,
+    // and both happened. Across the whole table the columns summed to 6,371 against a total of
+    // 6,385 — 14 applicants with an adm_status the page did not know about (8 and 9) were in
+    // the total and in nothing else. With a single CASE the parts always add to the whole.
+    //
+    // "Registered" now means the applicant ACTUALLY ENROLLED for a semester. It used to mean
+    // "stud_reg_no is filled in" — but that column holds the entry number (26/U/BSAF/0004/M/DAY)
+    // which is issued AT ADMISSION, so 6,121 of 6,123 admitted applicants had one and the page
+    // reported 6,150 registered. The true figure is 4,476. The difference, 1,698, is the number
+    // admitted who never took up the place — which is the single most useful number here and
+    // was invisible.
+    //
+    // Withdrawal is recorded on the application, not the choice: adm_status=3 has no rows at
+    // all, while ten applicants carry app_status='WITHDRAWN' and were being shown as pending.
+    private const string BucketCase =
+        "CASE " +
+        "  WHEN a.app_status='WITHDRAWN' OR c.adm_status=3 THEN 'withdrawn' " +
+        "  WHEN a.app_status='REJECTED'  OR c.adm_status=2 THEN 'rejected' " +
+        "  WHEN er.rg IS NOT NULL                          THEN 'registered' " +
+        "  WHEN c.adm_status=1                             THEN 'admitted' " +
+        "  WHEN c.adm_status=0                             THEN 'pending' " +
+        "  ELSE 'other' END ";
+
     private const string StatCols =
         "COUNT(*) total, " +
-        "SUM(c.adm_status=0) pending, " +
-        "SUM(c.adm_status=1 AND (a.stud_reg_no IS NULL OR a.stud_reg_no='' OR a.stud_reg_no='-')) admitted, " +
-        "SUM(c.adm_status=1 AND a.stud_reg_no IS NOT NULL AND a.stud_reg_no<>'' AND a.stud_reg_no<>'-') registered, " +
-        "SUM(c.adm_status=2) rejected, SUM(c.adm_status=3) withdrawn ";
+        "SUM(" + BucketCase + "='pending') pending, " +
+        "SUM(" + BucketCase + "='admitted') admitted, " +
+        "SUM(" + BucketCase + "='registered') registered, " +
+        "SUM(" + BucketCase + "='rejected') rejected, " +
+        "SUM(" + BucketCase + "='withdrawn') withdrawn, " +
+        "SUM(" + BucketCase + "='other') other ";
+
+    // The enrolled set is joined once as a derived table rather than tested per row with a
+    // correlated EXISTS — the correlated form did not return inside two minutes.
     private const string BaseJoin =
         " FROM acad_applicant_choices c " +
         "JOIN acad_applications a ON a.stud_entry_no=c.stud_entry_no " +
         "LEFT JOIN acad_programme p ON p.progcode=c.prog_id " +
-        "LEFT JOIN acad_faculty f ON f.faculty_code=p.faculty_code ";
+        "LEFT JOIN acad_faculty f ON f.faculty_code=p.faculty_code " +
+        "LEFT JOIN (SELECT DISTINCT TRIM(regno) rg FROM acad_registration " +
+        "            WHERE regstatus IN ('REGISTERED','LATE REGISTERED','CLEARED')) er " +
+        "       ON er.rg = TRIM(a.stud_entry_no) " +
+        "LEFT JOIN acad_campuses cm ON cm.ID = CAST(NULLIF(TRIM(IFNULL(a.stud_campus,'')),'') AS UNSIGNED) ";
 
     protected void Page_Load(object sender, EventArgs e)
     {
@@ -55,9 +89,10 @@ public partial class COOPERP_NewScreens_AdmissionAnalysis : System.Web.UI.Page
         string source  = (Request.QueryString["source"] ?? "").Trim();
         string fac     = (Request.QueryString["fac"] ?? "").Trim();
         string prog    = (Request.QueryString["prog"] ?? "").Trim();
+        string campus  = (Request.QueryString["campus"] ?? "").Trim();
 
         var ser = new JavaScriptSerializer(); ser.MaxJsonLength = int.MaxValue;
-        try { InitJson = ser.Serialize(BuildData(year, session, source, fac, prog)); }
+        try { InitJson = ser.Serialize(BuildData(year, session, source, fac, prog, campus)); }
         catch (Exception ex) { InitJson = ser.Serialize(new { ok = false, error = "Server error: " + ex.Message }); }
     }
 
@@ -82,11 +117,12 @@ public partial class COOPERP_NewScreens_AdmissionAnalysis : System.Web.UI.Page
     private static object Stat(Dictionary<string, object> d)
     {
         long total = L(d["total"]), pending = L(d["pending"]), admitted = L(d["admitted"]),
-             registered = L(d["registered"]), rejected = L(d["rejected"]), withdrawn = L(d["withdrawn"]);
-        return new { total, pending, admitted, registered, rejected, withdrawn };
+             registered = L(d["registered"]), rejected = L(d["rejected"]), withdrawn = L(d["withdrawn"]),
+             other = d.ContainsKey("other") ? L(d["other"]) : 0;
+        return new { total, pending, admitted, registered, rejected, withdrawn, other };
     }
 
-    private object BuildData(string year, string session, string source, string fac, string prog)
+    private object BuildData(string year, string session, string source, string fac, string prog, string campus)
     {
         using (var conn = Open())
         {
@@ -98,6 +134,9 @@ public partial class COOPERP_NewScreens_AdmissionAnalysis : System.Web.UI.Page
             if (session != "") { where.Add("c.adm_session=@sess"); ps.Add(P("@sess", session)); }
             if (fac != "") { where.Add("p.faculty_code=@fac"); ps.Add(P("@fac", fac)); }
             if (prog != "") { where.Add("c.prog_id=@prog"); ps.Add(P("@prog", prog)); }
+            // stud_campus is free text — '01', '02', '1', '2', '00' and NULL all occur — so it is
+            // compared as a number, not a string, or '01' and '1' would be two different campuses.
+            if (campus != "") { where.Add("CAST(NULLIF(TRIM(IFNULL(a.stud_campus,'')),'') AS UNSIGNED)=@campus"); ps.Add(P("@campus", campus)); }
             if (hasUserId && source == "ONLINE") where.Add("a.applicant_user_id IS NOT NULL");
             else if (hasUserId && source == "WALKIN") where.Add("a.applicant_user_id IS NULL");
             string wc = " WHERE " + string.Join(" AND ", where.ToArray());
@@ -117,6 +156,13 @@ public partial class COOPERP_NewScreens_AdmissionAnalysis : System.Web.UI.Page
             foreach (var d in Query(conn, "SELECT COALESCE(p.faculty_code,'') code, COALESCE(f.faculty_name,'(Unassigned)') name, " +
                 "COUNT(DISTINCT NULLIF(TRIM(c.adm_session),'')) sessions, " + StatCols + BaseJoin + wc + " GROUP BY p.faculty_code ORDER BY total DESC", ps))
                 byFaculty.Add(new { code = S(d["code"]), name = S(d["name"]), sessions = L(d["sessions"]), stat = Stat(d) });
+
+            // ── By campus ──
+            var byCampus = new List<object>();
+            foreach (var d in Query(conn, "SELECT COALESCE(cm.campus_name, CONCAT('(campus ', IFNULL(NULLIF(TRIM(a.stud_campus),''),'not recorded'), ')')) name, " +
+                "COUNT(DISTINCT NULLIF(TRIM(c.adm_session),'')) sessions, " + StatCols + BaseJoin + wc +
+                " GROUP BY name ORDER BY total DESC", ps))
+                byCampus.Add(new { name = S(d["name"]), sessions = L(d["sessions"]), stat = Stat(d) });
 
             // ── By entry year ──
             var byYear = new List<object>();
@@ -148,17 +194,30 @@ public partial class COOPERP_NewScreens_AdmissionAnalysis : System.Web.UI.Page
             var sessions = new List<object>();
             foreach (var d in Query(conn, "SELECT DISTINCT adm_session s FROM acad_applicant_choices WHERE adm_session IS NOT NULL AND adm_session<>'' ORDER BY s", null))
                 sessions.Add(S(d["s"]));
+            var campuses = new List<object>();
+            foreach (var d in Query(conn, "SELECT ID, campus_name FROM acad_campuses ORDER BY ID", null))
+                campuses.Add(new { code = S(d["ID"]), name = S(d["campus_name"]) });
+
+            // Applications that carry no primary choice are invisible to every figure above,
+            // because the whole analysis hangs off acad_applicant_choices.Choice=1. Counting
+            // them here means the page can say so instead of quietly under-reporting.
+            long notAnalysed = 0;
+            var na = Query(conn, "SELECT COUNT(*) n FROM acad_applications a " +
+                "WHERE NOT EXISTS (SELECT 1 FROM acad_applicant_choices c WHERE c.stud_entry_no=a.stud_entry_no AND c.choice=1)", null);
+            if (na.Count > 0) notAnalysed = L(na[0]["n"]);
 
             return new {
                 ok = true,
-                filters = new { year, session, source, fac, prog, hasSource = hasUserId },
+                filters = new { year, session, source, fac, prog, campus, hasSource = hasUserId },
                 kpis = kpis,
                 byProg = byProg,
                 byFaculty = byFaculty,
+                byCampus = byCampus,
                 byYear = byYear,
                 bySession = bySession,
                 bySource = bySource,
-                lists = new { faculties, programmes, years, sessions }
+                notAnalysed = notAnalysed,
+                lists = new { faculties, programmes, years, sessions, campuses }
             };
         }
     }
