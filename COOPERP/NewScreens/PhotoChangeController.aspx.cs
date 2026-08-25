@@ -78,8 +78,19 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         {
             conn.Open();
             string outcome = ReviewOne(conn, id, approve, comment, GetCurrentUser(), ban);
-            bool ok = outcome == "OK";
-            return "{\"success\":" + (ok ? "true" : "false") + ",\"message\":\"" + JsEnc(ok ? (approve ? "Photograph approved." : "Photograph rejected and removed from the student.") : outcome) + "\"}";
+            bool ok = outcome == "OK" || outcome.StartsWith("OK+");
+            string msg;
+            if (!ok) msg = outcome;
+            else if (approve) msg = "Photograph approved.";
+            else
+            {
+                int swept = 0;
+                if (outcome.StartsWith("OK+")) int.TryParse(outcome.Substring(3), out swept);
+                msg = swept > 0
+                    ? "Photograph rejected, along with " + swept + " other pending version" + (swept == 1 ? "" : "s") + " from this student."
+                    : "Photograph rejected and removed from the student.";
+            }
+            return "{\"success\":" + (ok ? "true" : "false") + ",\"message\":\"" + JsEnc(msg) + "\"}";
         }
     }
 
@@ -105,7 +116,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             foreach (int id in ids)
             {
                 string r = ReviewOne(conn, id, approve, comment, user, ban);
-                if (r == "OK") done++; else skipped++;
+                if (r == "OK" || r.StartsWith("OK+")) done++; else skipped++;
             }
         }
         string verb = approve ? "approved" : "rejected";
@@ -529,6 +540,8 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
 
         // Files freed by an approval's purge of the student's other versions — cleaned up after commit.
         var orphanFiles = new List<string>();
+        // How many of the student's other pending versions this rejection swept up with it.
+        int alsoRejected = 0;
         using (var tx = conn.BeginTransaction())
         {
             try
@@ -558,27 +571,72 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                 }
                 else
                 {
-                    // Reject: this version must stop being served. But rejecting ONE version is
-                    // not a verdict on the student's whole history — if they still have an
-                    // approved photograph on file, that one comes back rather than the student
-                    // being left with no picture at all and a REJECTED status they did not earn.
-                    string restore = FindApprovedFallback(conn, tx, regno, id, newPhoto);
-                    if (restore != null)
+                    // Rejecting one version rejects EVERY pending version this student has
+                    // submitted, exactly as approving one clears the others. A student who
+                    // uploads three attempts at the same unusable photograph is making one
+                    // submission, not three, and an administrator should settle it once rather
+                    // than opening the same card three times.
+                    //
+                    // Only PENDING versions are swept. An older APPROVED photograph is left
+                    // alone deliberately — it is the one the student falls back to below.
+                    //
+                    // The files are captured BEFORE the sweep, because the student's live photo
+                    // may be any one of them, not necessarily the version the administrator
+                    // clicked. Without this, rejecting version B while version A is the live one
+                    // would reject A on paper and leave it on display.
+                    var rejectedFiles = new List<string>();
+                    if (HasPhoto(newPhoto)) rejectedFiles.Add(newPhoto);
+                    using (var cmd = new MySqlCommand(
+                        "SELECT COALESCE(new_photofile,'') FROM stud_photo_change " +
+                        "WHERE regno=@r AND id<>@id AND status='PENDING'", conn, tx))
                     {
-                        using (var cmd = new MySqlCommand(
-                            "UPDATE acad_student SET photo_status='APPROVED', photofile=@f WHERE regno=@r AND photofile=@p", conn, tx))
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@id", id);
+                        using (var rd = cmd.ExecuteReader())
+                            while (rd.Read()) { string f = rd.GetString(0); if (HasPhoto(f)) rejectedFiles.Add(f); }
+                    }
+
+                    using (var cmd = new MySqlCommand(
+                        "UPDATE stud_photo_change SET status='REJECTED', reviewed_by=@by, reviewed_at=NOW(), " +
+                        " review_comment=CASE WHEN @c='' THEN 'Rejected together with the other photographs submitted at the same time.' " +
+                        "                     ELSE CONCAT(@c, ' (rejected together with the other photographs submitted at the same time.)') END " +
+                        "WHERE regno=@r AND id<>@id AND status='PENDING'", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@by", user);
+                        cmd.Parameters.AddWithValue("@c", comment);
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@id", id);
+                        alsoRejected = cmd.ExecuteNonQuery();
+                    }
+
+                    // The student is left with the most recent photograph they had APPROVED, if
+                    // there is one — the "revert to the older version" this page now supports,
+                    // applied automatically. Only when there is nothing to fall back to is the
+                    // student left with no picture.
+                    string restore = FindApprovedFallback(conn, tx, regno, id, newPhoto);
+
+                    // Replace the live photograph only if it is one of the ones just rejected.
+                    // A student whose live photo is an older approved one keeps it untouched.
+                    var live = new StringBuilder();
+                    var lp = new List<MySqlParameter>();
+                    for (int k = 0; k < rejectedFiles.Count; k++)
+                    {
+                        if (k > 0) live.Append(",");
+                        live.Append("@f").Append(k);
+                        lp.Add(new MySqlParameter("@f" + k, rejectedFiles[k]));
+                    }
+                    if (live.Length > 0)
+                    {
+                        string sql = restore != null
+                            ? "UPDATE acad_student SET photo_status='APPROVED', photofile=@keep WHERE regno=@r AND photofile IN (" + live + ")"
+                            : "UPDATE acad_student SET photo_status='REJECTED', photofile='' WHERE regno=@r AND photofile IN (" + live + ")";
+                        using (var cmd = new MySqlCommand(sql, conn, tx))
                         {
-                            cmd.Parameters.AddWithValue("@f", restore);
                             cmd.Parameters.AddWithValue("@r", regno);
-                            cmd.Parameters.AddWithValue("@p", newPhoto);
+                            if (restore != null) cmd.Parameters.AddWithValue("@keep", restore);
+                            foreach (var p in lp) cmd.Parameters.Add(new MySqlParameter(p.ParameterName, p.Value));
                             cmd.ExecuteNonQuery();
                         }
-                    }
-                    else
-                    {
-                        using (var cmd = new MySqlCommand(
-                            "UPDATE acad_student SET photo_status='REJECTED', photofile='' WHERE regno=@r AND photofile=@p", conn, tx))
-                        { cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@p", newPhoto); cmd.ExecuteNonQuery(); }
                     }
                     // Auto/ manual ban after repeated rejections (stud_photo_change is already REJECTED above).
                     ApplyBanIfNeeded(conn, tx, regno, ban, comment, user);
@@ -591,7 +649,8 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         // Reclaim the superseded thumbnails now the transaction is committed. The approved
         // photo (newPhoto) is the live one, so TryDeletePhotoFile keeps it and any still-referenced file.
         foreach (string f in orphanFiles) TryDeletePhotoFile(conn, f, newPhoto);
-        return "OK";
+        // The caller reports how many other pending versions went with this decision.
+        return alsoRejected > 0 ? "OK+" + alsoRejected : "OK";
     }
 
     /// <summary>
