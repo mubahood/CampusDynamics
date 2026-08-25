@@ -49,6 +49,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                 else if (action == "deleteversion") Response.Write(HandleDeleteVersion());
                 else if (action == "admininit") Response.Write(HandleAdminInit());
                 else if (action == "unban") Response.Write(HandleUnban());
+                else if (action == "restoreversion") Response.Write(HandleRestoreVersion());
                 else Response.Write("{\"success\":false,\"message\":\"Unknown action.\"}");
             }
             catch (Exception ex)
@@ -299,6 +300,44 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         }
     }
 
+    /// <summary>
+    /// The most recent photograph this student had APPROVED, other than the one being rejected —
+    /// the version to fall back to so a rejection removes one picture rather than all of them.
+    /// Returns null when there is nothing to fall back to. The file must still exist on disk:
+    /// pointing acad_student at a thumbnail that was reclaimed long ago would be worse than blank.
+    /// </summary>
+    private string FindApprovedFallback(MySqlConnection conn, MySqlTransaction tx, string regno, int excludeId, string excludeFile)
+    {
+        using (var cmd = new MySqlCommand(
+            "SELECT new_photofile FROM stud_photo_change " +
+            "WHERE regno=@r AND status='APPROVED' AND id<>@id " +
+            "  AND IFNULL(new_photofile,'')<>'' AND new_photofile<>@f " +
+            "ORDER BY id DESC LIMIT 5", conn, tx))
+        {
+            cmd.Parameters.AddWithValue("@r", regno);
+            cmd.Parameters.AddWithValue("@id", excludeId);
+            cmd.Parameters.AddWithValue("@f", excludeFile ?? "");
+            var candidates = new List<string>();
+            using (var rd = cmd.ExecuteReader())
+                while (rd.Read()) candidates.Add(Convert.ToString(rd[0]));
+            foreach (string f in candidates)
+                if (PhotoFileExists(f)) return f;
+        }
+        return null;
+    }
+
+    /// <summary>True when the thumbnail is still on disk. Guards every restore.</summary>
+    private bool PhotoFileExists(string file)
+    {
+        if (string.IsNullOrEmpty(file) || file == "-") return false;
+        try
+        {
+            string path = Server.MapPath("~/COOPERP/StudentInfo/photos/" + file);
+            return System.IO.File.Exists(path);
+        }
+        catch { return false; }
+    }
+
     private const int BAN_AFTER_REJECTIONS = 3;
 
     /// <summary>
@@ -310,8 +349,20 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
     /// </summary>
     private void ApplyBanIfNeeded(MySqlConnection conn, MySqlTransaction tx, string regno, bool manualBan, string comment, string user)
     {
+        // Count rejection OCCASIONS, not rejected rows.
+        //
+        // A student who uploads the same unusable photograph three times in five minutes, and has
+        // all three cleared out in one sweep of the queue, used to be counted as three strikes and
+        // banned instantly — by a single administrator action, before anyone had told them what
+        // was wrong. MRU2026004812 is exactly that: three uploads at 21:12–21:17, all rejected at
+        // 23:12, banned. That is not three chances; it is one.
+        //
+        // Rejections made in the same minute are therefore one occasion. Three separate sittings —
+        // where the student has been told, uploaded again, and been refused again — still bans.
         int rej = 0;
-        using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM stud_photo_change WHERE regno=@r AND status='REJECTED'", conn, tx))
+        using (var cmd = new MySqlCommand(
+            "SELECT COUNT(*) FROM (SELECT DISTINCT DATE_FORMAT(reviewed_at,'%Y-%m-%d %H:%i') occ " +
+            "FROM stud_photo_change WHERE regno=@r AND status='REJECTED' AND reviewed_at IS NOT NULL) t", conn, tx))
         { cmd.Parameters.AddWithValue("@r", regno); rej = Convert.ToInt32(cmd.ExecuteScalar()); }
 
         bool autoBan = rej >= BAN_AFTER_REJECTIONS;
@@ -327,6 +378,96 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             cmd.Parameters.AddWithValue("@by", user);
             cmd.Parameters.AddWithValue("@rn", regno);
             cmd.ExecuteNonQuery();
+        }
+    }
+
+    // ===================================================================
+    // RESTORE A PREVIOUS VERSION
+    // ===================================================================
+    /// <summary>
+    /// Puts an earlier photograph back as the student's official one.
+    ///
+    /// Until now a rejection was one-way: the picture was blanked and the only route back was the
+    /// student uploading again — which a banned student cannot do, and which is absurd when a
+    /// perfectly good earlier photograph is sitting in the history. Any version the student ever
+    /// submitted can now be made live again, provided its file still exists.
+    ///
+    /// The restore is itself written to stud_photo_change as an APPROVED row attributed to the
+    /// administrator, so the history reads forwards and the next rejection has something to fall
+    /// back to. It does not lift a ban — that is a separate decision, deliberately.
+    /// </summary>
+    private string HandleRestoreVersion()
+    {
+        int id = SafeInt(Request.Form["id"], 0);
+        string comment = (Request.Form["comment"] ?? "").Trim();
+        if (id <= 0) return "{\"success\":false,\"message\":\"Missing record id.\"}";
+
+        using (var conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+
+            string regno = "", file = "", status = "";
+            using (var cmd = new MySqlCommand(
+                "SELECT regno, COALESCE(new_photofile,''), status FROM stud_photo_change WHERE id=@id LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                using (var rd = cmd.ExecuteReader())
+                {
+                    if (!rd.Read()) return "{\"success\":false,\"message\":\"That version was not found.\"}";
+                    regno = rd.GetString(0); file = rd.GetString(1); status = rd.GetString(2).ToUpperInvariant();
+                }
+            }
+
+            if (file == "" || file == "-")
+                return "{\"success\":false,\"message\":\"That entry has no photograph to restore.\"}";
+            if (!PhotoFileExists(file))
+                return "{\"success\":false,\"message\":\"The image file for that version is no longer on the server, so it cannot be restored.\"}";
+
+            string curPhoto = "";
+            using (var cmd = new MySqlCommand("SELECT COALESCE(photofile,'') FROM acad_student WHERE regno=@r LIMIT 1", conn))
+            { cmd.Parameters.AddWithValue("@r", regno); object o = cmd.ExecuteScalar(); curPhoto = o == null ? "" : Convert.ToString(o); }
+
+            if (curPhoto == file)
+                return "{\"success\":false,\"message\":\"That version is already the student's current photograph.\"}";
+
+            string user = GetCurrentUser();
+            using (var tx = conn.BeginTransaction())
+            {
+                try
+                {
+                    using (var cmd = new MySqlCommand(
+                        "UPDATE acad_student SET photofile=@f, photo_status='APPROVED' WHERE regno=@r", conn, tx))
+                    { cmd.Parameters.AddWithValue("@f", file); cmd.Parameters.AddWithValue("@r", regno); cmd.ExecuteNonQuery(); }
+
+                    // The restored version becomes APPROVED in its own right, so it is a valid
+                    // fallback next time and no longer reads as rejected in the history.
+                    using (var cmd = new MySqlCommand(
+                        "UPDATE stud_photo_change SET status='APPROVED', reviewed_by=@by, reviewed_at=NOW(), " +
+                        " review_comment=CONCAT('Restored by administrator', CASE WHEN @c='' THEN '' ELSE CONCAT(' — ', @c) END) " +
+                        "WHERE id=@id", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@by", user);
+                        cmd.Parameters.AddWithValue("@c", comment);
+                        cmd.Parameters.AddWithValue("@id", id);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    using (var cmd = new MySqlCommand(
+                        "INSERT INTO stud_photo_change (regno, old_photofile, new_photofile, status, source, requested_at, reviewed_by, reviewed_at, review_comment) " +
+                        "VALUES (@r, @o, @n, 'APPROVED', 'eadmin-restore', NOW(), @by, NOW(), @c)", conn, tx))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@o", curPhoto);
+                        cmd.Parameters.AddWithValue("@n", file);
+                        cmd.Parameters.AddWithValue("@by", user);
+                        cmd.Parameters.AddWithValue("@c", "Reverted to an earlier photograph" + (comment == "" ? "." : " — " + comment));
+                        cmd.ExecuteNonQuery();
+                    }
+                    tx.Commit();
+                }
+                catch { tx.Rollback(); throw; }
+            }
+            return "{\"success\":true,\"message\":\"Photograph reverted to the earlier version.\"}";
         }
     }
 
@@ -410,10 +551,28 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                 }
                 else
                 {
-                    // Reject: block the photo — blank it so it is not served anywhere.
-                    using (var cmd = new MySqlCommand(
-                        "UPDATE acad_student SET photo_status='REJECTED', photofile='' WHERE regno=@r AND photofile=@p", conn, tx))
-                    { cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@p", newPhoto); cmd.ExecuteNonQuery(); }
+                    // Reject: this version must stop being served. But rejecting ONE version is
+                    // not a verdict on the student's whole history — if they still have an
+                    // approved photograph on file, that one comes back rather than the student
+                    // being left with no picture at all and a REJECTED status they did not earn.
+                    string restore = FindApprovedFallback(conn, tx, regno, id, newPhoto);
+                    if (restore != null)
+                    {
+                        using (var cmd = new MySqlCommand(
+                            "UPDATE acad_student SET photo_status='APPROVED', photofile=@f WHERE regno=@r AND photofile=@p", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@f", restore);
+                            cmd.Parameters.AddWithValue("@r", regno);
+                            cmd.Parameters.AddWithValue("@p", newPhoto);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+                    else
+                    {
+                        using (var cmd = new MySqlCommand(
+                            "UPDATE acad_student SET photo_status='REJECTED', photofile='' WHERE regno=@r AND photofile=@p", conn, tx))
+                        { cmd.Parameters.AddWithValue("@r", regno); cmd.Parameters.AddWithValue("@p", newPhoto); cmd.ExecuteNonQuery(); }
+                    }
                     // Auto/ manual ban after repeated rejections (stud_photo_change is already REJECTED above).
                     ApplyBanIfNeeded(conn, tx, regno, ban, comment, user);
                 }
@@ -694,6 +853,14 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         else if (banned)
         {
             sb.Append("<div class='pc-acts'><button type='button' class='pc-btn pc-btn--ok' onclick=\"pcUnban('" + HE(d["regno"]) + "')\">Lift ban</button></div>");
+        }
+        // Put an earlier photograph back. Offered on any non-pending version that holds a picture
+        // and is not already the live one — including a rejected one, because a rejection is a
+        // judgement an administrator is allowed to change their mind about.
+        if (!pending && d["newf"] != "" && d["is_live"] != "1")
+        {
+            sb.Append("<div class='pc-acts'><button type='button' class='pc-btn' onclick=\"pcRestore(" + HE(d["id"]) +
+                      ")\" title='Make this the student&#39;s official photograph again'>Revert to this version</button></div>");
         }
         // Delete this version (removes an extra / unwanted submission; never the live photo).
         if (deletable)

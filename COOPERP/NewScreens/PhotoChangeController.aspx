@@ -304,6 +304,16 @@
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 800); })
             .catch(function () { pcToast("Request failed.", true); });
     };
+    // ---- revert the student to an earlier photograph ----
+    window.pcRestore = function (id) {
+        var why = prompt("Make this earlier photograph the student's official one again.
+
+Optional note for the record:", "");
+        if (why === null) return;
+        post("action=restoreversion&id=" + encodeURIComponent(id) + "&comment=" + encodeURIComponent(why.trim()))
+            .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 700); })
+            .catch(function () { pcToast("Request failed.", true); });
+    };
     // ---- delete a photo version (extra / unwanted submission; never the live photo) ----
     window.pcDelete = function (id) {
         if (!confirm("Delete this photo version?\n\nIt is removed from the review queue and its image file cleaned up. The student's current live photograph is not affected.")) return;
