@@ -306,9 +306,7 @@
     };
     // ---- revert the student to an earlier photograph ----
     window.pcRestore = function (id) {
-        var why = prompt("Make this earlier photograph the student's official one again.
-
-Optional note for the record:", "");
+        var why = prompt("Make this earlier photograph the student's official one again.\n\nOptional note for the record:", "");
         if (why === null) return;
         post("action=restoreversion&id=" + encodeURIComponent(id) + "&comment=" + encodeURIComponent(why.trim()))
             .then(function (d) { pcToast(d.message || "Done", !d.success); if (d.success) setTimeout(reloadKeep, 700); })

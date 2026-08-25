@@ -326,6 +326,13 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         return null;
     }
 
+    /// <summary>A stored filename that actually names a photograph. Blank and the "-" placeholder
+    /// both mean there is none.</summary>
+    private static bool HasPhoto(string file)
+    {
+        return !string.IsNullOrEmpty(file) && file.Trim() != "" && file.Trim() != "-";
+    }
+
     /// <summary>True when the thumbnail is still on disk. Guards every restore.</summary>
     private bool PhotoFileExists(string file)
     {
@@ -816,8 +823,10 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         string badge = "<span class='pc-st pc-st--" + st.ToLowerInvariant() + "'>" + HE(d["status"]) + "</span>";
         if (live) badge += "<span class='pc-st pc-st--live' title='This is the student&#39;s current live photograph — approve or reject it, it cannot be deleted'>CURRENT</span>";
         if (banned) badge += "<span class='pc-st pc-st--banned' title='This student cannot re-upload until an admin lifts the ban'>BANNED</span>";
-        string newUrl = d["newf"] != "" ? PHOTO_BASE + Uri.EscapeDataString(d["newf"]) : "";
-        string oldUrl = d["oldf"] != "" ? PHOTO_BASE + Uri.EscapeDataString(d["oldf"]) : "";
+        // "-" is this system's placeholder for "no photograph" and appears on 407 of these rows.
+        // Testing only for "" turned each one into <img src=".../-">, which is a 404 per card.
+        string newUrl = HasPhoto(d["newf"]) ? PHOTO_BASE + Uri.EscapeDataString(d["newf"]) : "";
+        string oldUrl = HasPhoto(d["oldf"]) ? PHOTO_BASE + Uri.EscapeDataString(d["oldf"]) : "";
         bool pending = st == "PENDING";
         bool deletable = st != "DELETED" && !live;
 
@@ -857,7 +866,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         // Put an earlier photograph back. Offered on any non-pending version that holds a picture
         // and is not already the live one — including a rejected one, because a rejection is a
         // judgement an administrator is allowed to change their mind about.
-        if (!pending && d["newf"] != "" && d["is_live"] != "1")
+        if (!pending && HasPhoto(d["newf"]) && d["is_live"] != "1")
         {
             sb.Append("<div class='pc-acts'><button type='button' class='pc-btn' onclick=\"pcRestore(" + HE(d["id"]) +
                       ")\" title='Make this the student&#39;s official photograph again'>Revert to this version</button></div>");
@@ -879,7 +888,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
     /// <summary>Card for the Banned tab (student-level, from acad_student).</summary>
     private string BannedCard(Dictionary<string, string> d)
     {
-        string photoUrl = d["last_photo"] != "" ? PHOTO_BASE + Uri.EscapeDataString(d["last_photo"]) : "";
+        string photoUrl = HasPhoto(d["last_photo"]) ? PHOTO_BASE + Uri.EscapeDataString(d["last_photo"]) : "";
         var sb = new StringBuilder();
         sb.Append("<div class='pc-card pc-card--banned'>");
         sb.Append("<div class='pc-card__h'>");
