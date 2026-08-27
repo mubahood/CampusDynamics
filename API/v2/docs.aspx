@@ -169,6 +169,18 @@
                 <a href="#odel-lecturer" class="api-sidebar__link">Lecturer Teaching</a>
                 <a href="#odel-lecturer" class="api-sidebar__link api-sidebar__link--sub">↳ spaces / dashboard / roster / assignments</a>
                 <a href="#odel-lecturer" class="api-sidebar__link api-sidebar__link--sub">↳ grading / lectures / attendance / announcements</a>
+                <a href="#odel-lecturer" class="api-sidebar__link api-sidebar__link--sub">↳ teaching_summary / update_pin</a>
+                <a href="#odel-authoring" class="api-sidebar__link">Assignment Authoring</a>
+                <a href="#odel-authoring" class="api-sidebar__link api-sidebar__link--sub">↳ save / publish / close / delete / duplicate</a>
+                <a href="#odel-authoring" class="api-sidebar__link api-sidebar__link--sub">↳ extend / unextend / stats</a>
+                <a href="#odel-content" class="api-sidebar__link">Content Authoring</a>
+                <a href="#odel-content" class="api-sidebar__link api-sidebar__link--sub">↳ outline / chapter / topic / material</a>
+                <a href="#odel-content" class="api-sidebar__link api-sidebar__link--sub">↳ publish / reorder</a>
+                <a href="#odel-lectures" class="api-sidebar__link">Lectures &amp; Registers</a>
+                <a href="#odel-lectures" class="api-sidebar__link api-sidebar__link--sub">↳ save / get / delete / series</a>
+                <a href="#odel-lectures" class="api-sidebar__link api-sidebar__link--sub">↳ attendance open / close / bulk</a>
+                <a href="#odel-push" class="api-sidebar__link">Coursework Push</a>
+                <a href="#odel-push" class="api-sidebar__link api-sidebar__link--sub">↳ preview / commit / history / snapshot</a>
                 <div class="api-sidebar__heading">v2.6 — Student Self-Service</div>
                 <a href="#me-self" class="api-sidebar__link">My Record (me.aspx)</a>
                 <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ summary</a>
@@ -590,9 +602,39 @@ GET /API/v2/auth.aspx?action=ping
 <span class="api-badge api-badge--auth">AUTH</span> <code>save_grade</code> &nbsp; 
 <span class="api-badge api-badge--auth">AUTH</span> <code>update_save</code> &nbsp; 
 <span class="api-badge api-badge--auth">AUTH</span> <code>update_delete</code> &nbsp; 
-<span class="api-badge api-badge--auth">AUTH</span> <code>mark_attendance</code> &nbsp; 
-<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_set_status</code> &nbsp; 
-<span class="api-badge api-badge--get">PUBLIC</span> <code>ping</code> &nbsp; 
+<span class="api-badge api-badge--auth">AUTH</span> <code>mark_attendance</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_set_status</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>update_pin</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>teaching_summary</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_save</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_publish</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_close</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_delete</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_duplicate</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_extend</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_unextend</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_stats</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>content_outline</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>content_publish</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>content_reorder</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>chapter_save</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>chapter_delete</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>topic_save</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>topic_delete</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>material_save</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>material_delete</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_save</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_get</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_delete</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_series_save</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>attendance_open</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>attendance_close</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>attendance_bulk</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>push_preview</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>push_commit</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>push_history</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>push_snapshot</code> &nbsp;
+<span class="api-badge api-badge--get">PUBLIC</span> <code>ping</code> &nbsp;
 </div></div>
 <div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>requests.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
 <span class="api-badge api-badge--auth">AUTH</span> <code>marks</code> &nbsp; 
@@ -4131,7 +4173,215 @@ POST /API/v2/idcard.aspx?action=window_create&amp;title=2026/2027%20ID%20drive&a
                         <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>update_list</strong>&amp;space_id=1</div>
                         <div class="api-endpoint__info">Announcements with <code>read_count</code>. Companion writes: <code>update_save</code> (create/update — <code>title</code>, <code>body</code>, <code>pinned</code>, <code>is_published</code>) and <code>update_delete</code>.</div>
                     </div>
-                    <div class="api-note">Phase-2 roadmap (content authoring, assignment CRUD, lecture CRUD, push-to-marks, file upload/download, admin &amp; policy) is specified in <code>ODEL_API_MASTER_PLAN.md</code> and follows these same conventions.</div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>teaching_summary</strong></div>
+                        <div class="api-endpoint__info">Everything needing attention across <em>every</em> space the lecturer teaches, in one call: per-space <code>roster</code>, <code>published_assignments</code>, <code>draft_assignments</code>, <code>awaiting_grading</code>, <code>registers_open</code>, <code>upcoming_lectures</code>, <code>pushes</code>, <code>last_push_at</code>, plus a <code>totals</code> block including <code>courses_never_pushed</code>. Intended as the lecturer landing screen.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>update_pin</strong></div>
+                        <div class="api-endpoint__info">Pin or unpin an announcement. Body: <code>space_id</code>, <code>update_id</code>, <code>pinned</code> (1|0). Pinning is <strong>exclusive</strong> — pinning one announcement unpins the others in that space.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-section" id="odel-authoring">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Assignment Authoring &amp; Lifecycle <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">Create, publish, extend and retire assignments. Requires a <code>staff</code> token, and every action verifies both that you teach <code>space_id</code> <em>and</em> that <code>assignment_id</code> belongs to that space — passing a space you teach plus another course's assignment id is rejected with <code>NOT_FOUND</code>.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-note" style="margin-bottom:14px;"><strong>Grades are protected.</strong> Once a submission has been graded, its assignment can no longer be unpublished or deleted — the grade already feeds <code>odel_gradebook</code>, which feeds the coursework push, so removing it would silently change students' marks. Use <code>assignment_close</code>, or <code>counts_toward_cw=0</code>, instead.</div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_save</strong></div>
+                        <div class="api-endpoint__info">Create (omit <code>assignment_id</code>) or update (pass it). Body: <code>space_id</code>, <code>title</code>, <code>instructions?</code>, <code>topic_id?</code>, <code>submission_type?</code> (TEXT|FILE|BOTH), <code>max_points?</code> (default 100), <code>weight_points?</code>, <code>max_attempts?</code>, <code>late_penalty_pct?</code> (0–100), <code>counts_toward_cw?</code>, <code>open_at?</code>, <code>due_at?</code>, <code>late_until?</code>. New assignments are always created as <strong>drafts</strong> (<code>is_published=0</code>). Rejects a window that closes before it opens (<code>due_at</code> &lt; <code>open_at</code>, or <code>late_until</code> &lt; <code>due_at</code>) and a <code>topic_id</code> from another space.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_publish</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>assignment_id</code>, <code>publish</code> (1|0). Stamps <code>published_at</code> on first publish and preserves it thereafter. Unpublishing is refused once any submission is graded.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_close</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>assignment_id</code>. Sets <code>due_at</code> and <code>late_until</code> to now, so no further work can be submitted. The assignment stays published and every existing submission, grade and piece of feedback is untouched.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_delete</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>assignment_id</code>, <code>force?</code>. Refused outright if any submission is graded. If ungraded submissions exist you must pass <code>force=1</code>, which also deletes those submissions and their files. Extensions are cleaned up too.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_duplicate</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>assignment_id</code>, <code>target_space_id?</code> (defaults to the source), <code>title?</code> (defaults to "… (copy)"). The copy is always an <strong>unpublished draft with no submissions</strong>. You must teach the target space too. Copying <em>across</em> spaces drops <code>topic_id</code>, since a topic belongs to one space.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_extend</strong></div>
+                        <div class="api-endpoint__info">Give one student a later deadline or extra attempts. Body: <code>space_id</code>, <code>assignment_id</code>, <code>regno</code>, and at least one of <code>due_at</code>, <code>late_until</code>, <code>extra_attempts</code>; optional <code>reason</code>. Upserts on (assignment, student), so re-sending revises the existing extension. The student must be enrolled in the space.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_unextend</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>assignment_id</code>, <code>regno</code>. Removes that student's extension; <code>NOT_FOUND</code> if they had none.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_stats</strong>&amp;space_id=1&amp;assignment_id=1</div>
+                        <div class="api-endpoint__info">Header fields plus <code>roster</code>, <code>submitted</code>, <code>late</code>, <code>graded</code>, <code>extensions</code>, <code>not_submitted</code>, <code>awaiting_grading</code>, and a <code>distribution</code> block (<code>mean</code>, <code>lowest</code>, <code>highest</code>, and bands 80–100 / 60–79 / 50–59 / below 50). <code>not_submitted</code> counts against the real APPROVED roster, not against however many submissions happen to exist.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-section" id="odel-content">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Content Authoring <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">The Chapter &gt; Topic &gt; Material outline behind a course space. Requires a <code>staff</code> token; every node is verified to belong to <code>space_id</code> before it is touched.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-note" style="margin-bottom:14px;"><strong>Deleting a container never deletes teaching content.</strong> Deleting a chapter keeps its topics (they become <em>unfiled</em>, <code>chapter_id=NULL</code>), and deleting a topic only cuts its links to materials — the materials stay in the library for reuse elsewhere. System nodes (<code>is_system=1</code>) cannot be deleted at all.</div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>content_outline</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">The whole tree: <code>chapters[]</code> each with <code>topics[]</code> each with <code>materials[]</code>, plus <code>unfiled_topics[]</code> (topics with no chapter) and a <code>counts</code> block. Empty chapters and empty topics are included, so a newly created shell is visible to its author.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>chapter_save</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>title</code>, <code>chapter_id?</code> (to rename). Created unpublished, appended to the end of the outline.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>chapter_delete</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>chapter_id</code>. Returns <code>topics_unfiled</code> — the topics that were kept rather than destroyed.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>topic_save</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>title</code>, <code>chapter_id?</code>, <code>topic_id?</code> (to update). Passing <code>chapter_id</code> on an update moves the topic between chapters; omitting it unfiles the topic.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>topic_delete</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>topic_id</code>. Refused while assignments still sit under the topic — move or delete them first.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>material_save</strong></div>
+                        <div class="api-endpoint__info">Create: <code>space_id</code>, <code>topic_id</code>, <code>title</code>, <code>type</code> (PAGE|LINK|FILE) and the matching payload — <code>page_html</code> for PAGE, <code>url</code> for LINK, <code>file_id</code> for FILE — plus optional <code>description</code>. Update: pass <code>material_id</code>. Created unpublished and linked to the topic in one call.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>material_delete</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>material_id</code>, <code>topic_id?</code>, <code>purge?</code>. By default only the topic link is cut and the material stays in the library. <code>purge=1</code> deletes the material itself, and is refused while other topics still use it.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>content_publish</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>node</code> (chapter|topic|material), <code>node_id</code>, <code>publish</code> (1|0), <code>cascade?</code> (default 1). Publishing a chapter or topic also publishes what is inside it — a visible heading over hidden content reads to a student as an empty course. Pass <code>cascade=0</code> to change only the node itself.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>content_reorder</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>node</code> (chapter|topic|material), <code>ids</code> (comma-separated, in the order you want), plus <code>topic_id</code> when reordering materials. <strong>All-or-nothing</strong>: every id is verified to belong to this space first, so one stray id fails the whole call rather than half-applying a new order.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-section" id="odel-lectures">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Lectures &amp; Attendance Sessions <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">Schedule lectures singly or as a recurring series, then run the register. Requires a <code>staff</code> token; <code>lecture_id</code> is always verified against <code>space_id</code>.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lecture_get</strong>&amp;space_id=1&amp;lecture_id=1</div>
+                        <div class="api-endpoint__info">One lecture in full, with its <code>resources[]</code> and an attendance tally (<code>present</code>, <code>late</code>, <code>absent</code>, <code>excused</code>).</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lecture_save</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>title</code>, <code>scheduled_start</code> (required on create), <code>scheduled_end?</code>, <code>description?</code>, <code>meet_link?</code>, <code>meet_provider?</code>, <code>location?</code>, <code>min_fee_percent?</code> (0–100), <code>is_published?</code>; pass <code>lecture_id</code> to update. Created at status <code>PENDING</code>. Rejects an end before the start.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lecture_delete</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>lecture_id</code>, <code>force?</code>. Refused once attendance has been recorded — the register is the record of who actually attended. Cancel instead (<code>lecture_set_status</code> with <code>CANCELLED</code>), or pass <code>force=1</code> to delete the register too.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lecture_series_save</strong></div>
+                        <div class="api-endpoint__info">Create a weekly series and generate its lectures in one call. Body: <code>space_id</code>, <code>title</code>, <code>days_mask</code> (7 chars of 0/1 <strong>starting Monday</strong> — <code>1010100</code> = Mon/Wed/Fri), <code>start_time</code> (HH:MM, 24-hour), <code>duration_min</code>, <code>start_date</code>, <code>until_date</code>, <code>skip_dates?</code> (comma-separated), <code>description?</code>, <code>meet_link?</code>. Returns <code>lectures_created</code> and <code>capped</code>; generation stops at 200 lectures so a mistyped <code>until_date</code> cannot flood the timetable.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>attendance_open</strong></div>
+                        <div class="api-endpoint__info">Open the register for student self check-in. Body: <code>space_id</code>, <code>lecture_id</code>, <code>close_in_minutes?</code> (0–480), <code>attendance_code?</code>. Generates a 6-character code from an unambiguous alphabet (no O/0 or I/1) if you do not supply one, and moves a <code>PENDING</code> lecture to <code>LIVE</code>. Pairs with the student action <code>self_checkin</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>attendance_close</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>lecture_id</code>, <code>mark_absent?</code>. With <code>mark_absent=1</code> every enrolled student with no mark is recorded ABSENT, turning an open register into a complete one in a single call. Returns <code>marked_absent</code>.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>attendance_bulk</strong></div>
+                        <div class="api-endpoint__info">Mark a whole register at once. Body: <code>space_id</code>, <code>lecture_id</code>, <code>entries</code> = <code>REGNO:STATUS,REGNO:STATUS,…</code> where STATUS is PRESENT|ABSENT|LATE|EXCUSED|CLEAR. <strong>All-or-nothing</strong>: every entry is parsed and every student checked against the roster before anything is written, so one typo cannot leave half a register applied.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-section" id="odel-push">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Coursework Push to Official Marks <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">Turns the ODEL gradebook into <code>provisional_course_work_marks</code> on <code>acad_course_registration</code> — the same field the provisional-marks screen writes. Requires a <code>staff</code> token and that you teach the space.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-note" style="margin-bottom:14px;"><strong>What a push can and cannot touch.</strong> Only rows still at <code>NOT_ENTERED</code> or <code>ENTERED</code> are written. Anything that has moved up the staged workflow — SUBMITTED, APPROVED, PUBLISHED — is counted as <code>skipped</code> and left exactly as it is, so a push can never overwrite a mark a HOD, Dean or Senate has already acted on. The live mark stage is re-read at write time, not taken from the preview.</div>
+                    <div class="api-note" style="margin-bottom:14px;"><strong>Every push is an audit record.</strong> Each commit writes an immutable snapshot to <code>odel_cw_push</code> + <code>odel_cw_push_detail</code>, including each student's computed points, computed coursework, any override and its reason, the <em>previous</em> coursework value, and the mark stage at the moment of the push. Nothing is overwritten silently.</div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>push_preview</strong>&amp;space_id=1&amp;ungraded_as_zero=0</div>
+                        <div class="api-endpoint__info">Exactly what a push would write, changing nothing. Returns <code>cw_share</code> (default 40), <code>cw_mode</code>, <code>total_weight</code>, the <code>formula</code>, a <code>readiness</code> block (<code>ungraded_submissions</code>, <code>weight_mismatch</code> + explanatory note, <code>editable</code>, <code>locked</code>), <code>stats</code>, and per-student <code>rows[]</code> with <code>computed_cw</code>, <code>current_cw</code>, <code>mark_stage</code> and <code>editable</code>. <strong>Always call this before committing.</strong></div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>push_commit</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>ungraded_as_zero?</code>, <code>overrides_json?</code> = <code>{"REGNO":{"cw":32,"reason":"…"}}</code>. Returns <code>push_id</code>, <code>version</code>, <code>students</code>, <code>written</code>, <code>skipped</code>. Coursework is clamped to 0–40. Where an exam mark already exists the total is recomputed and the stage set to ENTERED; otherwise the row stays NOT_ENTERED.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>push_history</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">Every past push for the space, newest version first, with who pushed it, the formula used, the student count, how many rows were written and how many carried overrides.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>push_snapshot</strong>&amp;space_id=1&amp;push_id=1</div>
+                        <div class="api-endpoint__info">The frozen per-student detail of one past push. The push is verified to belong to <code>space_id</code> first, so this cannot be used to read another course's marks.</div>
+                    </div>
+                    <div class="api-note"><strong>ungraded_as_zero.</strong> <code>0</code> (default) divides by only the weight <em>that student</em> has had graded — "coursework out of what has been marked so far", the right choice mid-semester. <code>1</code> divides by the full published weight, so ungraded work counts as zero — the right choice at the end of a semester, once everything that will be marked has been.</div>
+                </div>
+            </div>
+
+            <div class="api-section" id="changelog-v24">
+                <div class="api-section__header">
+                    <div class="api-section__title">Changelog — v2.4</div>
+                    <div class="api-section__desc">ODEL lecturer surface completed: 30 new endpoints on <code>odel.aspx</code> (August 2026)</div>
+                </div>
+                <div class="api-section__body">
+                    <p style="margin:0 0 14px;">The ODEL module could show a lecturer their teaching but not let them <em>run</em> it: assignments, course content and lectures could all be read and graded through the API, yet only created through the portal screens. <code>odel.aspx</code> goes from 27 actions to <strong>57</strong>, closing that gap. The Phase-2 roadmap in <code>ODEL_API_MASTER_PLAN.md</code> is now implemented apart from file upload/download and admin policy management.</p>
+
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 10px;color:#2ecc71;">Assignment authoring &amp; lifecycle (+8)</h4>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>assignment_save / publish / close / delete / duplicate</strong> — full lifecycle. New assignments and duplicates are always unpublished drafts.</li>
+                        <li><span class="api-status api-status--done"></span><strong>assignment_extend / unextend</strong> — per-student deadline and attempt extensions, upserted on (assignment, student).</li>
+                        <li><span class="api-status api-status--done"></span><strong>assignment_stats</strong> — submission and grade distribution, with <code>not_submitted</code> measured against the real APPROVED roster.</li>
+                    </ul>
+
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 10px;color:#2ecc71;">Content authoring (+9)</h4>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>content_outline</strong> — the whole Chapter &gt; Topic &gt; Material tree, including empty nodes and unfiled topics.</li>
+                        <li><span class="api-status api-status--done"></span><strong>chapter_save / delete, topic_save / delete, material_save / delete</strong> — outline CRUD that never destroys teaching content: deleting a chapter unfiles its topics, deleting a topic only cuts material links.</li>
+                        <li><span class="api-status api-status--done"></span><strong>content_publish / content_reorder</strong> — cascading publish, and all-or-nothing reordering that validates every id before writing.</li>
+                    </ul>
+
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 10px;color:#2ecc71;">Lectures &amp; attendance sessions (+7)</h4>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>lecture_save / get / delete</strong> — scheduling, with deletion refused once a register exists.</li>
+                        <li><span class="api-status api-status--done"></span><strong>lecture_series_save</strong> — weekly recurring generation from a Monday-based <code>days_mask</code>, capped at 200 lectures.</li>
+                        <li><span class="api-status api-status--done"></span><strong>attendance_open / close / bulk</strong> — self check-in codes, one-call auto-absent on close, and all-or-nothing bulk marking.</li>
+                    </ul>
+
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 10px;color:#2ecc71;">Coursework push to official marks (+4)</h4>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>push_preview / commit / history / snapshot</strong> — the ODEL gradebook written into <code>provisional_course_work_marks</code>. Mirrors <code>OdelPushService</code> exactly, including <code>CwFromPoints</code> rounding, so the API and the portal screen cannot disagree about a mark. Rows beyond the lecturer stage are skipped, never overwritten, and every push is an immutable snapshot.</li>
+                    </ul>
+
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 10px;color:#2ecc71;">Lecturer overview (+2)</h4>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>teaching_summary</strong> — what needs attention across every space taught, in one call.</li>
+                        <li><span class="api-status api-status--done"></span><strong>update_pin</strong> — exclusive pinning of an announcement.</li>
+                    </ul>
+
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 10px;color:#e67e22;">Security fix</h4>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>Staff identity resolution</strong> — <code>StaffEmpId</code> matched <code>usernames</code>, <code>EMP_CODE</code> and <code>emp_email</code> in one OR'd query with <code>ORDER BY empID LIMIT 1</code>. <code>EMP_CODE</code> is not unique — 19 codes are shared by more than one employee — so a shared code silently resolved to whichever row sorted first, which in a teaching API means one lecturer editing another's assignments and grading another's students. Columns are now tried in order of how strongly they identify one person, an email login falls back to its local part, and an ambiguous <code>EMP_CODE</code> is refused rather than guessed. Mirrors <code>StaffLookup.cs</code>.</li>
+                        <li><span class="api-status api-status--done"></span><strong>Containment checks</strong> — every assignment-, lecture- and push-scoped action now verifies the object belongs to the space the caller was authorised against, so a lecturer cannot reach another course's work by pairing a space they teach with someone else's object id.</li>
+                    </ul>
                 </div>
             </div>
 
