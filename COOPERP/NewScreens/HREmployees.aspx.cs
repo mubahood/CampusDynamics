@@ -1628,6 +1628,84 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
         }
     }
 
+    /// <summary>
+    /// The same lookup the eportal staff screens perform, so this tool can prove a repair worked
+    /// instead of hoping. Kept deliberately in step with App_Code/Portal/StaffLookup.cs in the
+    /// portal application: login as stored, then the local part of an email, then the work email,
+    /// and EMP_CODE last because it is not unique.
+    /// </summary>
+    private int ResolveStaffByLogin(string login, out string note)
+    {
+        note = "";
+        if (string.IsNullOrEmpty(login)) { note = "No username."; return 0; }
+        string full = login.Trim();
+        string local = full.Contains("@") ? full.Substring(0, full.IndexOf('@')).Trim() : "";
+
+        try
+        {
+            DataTable dt = ExecuteQuery(
+                "SELECT empID FROM hrm_employee WHERE UPPER(TRIM(IFNULL(usernames,''))) = UPPER(@u) " +
+                "AND TRIM(IFNULL(usernames,'')) NOT IN ('','-') ORDER BY empID LIMIT 1",
+                new MySqlParameter("@u", full));
+            if (dt.Rows.Count > 0) { note = "Matched on usernames."; return Convert.ToInt32(dt.Rows[0][0]); }
+
+            if (local != "")
+            {
+                dt = ExecuteQuery(
+                    "SELECT empID FROM hrm_employee WHERE UPPER(TRIM(IFNULL(usernames,''))) = UPPER(@u) " +
+                    "AND TRIM(IFNULL(usernames,'')) NOT IN ('','-') ORDER BY empID LIMIT 1",
+                    new MySqlParameter("@u", local));
+                if (dt.Rows.Count > 0) { note = "Matched on usernames using the email local part."; return Convert.ToInt32(dt.Rows[0][0]); }
+            }
+
+            dt = ExecuteQuery(
+                "SELECT empID FROM hrm_employee WHERE UPPER(TRIM(IFNULL(emp_email,''))) = UPPER(@u) " +
+                "AND TRIM(IFNULL(emp_email,'')) NOT IN ('','-') ORDER BY empID LIMIT 1",
+                new MySqlParameter("@u", full));
+            if (dt.Rows.Count > 0) { note = "Matched on emp_email."; return Convert.ToInt32(dt.Rows[0][0]); }
+
+            foreach (string key in new string[] { full, local })
+            {
+                if (key == "") continue;
+                DataTable c = ExecuteQuery(
+                    "SELECT COUNT(*) n FROM hrm_employee WHERE UPPER(TRIM(IFNULL(EMP_CODE,''))) = UPPER(@u) " +
+                    "AND TRIM(IFNULL(EMP_CODE,'')) NOT IN ('','-')", new MySqlParameter("@u", key));
+                int n = c.Rows.Count > 0 ? Convert.ToInt32(c.Rows[0][0]) : 0;
+                if (n == 1)
+                {
+                    dt = ExecuteQuery(
+                        "SELECT empID FROM hrm_employee WHERE UPPER(TRIM(IFNULL(EMP_CODE,''))) = UPPER(@u) LIMIT 1",
+                        new MySqlParameter("@u", key));
+                    if (dt.Rows.Count > 0) { note = "Matched on staff code."; return Convert.ToInt32(dt.Rows[0][0]); }
+                }
+                else if (n > 1)
+                {
+                    note = "The staff code '" + key + "' is shared by " + n + " employees, so it cannot identify one person.";
+                    return 0;
+                }
+            }
+        }
+        catch (Exception ex) { note = "Lookup failed: " + ex.Message; return 0; }
+
+        note = "No employee record carries the username '" + full + "'" + (local == "" ? "" : " or '" + local + "'") + ".";
+        return 0;
+    }
+
+    /// <summary>The employee's staff code if another employee shares it, otherwise "".</summary>
+    private string SharedStaffCode(int empID)
+    {
+        try
+        {
+            DataTable dt = ExecuteQuery(
+                "SELECT e.EMP_CODE FROM hrm_employee e " +
+                "WHERE e.empID=@id AND TRIM(IFNULL(e.EMP_CODE,'')) NOT IN ('','-') " +
+                "  AND (SELECT COUNT(*) FROM hrm_employee x WHERE UPPER(TRIM(IFNULL(x.EMP_CODE,'')))=UPPER(TRIM(e.EMP_CODE))) > 1 LIMIT 1",
+                new MySqlParameter("@id", empID));
+            return dt.Rows.Count > 0 ? SafeVal(dt.Rows[0][0]) : "";
+        }
+        catch { return ""; }
+    }
+
     private void WriteFixLoginAjax()
     {
         int empID;
@@ -1820,6 +1898,34 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
                 log.Add("Password auto-generated.");
             }
 
+            // ── Does the account now actually resolve to this employee? ──────────────
+            //
+            // Fixing the login is only half the job. The staff screens in eportal look the
+            // signed-in user up in hrm_employee before showing anything, and if that lookup
+            // fails the member of staff is told "Lecturer profile not found." even though
+            // their password works perfectly. That is the state Baguma James was in: a valid
+            // account, a correct username, and no way to reach his own mark requests.
+            //
+            // So the repair now ends by performing the SAME lookup the portal performs, and
+            // reports what it found. If it cannot resolve, it says exactly why — which is far
+            // more use than an administrator resetting the password again and again.
+            string resolveNote;
+            int resolvedEmp = ResolveStaffByLogin(user.UserName, out resolveNote);
+            bool profileOk = resolvedEmp == empID;
+
+            if (profileOk)
+                log.Add("Verified: signing in as '" + user.UserName + "' resolves to this employee record. " + resolveNote);
+            else if (resolvedEmp > 0)
+                log.Add("WARNING: '" + user.UserName + "' resolves to a DIFFERENT employee (empID " + resolvedEmp +
+                        "). " + resolveNote + " Staff screens would show that person's data.");
+            else
+                log.Add("WARNING: staff screens will still not find this profile. " + resolveNote);
+
+            // A staff code shared with someone else cannot identify anyone. It no longer blocks
+            // the lookup now that the username is set, but it is worth saying out loud.
+            string dupCode = SharedStaffCode(empID);
+            if (dupCode != "") log.Add("Note: staff code '" + dupCode + "' is shared with another employee.");
+
             log.Add("Login fix complete.");
 
             WriteJson(new Dictionary<string, object>
@@ -1830,6 +1936,8 @@ public partial class COOPERP_NewScreens_HREmployees : System.Web.UI.Page
                 { "provisioned", provisioned },
                 { "username_written", usernameWritten },
                 { "custom_applied", customApplied },
+                { "profile_resolves", profileOk },
+                { "profile_note", resolveNote },
                 { "log", log }
             });
         }
