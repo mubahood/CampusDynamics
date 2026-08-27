@@ -1,0 +1,422 @@
+regno	programme	course_code	mark	filed_under_year	filed_under_sem	study_year_of_that_term	curriculum_year	curriculum_sem	assessment	destination_mark	destination_year	published_on	approve_batch
+MRU1300200613	BMC	BMC3104	57	2015/2016	2	3	3	1	AMBIGUOUS - destination already holds a different mark	57	2015/2016	2026-05-30 13:17:28	1
+MRU2022000207	BAED	BSP3202	76	2024/2025	2	2	3	2	AMBIGUOUS - destination already holds a different mark	77	2025/2026	2026-08-10 10:39:39	43
+MRU2023000312	BPLM	MGT2206B	77	2025/2026	2	3	2	2	AMBIGUOUS - destination already holds a different mark	43	2024/2025	2026-08-10 11:42:21	26
+MRU2023000420	BBA	FIN1202B	50	2024/2025	2	2	1	2	AMBIGUOUS - destination already holds a different mark	50	2023/2024	2026-08-21 13:39:26	
+MRU2023000585	BEICT	BME2209	70	2025/2026	2	3	2	2	AMBIGUOUS - destination already holds a different mark	68	2024/2025	2026-08-10 12:58:15	38
+MRU2023000623	BEE	BEE2202	76	2025/2026	2	3	2	2	AMBIGUOUS - destination already holds a different mark	44	2024/2025	2026-08-10 10:41:11	24
+MRU2023000657	BAED	BEF1202	79	2025/2026	2	3	1	2	AMBIGUOUS - destination already holds a different mark	43	2023/2024	2026-08-10 10:33:13	38
+MRU2023000779	BBA	FIN1202B	66	2024/2025	2	2	1	2	AMBIGUOUS - destination already holds a different mark	47	2023/2024	2026-08-17 11:12:54	71
+MRU2023000826	SWSA	SWA2202B	58	2025/2026	2	3	2	2	AMBIGUOUS - destination already holds a different mark	8	2024/2025	2026-08-14 16:15:39	59
+MRU2023000871	BAED	BEF1202	72	2025/2026	2	3	1	2	AMBIGUOUS - destination already holds a different mark	39	2023/2024	2026-08-10 10:45:48	38
+MRU2023000914	BAED	BHI2205	71	2025/2026	1	3	2	2	AMBIGUOUS - destination already holds a different mark	61	2024/2025	2026-08-13 12:26:52	57
+MRU2023001184	DPE	DEL2101D	83	2023/2024	1	1	2	1	AMBIGUOUS - destination already holds a different mark	74	2024/2025	2026-08-10 10:23:22	38
+MRU2023001308	BED(S)	BAG3103B	75	2025/2026	3	3	3	1	AMBIGUOUS - destination already holds a different mark	75	2025/2026	2026-08-10 10:23:52	38
+MRU2024000011	DPE	DIT1101D	80	2024/2025	1	2	1	1	AMBIGUOUS - destination already holds a different mark	71	2023/2024	2026-08-10 10:25:10	38
+MRU2024000017	DPE	DEC2101D	74	2024/2025	1	1	2	1	AMBIGUOUS - destination already holds a different mark	72	2025/2026	2026-08-10 10:23:31	38
+MRU2024000017	DPE	DEF2101D	67	2024/2025	1	1	2	1	AMBIGUOUS - destination already holds a different mark	70	2025/2026	2026-08-10 10:23:31	38
+MRU2024000024	BED(S)	BEM1107B	76	2024/2025	1	2	1	1	AMBIGUOUS - destination already holds a different mark	74	2023/2024	2026-08-10 10:23:36	38
+MRU2024000028	BED(P)	BEC3204B	0	2025/2026	2	2	3	2	AMBIGUOUS - destination already holds a different mark	58	2026/2027	2026-08-17 11:12:53	71
+MRU2024000354	decd	DSP1301D	77	2025/2026	3	2	1	3	AMBIGUOUS - destination already holds a different mark	82	2024/2025	2026-07-27 02:42:37	
+MRU2024000825	BBA	FIN1202B	52	2025/2026	2	2	1	2	AMBIGUOUS - destination already holds a different mark	47	2024/2025	2026-08-10 10:39:31	26
+MRU2024000953	DBA	ADM1202D	35	2025/2026	2	2	1	2	AMBIGUOUS - destination already holds a different mark	47	2024/2025	2026-08-10 13:45:54	47
+MRU2024001360	DIT	ICT1203D	70	2025/2026	2	2	1	2	AMBIGUOUS - destination already holds a different mark	39	2024/2025	2026-08-10 10:40:06	30
+MRU2024001577	BED(S)	BVA3201B	75	2025/2026	2	2	3	2	AMBIGUOUS - destination already holds a different mark	76	2026/2027	2026-08-10 12:56:15	38
+MRU2024001577	BED(S)	BVA3207B	84	2025/2026	2	2	3	2	AMBIGUOUS - destination already holds a different mark	87	2026/2027	2026-08-10 12:56:16	38
+MRU2024001577	BED(S)	BVA3210B	75	2025/2026	2	2	3	2	AMBIGUOUS - destination already holds a different mark	85	2026/2027	2026-08-10 12:56:16	38
+MRU2024001577	BED(S)	BVA3211B	73	2025/2026	2	2	3	2	AMBIGUOUS - destination already holds a different mark	80	2026/2027	2026-08-10 12:56:16	38
+MRU2024001577	BED(S)	BVA3212B	75	2025/2026	2	2	3	2	AMBIGUOUS - destination already holds a different mark	85	2026/2027	2026-08-10 12:56:16	38
+MRU2024001621	BED(P)	BEL3201B	83	2025/2026	2	2	3	2	AMBIGUOUS - destination already holds a different mark	85	2026/2027	2026-08-10 12:56:39	38
+MRU2024001784	BED(P)	BVA1301B	70	2025/2026	3	2	1	3	AMBIGUOUS - destination already holds a different mark	75	2024/2025	2026-08-10 10:26:54	38
+MRU2024001795	MEMA	EDU6207	61	2025/2026	1	2	1	2	AMBIGUOUS - destination already holds a different mark	61	2024/2025	2026-08-10 12:58:27	38
+MRU2024001843	BED(P)	BEC3204B	0	2025/2026	2	2	3	2	AMBIGUOUS - destination already holds a different mark	73	2026/2027	2026-08-17 11:12:53	71
+MRU2024001859	DCE	ENG1212D	73	2025/2026	2	2	1	2	AMBIGUOUS - destination already holds a different mark	77	2024/2025	2026-08-20 14:45:52	
+MRU2024001984	BBA	MGT 1104B	80	2024/2025	1	1	2	1	AMBIGUOUS - destination already holds a different mark	80	2025/2026	2026-08-10 10:23:38	26
+MRU2024001997	decd	DECD1303	50	2025/2026	3	2	1	3	AMBIGUOUS - destination already holds a different mark	50	2024/2025	2026-08-17 11:12:52	64
+MRU2024002371	decd	DECD1201	72	2025/2026	2	2	1	2	AMBIGUOUS - destination already holds a different mark	72	2024/2025	2026-08-10 12:55:36	38
+MRU2024002371	decd	DECD1208	72	2025/2026	2	2	1	2	AMBIGUOUS - destination already holds a different mark	65	2024/2025	2026-08-10 12:55:36	38
+MRU2024002396	decd	DECD1201	66	2025/2026	2	2	1	2	AMBIGUOUS - destination already holds a different mark	66	2024/2025	2026-08-10 12:54:54	38
+MRU2024002396	decd	DECD1208	66	2025/2026	2	2	1	2	AMBIGUOUS - destination already holds a different mark	60	2024/2025	2026-08-10 12:54:54	38
+MRU2025002115	BEICT	FIN1101B	73	2026/2027	1	2	1	1	AMBIGUOUS - destination already holds a different mark	34	2025/2026	2026-08-10 12:58:33	38
+MRU2025002235	DPE	DEL2202D	60	2025/2026	2	1	2	2	AMBIGUOUS - destination already holds a different mark	60	2026/2027	2026-08-10 12:55:46	21
+MRU2025002265	DPE	DEE2201D	79	2025/2026	2	1	2	2	AMBIGUOUS - destination already holds a different mark	72	2026/2027	2026-08-10 13:45:55	47
+MRU2025002267	DPE	DGC2201D	77	2025/2026	2	1	2	2	AMBIGUOUS - destination already holds a different mark	77	2026/2027	2026-08-10 12:57:22	21
+MRU2025002468	DPE	DEL2201D	73	2025/2026	2	1	2	2	AMBIGUOUS - destination already holds a different mark	73	2026/2027	2026-08-10 12:56:10	21
+MRU2025002468	DPE	DEL2202D	74	2025/2026	2	1	2	2	AMBIGUOUS - destination already holds a different mark	74	2026/2027	2026-08-10 12:56:10	21
+MRU2025003009	BAED	BLL1201	76	2026/2027	1	2	1	2	AMBIGUOUS - destination already holds a different mark	65	2025/2026	2026-08-10 12:59:18	38
+MRU2025003099	DPE	DEE2201D	90	2025/2026	2	1	2	2	AMBIGUOUS - destination already holds a different mark	78	2026/2027	2026-08-10 12:56:36	21
+MRU2025003171	BCE	BCE1208	88	2026/2027	1	2	1	2	AMBIGUOUS - destination already holds a different mark	88	2025/2026	2026-08-10 12:59:24	40
+MRU2025003556	HEC	HEC1201	76	2025/2026	1	1	1	2	AMBIGUOUS - destination already holds a different mark	60	2025/2026	2026-08-10 10:23:57	43
+MRU2025003634	decd	DECD2207	76	2025/2026	2	1	2	2	AMBIGUOUS - destination already holds a different mark	75	2026/2027	2026-08-10 12:56:26	43
+MRU2025004119	BCOM	PRC1101B	73	2025/2026	2	1	1	1	AMBIGUOUS - destination already holds a different mark	73	2025/2026	2026-08-24 16:13:51	81
+MRU2025004249	SWSA	SWA1204B	68	2025/2026	1	1	1	2	AMBIGUOUS - destination already holds a different mark	68	2025/2026	2026-08-10 12:58:28	37
+MRU2027000002	TEST	CCS	79	2026/2027	1	2	1	2	AMBIGUOUS - destination already holds a different mark	72	2025/2026	2026-08-01 20:11:19	32
+MRU2022000258	BIT	ICT2104B	84	2022/2023	1	1	2	1	AMBIGUOUS - more than one candidate destination		2023/2024	2026-07-27 02:41:43	
+MRU2027000002	TEST	ADM1106B	71	2026/2027	2	2	2	3	AMBIGUOUS - more than one candidate destination	88	2026/2027	2026-07-06 13:02:20	1
+MRU2019001142	BIT	ICT2104B	62	2021/2022	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2020/2021	2026-07-27 02:42:22	
+MRU2020000246	BEICT	BHI2205	66	2022/2023	2	3	2	2	NO ACTION - marked after (normal catch-up study)		2021/2022	2026-07-27 02:41:43	
+MRU2020000513	BEICT	BHI2102	68	2022/2023	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2021/2022	2026-07-27 02:41:43	
+MRU2020000513	BEICT	ICT2116B	58	2022/2023	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2021/2022	2026-07-27 02:41:43	
+MRU2020000705	SWSA	SWA2208B	78	2022/2023	2	3	2	2	NO ACTION - marked after (normal catch-up study)		2021/2022	2026-07-27 02:41:43	
+MRU2021001213	BCE	BCE3204	63	2023/2024	2	4	3	2	NO ACTION - marked after (normal catch-up study)		2022/2023	2026-07-27 02:42:30	
+MRU2021001290	BED(P)	BEF1104B	76	2022/2023	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2021/2022	2026-07-27 02:41:43	
+MRU2021001290	BED(P)	BEF1106B	74	2022/2023	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2021/2022	2026-07-27 02:41:43	
+MRU2022000287	BTHM	THM2204B	60	2023/2024	2	3	2	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-07-27 02:42:30	
+MRU2022000482	BED(S)	BMU2301B	68	2024/2025	3	3	2	3	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2022000509	BCE	EMB2101	66	2024/2025	1	4	2	1	NO ACTION - marked after (normal catch-up study)		2022/2023	2026-07-27 02:42:34	
+MRU2022000818	BSAF	FIN2102B	63	2024/2025	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2022000818	BSAF	MGT2103B	80	2024/2025	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2022000863	SWSA	SWA1205	82	2023/2024	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2022/2023	2026-07-27 02:42:30	
+MRU2023000155	DEE	ENG1218D	61	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023000585	BEICT	BME2208	65	2025/2026	2	3	2	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-08-10 12:58:15	38
+MRU2023000593	BBA	FIN1201B	78	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023000593	BBA	FIN1203B	81	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023000665	BSAF	FIN2101B	52	2024/2025	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023000775	BCE	BSC1101	69	2024/2025	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023000775	BCE	SEB1101	86	2024/2025	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023000826	SWSA	SWA2201B	47	2025/2026	2	3	2	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-08-10 12:58:24	10
+MRU2023000826	SWSA	SWA2207B	58	2025/2026	2	3	2	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-08-10 12:58:28	8
+MRU2023000852	BSAF	FIN2101B	50	2024/2025	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023000955	BTHM	THM2203B	59	2024/2025	2	3	2	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023000976	BCE	EMB2101	82	2024/2025	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023000998	BSAF	MGT2107B	62	2024/2025	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001040	BCE	BCE2301	77	2025/2026	2	3	2	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-05-04 16:17:22	
+MRU2023001256	BCE	BCE3103	60	2024/2025	1	4	3	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001256	BCE	BCE3105	75	2024/2025	1	4	3	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001256	BCE	BCE3110	58	2024/2025	1	4	3	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001256	BCE	BCE3202	58	2024/2025	2	4	3	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001256	BCE	BCP3204	71	2024/2025	2	4	3	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001265	BCE	BCP3204	75	2024/2025	2	4	3	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001402	BSAF	MGT1201B	59	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001436	DME	ENG1203D	90	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001436	DME	ENG1208D	72	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001436	DME	ENG1210D	65	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001436	DME	ENG1221D	82	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2023001483	DIT	ICT1201D	60	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000007	BED(P)	BEC1303B	74	2024/2025	3	2	1	3	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000009	BED(P)	BEF1106B	63	2024/2025	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2023/2024	NULL	1
+MRU2024000009	BED(P)	BER1105B	64	2024/2025	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2023/2024	NULL	1
+MRU2024000009	BED(P)	BLT1301B	75	2024/2025	3	2	1	3	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000016	decd	DECD1101	71	2025/2026	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-07-27 02:42:37	
+MRU2024000018	DPE	DEC1205D	75	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000018	DPE	DEC1301D	71	2024/2025	3	2	1	3	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000018	DPE	DEC1303D	77	2024/2025	3	2	1	3	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000018	DPE	DEL1201D	73	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000018	DPE	DEL1301D	73	2024/2025	3	2	1	3	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000018	DPE	DEL1302D	72	2024/2025	3	2	1	3	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000018	DPE	DSP1301D	83	2024/2025	3	2	1	3	NO ACTION - marked after (normal catch-up study)		2023/2024	NULL	1
+MRU2024000018	DPE	PEO1101D	75	2024/2025	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000018	DPE	PEO1102D	63	2024/2025	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000046	BPLM	ADM1202B	71	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	NULL	1
+MRU2024000046	BPLM	FIN1201B	75	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	NULL	1
+MRU2024000046	BPLM	FIN1202B	76	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	NULL	1
+MRU2024000046	BPLM	FIN1203B	77	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	NULL	1
+MRU2024000046	BPLM	FND1205B	77	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	NULL	1
+MRU2024000046	BPLM	MGT1201B	80	2024/2025	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2023/2024	NULL	1
+MRU2024000047	BSAF	PRC2101B	75	2025/2026	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-07-27 02:42:37	
+MRU2024000115	BCE	EMB1101	63	2024/2025	1	2	1	1	NO ACTION - marked after (normal catch-up study)		2023/2024	2026-07-27 02:42:34	
+MRU2024000129	BSAF	FIN2202B	77	2025/2026	2	3	2	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-07-27 02:42:37	
+MRU2024000315	SWSA	SWA1204B	67	2025/2026	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-08-10 12:58:23	8
+MRU2024001748	MEMA	EDU6207	64	2025/2026	1	2	1	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-08-10 12:58:27	38
+MRU2024001797	BIT	ICT2101B	69	2025/2026	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2024/2025	NULL	1
+MRU2024001797	BIT	ICT2103B	73	2025/2026	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2024/2025	NULL	1
+MRU2024001797	BIT	ICT2104B	71	2025/2026	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2024/2025	NULL	1
+MRU2024001797	BIT	ICT2105B	73	2025/2026	1	3	2	1	NO ACTION - marked after (normal catch-up study)		2024/2025	NULL	1
+MRU2024001844	MEMA	EDU6207	71	2025/2026	1	2	1	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-08-10 12:58:27	38
+MRU2024001848	MEMA	EDU6207	78	2025/2026	1	2	1	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-08-10 12:58:27	38
+MRU2024002371	decd	DECD1202	69	2025/2026	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-08-15 11:45:02	60
+MRU2024002396	decd	DECD1202	66	2025/2026	2	2	1	2	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-08-15 11:45:02	60
+MRU2024002396	decd	DSP1301D	40	2025/2026	3	2	1	3	NO ACTION - marked after (normal catch-up study)		2024/2025	2026-07-27 02:42:37	
+MRU2021000024	BAED	BEF3201	78	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000121	BIT	ICT3201B	76	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000162	BVS	BCU3201	54	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000234	BIT	ICT3201B	69	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000249	BVS	BCU3201	57	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000261	BIT	ICT3201B	60	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000275	BEICT	BCU3201	75	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000321	BEICT	BCU3201	70	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000321	BEICT	BGC3201	60	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000393	BEICT	BCU3201	70	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000474	BEICT	BCU3201	77	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000474	BEICT	BGC3201	70	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000478	BAED	BEF3201	62	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000534	BEICT	BCU3201	60	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000572	BEICT	BCU3201	62	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000572	BEICT	BGC3201	60	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000576	BED(P)	BEL3101B	76	2022/2023	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000576	BED(P)	BLT3101B	77	2022/2023	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000597	BEICT	BCU3201	66	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000597	BEICT	BGC3201	60	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000707	BEICT	BCU3201	78	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000707	BEICT	BGC3201	75	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000721	BAED	BEF3201	77	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000792	BIT	ICT3201B	56	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000830	BIT	ICT3201B	62	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000865	BEICT	BCU3201	72	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000865	BEICT	BGC3201	60	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000865	BEICT	BHI3208	68	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000865	BEICT	BHI3209	67	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000865	BEICT	ICT3201B	70	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000872	BED(P)	BEL3101B	70	2022/2023	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000872	BED(P)	BLT3101B	79	2022/2023	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000872	BED(P)	BLT3203B	72	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000872	BED(P)	BMU3202B	75	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000884	BIT	ICT3201B	77	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021000908	BTHM	THM3201B	75	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000908	BTHM	THM3207B	51	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000908	BTHM	THM3208B	64	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000908	BTHM	THM3209B	70	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000908	BTHM	THM3211B	71	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021000908	BTHM	THM3214B	71	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021001110	BEICT	BCU3201	59	2022/2023	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2021001192	BAED	BEF3201	70	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2021001220	BAED	BEF3201	65	2021/2022	2	1	3	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:22	
+MRU2022000064	DME	ENG2101D	50	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000064	DME	ENG2108D	50	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000064	DME	ENG2109D	51	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000064	DME	ENG2122D	50	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000064	DME	ENG2123D	60	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000098	DPE	DEL2301D	77	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000098	DPE	DEL2302D	78	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000098	DPE	DER2301D	76	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000098	DPE	DMA2301D	80	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000098	DPE	DSP2304D	81	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000098	DPE	DSS2301D	75	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000112	BBA	ADM2206B	75	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000192	BSAF	FIN3102B	66	2024/2025	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:34	
+MRU2022000192	BSAF	FIN3103B	58	2024/2025	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:34	
+MRU2022000192	BSAF	FIN3104B	62	2024/2025	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:34	
+MRU2022000192	BSAF	FIN3105B	61	2024/2025	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:34	
+MRU2022000192	BSAF	MGT3101B	70	2024/2025	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:42:34	
+MRU2022000193	DPE	DCU2101D	82	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000193	DPE	DME2101D	70	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000193	DPE	DME2102D	80	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000193	DPE	DPE2101D	75	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000193	DPE	DPE2102D	88	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000193	DPE	DPE2103D	65	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000193	DPE	DPE2104D	87	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000204	BED(P)	BME2101B	70	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000204	BED(P)	BME2102B	68	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000204	BED(P)	BPE2101B	81	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000204	BED(P)	BPE2103B	86	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000204	BED(P)	BPE2104B	88	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000204	BED(P)	BPE2105B	88	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000210	BED(S)	BHI2201B	72	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000210	BED(S)	BHI2202B	65	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000210	BED(S)	BHI2203B	68	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000210	BED(S)	BRE2201B	77	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000210	BED(S)	BRE2203B	74	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000210	BED(S)	BRE3202B	78	2023/2024	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2022000226	DPE	DEL2301D	74	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000226	DPE	DEL2302D	69	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000226	DPE	DMA2301D	78	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000226	DPE	DSP2304D	81	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000226	DPE	DSS2301D	80	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000246	BED(P)	BRE3202B	83	2023/2024	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2022000259	BIT	ICT2203B	78	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000275	BIT	ICT2101B	84	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000275	BIT	ICT2102B	78	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000275	BIT	ICT2103B	56	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000275	BIT	ICT2104B	57	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000275	BIT	ICT2204B	68	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000289	DPE	DEL2301D	71	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000289	DPE	DEL2302D	74	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000289	DPE	DMA2301D	70	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000289	DPE	DRE2301D	70	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000289	DPE	DRE2302D	71	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000289	DPE	DSP2304D	77	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000292	DPE	DSP2304D	80	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000301	DPE	DCU2101D	73	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000301	DPE	DEF2101D	70	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000301	DPE	DEL2101D	71	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000301	DPE	DEL2102D	70	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000301	DPE	DMU2102D	81	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000324	DPE	DEL2301D	70	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000324	DPE	DEL2302D	70	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000324	DPE	DMA2301D	80	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000324	DPE	DRE2301D	74	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000324	DPE	DRE2302D	76	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000324	DPE	DSP2304D	79	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000333	DPE	DCU2101D	66	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000333	DPE	DEF2101D	60	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000348	DPE	DEL2301D	70	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000348	DPE	DEL2302D	75	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000348	DPE	DMA2301D	71	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000348	DPE	DRE2301D	72	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000348	DPE	DRE2302D	72	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000348	DPE	DSP2304D	76	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000349	DPE	DME2102D	76	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000349	DPE	DPE2101D	74	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000349	DPE	DPE2102D	88	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000349	DPE	DPE2103D	69	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000349	DPE	DPE2104D	87	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000351	DPE	DAG2101D	77	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000351	DPE	DAG2104D	81	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000351	DPE	DAG2201D	67	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000351	DPE	DAG2204D	68	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000351	DPE	DCU2101D	80	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000351	DPE	DEE2201D	70	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000351	DPE	DGC2201D	86	2022/2023	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000351	DPE	DME2101D	74	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000351	DPE	DME2102D	81	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000361	DIT	ICT2102D	71	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000362	DPE	DAG2101D	73	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000362	DPE	DAG2104D	81	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000362	DPE	DCU2101D	78	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000362	DPE	DME2101D	76	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000362	DPE	DME2102D	70	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000605	BMC	MSC3101B	64	2022/2023	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000605	BMC	MSC3107B	76	2022/2023	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000605	BMC	MSC3113B	77	2022/2023	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000605	BMC	MSC3114B	65	2022/2023	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000696	DIT	ICT2102D	70	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000774	DIT	ICT2102D	72	2022/2023	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2022000930	DPE	DEL2302D	75	2022/2023	3	1	2	3	REVIEW - legacy migration, no independent evidence of term		2023/2024	2026-07-27 02:41:43	
+MRU2023000385	DPE	DEL2201D	64	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000385	DPE	DEL2202D	68	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000385	DPE	DGC2201D	84	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000520	BIT	ICT3102B	70	2023/2024	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000520	BIT	ICT3103B	72	2023/2024	1	2	3	1	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000685	DPE	DGC2201D	80	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000792	BPA	MGT2107B	73	2023/2024	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000948	DSM	ADM2107D	55	2023/2024	2	1	2	1	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000967	DPE	DEL2201D	70	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000967	DPE	DEL2202D	67	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000967	DPE	DGC2201D	80	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000970	DPE	DEL2201D	71	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000970	DPE	DEL2202D	78	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023000970	DPE	DGC2201D	79	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001009	BBA	FIN2201B	71	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001009	BBA	MGT2201B	79	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001009	BBA	MGT2202B	71	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001017	DPE	DEL2201D	70	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001017	DPE	DEL2202D	68	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001017	DPE	DGC2201D	86	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001072	BIT	ICT3201B	59	2023/2024	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001074	DPE	DEL2201D	72	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001074	DPE	DEL2202D	70	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001074	DPE	DGC2201D	82	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001080	DPE	DEL2201D	74	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001080	DPE	DEL2202D	72	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001080	DPE	DGC2201D	81	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001084	DPE	DEL2201D	65	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001084	DPE	DEL2202D	68	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001084	DPE	DGC2201D	77	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001088	DPE	DAG2201D	67	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001088	DPE	DAG2204D	69	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001088	DPE	DGC2201D	81	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001101	DPE	DGC2201D	82	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001110	DPE	DGC2201D	80	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001135	DPE	DEL2201D	70	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001135	DPE	DEL2202D	70	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001135	DPE	DGC2201D	82	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001138	DPE	DEL2201D	70	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001138	DPE	DEL2202D	70	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001138	DPE	DGC2201D	73	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001159	BMC	MSC3208B	72	2023/2024	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001191	BEICT	BEF2102	78	2023/2024	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001232	DPE	DEL2201D	67	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001232	DPE	DEL2202D	70	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001232	DPE	DGC2201D	76	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001261	DPE	DEL2201D	68	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001261	DPE	DEL2202D	73	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001261	DPE	DGC2201D	81	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001281	DPE	DEL2201D	63	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001281	DPE	DEL2202D	70	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001281	DPE	DGC2201D	78	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001299	DPE	DEL2201D	69	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001299	DPE	DEL2202D	73	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001299	DPE	DGC2201D	72	2023/2024	2	1	2	2	REVIEW - legacy migration, no independent evidence of term		2024/2025	2026-07-27 02:42:30	
+MRU2023001455	BBA	FIN3202B	75	2024/2025	2	2	3	2	REVIEW - legacy migration, no independent evidence of term		2025/2026	2026-07-27 02:42:34	
+MRU2024001663	SWSA	SWA2101	76	2024/2025	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2025/2026	2026-07-27 02:42:34	
+MRU2024001663	SWSA	SWA2102B	63	2024/2025	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2025/2026	2026-07-27 02:42:34	
+MRU2024001663	SWSA	SWA2103B	57	2024/2025	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2025/2026	2026-07-27 02:42:34	
+MRU2024001663	SWSA	SWA2104B	77	2024/2025	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2025/2026	2026-07-27 02:42:34	
+MRU2024001663	SWSA	SWA2105B	70	2024/2025	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2025/2026	2026-07-27 02:42:34	
+MRU2024001663	SWSA	SWA2106B	61	2024/2025	1	1	2	1	REVIEW - legacy migration, no independent evidence of term		2025/2026	2026-07-27 02:42:34	
+MRU2021001168	BIT	ICT2105B	70	2022/2023	2	2	2	1	REVIEW - same study year, different semester		2022/2023	2026-07-27 02:41:43	
+MRU2022000070	BEICT	ICT2201B	67	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000145	BMC	MSC2221B	77	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000177	BEICT	ICT2201B	67	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000221	BEICT	ICT2201B	58	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000246	BED(P)	BRE2201B	82	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000305	DPE	DSP2304D	82	2023/2024	1	2	2	3	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000457	BMC	MSC2221B	70	2022/2023	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:41:43	
+MRU2022000499	BMC	MSC2221B	70	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000500	BMC	MSC2221B	78	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000515	BMC	MSC2221B	72	2022/2023	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:41:43	
+MRU2022000639	BECD	BECD3202	80	2024/2025	1	3	3	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2022000642	BECD	BECD3202	82	2024/2025	1	3	3	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2022000706	BECD	BECD3202	82	2024/2025	1	3	3	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2022000708	BMC	MSC2221B	79	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000861	BMC	MSC2221B	77	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2022000947	BECD	BECD3202	80	2024/2025	1	3	3	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2022000966	BMC	MSC2221B	85	2023/2024	1	2	2	2	REVIEW - same study year, different semester		2023/2024	2026-07-27 02:42:30	
+MRU2023000078	BEICT	BIT2201B	69	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000223	BEICT	BIT2201B	81	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000356	BEICT	BIT2201B	79	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000541	BEICT	BIT2201B	72	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000608	BIT	ICT3101B	58	2024/2025	2	3	3	1	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000651	BEICT	BIT2201B	63	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000771	BEICT	BIT2201B	90	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000809	BEICT	BIT2201B	75	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000881	BEICT	BIT2201B	88	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000908	BEICT	BIT2201B	66	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000989	BEICT	BIT2201B	76	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023000995	BEICT	BIT2201B	83	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001085	BEICT	BIT2201B	83	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001125	BEICT	BIT2201B	80	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001200	BEICT	BIT2201B	75	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001255	BED(S)	BKE 2106	80	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001255	BED(S)	BKE1202	78	2024/2025	2	2	2	1	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001257	BEICT	BIT2201B	83	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001365	BEICT	BIT2201B	73	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001383	BEICT	BIT2201B	70	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001398	BEICT	BIT2201B	80	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001404	BEICT	BIT2201B	80	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001421	BEICT	BIT2201B	78	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2023001441	BEICT	BIT2201B	78	2024/2025	1	2	2	2	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2024000743	BCOM	PRC1101B	60	2024/2025	2	1	1	1	REVIEW - same study year, different semester		2024/2025	2026-08-17 11:12:54	71
+MRU2024001821	decd	DECD1101	68	2024/2025	2	1	1	1	REVIEW - same study year, different semester		2024/2025	NULL	1
+MRU2024002007	decd	DECD1101	72	2024/2025	2	1	1	1	REVIEW - same study year, different semester		2024/2025	2026-07-27 02:42:34	
+MRU2022000159	BBEI	BBE3204B	76	2023/2024	2	2	3	2	REVIEW - staged workflow, other batch		2024/2025	NULL	1
+MRU2023000887	BSM	FND1101B	61	2023/2024	1	1	3	1	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2023001061	BBA	FIN3209B	70	2023/2024	2	2	3	2	REVIEW - staged workflow, other batch		2024/2025	NULL	1
+MRU2023001061	BBA	MGT3201B	75	2023/2024	2	2	3	2	REVIEW - staged workflow, other batch		2024/2025	NULL	1
+MRU2023001061	BBA	MGT3202B	67	2023/2024	2	2	3	2	REVIEW - staged workflow, other batch		2024/2025	NULL	1
+MRU2023001407	BSM	FND1101B	69	2023/2024	1	1	3	1	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2023001455	BBA	FIN3102B	63	2024/2025	1	2	3	1	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2023001455	BBA	FIN3203B	75	2024/2025	2	2	3	2	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2023001455	BBA	FIN3204B	67	2024/2025	2	2	3	2	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2023001455	BBA	FIN3205B	83	2024/2025	2	2	3	2	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2023001455	BBA	MGT3201B	80	2024/2025	2	2	3	2	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2023001455	BBA	MGT3202B	67	2024/2025	2	2	3	2	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2023001475	BSM	FND1101B	70	2023/2024	1	1	3	1	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2024000028	BED(P)	BEC3205B	65	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 12:55:48	38
+MRU2024000029	BED(P)	BEC3205B	70	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 12:56:16	38
+MRU2024000032	BED(P)	BEL3201B	60	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 12:56:26	38
+MRU2024000032	BED(P)	BSS3202B	79	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 13:45:56	47
+MRU2024000033	BED(P)	BLT3202B	60	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 12:56:26	38
+MRU2024000033	BED(P)	BSS3202B	75	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 13:45:56	47
+MRU2024000076	BED(P)	BEL3201B	60	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 12:56:27	38
+MRU2024000076	BED(P)	BLT3203B	60	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 12:56:27	38
+MRU2024001621	BED(P)	BRE3201B	72	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 12:56:40	38
+MRU2024001640	BED(P)	BEC3205B	70	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 12:55:56	38
+MRU2024001663	SWSA	SWA2204B	59	2024/2025	2	1	2	2	REVIEW - staged workflow, other batch		2025/2026	NULL	1
+MRU2024001843	BED(P)	BEC3205B	70	2025/2026	2	2	3	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 12:55:38	38
+MRU2024001877	BED(ECD)	BECD3101	73	2025/2026	1	2	3	1	REVIEW - staged workflow, other batch		2026/2027	2026-08-14 16:15:40	59
+MRU2024001877	BED(ECD)	BECD3102	63	2025/2026	1	2	3	1	REVIEW - staged workflow, other batch		2026/2027	2026-08-14 16:15:40	59
+MRU2025002267	DPE	DEE2201D	55	2025/2026	2	1	2	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-10 13:45:57	47
+MRU2025002281	BED(ECD)	BECD3101	76	2025/2026	1	1	3	1	REVIEW - staged workflow, other batch		2027/2028	2026-08-14 16:15:40	59
+MRU2025002281	BED(ECD)	BECD3102	78	2025/2026	1	1	3	1	REVIEW - staged workflow, other batch		2027/2028	2026-08-14 16:15:40	59
+MRU2025002379	BED(ECD)	BECD3101	80	2025/2026	1	1	3	1	REVIEW - staged workflow, other batch		2027/2028	2026-08-14 16:15:40	59
+MRU2025002379	BED(ECD)	BECD3102	79	2025/2026	1	1	3	1	REVIEW - staged workflow, other batch		2027/2028	2026-08-14 16:15:40	59
+MRU2025002451	BED(ECD)	BECD3101	72	2025/2026	1	1	3	1	REVIEW - staged workflow, other batch		2027/2028	2026-08-14 16:15:40	59
+MRU2025002451	BED(ECD)	BECD3102	67	2025/2026	1	1	3	1	REVIEW - staged workflow, other batch		2027/2028	2026-08-14 16:15:40	59
+MRU2025003700	DPE	DME2201D	73	2025/2026	2	1	2	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-12 07:26:58	55
+MRU2025003717	BED(P)	BEL2201B	82	2025/2026	2	1	2	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-12 07:26:59	54
+MRU2025003717	BED(P)	BEL2203B	75	2025/2026	2	1	2	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-12 07:26:59	54
+MRU2025003717	BED(P)	BSS2201B	81	2025/2026	2	1	2	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-14 16:15:40	59
+MRU2025003717	BED(P)	BSS2202B	81	2025/2026	2	1	2	2	REVIEW - staged workflow, other batch		2026/2027	2026-08-14 16:15:40	59
+MRU2025003857	BED(ECD)	BECD3101	80	2025/2026	1	1	3	1	REVIEW - staged workflow, other batch		2027/2028	2026-08-14 16:15:40	59
+MRU2025003857	BED(ECD)	BECD3102	80	2025/2026	1	1	3	1	REVIEW - staged workflow, other batch		2027/2028	2026-08-14 16:15:40	59
