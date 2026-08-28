@@ -181,6 +181,10 @@
                 <a href="#odel-lectures" class="api-sidebar__link api-sidebar__link--sub">↳ attendance open / close / bulk</a>
                 <a href="#odel-push" class="api-sidebar__link">Coursework Push</a>
                 <a href="#odel-push" class="api-sidebar__link api-sidebar__link--sub">↳ preview / commit / history / snapshot</a>
+                <a href="#odel-student-progress" class="api-sidebar__link">Student Marks &amp; Deadlines</a>
+                <a href="#odel-student-progress" class="api-sidebar__link api-sidebar__link--sub">↳ my_grades / deadlines</a>
+                <a href="#odel-student-progress" class="api-sidebar__link api-sidebar__link--sub">↳ lecture_detail / submission_history</a>
+                <a href="#odel-security" class="api-sidebar__link">ODEL Access Model</a>
                 <div class="api-sidebar__heading">v2.6 — Student Self-Service</div>
                 <a href="#me-self" class="api-sidebar__link">My Record (me.aspx)</a>
                 <a href="#me-self" class="api-sidebar__link api-sidebar__link--sub">↳ summary</a>
@@ -634,6 +638,15 @@ GET /API/v2/auth.aspx?action=ping
 <span class="api-badge api-badge--auth">AUTH</span> <code>push_commit</code> &nbsp;
 <span class="api-badge api-badge--auth">AUTH</span> <code>push_history</code> &nbsp;
 <span class="api-badge api-badge--auth">AUTH</span> <code>push_snapshot</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_reorder</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>assignment_archive</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_resource_save</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_resource_delete</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>content_copy_forward</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>my_grades</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>deadlines</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>lecture_detail</code> &nbsp;
+<span class="api-badge api-badge--auth">AUTH</span> <code>submission_history</code> &nbsp;
 <span class="api-badge api-badge--get">PUBLIC</span> <code>ping</code> &nbsp;
 </div></div>
 <div class="api-endpoint" data-status="live"><div class="api-endpoint__path"><strong>requests.aspx</strong></div><div class="api-endpoint__info" style="line-height:2.1;">
@@ -4184,6 +4197,27 @@ POST /API/v2/idcard.aspx?action=window_create&amp;title=2026/2027%20ID%20drive&a
                 </div>
             </div>
 
+            <div class="api-section" id="odel-security">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Access Model <span class="api-badge api-badge--live">ENFORCED</span></div>
+                    <div class="api-section__desc">How every ODEL action decides what a caller may see and change. Read this before adding a new action — the rules are enforced by shared helpers, not by per-handler checks, precisely so a new handler cannot quietly weaken them.</div>
+                </div>
+                <div class="api-section__body">
+                    <p style="margin:0 0 12px;">Authorisation is granted <strong>per course space</strong>, and three questions are answered separately. Getting any one of them wrong has, in the past, been enough to expose another course's data.</p>
+                    <table class="api-table" style="margin-bottom:14px;">
+                        <thead><tr><th style="width:22%;">Question</th><th style="width:26%;">Enforced by</th><th>Rule</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>Who are you?</strong></td><td><code>TokenManager.RequireAuth</code></td><td>Every action except <code>ping</code> requires a valid token.</td></tr>
+                            <tr><td><strong>May you touch this space?</strong></td><td><code>RequireStaffOnSpace</code> / <code>RequireStudentOnSpace</code></td><td>Staff must be a space-staff member or the assigned lecturer. Students must be an APPROVED enrolment. <em>Being authenticated is not the same as being enrolled.</em></td></tr>
+                            <tr><td><strong>Does this object live in that space?</strong></td><td><code>RequireAssignmentInSpace</code> / <code>RequireLectureInSpace</code></td><td>Every <code>assignment_id</code>, <code>lecture_id</code>, <code>push_id</code>, <code>material_id</code> and <code>topic_id</code> is verified against the authorised space before use.</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="api-note" style="margin-bottom:12px;"><strong>Why the third question exists.</strong> Because authorisation is per space, an action that accepts an object id without checking it would let a lecturer pair a space they legitimately teach with another course's assignment or lecture id — and read its submissions, grades and register. Containment is checked on <em>every</em> object-scoped action, including ones whose SQL already filters by space, so the guarantee cannot be lost by a later edit to a query.</div>
+                    <div class="api-note" style="margin-bottom:12px;"><strong>The <code>regno</code> parameter.</strong> Space-scoped student actions accept a <code>regno</code> <em>only</em> from a staff caller, and only after that caller has been proven to teach the space and the named student has been proven to be on it. A student token can never act on anyone but itself. The earlier shortcut — <code>auth.UserType == "student" ? auth.UserId : Param("regno")</code> — let any staff token read any student's record in any course, and is why this is now resolved in one shared helper rather than per handler.</div>
+                    <div class="api-note"><strong>Writes are guarded on state, not just identity.</strong> A graded assignment cannot be unpublished or deleted; a lecture with a register cannot be deleted without <code>force=1</code>; a coursework push skips any mark that has moved beyond the lecturer stage; and batch actions (<code>attendance_bulk</code>, <code>content_reorder</code>, <code>assignment_reorder</code>) validate every element before writing any of them, so a single bad entry cannot half-apply.</div>
+                </div>
+            </div>
+
             <div class="api-section" id="odel-authoring">
                 <div class="api-section__header">
                     <div class="api-section__title">ODEL — Assignment Authoring &amp; Lifecycle <span class="api-badge api-badge--live">LIVE</span></div>
@@ -4222,6 +4256,14 @@ POST /API/v2/idcard.aspx?action=window_create&amp;title=2026/2027%20ID%20drive&a
                     <div class="api-endpoint" data-status="live">
                         <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_stats</strong>&amp;space_id=1&amp;assignment_id=1</div>
                         <div class="api-endpoint__info">Header fields plus <code>roster</code>, <code>submitted</code>, <code>late</code>, <code>graded</code>, <code>extensions</code>, <code>not_submitted</code>, <code>awaiting_grading</code>, and a <code>distribution</code> block (<code>mean</code>, <code>lowest</code>, <code>highest</code>, and bands 80–100 / 60–79 / 50–59 / below 50). <code>not_submitted</code> counts against the real APPROVED roster, not against however many submissions happen to exist.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_reorder</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>ids</code> (comma-separated, in the wanted order). All-or-nothing — every id is checked to belong to this space before anything is written.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>assignment_archive</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>assignment_id</code>, <code>archive</code> (1|0). The safe alternative to deleting once work has been graded: the assignment leaves the default lists, but every submission, grade and piece of feedback survives and the marks keep counting toward the gradebook.</div>
                     </div>
                 </div>
             </div>
@@ -4269,6 +4311,10 @@ POST /API/v2/idcard.aspx?action=window_create&amp;title=2026/2027%20ID%20drive&a
                         <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>content_reorder</strong></div>
                         <div class="api-endpoint__info">Body: <code>space_id</code>, <code>node</code> (chapter|topic|material), <code>ids</code> (comma-separated, in the order you want), plus <code>topic_id</code> when reordering materials. <strong>All-or-nothing</strong>: every id is verified to belong to this space first, so one stray id fails the whole call rather than half-applying a new order.</div>
                     </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>content_copy_forward</strong></div>
+                        <div class="api-endpoint__info">Copy a previous term's outline into this space. Body: <code>space_id</code> (destination), <code>source_space_id</code>, <code>include_materials?</code> (default 1). You must teach <strong>both</strong> spaces — copying from a course you do not teach would be a way to lift another lecturer's work. Materials are <strong>linked, not duplicated</strong>, so correcting one fixes it everywhere it is used. Everything lands <strong>unpublished</strong> for review regardless of how it was published in the source. Assignments are not copied — they carry deadlines and weights that must be set for the new term; use <code>assignment_duplicate</code> per assignment.</div>
+                    </div>
                 </div>
             </div>
 
@@ -4306,6 +4352,40 @@ POST /API/v2/idcard.aspx?action=window_create&amp;title=2026/2027%20ID%20drive&a
                         <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>attendance_bulk</strong></div>
                         <div class="api-endpoint__info">Mark a whole register at once. Body: <code>space_id</code>, <code>lecture_id</code>, <code>entries</code> = <code>REGNO:STATUS,REGNO:STATUS,…</code> where STATUS is PRESENT|ABSENT|LATE|EXCUSED|CLEAR. <strong>All-or-nothing</strong>: every entry is parsed and every student checked against the roster before anything is written, so one typo cannot leave half a register applied.</div>
                     </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lecture_resource_save</strong></div>
+                        <div class="api-endpoint__info">Attach material to a lecture. Body: <code>space_id</code>, <code>lecture_id</code>, <code>kind</code> (LINK|NOTE|FILE|MATERIAL), <code>title</code>, plus <code>url</code> / <code>note_text</code> / <code>file_id</code> / <code>material_id</code> to match; pass <code>resource_id</code> to edit. A <code>material_id</code> from another course is refused.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--post">POST</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lecture_resource_delete</strong></div>
+                        <div class="api-endpoint__info">Body: <code>space_id</code>, <code>lecture_id</code>, <code>resource_id</code>.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-section" id="odel-student-progress">
+                <div class="api-section__header">
+                    <div class="api-section__title">ODEL — Student Marks &amp; Deadlines <span class="api-badge api-badge--live">LIVE</span></div>
+                    <div class="api-section__desc">What a student can see about their own work. A student token may only ever act on itself; a staff token may pass <code>regno</code> only for a space it teaches, and only for a student enrolled on it.</div>
+                </div>
+                <div class="api-section__body">
+                    <div class="api-note" style="margin-bottom:14px;"><strong>This closed a real gap.</strong> Until these existed a student could see an aggregate <code>odel_points</code> number on their course but had no way to see the marks behind it — not a per-assignment score, not a penalty, not a word of a lecturer's feedback. Being marked and not being told is what this fixes.</div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>my_grades</strong>&amp;space_id=1</div>
+                        <div class="api-endpoint__info">Per-assignment <code>raw_marks</code>, <code>penalty_pct</code>, <code>final_marks</code>, <code>percent</code>, <code>feedback</code> and <code>graded_at</code>, plus a <code>summary</code> (<code>submitted</code>, <code>graded</code>, <code>awaiting_grading</code>, <code>not_submitted</code>, <code>marks_earned</code> / <code>marks_out_of</code>, <code>odel_points</code>). Shows only the <strong>current grade of the latest submitted attempt</strong> — the same thing the gradebook counts — and only for <strong>published</strong> assignments, so a lecturer's drafts stay invisible. The response carries a note that this is the ODEL component only and the transcript remains authoritative.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>deadlines</strong>&amp;days=30&amp;include_overdue=1</div>
+                        <div class="api-endpoint__info">What is due across <strong>every</strong> enrolled course, split into <code>upcoming</code> and <code>overdue</code> with an <code>action_needed</code> count. <code>days</code> defaults to 30 (max 365). <strong>Per-student extensions are applied</strong>, not shown separately — a deadline list that ignored a student's own extension would tell them the wrong date. An assignment whose late window is still open counts as upcoming, not overdue.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>lecture_detail</strong>&amp;space_id=1&amp;lecture_id=1</div>
+                        <div class="api-endpoint__info">One lecture with its <code>resources[]</code> and the student's own attendance mark (<code>my_attendance</code>, <code>marked_method</code>, <code>marked_at</code>). Unpublished lectures are hidden.</div>
+                    </div>
+                    <div class="api-endpoint" data-status="live">
+                        <div class="api-endpoint__path"><span class="api-badge api-badge--get">GET</span> <span class="api-badge api-badge--auth">AUTH</span> odel.aspx?action=<strong>submission_history</strong>&amp;assignment_id=1</div>
+                        <div class="api-endpoint__info">Every attempt on one assignment, newest first, each with its grade, feedback and uploaded <code>files[]</code> — so a resubmission can be written against what the lecturer said about the previous one. The space is resolved from the assignment; the caller does not name it.</div>
+                    </div>
                 </div>
             </div>
 
@@ -4334,6 +4414,43 @@ POST /API/v2/idcard.aspx?action=window_create&amp;title=2026/2027%20ID%20drive&a
                         <div class="api-endpoint__info">The frozen per-student detail of one past push. The push is verified to belong to <code>space_id</code> first, so this cannot be used to read another course's marks.</div>
                     </div>
                     <div class="api-note"><strong>ungraded_as_zero.</strong> <code>0</code> (default) divides by only the weight <em>that student</em> has had graded — "coursework out of what has been marked so far", the right choice mid-semester. <code>1</code> divides by the full published weight, so ungraded work counts as zero — the right choice at the end of a semester, once everything that will be marked has been.</div>
+                </div>
+            </div>
+
+            <div class="api-section" id="changelog-v25">
+                <div class="api-section__header">
+                    <div class="api-section__title">Changelog — v2.5</div>
+                    <div class="api-section__desc">ODEL access-model hardening + 9 new endpoints; <code>odel.aspx</code> now 66 actions (August 2026)</div>
+                </div>
+                <div class="api-section__body">
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 10px;color:#e74c3c;">Access-control fixes — all found by audit, all verified closed against production</h4>
+                    <p style="margin:0 0 10px;">Authorisation in ODEL is granted per course space, and four actions accepted an object id without confirming it belonged to that space. A lecturer could pair a space they legitimately teach with another course's id and reach its data:</p>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>mark_attendance</strong> — accepted any <code>lecture_id</code> <em>and</em> any <code>regno</code>. Since <code>odel_attendance</code> has no foreign key, this wrote attendance rows against arbitrary lectures for students not on the course — records that then appeared in those students' own attendance rates. Both are now checked.</li>
+                        <li><span class="api-status api-status--done"></span><strong>roll_roster</strong> — read another course's register.</li>
+                        <li><span class="api-status api-status--done"></span><strong>assignment_students</strong> and <strong>grading_queue</strong> — read another course's submissions and grades.</li>
+                    </ul>
+                    <p style="margin:0 0 10px;">Two further classes of leak, both on the student side:</p>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>Any staff token could read any student's record in any course.</strong> The pattern <code>auth.UserType == "student" ? auth.UserId : Param("regno")</code> appeared in several handlers with nothing checking that the caller taught the space. Now resolved once in <code>RequireStudentOnSpace</code>, which proves the staff caller teaches the space and the named student is on it.</li>
+                        <li><span class="api-status api-status--done"></span><strong>Any signed-in student could read any course's announcements and lecture schedule</strong> by passing an arbitrary <code>space_id</code> — being authenticated was being treated as being enrolled. <code>updates</code>, <code>attendance</code>, <code>lectures</code>, <code>assignment</code> and <code>mark_update_read</code> now all require enrolment. (<code>mark_update_read</code> matters even though it only writes: without the check a student could seed read-receipts against any course, corrupting every lecturer's <code>read_count</code>.)</li>
+                    </ul>
+                    <p style="margin:0 0 16px;">The rules now live in shared helpers — <code>RequireStaffOnSpace</code>, <code>RequireStudentOnSpace</code>, <code>RequireAssignmentInSpace</code>, <code>RequireLectureInSpace</code> — rather than being restated per handler, so a new action cannot quietly reintroduce any of them. Containment is asserted even where the SQL already filters by space, so the guarantee survives a later query edit. See <a href="#odel-security">ODEL Access Model</a>.</p>
+
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 10px;color:#2ecc71;">New — student marks &amp; deadlines (+4)</h4>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>my_grades</strong> — closes the biggest gap in the student API: a student could see an aggregate points number but not one mark, penalty or word of feedback behind it.</li>
+                        <li><span class="api-status api-status--done"></span><strong>deadlines</strong> — what is due across every enrolled course, with each student's own extensions applied rather than listed separately.</li>
+                        <li><span class="api-status api-status--done"></span><strong>lecture_detail</strong> — one lecture with its resources and the student's own attendance mark.</li>
+                        <li><span class="api-status api-status--done"></span><strong>submission_history</strong> — every attempt with its grade, feedback and files, so a resubmission can answer the last round of comments.</li>
+                    </ul>
+
+                    <h4 style="font-size:13px;font-weight:700;margin:0 0 10px;color:#2ecc71;">New — lecturer authoring (+5)</h4>
+                    <ul class="api-task-list" style="margin-bottom:16px;">
+                        <li><span class="api-status api-status--done"></span><strong>assignment_reorder</strong> / <strong>assignment_archive</strong> — ordering, and the safe alternative to deleting graded work.</li>
+                        <li><span class="api-status api-status--done"></span><strong>lecture_resource_save</strong> / <strong>lecture_resource_delete</strong> — attach links, notes, files or library materials to a lecture.</li>
+                        <li><span class="api-status api-status--done"></span><strong>content_copy_forward</strong> — reuse a previous term's outline. Requires teaching both spaces, links materials rather than duplicating them, and lands everything unpublished for review.</li>
+                    </ul>
                 </div>
             </div>
 

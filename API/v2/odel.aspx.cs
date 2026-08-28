@@ -35,6 +35,10 @@ public partial class API_v2_odel : System.Web.UI.Page
                 case "submit_finalize":  HandleSubmitFinalize();  break;
                 case "mark_update_read": HandleMarkUpdateRead();  break;
                 case "self_checkin":     HandleSelfCheckin();     break;
+                case "my_grades":          HandleMyGrades();          break;
+                case "deadlines":          HandleDeadlines();         break;
+                case "lecture_detail":     HandleLectureDetail();     break;
+                case "submission_history": HandleSubmissionHistory(); break;
                 // ── lecturer ──
                 case "teaching_spaces":   HandleTeachingSpaces();   break;
                 case "course_dashboard":  HandleCourseDashboard();  break;
@@ -62,6 +66,11 @@ public partial class API_v2_odel : System.Web.UI.Page
                 case "assignment_extend":    HandleAssignmentExtend();    break;
                 case "assignment_unextend":  HandleAssignmentUnextend();  break;
                 case "assignment_stats":     HandleAssignmentStats();     break;
+                case "assignment_reorder":   HandleAssignmentReorder();   break;
+                case "assignment_archive":   HandleAssignmentArchive();   break;
+                case "lecture_resource_save":   HandleLectureResourceSave();   break;
+                case "lecture_resource_delete": HandleLectureResourceDelete(); break;
+                case "content_copy_forward":    HandleContentCopyForward();    break;
                 // ── lecturer: content authoring ──
                 case "content_outline":   HandleContentOutline();   break;
                 case "content_publish":   HandleContentPublish();   break;
@@ -196,6 +205,73 @@ public partial class API_v2_odel : System.Web.UI.Page
         return o != null && o != DBNull.Value;
     }
 
+    /// <summary>
+    /// Resolves and authorises the SUBJECT STUDENT of a space-scoped student action.
+    /// Returns the regno to operate on, or null after emitting the error.
+    ///
+    /// This exists because the two obvious per-handler shortcuts are both wrong:
+    ///
+    ///   1. Pinning the regno to the token but not checking enrolment lets any signed-in student
+    ///      pass any space_id and read that course's announcements, lectures and attendance shape.
+    ///      Being authenticated is not the same as being enrolled.
+    ///
+    ///   2. Falling back to a `regno` parameter for staff callers — the pattern
+    ///      `auth.UserType == "student" ? auth.UserId : Param("regno")` — let ANY staff token read
+    ///      ANY student's record in ANY course, because nothing checked that the caller teaches it.
+    ///
+    /// Both are closed here, in one place, so a new handler cannot quietly reintroduce either by
+    /// copying the shortcut. A student may only ever act on themselves, and only inside a space
+    /// they are enrolled in; a staff caller must teach the space AND name a student who is on it.
+    /// </summary>
+    private string RequireStudentOnSpace(TokenInfo auth, long spaceId)
+    {
+        if (auth.UserType == "student")
+        {
+            if (!StudentOnSpace(spaceId, auth.UserId))
+            {
+                ApiHelper.Error(Response, "You are not enrolled in this course space.", "ACCESS_DENIED");
+                return null;
+            }
+            return auth.UserId;
+        }
+
+        // Staff acting on a named student: prove they teach the space first.
+        if (RequireStaffOnSpace(auth, spaceId) < 0) return null;
+        string regno = ApiHelper.Param(Request, "regno", "").Trim();
+        if (regno == "")
+        {
+            ApiHelper.Error(Response, "regno is required when a staff account calls this action.", "MISSING_PARAM");
+            return null;
+        }
+        if (!StudentOnSpace(spaceId, regno))
+        {
+            ApiHelper.Error(Response, "That student is not enrolled in this course space.", "VALIDATION_ERROR");
+            return null;
+        }
+        return regno;
+    }
+
+    /// <summary>
+    /// Confirms an assignment belongs to the space the caller was authorised against, emitting the
+    /// error if not. Authorisation is granted per SPACE, so accepting an assignment_id without this
+    /// lets a lecturer pair a space they legitimately teach with another course's assignment id and
+    /// read its submissions and grades.
+    /// </summary>
+    private bool RequireAssignmentInSpace(long assignmentId, long spaceId)
+    {
+        if (AssignmentInSpace(assignmentId, spaceId)) return true;
+        ApiHelper.Error(Response, "Assignment not found in this space.", "NOT_FOUND");
+        return false;
+    }
+
+    /// <summary>Same containment guard for a lecture id.</summary>
+    private bool RequireLectureInSpace(long lectureId, long spaceId)
+    {
+        if (LectureInSpace(lectureId, spaceId)) return true;
+        ApiHelper.Error(Response, "Lecture not found in this space.", "NOT_FOUND");
+        return false;
+    }
+
     /// <summary>Parses an optional datetime parameter. Returns DBNull when blank, or null when unparseable.</summary>
     private static object ParseDate(string raw, out bool bad)
     {
@@ -280,8 +356,19 @@ public partial class API_v2_odel : System.Web.UI.Page
     {
         TokenInfo auth = TokenManager.RequireAuth(Request, Response);
         if (auth == null) return;
-        string regno = auth.UserType == "staff" ? ApiHelper.Param(Request, "regno", "") : auth.UserId;
-        if (string.IsNullOrEmpty(regno)) { ApiHelper.Error(Response, "regno is required for staff callers.", "MISSING_PARAM"); return; }
+        // This action has no space to authorise against — it deliberately spans every course a
+        // student is enrolled in, which is the point of it. So the guard is on the CALLER instead:
+        // a staff caller must resolve to a real hrm_employee, not merely hold a token typed
+        // "staff". A student caller is pinned to themselves and can never name anyone else.
+        string regno;
+        if (auth.UserType == "staff")
+        {
+            if (RequireStaff(auth) < 0) return;
+            regno = ApiHelper.Param(Request, "regno", "").Trim();
+            if (regno == "") { ApiHelper.Error(Response, "regno is required for staff callers.", "MISSING_PARAM"); return; }
+        }
+        else regno = auth.UserId;
+        if (string.IsNullOrEmpty(regno)) { ApiHelper.Error(Response, "regno could not be resolved.", "MISSING_PARAM"); return; }
 
         DataTable dt = ApiHelper.QueryPortal(
             @"SELECT sp.id AS space_id, TRIM(sp.courseID) AS course_code, TRIM(IFNULL(c.courseName, sp.courseID)) AS course_name,
@@ -389,7 +476,6 @@ public partial class API_v2_odel : System.Web.UI.Page
         if (auth == null) return;
         long aid = ApiHelper.ParamInt(Request, "assignment_id", 0);
         if (aid <= 0) { ApiHelper.Error(Response, "assignment_id is required.", "MISSING_PARAM"); return; }
-        string regno = auth.UserType == "student" ? auth.UserId : ApiHelper.Param(Request, "regno", "");
 
         DataTable a = ApiHelper.QueryPortal(
             @"SELECT a.id AS assignment_id, a.space_id, a.title, a.instructions, a.topic_id, a.open_at, a.due_at, a.late_until,
@@ -397,8 +483,12 @@ public partial class API_v2_odel : System.Web.UI.Page
               FROM odel_assignment a WHERE a.id=@a AND a.is_published=1",
             new MySqlParameter("@a", aid));
         if (a.Rows.Count == 0) { ApiHelper.Error(Response, "Assignment not found.", "NOT_FOUND"); return; }
+        // Authorise against the assignment's OWN space, resolved above — the caller does not get to
+        // name the space. A student must be enrolled in it; a staff caller must teach it and name a
+        // student who is on it, otherwise any staff token could read any submission in any course.
         long spaceId = Convert.ToInt64(a.Rows[0]["space_id"]);
-        if (auth.UserType == "student" && !StudentOnSpace(spaceId, regno)) { ApiHelper.Error(Response, "Not enrolled in this course.", "ACCESS_DENIED"); return; }
+        string regno = RequireStudentOnSpace(auth, spaceId);
+        if (regno == null) return;
 
         DataTable sub = ApiHelper.QueryPortal(
             @"SELECT s.id AS submission_id, s.attempt_no, s.text_answer, s.status, s.submitted_at, s.is_late, s.receipt_code
@@ -466,8 +556,8 @@ public partial class API_v2_odel : System.Web.UI.Page
         if (auth == null) return;
         long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
         if (spaceId <= 0) { ApiHelper.Error(Response, "space_id is required.", "MISSING_PARAM"); return; }
-        string regno = auth.UserType == "student" ? auth.UserId : ApiHelper.Param(Request, "regno", "");
-        if (auth.UserType == "student" && !StudentOnSpace(spaceId, regno)) { ApiHelper.Error(Response, "Not enrolled.", "ACCESS_DENIED"); return; }
+        string regno = RequireStudentOnSpace(auth, spaceId);
+        if (regno == null) return;
 
         DataTable dt = ApiHelper.QueryPortal(
             @"SELECT l.id AS lecture_id, l.title, l.description, l.meet_link, l.meet_provider, l.location,
@@ -488,7 +578,8 @@ public partial class API_v2_odel : System.Web.UI.Page
         if (auth == null) return;
         long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
         if (spaceId <= 0) { ApiHelper.Error(Response, "space_id is required.", "MISSING_PARAM"); return; }
-        string regno = auth.UserType == "student" ? auth.UserId : ApiHelper.Param(Request, "regno", "");
+        string regno = RequireStudentOnSpace(auth, spaceId);
+        if (regno == null) return;
 
         DataTable dt = ApiHelper.QueryPortal(
             @"SELECT u.id AS update_id, u.title, u.body, u.pinned, u.author_name, u.created_at,
@@ -510,7 +601,8 @@ public partial class API_v2_odel : System.Web.UI.Page
         if (auth == null) return;
         long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
         if (spaceId <= 0) { ApiHelper.Error(Response, "space_id is required.", "MISSING_PARAM"); return; }
-        string regno = auth.UserType == "student" ? auth.UserId : ApiHelper.Param(Request, "regno", "");
+        string regno = RequireStudentOnSpace(auth, spaceId);
+        if (regno == null) return;
 
         DataTable dt = ApiHelper.QueryPortal(
             @"SELECT l.id AS lecture_id, l.title, l.scheduled_start, l.status AS lecture_status,
@@ -633,7 +725,11 @@ public partial class API_v2_odel : System.Web.UI.Page
         long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
         long updateId = ApiHelper.ParamInt(Request, "update_id", 0); // 0 = all in space
         if (spaceId <= 0) { ApiHelper.Error(Response, "space_id is required.", "MISSING_PARAM"); return; }
+        // Enrolment still matters on a write-only action: without it a student can seed read-receipts
+        // against any course's announcements, which quietly corrupts every lecturer's read_count.
         string regno = auth.UserId;
+        if (!StudentOnSpace(spaceId, regno))
+        { ApiHelper.Error(Response, "You are not enrolled in this course space.", "ACCESS_DENIED"); return; }
 
         int n = ApiHelper.ExecutePortal(
             @"INSERT IGNORE INTO odel_update_read (update_id, regno, read_at)
@@ -810,6 +906,7 @@ public partial class API_v2_odel : System.Web.UI.Page
         long aid = ApiHelper.ParamInt(Request, "assignment_id", 0);
         if (spaceId <= 0 || aid <= 0) { ApiHelper.Error(Response, "space_id and assignment_id are required.", "MISSING_PARAM"); return; }
         if (RequireStaffOnSpace(auth, spaceId) < 0) return;
+        if (!RequireAssignmentInSpace(aid, spaceId)) return;   // containment: the object must live in the authorised space
 
         DataTable dt = ApiHelper.QueryPortal(
             @"SELECT TRIM(cr.regno) AS regno, TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) AS name,
@@ -838,6 +935,7 @@ public partial class API_v2_odel : System.Web.UI.Page
         long aid = ApiHelper.ParamInt(Request, "assignment_id", 0);
         if (spaceId <= 0 || aid <= 0) { ApiHelper.Error(Response, "space_id and assignment_id are required.", "MISSING_PARAM"); return; }
         if (RequireStaffOnSpace(auth, spaceId) < 0) return;
+        if (!RequireAssignmentInSpace(aid, spaceId)) return;   // containment: the object must live in the authorised space
         int page = ApiHelper.ParamInt(Request, "page", 1); if (page < 1) page = 1;
         int limit = ApiHelper.ParamInt(Request, "limit", 20); if (limit > 100) limit = 100; if (limit < 1) limit = 20;
         int offset = (page - 1) * limit;
@@ -887,6 +985,7 @@ public partial class API_v2_odel : System.Web.UI.Page
         long lectureId = ApiHelper.ParamInt(Request, "lecture_id", 0);
         if (spaceId <= 0 || lectureId <= 0) { ApiHelper.Error(Response, "space_id and lecture_id are required.", "MISSING_PARAM"); return; }
         if (RequireStaffOnSpace(auth, spaceId) < 0) return;
+        if (!RequireLectureInSpace(lectureId, spaceId)) return;   // containment: the object must live in the authorised space
 
         DataTable dt = ApiHelper.QueryPortal(
             @"SELECT TRIM(cr.regno) AS regno, TRIM(CONCAT(IFNULL(s.firstname,''),' ',IFNULL(s.othername,''))) AS name,
@@ -1060,8 +1159,14 @@ public partial class API_v2_odel : System.Web.UI.Page
         string status = ApiHelper.Param(Request, "status", "").Trim().ToUpper();
         if (spaceId <= 0 || lectureId <= 0 || regno == "") { ApiHelper.Error(Response, "space_id, lecture_id and regno are required.", "MISSING_PARAM"); return; }
         int empid = RequireStaffOnSpace(auth, spaceId); if (empid < 0) return;
+        if (!RequireLectureInSpace(lectureId, spaceId)) return;   // containment: the object must live in the authorised space
         if (status != "PRESENT" && status != "ABSENT" && status != "LATE" && status != "EXCUSED" && status != "CLEAR")
         { ApiHelper.Error(Response, "status must be PRESENT, ABSENT, LATE, EXCUSED or CLEAR.", "INVALID_PARAM"); return; }
+        // The roster check matters as much as the lecture check: odel_attendance has no foreign key,
+        // so an unchecked regno writes an attendance row for someone who is not on the course at all
+        // — a record that then shows up in that student's own attendance rate.
+        if (!StudentOnSpace(spaceId, regno))
+        { ApiHelper.Error(Response, "That student is not enrolled in this course space.", "VALIDATION_ERROR"); return; }
 
         if (status == "CLEAR")
         {
@@ -1949,6 +2054,10 @@ public partial class API_v2_odel : System.Web.UI.Page
         long lectureId = ApiHelper.ParamInt(Request, "lecture_id", 0);
         if (spaceId <= 0 || lectureId <= 0) { ApiHelper.Error(Response, "space_id and lecture_id are required.", "MISSING_PARAM"); return; }
         if (RequireStaffOnSpace(auth, spaceId) < 0) return;
+        // The main SELECT below already carries `AND l.space_id=@s`, so this is belt-and-braces —
+        // but it is stated explicitly so the containment is uniform across every object-scoped
+        // action and cannot be lost by a later edit to the query.
+        if (!RequireLectureInSpace(lectureId, spaceId)) return;
 
         DataTable dt = ApiHelper.QueryPortal(
             @"SELECT l.id AS lecture_id, l.space_id, l.series_id, l.title, l.description, l.meet_link, l.meet_provider,
@@ -2707,6 +2816,479 @@ public partial class API_v2_odel : System.Web.UI.Page
                 { "spaces", spaces.Count }, { "awaiting_grading", grading },
                 { "registers_open", openRegs }, { "upcoming_lectures", upcoming },
                 { "courses_never_pushed", neverPushed } } }
+        });
+    }
+
+    // ═══════════════ lecturer: ordering, archiving, lecture resources, reuse ═══════════════
+
+    /// <summary>
+    /// action=assignment_reorder — set the order assignments appear in (write).
+    /// Params: space_id, ids (comma-separated, in the wanted order).
+    /// All-or-nothing: every id is checked to belong to this space before anything is written.
+    /// </summary>
+    private void HandleAssignmentReorder()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
+        string ids = ApiHelper.Param(Request, "ids", "").Trim();
+        if (spaceId <= 0 || ids == "") { ApiHelper.Error(Response, "space_id and ids are required.", "MISSING_PARAM"); return; }
+        int empid = RequireStaffOnSpace(auth, spaceId); if (empid < 0) return;
+
+        var ordered = new List<long>();
+        foreach (string part in ids.Split(','))
+        {
+            long v;
+            if (!long.TryParse(part.Trim(), out v) || v <= 0)
+            { ApiHelper.Error(Response, "ids must be a comma-separated list of positive numbers.", "INVALID_PARAM"); return; }
+            if (!ordered.Contains(v)) ordered.Add(v);
+        }
+        foreach (long id in ordered)
+            if (!AssignmentInSpace(id, spaceId))
+            { ApiHelper.Error(Response, "Assignment " + id + " is not in this space. Nothing was reordered.", "VALIDATION_ERROR"); return; }
+
+        int pos = 0;
+        foreach (long id in ordered)
+        {
+            pos++;
+            ApiHelper.ExecutePortal("UPDATE odel_assignment SET sort_order=@o, updated_at=NOW() WHERE id=@id AND space_id=@s",
+                new MySqlParameter("@o", pos), new MySqlParameter("@id", id), new MySqlParameter("@s", spaceId));
+        }
+        LogActivity(empid, spaceId, "REORDERED", "assignment", spaceId, ordered.Count + " assignment(s)");
+        ApiHelper.Success(Response, new Dictionary<string, object> { { "reordered", ordered.Count } }, "Order saved");
+    }
+
+    /// <summary>
+    /// action=assignment_archive — archive or restore an assignment (write).
+    /// Params: space_id, assignment_id, archive (1|0).
+    ///
+    /// Archiving is the safe alternative to deleting once work has been graded: the assignment
+    /// leaves the default lists but every submission, grade and piece of feedback survives, and the
+    /// marks keep counting toward the gradebook exactly as before.
+    /// </summary>
+    private void HandleAssignmentArchive()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
+        long assignmentId = ApiHelper.ParamInt(Request, "assignment_id", 0);
+        if (spaceId <= 0 || assignmentId <= 0) { ApiHelper.Error(Response, "space_id and assignment_id are required.", "MISSING_PARAM"); return; }
+        int empid = RequireStaffOnSpace(auth, spaceId); if (empid < 0) return;
+        if (!RequireAssignmentInSpace(assignmentId, spaceId)) return;
+        bool archive = ApiHelper.Param(Request, "archive", "1") != "0";
+
+        ApiHelper.ExecutePortal(
+            @"UPDATE odel_assignment
+                 SET archived_at = " + (archive ? "NOW()" : "NULL") + @", auto_archived = 0, updated_at = NOW()
+               WHERE id=@a AND space_id=@s",
+            new MySqlParameter("@a", assignmentId), new MySqlParameter("@s", spaceId));
+        LogActivity(empid, spaceId, archive ? "ARCHIVED" : "RESTORED", "assignment", assignmentId, "");
+        ApiHelper.Success(Response, new Dictionary<string, object> { { "assignment_id", assignmentId }, { "archived", archive } },
+            archive
+                ? "Assignment archived. Submissions, grades and feedback are unchanged and still count."
+                : "Assignment restored");
+    }
+
+    /// <summary>
+    /// action=lecture_resource_save — attach a link, note, file or library material to a lecture (write).
+    /// Params: space_id, lecture_id, kind (LINK|NOTE|FILE|MATERIAL), title, plus url / note_text /
+    /// file_id / material_id to match. Pass resource_id to edit an existing one.
+    /// </summary>
+    private void HandleLectureResourceSave()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
+        long lectureId = ApiHelper.ParamInt(Request, "lecture_id", 0);
+        if (spaceId <= 0 || lectureId <= 0) { ApiHelper.Error(Response, "space_id and lecture_id are required.", "MISSING_PARAM"); return; }
+        int empid = RequireStaffOnSpace(auth, spaceId); if (empid < 0) return;
+        if (!RequireLectureInSpace(lectureId, spaceId)) return;
+
+        long resourceId = ApiHelper.ParamInt(Request, "resource_id", 0);
+        string kind = ApiHelper.Param(Request, "kind", "").Trim().ToUpper();
+        string title = ApiHelper.Param(Request, "title", "").Trim();
+        string url = ApiHelper.Param(Request, "url", "").Trim();
+        string note = ApiHelper.Param(Request, "note_text", "");
+        long fileId = ApiHelper.ParamInt(Request, "file_id", 0);
+        long materialId = ApiHelper.ParamInt(Request, "material_id", 0);
+
+        if (resourceId > 0)
+        {
+            int n = ApiHelper.ExecutePortal(
+                @"UPDATE odel_lecture_resource SET title=IFNULL(NULLIF(@t,''),title), url=@u, note_text=@n
+                   WHERE id=@id AND lecture_id=@l",
+                new MySqlParameter("@t", title), new MySqlParameter("@u", url == "" ? (object)DBNull.Value : url),
+                new MySqlParameter("@n", note == "" ? (object)DBNull.Value : note),
+                new MySqlParameter("@id", resourceId), new MySqlParameter("@l", lectureId));
+            if (n == 0) { ApiHelper.Error(Response, "Resource not found on this lecture.", "NOT_FOUND"); return; }
+            ApiHelper.Success(Response, new Dictionary<string, object> { { "resource_id", resourceId } }, "Resource updated");
+            return;
+        }
+
+        if (kind != "LINK" && kind != "NOTE" && kind != "FILE" && kind != "MATERIAL")
+        { ApiHelper.Error(Response, "kind must be LINK, NOTE, FILE or MATERIAL.", "INVALID_PARAM"); return; }
+        if (title == "") { ApiHelper.Error(Response, "title is required.", "VALIDATION_ERROR"); return; }
+        if (kind == "LINK" && url == "") { ApiHelper.Error(Response, "url is required for a LINK resource.", "VALIDATION_ERROR"); return; }
+        if (kind == "NOTE" && note == "") { ApiHelper.Error(Response, "note_text is required for a NOTE resource.", "VALIDATION_ERROR"); return; }
+        if (kind == "FILE" && fileId <= 0) { ApiHelper.Error(Response, "file_id is required for a FILE resource.", "VALIDATION_ERROR"); return; }
+        if (kind == "MATERIAL")
+        {
+            if (materialId <= 0) { ApiHelper.Error(Response, "material_id is required for a MATERIAL resource.", "VALIDATION_ERROR"); return; }
+            // Containment again: a material from another course must not be linkable into this one.
+            object owned = ApiHelper.ScalarPortal(
+                @"SELECT 1 FROM odel_material m
+                   WHERE m.id=@m AND (m.space_id=@s OR EXISTS(SELECT 1 FROM odel_topic_material tm
+                         JOIN odel_topic t ON t.id=tm.topic_id WHERE tm.material_id=m.id AND t.space_id=@s)) LIMIT 1",
+                new MySqlParameter("@m", materialId), new MySqlParameter("@s", spaceId));
+            if (owned == null || owned == DBNull.Value)
+            { ApiHelper.Error(Response, "That material does not belong to this course space.", "VALIDATION_ERROR"); return; }
+        }
+
+        object so = ApiHelper.ScalarPortal("SELECT IFNULL(MAX(sort_order),0)+1 FROM odel_lecture_resource WHERE lecture_id=@l",
+            new MySqlParameter("@l", lectureId));
+        long id = ApiHelper.ExecuteInsertPortal(
+            @"INSERT INTO odel_lecture_resource (lecture_id, kind, title, url, file_id, material_id, note_text, sort_order, created_at)
+              VALUES (@l,@k,@t,@u,@f,@m,@n,@so,NOW())",
+            new MySqlParameter("@l", lectureId), new MySqlParameter("@k", kind), new MySqlParameter("@t", title),
+            new MySqlParameter("@u", url == "" ? (object)DBNull.Value : url),
+            new MySqlParameter("@f", fileId > 0 ? (object)fileId : DBNull.Value),
+            new MySqlParameter("@m", materialId > 0 ? (object)materialId : DBNull.Value),
+            new MySqlParameter("@n", note == "" ? (object)DBNull.Value : note),
+            new MySqlParameter("@so", so == null || so == DBNull.Value ? 1 : Convert.ToInt32(so)));
+        LogActivity(empid, spaceId, "CREATED", "lecture_resource", id, kind + ": " + title);
+        ApiHelper.Success(Response, new Dictionary<string, object> { { "resource_id", id }, { "lecture_id", lectureId } },
+            "Resource attached");
+    }
+
+    /// <summary>action=lecture_resource_delete — remove a resource from a lecture (write).</summary>
+    private void HandleLectureResourceDelete()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
+        long lectureId = ApiHelper.ParamInt(Request, "lecture_id", 0);
+        long resourceId = ApiHelper.ParamInt(Request, "resource_id", 0);
+        if (spaceId <= 0 || lectureId <= 0 || resourceId <= 0)
+        { ApiHelper.Error(Response, "space_id, lecture_id and resource_id are required.", "MISSING_PARAM"); return; }
+        int empid = RequireStaffOnSpace(auth, spaceId); if (empid < 0) return;
+        if (!RequireLectureInSpace(lectureId, spaceId)) return;
+
+        int n = ApiHelper.ExecutePortal("DELETE FROM odel_lecture_resource WHERE id=@id AND lecture_id=@l",
+            new MySqlParameter("@id", resourceId), new MySqlParameter("@l", lectureId));
+        if (n == 0) { ApiHelper.Error(Response, "Resource not found on this lecture.", "NOT_FOUND"); return; }
+        LogActivity(empid, spaceId, "DELETED", "lecture_resource", resourceId, "");
+        ApiHelper.Success(Response, new Dictionary<string, object> { { "resource_id", resourceId } }, "Resource removed");
+    }
+
+    /// <summary>
+    /// action=content_copy_forward — copy a previous term's outline into this space (write).
+    /// Params: space_id (destination), source_space_id, include_materials (default 1).
+    ///
+    /// Re-teaching a course should not mean rebuilding its outline by hand. Chapters, topics and
+    /// their material links are copied; MATERIALS THEMSELVES ARE NOT DUPLICATED — the copy links
+    /// the same library rows, so correcting a material once fixes it everywhere it is used.
+    ///
+    /// Everything lands UNPUBLISHED regardless of how it was published in the source, so the
+    /// lecturer reviews a term's content before students see it. Assignments are deliberately not
+    /// copied: they carry deadlines and weights that must be set for the new term (use
+    /// assignment_duplicate per assignment, which also lands as a draft).
+    /// </summary>
+    private void HandleContentCopyForward()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
+        long sourceId = ApiHelper.ParamInt(Request, "source_space_id", 0);
+        if (spaceId <= 0 || sourceId <= 0) { ApiHelper.Error(Response, "space_id and source_space_id are required.", "MISSING_PARAM"); return; }
+        if (spaceId == sourceId) { ApiHelper.Error(Response, "The source and destination are the same space.", "VALIDATION_ERROR"); return; }
+        int empid = RequireStaffOnSpace(auth, spaceId); if (empid < 0) return;
+        // Both ends must be taught by the caller — copying FROM a course you do not teach would be
+        // a way to lift another lecturer's material into your own space.
+        if (!StaffOnSpace(sourceId, empid))
+        { ApiHelper.Error(Response, "You do not teach the source course space.", "ACCESS_DENIED"); return; }
+        bool includeMaterials = ApiHelper.Param(Request, "include_materials", "1") != "0";
+
+        DataTable chapters = ApiHelper.QueryPortal(
+            "SELECT id, title, sort_order FROM odel_chapter WHERE space_id=@s ORDER BY sort_order, id",
+            new MySqlParameter("@s", sourceId));
+        DataTable topics = ApiHelper.QueryPortal(
+            "SELECT id, chapter_id, title, sort_order FROM odel_topic WHERE space_id=@s ORDER BY sort_order, id",
+            new MySqlParameter("@s", sourceId));
+        if (chapters.Rows.Count == 0 && topics.Rows.Count == 0)
+        { ApiHelper.Error(Response, "The source space has no chapters or topics to copy.", "VALIDATION_ERROR"); return; }
+
+        var chapterMap = new Dictionary<long, long>();
+        int chaptersCopied = 0, topicsCopied = 0, linksCopied = 0;
+
+        foreach (DataRow c in chapters.Rows)
+        {
+            long newId = ApiHelper.ExecuteInsertPortal(
+                @"INSERT INTO odel_chapter (space_id, title, sort_order, is_published, is_system, created_at, updated_at)
+                  VALUES (@s,@t,@o,0,0,NOW(),NOW())",
+                new MySqlParameter("@s", spaceId), new MySqlParameter("@t", Convert.ToString(c["title"])),
+                new MySqlParameter("@o", c["sort_order"] == DBNull.Value ? 0 : Convert.ToInt32(c["sort_order"])));
+            chapterMap[Convert.ToInt64(c["id"])] = newId;
+            chaptersCopied++;
+        }
+
+        foreach (DataRow t in topics.Rows)
+        {
+            object newChapter = DBNull.Value;
+            if (t["chapter_id"] != DBNull.Value)
+            {
+                long oldChapter = Convert.ToInt64(t["chapter_id"]);
+                if (chapterMap.ContainsKey(oldChapter)) newChapter = chapterMap[oldChapter];
+            }
+            long newTopic = ApiHelper.ExecuteInsertPortal(
+                @"INSERT INTO odel_topic (space_id, chapter_id, title, sort_order, is_published, is_system, created_at, updated_at)
+                  VALUES (@s,@c,@t,@o,0,0,NOW(),NOW())",
+                new MySqlParameter("@s", spaceId), new MySqlParameter("@c", newChapter),
+                new MySqlParameter("@t", Convert.ToString(t["title"])),
+                new MySqlParameter("@o", t["sort_order"] == DBNull.Value ? 0 : Convert.ToInt32(t["sort_order"])));
+            topicsCopied++;
+
+            if (!includeMaterials) continue;
+            linksCopied += ApiHelper.ExecutePortal(
+                @"INSERT INTO odel_topic_material (topic_id, material_id, sort_order, is_published, added_by, created_at)
+                  SELECT @newT, tm.material_id, tm.sort_order, 0, @e, NOW()
+                    FROM odel_topic_material tm WHERE tm.topic_id=@oldT",
+                new MySqlParameter("@newT", newTopic), new MySqlParameter("@oldT", Convert.ToInt64(t["id"])),
+                new MySqlParameter("@e", empid));
+        }
+
+        LogActivity(empid, spaceId, "COPIED", "space", sourceId,
+            "Content copied forward from space #" + sourceId + ": " + chaptersCopied + " chapter(s), " + topicsCopied + " topic(s)");
+        ApiHelper.Success(Response, new Dictionary<string, object> {
+            { "source_space_id", sourceId }, { "chapters_copied", chaptersCopied },
+            { "topics_copied", topicsCopied }, { "material_links_copied", linksCopied }
+        }, "Copied " + chaptersCopied + " chapter(s) and " + topicsCopied + " topic(s), all unpublished for review.");
+    }
+
+    // ═══════════════════════ student: marks, deadlines, detail ═══════════════════════
+
+    /// <summary>
+    /// action=my_grades — what the student scored, and why (read). Params: space_id.
+    ///
+    /// Until this existed a student could see an aggregate <c>odel_points</c> number on their space
+    /// but had no way to see the marks behind it — not a per-assignment score, not a penalty, not a
+    /// word of a lecturer's feedback. Being marked and not being told is the thing this closes.
+    ///
+    /// Only the CURRENT grade of the latest submitted attempt is shown, matching what the
+    /// gradebook actually counts, and only for assignments that are published. Unpublished drafts
+    /// are a lecturer's working state and stay invisible.
+    /// </summary>
+    private void HandleMyGrades()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
+        if (spaceId <= 0) { ApiHelper.Error(Response, "space_id is required.", "MISSING_PARAM"); return; }
+        string regno = RequireStudentOnSpace(auth, spaceId);
+        if (regno == null) return;
+
+        DataTable dt = ApiHelper.QueryPortal(
+            @"SELECT a.id AS assignment_id, a.title, a.max_points, a.weight_points, a.counts_toward_cw,
+                     a.due_at, s.id AS submission_id, s.attempt_no, s.status AS submission_status,
+                     s.submitted_at, s.is_late,
+                     g.raw_marks, g.penalty_pct, g.final_marks, g.feedback, g.graded_at,
+                     CASE WHEN g.final_marks IS NULL THEN NULL
+                          WHEN IFNULL(a.max_points,0)=0 THEN NULL
+                          ELSE ROUND(g.final_marks * 100.0 / a.max_points, 1) END AS percent
+              FROM odel_assignment a
+              LEFT JOIN odel_submission s
+                     ON s.assignment_id=a.id AND TRIM(s.regno)=TRIM(@r)
+                    AND s.attempt_no=(SELECT MAX(s2.attempt_no) FROM odel_submission s2
+                                       WHERE s2.assignment_id=a.id AND TRIM(s2.regno)=TRIM(@r)
+                                         AND s2.status='SUBMITTED')
+              LEFT JOIN odel_submission_grade g ON g.submission_id=s.id AND g.is_current=1
+             WHERE a.space_id=@sid AND a.is_published=1
+             ORDER BY a.sort_order, a.id",
+            new MySqlParameter("@sid", spaceId), new MySqlParameter("@r", regno));
+
+        var rows = ApiHelper.TableToList(dt);
+        int graded = 0, submitted = 0, awaiting = 0, notSubmitted = 0;
+        double earned = 0, outOf = 0;
+        foreach (var r in rows)
+        {
+            bool hasSub = r["submission_id"] != null;
+            bool hasGrade = r["final_marks"] != null;
+            if (!hasSub) notSubmitted++;
+            else { submitted++; if (hasGrade) graded++; else awaiting++; }
+            if (hasGrade && Convert.ToInt32(r["counts_toward_cw"]) == 1)
+            {
+                earned += Convert.ToDouble(r["final_marks"]);
+                outOf  += Convert.ToDouble(r["max_points"]);
+            }
+        }
+
+        object pts = ApiHelper.ScalarPortal(
+            "SELECT odel_points FROM odel_gradebook WHERE space_id=@sid AND TRIM(regno)=TRIM(@r)",
+            new MySqlParameter("@sid", spaceId), new MySqlParameter("@r", regno));
+
+        ApiHelper.Success(Response, new Dictionary<string, object> {
+            { "space_id", spaceId },
+            { "assignments", rows },
+            { "summary", new Dictionary<string, object> {
+                { "total_assignments", rows.Count },
+                { "submitted", submitted }, { "graded", graded },
+                { "awaiting_grading", awaiting }, { "not_submitted", notSubmitted },
+                { "marks_earned", Math.Round(earned, 2) },
+                { "marks_out_of", Math.Round(outOf, 2) },
+                { "percent_of_graded", outOf > 0 ? Math.Round(earned * 100.0 / outOf, 1) : (object)null },
+                { "odel_points", pts == null || pts == DBNull.Value ? 0 : Convert.ToDouble(pts) } } },
+            { "note", "Coursework shown here is the ODEL component only. It becomes part of the official " +
+                      "coursework mark when the lecturer pushes it, and the transcript remains the authority." }
+        });
+    }
+
+    /// <summary>
+    /// action=deadlines — what is due, across every course the student is enrolled in (read).
+    /// Optional: days (default 30, max 365), include_overdue=1.
+    ///
+    /// Per-student extensions are applied here rather than shown separately, because a deadline
+    /// list that ignores a student's own extension tells them the wrong date — the one number this
+    /// action exists to get right.
+    /// </summary>
+    private void HandleDeadlines()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        string regno = auth.UserType == "student" ? auth.UserId : ApiHelper.Param(Request, "regno", "").Trim();
+        if (auth.UserType != "student")
+        {
+            if (RequireStaff(auth) < 0) return;
+            if (regno == "") { ApiHelper.Error(Response, "regno is required when a staff account calls this action.", "MISSING_PARAM"); return; }
+        }
+        int days = ApiHelper.ParamInt(Request, "days", 30);
+        if (days < 1) days = 1; if (days > 365) days = 365;
+        bool includeOverdue = ApiHelper.Param(Request, "include_overdue", "1") != "0";
+
+        DataTable dt = ApiHelper.QueryPortal(
+            @"SELECT a.id AS assignment_id, a.title, a.max_points, a.submission_type,
+                     sp.id AS space_id, TRIM(sp.courseID) AS course_code, sp.title AS course_title,
+                     IFNULL(x.due_at, a.due_at)         AS due_at,
+                     IFNULL(x.late_until, a.late_until) AS late_until,
+                     (x.assignment_id IS NOT NULL)      AS has_extension,
+                     x.reason                           AS extension_reason,
+                     s.id AS submission_id, s.status AS submission_status, s.submitted_at
+              FROM odel_assignment a
+              JOIN odel_course_space sp ON sp.id=a.space_id
+              JOIN acad_course_registration cr
+                ON TRIM(cr.courseID)=TRIM(sp.courseID) AND cr.acad_year=sp.acad_year
+               AND cr.semester=sp.semester AND TRIM(cr.regno)=TRIM(@r)
+               AND UPPER(IFNULL(cr.lecturer_status,'APPROVED'))='APPROVED'
+              LEFT JOIN odel_assignment_extension x ON x.assignment_id=a.id AND TRIM(x.regno)=TRIM(@r)
+              LEFT JOIN odel_submission s
+                     ON s.assignment_id=a.id AND TRIM(s.regno)=TRIM(@r) AND s.status='SUBMITTED'
+                    AND s.attempt_no=(SELECT MAX(s2.attempt_no) FROM odel_submission s2
+                                       WHERE s2.assignment_id=a.id AND TRIM(s2.regno)=TRIM(@r) AND s2.status='SUBMITTED')
+             WHERE a.is_published=1 AND sp.status='ACTIVE' AND a.archived_at IS NULL
+               AND IFNULL(x.due_at, a.due_at) IS NOT NULL
+               AND IFNULL(x.due_at, a.due_at) <= DATE_ADD(NOW(), INTERVAL @d DAY)
+             ORDER BY IFNULL(x.due_at, a.due_at)",
+            new MySqlParameter("@r", regno), new MySqlParameter("@d", days));
+
+        var due = new List<Dictionary<string, object>>();
+        var overdue = new List<Dictionary<string, object>>();
+        DateTime now = DateTime.Now;
+        foreach (var r in ApiHelper.TableToList(dt))
+        {
+            bool done = r["submission_id"] != null;
+            r["submitted"] = done;
+            DateTime d0 = Convert.ToDateTime(r["due_at"]);
+            // A late window that is still open is not yet "overdue" — the student can still submit.
+            DateTime effective = r["late_until"] != null ? Convert.ToDateTime(r["late_until"]) : d0;
+            bool past = effective < now;
+            r["closed"] = past;
+            r["hours_remaining"] = past ? (object)null : Math.Round((effective - now).TotalHours, 1);
+            if (done) { due.Add(r); continue; }
+            if (past) { if (includeOverdue) overdue.Add(r); }
+            else due.Add(r);
+        }
+        ApiHelper.Success(Response, new Dictionary<string, object> {
+            { "window_days", days },
+            { "upcoming", due }, { "overdue", overdue },
+            { "counts", new Dictionary<string, object> {
+                { "upcoming", due.Count }, { "overdue", overdue.Count },
+                { "action_needed", overdue.Count + due.FindAll(x => !(bool)x["submitted"]).Count } } }
+        });
+    }
+
+    /// <summary>
+    /// action=lecture_detail — one lecture as the student sees it (read). Params: space_id, lecture_id.
+    /// Includes its resources and the student's own attendance mark. Unpublished lectures are hidden.
+    /// </summary>
+    private void HandleLectureDetail()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        long spaceId = ApiHelper.ParamInt(Request, "space_id", 0);
+        long lectureId = ApiHelper.ParamInt(Request, "lecture_id", 0);
+        if (spaceId <= 0 || lectureId <= 0) { ApiHelper.Error(Response, "space_id and lecture_id are required.", "MISSING_PARAM"); return; }
+        string regno = RequireStudentOnSpace(auth, spaceId);
+        if (regno == null) return;
+        if (!LectureInSpace(lectureId, spaceId)) { ApiHelper.Error(Response, "Lecture not found in this space.", "NOT_FOUND"); return; }
+
+        DataTable dt = ApiHelper.QueryPortal(
+            @"SELECT l.id AS lecture_id, l.title, l.description, l.meet_link, l.meet_provider, l.location,
+                     l.scheduled_start, l.scheduled_end, l.status, l.attendance_open, l.min_fee_percent,
+                     IFNULL(a.status,'') AS my_attendance, a.method AS marked_method, a.marked_at
+              FROM odel_lecture l
+              LEFT JOIN odel_attendance a ON a.lecture_id=l.id AND TRIM(a.regno)=TRIM(@r)
+             WHERE l.id=@l AND l.space_id=@sid AND l.is_published=1",
+            new MySqlParameter("@l", lectureId), new MySqlParameter("@sid", spaceId), new MySqlParameter("@r", regno));
+        Dictionary<string, object> row = ApiHelper.FirstRowToDict(dt);
+        if (row == null) { ApiHelper.Error(Response, "Lecture not found or not published.", "NOT_FOUND"); return; }
+
+        DataTable res = ApiHelper.QueryPortal(
+            @"SELECT id AS resource_id, kind, title, url, file_id, material_id, note_text, sort_order
+              FROM odel_lecture_resource WHERE lecture_id=@l ORDER BY sort_order, id",
+            new MySqlParameter("@l", lectureId));
+        row["resources"] = ApiHelper.TableToList(res);
+        ApiHelper.Success(Response, row);
+    }
+
+    /// <summary>
+    /// action=submission_history — every attempt the student has made on one assignment (read).
+    /// Params: assignment_id. Shows each attempt's grade and feedback, so a resubmission can be
+    /// compared against what the lecturer said about the previous one.
+    /// </summary>
+    private void HandleSubmissionHistory()
+    {
+        TokenInfo auth = TokenManager.RequireAuth(Request, Response);
+        if (auth == null) return;
+        long aid = ApiHelper.ParamInt(Request, "assignment_id", 0);
+        if (aid <= 0) { ApiHelper.Error(Response, "assignment_id is required.", "MISSING_PARAM"); return; }
+
+        object sp = ApiHelper.ScalarPortal("SELECT space_id FROM odel_assignment WHERE id=@a AND is_published=1",
+            new MySqlParameter("@a", aid));
+        if (sp == null || sp == DBNull.Value) { ApiHelper.Error(Response, "Assignment not found.", "NOT_FOUND"); return; }
+        long spaceId = Convert.ToInt64(sp);
+        string regno = RequireStudentOnSpace(auth, spaceId);
+        if (regno == null) return;
+
+        DataTable dt = ApiHelper.QueryPortal(
+            @"SELECT s.id AS submission_id, s.attempt_no, s.status, s.submitted_at, s.is_late, s.receipt_code,
+                     g.raw_marks, g.penalty_pct, g.final_marks, g.feedback, g.graded_at, g.version, g.is_current
+              FROM odel_submission s
+              LEFT JOIN odel_submission_grade g ON g.submission_id=s.id AND g.is_current=1
+             WHERE s.assignment_id=@a AND TRIM(s.regno)=TRIM(@r)
+             ORDER BY s.attempt_no DESC",
+            new MySqlParameter("@a", aid), new MySqlParameter("@r", regno));
+
+        var rows = ApiHelper.TableToList(dt);
+        foreach (var r in rows)
+        {
+            DataTable f = ApiHelper.QueryPortal(
+                @"SELECT sf.file_id, IFNULL(fi.orig_name,'') AS file_name, IFNULL(fi.mime,'') AS mime,
+                         IFNULL(fi.size_bytes,0) AS size_bytes
+                  FROM odel_submission_file sf LEFT JOIN odel_file fi ON fi.id=sf.file_id
+                 WHERE sf.submission_id=@s", new MySqlParameter("@s", r["submission_id"]));
+            r["files"] = ApiHelper.TableToList(f);
+        }
+        ApiHelper.Success(Response, new Dictionary<string, object> {
+            { "assignment_id", aid }, { "space_id", spaceId },
+            { "attempts", rows }, { "attempt_count", rows.Count }
         });
     }
 
