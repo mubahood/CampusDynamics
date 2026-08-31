@@ -145,6 +145,8 @@ public sealed class AcademicDocumentPdfService
 			return "Transcript";
 		if (value == "TRANSCRIPTLIST" || value == "TRANSCRIPT_LIST" || value == "TRANSCRIPTLISTPDF")
 			return "TranscriptList";
+		if (value == "TRANSCRIPTCOMPACT" || value == "TRANSCRIPT_COMPACT" || value == "TRANSCRIPTSINGLEPAGE")
+			return "TranscriptCompact";
 		if (value == "CERTIFICATE")
 			return "Certificate";
 		return string.Empty;
@@ -181,6 +183,16 @@ public sealed class AcademicDocumentPdfService
 		if (documentType == "TranscriptList")
 		{
 			FinalTranscriptList report = new FinalTranscriptList();
+			report.DataSource = dataSource;
+			report.RequestParameters = false;
+			return report;
+		}
+
+		if (documentType == "TranscriptCompact")
+		{
+			// Template 3 — Template 1's two-column grid, restyled to fit one page:
+			// borderless, unpadded, small type, all capitals, no key-to-grades page.
+			FinalTranscriptCompact report = new FinalTranscriptCompact();
 			report.DataSource = dataSource;
 			report.RequestParameters = false;
 			return report;

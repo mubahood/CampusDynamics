@@ -2948,6 +2948,7 @@
                     <select id="ddlAcademicDocumentType" class="cd-form-input">
                         <option value="Transcript">Transcript (PDF)</option>
                         <option value="TranscriptList">Transcript (List format — Template 2)</option>
+                        <option value="TranscriptCompact">Transcript (Compact single page — Template 3)</option>
                         <option value="TranscriptHTML">Transcript (Print / Save as PDF)</option>
                         <option value="Certificate">Certificate</option>
                     </select>
@@ -2955,6 +2956,9 @@
 
                 <div style="font-size: 11px; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 12px; line-height: 1.5;">
                     The generated PDF uses the same classic academic document templates and data logic currently used in the old system, but is exported directly for download from this page.
+                    <br /><br />
+                    <strong>Template 3 (Compact single page)</strong> carries exactly the same content and figures as Template 1, printed without table lines, without padding, in small capitals, so a full record fits on one page.
+                    It is the only template that <strong>omits the key-to-grades page</strong> &mdash; that page is what forces a second sheet. Use Template 1 or 2 when the grading key must be included.
                 </div>
 
                 <div id="docStatusMsg" style="display: none; padding: 8px 10px; font-size: 11px; margin-top: 10px;"></div>
