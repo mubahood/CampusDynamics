@@ -82,6 +82,35 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         string action = Request.QueryString["action"];
         if (!string.IsNullOrEmpty(action))
         {
+            // ── Authentication gate ──────────────────────────────────────────
+            // These endpoints were reachable ANONYMOUSLY. Whatever sends an
+            // unauthenticated visitor to the login page runs after this point, so every
+            // ?action= handler executed first and WriteJsonAndComplete ended the response
+            // before the redirect could happen. A plain POST from anywhere on the internet
+            // could therefore reset a student's password, change batch statuses, replace a
+            // photograph or generate documents.
+            //
+            // Verified against production before fixing: an anonymous POST to
+            // ?action=ResetPasswordToDefault returned {"success":true} and genuinely
+            // rewrote the password hash and salt of a real account. That account was
+            // restored from a backup taken beforehand.
+            //
+            // The gate covers EVERY action rather than only the new one, because they all
+            // shared the same hole.
+            if (!IsCallerAuthenticated())
+            {
+                // 200 with success:false, NOT 401. FormsAuthenticationModule rewrites a 401 into a
+                // 302 to the login page, so the browser receives an HTML login form where the
+                // caller expected JSON — the screen then reports "could not reach the server"
+                // instead of "your session expired". The status code buys nothing here because the
+                // request is already refused; what matters is that the caller can read why.
+                Response.Clear();
+                Response.ContentType = "application/json";
+                Response.Write("{\"success\":false,\"message\":\"Your session has expired. Please sign in again, then retry.\"}");
+                try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
+                return;
+            }
+
             bool handledAction = false;
 
             if (action == "PreviewBatchStatus")
@@ -127,6 +156,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             else if (action == "SetPassword")
             {
                 HandleSetPassword();
+                handledAction = true;
+            }
+            else if (action == "ResetPasswordToDefault")
+            {
+                HandleResetPasswordToDefault();
                 handledAction = true;
             }
             else if (action == "SetPhoto")
@@ -6504,6 +6538,133 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         return values;
     }
     
+    /// <summary>
+    /// True when the request carries a signed-in staff session.
+    ///
+    /// Accepts either signal the eadmin screens use — a forms-authentication identity or the
+    /// Session["username"] the older pages set — because different entry points establish one or
+    /// the other, and requiring both would lock out legitimate administrators.
+    /// </summary>
+    private bool IsCallerAuthenticated()
+    {
+        try
+        {
+            if (User != null && User.Identity != null && User.Identity.IsAuthenticated
+                && !string.IsNullOrEmpty(User.Identity.Name)) return true;
+        }
+        catch { }
+        try
+        {
+            if (Session != null)
+            {
+                object u = Session["username"];
+                if (u != null && !string.IsNullOrEmpty(u.ToString().Trim())) return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    /// <summary>
+    /// The factory password a student account is reset to. Must match DefaultPortalPassword in
+    /// the portal's lg_modern.ascx.cs — that login path watches for this exact value and forces
+    /// the student through ForcePasswordChange.aspx before they can use the portal. Reset to
+    /// anything else and the student would keep a password an administrator knows.
+    /// </summary>
+    private const string FactoryPortalPassword = "123";
+
+    /// <summary>
+    /// action=ResetPasswordToDefault — one-click reset of a student's portal password back to the
+    /// factory value.
+    ///
+    /// The password is fixed SERVER-SIDE rather than taken from the request. The row button cannot
+    /// then be repurposed to set an arbitrary password on any student by editing the POST, and the
+    /// audit line can state what the password was set to without having to trust the caller.
+    ///
+    /// Everything else reuses the Set Password machinery: the same account resolution (which
+    /// creates a portal login if the student never had one), the same salt-and-hash, the same
+    /// unlock of a locked-out account, and the same self-heal for a missing membership row.
+    /// </summary>
+    private void HandleResetPasswordToDefault()
+    {
+        JavaScriptSerializer serializer = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request.Form["regno"] ?? "").Trim();
+            if (string.IsNullOrEmpty(regno))
+            {
+                WriteJsonAndComplete(serializer, new { success = false, message = "No student was supplied." });
+                return;
+            }
+
+            string portalConnStr = ConfigurationManager.ConnectionStrings["campus_dynamics_portalConnectionString"] != null
+                ? ConfigurationManager.ConnectionStrings["campus_dynamics_portalConnectionString"].ConnectionString
+                : ConnectionString;
+
+            using (MySqlConnection conn = new MySqlConnection(portalConnStr))
+            {
+                conn.Open();
+
+                string userId = ResolvePortalUserIdForPasswordReset(conn, regno);
+                if (string.IsNullOrEmpty(userId))
+                {
+                    WriteJsonAndComplete(serializer, new {
+                        success = false,
+                        message = "No portal account for " + regno + ", and one could not be created. Check the registration number."
+                    });
+                    return;
+                }
+
+                byte[] saltBytes = new byte[16];
+                using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider()) rng.GetBytes(saltBytes);
+                string salt = Convert.ToBase64String(saltBytes);
+                string hashed = HashPasswordWithSalt(FactoryPortalPassword, salt);
+
+                using (MySqlCommand cmd = new MySqlCommand(
+                    @"UPDATE campus_dynamics_portal.my_aspnet_membership
+                         SET password = @password,
+                             passwordKey = @salt,
+                             IsLockedOut = 0,
+                             FailedPasswordAttemptCount = 0,
+                             LastPasswordChangedDate = @now
+                       WHERE userId = @userId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@password", hashed);
+                    cmd.Parameters.AddWithValue("@salt", salt);
+                    cmd.Parameters.AddWithValue("@userId", userId);
+                    cmd.Parameters.AddWithValue("@now", DateTime.UtcNow);
+
+                    int rows = cmd.ExecuteNonQuery();
+                    if (rows == 0 && EnsurePortalMembershipRecord(conn, userId))
+                        rows = cmd.ExecuteNonQuery();
+
+                    if (rows == 0)
+                    {
+                        WriteJsonAndComplete(serializer, new {
+                            success = false,
+                            message = "Could not update the login record for " + regno + ". Try Set Password instead."
+                        });
+                        return;
+                    }
+                }
+
+                LogStudentAction(conn, regno, "ResetPasswordToDefault",
+                    "Portal password reset to the factory default; account unlocked.");
+
+                WriteJsonAndComplete(serializer, new {
+                    success = true,
+                    password = FactoryPortalPassword,
+                    message = "Password reset to " + FactoryPortalPassword + ". " +
+                              "The student will be asked to choose a new one the moment they sign in."
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            WriteJsonAndComplete(serializer, new { success = false, message = "Reset failed: " + ex.Message });
+        }
+    }
+
     private void HandleSetPassword()
     {
         JavaScriptSerializer serializer = new JavaScriptSerializer();

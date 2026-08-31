@@ -4,6 +4,31 @@
 
 <asp:Content ID="HeadContent" ContentPlaceHolderID="HeadContent" runat="server">
     <style type="text/css">
+        /* ── One-click password reset ─────────────────────────────────────────
+           Three states on one button: idle, armed (asking for the second click)
+           and done. Colour carries the meaning, and the label says it in words
+           too, so it does not rely on colour alone. */
+        .nsi-reset123 { color: #b26a00; font-weight: 600; }
+        .nsi-reset123--armed { background: #fdecec !important; color: #b3261e !important; }
+        .nsi-reset123--armed svg { stroke: #b3261e; }
+        .nsi-reset123--done { background: #e9f7ef !important; color: #1c7a45 !important; }
+        .nsi-reset123--done svg { stroke: #1c7a45; }
+        .nsi-reset123[disabled] { opacity: .65; cursor: default; }
+
+        /* Outcome banner — the popover closes on success, so the result needs to
+           live somewhere the administrator is still looking. */
+        .nsi-toast {
+            position: fixed; right: 18px; bottom: 18px; z-index: 100001; display: none;
+            max-width: 420px; padding: 13px 16px; font-size: 13px; line-height: 1.5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            box-shadow: 0 10px 30px rgba(5,39,92,.22); border-left: 4px solid;
+        }
+        .nsi-toast--ok  { background: #e9f7ef; border-color: #1c7a45; color: #14603a; }
+        .nsi-toast--err { background: #fdecec; border-color: #b3261e; color: #8f1c16; }
+        @media (max-width: 600px) {
+            .nsi-toast { right: 10px; left: 10px; bottom: 10px; max-width: none; }
+        }
+
         /* Student thumbnail in grid */
         .cd-student-thumb {
             width: 32px;
@@ -1790,6 +1815,18 @@
                                                 Set Password
                                             </button>
                                         </li>
+                                        <%-- One-click reset to the factory password. Arms on the first click and
+                                             fires on the second, so a stray click in a list of thousands cannot
+                                             reset a student's password — no modal, no typing. --%>
+                                        <li class="cd-action-popover__item">
+                                            <button type="button" class="cd-action-popover__btn nsi-reset123"
+                                                    data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
+                                                    data-student='<%# HttpUtility.HtmlAttributeEncode(((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()).Trim()) %>'
+                                                    onclick="resetPasswordTo123(this); return false;" role="menuitem">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"></path><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                                                <span class="nsi-reset123__label">Reset password to 123</span>
+                                            </button>
+                                        </li>
                                         <li class="cd-action-popover__item">
                                             <button type="button" class="cd-action-popover__btn cd-action-popover__btn--photo"
                                                     data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
@@ -3067,6 +3104,100 @@
             }
         });
         
+        /* ===== One-click reset to the factory password =====
+           Arms on the first click, fires on the second. The button itself is the
+           confirmation, so there is no dialog to dismiss and nothing to type — but a
+           stray click in a list of thousands of students still cannot reset anyone.
+           Disarms after 4 seconds, and any other reset button being armed disarms this
+           one, so two cannot sit primed at once. */
+        var nsiArmedReset = null, nsiArmTimer = null;
+
+        function nsiDisarmReset() {
+            if (!nsiArmedReset) return;
+            var b = nsiArmedReset;
+            b.classList.remove('nsi-reset123--armed');
+            var l = b.querySelector('.nsi-reset123__label');
+            if (l) l.textContent = 'Reset password to 123';
+            nsiArmedReset = null;
+            if (nsiArmTimer) { clearTimeout(nsiArmTimer); nsiArmTimer = null; }
+        }
+
+        function resetPasswordTo123(btn) {
+            if (nsiArmedReset && nsiArmedReset !== btn) nsiDisarmReset();
+
+            // First click: arm and ask.
+            if (nsiArmedReset !== btn) {
+                nsiArmedReset = btn;
+                btn.classList.add('nsi-reset123--armed');
+                var lab = btn.querySelector('.nsi-reset123__label');
+                if (lab) lab.textContent = 'Click again to confirm';
+                nsiArmTimer = setTimeout(nsiDisarmReset, 4000);
+                return;
+            }
+
+            // Second click: do it.
+            if (nsiArmTimer) { clearTimeout(nsiArmTimer); nsiArmTimer = null; }
+            var regno = btn.getAttribute('data-regno');
+            var who = btn.getAttribute('data-student') || regno;
+            var label = btn.querySelector('.nsi-reset123__label');
+            btn.disabled = true;
+            if (label) label.textContent = 'Resetting…';
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', window.location.pathname + '?action=ResetPasswordToDefault', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) return;
+                var d = null;
+                try { d = JSON.parse(xhr.responseText); } catch (e) { d = null; }
+                btn.disabled = false;
+                btn.classList.remove('nsi-reset123--armed');
+                nsiArmedReset = null;
+
+                if (d && d.success) {
+                    if (label) label.textContent = 'Done — password is 123';
+                    btn.classList.add('nsi-reset123--done');
+                    nsiToast(true, who + ': password reset to 123. They will be asked to choose a new one when they sign in.');
+                    setTimeout(function () {
+                        btn.classList.remove('nsi-reset123--done');
+                        if (label) label.textContent = 'Reset password to 123';
+                        closeAllActionPopovers();
+                    }, 2500);
+                } else {
+                    if (label) label.textContent = 'Reset password to 123';
+                    nsiToast(false, (d && d.message) ? d.message : 'Could not reach the server. Please try again.');
+                }
+            };
+            xhr.onerror = function () {
+                btn.disabled = false;
+                btn.classList.remove('nsi-reset123--armed');
+                nsiArmedReset = null;
+                if (label) label.textContent = 'Reset password to 123';
+                nsiToast(false, 'Could not reach the server. Please try again.');
+            };
+            xhr.send('regno=' + encodeURIComponent(regno));
+        }
+
+        /* A small transient banner, so the outcome is visible after the popover closes. */
+        function nsiToast(ok, text) {
+            var t = document.getElementById('nsiToast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'nsiToast';
+                document.body.appendChild(t);
+            }
+            t.className = 'nsi-toast ' + (ok ? 'nsi-toast--ok' : 'nsi-toast--err');
+            t.textContent = text;
+            t.style.display = 'block';
+            clearTimeout(t._h);
+            t._h = setTimeout(function () { t.style.display = 'none'; }, ok ? 6000 : 9000);
+        }
+
+        // A click anywhere else disarms a primed reset button.
+        document.addEventListener('click', function (e) {
+            if (nsiArmedReset && !nsiArmedReset.contains(e.target)) nsiDisarmReset();
+        }, true);
+
         // ===== Set Password Modal Functions =====
         var _spRegno = '';
         
