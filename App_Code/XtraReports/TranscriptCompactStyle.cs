@@ -42,11 +42,16 @@ using DevExpress.XtraReports.UI;
 public static class TranscriptCompactStyle
 {
     /// <summary>
-    /// Font scale. 0.78 takes Template 1's 8.5pt body text to 6.6pt — small, still
-    /// comfortably legible in print, and enough to buy roughly a quarter of the page
-    /// back in vertical space once the padding goes with it.
+    /// Font scale for everything OUTSIDE the result tables — letterhead, student bio,
+    /// award block, footer. 0.84 takes Template 1's 8.5pt down to 7.1pt.
+    ///
+    /// Raised from 0.78 so the document reads at one weight: the result tables came back
+    /// up to 6.4pt, and leaving the surrounding text at its old scale would have made
+    /// the identity block look smaller than the marks it introduces. These controls have
+    /// nothing like the width constraints the four table columns do, so the ceiling here
+    /// is legibility rather than fit.
     /// </summary>
-    public const float FontScale = 0.78F;
+    public const float FontScale = 0.84F;
 
     /// <summary>Nothing is ever scaled below this; past about 5.5pt a laser printer
     /// starts losing thin strokes and the document stops being a legal record.</summary>
@@ -64,11 +69,13 @@ public static class TranscriptCompactStyle
     /// and once the table height is below the line box only the FONT moves the row. So
     /// "reduce the line height" and "reduce the body font" are the same instruction here.
     ///
-    /// 5.8pt was chosen by measuring 1,939 real course names: it takes the line box from
-    /// 10.6 to 9.8 units, about 7% off every row, while still printing cleanly. Below
-    /// about 5.5pt a laser printer starts dropping thin strokes.
+    /// 6.4pt is the largest size that still fits everything, and it was found by
+    /// measuring rather than by eye: at 6.6pt a 9-character course code no longer fits
+    /// its column, and by 6.8pt the bold "GRADE" header overflows too. At 6.4 the line
+    /// box is 10.8 units against Template 1's 13.6, and 0.8% of 1,939 real course names
+    /// wrap to a second line against Template 1's 5.7%.
     /// </summary>
-    public const float ResultFontSize = 5.8F;
+    public const float ResultFontSize = 6.4F;
 
     /// <summary>Calibri's line box as a multiple of point size — the number that turns a
     /// font size into the height a row will actually occupy.</summary>
@@ -87,11 +94,17 @@ public static class TranscriptCompactStyle
     /// only column that ever needs to wrap — was starved.
     ///
     /// Measured effect over 1,939 real course names: names that wrap to a second line
-    /// fall from 5.7% to 0.5%. A wrapped row costs a whole extra line, so this alone is
+    /// fall from 5.7% to 0.8%. A wrapped row costs a whole extra line, so this alone is
     /// worth more than the font reduction.
+    ///
+    /// CODE carries a little more than its 9-character norm needs (0.82 rather than the
+    /// 0.75 that a 9-character code alone would justify) so that the single 10-character
+    /// code in the database fits too. It is one row out of sixty thousand, but the cost
+    /// of covering it is 0.07 of a weight taken off a course column that is wrapping
+    /// under 1% of the time — far cheaper than a clipped code on somebody's transcript.
     /// </summary>
-    public const double WeightCode   = 0.75D;
-    public const double WeightCourse = 4.38D;
+    public const double WeightCode   = 0.82D;
+    public const double WeightCourse = 4.31D;
     public const double WeightCu     = 0.30D;
     public const double WeightGrade  = 0.48D;
 
