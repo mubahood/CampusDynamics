@@ -2643,12 +2643,36 @@
                             </div>
                             <div class="qe-row2">
                                 <div class="cd-form-group"><label class="cd-form-label">Session</label>
-                                    <select id="qe_studsesion" class="cd-form-input"><option value="">—</option><option>DAY</option><option>EVENING</option><option>WEEKEND</option><option>INSERVICE</option></select>
+                                    <select id="qe_studsesion" class="cd-form-input" onchange="qeSessionChanged()"><option value="">—</option><option>DAY</option><option>EVENING</option><option>WEEKEND</option><option>INSERVICE</option></select>
                                 </div>
                                 <div class="cd-form-group"><label class="cd-form-label">Campus</label>
                                     <select id="qe_studCampus" class="cd-form-input"><option value="">—</option></select>
                                 </div>
                             </div>
+
+                            <%-- Appears only when the session is changed AND this student's entry
+                                 number actually ends in a session code. Most do not: of 32,689
+                                 slash-formatted entry numbers only the six-segment ones carry a
+                                 session last, and the rest end in a campus code or a number. --%>
+                            <div id="qeEntrynoBox" style="display:none;margin:2px 0 12px;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;">
+                                <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-size:12px;color:#78350f;line-height:1.5;">
+                                    <input type="checkbox" id="qe_updateEntryno" style="margin-top:2px;flex:0 0 auto;" onchange="qeEntrynoToggle()" />
+                                    <span>
+                                        <b>Also update the entry number to match the new session.</b><br />
+                                        The last part of the entry number is the session, and it does not change on its own.
+                                    </span>
+                                </label>
+                                <div id="qeEntrynoPreview" style="margin:8px 0 0 24px;font-size:12px;color:#78350f;"></div>
+                                <div id="qeEntrynoCodeWrap" style="display:none;margin:8px 0 0 24px;">
+                                    <label class="cd-form-label" style="margin-bottom:3px;">Session code to use</label>
+                                    <input type="text" id="qe_entrynoCode" maxlength="8" autocomplete="off"
+                                           style="width:110px;text-transform:uppercase;border:1px solid #e0e5ed;padding:6px 9px;font-size:12px;font-family:inherit;"
+                                           oninput="qeEntrynoRefresh()" />
+                                    <span style="font-size:11px;color:#92400e;margin-left:8px;">Letters only. Change it if your office uses a different code.</span>
+                                </div>
+                            </div>
+                            <div id="qeEntrynoWhyNot" style="display:none;margin:2px 0 12px;padding:9px 12px;background:#f5f7fa;border:1px solid #e0e5ed;font-size:11.5px;color:#5b6472;line-height:1.5;"></div>
+
                             <div class="qe-row2">
                                 <div class="cd-form-group"><label class="cd-form-label">Entry Method</label>
                                     <select id="qe_entrymethod" class="cd-form-input"><option value="">—</option><option>DIRECT</option><option>A LEVEL</option><option>O LEVEL</option><option>CERTIFICATE</option><option>ORDINARY DIPLOMA</option><option>DIPLOMA</option><option>HIGHER DIPLOMA</option><option>HIGHER EDUCATION CERTIFICATE</option><option>BACHELORS DEGREE</option><option>MATURE AGE</option><option>ACCESS</option></select>
@@ -3547,6 +3571,8 @@
 
         // ---- Quick Edit (modal-driven single-student editor) ----
         var _qeRegno = '';
+        var _qeOpenedSession = '';   // session as loaded, so a change back to it counts as no change
+        var _qeEntryno = '';
         function openQuickEdit(regno, name) {
             closeAllActionPopovers();
             if (!regno) { alert('No registration number provided'); return; }
@@ -3586,13 +3612,94 @@
             qeSetVal('qe_completion_date', s.completion_date);
             qeSetSelect('qe_gender', s.gender); qeSetSelect('qe_religion', s.religion); qeSetSelect('qe_intake', s.intake);
             qeSetSelect('qe_studsesion', s.studsesion); qeSetSelect('qe_entrymethod', s.entrymethod);
+            _qeOpenedSession = s.studsesion || '';   // what it was when the dialog opened
+            _qeEntryno = s.entryno || '';
+            qeResetEntrynoBox();
             qeSetSelect('qe_new_status', s.new_status || 'ADMITTED');
             if (s.studCampus && !isNaN(parseInt(s.studCampus, 10))) camp.value = String(parseInt(s.studCampus, 10));
             if (s.gradSystemID && !isNaN(parseInt(s.gradSystemID, 10))) grd.value = String(parseInt(s.gradSystemID, 10));
             document.getElementById('qeLoading').style.display = 'none';
             document.getElementById('qeForm').style.display = 'block';
         }
-        function closeQuickEdit() { document.getElementById('quickEditOverlay').style.display = 'none'; _qeRegno = ''; }
+        function closeQuickEdit() { document.getElementById('quickEditOverlay').style.display = 'none'; _qeRegno = ''; qeResetEntrynoBox(); }
+
+        /* ---- entry number follows the session ------------------------------------
+           The last part of the entry number (21/U/BED(P)/1238/KA/INS) is the study
+           session, and changing the session has never updated it. This offers to, but
+           only ever as an opt-in, and only when this student's entry number really does
+           end in a session code — most do not: the six-segment form carries a session
+           last, while shorter ones end in a campus code (K, M) or a bare number, and
+           rewriting those would corrupt them. The server decides that, not this code,
+           and re-checks everything again on save. */
+        function qeEsc(v) {
+            return String(v == null ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function qeResetEntrynoBox() {
+            var b = document.getElementById('qeEntrynoBox');
+            var w = document.getElementById('qeEntrynoWhyNot');
+            var c = document.getElementById('qe_updateEntryno');
+            if (b) b.style.display = 'none';
+            if (w) w.style.display = 'none';
+            if (c) c.checked = false;
+            var cw = document.getElementById('qeEntrynoCodeWrap');
+            if (cw) cw.style.display = 'none';
+        }
+
+        function qeSessionChanged() {
+            var sess = document.getElementById('qe_studsesion').value || '';
+            if (!_qeRegno) return;
+            // Back to where it started is not a change.
+            if (sess.toUpperCase() === (_qeOpenedSession || '').toUpperCase()) { qeResetEntrynoBox(); return; }
+            document.getElementById('qe_entrynoCode').value = '';
+            qeEntrynoRefresh();
+        }
+
+        function qeEntrynoRefresh() {
+            var sess = document.getElementById('qe_studsesion').value || '';
+            var code = (document.getElementById('qe_entrynoCode').value || '').toUpperCase();
+            document.getElementById('qe_entrynoCode').value = code;
+            if (!_qeRegno || !sess) { qeResetEntrynoBox(); return; }
+
+            var body = 'regno=' + encodeURIComponent(_qeRegno)
+                     + '&studsesion=' + encodeURIComponent(sess)
+                     + '&code=' + encodeURIComponent(code);
+            fetch(window.location.pathname + '?action=PreviewEntrynoForSession', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                body: body
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                var box = document.getElementById('qeEntrynoBox');
+                var why = document.getElementById('qeEntrynoWhyNot');
+                if (!d || !d.success) { qeResetEntrynoBox(); return; }
+
+                if (d.canUpdate) {
+                    why.style.display = 'none';
+                    box.style.display = 'block';
+                    document.getElementById('qeEntrynoPreview').innerHTML =
+                        '<span style="opacity:.7">' + qeEsc(d.entryno) + '</span>'
+                        + ' &nbsp;&rarr;&nbsp; <b>' + qeEsc(d.projected) + '</b>';
+                    if (!document.getElementById('qe_entrynoCode').value)
+                        document.getElementById('qe_entrynoCode').value = d.suggestedCode || '';
+                } else {
+                    // Say WHY it is not offered rather than showing nothing, so an admin
+                    // is never left wondering whether the system noticed.
+                    box.style.display = 'none';
+                    document.getElementById('qe_updateEntryno').checked = false;
+                    if (d.reason && d.entryno) {
+                        why.style.display = 'block';
+                        why.innerHTML = '<b>Entry number:</b> ' + qeEsc(d.entryno) + '<br/>' + qeEsc(d.reason);
+                    } else { why.style.display = 'none'; }
+                }
+            }).catch(function () { qeResetEntrynoBox(); });
+        }
+
+        function qeEntrynoToggle() {
+            var on = document.getElementById('qe_updateEntryno').checked;
+            document.getElementById('qeEntrynoCodeWrap').style.display = on ? 'block' : 'none';
+        }
         function submitQuickEdit() {
             var fn = (document.getElementById('qe_firstname').value || '').trim();
             if (!fn) { _njStatus('qeStatus', 'First name is required.', true); return; }
@@ -3606,7 +3713,9 @@
                 + '&studPhone=' + v('qe_studPhone') + '&email=' + v('qe_email') + '&home_dist=' + v('qe_home_dist')
                 + '&national_id=' + v('qe_national_id') + '&entryyear=' + v('qe_entryyear') + '&intake=' + v('qe_intake')
                 + '&studsesion=' + v('qe_studsesion') + '&studCampus=' + v('qe_studCampus') + '&entrymethod=' + v('qe_entrymethod')
-                + '&gradSystemID=' + v('qe_gradSystemID') + '&new_status=' + v('qe_new_status') + '&completion_date=' + v('qe_completion_date');
+                + '&gradSystemID=' + v('qe_gradSystemID') + '&new_status=' + v('qe_new_status') + '&completion_date=' + v('qe_completion_date')
+                + '&updateEntryno=' + (document.getElementById('qe_updateEntryno').checked ? '1' : '0')
+                + '&entrynoCode=' + encodeURIComponent(document.getElementById('qe_entrynoCode').value || '');
             _njPost('QuickEditSave', body, function (r) {
                 if (r && r.success) { _njStatus('qeStatus', (r.message || 'Saved.') + ' Refreshing…', false); setTimeout(function () { window.location.reload(); }, 800); }
                 else { _njStatus('qeStatus', (r && r.message) || 'Save failed.', true); btn.disabled = false; btn.innerText = o; }

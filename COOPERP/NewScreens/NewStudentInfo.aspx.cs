@@ -194,6 +194,7 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             else if (action == "ChangeProgramme")   { HandleChangeProgramme();   handledAction = true; }
             else if (action == "ChangeEntryYear")   { HandleChangeEntryYear();   handledAction = true; }
             else if (action == "QuickEditLoad")      { HandleQuickEditLoad();      handledAction = true; }
+            else if (action == "PreviewEntrynoForSession") { HandlePreviewEntrynoForSession(); handledAction = true; }
             else if (action == "QuickEditSave")      { HandleQuickEditSave();      handledAction = true; }
             else if (action == "ExportStudentsList"){ HandleExportStudentsList();handledAction = true; }
 
@@ -7938,6 +7939,221 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
     }
 
     // ── Quick Edit: save the edited fields (strict-SQL-mode safe; identity fields untouched) ──
+    // ===================================================================
+    // Entry number ↔ study session
+    // ===================================================================
+    //
+    // The formatted entry number is YY/U/PROG/SEQ/CAMPUS/SESSION — the number printed
+    // on the transcript as "REG NO." (21/U/BED(P)/1238/KA/INS). Its last segment encodes
+    // the study session, and changing acad_student.studsesion has never touched it, so a
+    // student moved from Day to Weekend kept an entry number that still said DAY.
+    //
+    // WHAT MAKES THIS DELICATE, measured before writing any of it: the format is not
+    // uniform. Of the 32,689 slash-formatted entry numbers, 21,403 have six segments,
+    // 8,213 have five, 1,984 have four and 1,088 have seven. The last segment is a
+    // session code only in the six-segment form; elsewhere it is a campus code (K, M),
+    // a bare number (007, 104), or empty. Rewriting "the last segment" blindly would
+    // corrupt roughly a third of the student body's entry numbers.
+    //
+    // So the rule is the opposite of blind: the segment is replaced ONLY when it is
+    // already a recognisable session code. Anything else is left exactly alone and the
+    // offer is never made.
+    //
+    // acad_student.regno — the primary key, referenced across the whole system — is
+    // NEVER touched here, the same rule the programme-change action follows.
+
+    /// <summary>
+    /// The code written into the entry number for a given session. Reflects what the
+    /// register actually uses for 2022 and later: DAY 5,230, WKD 1,377, INSRV 977
+    /// (against INS 396 for the same session), EVE for evening.
+    /// </summary>
+    private static string SessionSegmentCode(string session)
+    {
+        string s = (session ?? "").Trim().ToUpperInvariant();
+        if (s == "DAY") return "DAY";
+        if (s == "WEEKEND") return "WKD";
+        if (s == "EVENING") return "EVE";
+        if (s == "INSERVICE" || s == "IN-SERVICE" || s == "IN SERVICE") return "INSRV";
+        return "";
+    }
+
+    /// <summary>
+    /// Every spelling of a session code seen in the register. Used to decide whether the
+    /// last segment of an entry number is a session at all — which is the whole safety
+    /// of this feature. "K" and "M" are campuses and must never match.
+    /// </summary>
+    private static bool IsSessionSegment(string segment)
+    {
+        string s = (segment ?? "").Trim().ToUpperInvariant();
+        switch (s)
+        {
+            case "DAY": case "D":
+            case "WKD": case "WKND": case "WEEKEND":
+            case "EVE": case "EVENING":
+            case "INS": case "INSR": case "INSRV": case "INSERVICE":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// The entry number this student would have if its session segment matched
+    /// <paramref name="newSession"/>. Returns "" when the change does not apply — no
+    /// entry number, no slashes, an unrecognised last segment, or nothing to change.
+    /// <paramref name="reason"/> explains which, for the screen to show.
+    /// </summary>
+    private static string ProjectEntrynoForSession(string entryno, string newSession, string overrideCode, out string reason)
+    {
+        reason = "";
+        string e = (entryno ?? "").Trim();
+        if (e == "") { reason = "This student has no entry number on file."; return ""; }
+        if (e.IndexOf('/') < 0) { reason = "This entry number is not in the slash format, so it carries no session."; return ""; }
+
+        string[] parts = e.Split('/');
+        string last = parts[parts.Length - 1].Trim();
+
+        if (!IsSessionSegment(last))
+        {
+            reason = "The last part of this entry number (\"" + last + "\") is not a session code, "
+                   + "so it is left alone. Only entry numbers ending in DAY, EVE, WKD or INSRV are changed here.";
+            return "";
+        }
+
+        string code = (overrideCode ?? "").Trim().ToUpperInvariant();
+        if (code == "") code = SessionSegmentCode(newSession);
+        if (code == "") { reason = "There is no entry-number code for the session \"" + newSession + "\"."; return ""; }
+
+        if (string.Equals(last, code, StringComparison.OrdinalIgnoreCase))
+        { reason = "The entry number already ends in " + code + "."; return ""; }
+
+        parts[parts.Length - 1] = code;
+        return string.Join("/", parts);
+    }
+
+    /// <summary>
+    /// action=PreviewEntrynoForSession — what the entry number would become, shown live
+    /// in the Quick Edit dialog before anything is saved. Read-only.
+    /// </summary>
+    private void HandlePreviewEntrynoForSession()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request["regno"] ?? "").Trim();
+            string session = (Request["studsesion"] ?? "").Trim();
+            string code = (Request["code"] ?? "").Trim();
+            if (regno == "") { WriteJsonAndComplete(js, new { success = false, message = "Registration number is required." }); return; }
+
+            string entryno = "", currentSession = "";
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                using (var cmd = new MySqlCommand("SELECT IFNULL(entryno,''), IFNULL(studsesion,'') FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@r", regno);
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        if (!r.Read()) { WriteJsonAndComplete(js, new { success = false, message = "Student not found." }); return; }
+                        entryno = r.GetString(0).Trim();
+                        currentSession = r.GetString(1).Trim();
+                    }
+                }
+            }
+
+            string reason;
+            string projected = ProjectEntrynoForSession(entryno, session, code, out reason);
+            WriteJsonAndComplete(js, new
+            {
+                success = true,
+                entryno = entryno,
+                currentSession = currentSession,
+                sessionChanged = !string.Equals(currentSession, session, StringComparison.OrdinalIgnoreCase),
+                canUpdate = projected != "",
+                projected = projected,
+                suggestedCode = SessionSegmentCode(session),
+                reason = reason
+            });
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
+    }
+
+    /// <summary>
+    /// Rewrites the session segment of a student's entry number, after re-checking every
+    /// condition the dialog checked. The browser's tick is treated as a request, not as
+    /// permission: an admin who opened the dialog, changed the session, ticked the box
+    /// and then changed the session back must not end up with a rewritten number.
+    ///
+    /// Returns a sentence to append to the success message, or "" when nothing was done.
+    /// Never throws: the student's own details are already saved by this point, and a
+    /// problem with the entry number must not report that save as a failure.
+    /// </summary>
+    private string ApplyEntrynoSessionChange(MySqlConnection conn, string regno,
+        string priorEntryno, string priorSession, string newSession, string overrideCode)
+    {
+        try
+        {
+            if (string.Equals(priorSession, newSession, StringComparison.OrdinalIgnoreCase))
+                return "  The entry number was left unchanged because the session did not change.";
+
+            string reason;
+            string projected = ProjectEntrynoForSession(priorEntryno, newSession, overrideCode, out reason);
+            if (projected == "")
+                return "  The entry number was left unchanged. " + reason;
+
+            // The code came from a text box, so it is bounded here rather than trusted:
+            // letters only, and short. A slash would silently add a segment; anything
+            // longer than this is not a session code.
+            string tail = projected.Substring(projected.LastIndexOf('/') + 1);
+            if (tail.Length == 0 || tail.Length > 8)
+                return "  The entry number was left unchanged: \"" + tail + "\" is not a valid session code.";
+            foreach (char c in tail)
+                if (!char.IsLetter(c))
+                    return "  The entry number was left unchanged: a session code may only contain letters.";
+
+            // entryno has no unique index and 135 duplicate values already exist, so the
+            // database will not catch a collision. Landing on ANOTHER student's number is
+            // a different matter from the historical duplicates, and is worth stopping for.
+            using (var dup = new MySqlCommand(
+                "SELECT regno FROM acad_student WHERE TRIM(entryno)=TRIM(@e) AND regno<>@r LIMIT 1", conn))
+            {
+                dup.Parameters.AddWithValue("@e", projected);
+                dup.Parameters.AddWithValue("@r", regno);
+                object other = dup.ExecuteScalar();
+                if (other != null && other != DBNull.Value)
+                    return "  The entry number was NOT changed: " + projected + " already belongs to "
+                         + other.ToString().Trim() + ". Please resolve that first.";
+            }
+
+            using (var tx = conn.BeginTransaction())
+            {
+                try
+                {
+                    using (var up = new MySqlCommand("UPDATE acad_student SET entryno=@e WHERE regno=@r", conn, tx))
+                    { up.Parameters.AddWithValue("@e", projected); up.Parameters.AddWithValue("@r", regno); up.ExecuteNonQuery(); }
+
+                    // acad_haltcases is the only other table carrying an entry number
+                    // (confirmed against information_schema), so it moves with it or the
+                    // two records stop referring to the same student.
+                    using (var up = new MySqlCommand("UPDATE acad_haltcases SET entryno=@e WHERE TRIM(entryno)=TRIM(@old)", conn, tx))
+                    { up.Parameters.AddWithValue("@e", projected); up.Parameters.AddWithValue("@old", priorEntryno); up.ExecuteNonQuery(); }
+
+                    tx.Commit();
+                }
+                catch { tx.Rollback(); throw; }
+            }
+
+            LogStudentAction(conn, regno, "QuickEditEntrynoSession",
+                "Session " + priorSession + " -> " + newSession + "; entry number " + priorEntryno + " -> " + projected);
+
+            return "  Entry number updated: " + priorEntryno + "  ->  " + projected;
+        }
+        catch (Exception ex)
+        {
+            return "  The student's details were saved, but the entry number could not be updated: " + ex.Message;
+        }
+    }
+
     private void HandleQuickEditSave()
     {
         var js = new JavaScriptSerializer();
@@ -7978,9 +8194,29 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             sets.Add("gradSystemID=@gradsystem"); sets.Add("completion_date=@completion_date"); sets.Add("new_status=@newstatus");
             string sql = "UPDATE acad_student SET " + string.Join(", ", sets.ToArray()) + " WHERE regno=@regno";
 
+            // Opt-in, from the "also update the entry number" tick in the dialog. Enforced
+            // again below regardless of what the browser sent.
+            bool updateEntryno = F("updateEntryno") == "1";
+            string entrynoNote = "";
+            string priorEntryno = "", priorSession = "";
+
             using (var conn = new MySqlConnection(ConnectionString))
             {
                 conn.Open();
+
+                // Read the session and entry number BEFORE the update: the update
+                // overwrites studsesion, and "did the session actually change" cannot be
+                // answered afterwards.
+                if (updateEntryno)
+                {
+                    using (var pre = new MySqlCommand("SELECT IFNULL(entryno,''), IFNULL(studsesion,'') FROM acad_student WHERE regno=@r LIMIT 1", conn))
+                    {
+                        pre.Parameters.AddWithValue("@r", regno);
+                        using (var pr = pre.ExecuteReader())
+                            if (pr.Read()) { priorEntryno = pr.GetString(0).Trim(); priorSession = pr.GetString(1).Trim(); }
+                    }
+                }
+
                 using (var cmd = new MySqlCommand(sql, conn))
                 {
                     cmd.CommandTimeout = 30;
@@ -8012,8 +8248,11 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                         if (!exists) { WriteJsonAndComplete(js, new { success = false, message = "No student found with regno " + regno + "." }); return; }
                     }
                 }
+
+                if (updateEntryno)
+                    entrynoNote = ApplyEntrynoSessionChange(conn, regno, priorEntryno, priorSession, session, F("entrynoCode"));
             }
-            WriteJsonAndComplete(js, new { success = true, message = "Student " + regno + " updated successfully." });
+            WriteJsonAndComplete(js, new { success = true, message = "Student " + regno + " updated successfully." + entrynoNote });
         }
         catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
     }
