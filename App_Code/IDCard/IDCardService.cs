@@ -83,6 +83,27 @@ public static partial class IDCardService
         { CANCELLED,     Set() },
     };
 
+    /// <summary>Every status the machine knows, in lifecycle order (drives the admin picker).</summary>
+    public static readonly string[] AllStatuses =
+        { REQUESTED, FINANCE_CHECK, BLOCKED, SUBMITTED, APPROVED, HALTED, PRINTED, READY, COLLECTED, CANCELLED };
+
+    /// <summary>True when the state machine permits this move without an override.</summary>
+    public static bool IsLegalMove(string from, string to)
+    {
+        HashSet<string> ok;
+        return Allowed.TryGetValue((from ?? "").ToUpperInvariant(), out ok) && ok.Contains((to ?? "").ToUpperInvariant());
+    }
+
+    /// <summary>The statuses this one may move to normally — empty for a terminal state.</summary>
+    public static string[] LegalNext(string from)
+    {
+        HashSet<string> ok;
+        if (!Allowed.TryGetValue((from ?? "").ToUpperInvariant(), out ok)) return new string[0];
+        var list = new List<string>();
+        foreach (string s in AllStatuses) if (ok.Contains(s)) list.Add(s);   // keep lifecycle order
+        return list.ToArray();
+    }
+
     // status → timeline column stamped on entry (NULL = none)
     private static string TimeCol(string status)
     {
@@ -162,6 +183,108 @@ public static partial class IDCardService
         }
     }
 
+    // ── may this person start a request? ──
+    //
+    // "One active request" used to mean "any status except COLLECTED or CANCELLED",
+    // which quietly locked out everybody whose card had already been produced. The
+    // 2,486 students carried over from OmniPass sit at PRINTED — a request none of
+    // them ever placed, created on their behalf by the backfill — and PRINTED is not
+    // terminal, so the wizard showed them a progress tracker with no way forward and
+    // no way to ask for a replacement. They are exactly the people who need one.
+    //
+    // The line is drawn at "has a card been produced for you yet":
+    //
+    //   REQUESTED, FINANCE_CHECK, BLOCKED, SUBMITTED, APPROVED, HALTED
+    //        still moving through the pipeline. One at a time — finish or cancel it.
+    //   READY
+    //        the card is printed and waiting at the collection point. A card you have
+    //        not picked up yet cannot have been lost, so collect it first. Blocking
+    //        this state stops a replacement fee being charged for a card sitting on a
+    //        desk in the ID office.
+    //   PRINTED, COLLECTED
+    //        a card exists and is in the student's hands as far as this system knows.
+    //        Lost or damaged? That is a replacement, and it is allowed.
+    //   CANCELLED
+    //        nothing was ever produced, so the next one is an ordinary new card.
+    private static readonly HashSet<string> BlocksNewRequest =
+        Set(REQUESTED, FINANCE_CHECK, BLOCKED, SUBMITTED, APPROVED, HALTED, READY);
+
+    /// <summary>Statuses that mean a physical card was produced for this person.</summary>
+    private static readonly HashSet<string> CardWasProduced = Set(PRINTED, READY, COLLECTED);
+
+    /// <summary>Whether a person may start a request now, and if not, exactly why.</summary>
+    public class Eligibility
+    {
+        public bool CanRequest;
+        public string BlockingRequestNo;      // the request standing in the way, if any
+        public string BlockingStatus;
+        public string Message;                // shown to the requester verbatim
+        public bool CanEditBlocking;          // true when that request is still editable (pre-submission)
+        public bool HasCard;                  // a card has been produced for them before
+        public string SuggestedCardType;      // NEW or REPLACEMENT
+    }
+
+    public static Eligibility CheckEligibility(MySqlConnection conn, string requesterType, string regno, int empId)
+    {
+        var el = new Eligibility { CanRequest = true, SuggestedCardType = "NEW" };
+        string type = Norm(requesterType);
+        string w = IsStaff(type) ? " emp_id=@e " : " TRIM(regno)=TRIM(@r) ";
+
+        // The newest request that is still standing in the way, if there is one.
+        using (var cmd = new MySqlCommand(
+            "SELECT request_no, status FROM idcard_requests WHERE requester_type=@t AND" + w +
+            " AND status IN ('REQUESTED','FINANCE_CHECK','BLOCKED','SUBMITTED','APPROVED','HALTED','READY')" +
+            " ORDER BY id DESC LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@t", type);
+            if (IsStaff(type)) cmd.Parameters.AddWithValue("@e", empId); else cmd.Parameters.AddWithValue("@r", regno ?? "");
+            using (var rd = cmd.ExecuteReader())
+            {
+                if (rd.Read())
+                {
+                    el.BlockingRequestNo = rd.GetString(0);
+                    el.BlockingStatus = rd.GetString(1).ToUpperInvariant();
+                    el.CanRequest = false;
+                }
+            }
+        }
+
+        // Has a card ever been produced for them? Checked across ALL their requests,
+        // not just the newest: a student whose card was printed years ago and who has
+        // since cancelled a later attempt still has a card, and asking for another one
+        // is still a replacement.
+        using (var cmd = new MySqlCommand(
+            "SELECT COUNT(*) FROM idcard_requests WHERE requester_type=@t AND" + w +
+            " AND status IN ('PRINTED','READY','COLLECTED')", conn))
+        {
+            cmd.Parameters.AddWithValue("@t", type);
+            if (IsStaff(type)) cmd.Parameters.AddWithValue("@e", empId); else cmd.Parameters.AddWithValue("@r", regno ?? "");
+            el.HasCard = Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+        }
+        if (el.HasCard) el.SuggestedCardType = "REPLACEMENT";
+
+        if (!el.CanRequest)
+        {
+            if (el.BlockingStatus == READY)
+            {
+                el.Message = "Your ID card (" + el.BlockingRequestNo + ") has already been printed and is waiting for you at the collection point. "
+                           + "Please collect it first. If it is lost or damaged after that, you can then ask for a replacement.";
+            }
+            else if (el.BlockingStatus == SUBMITTED || el.BlockingStatus == APPROVED)
+            {
+                el.Message = "You already have a request in progress (" + el.BlockingRequestNo + ", " + el.BlockingStatus.ToLowerInvariant()
+                           + "). Please wait for it to finish before asking for another card.";
+            }
+            else
+            {
+                // REQUESTED / FINANCE_CHECK / BLOCKED / HALTED — theirs to finish or change.
+                el.CanEditBlocking = true;
+                el.Message = "You already have a request in progress (" + el.BlockingRequestNo + "). You can finish it, change it, or cancel it.";
+            }
+        }
+        return el;
+    }
+
     // ── create a request (Step 1) ──
     public class CreateResult { public bool Ok; public string RequestNo; public int Id; public string Message; }
 
@@ -181,8 +304,11 @@ public static partial class IDCardService
             conn.Open();
             EnsureSchema(conn);
 
-            string active = ActiveRequestNo(conn, type, regno, empId);
-            if (active != null) { res.Message = "You already have an active request (" + active + "). Only one active request is allowed."; return res; }
+            // The single gate on starting a request. Checked here rather than only in the
+            // wizard, because the wizard decides what to SHOW and this decides what is
+            // ALLOWED — the portal, the console and the API all arrive through here.
+            Eligibility el = CheckEligibility(conn, type, regno, empId);
+            if (!el.CanRequest) { res.Message = el.Message; return res; }
 
             // generate a unique request_no, retry on the rare unique-key clash
             for (int attempt = 0; attempt < 5; attempt++)

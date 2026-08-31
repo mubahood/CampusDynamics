@@ -796,17 +796,39 @@ public static partial class IDCardService
     {
         try
         {
+            string active2;
+            Eligibility el;
             using (var conn = new MySqlConnection(ConnStr))
             {
                 conn.Open(); EnsureSchema(conn);
-                string active = ActiveRequestNo(conn, type, regno, empId);
-                if (active == null) return J.Serialize(new { success = true, hasRequest = false });
+                active2 = ActiveRequestNo(conn, type, regno, empId);
+                el = CheckEligibility(conn, type, regno, empId);
             }
-            string active2;
-            using (var conn2 = new MySqlConnection(ConnStr)) { conn2.Open(); active2 = ActiveRequestNo(conn2, type, regno, empId); }
+
+            /* The eligibility answer travels WITH the request, because the tracker is
+               where a stuck requester actually looks. Someone sitting at PRINTED — the
+               2,486 carried over from OmniPass, who never placed the request in the
+               first place — used to be shown a finished progress bar and nothing else.
+               They can ask for a replacement, and the tracker has to be able to say so. */
+            if (active2 == null)
+                return J.Serialize(new
+                {
+                    success = true,
+                    hasRequest = false,
+                    canRequest = el.CanRequest,
+                    hasCard = el.HasCard,
+                    suggestedCardType = el.SuggestedCardType,
+                    eligibilityMessage = el.Message
+                });
+
             string detail = DetailJson(active2);
             var d = (Dictionary<string, object>)J.DeserializeObject(detail);
             d["hasRequest"] = true;
+            d["canRequest"] = el.CanRequest;
+            d["canEdit"] = el.CanEditBlocking;
+            d["hasCard"] = el.HasCard;
+            d["suggestedCardType"] = el.SuggestedCardType;
+            d["eligibilityMessage"] = el.Message;
             return J.Serialize(d);
         }
         catch (Exception ex) { return Err(ex); }
@@ -1051,6 +1073,199 @@ public static partial class IDCardService
             "<div style='font-size:15px;font-weight:700;margin-bottom:10px;'>" + subject + "</div>" + body +
             "<div style='margin-top:18px;font-size:12px;color:#5a6472;'>Request reference: <b>" + reqNo + "</b></div></div>" +
             "<div style='background:#f5f7fa;padding:12px 20px;font-size:11px;color:#8a94a6;'>Automated message from the Campus Dynamics ID Card system. Do not reply.</div></div>";
+    }
+
+    // ==================================================================
+    // eligibility / editing an unfinished request / administrative override
+    // ==================================================================
+
+    /// <summary>
+    /// May this person start a request right now, and would it be a replacement?
+    /// The portal asks this before offering the button, so the answer and the reason
+    /// are the same ones CreateRequest will enforce.
+    /// </summary>
+    public static string EligibilityJson(string type, string regno, int empId)
+    {
+        try
+        {
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                Eligibility el = CheckEligibility(conn, type, regno, empId);
+                return J.Serialize(new
+                {
+                    success = true,
+                    canRequest = el.CanRequest,
+                    blockingRequestNo = el.BlockingRequestNo,
+                    blockingStatus = el.BlockingStatus,
+                    canEditBlocking = el.CanEditBlocking,
+                    hasCard = el.HasCard,
+                    suggestedCardType = el.SuggestedCardType,
+                    message = el.Message
+                });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    /// <summary>
+    /// Change an unfinished request — currently the card type, which is the field that
+    /// decides whether a UGX 30,000 replacement fee is owed.
+    ///
+    /// This exists because SubmitJson reads card_type from the row and never wrote it:
+    /// a requester who started as NEW, came back and picked REPLACEMENT would have
+    /// submitted as NEW, skipping the fee capture entirely, with the screen showing
+    /// them the choice they thought they had made. Changing your mind before you
+    /// submit is normal, so it is now a real operation rather than a display trick.
+    ///
+    /// Only ever touches a request that has not yet been handed to the print bureau.
+    /// </summary>
+    public static string UpdateRequestJson(string requestNo, string cardType, string actor, string channel)
+    {
+        try
+        {
+            string ct = (cardType ?? "").Trim().ToUpperInvariant();
+            if (ct != "NEW" && ct != "REPLACEMENT") return Bad("Choose New or Replacement.");
+
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                string type, regno, oldType, status; int empId;
+                if (!LoadBasics(conn, requestNo, out type, out regno, out empId, out oldType, out status))
+                    return Bad("Request not found.");
+
+                status = (status ?? "").ToUpperInvariant();
+                if (status != REQUESTED && status != FINANCE_CHECK && status != BLOCKED && status != HALTED)
+                    return Bad("This request can no longer be changed (status " + status + "). Cancel it and start a new one if you need something different.");
+
+                if (string.Equals(oldType, ct, StringComparison.OrdinalIgnoreCase))
+                    return J.Serialize(new { success = true, cardType = ct, message = "No change." });
+
+                // Switching away from REPLACEMENT clears the fee proof. Leaving it behind
+                // would keep a payment reference attached to a card that carries no fee,
+                // which reads to the bureau as a payment that was made.
+                string sql = ct == "NEW"
+                    ? "UPDATE idcard_requests SET card_type=@ct, replacement_fee_ref=NULL, replacement_fee_date=NULL," +
+                      " replacement_fee_method=NULL, replacement_fee_notes=NULL, updated_at=NOW() WHERE request_no=@rn"
+                    : "UPDATE idcard_requests SET card_type=@ct, updated_at=NOW() WHERE request_no=@rn";
+                using (var up = new MySqlCommand(sql, conn))
+                { up.Parameters.AddWithValue("@ct", ct); up.Parameters.AddWithValue("@rn", requestNo); up.ExecuteNonQuery(); }
+
+                // Recorded in the timeline. A card type that changed silently would be
+                // impossible to reconcile against a replacement fee later.
+                LogNote(conn, requestNo, status, actor, "requester", channel ?? "eportal",
+                        "Card type changed from " + oldType + " to " + ct);
+
+                return J.Serialize(new { success = true, cardType = ct, message = "Request updated." });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    /// <summary>
+    /// Administrative status change. Legal moves go through the ordinary funnel, so
+    /// they behave exactly like the buttons. A move the state machine does not allow
+    /// is an OVERRIDE: permitted, because real life produces states the diagram did
+    /// not (a card printed then spoiled, a request advanced by mistake), but it demands
+    /// a reason, it is written into the timeline as an override, and it is never
+    /// silent. Terminal-to-anything is included deliberately — undoing a wrong
+    /// COLLECTED is precisely the case an operator cannot fix any other way.
+    /// </summary>
+    public static string SetStatusJson(string requestNo, string toStatus, string reason,
+        string actor, string role, string channel, bool allowOverride)
+    {
+        try
+        {
+            string to = (toStatus ?? "").Trim().ToUpperInvariant();
+            if (Array.IndexOf(AllStatuses, to) < 0) return Bad("Unknown status '" + toStatus + "'.");
+
+            using (var conn = new MySqlConnection(ConnStr))
+            {
+                conn.Open(); EnsureSchema(conn);
+                string type, regno, cardType, from; int empId;
+                if (!LoadBasics(conn, requestNo, out type, out regno, out empId, out cardType, out from))
+                    return Bad("Request not found.");
+                from = (from ?? "").ToUpperInvariant();
+
+                if (from == to)
+                    return J.Serialize(new { success = true, status = to, overridden = false, message = "Already " + to + "." });
+
+                if (IsLegalMove(from, to))
+                {
+                    TransitionResult t = Transition(requestNo, to, actor, role, channel ?? "eadmin",
+                                                    to == HALTED ? (reason ?? "Set by administrator") : null, reason);
+                    return J.Serialize(new { success = t.Ok, status = t.Status, overridden = false, message = t.Message });
+                }
+
+                if (!allowOverride)
+                    return Bad("Moving from " + from + " to " + to + " is not a normal step. Tick the override box and give a reason if you are sure.");
+                if (string.IsNullOrEmpty((reason ?? "").Trim()))
+                    return Bad("An override needs a reason. It is written into the request's history.");
+
+                // Same column bookkeeping the funnel does, so an overridden request is not
+                // left with a status its timestamps disagree with.
+                string tc = TimeCol(to), ac = ActorCol(to);
+                var sb = new System.Text.StringBuilder("UPDATE idcard_requests SET status=@to, updated_at=NOW()");
+                if (tc != null) sb.Append(", " + tc + "=NOW()");
+                if (ac != null) sb.Append(", " + ac + "=@actor");
+                if (to == HALTED) sb.Append(", halt_reason=@hr");
+                sb.Append(" WHERE request_no=@rn AND status=@from");   // optimistic: refuse if it moved under us
+                int rows;
+                using (var up = new MySqlCommand(sb.ToString(), conn))
+                {
+                    up.Parameters.AddWithValue("@to", to);
+                    if (ac != null) up.Parameters.AddWithValue("@actor", actor ?? "");
+                    if (to == HALTED) up.Parameters.AddWithValue("@hr", reason.Trim());
+                    up.Parameters.AddWithValue("@rn", requestNo);
+                    up.Parameters.AddWithValue("@from", from);
+                    rows = up.ExecuteNonQuery();
+                }
+                if (rows == 0) return Bad("The request changed while you were working on it. Reload and try again.");
+
+                LogNote(conn, requestNo, to, actor, role, channel ?? "eadmin",
+                        "OVERRIDE " + from + " -> " + to + ": " + reason.Trim(), from);
+
+                return J.Serialize(new
+                {
+                    success = true,
+                    status = to,
+                    overridden = true,
+                    message = "Status set to " + to + " by override. The reason has been recorded in the history."
+                });
+            }
+        }
+        catch (Exception ex) { return Err(ex); }
+    }
+
+    /// <summary>Writes a timeline entry without changing status (or recording an override).</summary>
+    private static void LogNote(MySqlConnection conn, string requestNo, string toStatus, string actor,
+        string role, string channel, string note)
+    { LogNote(conn, requestNo, toStatus, actor, role, channel, note, toStatus); }
+
+    private static void LogNote(MySqlConnection conn, string requestNo, string toStatus, string actor,
+        string role, string channel, string note, string fromStatus)
+    {
+        try
+        {
+            int id;
+            using (var cmd = new MySqlCommand("SELECT id FROM idcard_requests WHERE request_no=@rn LIMIT 1", conn))
+            { cmd.Parameters.AddWithValue("@rn", requestNo); object v = cmd.ExecuteScalar(); if (v == null || v == DBNull.Value) return; id = Convert.ToInt32(v); }
+            using (var cmd = new MySqlCommand(
+                "INSERT INTO idcard_request_events (request_id, from_status, to_status, actor, actor_role, channel, note, created_at)" +
+                " VALUES (@i,@f,@t,@a,@r,@c,@n,NOW())", conn))
+            {
+                cmd.Parameters.AddWithValue("@i", id);
+                cmd.Parameters.AddWithValue("@f", (object)(fromStatus ?? ""));
+                cmd.Parameters.AddWithValue("@t", toStatus ?? "");
+                cmd.Parameters.AddWithValue("@a", (object)(actor ?? ""));
+                cmd.Parameters.AddWithValue("@r", (object)(role ?? ""));
+                // channel is VARCHAR(12) — an overlong value throws 1406 and would lose the note.
+                cmd.Parameters.AddWithValue("@c", (object)((channel ?? "").Length > 12 ? channel.Substring(0, 12) : channel ?? ""));
+                cmd.Parameters.AddWithValue("@n", (object)((note ?? "").Length > 500 ? note.Substring(0, 500) : note ?? ""));
+                cmd.ExecuteNonQuery();
+            }
+        }
+        catch { /* the state change already happened; never fail on the audit write */ }
     }
 
     // ==================================================================

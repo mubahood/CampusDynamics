@@ -153,9 +153,41 @@
   <div class="idc-box__ft" id="d-actions"></div>
 </div></div>
 
+<%-- Administrative status change. Kept separate from the action buttons because it is
+     a different kind of act: the buttons walk the lifecycle, this one sets it. --%>
+<div class="idc-modal" id="idc-setst"><div class="idc-box" style="max-width:520px">
+  <div class="idc-box__hd"><span>Change status</span><button type="button" class="idc-box__x" onclick="IDC.closeStatus()">&times;</button></div>
+  <div class="idc-box__bd">
+    <div class="idc-fld" style="margin-bottom:12px">
+      <div class="idc-fld__k">Request</div>
+      <div class="idc-fld__v" id="ss-who">&mdash;</div>
+    </div>
+    <div class="idc-fld__k" style="margin-bottom:5px">Move to</div>
+    <select id="ss-to" class="idc-in" style="width:100%" onchange="IDC.statusPicked()"></select>
+    <div id="ss-hint" style="font-size:11.5px;line-height:1.5;margin-top:8px"></div>
+    <div id="ss-ovwrap" style="display:none;margin-top:10px">
+      <label style="display:flex;gap:8px;align-items:flex-start;background:#fef2f2;border:1px solid #fecaca;padding:9px 11px;font-size:12px;color:#7a1f1a;cursor:pointer">
+        <input type="checkbox" id="ss-override" style="margin-top:2px;flex:0 0 auto" onchange="IDC.statusPicked()"/>
+        <span>I understand this is not a normal step and I am setting it deliberately. This will be recorded as an override, with my name and reason, in the request&rsquo;s history.</span>
+      </label>
+    </div>
+    <div class="idc-fld__k" style="margin:12px 0 5px">Reason <span id="ss-reqd" style="font-weight:400;text-transform:none;color:#8a94a6"></span></div>
+    <textarea id="ss-reason" class="idc-in" style="width:100%;min-height:64px;resize:vertical" placeholder="Why is this being changed? Shown in the request history."></textarea>
+    <div id="ss-msg" style="display:none;font-size:12px;padding:8px 10px;margin-top:10px"></div>
+  </div>
+  <div class="idc-box__ft">
+    <button type="button" class="idc-btn idc-btn--ghost" onclick="IDC.closeStatus()">Cancel</button>
+    <button type="button" class="idc-btn idc-btn--green" id="ss-go" onclick="IDC.applyStatus()">Apply</button>
+  </div>
+</div></div>
+
 <script>
 window.IDC=(function(){
-var CUR=null, SEL={}, LASTROWS=[];
+var CUR=null, CURST='', SEL={}, LASTROWS=[];
+// Status list + legal-transition map, fetched once. The status picker uses it to
+// label each choice as a normal step or an override, so an operator sees which is
+// which before acting instead of after being refused.
+var META={statuses:[],transitions:{}};
 var state={status:'',type:'',card:'',q:'',page:1,size:50};
 function qs(i){return document.getElementById(i);}
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
@@ -244,7 +276,8 @@ function bulkActionsFor(s){
 function rowStatus(rn){for(var i=0;i<LASTROWS.length;i++)if(LASTROWS[i].requestNo===rn)return LASTROWS[i].status;return '';}
 
 return {
- refresh:function(){readURL();stats();load();windows();stamp();},
+ refresh:function(){readURL();stats();load();windows();stamp();
+   call('Meta',{},function(d){if(d&&d.success)META={statuses:d.statuses||[],transitions:d.transitions||{}};});},
  apply:function(){state.status=qs('f-status').value;state.type=qs('f-type').value;state.card=qs('f-card').value;state.q=qs('f-q').value.trim();state.size=parseInt(qs('f-size').value,10)||50;state.page=1;stats();load();},
  go:function(p){state.page=p;load();window.scrollTo(0,0);},
  filterStatus:function(s){state.status=s;qs('f-status').value=s;state.page=1;stats();load();},
@@ -274,10 +307,71 @@ return {
    if(q.halt_reason){h+='<div class="idc-fld" style="background:#fef2f2;border-color:#fecaca"><div class="idc-fld__k">Halt reason</div><div class="idc-fld__v">'+esc(q.halt_reason)+'</div></div>';}
    if(q.collection_point){h+='<div class="idc-fld" style="background:#ecfdf5;border-color:#a7f3d0;margin-top:8px"><div class="idc-fld__k">Collection</div><div class="idc-fld__v">'+esc(q.collection_point)+'</div></div>';}
    h+='<div style="font-size:11px;font-weight:700;color:#05275C;margin:16px 0 6px;text-transform:uppercase">Timeline</div><div class="idc-tl">'+(d.timeline||[]).map(function(e){return '<div class="idc-tl__i"><b>'+esc(e.to)+'</b> '+(e.actor?('&middot; '+esc(e.actor)):'')+(e.channel?(' <span style="font-size:10px;color:#8a94a6">['+esc(e.channel)+']</span>'):'')+(e.note?('<div class="idc-note">'+esc(e.note)+'</div>'):'')+'<div class="idc-tl__t">'+esc((e.at||'').substring(0,16))+'</div></div>';}).join('')+'</div>';
+   CURST=q.status;
    qs('d-body').innerHTML=h;
    qs('d-actions').innerHTML=actionsFor(q.status);
   });},
  close:function(){qs('idc-detail').classList.remove('on');},
+
+ /* ---------- administrative status change ----------
+    The ordinary buttons walk the lifecycle one legal step at a time. This sets it.
+    Both kinds of move are offered in one list and each is LABELLED, so the operator
+    can see at a glance which are normal and which are not, rather than discovering it
+    from a rejection. Anything abnormal needs the tick and a reason, and lands in the
+    request history as an override. Terminal states are included on purpose: a request
+    marked COLLECTED by mistake cannot be undone any other way. */
+ openStatus:function(){
+   if(!CUR){toast('Open a request first',true);return;}
+   qs('ss-who').textContent=CUR+(CURST?('  ·  currently '+CURST):'');
+   var sel=qs('ss-to'),legal=(META.transitions&&META.transitions[CURST])||[];
+   var opts='<option value="">Select a status&hellip;</option>';
+   (META.statuses||[]).forEach(function(s){
+     if(s===CURST)return;                       // no-op; nothing to choose
+     var ok=legal.indexOf(s)>=0;
+     opts+='<option value="'+esc(s)+'">'+esc(s)+(ok?'   (normal next step)':'   (override)')+'</option>';
+   });
+   sel.innerHTML=opts;
+   qs('ss-reason').value='';
+   qs('ss-override').checked=false;
+   qs('ss-msg').style.display='none';
+   IDC.statusPicked();
+   qs('idc-setst').classList.add('on');
+ },
+ closeStatus:function(){qs('idc-setst').classList.remove('on');},
+ statusPicked:function(){
+   var to=qs('ss-to').value,legal=(META.transitions&&META.transitions[CURST])||[];
+   var hint=qs('ss-hint'),ov=qs('ss-ovwrap'),go=qs('ss-go'),reqd=qs('ss-reqd');
+   if(!to){hint.innerHTML='';ov.style.display='none';reqd.textContent='';go.disabled=true;return;}
+   go.disabled=false;
+   if(legal.indexOf(to)>=0){
+     hint.innerHTML='<span style="color:#128a4a">This is a normal step in the lifecycle. It behaves exactly like the action buttons, and the requester is notified as usual.</span>';
+     ov.style.display='none';
+     // HALTED always needs a reason — the requester is shown it and has to act on it.
+     reqd.textContent=(to==='HALTED')?'(required)':'(optional)';
+   }else{
+     hint.innerHTML='<span style="color:#b42318"><b>'+esc(CURST)+' &rarr; '+esc(to)+' is not a normal step.</b> '+
+       'It can still be done, but it will be recorded as an override against your name.</span>';
+     ov.style.display='block';
+     reqd.textContent='(required for an override)';
+   }
+ },
+ applyStatus:function(){
+   var to=qs('ss-to').value,reason=qs('ss-reason').value.replace(/^\s+|\s+$/g,'');
+   var legal=(META.transitions&&META.transitions[CURST])||[];
+   var isOv=legal.indexOf(to)<0, ov=qs('ss-override').checked;
+   var msg=qs('ss-msg');
+   function bad(t){msg.style.display='block';msg.style.background='#fef2f2';msg.style.color='#b42318';msg.style.border='1px solid #fecaca';msg.textContent=t;}
+   if(!to){bad('Choose a status.');return;}
+   if(isOv&&!ov){bad('This is not a normal step. Tick the box to confirm you mean it.');return;}
+   if((isOv||to==='HALTED')&&!reason){bad('Give a reason — it is written into the request history.');return;}
+   if(isOv&&!confirm('Force '+CUR+' from '+CURST+' to '+to+'?\n\nThis is not a normal step. It will be recorded as an override with your name and reason.'))return;
+   var go=qs('ss-go');go.disabled=true;
+   call('SetStatus',{requestNo:CUR,toStatus:to,reason:reason,allowOverride:ov},function(d){
+     go.disabled=false;
+     if(d&&d.success){IDC.closeStatus();toast(d.message||('Set to '+to),false);IDC.open(CUR);stats();load();}
+     else bad((d&&d.message)||'Could not change the status.');
+   });
+ },
  act:function(a){var reason='',cp='';
   if(a==='HALT'){reason=prompt('Reason for halting this request:');if(!reason)return;}
   if(a==='READY'){cp=prompt('Collection point (location + times):','ID Card Office, Admin Block');if(cp===null)return;}
@@ -298,6 +392,9 @@ function actionsFor(st){var b='';
  else if(st==='READY'){b+=btn('Mark Collected','COLLECTED','green');}
  else if(st==='HALTED'){b+='<span style="font-size:11px;color:#8a94a6;align-self:center">Awaiting requester resubmission.</span>';}
  if(st!=='COLLECTED'&&st!=='CANCELLED'&&st!=='PRINTED'&&st!=='READY'&&st!=='APPROVED'){b+=btn('Cancel','CANCEL','ghost');}
+ // Every state gets this, including the terminal ones — a request marked COLLECTED by
+ // mistake is exactly the case the ordinary buttons cannot reach.
+ b+='<button type="button" class="idc-btn idc-btn--ghost" onclick="IDC.openStatus()">Change status&hellip;</button>';
  return b+'<button type="button" class="idc-btn idc-btn--ghost" onclick="IDC.close()">Close</button>';}
 function btn(lbl,act,cls){return '<button type="button" class="idc-btn '+(cls?('idc-btn--'+cls):'')+'" onclick="IDC.act(\''+act+'\')">'+lbl+'</button>';}
 function windows(){var b=qs('idc-wins');call('Windows',{},function(d){
