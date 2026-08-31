@@ -34,6 +34,33 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
         return "admin";
     }
 
+    /// <summary>
+    /// True when the request carries a signed-in staff session.
+    ///
+    /// Accepts either signal the eadmin screens use — a forms-authentication identity or
+    /// the Session["username"] the older pages set — because different entry points
+    /// establish one or the other, and requiring both would lock out real administrators.
+    /// </summary>
+    private bool IsCallerAuthenticated()
+    {
+        try
+        {
+            if (User != null && User.Identity != null && User.Identity.IsAuthenticated
+                && !string.IsNullOrEmpty(User.Identity.Name)) return true;
+        }
+        catch { }
+        try
+        {
+            if (Session != null)
+            {
+                object u = Session["username"];
+                if (u != null && !string.IsNullOrEmpty(u.ToString().Trim())) return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
     protected void Page_Load(object sender, EventArgs e)
     {
         string action = Request.QueryString["action"] ?? Request.Form["action"];
@@ -42,6 +69,25 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             Response.Clear();
             Response.ContentType = "application/json";
             Response.Cache.SetCacheability(HttpCacheability.NoCache);
+
+            /* Every action below changes a student's official photograph — approving,
+               rejecting, banning, deleting, and now replacing the image outright.
+               None of it was gated: an anonymous POST to this page ran the handler and
+               reached the database, and GetCurrentUser() quietly signed the audit trail
+               "admin". Verified against production before this was added.
+
+               200 with success:false, NOT 401: FormsAuthenticationModule rewrites a 401
+               into a 302 to the login page, so the caller receives an HTML login form
+               where it expected JSON and reports "request failed" instead of "your
+               session expired". The status code buys nothing — the request is already
+               refused — and what matters is that the caller can read why. */
+            if (!IsCallerAuthenticated())
+            {
+                Response.Write("{\"success\":false,\"message\":\"Your session has expired. Please sign in again, then retry.\"}");
+                try { Response.End(); } catch (System.Threading.ThreadAbortException) { }
+                return;
+            }
+
             try
             {
                 if (action == "review") Response.Write(HandleReview());
@@ -50,6 +96,8 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                 else if (action == "admininit") Response.Write(HandleAdminInit());
                 else if (action == "unban") Response.Write(HandleUnban());
                 else if (action == "restoreversion") Response.Write(HandleRestoreVersion());
+                else if (action == "lookupstudent") Response.Write(HandleLookupStudent());
+                else if (action == "adminupload") Response.Write(HandleAdminUpload());
                 else Response.Write("{\"success\":false,\"message\":\"Unknown action.\"}");
             }
             catch (Exception ex)
@@ -309,6 +357,287 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
             string who = name == "" ? regno : name + " (" + regno + ")";
             return "{\"success\":true,\"message\":\"Official-photograph status for " + JsEnc(who) + " set to " + status + ".\"}";
         }
+    }
+
+    // ===================================================================
+    // ADMIN UPLOAD — put a photograph on a student's record on their behalf
+    // ===================================================================
+    //
+    // WHY IT IS TWO STEPS. The one serious mistake available here is putting a
+    // photograph on the WRONG student, and that mistake is invisible afterwards:
+    // the record looks perfectly normal, just with somebody else's face on it, and
+    // it flows onward to the ID card and the transcript. So the registration number
+    // is resolved to a person FIRST — name, programme, and the photograph currently
+    // on file — and the administrator confirms that person before any file is sent.
+    // A single-step "type a reg no and upload" form would be quicker and would
+    // eventually put a stranger's face on somebody's ID card.
+
+    /// <summary>
+    /// action=lookupstudent — resolve a registration number to a person, so the
+    /// administrator can see who they are about to change before they change them.
+    /// Read-only.
+    /// </summary>
+    private string HandleLookupStudent()
+    {
+        string regno = (Request.Form["regno"] ?? Request.QueryString["regno"] ?? "").Trim();
+        if (regno == "") return "{\"success\":false,\"message\":\"Enter a registration number.\"}";
+
+        using (var conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+
+            string name = "", prog = "", photo = "", status = "";
+            bool banned = false;
+            string banReason = "";
+            using (var cmd = new MySqlCommand(
+                "SELECT TRIM(CONCAT(COALESCE(s.firstname,''),' ',COALESCE(s.othername,''))) AS nm, " +
+                "       COALESCE(p.progname, COALESCE(s.progid,'')) AS prog, " +
+                "       COALESCE(s.photofile,'') AS pf, COALESCE(s.photo_status,'') AS ps, " +
+                "       COALESCE(s.photo_banned,0) AS bn, COALESCE(s.photo_ban_reason,'') AS br " +
+                "FROM acad_student s LEFT JOIN acad_programme p ON p.progcode = s.progid " +
+                "WHERE s.regno=@r LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                using (var rd = cmd.ExecuteReader())
+                {
+                    if (!rd.Read())
+                        return "{\"success\":false,\"message\":\"No student found with registration number '" + JsEnc(regno) + "'. Check the number and try again.\"}";
+                    name = Safe(rd, "nm");
+                    prog = Safe(rd, "prog");
+                    photo = Safe(rd, "pf");
+                    status = Safe(rd, "ps");
+                    banned = Safe(rd, "bn") == "1";
+                    banReason = Safe(rd, "br");
+                }
+            }
+
+            // How many versions are already waiting in the queue for this student.
+            // Uploading approves this one and clears those, so the administrator is
+            // told the number rather than discovering it afterwards.
+            int pending = 0;
+            using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM stud_photo_change WHERE regno=@r AND status='PENDING'", conn))
+            { cmd.Parameters.AddWithValue("@r", regno); pending = Convert.ToInt32(cmd.ExecuteScalar()); }
+
+            // Only offer a photo URL when the file is genuinely on disk. A broken image
+            // in the confirmation panel would read as "this student has no photo" and
+            // invite exactly the wrong conclusion.
+            string photoUrl = (HasPhoto(photo) && PhotoFileExists(photo)) ? PHOTO_BASE + photo : "";
+
+            var sb = new StringBuilder();
+            sb.Append("{\"success\":true");
+            sb.Append(",\"regno\":\"").Append(JsEnc(regno)).Append("\"");
+            sb.Append(",\"name\":\"").Append(JsEnc(name)).Append("\"");
+            sb.Append(",\"programme\":\"").Append(JsEnc(prog)).Append("\"");
+            sb.Append(",\"photoUrl\":\"").Append(JsEnc(photoUrl)).Append("\"");
+            sb.Append(",\"status\":\"").Append(JsEnc(status)).Append("\"");
+            sb.Append(",\"banned\":").Append(banned ? "true" : "false");
+            sb.Append(",\"banReason\":\"").Append(JsEnc(banReason)).Append("\"");
+            sb.Append(",\"pending\":").Append(pending);
+            sb.Append("}");
+            return sb.ToString();
+        }
+    }
+
+    /// <summary>
+    /// action=adminupload — an administrator sets a student's official photograph
+    /// directly, for the counter case: the student cannot upload (banned, no phone,
+    /// no data) and has brought a printed or digital photograph to the office.
+    ///
+    /// The result is an APPROVED photograph, because an administrator doing this IS
+    /// the approval — routing their own upload back into their own review queue would
+    /// be theatre. It is still written to stud_photo_change as a normal version with
+    /// their username on it, so the change is as auditable and as reversible as any
+    /// other: the previous photograph is recorded as old_photofile and can be put back
+    /// with the existing "revert to this version" action.
+    /// </summary>
+    private string HandleAdminUpload()
+    {
+        string regno = (Request.Form["regno"] ?? "").Trim();
+        string comment = (Request.Form["comment"] ?? "").Trim();
+        if (regno == "") return "{\"success\":false,\"message\":\"Enter a registration number.\"}";
+
+        HttpPostedFile posted = Request.Files["photoFile"];
+        if (posted == null || posted.ContentLength <= 0)
+            return "{\"success\":false,\"message\":\"No photograph was received. Please choose a file and try again.\"}";
+
+        // Refuse an oversized upload before pulling it into memory.
+        if (posted.ContentLength > StudentPhotoValidator.MaxUploadBytes)
+            return "{\"success\":false,\"message\":\"This photo is " + StudentPhotoValidator.SizeLabel(posted.ContentLength)
+                 + ", and the biggest we can take is " + StudentPhotoValidator.SizeLabel(StudentPhotoValidator.MaxUploadBytes)
+                 + ". Please use a smaller copy.\"}";
+
+        byte[] original;
+        using (System.IO.Stream input = posted.InputStream)
+        {
+            int len = Convert.ToInt32(input.Length);
+            original = new byte[len];
+            int off = 0, read;
+            while (off < len && (read = input.Read(original, off, len - off)) > 0) off += read;
+        }
+
+        // Exactly the same validation the student's own uploader applies — same rules,
+        // same wording. An administrator should not be able to store a file a student
+        // could not, and vice versa.
+        string why;
+        if (!StudentPhotoValidator.IsUsablePhoto(original, out why))
+            return "{\"success\":false,\"message\":\"" + JsEnc(why) + "\"}";
+
+        using (var conn = new MySqlConnection(ConnectionString))
+        {
+            conn.Open();
+
+            // Resolve the student BEFORE writing anything to disk, so a mistyped
+            // registration number cannot leave a stray thumbnail behind.
+            string name = "", oldPhoto = "";
+            bool wasBanned = false;
+            using (var cmd = new MySqlCommand(
+                "SELECT TRIM(CONCAT(COALESCE(firstname,''),' ',COALESCE(othername,''))), COALESCE(photofile,''), COALESCE(photo_banned,0) " +
+                "FROM acad_student WHERE regno=@r LIMIT 1", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                using (var rd = cmd.ExecuteReader())
+                {
+                    if (!rd.Read())
+                        return "{\"success\":false,\"message\":\"No student found with registration number '" + JsEnc(regno) + "'.\"}";
+                    name = rd.IsDBNull(0) ? "" : rd.GetString(0).Trim();
+                    oldPhoto = rd.IsDBNull(1) ? "" : rd.GetString(1).Trim();
+                    wasBanned = !rd.IsDBNull(2) && rd.GetValue(2).ToString().Trim() == "1";
+                }
+            }
+
+            byte[] thumb;
+            try
+            {
+                thumb = new imageManager().MakeThumb(original, StudentPhotoValidator.ThumbJpegQuality);
+            }
+            catch (OutOfMemoryException)
+            {
+                // GDI+ reports a corrupt or unsupported image as OutOfMemoryException,
+                // which is almost never about memory.
+                return "{\"success\":false,\"message\":\"This photo file is damaged and could not be opened. Please use another copy, saved as JPG.\"}";
+            }
+            catch
+            {
+                return "{\"success\":false,\"message\":\"This photo could not be opened. Please save it as a JPG and try again.\"}";
+            }
+
+            string fileName = Guid.NewGuid().ToString("N") + ".jpg";
+            string folder = Server.MapPath("~/COOPERP/StudentInfo/photos/");
+            string fullPath = System.IO.Path.Combine(folder, fileName);
+            try
+            {
+                if (!System.IO.Directory.Exists(folder)) System.IO.Directory.CreateDirectory(folder);
+                System.IO.File.WriteAllBytes(fullPath, thumb);
+            }
+            catch (Exception ex)
+            {
+                return "{\"success\":false,\"message\":\"The photograph could not be saved to disk: " + JsEnc(ex.Message) + "\"}";
+            }
+
+            string user = GetCurrentUser();
+            var orphans = new List<string>();
+            int newId;
+            try
+            {
+                using (var tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        // The version record first, so it carries an id the purge can keep.
+                        using (var cmd = new MySqlCommand(
+                            "INSERT INTO stud_photo_change (regno, old_photofile, new_photofile, status, source, requested_at, reviewed_by, reviewed_at, review_comment) " +
+                            "VALUES (@r, @o, @n, 'APPROVED', 'eadmin-admin', NOW(), @by, NOW(), @c)", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@r", regno);
+                            cmd.Parameters.AddWithValue("@o", oldPhoto);
+                            cmd.Parameters.AddWithValue("@n", fileName);
+                            cmd.Parameters.AddWithValue("@by", user);
+                            cmd.Parameters.AddWithValue("@c", comment == ""
+                                ? "Photograph uploaded at the office by an administrator on the student's behalf."
+                                : comment);
+                            cmd.ExecuteNonQuery();
+                        }
+                        using (var cmd = new MySqlCommand("SELECT LAST_INSERT_ID()", conn, tx))
+                            newId = Convert.ToInt32(cmd.ExecuteScalar());
+
+                        using (var cmd = new MySqlCommand(
+                            "UPDATE acad_student SET photofile=@p, photo_status='APPROVED' WHERE regno=@r", conn, tx))
+                        { cmd.Parameters.AddWithValue("@p", fileName); cmd.Parameters.AddWithValue("@r", regno); cmd.ExecuteNonQuery(); }
+
+                        // Same consequence as approving in the queue: this photograph is now
+                        // the official one, so the student's other submitted versions go.
+                        // Without this the new photo would sit alongside stale PENDING cards
+                        // that an administrator could later "approve" back over the top of it.
+                        orphans = PurgeOtherVersions(conn, tx, regno, newId, user);
+
+                        // An administrator uploading FOR a banned student is resolving the
+                        // very thing the ban exists to force. Leaving the ban on would block
+                        // them from ever fixing their own photograph again.
+                        if (wasBanned)
+                        {
+                            using (var cmd = new MySqlCommand(
+                                "UPDATE acad_student SET photo_banned=0, photo_ban_reason=NULL, photo_ban_at=NULL, photo_ban_by=NULL WHERE regno=@r", conn, tx))
+                            { cmd.Parameters.AddWithValue("@r", regno); cmd.ExecuteNonQuery(); }
+                        }
+
+                        tx.Commit();
+                    }
+                    catch { tx.Rollback(); throw; }
+                }
+            }
+            catch (Exception ex)
+            {
+                // The database did not take it, so the file must not survive either —
+                // otherwise every failed attempt leaves an orphan thumbnail on disk.
+                try { System.IO.File.Delete(fullPath); } catch { }
+                return "{\"success\":false,\"message\":\"The photograph was not saved: " + JsEnc(ex.Message) + "\"}";
+            }
+
+            // Cleanup AFTER the commit — never before, or a rollback would leave the
+            // database pointing at files that are already gone. TryDeletePhotoFile is
+            // told which file is now live so it cannot reclaim the one just saved, and
+            // it re-checks every other reference before unlinking anything.
+            foreach (string f in orphans) TryDeletePhotoFile(conn, f, fileName);
+
+            // An ID card halted for want of a photograph can go back in the queue.
+            ResumeHaltedIdCards(conn, regno);
+
+            string who = name == "" ? regno : name + " (" + regno + ")";
+            string msg = "Official photograph set for " + who + ".";
+            if (wasBanned) msg += " Their upload ban has been lifted.";
+            return "{\"success\":true,\"message\":\"" + JsEnc(msg) + "\",\"photoUrl\":\"" + JsEnc(PHOTO_BASE + fileName) + "\"}";
+        }
+    }
+
+    /// <summary>
+    /// Returns any ID-card requests halted for want of a photograph to the print queue,
+    /// mirroring what the student's own uploader does. Never fatal: the photograph is
+    /// already saved by this point, and a card that stays halted is a nuisance rather
+    /// than a corruption.
+    /// </summary>
+    private void ResumeHaltedIdCards(MySqlConnection conn, string regno)
+    {
+        try
+        {
+            var halted = new List<int>();
+            using (var cmd = new MySqlCommand("SELECT id FROM idcard_requests WHERE regno=@r AND status='HALTED'", conn))
+            {
+                cmd.Parameters.AddWithValue("@r", regno);
+                using (var rd = cmd.ExecuteReader())
+                    while (rd.Read()) halted.Add(rd.GetInt32(0));
+            }
+            foreach (int rid in halted)
+            {
+                using (var cmd = new MySqlCommand(
+                    "UPDATE idcard_requests SET status='SUBMITTED', halt_reason=NULL, updated_at=NOW() WHERE id=@id AND status='HALTED'", conn))
+                { cmd.Parameters.AddWithValue("@id", rid); cmd.ExecuteNonQuery(); }
+                using (var cmd = new MySqlCommand(
+                    "INSERT INTO idcard_request_events (request_id, from_status, to_status, actor, actor_role, channel, note, created_at) " +
+                    "VALUES (@id,'HALTED','SUBMITTED',@by,'admin','eadmin','Auto-resubmitted after an administrator set the student photograph', NOW())", conn))
+                { cmd.Parameters.AddWithValue("@id", rid); cmd.Parameters.AddWithValue("@by", GetCurrentUser()); cmd.ExecuteNonQuery(); }
+            }
+        }
+        catch { /* non-critical — the photograph is already saved */ }
     }
 
     /// <summary>
@@ -832,6 +1161,7 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
                       "<button type='button' class='pc-btn pc-btn--sm' onclick='pcSearch()'>Search</button>" +
                       (q != "" ? "<a class='pc-clear' href='PhotoChangeController.aspx?status=" + HE(status) + "'>clear</a>" : "") +
                       "</div>");
+            sb.Append("<button type='button' class='pc-btn pc-btn--up' onclick='pcOpenUp()' title='Put a photograph on a student&rsquo;s record for them'>" + CameraIcon() + "Upload a photo for a student</button>");
             sb.Append("<button type='button' class='pc-btn pc-btn--nav' onclick='pcOpenInit()'>&#43; Set a student&rsquo;s photograph status</button>");
             sb.Append("</div>");
             sb.Append("</div>");
@@ -942,6 +1272,12 @@ public partial class COOPERP_NewScreens_PhotoChangeController : System.Web.UI.Pa
     private static string TrashIcon()
     {
         return "<svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align:-2px;margin-right:5px'><polyline points='3 6 5 6 21 6'></polyline><path d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'></path><line x1='10' y1='11' x2='10' y2='17'></line><line x1='14' y1='11' x2='14' y2='17'></line></svg>";
+    }
+
+    /// <summary>Feather-style camera glyph for the admin upload button (inline SVG, never an emoji).</summary>
+    private static string CameraIcon()
+    {
+        return "<svg width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='vertical-align:-2px;margin-right:6px'><path d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'></path><circle cx='12' cy='13' r='4'></circle></svg>";
     }
 
     /// <summary>Card for the Banned tab (student-level, from acad_student).</summary>

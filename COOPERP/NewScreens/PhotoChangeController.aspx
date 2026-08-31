@@ -78,6 +78,43 @@
 .pc-fld textarea{min-height:64px;resize:vertical;}
 .pc-hint{font-size:11px;color:#8b93a3;margin-top:5px;line-height:1.45;}
 .pc-modal__f{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;background:#f8f9fb;border-top:1px solid #e0e5ed;}
+/* ── Admin upload-for-a-student wizard ──────────────────────────────────────
+   Two steps on purpose: find the person, THEN send the file. See the header
+   comment on HandleAdminUpload for why the confirmation step is not optional. */
+.pc-btn--up{background:#1c7a45;color:#fff;} .pc-btn--up:hover{background:#166534;}
+.pc-modal--up{max-width:560px;}
+.pc-step{display:none;} .pc-step--on{display:block;}
+/* the student we are about to change, shown before anything can be uploaded */
+.pu-who{display:flex;gap:12px;align-items:center;background:#f5f7fa;border:1px solid #e0e5ed;padding:11px 12px;margin-bottom:13px;}
+.pu-who__pic{width:56px;height:75px;flex:0 0 auto;background:#eef1f6;border:1px solid #e0e5ed;overflow:hidden;}
+.pu-who__pic img{width:100%;height:100%;object-fit:cover;display:block;}
+.pu-who__pic div{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#9aa4b5;text-align:center;padding:3px;box-sizing:border-box;}
+.pu-who__txt{min-width:0;flex:1;}
+.pu-who__txt b{display:block;font-size:14px;color:#05275C;line-height:1.3;}
+.pu-who__txt span{display:block;font-size:11.5px;color:#5b6472;margin-top:2px;}
+.pu-warn{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;line-height:1.5;padding:8px 11px;margin-bottom:10px;border:1px solid;}
+.pu-warn--ban{background:#fdecec;border-color:#f4c2c2;color:#7a1f1a;}
+.pu-warn--pend{background:#fff8e1;border-color:#f0e0a8;color:#6b5200;}
+/* drop zone: click, drag, or paste */
+.pu-drop{display:block;border:2px dashed #c7d0de;background:#fafbfc;padding:22px 14px;text-align:center;cursor:pointer;transition:all .13s;}
+.pu-drop:hover,.pu-drop--over{border-color:#174DA4;background:#f2f6fd;}
+.pu-drop b{display:block;font-size:13px;color:#05275C;margin-top:7px;}
+.pu-drop span{display:block;font-size:11px;color:#8b93a3;margin-top:3px;}
+.pu-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
+/* before / after, in the exact 3:4 frame the system stores */
+.pu-cmp{display:flex;gap:14px;justify-content:center;align-items:flex-start;margin:14px 0 4px;}
+.pu-cmp__c{text-align:center;}
+.pu-cmp__f{width:120px;height:160px;background:#eef1f6;border:1px solid #e0e5ed;overflow:hidden;}
+.pu-cmp__f img{width:100%;height:100%;object-fit:cover;display:block;}
+.pu-cmp__f div{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#9aa4b5;}
+.pu-cmp__l{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#8b93a3;margin-top:5px;}
+.pu-cmp__c--new .pu-cmp__l{color:#1c7a45;}
+.pu-cmp__ar{align-self:center;color:#c7d0de;font-size:20px;line-height:1;padding-top:14px;}
+.pu-size{font-size:11px;color:#1c7a45;text-align:center;margin-top:6px;}
+.pu-msg{font-size:12px;padding:9px 11px;margin-top:12px;line-height:1.5;display:none;}
+.pu-msg--err{background:#fdecec;color:#b3261e;border:1px solid #f4c2c2;}
+.pu-msg--info{background:#eef4ff;color:#174DA4;border:1px solid #cfe0ff;}
+@media(max-width:520px){.pu-cmp{gap:8px;}.pu-cmp__f{width:96px;height:128px;}}
 /* reject-reason chips */
 .pc-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 12px;}
 .pc-chip{font-size:11.5px;border:1px solid #e0e5ed;background:#fff;color:#3a4250;padding:6px 11px;border-radius:14px;cursor:pointer;transition:all .12s;user-select:none;}
@@ -124,6 +161,72 @@
         <div class="pc-modal__f">
             <button type="button" class="pc-btn" onclick="pcCloseInit()">Cancel</button>
             <button type="button" class="pc-btn pc-btn--nav" id="piGo" onclick="pcSubmitInit()">Apply</button>
+        </div>
+    </div>
+</div>
+
+<!-- Admin: upload a photograph on a student's behalf (counter case) -->
+<div class="pc-mov" id="pcUpOv" onclick="if(event.target===this)pcCloseUp()">
+    <div class="pc-modal pc-modal--up">
+        <div class="pc-modal__h"><b>Upload a photograph for a student</b><button type="button" class="pc-modal__x" onclick="pcCloseUp()">&times;</button></div>
+        <div class="pc-modal__b">
+
+            <%-- STEP 1 — who is this for? Nothing can be uploaded until a real student
+                 is on screen, because the one mistake that matters here is putting a
+                 photograph on the wrong record, and it is invisible afterwards. --%>
+            <div class="pc-step pc-step--on" id="puStep1">
+                <div class="pc-fld">
+                    <label>Student registration number</label>
+                    <input type="text" id="puReg" placeholder="e.g. MRU2024001234" autocomplete="off" spellcheck="false" />
+                    <div class="pc-hint">Use this when a student cannot upload a photograph themselves &mdash; they have come to the office with a printed or digital photo.</div>
+                </div>
+            </div>
+
+            <%-- STEP 2 — confirm the person, then send the file. --%>
+            <div class="pc-step" id="puStep2">
+                <div class="pu-who">
+                    <div class="pu-who__pic" id="puWhoPic"></div>
+                    <div class="pu-who__txt">
+                        <b id="puWhoName"></b>
+                        <span id="puWhoMeta"></span>
+                    </div>
+                </div>
+                <div class="pu-warn pu-warn--ban" id="puWarnBan" style="display:none;"></div>
+                <div class="pu-warn pu-warn--pend" id="puWarnPend" style="display:none;"></div>
+
+                <label class="pu-drop" id="puDrop" for="puFile">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#174DA4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <b>Choose the photograph</b>
+                    <span>Click here, drag a file in, or press Ctrl+V to paste a copied image</span>
+                </label>
+                <input type="file" id="puFile" class="pu-file" accept="image/*" />
+
+                <div class="pu-cmp">
+                    <div class="pu-cmp__c">
+                        <div class="pu-cmp__f" id="puOldFrame"></div>
+                        <div class="pu-cmp__l">Now on file</div>
+                    </div>
+                    <div class="pu-cmp__ar">&rarr;</div>
+                    <div class="pu-cmp__c pu-cmp__c--new">
+                        <div class="pu-cmp__f" id="puNewFrame"><div>nothing chosen</div></div>
+                        <div class="pu-cmp__l">Will become official</div>
+                    </div>
+                </div>
+                <div class="pu-size" id="puSize"></div>
+
+                <div class="pc-fld" style="margin-top:14px;">
+                    <label>Note for the record <span style="font-weight:400;text-transform:none;color:#8b93a3;">(optional)</span></label>
+                    <input type="text" id="puNote" placeholder="e.g. Student brought a studio photo to Kirumba front desk" autocomplete="off" />
+                </div>
+            </div>
+
+            <div class="pu-msg" id="puMsg"></div>
+        </div>
+        <div class="pc-modal__f">
+            <button type="button" class="pc-btn" id="puBack" onclick="pcUpBack()" style="display:none;">Change student</button>
+            <button type="button" class="pc-btn" onclick="pcCloseUp()">Cancel</button>
+            <button type="button" class="pc-btn pc-btn--nav" id="puFind" onclick="pcUpFind()">Find student</button>
+            <button type="button" class="pc-btn pc-btn--ok" id="puGo" onclick="pcUpSubmit()" style="display:none;" disabled>Choose a photo first</button>
         </div>
     </div>
 </div>
@@ -220,6 +323,266 @@
             else { m.style.display = "block"; m.style.background = "#fdecec"; m.style.color = "#b3261e"; m.textContent = (d && d.message) ? d.message : "Failed."; }
         }).catch(function () { go.disabled = false; m.style.display = "block"; m.style.background = "#fdecec"; m.style.color = "#b3261e"; m.textContent = "Request failed."; });
     };
+    /* ================= Admin: upload a photograph for a student =================
+       Deliberately two steps. The registration number is resolved to a person and
+       that person is shown - name, programme, and the photograph currently on file -
+       before any file can be sent. Putting a photograph on the wrong record is the
+       one mistake here that leaves no trace: the record looks entirely normal, just
+       with somebody else's face on it, and it flows on to the ID card. */
+    var puWho = null;      // the confirmed student, or null while none is chosen
+    var puBlob = null;     // the photograph to send, already shrunk
+    var puUrl = null;      // object URL for the preview, revoked when replaced
+
+    function puEl(id) { return document.getElementById(id); }
+    function puMsg(kind, text) {
+        var m = puEl("puMsg");
+        m.className = "pu-msg pu-msg--" + kind;
+        m.innerHTML = text;
+        m.style.display = "block";
+    }
+    function puClearMsg() { var m = puEl("puMsg"); m.style.display = "none"; m.innerHTML = ""; }
+    function puEsc(s) {
+        return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+    function puBytes(n) {
+        return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+    }
+    function puDropPreview() {
+        if (puUrl) { try { URL.revokeObjectURL(puUrl); } catch (e) { } puUrl = null; }
+    }
+
+    window.pcOpenUp = function () {
+        puWho = null; puBlob = null; puDropPreview();
+        puEl("puReg").value = ""; puEl("puNote").value = ""; puEl("puFile").value = "";
+        puEl("puStep1").className = "pc-step pc-step--on";
+        puEl("puStep2").className = "pc-step";
+        puEl("puFind").style.display = ""; puEl("puGo").style.display = "none";
+        puEl("puBack").style.display = "none";
+        puEl("puNewFrame").innerHTML = "<div>nothing chosen</div>";
+        puEl("puSize").textContent = "";
+        puClearMsg();
+        puEl("pcUpOv").style.display = "flex";
+        puEl("puReg").focus();
+    };
+    window.pcCloseUp = function () { puDropPreview(); puEl("pcUpOv").style.display = "none"; };
+    window.pcUpBack = function () {
+        puWho = null; puBlob = null; puDropPreview();
+        puEl("puStep1").className = "pc-step pc-step--on";
+        puEl("puStep2").className = "pc-step";
+        puEl("puFind").style.display = ""; puEl("puGo").style.display = "none";
+        puEl("puBack").style.display = "none";
+        puClearMsg();
+        puEl("puReg").focus(); puEl("puReg").select();
+    };
+
+    // ---- step 1: resolve the registration number to a real person ----
+    window.pcUpFind = function () {
+        var reg = puEl("puReg").value.replace(/^\s+|\s+$/g, "");
+        if (!reg) { puMsg("err", "Enter a registration number."); return; }
+        var b = puEl("puFind"); b.disabled = true; b.textContent = "Looking up...";
+        puMsg("info", "Looking up " + puEsc(reg) + "&hellip;");
+        post("action=lookupstudent&regno=" + encodeURIComponent(reg)).then(function (d) {
+            b.disabled = false; b.textContent = "Find student";
+            if (!d || !d.success) { puMsg("err", (d && d.message) ? puEsc(d.message) : "Could not find that student."); return; }
+            puWho = d;
+            puClearMsg();
+
+            puEl("puWhoName").textContent = d.name || d.regno;
+            puEl("puWhoMeta").textContent = d.regno + (d.programme ? "  ·  " + d.programme : "")
+                + (d.status ? "  ·  photo " + d.status.toLowerCase() : "");
+            puEl("puWhoPic").innerHTML = d.photoUrl
+                ? "<img src='" + puEsc(d.photoUrl) + "' alt='current'/>"
+                : "<div>no photo</div>";
+            puEl("puOldFrame").innerHTML = d.photoUrl
+                ? "<img src='" + puEsc(d.photoUrl) + "' alt='current'/>"
+                : "<div>no photo</div>";
+
+            // Say up front what else this upload will do, rather than letting the
+            // administrator discover it in the result message afterwards.
+            var wb = puEl("puWarnBan");
+            if (d.banned) {
+                wb.innerHTML = "<span><b>This student is banned from uploading.</b> "
+                    + (d.banReason ? "Reason: " + puEsc(d.banReason) + ". " : "")
+                    + "Uploading for them here will also lift the ban.</span>";
+                wb.style.display = "flex";
+            } else { wb.style.display = "none"; }
+
+            var wp = puEl("puWarnPend");
+            if (d.pending > 0) {
+                wp.innerHTML = "<span>This student has <b>" + d.pending + "</b> photograph"
+                    + (d.pending === 1 ? "" : "s") + " waiting in the review queue. "
+                    + "Uploading here replaces " + (d.pending === 1 ? "it" : "them") + ".</span>";
+                wp.style.display = "flex";
+            } else { wp.style.display = "none"; }
+
+            puEl("puStep1").className = "pc-step";
+            puEl("puStep2").className = "pc-step pc-step--on";
+            puEl("puFind").style.display = "none";
+            puEl("puBack").style.display = "";
+            puEl("puGo").style.display = "";
+            puSetGo();
+        }).catch(function () {
+            b.disabled = false; b.textContent = "Find student";
+            puMsg("err", "Could not reach the server. Please try again.");
+        });
+    };
+
+    function puSetGo() {
+        var g = puEl("puGo");
+        if (!puBlob) { g.disabled = true; g.textContent = "Choose a photo first"; return; }
+        g.disabled = false;
+        // The button names the student. An administrator cannot commit the change
+        // without reading whose record it lands on.
+        var nm = (puWho && (puWho.name || puWho.regno)) || "this student";
+        g.textContent = "Set as " + nm + "'s official photo";
+    }
+
+    /* Shrink in the browser before sending, exactly as the student's page does: an
+       office scan is often 8-10 MB, and the server keeps a 300x400 thumbnail either
+       way. Drawing to a canvas also normalises HEIC and anything else the browser
+       can decode but the server cannot. */
+    function puShrink(file, done, cannot) {
+        var MAX_EDGE = 1400, MAX_BYTES = 5 * 1024 * 1024;
+        function draw(src) {
+            try {
+                var w = src.width, h = src.height;
+                if (!w || !h) { cannot("That file could not be opened as a picture."); return; }
+                var sc = Math.min(1, MAX_EDGE / Math.max(w, h));
+                var cw = Math.max(1, Math.round(w * sc)), ch = Math.max(1, Math.round(h * sc));
+                var cv = document.createElement("canvas");
+                cv.width = cw; cv.height = ch;
+                var cx = cv.getContext("2d");
+                if (!cx) { cannot("This browser cannot resize the picture."); return; }
+                cx.fillStyle = "#fff"; cx.fillRect(0, 0, cw, ch);   // or a transparent PNG flattens to black
+                cx.drawImage(src, 0, 0, cw, ch);
+                if (src.close) { try { src.close(); } catch (e) { } }
+                cv.toBlob(function (b) {
+                    if (!b) { cannot("The picture could not be prepared."); return; }
+                    if (b.size > MAX_BYTES) { cannot("Even after resizing, this picture is " + puBytes(b.size) + "."); return; }
+                    done(b);
+                }, "image/jpeg", 0.9);
+            } catch (e) { cannot("Something went wrong while preparing the picture."); }
+        }
+        if (window.createImageBitmap) {
+            createImageBitmap(file, { imageOrientation: "from-image" }).then(draw, function () { viaImg(); });
+        } else { viaImg(); }
+        function viaImg() {
+            var u = URL.createObjectURL(file), im = new Image();
+            im.onload = function () { try { draw(im); } finally { URL.revokeObjectURL(u); } };
+            im.onerror = function () { URL.revokeObjectURL(u); cannot("That file could not be opened as a picture."); };
+            im.src = u;
+        }
+    }
+
+    function puTake(file) {
+        if (!file) return;
+        if (file.type && file.type.indexOf("image/") !== 0) {
+            puMsg("err", "That is not a picture. Choose a photograph file.");
+            return;
+        }
+        puMsg("info", "Preparing the picture&hellip;");
+        puEl("puGo").disabled = true;
+        puShrink(file, function (blob) {
+            puDropPreview();
+            puBlob = blob;
+            puUrl = URL.createObjectURL(blob);
+            // The frame is 3:4 with object-fit:cover, which is exactly the centre-crop
+            // the server applies - so this preview IS what gets stored, not an approximation.
+            puEl("puNewFrame").innerHTML = "<img src='" + puUrl + "' alt='new'/>";
+            var note = "Ready to send — " + puBytes(blob.size) + ".";
+            if (file.size > blob.size * 1.5) note = "Resized from " + puBytes(file.size) + " to " + puBytes(blob.size) + ".";
+            puEl("puSize").textContent = note;
+            puClearMsg();
+            puSetGo();
+        }, function (reason) {
+            puBlob = null;
+            puEl("puNewFrame").innerHTML = "<div>nothing chosen</div>";
+            puEl("puSize").textContent = "";
+            puMsg("err", puEsc(reason) + " Try a JPG or PNG copy of the photograph.");
+            puSetGo();
+        });
+    }
+
+    // ---- step 2: choose the file, by click, drag, or paste ----
+    (function wireUpPicker() {
+        /* Everything on this page lives in one outer IIFE, so anything thrown here
+           would stop pcToast, pcReview, pcRestore and the rest from ever being
+           defined — a missing element in this dialog would silently disable approve
+           and reject for the whole screen. Hence the guard and the try. */
+        try {
+            var f = puEl("puFile"), dz = puEl("puDrop"), rg = puEl("puReg");
+            if (!f || !dz || !rg) return;
+        f.addEventListener("change", function () { puTake(f.files && f.files[0]); });
+        ["dragenter", "dragover"].forEach(function (ev) {
+            dz.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); dz.classList.add("pu-drop--over"); });
+        });
+        ["dragleave", "drop"].forEach(function (ev) {
+            dz.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); dz.classList.remove("pu-drop--over"); });
+        });
+        dz.addEventListener("drop", function (e) {
+            puTake(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+        });
+        // Paste: the photograph is often already on the clipboard, straight from a
+        // scanner, a WhatsApp window, or a snip. Only listens while the dialog is open.
+        document.addEventListener("paste", function (e) {
+            if (puEl("pcUpOv").style.display !== "flex") return;
+            var items = e.clipboardData && e.clipboardData.items; if (!items) return;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type && items[i].type.indexOf("image/") === 0) {
+                    var blob = items[i].getAsFile();
+                    if (blob) { e.preventDefault(); puTake(blob); return; }
+                }
+            }
+        });
+            // Enter in the registration box looks the student up, instead of submitting
+            // the surrounding server-side form (which would reload and lose the dialog).
+            rg.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); window.pcUpFind(); }
+            });
+        } catch (e) { /* the dialog degrades; the rest of the screen keeps working */ }
+    })();
+
+    window.pcUpSubmit = function () {
+        if (!puWho || !puBlob) { puMsg("err", "Choose a student and a photograph first."); return; }
+        var nm = puWho.name || puWho.regno;
+        if (!confirm("Set this photograph as the official photo for:\n\n" + nm + "\n" + puWho.regno
+            + "\n\nIt becomes their official photo straight away. The photograph currently on file is kept and can be restored later.")) return;
+
+        var g = puEl("puGo"); g.disabled = true; g.textContent = "Uploading...";
+        puMsg("info", "Uploading&hellip;");
+
+        var fd = new FormData();
+        fd.append("action", "adminupload");
+        fd.append("regno", puWho.regno);
+        fd.append("comment", puEl("puNote").value.replace(/^\s+|\s+$/g, ""));
+        // A canvas blob has no filename, and multipart needs one. The content is JPEG.
+        fd.append("photoFile", puBlob, "adminphoto.jpg");
+
+        // Read the reply as text before parsing: going straight to .json() throws on an
+        // error page and lands in .catch(), where a server fault reads as "no connection".
+        fetch("PhotoChangeController.aspx", { method: "POST", body: fd, headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(function (r) { return r.text().then(function (t) { return { ok: r.ok, status: r.status, text: t }; }); })
+            .then(function (res) {
+                var d = null;
+                try { d = JSON.parse(res.text); } catch (e) { }
+                if (d && d.success) {
+                    pcCloseUp();
+                    pcToast(d.message || "Photograph saved.");
+                    setTimeout(function () { window.location.reload(); }, 900);
+                    return;
+                }
+                g.disabled = false; puSetGo();
+                if (d && d.message) puMsg("err", puEsc(d.message));
+                else if (!res.ok) puMsg("err", "The server could not save it (error " + res.status + "). Please try again.");
+                else puMsg("err", "The reply from the server could not be read. Please try again.");
+            })
+            .catch(function () {
+                g.disabled = false; puSetGo();
+                puMsg("err", "Could not reach the server. Check the connection and try again.");
+            });
+    };
+
     window.pcToast = function (text, err) {
         var t = document.getElementById("pcToast");
         t.textContent = text; t.className = "pc-toast" + (err ? " pc-toast--err" : "");
