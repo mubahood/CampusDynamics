@@ -76,6 +76,55 @@ public class FinalTranscriptCompact : FinalTranscript
         // 4. Everything that exists only to serve a multi-page document.
         try { MakeSinglePage(); }
         catch { }
+
+        // 5. Close the gap under the VERIFICATION caption.
+        try { TightenVerificationBlock(); }
+        catch { }
+    }
+
+    /// <summary>
+    /// Pulls the QR code up under its caption.
+    ///
+    /// The caption (xrLabel37, "VERIFICATION") is a 12.14-unit box holding one line of
+    /// 6pt text, and the QR sits at a FIXED y of 149.5 below it. Shrinking the caption's
+    /// font — as the compact pass does — empties the bottom of that box but moves
+    /// nothing, because every position in this report is absolute. The result is the
+    /// caption floating well above the code with a band of nothing between them.
+    ///
+    /// So the caption is shrunk to the one line it holds and the QR is moved up to meet
+    /// it. The QR's own size is deliberately NOT touched: it is a scannable artefact
+    /// with an error-correction level and a fixed module count, and resizing it is how a
+    /// verification code stops scanning.
+    /// </summary>
+    private void TightenVerificationBlock()
+    {
+        XRControl caption = FindControl("xrLabel37", true) as XRControl;
+        XRControl qr = FindControl("xrBarCode2", true) as XRControl;
+        if (caption == null || qr == null) return;
+
+        // The caption is TopCenter aligned, so every unit of slack in its box shows as a
+        // gap UNDERNEATH the word — between the caption and the code. That is the gap
+        // being complained about, and centring the text in the box halves it before the
+        // box is even shrunk. Costs nothing and cannot clip.
+        try
+        {
+            caption.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleCenter;
+            caption.StylePriority.UseTextAlignment = true;
+        }
+        catch { }
+
+        // One line at the caption's (already reduced) size, plus a hair.
+        float line = caption.Font != null
+            ? TranscriptCompactStyle.LineHeight(caption.Font.Size) + 1F
+            : caption.HeightF;
+        if (line < caption.HeightF) caption.HeightF = line;
+
+        // Sit the code directly under the caption. Guard against moving it DOWN: if the
+        // caption were ever taller than the original gap, this must not push the QR into
+        // the student's details below it.
+        float y = caption.TopF + caption.HeightF + 1F;
+        if (y < qr.TopF)
+            qr.LocationFloat = new DevExpress.Utils.PointFloat(qr.LeftF, y);
     }
 
     /// <summary>

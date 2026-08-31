@@ -18,5 +18,15 @@ public class FinalTranscriptCompactCol1 : FinalTranscriptCol1
         // base() has already built the full Template 1 half-width column.
         try { TranscriptCompactStyle.Apply(this); }
         catch { }
+
+        // Then the result-table specifics: column proportions and the body size the
+        // page is planned around. After Apply, because it overrides the general scale.
+        try { TranscriptCompactStyle.CompactResultColumn(this); }
+        catch { }
+
+        // Apply packed the bands before the tables were re-sized, so pack again now
+        // that the rows and the title bar know their final heights.
+        try { TranscriptCompactStyle.RepackBands(this); }
+        catch { }
     }
 }

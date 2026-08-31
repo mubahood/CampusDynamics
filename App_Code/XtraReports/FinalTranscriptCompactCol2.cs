@@ -12,5 +12,9 @@ public class FinalTranscriptCompactCol2 : FinalTranscriptCol2
     {
         try { TranscriptCompactStyle.Apply(this); }
         catch { }
+        try { TranscriptCompactStyle.CompactResultColumn(this); }
+        catch { }
+        try { TranscriptCompactStyle.RepackBands(this); }
+        catch { }
     }
 }
