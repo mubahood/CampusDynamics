@@ -14,9 +14,26 @@ public class imageManager
     const int signWidth = 200;
     const int signHeight = 100;
 
+    /// <summary>Default JPEG encoder quality. GDI+ uses 75 when no encoder parameter is
+    /// supplied, which leaves visible blocking on a face at 300x400 — small, but these
+    /// end up printed on ID cards. 90 costs roughly 10 KB more per photo.</summary>
+    const long defaultJpegQuality = 90L;
+
     public byte[] MakeThumb(byte[] fullsize)
     {
-        return ResizeCover(fullsize, widthThumb, heightThumb);
+        return ResizeCover(fullsize, widthThumb, heightThumb, defaultJpegQuality);
+    }
+
+    /// <summary>
+    /// As <see cref="MakeThumb(byte[])"/>, but with an explicit JPEG encoder quality
+    /// (1-100). Use this when the caller wants to trade file size against face detail
+    /// deliberately rather than accept the default.
+    /// </summary>
+    public byte[] MakeThumb(byte[] fullsize, long jpegQuality)
+    {
+        if (jpegQuality < 1L) jpegQuality = 1L;
+        if (jpegQuality > 100L) jpegQuality = 100L;
+        return ResizeCover(fullsize, widthThumb, heightThumb, jpegQuality);
     }
 
     /// <summary>
@@ -25,7 +42,7 @@ public class imageManager
     /// Also honours EXIF orientation (fixes sideways phone photos) and uses high-quality
     /// resampling.
     /// </summary>
-    private static byte[] ResizeCover(byte[] fullsize, int targetW, int targetH)
+    private static byte[] ResizeCover(byte[] fullsize, int targetW, int targetH, long jpegQuality)
     {
         using (Image iOriginal = Image.FromStream(new MemoryStream(fullsize)))
         {
@@ -67,10 +84,43 @@ public class imageManager
                 }
                 using (MemoryStream m = new MemoryStream())
                 {
-                    iThumb.Save(m, System.Drawing.Imaging.ImageFormat.Jpeg);
+                    SaveJpeg(iThumb, m, jpegQuality);
                     return m.ToArray();
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Writes <paramref name="bmp"/> as JPEG at an explicit quality. Image.Save(stream,
+    /// ImageFormat.Jpeg) gives no way to set quality and silently uses 75; the quality
+    /// has to be passed through the JPEG codec's EncoderParameters instead.
+    /// Falls back to the plain Save if the codec cannot be located.
+    /// </summary>
+    private static void SaveJpeg(Bitmap bmp, Stream target, long quality)
+    {
+        System.Drawing.Imaging.ImageCodecInfo jpeg = null;
+        try
+        {
+            foreach (System.Drawing.Imaging.ImageCodecInfo c in System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders())
+            {
+                if (c.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid) { jpeg = c; break; }
+            }
+        }
+        catch { /* fall through to the default encoder */ }
+
+        if (jpeg == null)
+        {
+            bmp.Save(target, System.Drawing.Imaging.ImageFormat.Jpeg);
+            return;
+        }
+
+        // EncoderParameters owns and disposes the parameter it is given, so the
+        // parameter is deliberately not wrapped in a using of its own.
+        using (System.Drawing.Imaging.EncoderParameters ps = new System.Drawing.Imaging.EncoderParameters(1))
+        {
+            ps.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, quality);
+            bmp.Save(target, jpeg, ps);
         }
     }
 
