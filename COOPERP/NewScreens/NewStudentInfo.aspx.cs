@@ -6442,6 +6442,13 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         }
     }
 
+    /// <summary>
+    /// The template used when a caller asks for an academic document without naming one.
+    /// Must match the option marked selected on ddlAcademicDocumentType — if the two
+    /// disagree, the screen and a hand-built URL quietly produce different documents.
+    /// </summary>
+    private const string DefaultAcademicDocumentType = "TranscriptCompact";
+
     private void HandleGenerateAcademicDocument()
     {
         try
@@ -6462,11 +6469,12 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
                 return;
             }
 
+            // Students were named but no template was: fall through to the default rather
+            // than refusing. Template 3 is the default everywhere — the dialog opens on
+            // it, and a hand-built URL that omits documentType now gets the same thing
+            // the screen would have sent.
             if (string.IsNullOrEmpty(documentType))
-            {
-                WriteHtmlErrorAndComplete("Document type is required. Use documentType=Transcript or documentType=Certificate.");
-                return;
-            }
+                documentType = DefaultAcademicDocumentType;
 
             List<string> regnos = ParseRegnos(regnosRaw);
             if (regnos.Count == 0)
@@ -8169,6 +8177,29 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         HttpContext.Current.ApplicationInstance.CompleteRequest();
     }
 
+    /// <summary>
+    /// A file name that cannot break the Content-Disposition header.
+    ///
+    /// The quoted filename parameter has no escaping, so a double quote, a semicolon, a
+    /// backslash, a newline or any non-ASCII byte inside it truncates or corrupts the
+    /// header — and a browser that cannot parse the header falls back to naming the file
+    /// after the URL, which for this endpoint is a .aspx page. Those characters are
+    /// replaced rather than dropped so the name stays the same length and stays readable.
+    /// </summary>
+    private static string HeaderSafeFileName(string fileName, string fallback)
+    {
+        if (string.IsNullOrEmpty(fileName)) return fallback;
+        System.Text.StringBuilder sb = new System.Text.StringBuilder(fileName.Length);
+        foreach (char c in fileName)
+        {
+            if (c < 32 || c > 126) { sb.Append('_'); continue; }          // control + non-ASCII
+            if (c == '"' || c == '\\' || c == ';' || c == ',') { sb.Append('_'); continue; }
+            sb.Append(c);
+        }
+        string safe = sb.ToString().Trim();
+        return safe.Length == 0 ? fallback : safe;
+    }
+
     private void WriteBinaryFileAndComplete(byte[] content, string contentType, string fileName)
     {
         Response.Clear();
@@ -8179,10 +8210,28 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         Response.Cache.SetRevalidation(System.Web.HttpCacheRevalidation.AllCaches);
         Response.Expires = -1;
         Response.AppendHeader("Pragma", "no-cache");
-        bool isPdf = !string.IsNullOrEmpty(Response.ContentType)
-            && Response.ContentType.IndexOf("application/pdf", StringComparison.OrdinalIgnoreCase) >= 0;
-        string dispositionType = isPdf ? "inline" : "attachment";
-        Response.AppendHeader("Content-Disposition", dispositionType + "; filename=\"" + fileName + "\"");
+
+        /* ALWAYS "attachment", never "inline".
+         *
+         * This used to send PDFs inline. The request arrives as a form POST targeted at
+         * a new tab, so that tab's URL is the page itself —
+         * .../NewStudentInfo.aspx?action=GenerateAcademicDocument. An inline response
+         * leaves the browser free to name the saved file after that URL rather than
+         * after the header, which is how a transcript came down as "NewStudentInfo.asp"
+         * instead of a .pdf. "attachment" removes the choice: the browser must use the
+         * filename given here.
+         *
+         * The button is labelled "Download PDF" and the status text talks about the
+         * download starting, so attachment is also what the screen already promises.
+         *
+         * Both filename forms are sent. The plain, quoted one is ASCII-only for older
+         * clients; filename* (RFC 5987) carries the exact name and is preferred by every
+         * current browser. A registration number like 21/U/BED(P)/1238/KA/INS is why
+         * this matters — it is sanitised upstream, but the header must survive whatever
+         * arrives regardless. */
+        string safeName = HeaderSafeFileName(fileName, "AcademicDocument.pdf");
+        Response.AppendHeader("Content-Disposition",
+            "attachment; filename=\"" + safeName + "\"; filename*=UTF-8''" + Uri.EscapeDataString(fileName ?? safeName));
         Response.AppendHeader("Content-Length", content != null ? content.Length.ToString() : "0");
         Response.BinaryWrite(content);
         Response.Flush();

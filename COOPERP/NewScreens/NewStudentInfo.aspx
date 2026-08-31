@@ -2946,9 +2946,9 @@
                 <div class="cd-form-group">
                     <label class="cd-form-label">Document Type</label>
                     <select id="ddlAcademicDocumentType" class="cd-form-input">
-                        <option value="Transcript">Transcript (PDF)</option>
+                        <option value="TranscriptCompact" selected="selected">Transcript (Compact single page — Template 3) — default</option>
+                        <option value="Transcript">Transcript (Template 1 — grid, with grading key)</option>
                         <option value="TranscriptList">Transcript (List format — Template 2)</option>
-                        <option value="TranscriptCompact">Transcript (Compact single page — Template 3)</option>
                         <option value="TranscriptHTML">Transcript (Print / Save as PDF)</option>
                         <option value="Certificate">Certificate</option>
                     </select>
@@ -3966,7 +3966,7 @@
 
             document.getElementById('docScopeTitle').innerText = studentName || 'Selected student';
             document.getElementById('docScopeMeta').innerText = _academicDocumentSingleRegno;
-            document.getElementById('ddlAcademicDocumentType').value = 'Transcript';
+            document.getElementById('ddlAcademicDocumentType').value = 'TranscriptCompact';   // Template 3 is the default
             hideAcademicDocumentStatus();
             document.getElementById('academicDocumentOverlay').style.display = 'flex';
         }
@@ -3985,7 +3985,7 @@
 
                 document.getElementById('docScopeTitle').innerText = regnos.length + ' selected student(s)';
                 document.getElementById('docScopeMeta').innerText = 'Documents will be generated for the checked rows.';
-                document.getElementById('ddlAcademicDocumentType').value = 'Transcript';
+                document.getElementById('ddlAcademicDocumentType').value = 'TranscriptCompact';   // Template 3 is the default
                 hideAcademicDocumentStatus();
                 document.getElementById('academicDocumentOverlay').style.display = 'flex';
             });
