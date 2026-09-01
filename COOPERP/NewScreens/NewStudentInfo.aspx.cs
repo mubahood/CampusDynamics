@@ -8684,27 +8684,34 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
         Response.Expires = -1;
         Response.AppendHeader("Pragma", "no-cache");
 
-        /* ALWAYS "attachment", never "inline".
+        /* A PDF opens in the browser; anything else downloads.
          *
-         * This used to send PDFs inline. The request arrives as a form POST targeted at
-         * a new tab, so that tab's URL is the page itself —
-         * .../NewStudentInfo.aspx?action=GenerateAcademicDocument. An inline response
-         * leaves the browser free to name the saved file after that URL rather than
-         * after the header, which is how a transcript came down as "NewStudentInfo.asp"
-         * instead of a .pdf. "attachment" removes the choice: the browser must use the
-         * filename given here.
+         * These are documents an operator wants to LOOK at — check the marks, check the
+         * class of award — before deciding to keep or print them, so forcing a download
+         * puts a file-manager round trip in front of every glance.
          *
-         * The button is labelled "Download PDF" and the status text talks about the
-         * download starting, so attachment is also what the screen already promises.
+         * The reason this was briefly "attachment" is worth keeping written down. The
+         * request arrives as a form POST targeted at a new tab, so that tab's URL used
+         * to be the page itself, .../NewStudentInfo.aspx?action=GenerateAcademicDocument.
+         * An inline response lets the browser name a saved file after the URL rather
+         * than after this header, which is how a transcript once came down as
+         * "NewStudentInfo.asp". The fix for that is NOT to stop previewing — it is to
+         * stop the URL being a lie: the form now posts to
+         * .../NewStudentInfo.aspx/<name>.pdf?action=..., which ASP.NET routes through
+         * PathInfo (verified against production) and which leaves the browser with a
+         * .pdf to fall back on. Preview and a correct filename, rather than one or the
+         * other.
          *
-         * Both filename forms are sent. The plain, quoted one is ASCII-only for older
-         * clients; filename* (RFC 5987) carries the exact name and is preferred by every
-         * current browser. A registration number like 21/U/BED(P)/1238/KA/INS is why
-         * this matters — it is sanitised upstream, but the header must survive whatever
-         * arrives regardless. */
+         * Both filename forms are still sent. The plain quoted one is ASCII-only for
+         * older clients; filename* (RFC 5987) carries the exact name and is what every
+         * current browser prefers. A registration number like 21/U/BED(P)/1238/KA/INS is
+         * why the header has to survive whatever arrives. */
         string safeName = HeaderSafeFileName(fileName, "AcademicDocument.pdf");
+        bool isPdf = !string.IsNullOrEmpty(Response.ContentType)
+            && Response.ContentType.IndexOf("application/pdf", StringComparison.OrdinalIgnoreCase) >= 0;
         Response.AppendHeader("Content-Disposition",
-            "attachment; filename=\"" + safeName + "\"; filename*=UTF-8''" + Uri.EscapeDataString(fileName ?? safeName));
+            (isPdf ? "inline" : "attachment")
+            + "; filename=\"" + safeName + "\"; filename*=UTF-8''" + Uri.EscapeDataString(fileName ?? safeName));
         Response.AppendHeader("Content-Length", content != null ? content.Length.ToString() : "0");
         Response.BinaryWrite(content);
         Response.Flush();

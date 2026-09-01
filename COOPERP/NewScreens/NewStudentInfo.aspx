@@ -3034,7 +3034,7 @@
                 <button type="button" class="cd-btn cd-btn--outline" onclick="closeAcademicDocumentModal()">Cancel</button>
                 <button type="button" id="btnGenerateAcademicDocument" class="cd-btn cd-btn--primary" onclick="submitAcademicDocumentGeneration()">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Download PDF
+                    Open PDF
                 </button>
             </div>
         </div>
@@ -4278,9 +4278,26 @@
             btn.innerHTML = '<span style="margin-right:4px;">&#9203;</span> Preparing PDF...';
             hideAcademicDocumentStatus();
 
+            /* Post to a URL that ENDS IN .pdf.
+               ASP.NET routes the extra segment through PathInfo, so the page still
+               handles the request, but the tab the PDF previews in now has a .pdf
+               address. That matters because a browser saving an inline document falls
+               back to the URL for its name — which is how a transcript once came down
+               called "NewStudentInfo.asp". Anything outside letters, digits, dot, dash
+               and underscore is replaced: registration numbers here can look like
+               21/U/BED(P)/1238/KA/INS, and a slash would silently add another path
+               segment. */
+            function pdfSegment(s) {
+                return String(s || '').replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '').substring(0, 80);
+            }
+            var nameHint = (regnos.length === 1)
+                ? pdfSegment(documentType + '_' + regnos[0])
+                : pdfSegment(documentType + '_' + regnos.length + '_students');
+            if (!nameHint) nameHint = 'AcademicDocument';
+
             var form = document.createElement('form');
             form.method = 'POST';
-            form.action = window.location.pathname + '?action=GenerateAcademicDocument';
+            form.action = window.location.pathname + '/' + nameHint + '.pdf?action=GenerateAcademicDocument';
             form.target = '_blank';
             form.style.display = 'none';
 
@@ -4302,8 +4319,8 @@
 
             setTimeout(function() {
                 btn.disabled = false;
-                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download PDF';
-                showAcademicDocumentStatus('If the file did not start downloading, allow pop-ups for this page and try again.', false);
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg> Open PDF';
+                showAcademicDocumentStatus('The document opens in a new tab. If nothing appeared, allow pop-ups for this page and try again.', false);
             }, 1200);
         }
         
