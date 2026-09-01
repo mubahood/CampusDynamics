@@ -497,6 +497,40 @@ public static class TranscriptCompactStyle
         ctl.BeforePrint += UppercaseHandler;
     }
 
+    /// <summary>
+    /// Takes named controls back out of the ALL-CAPITALS rule, so they print as they
+    /// were written.
+    ///
+    /// Detaching works because UppercaseHandler is a static method: the delegate built
+    /// from it here equals the one built from it in HookUppercase, so -= finds it.
+    ///
+    /// The walk deliberately covers only THIS report's own bands. XRSubreport holds
+    /// another whole XtraReport in its ReportSource, and the result columns happen to
+    /// use the same control name for their semester-title bar — DevExpress's own
+    /// FindControl(name, true) descends into subreports, so using it here would risk
+    /// un-capitalising every semester heading on the page.
+    /// </summary>
+    public static void ExemptFromUppercase(XtraReport report, params string[] names)
+    {
+        if (report == null || names == null) return;
+        foreach (Band band in Bands(report))
+            foreach (string n in names)
+                Detach(band, n);
+    }
+
+    private static void Detach(XRControl parent, string name)
+    {
+        foreach (XRControl c in Children(parent))
+        {
+            try
+            {
+                if (c.Name == name) c.BeforePrint -= UppercaseHandler;
+            }
+            catch { }
+            Detach(c, name);        // nested, but never into a subreport's ReportSource
+        }
+    }
+
     private static void UppercaseHandler(object sender, PrintEventArgs e)
     {
         try

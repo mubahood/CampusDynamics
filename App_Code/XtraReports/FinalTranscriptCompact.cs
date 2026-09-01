@@ -100,6 +100,20 @@ public class FinalTranscriptCompact : FinalTranscript
         // 5. Close the gap under the VERIFICATION caption.
         try { TightenVerificationBlock(); }
         catch { }
+
+        // 6. The postal address prints as it was written, not shouted.
+        //
+        //    It is the longest single run of text on the sheet, and capitals cost about
+        //    13% in width: measured on the real control, "Address: P.O.Box 14002
+        //    Mengo-Kampala..." is 485 units as written and 619 uppercased, against a
+        //    label that holds 569 — so the capitals alone were pushing the email onto a
+        //    second line and making the letterhead taller than it needs to be.
+        //
+        //    Scoped to this report only. The result columns use the same control name
+        //    for their semester-title bar, and those stay in capitals like the rest of
+        //    the data.
+        try { TranscriptCompactStyle.ExemptFromUppercase(this, "xrLabel1"); }
+        catch { }
     }
 
     /// <summary>
