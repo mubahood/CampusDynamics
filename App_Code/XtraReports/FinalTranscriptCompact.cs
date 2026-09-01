@@ -61,6 +61,26 @@ public class FinalTranscriptCompact : FinalTranscript
 
             XRSubreport right = FindControl("xrSubreport2", true) as XRSubreport;
             if (right != null) right.ReportSource = new FinalTranscriptCompactCol2();
+
+            // Spread the two columns across the whole printable width.
+            //
+            // Template 1 puts them at x=3 and x=390, each 383 wide, ending at 773 — sized
+            // for its 27-unit side margins. Template 3 trimmed those to 14, so 799 units
+            // are printable and 26 of them were doing nothing. Widening the columns is
+            // what pays for the larger type: the limit on this template has always been
+            // horizontal, never vertical.
+            float w = TranscriptCompactStyle.ColumnOuterWidth;
+            float g = TranscriptCompactStyle.ColumnGutter;
+            if (left != null)
+            {
+                left.LocationFloat = new DevExpress.Utils.PointFloat(0F, left.TopF);
+                left.SizeF = new System.Drawing.SizeF(w, left.SizeF.Height);
+            }
+            if (right != null)
+            {
+                right.LocationFloat = new DevExpress.Utils.PointFloat(w + g, right.TopF);
+                right.SizeF = new System.Drawing.SizeF(w, right.SizeF.Height);
+            }
         }
         catch { }
 

@@ -69,13 +69,49 @@ public static class TranscriptCompactStyle
     /// and once the table height is below the line box only the FONT moves the row. So
     /// "reduce the line height" and "reduce the body font" are the same instruction here.
     ///
-    /// 6.4pt is the largest size that still fits everything, and it was found by
-    /// measuring rather than by eye: at 6.6pt a 9-character course code no longer fits
-    /// its column, and by 6.8pt the bold "GRADE" header overflows too. At 6.4 the line
-    /// box is 10.8 units against Template 1's 13.6, and 0.8% of 1,939 real course names
-    /// wrap to a second line against Template 1's 5.7%.
+    /// 8.2pt, chosen by solving the real constraint rather than by eye.
+    ///
+    /// The first cut of this template settled at 6.4pt because the columns were still
+    /// Template 1's — 373 and 360 units — and a 9-character course code stopped fitting
+    /// above that. Reclaiming the wasted page width (see ColumnWidth) puts both columns
+    /// at 386, and the ceiling moves with it.
+    ///
+    /// The other half of the answer is that the sheet was two-thirds empty. Measured
+    /// from the register: the heaviest transcript on file is 68 courses, the most
+    /// semester blocks is 9, and only ONE student of 1,538 carries more than 57. Sizing
+    /// so that the heaviest still fits one page allows 8.2pt with room to breathe, which
+    /// is 28% larger than 6.4 and roughly Template 1's own body size.
     /// </summary>
-    public const float ResultFontSize = 6.4F;
+    public const float ResultFontSize = 8.2F;
+
+    /// <summary>
+    /// Row height as a multiple of the font's line box.
+    ///
+    /// The line box alone packs rows as tightly as the glyphs allow, which is right when
+    /// the page is short of room and wrong when two-thirds of it is blank. 1.08 spends
+    /// some of the space that was going to waste on making the rows readable, and still
+    /// leaves the heaviest real transcript inside one page.
+    /// </summary>
+    public const float RowLeading = 1.08F;
+
+    /// <summary>
+    /// Width available inside each result column, in report units.
+    ///
+    /// Template 1 places the two columns at x=3 and x=390, each 383 wide, so they end at
+    /// 773. That was sized for its own 27-unit side margins. Template 3 trimmed those to
+    /// 14, which widened the printable area to 799 and left 26 units doing nothing — and
+    /// Col2 was the narrower of the two anyway (360 against 373) because of its own
+    /// inherited 10-unit inner margins. Both columns are now the same 386, which is where
+    /// the extra font size comes from: the binding constraint on this template has always
+    /// been horizontal, never vertical.
+    /// </summary>
+    public const float ColumnWidth = 386F;
+
+    /// <summary>Outer width of each subreport (ColumnWidth plus the column's 4/4 inner margins).</summary>
+    public const float ColumnOuterWidth = 394F;
+
+    /// <summary>Gap between the two columns.</summary>
+    public const float ColumnGutter = 11F;
 
     /// <summary>Calibri's line box as a multiple of point size — the number that turns a
     /// font size into the height a row will actually occupy.</summary>
@@ -97,16 +133,27 @@ public static class TranscriptCompactStyle
     /// fall from 5.7% to 0.8%. A wrapped row costs a whole extra line, so this alone is
     /// worth more than the font reduction.
     ///
-    /// CODE carries a little more than its 9-character norm needs (0.82 rather than the
-    /// 0.75 that a 9-character code alone would justify) so that the single 10-character
-    /// code in the database fits too. It is one row out of sixty thousand, but the cost
-    /// of covering it is 0.07 of a weight taken off a course column that is wrapping
-    /// under 1% of the time — far cheaper than a clipped code on somebody's transcript.
+    /// Re-solved for 8.2pt over the 386-unit column. Each of the three fixed columns is
+    /// given its worst real content at this size plus a couple of units of margin, and
+    /// the course name takes everything left:
+    ///
+    ///     CODE   64.0u   holds the single 10-character code (60.6u) with 3.4 to spare
+    ///     GRADE  37.9u   holds the BOLD header "GRADE" (35.8u), not just "D+"
+    ///     CU     20.9u   holds "450", the widest credit value in the data (19.8u)
+    ///     COURSE 263.2u  the remainder
+    ///
+    /// The bold header is what constrains GRADE, not the grades themselves — sizing that
+    /// column to "D+" would clip its own heading. Rounding matters here: an earlier cut
+    /// of these numbers landed CODE on 62.0u against a 62.1u requirement.
+    ///
+    /// A larger font means a narrower course column and so more wrapping — about 6%
+    /// against 0.8% at 6.4pt. That is a deliberate trade now rather than a regression:
+    /// a wrapped row is a second line of text on a page that was two-thirds empty.
     /// </summary>
-    public const double WeightCode   = 0.82D;
-    public const double WeightCourse = 4.31D;
-    public const double WeightCu     = 0.30D;
-    public const double WeightGrade  = 0.48D;
+    public const double WeightCode   = 0.98D;
+    public const double WeightCourse = 4.03D;
+    public const double WeightCu     = 0.32D;
+    public const double WeightGrade  = 0.58D;
 
     // ─────────────────────────────────────────────────────────────────────────
     // entry points
@@ -237,13 +284,24 @@ public static class TranscriptCompactStyle
                                             "xrTable1", "xrTableColHeaders" })
             SetSize(column, n, ResultFontSize);
 
-        // Row heights down to exactly one line at that size. Anything taller is padding
-        // the engine would honour; anything shorter it ignores, because the text wins.
-        float line = LineHeight(ResultFontSize);
-        SetHeight(column, "xrTable1", line);
-        SetHeight(column, "xrTableRow1", line);
-        SetHeight(column, "xrTableColHeaders", line);
-        SetHeight(column, "xrTableRowHeader", line);
+        // Row height: one line box plus the leading. A value BELOW the line box is simply
+        // ignored by the engine — the text always wins — so this is the only way to give
+        // a row more air than its glyphs strictly need.
+        float row = LineHeight(ResultFontSize) * RowLeading;
+        SetHeight(column, "xrTable1", row);
+        SetHeight(column, "xrTableRow1", row);
+        SetHeight(column, "xrTableColHeaders", row);
+        SetHeight(column, "xrTableRowHeader", row);
+
+        // Widen everything to the reclaimed column width. Done here rather than in the
+        // subclasses so the left and right columns cannot drift apart: Template 1 had
+        // them at different widths, which is half of what was being wasted.
+        column.PageWidth = (int)ColumnOuterWidth;
+        try { column.Margins = new Margins(4, 4, column.Margins.Top, column.Margins.Bottom); } catch { }
+        SetWidth(column, "xrTable1", ColumnWidth);
+        SetWidth(column, "xrTableColHeaders", ColumnWidth);
+        SetWidth(column, "xrLabel1", ColumnWidth);
+        SetWidth(column, "xrLabel3", ColumnWidth);
 
         // The semester title bar and the GPA/CGPA bar are single-line labels sitting in
         // bands with a lot of slack. Apply's band packing reclaims that slack once these
@@ -290,6 +348,12 @@ public static class TranscriptCompactStyle
     {
         XRControl c = Find(r, name);
         if (c != null) { try { c.HeightF = h; } catch { } }
+    }
+
+    private static void SetWidth(XtraReport r, string name, float w)
+    {
+        XRControl c = Find(r, name);
+        if (c != null) { try { c.WidthF = w; } catch { } }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
