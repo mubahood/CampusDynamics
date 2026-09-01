@@ -1867,6 +1867,16 @@
                                                 Change Entry Year
                                             </button>
                                         </li>
+                                        <li class="cd-action-popover__divider"></li>
+                                        <li class="cd-action-popover__item">
+                                            <button type="button" class="cd-action-popover__btn"
+                                                    data-regno='<%# HttpUtility.HtmlAttributeEncode((Eval("regno") ?? "").ToString()) %>'
+                                                    data-student='<%# HttpUtility.HtmlAttributeEncode(((Eval("firstname") ?? "").ToString().Trim() + " " + (Eval("othername") ?? "").ToString().Trim()).Trim()) %>'
+                                                    onclick='openFixTranscript(this.getAttribute("data-regno"), this.getAttribute("data-student")); closeAllActionPopovers(); return false;' role="menuitem">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                                                Fix Transcript
+                                            </button>
+                                        </li>
                                     </ul>
                                 </div>
                             </div>
@@ -2765,6 +2775,39 @@
         </div>
     </div>
 
+    <%-- ===== Fix Transcript =====================================================
+         Diagnose first, repair second, and never in one silent click: the operator
+         is shown WHY the transcript is empty before anything changes, because the
+         commonest cause is that the transcript was already issued and that is a
+         fact about the student's history, not a data error. --%>
+    <div id="fixTxOverlay" class="cd-modal-overlay">
+        <div class="cd-modal" style="max-width:560px;">
+            <div class="cd-modal-header">
+                <h3 class="cd-modal-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                    Fix Transcript
+                </h3>
+                <button type="button" class="cd-modal-close" onclick="closeFixTranscript()">&times;</button>
+            </div>
+            <div class="cd-modal-body">
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:10px 12px;margin-bottom:12px;">
+                    <div style="font-size:14px;font-weight:600;color:#05275C;" id="ftName">&mdash;</div>
+                    <div style="font-size:11.5px;color:#64748b;" id="ftRegno">&mdash;</div>
+                </div>
+                <div id="ftLoading" style="font-size:12.5px;color:#64748b;padding:14px 0;">Checking this student&rsquo;s transcript&hellip;</div>
+                <div id="ftBody" style="display:none;">
+                    <div id="ftFacts" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;"></div>
+                    <div id="ftVerdict" style="font-size:12.5px;line-height:1.6;padding:11px 13px;"></div>
+                </div>
+                <div id="ftMsg" style="display:none;font-size:12.5px;padding:10px 12px;margin-top:12px;line-height:1.55;"></div>
+            </div>
+            <div class="cd-modal-footer">
+                <button type="button" class="cd-btn cd-btn--secondary" onclick="closeFixTranscript()">Close</button>
+                <button type="button" class="cd-btn cd-btn--primary" id="ftGo" onclick="runFixTranscript()" style="display:none;">Fix this transcript</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== Change Programme Modal (cascading prog -> specialisation) ===== -->
     <div id="changeProgOverlay" class="cd-modal-overlay">
         <div class="cd-modal" style="max-width: 460px;">
@@ -3379,6 +3422,91 @@
         }
         function _njHide(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; }
         function _njEsc(s) { var d = document.createElement('div'); d.appendChild(document.createTextNode(s == null ? '' : s)); return d.innerHTML; }
+
+        // ---- Fix Transcript --------------------------------------------------
+        // A transcript that prints blank for a student who plainly has marks is almost
+        // always the workflow flag, not the data: issuing a transcript moves
+        // acad_graduands.trans_status Ready -> Printed -> Picked, and every transcript
+        // query filters for "Ready". So the diagnosis is shown FIRST — the operator
+        // should see that the document was already issued, and by whom, before deciding
+        // to reopen it.
+        var _ftRegno = '';
+        function ftEsc(v) {
+            return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function ftFact(label, value, bad) {
+            return '<div style="background:#fff;border:1px solid ' + (bad ? '#fecaca' : '#e2e8f0')
+                 + ';padding:7px 9px;text-align:center;">'
+                 + '<div style="font-size:15px;font-weight:700;color:' + (bad ? '#b42318' : '#05275C') + ';">' + ftEsc(value) + '</div>'
+                 + '<div style="font-size:9.5px;color:#64748b;text-transform:uppercase;letter-spacing:.3px;margin-top:2px;">' + ftEsc(label) + '</div></div>';
+        }
+        function openFixTranscript(regno, name) {
+            _ftRegno = regno;
+            document.getElementById('ftName').textContent = name || regno;
+            document.getElementById('ftRegno').textContent = regno;
+            document.getElementById('ftLoading').style.display = 'block';
+            document.getElementById('ftBody').style.display = 'none';
+            document.getElementById('ftMsg').style.display = 'none';
+            document.getElementById('ftGo').style.display = 'none';
+            document.getElementById('fixTxOverlay').style.display = 'flex';
+
+            _njPost('DiagnoseTranscript', 'regno=' + encodeURIComponent(regno), function (d) {
+                document.getElementById('ftLoading').style.display = 'none';
+                if (!d || !d.success) { ftSay((d && d.message) || 'Could not check this transcript.', true); return; }
+
+                document.getElementById('ftFacts').innerHTML =
+                      ftFact('Marks on file', d.results, d.results === 0)
+                    + ftFact('Transcript rows', d.transcriptRows, d.transcriptRows === 0)
+                    + ftFact('Status', d.hasGraduandRow ? (d.transStatus || '-') : 'not listed',
+                             !d.hasGraduandRow || (d.transStatus || '').toLowerCase() !== 'ready');
+
+                var v = document.getElementById('ftVerdict');
+                if (d.willPrint) {
+                    v.style.background = '#ecfdf5'; v.style.border = '1px solid #a7f3d0'; v.style.color = '#065f46';
+                    v.innerHTML = '<b>This transcript should print normally.</b><br/>' + ftEsc(d.detail);
+                } else if (d.canRepair) {
+                    v.style.background = '#fff8e1'; v.style.border = '1px solid #f0dfa8'; v.style.color = '#6b5200';
+                    v.innerHTML = '<b>' + ftEsc(d.fault) + '</b><br/>' + ftEsc(d.detail);
+                } else {
+                    v.style.background = '#fef2f2'; v.style.border = '1px solid #fecaca'; v.style.color = '#7a1f1a';
+                    v.innerHTML = '<b>' + ftEsc(d.fault) + '</b><br/>' + ftEsc(d.detail);
+                }
+                document.getElementById('ftBody').style.display = 'block';
+                var go = document.getElementById('ftGo');
+                go.style.display = d.canRepair ? '' : 'none';
+                go.textContent = d.willPrint ? 'Rebuild it anyway' : 'Fix this transcript';
+            });
+        }
+        function closeFixTranscript() { document.getElementById('fixTxOverlay').style.display = 'none'; _ftRegno = ''; }
+        function ftSay(msg, isErr) {
+            var m = document.getElementById('ftMsg');
+            m.style.display = 'block';
+            m.style.background = isErr ? '#fef2f2' : '#ecfdf5';
+            m.style.border = '1px solid ' + (isErr ? '#fecaca' : '#a7f3d0');
+            m.style.color = isErr ? '#b42318' : '#065f46';
+            m.textContent = msg;
+        }
+        function runFixTranscript() {
+            if (!_ftRegno) return;
+            var go = document.getElementById('ftGo');
+            go.disabled = true; go.textContent = 'Fixing...';
+            _njPost('FixTranscript', 'regno=' + encodeURIComponent(_ftRegno), function (d) {
+                go.disabled = false; go.textContent = 'Fix this transcript';
+                ftSay((d && d.message) || 'No response.', !(d && d.success));
+                if (d && d.success) {
+                    go.style.display = 'none';
+                    // Re-read the state so the panel above matches what was just done.
+                    openFixTranscriptRefresh();
+                }
+            });
+        }
+        function openFixTranscriptRefresh() {
+            var keep = document.getElementById('ftMsg').textContent;
+            var r = _ftRegno, n = document.getElementById('ftName').textContent;
+            openFixTranscript(r, n);
+            setTimeout(function () { ftSay(keep, false); }, 350);
+        }
 
         // ---- Change Programme / Specialisation ----
         // Default action = change the SPECIALISATION only. The programme (and therefore the reg/entry

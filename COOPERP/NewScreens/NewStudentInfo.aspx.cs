@@ -195,6 +195,8 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             else if (action == "ChangeEntryYear")   { HandleChangeEntryYear();   handledAction = true; }
             else if (action == "QuickEditLoad")      { HandleQuickEditLoad();      handledAction = true; }
             else if (action == "PreviewEntrynoForSession") { HandlePreviewEntrynoForSession(); handledAction = true; }
+            else if (action == "DiagnoseTranscript")  { HandleDiagnoseTranscript();  handledAction = true; }
+            else if (action == "FixTranscript")       { HandleFixTranscript();       handledAction = true; }
             else if (action == "QuickEditSave")      { HandleQuickEditSave();      handledAction = true; }
             else if (action == "ExportStudentsList"){ HandleExportStudentsList();handledAction = true; }
 
@@ -6441,6 +6443,238 @@ public partial class COOPERP_NewScreens_NewStudentInfo : System.Web.UI.Page
             WriteJsonAndComplete(serializer, new { success = false, message = "Error updating photo: " + ex.Message });
             return;
         }
+    }
+
+    // ===================================================================
+    // Transcript repair
+    // ===================================================================
+    //
+    // WHY A TRANSCRIPT COMES OUT EMPTY FOR A STUDENT WHO HAS MARKS.
+    //
+    // Every transcript stored procedure — acad_GetSingleStudentTranscript_All, _Col1,
+    // _Col2 and the batch equivalents — ends with the same join:
+    //
+    //     FROM acad_transcript_results r JOIN acad_graduands g ON g.regno = r.regno
+    //     WHERE g.regno = reg AND trans_status = 'Ready'
+    //
+    // and acad_UpdateDocStatus walks that status ONE WAY as a transcript is issued:
+    // Ready -> Printed -> Picked. So the act of printing a transcript is also what
+    // stops the next one from ever containing anything. The student keeps every mark;
+    // the document simply renders blank, with no error anywhere to explain it.
+    //
+    // Measured on the live register: 556 students are sitting past 'Ready' (548
+    // Printed, 8 Picked) and every one of them has both marks and transcript rows —
+    // they are complete records being filtered out by a workflow flag.
+    //
+    // acad_CreateTranscript, which the document service calls before rendering, only
+    // ever rebuilds acad_transcript_results. It never looks at acad_graduands, so it
+    // cannot clear this by itself.
+    //
+    // A SECOND, DIFFERENT FAULT: 19,217 students with marks have no acad_graduands row
+    // at all (16,886 of them ALUMNI). That one is NOT repaired automatically here.
+    // Inserting into acad_graduands declares somebody a graduand, with a class of award
+    // and a graduation date, and it feeds the graduation lists — that is a Registrar's
+    // decision, not a side effect of a button labelled "fix". It is diagnosed, named,
+    // and left alone.
+
+    /// <summary>
+    /// action=DiagnoseTranscript — read-only. Says exactly why this student's transcript
+    /// would come out empty, so the operator sees the reason before anything is changed.
+    /// </summary>
+    private void HandleDiagnoseTranscript()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request["regno"] ?? "").Trim();
+            if (regno == "") { WriteJsonAndComplete(js, new { success = false, message = "Registration number is required." }); return; }
+
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                TranscriptDiagnosis d = DiagnoseTranscript(conn, regno);
+                WriteJsonAndComplete(js, new
+                {
+                    success = true,
+                    regno = regno,
+                    name = d.Name,
+                    results = d.Results,
+                    transcriptRows = d.TranscriptRows,
+                    hasGraduandRow = d.HasGraduandRow,
+                    transStatus = d.TransStatus,
+                    printedBy = d.PrintedBy,
+                    printedOn = d.PrintedOn,
+                    willPrint = d.WillPrint,
+                    canRepair = d.CanRepair,
+                    fault = d.Fault,
+                    detail = d.Detail
+                });
+            }
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = ex.Message }); }
+    }
+
+    private class TranscriptDiagnosis
+    {
+        public string Name = "";
+        public int Results, TranscriptRows;
+        public bool HasGraduandRow, WillPrint, CanRepair;
+        public string TransStatus = "", PrintedBy = "", PrintedOn = "";
+        public string Fault = "", Detail = "";
+    }
+
+    private TranscriptDiagnosis DiagnoseTranscript(MySqlConnection conn, string regno)
+    {
+        var d = new TranscriptDiagnosis();
+
+        using (var cmd = new MySqlCommand(
+            "SELECT TRIM(CONCAT(COALESCE(firstname,''),' ',COALESCE(othername,''))) FROM acad_student WHERE regno=@r LIMIT 1", conn))
+        { cmd.Parameters.AddWithValue("@r", regno); object o = cmd.ExecuteScalar(); d.Name = o == null || o == DBNull.Value ? "" : o.ToString().Trim(); }
+
+        using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_results WHERE regno=@r", conn))
+        { cmd.Parameters.AddWithValue("@r", regno); d.Results = Convert.ToInt32(cmd.ExecuteScalar()); }
+
+        using (var cmd = new MySqlCommand("SELECT COUNT(*) FROM acad_transcript_results WHERE regno=@r", conn))
+        { cmd.Parameters.AddWithValue("@r", regno); d.TranscriptRows = Convert.ToInt32(cmd.ExecuteScalar()); }
+
+        using (var cmd = new MySqlCommand(
+            "SELECT COALESCE(trans_status,''), COALESCE(trans_printer,''), COALESCE(DATE_FORMAT(trans_date,'%e %b %Y'),'') " +
+            "FROM acad_graduands WHERE regno=@r LIMIT 1", conn))
+        {
+            cmd.Parameters.AddWithValue("@r", regno);
+            using (var r = cmd.ExecuteReader())
+                if (r.Read())
+                {
+                    d.HasGraduandRow = true;
+                    d.TransStatus = r.GetString(0).Trim();
+                    d.PrintedBy = r.GetString(1).Trim();
+                    d.PrintedOn = r.GetString(2).Trim();
+                }
+        }
+
+        d.WillPrint = d.HasGraduandRow
+                   && string.Equals(d.TransStatus, "Ready", StringComparison.OrdinalIgnoreCase)
+                   && d.TranscriptRows > 0;
+
+        if (d.Results == 0)
+        {
+            d.Fault = "No marks";
+            d.Detail = "This student has no results on file at all, so there is nothing to put on a transcript. "
+                     + "Nothing here can fix that — the marks have to be entered or published first.";
+            d.CanRepair = false;
+        }
+        else if (!d.HasGraduandRow)
+        {
+            d.Fault = "Not on the graduands list";
+            d.Detail = "This student has " + d.Results + " marks, but no record on the graduands list — and the transcript "
+                     + "is built by joining to that list. Adding someone to it sets a class of award and a graduation date "
+                     + "and puts them on the graduation lists, so it is a Registrar's decision rather than something this "
+                     + "button should do. Use the printable (HTML) transcript for a student who has not graduated.";
+            d.CanRepair = false;
+        }
+        else if (!string.Equals(d.TransStatus, "Ready", StringComparison.OrdinalIgnoreCase))
+        {
+            d.Fault = "Transcript already issued";
+            d.Detail = "The transcript was already printed" + (d.PrintedBy == "" ? "" : " by " + d.PrintedBy)
+                     + (d.PrintedOn == "" ? "" : " on " + d.PrintedOn) + ", which moved this student to \"" + d.TransStatus
+                     + "\". Every transcript is built with a filter for \"Ready\", so from that moment on the document "
+                     + "renders empty even though all " + d.Results + " marks are still there. Fixing this puts the status "
+                     + "back to Ready and rebuilds the transcript rows.";
+            d.CanRepair = true;
+        }
+        else if (d.TranscriptRows == 0)
+        {
+            d.Fault = "Transcript rows missing";
+            d.Detail = "This student has " + d.Results + " marks and is marked Ready, but the transcript working table is "
+                     + "empty, so the document would print with no courses. Fixing this rebuilds it from the marks.";
+            d.CanRepair = true;
+        }
+        else
+        {
+            d.Fault = "";
+            d.Detail = "Nothing is wrong: " + d.Results + " marks, " + d.TranscriptRows + " transcript rows, status Ready. "
+                     + "This transcript should print normally. Fixing it anyway simply rebuilds the rows from the marks.";
+            d.CanRepair = true;
+        }
+        return d;
+    }
+
+    /// <summary>
+    /// action=FixTranscript — repairs the two faults this button is allowed to repair:
+    /// a status that has walked past 'Ready', and a stale or empty transcript working
+    /// table. Both are re-derived from the marks, so it is safe to run on a student who
+    /// is already fine, and safe to run twice.
+    ///
+    /// It will NOT create a graduands row. See the note above HandleDiagnoseTranscript.
+    /// </summary>
+    private void HandleFixTranscript()
+    {
+        var js = new JavaScriptSerializer();
+        try
+        {
+            string regno = (Request["regno"] ?? "").Trim();
+            if (regno == "") { WriteJsonAndComplete(js, new { success = false, message = "Registration number is required." }); return; }
+
+            using (var conn = new MySqlConnection(ConnectionString))
+            {
+                conn.Open();
+                TranscriptDiagnosis before = DiagnoseTranscript(conn, regno);
+
+                if (before.Results == 0)
+                { WriteJsonAndComplete(js, new { success = false, message = before.Detail }); return; }
+                if (!before.HasGraduandRow)
+                { WriteJsonAndComplete(js, new { success = false, message = before.Detail }); return; }
+
+                var did = new System.Collections.Generic.List<string>();
+
+                // 1. Put the status back to Ready. Kept as a plain UPDATE rather than a
+                //    call to acad_ReverseDocStatus because that procedure steps back only
+                //    ONE stage — a student on 'Picked' would land on 'Printed' and still
+                //    render an empty transcript. The printer and date are left untouched:
+                //    they are the record of who issued the earlier copy.
+                if (!string.Equals(before.TransStatus, "Ready", StringComparison.OrdinalIgnoreCase))
+                {
+                    using (var cmd = new MySqlCommand("UPDATE acad_graduands SET trans_status='Ready' WHERE regno=@r", conn))
+                    { cmd.Parameters.AddWithValue("@r", regno); cmd.ExecuteNonQuery(); }
+                    did.Add("status put back to Ready (was " + before.TransStatus + ")");
+                }
+
+                // 2. Rebuild the transcript working table from the marks. This is exactly
+                //    what the document service calls before every render, so it can only
+                //    bring the rows in line with the results.
+                using (var cmd = new MySqlCommand("acad_CreateTranscript", conn))
+                {
+                    cmd.CommandType = System.Data.CommandType.StoredProcedure;
+                    cmd.CommandTimeout = 120;
+                    cmd.Parameters.AddWithValue("reg", regno);
+                    cmd.Parameters.AddWithValue("typ", "Normal");
+                    cmd.Parameters.AddWithValue("fid", 0);
+                    cmd.ExecuteNonQuery();
+                }
+
+                TranscriptDiagnosis after = DiagnoseTranscript(conn, regno);
+                did.Add("transcript rebuilt from marks (" + after.TranscriptRows + " course rows)");
+
+                LogStudentAction(conn, regno, "FixTranscript",
+                    "Transcript repair: " + string.Join("; ", did.ToArray())
+                    + ". Before: status=" + (before.TransStatus == "" ? "(none)" : before.TransStatus)
+                    + ", rows=" + before.TranscriptRows + ", marks=" + before.Results + ".");
+
+                string msg = after.WillPrint
+                    ? "Fixed. " + string.Join("; ", did.ToArray()) + ". This transcript will now print."
+                    : "Ran the repair (" + string.Join("; ", did.ToArray()) + "), but the transcript still will not print: " + after.Detail;
+
+                WriteJsonAndComplete(js, new
+                {
+                    success = after.WillPrint,
+                    message = msg,
+                    willPrint = after.WillPrint,
+                    transcriptRows = after.TranscriptRows,
+                    transStatus = after.TransStatus
+                });
+            }
+        }
+        catch (Exception ex) { WriteJsonAndComplete(js, new { success = false, message = "Repair failed: " + ex.Message }); }
     }
 
     /// <summary>
