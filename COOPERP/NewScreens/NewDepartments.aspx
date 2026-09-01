@@ -19,9 +19,39 @@ table.cd-table{width:100%;border-collapse:collapse;font-size:12px;}
 .cd-table td{padding:10px 14px;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:middle;}
 .cd-table tr:hover td{background:#f8fafc;}
 .cd-num{font-family:monospace;font-size:11px;color:var(--muted);}
-.cd-head{display:inline-flex;align-items:center;gap:7px;}
-.cd-head__av{width:24px;height:24px;border-radius:50%;background:var(--brand);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+/* The head cell carries a person, not a string: name on top, then the ways to reach
+   them. Contacts are links so a click calls or mails — reading a number off a screen
+   and typing it back in is where digits get transposed. */
+.cd-head{display:flex;align-items:flex-start;gap:9px;}
+.cd-head__av{width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.cd-head__body{min-width:0;}
+.cd-head__name{font-weight:600;color:var(--txt);line-height:1.35;}
+.cd-head__contacts{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:3px;}
+.cd-contact{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#64748b;text-decoration:none;line-height:1.5;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cd-contact svg{width:11px;height:11px;flex:0 0 auto;opacity:.75;}
+.cd-contact:hover{color:var(--brand);text-decoration:underline;}
+.cd-contact--mail{color:#7c8598;}
+.cd-contact--none{color:#cbd5e1;font-style:italic;}
+.cd-contact--none:hover{color:#cbd5e1;text-decoration:none;}
 .cd-muted{color:#94a3b8;}
+
+/* Summary strip: 15 of 31 departments have no faculty, and that is worth knowing at a
+   glance rather than by scrolling for dashes. */
+.cd-stats{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.cd-stat{display:inline-flex;align-items:baseline;gap:5px;background:var(--surf);border:1px solid var(--bdr);padding:4px 10px;font-size:11px;color:#64748b;}
+.cd-stat b{font-size:12.5px;font-weight:700;color:var(--txt);}
+.cd-stat--warn{background:#fff8e1;border-color:#f0dfa8;color:#7a5c00;}
+.cd-stat--warn b{color:#7a4f00;}
+.cd-stat--link{cursor:pointer;}
+.cd-stat--link:hover{border-color:var(--brand);}
+
+/* On a narrow screen the table scrolls inside its own wrapper (the page must never
+   scroll sideways), and the contacts stack instead of running off the cell. */
+@media(max-width:820px){
+    .cd-head__contacts{flex-direction:column;gap:2px;}
+    .cd-table th,.cd-table td{padding:9px 10px;}
+}
 .cd-empty{text-align:center;padding:44px;color:#94a3b8;font-size:13px;}
 .cd-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;font-size:12px;font-weight:600;border:none;cursor:pointer;border-radius:0;white-space:nowrap;text-decoration:none;}
 .cd-btn--primary{background:var(--brand-dk);color:#fff;}
@@ -87,9 +117,14 @@ table.cd-table{width:100%;border-collapse:collapse;font-size:12px;}
     <div class="cd-toolbar">
         <div class="cd-search">
             <svg class="cd-search__ico" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="txtSearch" placeholder="Search departments or heads…" oninput="filterRows()" autocomplete="off" />
+            <input type="text" id="txtSearch" placeholder="Search department, head, phone or email…" oninput="filterRows()" autocomplete="off" />
         </div>
         <span class="cd-count" id="lblCount"></span>
+        <div style="flex:1;"></div>
+        <%-- Filled in by the client from the rendered rows, so it can never disagree
+             with what is on screen. The "no faculty" chip is clickable because a count
+             an operator cannot act on is just decoration. --%>
+        <div class="cd-stats" id="deptStats"></div>
     </div>
     <div class="cd-table-wrap">
         <table class="cd-table">
@@ -98,7 +133,7 @@ table.cd-table{width:100%;border-collapse:collapse;font-size:12px;}
                     <th style="width:60px;">#</th>
                     <th>Department Name</th>
                     <th style="width:90px;">Faculty</th>
-                    <th style="min-width:220px;">Department Head</th>
+                    <th style="min-width:260px;">Head &amp; contact</th>
                     <th style="width:130px;">Actions</th>
                 </tr>
             </thead>
@@ -212,17 +247,82 @@ var ssHead = mountSearch({rootId:'ssHeadRoot',inputId:'ssHeadInput',menuId:'ssHe
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeModal('modalEdit');closeModal('modalDelete');}});
 
 function filterRows(){
-    var q=(document.getElementById('txtSearch').value||'').toLowerCase();
+    var q=(document.getElementById('txtSearch').value||'').toLowerCase().replace(/^\s+|\s+$/g,'');
+    // Phone numbers get typed with spaces, dashes and a +; the row's search text holds
+    // them as stored. Comparing both with the punctuation removed means "0700 114 353"
+    // and "+256700114353" both find the same head.
+    var qDigits=q.replace(/[^0-9]/g,'');
+    var byNumber=qDigits.length>=4;
     var rows=document.querySelectorAll('#tblBody tr');
     var n=0;
     for(var i=0;i<rows.length;i++){
         if(rows[i].getAttribute('data-empty')==='1') continue;
         var s=(rows[i].getAttribute('data-search')||'').toLowerCase();
-        var show=!q||s.indexOf(q)>=0;
+        var show=!q||s.indexOf(q)>=0||(byNumber&&s.replace(/[^0-9]/g,'').indexOf(qDigits)>=0);
         rows[i].style.display=show?'':'none';
         if(show)n++;
     }
     var c=document.getElementById('lblCount'); if(c)c.textContent=n+' department'+(n!==1?'s':'');
+}
+
+/* Summary strip, counted off the rows that are actually on the page so it can never
+   drift from what is displayed. The "no faculty" chip filters to those rows: a count
+   an operator cannot act on is decoration. */
+function buildStats(){
+    var box=document.getElementById('deptStats'); if(!box) return;
+    var rows=document.querySelectorAll('#tblBody tr');
+    var total=0,counts={'data-nohead':0,'data-nophone':0,'data-nofaculty':0};
+    for(var i=0;i<rows.length;i++){
+        if(rows[i].getAttribute('data-empty')==='1') continue;
+        total++;
+        for(var k in counts){ if(rows[i].getAttribute(k)==='1') counts[k]++; }
+    }
+    box.innerHTML='';
+    box.appendChild(chip(total+' departments',null,false));
+
+    // Built as elements with real listeners rather than as an HTML string with inline
+    // onclick. Quoting an attribute name inside a quoted onclick inside a quoted string
+    // is three levels of escaping deep, and getting it wrong breaks the whole script -
+    // which is exactly what happened the first time this was written.
+    var labels={'data-nohead':'without a head',
+                'data-nophone':'head without a phone number',
+                'data-nofaculty':'without a faculty'};
+    for(var attr in labels){
+        if(counts[attr]>0) box.appendChild(chip(counts[attr]+' '+labels[attr],attr,true));
+    }
+}
+
+function chip(text,attr,warn){
+    var el=document.createElement('span');
+    el.className='cd-stat'+(warn?' cd-stat--warn':'')+(attr?' cd-stat--link':'');
+    var parts=text.split(' ');
+    var b=document.createElement('b'); b.textContent=parts.shift();
+    el.appendChild(b);
+    el.appendChild(document.createTextNode(' '+parts.join(' ')));
+    if(attr){
+        el.title='Show only these';
+        el.addEventListener('click',function(){ showOnly(attr); });
+    }
+    return el;
+}
+
+/* Show only the rows carrying a given marker. Clicking the same chip again clears it,
+   so the filter is never a trap. */
+var _deptOnly='';
+function showOnly(attr){
+    var clear=(_deptOnly===attr);
+    _deptOnly=clear?'':attr;
+    var rows=document.querySelectorAll('#tblBody tr');
+    var n=0;
+    for(var i=0;i<rows.length;i++){
+        if(rows[i].getAttribute('data-empty')==='1') continue;
+        var show=clear||rows[i].getAttribute(attr)==='1';
+        rows[i].style.display=show?'':'none';
+        if(show)n++;
+    }
+    var s=document.getElementById('txtSearch'); if(s)s.value='';
+    var c=document.getElementById('lblCount');
+    if(c)c.textContent=n+' department'+(n!==1?'s':'')+(clear?'':' — filtered, click the chip again to clear');
 }
 
 function openCreate(){
@@ -295,5 +395,6 @@ function showToast(msg,type){
     clearTimeout(_tt); _tt=setTimeout(function(){t.classList.remove('show');},3500);
 }
 filterRows();
+buildStats();
 </script>
 </asp:Content>

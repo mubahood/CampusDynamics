@@ -125,6 +125,8 @@ public partial class COOPERP_NewScreens_NewDepartments : Page
                 conn.Open();
                 using (var cmd = new MySqlCommand(
                     "SELECT d.ID, d.dept_name, d.dept_headID, IFNULL(e.emp_name,'') AS head_name, " +
+                    "       IFNULL(e.emp_phone,'') AS head_phone, IFNULL(e.phone_contacts,'') AS head_phone2, " +
+                    "       IFNULL(e.emp_email,'') AS head_email, " +
                     "       IFNULL(d.faculty_code,'') AS fcode, IFNULL(f.abbrev,'') AS fabbr, IFNULL(f.faculty_name,'') AS fname " +
                     "FROM hrm_departments d " +
                     "LEFT JOIN hrm_employee e ON e.empID = d.dept_headID " +
@@ -145,8 +147,24 @@ public partial class COOPERP_NewScreens_NewDepartments : Page
                         bool hasHead = headName.Trim().Length > 0;
                         bool hasFac = fcode.Trim().Length > 0;
 
-                        string search = (name + " " + headName + " " + fname + " " + fabbr).ToLower();
-                        sb.Append("<tr data-search=\"").Append(HE(search)).Append("\">");
+                        string phone = CleanPhone(dr["head_phone"].ToString());
+                        string phone2 = CleanPhone(dr["head_phone2"].ToString());
+                        if (phone2 == phone) phone2 = "";          // the same number twice helps nobody
+                        string email = dr["head_email"].ToString().Trim();
+                        if (email == "-" || email.IndexOf('@') < 0) email = "";
+
+                        // Searching by phone number is the point of showing it: someone with a
+                        // missed call wants to know which department rang.
+                        string search = (name + " " + headName + " " + fname + " " + fabbr + " "
+                                       + phone + " " + phone2 + " " + email).ToLower();
+                        // Markers the summary chips count and filter on. Emitted here rather
+                        // than inferred in the browser, because the browser would have to
+                        // guess from rendered text what the query already knows.
+                        sb.Append("<tr data-search=\"").Append(HE(search)).Append("\"");
+                        if (!hasFac) sb.Append(" data-nofaculty=\"1\"");
+                        if (!hasHead) sb.Append(" data-nohead=\"1\"");
+                        if (hasHead && phone == "" && phone2 == "") sb.Append(" data-nophone=\"1\"");
+                        sb.Append(">");
                         sb.Append("<td><span class=\"cd-num\">").Append(HE(id)).Append("</span></td>");
                         sb.Append("<td><strong>").Append(HE(name)).Append("</strong></td>");
                         sb.Append("<td>");
@@ -158,8 +176,29 @@ public partial class COOPERP_NewScreens_NewDepartments : Page
                         sb.Append("</td>");
                         sb.Append("<td>");
                         if (hasHead)
-                            sb.Append("<span class=\"cd-head\"><span class=\"cd-head__av\">")
-                              .Append(HE(Initials(headName))).Append("</span>").Append(HE(headName)).Append("</span>");
+                        {
+                            sb.Append("<div class=\"cd-head\"><span class=\"cd-head__av\">")
+                              .Append(HE(Initials(headName))).Append("</span>");
+                            sb.Append("<div class=\"cd-head__body\"><div class=\"cd-head__name\">")
+                              .Append(HE(headName)).Append("</div>");
+
+                            // Contacts are links, not text. On a laptop a mailto opens the mail
+                            // client; on a phone or a softphone the tel: dials. Copying a number
+                            // off the screen by hand is where the digits get transposed.
+                            sb.Append("<div class=\"cd-head__contacts\">");
+                            if (phone != "")
+                                sb.Append("<a class=\"cd-contact\" href=\"tel:").Append(AE(phone)).Append("\" title=\"Call ")
+                                  .Append(AE(headName)).Append("\">").Append(PhoneIcon()).Append(HE(phone)).Append("</a>");
+                            if (phone2 != "")
+                                sb.Append("<a class=\"cd-contact\" href=\"tel:").Append(AE(phone2)).Append("\" title=\"Second number\">")
+                                  .Append(PhoneIcon()).Append(HE(phone2)).Append("</a>");
+                            if (email != "")
+                                sb.Append("<a class=\"cd-contact cd-contact--mail\" href=\"mailto:").Append(AE(email))
+                                  .Append("\" title=\"").Append(AE(email)).Append("\">").Append(MailIcon()).Append(HE(email)).Append("</a>");
+                            if (phone == "" && phone2 == "" && email == "")
+                                sb.Append("<span class=\"cd-contact cd-contact--none\">No contact on file</span>");
+                            sb.Append("</div></div></div>");
+                        }
                         else
                             sb.Append("<span class=\"cd-muted\">— not set —</span>");
                         sb.Append("</td>");
@@ -324,6 +363,41 @@ public partial class COOPERP_NewScreens_NewDepartments : Page
     private static int ToInt(string s) { int n; return int.TryParse((s ?? "").Trim(), out n) ? n : 0; }
     private static string HE(string s) { return HttpUtility.HtmlEncode(s ?? ""); }
     private static string AE(string s) { return HttpUtility.HtmlAttributeEncode(s ?? ""); }
+    /// <summary>
+    /// A phone number, or "" when the field does not hold one.
+    ///
+    /// hrm_employee.phone_contacts is a free-text column and most of it is not a number
+    /// at all — 30 of the 31 department heads have "1" or "0" sitting in it, presumably
+    /// a count or a flag from some earlier form. Rendering that as a tel: link would put
+    /// a button on the screen that dials nothing. Only something with enough digits to
+    /// be a Ugandan number survives.
+    /// </summary>
+    private static string CleanPhone(string raw)
+    {
+        string s = (raw ?? "").Trim();
+        if (s == "" || s == "-") return "";
+
+        int digits = 0;
+        foreach (char c in s) if (char.IsDigit(c)) digits++;
+        if (digits < 9) return "";                       // 0700114353 is 10; +256... is 12
+
+        // Keep only what can be dialled, so the tel: href is clean.
+        var sb = new StringBuilder(s.Length);
+        foreach (char c in s)
+            if (char.IsDigit(c) || c == '+' || c == ' ') sb.Append(c);
+        return sb.ToString().Trim();
+    }
+
+    private static string PhoneIcon()
+    {
+        return "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z'/></svg>";
+    }
+
+    private static string MailIcon()
+    {
+        return "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z'/><polyline points='22,6 12,13 2,6'/></svg>";
+    }
+
     private static string Initials(string name)
     {
         if (string.IsNullOrEmpty(name)) return "?";
