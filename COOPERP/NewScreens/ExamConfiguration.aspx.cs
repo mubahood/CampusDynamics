@@ -88,7 +88,9 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
             try
             {
                 if (action == "List") Response.Write(HandleList());
+                else if (action == "Scoped") Response.Write(HandleScoped());
                 else if (action == "Save") Response.Write(HandleSave());
+                else if (action == "SaveMany") Response.Write(HandleSaveMany());
                 else if (action == "Delete") Response.Write(HandleDelete());
                 else if (action == "Effective") Response.Write(HandleEffective());
                 else Response.Write("{\"success\":false,\"message\":\"Unknown action.\"}");
@@ -110,9 +112,40 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
     private class Setting
     {
         public string Key, Group, Title, Help, Type;
+
+        /// <summary>
+        /// The window this setting is one end of, or null. The two ends are shown as a
+        /// single From/To row rather than two unrelated fields, because a start date on
+        /// its own is not a decision anybody makes.
+        /// </summary>
+        public string Window, WindowRole;
+
         public Setting(string k, string g, string t, string h, string ty)
         { Key = k; Group = g; Title = t; Help = h; Type = ty; }
+
+        public Setting InWindow(string w, string role) { Window = w; WindowRole = role; return this; }
     }
+
+    /// <summary>
+    /// The From/To pairs, declared here so the browser never has to infer a pairing from
+    /// the shape of a key. Order matches the catalogue.
+    /// </summary>
+    private class WindowDef
+    {
+        public string Id, Title, Help, Opens, Closes;
+        public WindowDef(string id, string t, string h, string o, string c)
+        { Id = id; Title = t; Help = h; Opens = o; Closes = c; }
+    }
+
+    private static readonly List<WindowDef> Windows = new List<WindowDef>
+    {
+        new WindowDef("coursework", "Coursework entry window",
+            "When lecturers may type coursework marks. Leave either side empty for no limit on that side.",
+            ExamConfig.CourseworkOpens, ExamConfig.CourseworkCloses),
+        new WindowDef("exam", "Final exam entry window",
+            "When lecturers may type final exam marks. Leave either side empty for no limit on that side.",
+            ExamConfig.ExamOpens, ExamConfig.ExamCloses)
+    };
 
     private static readonly List<Setting> Catalogue = new List<Setting>
     {
@@ -120,16 +153,20 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
         // and because leaving it blank is a valid, common answer.
         new Setting(ExamConfig.CourseworkOpens, "When mark entry runs",
             "Coursework entry opens",
-            "Lecturers cannot type coursework marks before this. Leave empty for no start limit.", "DATETIME"),
+            "Lecturers cannot type coursework marks before this. Leave empty for no start limit.", "DATETIME")
+            .InWindow("coursework", "opens"),
         new Setting(ExamConfig.CourseworkCloses, "When mark entry runs",
             "Coursework entry closes",
-            "Lecturers cannot type coursework marks after this. Leave empty for no end limit.", "DATETIME"),
+            "Lecturers cannot type coursework marks after this. Leave empty for no end limit.", "DATETIME")
+            .InWindow("coursework", "closes"),
         new Setting(ExamConfig.ExamOpens, "When mark entry runs",
             "Final exam entry opens",
-            "Leave empty for no start limit.", "DATETIME"),
+            "Leave empty for no start limit.", "DATETIME")
+            .InWindow("exam", "opens"),
         new Setting(ExamConfig.ExamCloses, "When mark entry runs",
             "Final exam entry closes",
-            "Leave empty for no end limit.", "DATETIME"),
+            "Leave empty for no end limit.", "DATETIME")
+            .InWindow("exam", "closes"),
 
         new Setting(ExamConfig.CourseworkEntryEnabled, "What lecturers may do",
             "Coursework mark entry",
@@ -213,18 +250,31 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
                 title = s.Title,
                 help = s.Help,
                 type = s.Type,
+                window = s.Window,
+                windowRole = s.WindowRole,
                 rules = overrides.ContainsKey(s.Key) ? overrides[s.Key] : new List<object>()
             });
 
-        return js.Serialize(new { success = true, settings = rows, scopes = LoadScopes() });
+        var wins = new List<object>();
+        foreach (WindowDef w in Windows)
+            wins.Add(new { id = w.Id, title = w.Title, help = w.Help, opens = w.Opens, closes = w.Closes });
+
+        return js.Serialize(new { success = true, settings = rows, windows = wins, scopes = LoadScopes() });
     }
 
-    /// <summary>Campuses, faculties and programmes an override can be attached to.</summary>
+    /// <summary>
+    /// Everything the scope pickers need: the campuses, faculties and programmes a rule
+    /// can be attached to, and the academic years. Years come from acad_acadyears rather
+    /// than being typed, because a mistyped year silently creates a rule that matches
+    /// nothing and looks like the setting simply did not work.
+    /// </summary>
     private object LoadScopes()
     {
         var campuses = new List<object>();
         var faculties = new List<object>();
         var programmes = new List<object>();
+        var years = new List<object>();
+        string currentYear = "";
         try
         {
             using (var c = new MySqlConnection(ConnStr))
@@ -242,10 +292,33 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
                 using (var cmd = new MySqlCommand("SELECT progcode, progname FROM acad_programme ORDER BY progname", c))
                 using (var r = cmd.ExecuteReader())
                     while (r.Read()) programmes.Add(new { v = r.GetString(0), t = r.GetString(1) });
+
+                // semester_count travels with the year so the semester picker can offer
+                // exactly the semesters that year actually runs.
+                using (var cmd = new MySqlCommand(
+                    "SELECT acadyear, is_current_year, semester_count FROM acad_acadyears " +
+                    "WHERE status = 'Active' ORDER BY acadyear DESC", c))
+                using (var r = cmd.ExecuteReader())
+                    while (r.Read())
+                    {
+                        string y = r.GetString(0).Trim();
+                        bool cur = string.Equals(r.GetString(1), "Yes", StringComparison.OrdinalIgnoreCase);
+                        int sc = r.IsDBNull(2) ? 2 : r.GetInt32(2);
+                        if (sc < 1) sc = 1; if (sc > 3) sc = 3;
+                        if (cur) currentYear = y;
+                        years.Add(new { v = y, t = y + (cur ? "  (current)" : ""), semesters = sc, current = cur });
+                    }
             }
         }
         catch { }
-        return new { campuses = campuses, faculties = faculties, programmes = programmes };
+        return new
+        {
+            campuses = campuses,
+            faculties = faculties,
+            programmes = programmes,
+            years = years,
+            currentYear = currentYear
+        };
     }
 
     private string HandleSave()
@@ -269,59 +342,30 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
         else if (scopeValue == "")
             return js.Serialize(new { success = false, message = "Choose which " + scopeType.ToLowerInvariant() + " this applies to." });
 
-        // Validate against the declared type rather than trusting the form: a "1.5" in a
-        // BOOL, or letters in a percentage, would resolve to the fallback for ever after
-        // and look like the setting simply did not work.
-        if (def.Type == "BOOL")
-        {
-            string v = value.ToUpperInvariant();
-            if (v == "TRUE" || v == "YES" || v == "ON" || v == "1") value = "1";
-            else if (v == "FALSE" || v == "NO" || v == "OFF" || v == "0") value = "0";
-            else return js.Serialize(new { success = false, message = "This setting is on or off." });
-        }
-        else if (def.Type == "DATETIME")
-        {
-            // Empty is legitimate and means "no limit", so it is accepted as-is.
-            if (value != "")
-            {
-                DateTime dt;
-                if (!DateTime.TryParseExact(value, ExamConfig.DateTimeFormat,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.None, out dt))
-                {
-                    // The browser's datetime-local control sends yyyy-MM-ddTHH:mm.
-                    if (!DateTime.TryParseExact(value, "yyyy-MM-ddTHH:mm",
-                            System.Globalization.CultureInfo.InvariantCulture,
-                            System.Globalization.DateTimeStyles.None, out dt))
-                        return js.Serialize(new { success = false, message = "Enter the date and time as yyyy-MM-dd HH:mm." });
-                }
-                // Stored in one format only, so nothing downstream has to guess.
-                value = dt.ToString(ExamConfig.DateTimeFormat, System.Globalization.CultureInfo.InvariantCulture);
+        string bad;
+        value = NormaliseValue(def, value, out bad);
+        if (bad != null) return js.Serialize(new { success = false, message = bad });
 
-                string other = OppositeWindowKey(key);
-                if (other != null)
-                {
-                    // A window that closes before it opens can never be open, and would
-                    // read on screen as though it were configured correctly. Refused here
-                    // rather than tolerated later.
-                    DateTime? o = ReadRaw(other, scopeType, scopeValue, acadYear, semester);
-                    bool thisIsOpening = key.EndsWith(".opens", StringComparison.OrdinalIgnoreCase);
-                    DateTime opens = thisIsOpening ? dt : (o ?? DateTime.MinValue);
-                    DateTime closes = thisIsOpening ? (o ?? DateTime.MaxValue) : dt;
-                    if (o.HasValue && closes <= opens)
-                        return js.Serialize(new { success = false, message =
-                            "That would close entry before it opens (" +
-                            opens.ToString("d MMM yyyy, h:mm tt") + " to " + closes.ToString("d MMM yyyy, h:mm tt") +
-                            "). Check the other date first." });
-                }
-            }
-        }
-        else if (def.Type == "INT")
+        if (def.Type == "DATETIME" && value != "")
         {
-            int n;
-            if (!int.TryParse(value, out n)) return js.Serialize(new { success = false, message = "This setting needs a whole number." });
-            if (n < 0 || n > 1000) return js.Serialize(new { success = false, message = "That number is outside the sensible range." });
-            value = n.ToString();
+            string other = OppositeWindowKey(key);
+            if (other != null)
+            {
+                // A window that closes before it opens can never be open, and would read
+                // on screen as though it were configured correctly. Refused here rather
+                // than tolerated later.
+                DateTime dt = DateTime.ParseExact(value, ExamConfig.DateTimeFormat,
+                    System.Globalization.CultureInfo.InvariantCulture);
+                DateTime? o = ReadRaw(other, scopeType, scopeValue, acadYear, semester);
+                bool thisIsOpening = key.EndsWith(".opens", StringComparison.OrdinalIgnoreCase);
+                DateTime opens = thisIsOpening ? dt : (o ?? DateTime.MinValue);
+                DateTime closes = thisIsOpening ? (o ?? DateTime.MaxValue) : dt;
+                if (o.HasValue && closes <= opens)
+                    return js.Serialize(new { success = false, message =
+                        "That would close entry before it opens (" +
+                        opens.ToString("d MMM yyyy, h:mm tt") + " to " + closes.ToString("d MMM yyyy, h:mm tt") +
+                        "). Check the other date first." });
+            }
         }
 
         using (var c = new MySqlConnection(ConnStr))
@@ -357,6 +401,306 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
         }
 
         return js.Serialize(new { success = true, message = "Saved." });
+    }
+
+    /// <summary>
+    /// Checks a value against its declared type and returns it in the one form the
+    /// database stores. Shared by the single save and the batch save so the two can
+    /// never drift apart — a rule accepted by one route and refused by the other would
+    /// be worse than either rule on its own.
+    ///
+    /// Sets <paramref name="error"/> to a sentence for the operator, or null when the
+    /// value is good. An empty DATETIME is legitimate and means "no limit".
+    /// </summary>
+    private static string NormaliseValue(Setting def, string value, out string error)
+    {
+        error = null;
+        value = (value ?? "").Trim();
+
+        if (def.Type == "BOOL")
+        {
+            string v = value.ToUpperInvariant();
+            if (v == "TRUE" || v == "YES" || v == "ON" || v == "1") return "1";
+            if (v == "FALSE" || v == "NO" || v == "OFF" || v == "0") return "0";
+            error = "\"" + def.Title + "\" is either on or off.";
+            return value;
+        }
+
+        if (def.Type == "DATETIME")
+        {
+            if (value == "") return "";
+            DateTime dt;
+            if (!DateTime.TryParseExact(value, ExamConfig.DateTimeFormat,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out dt)
+             && !DateTime.TryParseExact(value, "yyyy-MM-ddTHH:mm",   // what datetime-local sends
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out dt))
+            {
+                error = "\"" + def.Title + "\" needs a date and time in the form yyyy-MM-dd HH:mm.";
+                return value;
+            }
+            // Stored in one format only, so nothing downstream has to guess.
+            return dt.ToString(ExamConfig.DateTimeFormat, System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (def.Type == "INT")
+        {
+            int n;
+            if (!int.TryParse(value, out n)) { error = "\"" + def.Title + "\" needs a whole number."; return value; }
+            if (n < 0 || n > 1000) { error = "\"" + def.Title + "\" is outside the sensible range (0 to 1000)."; return value; }
+            return n.ToString();
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// Turns the four scope fields into an ExamConfig.Scope for resolution. A PROGRAMME
+    /// scope goes through ScopeForProgramme so its faculty is filled in and a
+    /// faculty-level rule is seen; the others are built directly, because a campus rule
+    /// has no faculty to derive.
+    /// </summary>
+    private static ExamConfig.Scope ScopeFrom(string scopeType, string scopeValue, string acadYear, int semester)
+    {
+        switch ((scopeType ?? "").ToUpperInvariant())
+        {
+            case "PROGRAMME": return ExamConfig.ScopeForProgramme(scopeValue, "", acadYear, semester);
+            case "FACULTY": return new ExamConfig.Scope().ForFaculty(scopeValue).ForPeriod(acadYear, semester);
+            case "CAMPUS": return new ExamConfig.Scope().ForCampus(scopeValue).ForPeriod(acadYear, semester);
+            default: return new ExamConfig.Scope().ForPeriod(acadYear, semester);
+        }
+    }
+
+    /// <summary>
+    /// action=Scoped — what the form shows. For one exact scope, each setting reports
+    /// the value stored AT that scope (null when nothing is stored there), and the value
+    /// that would apply anyway through the fallback chain, with its source.
+    ///
+    /// The distinction is the whole point of the screen: a field showing "60" because a
+    /// Dean set it here is a different fact from a field showing "60" inherited from the
+    /// university, and an operator who cannot tell them apart will edit the wrong one.
+    /// </summary>
+    private string HandleScoped()
+    {
+        var js = new JavaScriptSerializer();
+        Func<string, string> F = k => (Request.Form[k] ?? Request.QueryString[k] ?? "").Trim();
+
+        string scopeType = F("scopeType").ToUpperInvariant();
+        if (scopeType == "") scopeType = "GLOBAL";
+        string scopeValue = scopeType == "GLOBAL" ? "" : F("scopeValue");
+        string acadYear = F("acadYear");
+        int semester; if (!int.TryParse(F("semester"), out semester)) semester = 0;
+
+        if (scopeType != "GLOBAL" && scopeType != "CAMPUS" && scopeType != "FACULTY" && scopeType != "PROGRAMME")
+            return js.Serialize(new { success = false, message = "Choose a valid scope." });
+        if (scopeType != "GLOBAL" && scopeValue == "")
+            return js.Serialize(new { success = false, message = "Choose which " + scopeType.ToLowerInvariant() + " these settings apply to." });
+
+        // Everything stored at exactly this scope, in one query.
+        var own = new Dictionary<string, string>();
+        var ownId = new Dictionary<string, int>();
+        using (var c = new MySqlConnection(ConnStr))
+        {
+            c.Open();
+            using (var cmd = new MySqlCommand(
+                "SELECT id, config_key, config_value FROM acad_exam_config " +
+                "WHERE scope_type=@st AND scope_value=@sv AND acad_year=@y AND semester=@s AND is_active=1", c))
+            {
+                cmd.Parameters.AddWithValue("@st", scopeType);
+                cmd.Parameters.AddWithValue("@sv", scopeValue);
+                cmd.Parameters.AddWithValue("@y", acadYear);
+                cmd.Parameters.AddWithValue("@s", semester);
+                using (var r = cmd.ExecuteReader())
+                    while (r.Read())
+                    {
+                        own[r.GetString(1)] = r.GetString(2);
+                        ownId[r.GetString(1)] = r.GetInt32(0);
+                    }
+            }
+        }
+
+        ExamConfig.Scope sc = ScopeFrom(scopeType, scopeValue, acadYear, semester);
+        var rows = new List<object>();
+        foreach (Setting s in Catalogue)
+        {
+            string src;
+            string eff = ExamConfig.Resolve(s.Key, sc, out src) ?? "";
+            bool isOwn = own.ContainsKey(s.Key);
+            rows.Add(new
+            {
+                key = s.Key,
+                group = s.Group,
+                title = s.Title,
+                help = s.Help,
+                type = s.Type,
+                window = s.Window,
+                windowRole = s.WindowRole,
+                isOwn = isOwn,
+                id = isOwn ? ownId[s.Key] : 0,
+                value = isOwn ? own[s.Key] : eff,   // the control always shows what applies
+                effective = eff,
+                source = src ?? ""
+            });
+        }
+
+        var wins = new List<object>();
+        foreach (WindowDef w in Windows)
+            wins.Add(new { id = w.Id, title = w.Title, help = w.Help, opens = w.Opens, closes = w.Closes });
+
+        // The base row is the floor everything else falls back to, and it is the one
+        // scope where "inherited" is not a possibility.
+        bool isBase = scopeType == "GLOBAL" && acadYear == "" && semester == 0;
+        return js.Serialize(new
+        {
+            success = true,
+            settings = rows,
+            windows = wins,
+            faculty = sc.Faculty ?? "",
+            isBase = isBase
+        });
+    }
+
+    /// <summary>
+    /// action=SaveMany — writes every changed field of the form at one scope, in one
+    /// transaction.
+    ///
+    /// Saving field by field looked simpler and was wrong: setting an opening date of
+    /// 1 September while the stored closing date is still 1 August would be refused as
+    /// "closes before it opens", even though the operator was in the middle of changing
+    /// both. The pair is therefore checked against the state the form is asking for, not
+    /// against the state it is replacing.
+    /// </summary>
+    private string HandleSaveMany()
+    {
+        var js = new JavaScriptSerializer();
+        Func<string, string> F = k => (Request.Form[k] ?? "").Trim();
+
+        string scopeType = F("scopeType").ToUpperInvariant();
+        if (scopeType == "") scopeType = "GLOBAL";
+        string scopeValue = scopeType == "GLOBAL" ? "" : F("scopeValue");
+        string acadYear = F("acadYear");
+        string notes = F("notes");
+        int semester; if (!int.TryParse(F("semester"), out semester)) semester = 0;
+
+        if (scopeType != "GLOBAL" && scopeType != "CAMPUS" && scopeType != "FACULTY" && scopeType != "PROGRAMME")
+            return js.Serialize(new { success = false, message = "Choose a valid scope." });
+        if (scopeType != "GLOBAL" && scopeValue == "")
+            return js.Serialize(new { success = false, message = "Choose which " + scopeType.ToLowerInvariant() + " these settings apply to." });
+
+        List<Dictionary<string, string>> items;
+        try { items = new JavaScriptSerializer().Deserialize<List<Dictionary<string, string>>>(F("items")); }
+        catch { return js.Serialize(new { success = false, message = "The changes could not be read. Reload the page and try again." }); }
+        if (items == null || items.Count == 0)
+            return js.Serialize(new { success = false, message = "There is nothing to save." });
+        if (items.Count > Catalogue.Count)
+            return js.Serialize(new { success = false, message = "More changes were submitted than there are settings." });
+
+        // 1. Check every value against its type before writing any of them.
+        var pending = new List<KeyValuePair<Setting, string>>();
+        var byKey = new Dictionary<string, string>();
+        foreach (var it in items)
+        {
+            string k = it.ContainsKey("key") ? (it["key"] ?? "").Trim() : "";
+            string v = it.ContainsKey("value") ? (it["value"] ?? "") : "";
+            Setting def = Catalogue.Find(x => x.Key == k);
+            if (def == null) return js.Serialize(new { success = false, message = "Unknown setting \"" + k + "\"." });
+            if (byKey.ContainsKey(k)) return js.Serialize(new { success = false, message = "\"" + def.Title + "\" was submitted twice." });
+
+            string bad;
+            string norm = NormaliseValue(def, v, out bad);
+            if (bad != null) return js.Serialize(new { success = false, message = bad });
+            pending.Add(new KeyValuePair<Setting, string>(def, norm));
+            byKey[k] = norm;
+        }
+
+        // 2. Check each window against the state being ASKED FOR: the submitted value
+        //    where there is one, otherwise what is already stored at this exact scope.
+        foreach (WindowDef w in Windows)
+        {
+            DateTime? opens = byKey.ContainsKey(w.Opens)
+                ? ParseStored(byKey[w.Opens]) : ReadRaw(w.Opens, scopeType, scopeValue, acadYear, semester);
+            DateTime? closes = byKey.ContainsKey(w.Closes)
+                ? ParseStored(byKey[w.Closes]) : ReadRaw(w.Closes, scopeType, scopeValue, acadYear, semester);
+
+            if (opens.HasValue && closes.HasValue && closes.Value <= opens.Value)
+                return js.Serialize(new { success = false, message =
+                    w.Title + " would close before it opens (" +
+                    opens.Value.ToString("d MMM yyyy, h:mm tt") + " to " +
+                    closes.Value.ToString("d MMM yyyy, h:mm tt") + "). Check both dates." });
+        }
+
+        // 3. Write. All of it or none of it: a half-applied window is a rule nobody chose.
+        int written = 0;
+        using (var c = new MySqlConnection(ConnStr))
+        {
+            c.Open();
+            using (MySqlTransaction tx = c.BeginTransaction())
+            {
+                try
+                {
+                    foreach (var p in pending)
+                    {
+                        Setting def = p.Key; string value = p.Value;
+
+                        string before = null;
+                        using (var cmd = new MySqlCommand(
+                            "SELECT config_value FROM acad_exam_config WHERE config_key=@k AND scope_type=@st " +
+                            "AND scope_value=@sv AND acad_year=@y AND semester=@s LIMIT 1", c, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@k", def.Key); cmd.Parameters.AddWithValue("@st", scopeType);
+                            cmd.Parameters.AddWithValue("@sv", scopeValue); cmd.Parameters.AddWithValue("@y", acadYear);
+                            cmd.Parameters.AddWithValue("@s", semester);
+                            object o = cmd.ExecuteScalar();
+                            if (o != null && o != DBNull.Value) before = o.ToString();
+                        }
+
+                        using (var cmd = new MySqlCommand(
+                            "INSERT INTO acad_exam_config (config_key,scope_type,scope_value,acad_year,semester,value_type,config_value,notes,updated_by,updated_at,is_active) " +
+                            "VALUES (@k,@st,@sv,@y,@s,@vt,@v,@n,@by,NOW(),1) " +
+                            "ON DUPLICATE KEY UPDATE config_value=VALUES(config_value), notes=VALUES(notes), " +
+                            "  value_type=VALUES(value_type), updated_by=VALUES(updated_by), updated_at=NOW(), is_active=1", c, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@k", def.Key); cmd.Parameters.AddWithValue("@st", scopeType);
+                            cmd.Parameters.AddWithValue("@sv", scopeValue); cmd.Parameters.AddWithValue("@y", acadYear);
+                            cmd.Parameters.AddWithValue("@s", semester); cmd.Parameters.AddWithValue("@vt", def.Type);
+                            cmd.Parameters.AddWithValue("@v", value); cmd.Parameters.AddWithValue("@n", notes);
+                            cmd.Parameters.AddWithValue("@by", Actor());
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        LogTx(c, tx, def.Key, scopeType, scopeValue, acadYear, semester,
+                              before, value, before == null ? "CREATE" : "SET");
+                        written++;
+                    }
+                    tx.Commit();
+                }
+                catch (Exception ex)
+                {
+                    try { tx.Rollback(); } catch { }
+                    return js.Serialize(new { success = false, message = "Nothing was saved: " + ex.Message });
+                }
+            }
+        }
+
+        return js.Serialize(new
+        {
+            success = true,
+            written = written,
+            message = written == 1 ? "1 setting saved." : written + " settings saved."
+        });
+    }
+
+    /// <summary>A stored yyyy-MM-dd HH:mm, or null for empty. Already normalised.</summary>
+    private static DateTime? ParseStored(string v)
+    {
+        v = (v ?? "").Trim();
+        if (v == "") return null;
+        DateTime d;
+        if (DateTime.TryParseExact(v, ExamConfig.DateTimeFormat,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out d)) return d;
+        return null;
     }
 
     /// <summary>The other half of a window pair, or null when the key is not one.</summary>
@@ -426,11 +770,16 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
                 }
             }
 
-            // The GLOBAL row is the floor every other rule falls back to. Removing it
-            // would leave the code silently using its compiled-in default, which is not
-            // something anybody would find by looking at this screen.
-            if (st == "GLOBAL")
-                return js.Serialize(new { success = false, message = "The university-wide value cannot be removed — change it instead. Only overrides can be removed." });
+            // The base row — university-wide, any year, any semester — is the floor every
+            // other rule falls back to. Removing it would leave the code silently using
+            // its compiled-in default, which is not something anybody would find by
+            // looking at this screen.
+            //
+            // A university-wide rule for ONE year or semester is not that floor; it is an
+            // override like any other and must be removable, or an operator who sets a
+            // rule for 2026/2027 semester 1 could never take it off again.
+            if (st == "GLOBAL" && yr == "" && sem == 0)
+                return js.Serialize(new { success = false, message = "The university-wide value cannot be removed — change it instead. Rules for a particular campus, faculty, programme, year or semester can be removed." });
 
             using (var cmd = new MySqlCommand("DELETE FROM acad_exam_config WHERE id=@i", c))
             { cmd.Parameters.AddWithValue("@i", id); cmd.ExecuteNonQuery(); }
@@ -465,11 +814,22 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
     private void Log(MySqlConnection c, string key, string st, string sv, string yr, int sem,
                      string before, string after, string action)
     {
+        LogTx(c, null, key, st, sv, yr, sem, before, after, action);
+    }
+
+    /// <summary>
+    /// The audit write, optionally inside a caller's transaction. A batch save must log
+    /// on the same transaction as the change, or a rolled-back write would leave an
+    /// audit trail for something that never happened.
+    /// </summary>
+    private void LogTx(MySqlConnection c, MySqlTransaction tx, string key, string st, string sv, string yr, int sem,
+                       string before, string after, string action)
+    {
         try
         {
             using (var cmd = new MySqlCommand(
                 "INSERT INTO acad_exam_config_log (config_key,scope_type,scope_value,acad_year,semester,old_value,new_value,action,actor) " +
-                "VALUES (@k,@st,@sv,@y,@s,@o,@n,@a,@by)", c))
+                "VALUES (@k,@st,@sv,@y,@s,@o,@n,@a,@by)", c, tx))
             {
                 cmd.Parameters.AddWithValue("@k", key); cmd.Parameters.AddWithValue("@st", st);
                 cmd.Parameters.AddWithValue("@sv", sv); cmd.Parameters.AddWithValue("@y", yr);
