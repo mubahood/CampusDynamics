@@ -72,7 +72,7 @@
 
 <div class="xc-head">
     <h1>Examination Configuration</h1>
-    <p>What lecturers and students are allowed to do in the portal. Set a rule once for the whole university, then override it for a campus, faculty or single programme where it needs to differ.</p>
+    <p>When mark entry runs, and what lecturers and students are allowed to do in the portal. Set a rule once for the whole university, then override it for a campus, faculty or single programme where it needs to differ. Lecturers see the dates at the top of their mark-entry screens.</p>
 </div>
 
 <div class="xc-wrap">
@@ -81,7 +81,11 @@
          will look here for deadlines, not find them, and set a date somewhere else. --%>
     <div class="xc-note">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        <span><b>Deadlines are not set here.</b> A deadline says <em>by when</em> and lives in the Deadlines screen. These switches say <em>whether at all</em>. Use them to close mark entry without backdating a deadline, or to close it for one faculty while leaving the rest open.</span>
+        <span><b>Three things can close mark entry, and the strictest one wins.</b>
+        The <em>window</em> below is the published schedule &mdash; when entry opens and closes.
+        The <em>switch</em> closes it by hand at any time, whatever the dates say.
+        The older per-campus <em>deadline</em> on the Deadlines screen still applies as well.
+        Lecturers are told which of the three is stopping them, so nobody is sent to the registry about the wrong one.</span>
     </div>
 
     <%-- Answers "why can this lecturer not enter marks" without reading the table. --%>
@@ -206,6 +210,14 @@
             ctl = '<select class="xc-val" data-key="' + esc(s.key) + '" onchange="XC.setGlobal(this)">'
                 + '<option value="1"' + (val === "1" ? " selected" : "") + '>On</option>'
                 + '<option value="0"' + (val === "0" ? " selected" : "") + '>Off</option></select>';
+        } else if (s.type === "DATETIME") {
+            // datetime-local gives a real picker and rules out most typing mistakes.
+            // Its value is yyyy-MM-ddTHH:mm, which the server accepts alongside the
+            // stored yyyy-MM-dd HH:mm; empty means "no limit" and stays empty.
+            ctl = '<input class="xc-val" type="datetime-local" style="min-width:196px" value="' + esc(toLocal(val))
+                + '" data-key="' + esc(s.key) + '" onchange="XC.setGlobal(this)" />'
+                + '<button type="button" class="xc-mini" title="Clear this limit" data-key="' + esc(s.key)
+                + '" onclick="XC.clearDate(this)">Clear</button>';
         } else {
             ctl = '<input class="xc-val" type="text" value="' + esc(val) + '" data-key="' + esc(s.key)
                 + '" onchange="XC.setGlobal(this)" />';
@@ -225,7 +237,8 @@
                 var where = r.scopeType.charAt(0) + r.scopeType.slice(1).toLowerCase() + " " + r.scopeValue;
                 var when = (r.acadYear ? " · " + r.acadYear : "") + (r.semester ? " S" + r.semester : "");
                 h += '<span class="xc-ov"><b>' + esc(where) + '</b>' + esc(when) + ' &rarr; '
-                   + (s.type === "BOOL" ? (r.value === "1" ? "On" : "Off") : esc(r.value))
+                   + (s.type === "BOOL" ? (r.value === "1" ? "On" : "Off")
+                      : (r.value === "" ? "no limit" : esc(r.value)))
                    + '<button type="button" class="xc-ov__x" title="Remove this override" onclick="XC.delOv(' + r.id + ')">&times;</button></span>';
             });
             h += '</div>';
@@ -233,11 +246,34 @@
         return h;
     }
 
+    /* The stored form is "yyyy-MM-dd HH:mm"; datetime-local wants a T between them.
+       Converted rather than stored differently, so the database keeps exactly one
+       format and nothing downstream has to guess. */
+    function toLocal(v) {
+        v = (v || "").trim();
+        return v === "" ? "" : v.replace(" ", "T").substring(0, 16);
+    }
+    function fromLocal(v) {
+        v = (v || "").trim();
+        return v === "" ? "" : v.replace("T", " ").substring(0, 16);
+    }
+
     window.XC = {
+        clearDate: function (el) {
+            var key = el.getAttribute("data-key");
+            if (!confirm("Remove this limit?\n\nEntry will have no "
+                + (key.indexOf(".opens") >= 0 ? "start" : "end") + " date.")) return;
+            post("Save", "key=" + encodeURIComponent(key) + "&scopeType=GLOBAL&scopeValue=&acadYear=&semester=0"
+                + "&value=&notes=", function (d) {
+                    toast((d && d.message) || "Cleared.", !(d && d.success));
+                    if (d && d.success) load();
+                });
+        },
         setGlobal: function (el) {
             var key = el.getAttribute("data-key");
             post("Save", "key=" + encodeURIComponent(key) + "&scopeType=GLOBAL&scopeValue=&acadYear=&semester=0"
-                + "&value=" + encodeURIComponent(el.value) + "&notes=", function (d) {
+                + "&value=" + encodeURIComponent(el.type === "datetime-local" ? fromLocal(el.value) : el.value)
+                + "&notes=", function (d) {
                     toast((d && d.message) || "Saved.", !(d && d.success));
                     if (d && d.success) load();
                 });
@@ -255,9 +291,12 @@
             document.getElementById("ovScope").value = "PROGRAMME";
             ovScopeChanged();
             var g = globalOf(CUR);
-            document.getElementById("ovValueCtl").innerHTML = CUR.type === "BOOL"
-                ? '<select class="xc-val" id="ovVal" style="width:100%"><option value="1">On</option><option value="0">Off</option></select>'
-                : '<input class="xc-val" id="ovVal" type="text" style="width:100%" value="' + esc(g ? g.value : "") + '" />';
+            document.getElementById("ovValueCtl").innerHTML =
+                  CUR.type === "BOOL"
+                    ? '<select class="xc-val" id="ovVal" style="width:100%"><option value="1">On</option><option value="0">Off</option></select>'
+                : CUR.type === "DATETIME"
+                    ? '<input class="xc-val" id="ovVal" type="datetime-local" style="width:100%" value="' + esc(toLocal(g ? g.value : "")) + '" />'
+                    : '<input class="xc-val" id="ovVal" type="text" style="width:100%" value="' + esc(g ? g.value : "") + '" />';
             document.getElementById("ovModal").classList.add("on");
         },
         delOv: function (id) {
@@ -284,7 +323,9 @@
                  + "&scopeValue=" + encodeURIComponent(document.getElementById("ovValue").value)
                  + "&acadYear=" + encodeURIComponent(document.getElementById("ovYear").value.replace(/^\s+|\s+$/g, ""))
                  + "&semester=" + encodeURIComponent(document.getElementById("ovSem").value)
-                 + "&value=" + encodeURIComponent(document.getElementById("ovVal").value)
+                 + "&value=" + encodeURIComponent(CUR.type === "DATETIME"
+                        ? fromLocal(document.getElementById("ovVal").value)
+                        : document.getElementById("ovVal").value)
                  + "&notes=" + encodeURIComponent(document.getElementById("ovNotes").value);
         var b = document.getElementById("ovGo"); b.disabled = true;
         post("Save", body, function (d) {

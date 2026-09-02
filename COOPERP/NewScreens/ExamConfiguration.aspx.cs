@@ -116,6 +116,21 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
 
     private static readonly List<Setting> Catalogue = new List<Setting>
     {
+        // The schedule comes first because it is what an administrator normally wants,
+        // and because leaving it blank is a valid, common answer.
+        new Setting(ExamConfig.CourseworkOpens, "When mark entry runs",
+            "Coursework entry opens",
+            "Lecturers cannot type coursework marks before this. Leave empty for no start limit.", "DATETIME"),
+        new Setting(ExamConfig.CourseworkCloses, "When mark entry runs",
+            "Coursework entry closes",
+            "Lecturers cannot type coursework marks after this. Leave empty for no end limit.", "DATETIME"),
+        new Setting(ExamConfig.ExamOpens, "When mark entry runs",
+            "Final exam entry opens",
+            "Leave empty for no start limit.", "DATETIME"),
+        new Setting(ExamConfig.ExamCloses, "When mark entry runs",
+            "Final exam entry closes",
+            "Leave empty for no end limit.", "DATETIME"),
+
         new Setting(ExamConfig.CourseworkEntryEnabled, "What lecturers may do",
             "Coursework mark entry",
             "When off, lecturers cannot open or type coursework marks. This is separate from the deadline — use it to close entry without pretending a date has passed.", "BOOL"),
@@ -264,6 +279,43 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
             else if (v == "FALSE" || v == "NO" || v == "OFF" || v == "0") value = "0";
             else return js.Serialize(new { success = false, message = "This setting is on or off." });
         }
+        else if (def.Type == "DATETIME")
+        {
+            // Empty is legitimate and means "no limit", so it is accepted as-is.
+            if (value != "")
+            {
+                DateTime dt;
+                if (!DateTime.TryParseExact(value, ExamConfig.DateTimeFormat,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out dt))
+                {
+                    // The browser's datetime-local control sends yyyy-MM-ddTHH:mm.
+                    if (!DateTime.TryParseExact(value, "yyyy-MM-ddTHH:mm",
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None, out dt))
+                        return js.Serialize(new { success = false, message = "Enter the date and time as yyyy-MM-dd HH:mm." });
+                }
+                // Stored in one format only, so nothing downstream has to guess.
+                value = dt.ToString(ExamConfig.DateTimeFormat, System.Globalization.CultureInfo.InvariantCulture);
+
+                string other = OppositeWindowKey(key);
+                if (other != null)
+                {
+                    // A window that closes before it opens can never be open, and would
+                    // read on screen as though it were configured correctly. Refused here
+                    // rather than tolerated later.
+                    DateTime? o = ReadRaw(other, scopeType, scopeValue, acadYear, semester);
+                    bool thisIsOpening = key.EndsWith(".opens", StringComparison.OrdinalIgnoreCase);
+                    DateTime opens = thisIsOpening ? dt : (o ?? DateTime.MinValue);
+                    DateTime closes = thisIsOpening ? (o ?? DateTime.MaxValue) : dt;
+                    if (o.HasValue && closes <= opens)
+                        return js.Serialize(new { success = false, message =
+                            "That would close entry before it opens (" +
+                            opens.ToString("d MMM yyyy, h:mm tt") + " to " + closes.ToString("d MMM yyyy, h:mm tt") +
+                            "). Check the other date first." });
+                }
+            }
+        }
         else if (def.Type == "INT")
         {
             int n;
@@ -305,6 +357,51 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
         }
 
         return js.Serialize(new { success = true, message = "Saved." });
+    }
+
+    /// <summary>The other half of a window pair, or null when the key is not one.</summary>
+    private static string OppositeWindowKey(string key)
+    {
+        if (key == ExamConfig.CourseworkOpens) return ExamConfig.CourseworkCloses;
+        if (key == ExamConfig.CourseworkCloses) return ExamConfig.CourseworkOpens;
+        if (key == ExamConfig.ExamOpens) return ExamConfig.ExamCloses;
+        if (key == ExamConfig.ExamCloses) return ExamConfig.ExamOpens;
+        return null;
+    }
+
+    /// <summary>
+    /// The value stored at EXACTLY this scope — not resolved. The pair check must
+    /// compare like with like: a global closing date has no business vetoing a
+    /// programme-level opening date, because at the programme level the pair is the
+    /// programme's own two rows.
+    /// </summary>
+    private DateTime? ReadRaw(string key, string scopeType, string scopeValue, string acadYear, int semester)
+    {
+        try
+        {
+            using (var c = new MySqlConnection(ConnStr))
+            {
+                c.Open();
+                using (var cmd = new MySqlCommand(
+                    "SELECT config_value FROM acad_exam_config WHERE config_key=@k AND scope_type=@st " +
+                    "AND scope_value=@sv AND acad_year=@y AND semester=@s AND is_active=1 LIMIT 1", c))
+                {
+                    cmd.Parameters.AddWithValue("@k", key); cmd.Parameters.AddWithValue("@st", scopeType);
+                    cmd.Parameters.AddWithValue("@sv", scopeValue); cmd.Parameters.AddWithValue("@y", acadYear);
+                    cmd.Parameters.AddWithValue("@s", semester);
+                    object o = cmd.ExecuteScalar();
+                    if (o == null || o == DBNull.Value) return null;
+                    string v = o.ToString().Trim();
+                    if (v == "") return null;
+                    DateTime d;
+                    if (DateTime.TryParseExact(v, ExamConfig.DateTimeFormat,
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None, out d)) return d;
+                    return null;
+                }
+            }
+        }
+        catch { return null; }
     }
 
     private string HandleDelete()

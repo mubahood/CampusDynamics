@@ -47,6 +47,177 @@ public static class ExamConfig
     public const string ResultsVisible         = "results.students.visible";
     public const string ResultsHideOnBalance   = "results.hide.on.balance";
 
+    public const string CourseworkOpens        = "coursework.entry.opens";
+    public const string CourseworkCloses       = "coursework.entry.closes";
+    public const string ExamOpens              = "exam.entry.opens";
+    public const string ExamCloses             = "exam.entry.closes";
+
+    /// <summary>
+    /// The one format a date-and-time setting is ever stored in. Fixed and
+    /// culture-invariant on purpose: this server has produced locale parsing faults
+    /// before, and a window that silently fails to parse would either lock everybody
+    /// out or let everybody in, depending on which way the code happened to fall.
+    /// </summary>
+    public const string DateTimeFormat = "yyyy-MM-dd HH:mm";
+
+    /// <summary>
+    /// Whether one kind of mark entry is open, and if not, why — in words a lecturer
+    /// can act on.
+    ///
+    /// Three separate controls can each close entry, and they are NOT interchangeable:
+    /// the switch is somebody deciding by hand, the window is the published schedule,
+    /// and acad_deadlines is the older per-campus closing date that is still honoured.
+    /// Most restrictive wins, and the reason names which one it was — telling a
+    /// lecturer "the deadline has passed" when in fact the window has not opened sends
+    /// them to the registry about the wrong thing.
+    /// </summary>
+    public class EntryWindow
+    {
+        public bool IsOpen;
+        public bool SwitchedOff;          // closed by hand
+        public bool BeforeStart;          // the schedule has not begun
+        public bool AfterEnd;             // the schedule has finished
+        public DateTime? Opens;           // null = no start limit
+        public DateTime? Closes;          // null = no end limit
+        public string Reason = "";        // why it is closed, empty when open
+        public string Summary = "";       // the one line the portal shows at the top
+
+        public string OpensText { get { return Opens.HasValue ? Opens.Value.ToString("d MMMM yyyy, h:mm tt") : ""; } }
+        public string ClosesText { get { return Closes.HasValue ? Closes.Value.ToString("d MMMM yyyy, h:mm tt") : ""; } }
+
+        /// <summary>
+        /// A window with no limits, for the case where the policy could not be read at
+        /// all. Note that a plain <c>new EntryWindow()</c> is CLOSED, because IsOpen is
+        /// false by default — use this whenever the intent is "we could not tell, so do
+        /// not stand in the way". Mark entry is still governed by acad_deadlines and by
+        /// the global lock; an unreachable configuration table must never become a
+        /// stricter rule than no configuration at all.
+        /// </summary>
+        public static EntryWindow Unrestricted()
+        {
+            EntryWindow w = new EntryWindow();
+            w.IsOpen = true;
+            w.Summary = "Open. No dates have been set for this period.";
+            return w;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the window for coursework or exam entry. Pass the enabled key and its
+    /// two window keys; everything else is derived.
+    ///
+    /// Anything that cannot be read or parsed is treated as "no limit". A settings
+    /// table that is briefly unavailable, or a value somebody typed wrongly, must
+    /// never be a stricter rule than no settings at all.
+    /// </summary>
+    public static EntryWindow GetWindow(string enabledKey, string opensKey, string closesKey, Scope scope)
+    {
+        var w = new EntryWindow();
+        DateTime now = DateTime.Now;
+
+        w.SwitchedOff = !IsEnabled(enabledKey, scope, true);
+        w.Opens = GetDateTime(opensKey, scope);
+        w.Closes = GetDateTime(closesKey, scope);
+
+        // A window entered backwards is meaningless and would close entry for ever.
+        // Treat it as unset rather than acting on it; the console refuses to save one,
+        // so this only catches a value edited directly in the database.
+        if (w.Opens.HasValue && w.Closes.HasValue && w.Closes.Value <= w.Opens.Value)
+        { w.Opens = null; w.Closes = null; }
+
+        w.BeforeStart = w.Opens.HasValue && now < w.Opens.Value;
+        w.AfterEnd = w.Closes.HasValue && now > w.Closes.Value;
+        w.IsOpen = !w.SwitchedOff && !w.BeforeStart && !w.AfterEnd;
+
+        if (w.SwitchedOff)
+            w.Reason = "Mark entry has been closed by the Academic Registrar. This is not a deadline.";
+        else if (w.BeforeStart)
+            w.Reason = "Mark entry has not opened yet. It opens on " + w.OpensText + ".";
+        else if (w.AfterEnd)
+            w.Reason = "Mark entry closed on " + w.ClosesText + ".";
+
+        if (w.IsOpen)
+        {
+            if (w.Closes.HasValue)
+            {
+                w.Summary = "Open until " + w.ClosesText + " — " + TimeLeft(w.Closes.Value - now) + ".";
+            }
+            else if (w.Opens.HasValue) w.Summary = "Open since " + w.OpensText + ". No closing date set.";
+            else w.Summary = "Open. No dates have been set for this period.";
+        }
+        else w.Summary = w.Reason;
+
+        return w;
+    }
+
+    /// <summary>
+    /// How much of a window is left, in words. Carries the second unit while the
+    /// deadline is close, because truncating to one unit misreports by up to a whole
+    /// unit — 4 days 23 hours would read as "4 days left" and a lecturer planning
+    /// around it would be a day out. Never rounds up: the figure shown is never more
+    /// time than actually remains.
+    /// </summary>
+    private static string TimeLeft(TimeSpan left)
+    {
+        if (left.TotalSeconds <= 0) return "closing now";
+
+        // Deadlines are stored to the minute, so the seconds in this span are an
+        // artefact of when the page happened to be rendered. Without this, a window
+        // closing in exactly one day reads "23 hours 59 minutes left" a heartbeat
+        // after it is set. Rounding up to the stored precision costs under a minute
+        // of accuracy and keeps every figure on the unit the Registrar typed.
+        left = TimeSpan.FromMinutes(Math.Ceiling(left.TotalMinutes));
+
+        if (left.TotalHours < 1) return Unit(left.Minutes, "minute") + " left";
+
+        if (left.TotalDays < 1)
+            return left.Minutes == 0
+                ? Unit(left.Hours, "hour") + " left"
+                : Unit(left.Hours, "hour") + " " + Unit(left.Minutes, "minute") + " left";
+
+        int days = (int)left.TotalDays;
+        if (days >= 7 || left.Hours == 0) return Unit(days, "day") + " left";
+        return Unit(days, "day") + " " + Unit(left.Hours, "hour") + " left";
+    }
+
+    private static string Unit(int n, string noun)
+    {
+        return n + " " + noun + (n == 1 ? "" : "s");
+    }
+
+    /// <summary>The coursework entry window for this scope.</summary>
+    public static EntryWindow CourseworkWindow(Scope scope)
+    { return GetWindow(CourseworkEntryEnabled, CourseworkOpens, CourseworkCloses, scope); }
+
+    /// <summary>The final exam entry window for this scope.</summary>
+    public static EntryWindow ExamWindow(Scope scope)
+    { return GetWindow(ExamEntryEnabled, ExamOpens, ExamCloses, scope); }
+
+    /// <summary>
+    /// A stored date and time, or null when unset or unreadable. Parsed with the
+    /// invariant culture against the single stored format, then a tolerant fallback
+    /// for a value that was hand-edited — but never with the server's own culture,
+    /// which is what turns 03/09 into March somewhere and September somewhere else.
+    /// </summary>
+    public static DateTime? GetDateTime(string key, Scope scope)
+    {
+        string v = Resolve(key, scope);
+        if (v == null) return null;
+        v = v.Trim();
+        if (v == "") return null;
+
+        DateTime d;
+        if (DateTime.TryParseExact(v, DateTimeFormat, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out d)) return d;
+        if (DateTime.TryParseExact(v, "yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out d)) return d;
+        if (DateTime.TryParseExact(v, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out d)) return d;
+        if (DateTime.TryParse(v, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out d)) return d;
+        return null;                      // unreadable counts as "no limit"
+    }
+
     /// <summary>
     /// Where a setting is being asked about. Any field may be left empty; an empty
     /// field simply cannot match an override at that level.
