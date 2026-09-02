@@ -92,6 +92,7 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
                 else if (action == "Save") Response.Write(HandleSave());
                 else if (action == "SaveMany") Response.Write(HandleSaveMany());
                 else if (action == "Delete") Response.Write(HandleDelete());
+                else if (action == "RemoveScoped") Response.Write(HandleRemoveScoped());
                 else if (action == "Effective") Response.Write(HandleEffective());
                 else Response.Write("{\"success\":false,\"message\":\"Unknown action.\"}");
             }
@@ -456,6 +457,61 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
     }
 
     /// <summary>
+    /// The "all campuses / all faculties / all programmes" choice in the scope picker.
+    /// Not a stored scope_value — it is expanded into one real row per target before
+    /// anything is written, so the table never contains a magic word.
+    /// </summary>
+    public const string AllToken = "__ALL__";
+
+    /// <summary>
+    /// Plural of a scope type for a sentence shown to an operator. Appending "s" gives
+    /// "facultys" and "campuss", which reads as a fault in the screen.
+    /// </summary>
+    private static string Plural(string scopeType)
+    {
+        switch ((scopeType ?? "").ToUpperInvariant())
+        {
+            case "CAMPUS": return "campuses";
+            case "FACULTY": return "faculties";
+            case "PROGRAMME": return "programmes";
+            default: return "scopes";
+        }
+    }
+
+    /// <summary>
+    /// The scope values a save or read touches. One entry for a single target, one per
+    /// campus/faculty/programme for the "all" choice, and a single empty string for the
+    /// university-wide scope, which has no target of its own.
+    ///
+    /// Applying to every faculty is NOT the same as applying university-wide: faculty
+    /// rules beat campus rules, so "all faculties" is the only way to override a
+    /// campus-level rule everywhere at once.
+    /// </summary>
+    private List<string> TargetsFor(string scopeType, string scopeValue)
+    {
+        var outv = new List<string>();
+        if (scopeType == "GLOBAL") { outv.Add(""); return outv; }
+        if (scopeValue != AllToken) { outv.Add(scopeValue); return outv; }
+
+        string sql =
+            scopeType == "CAMPUS" ? "SELECT ID FROM acad_campuses WHERE ID > 0 ORDER BY ID" :
+            scopeType == "FACULTY" ? "SELECT faculty_code FROM acad_faculty WHERE faculty_code <> '00' ORDER BY faculty_name" :
+                                     "SELECT progcode FROM acad_programme ORDER BY progname";
+        using (var c = new MySqlConnection(ConnStr))
+        {
+            c.Open();
+            using (var cmd = new MySqlCommand(sql, c))
+            using (var r = cmd.ExecuteReader())
+                while (r.Read())
+                {
+                    string v = Convert.ToString(r.GetValue(0));
+                    if (!string.IsNullOrEmpty(v)) outv.Add(v);
+                }
+        }
+        return outv;
+    }
+
+    /// <summary>
     /// Turns the four scope fields into an ExamConfig.Scope for resolution. A PROGRAMME
     /// scope goes through ScopeForProgramme so its faculty is filled in and a
     /// faculty-level rule is seen; the others are built directly, because a campus rule
@@ -497,36 +553,69 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
         if (scopeType != "GLOBAL" && scopeValue == "")
             return js.Serialize(new { success = false, message = "Choose which " + scopeType.ToLowerInvariant() + " these settings apply to." });
 
-        // Everything stored at exactly this scope, in one query.
-        var own = new Dictionary<string, string>();
-        var ownId = new Dictionary<string, int>();
+        List<string> targets = TargetsFor(scopeType, scopeValue);
+        if (targets.Count == 0)
+            return js.Serialize(new { success = false, message = "There are no " + Plural(scopeType) + " to apply these settings to." });
+        bool isAll = (scopeValue == AllToken);
+
+        // Everything stored at this scope for every target, in one query.
+        // key -> (target -> value)
+        var own = new Dictionary<string, Dictionary<string, string>>();
         using (var c = new MySqlConnection(ConnStr))
         {
             c.Open();
-            using (var cmd = new MySqlCommand(
-                "SELECT id, config_key, config_value FROM acad_exam_config " +
-                "WHERE scope_type=@st AND scope_value=@sv AND acad_year=@y AND semester=@s AND is_active=1", c))
+            var ps = new List<string>();
+            using (var cmd = new MySqlCommand())
             {
+                cmd.Connection = c;
+                for (int i = 0; i < targets.Count; i++)
+                {
+                    ps.Add("@t" + i);
+                    cmd.Parameters.AddWithValue("@t" + i, targets[i]);
+                }
+                cmd.CommandText =
+                    "SELECT config_key, scope_value, config_value FROM acad_exam_config " +
+                    "WHERE scope_type=@st AND acad_year=@y AND semester=@s AND is_active=1 " +
+                    "AND scope_value IN (" + string.Join(",", ps.ToArray()) + ")";
                 cmd.Parameters.AddWithValue("@st", scopeType);
-                cmd.Parameters.AddWithValue("@sv", scopeValue);
                 cmd.Parameters.AddWithValue("@y", acadYear);
                 cmd.Parameters.AddWithValue("@s", semester);
                 using (var r = cmd.ExecuteReader())
                     while (r.Read())
                     {
-                        own[r.GetString(1)] = r.GetString(2);
-                        ownId[r.GetString(1)] = r.GetInt32(0);
+                        string k = r.GetString(0);
+                        if (!own.ContainsKey(k)) own[k] = new Dictionary<string, string>();
+                        own[k][r.GetString(1)] = r.GetString(2);
                     }
             }
         }
 
-        ExamConfig.Scope sc = ScopeFrom(scopeType, scopeValue, acadYear, semester);
+        // For a single target, resolution runs at that target. For "all", it runs one
+        // level out — the honest answer to "what applies where none of them has a rule".
+        ExamConfig.Scope sc = ScopeFrom(scopeType, isAll ? "" : scopeValue, acadYear, semester);
+
         var rows = new List<object>();
         foreach (Setting s in Catalogue)
         {
             string src;
             string eff = ExamConfig.Resolve(s.Key, sc, out src) ?? "";
-            bool isOwn = own.ContainsKey(s.Key);
+
+            Dictionary<string, string> here = own.ContainsKey(s.Key) ? own[s.Key] : new Dictionary<string, string>();
+            int have = here.Count;
+
+            // Mixed means the targets disagree, or only some of them have a rule. It is
+            // shown rather than hidden: picking one of the values to display would tell
+            // the operator something untrue about the others.
+            bool allSame = true;
+            string common = null;
+            foreach (var v in here.Values)
+            {
+                if (common == null) common = v;
+                else if (common != v) { allSame = false; break; }
+            }
+            bool isOwn = have > 0 && have == targets.Count && allSame;
+            bool mixed = have > 0 && !isOwn;
+
             rows.Add(new
             {
                 key = s.Key,
@@ -537,8 +626,10 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
                 window = s.Window,
                 windowRole = s.WindowRole,
                 isOwn = isOwn,
-                id = isOwn ? ownId[s.Key] : 0,
-                value = isOwn ? own[s.Key] : eff,   // the control always shows what applies
+                mixed = mixed,
+                setOn = have,                        // how many targets carry a rule
+                targets = targets.Count,
+                value = isOwn ? common : eff,        // the control shows what applies
                 effective = eff,
                 source = src ?? ""
             });
@@ -557,7 +648,9 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
             settings = rows,
             windows = wins,
             faculty = sc.Faculty ?? "",
-            isBase = isBase
+            isBase = isBase,
+            isAll = isAll,
+            targets = targets.Count
         });
     }
 
@@ -614,23 +707,35 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
             byKey[k] = norm;
         }
 
-        // 2. Check each window against the state being ASKED FOR: the submitted value
-        //    where there is one, otherwise what is already stored at this exact scope.
-        foreach (WindowDef w in Windows)
-        {
-            DateTime? opens = byKey.ContainsKey(w.Opens)
-                ? ParseStored(byKey[w.Opens]) : ReadRaw(w.Opens, scopeType, scopeValue, acadYear, semester);
-            DateTime? closes = byKey.ContainsKey(w.Closes)
-                ? ParseStored(byKey[w.Closes]) : ReadRaw(w.Closes, scopeType, scopeValue, acadYear, semester);
+        List<string> targets = TargetsFor(scopeType, scopeValue);
+        if (targets.Count == 0)
+            return js.Serialize(new { success = false, message = "There are no " + Plural(scopeType) + " to apply these settings to." });
+        bool isAll = (scopeValue == AllToken);
 
-            if (opens.HasValue && closes.HasValue && closes.Value <= opens.Value)
-                return js.Serialize(new { success = false, message =
-                    w.Title + " would close before it opens (" +
-                    opens.Value.ToString("d MMM yyyy, h:mm tt") + " to " +
-                    closes.Value.ToString("d MMM yyyy, h:mm tt") + "). Check both dates." });
+        // 2. Check each window against the state being ASKED FOR: the submitted value
+        //    where there is one, otherwise what is already stored. Checked per target,
+        //    because two targets can hold different dates and only one of them may be
+        //    about to become backwards.
+        foreach (string t in targets)
+        {
+            foreach (WindowDef w in Windows)
+            {
+                DateTime? opens = byKey.ContainsKey(w.Opens)
+                    ? ParseStored(byKey[w.Opens]) : ReadRaw(w.Opens, scopeType, t, acadYear, semester);
+                DateTime? closes = byKey.ContainsKey(w.Closes)
+                    ? ParseStored(byKey[w.Closes]) : ReadRaw(w.Closes, scopeType, t, acadYear, semester);
+
+                if (opens.HasValue && closes.HasValue && closes.Value <= opens.Value)
+                    return js.Serialize(new { success = false, message =
+                        w.Title + " would close before it opens (" +
+                        opens.Value.ToString("d MMM yyyy, h:mm tt") + " to " +
+                        closes.Value.ToString("d MMM yyyy, h:mm tt") + ")" +
+                        (isAll ? " for " + scopeType.ToLowerInvariant() + " " + t : "") + ". Check both dates." });
+            }
         }
 
-        // 3. Write. All of it or none of it: a half-applied window is a rule nobody chose.
+        // 3. Write. All of it or none of it: a half-applied window is a rule nobody
+        //    chose, and half a bulk apply is worse than none.
         int written = 0;
         using (var c = new MySqlConnection(ConnStr))
         {
@@ -639,6 +744,7 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
             {
                 try
                 {
+                    foreach (string target in targets)
                     foreach (var p in pending)
                     {
                         Setting def = p.Key; string value = p.Value;
@@ -649,7 +755,7 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
                             "AND scope_value=@sv AND acad_year=@y AND semester=@s LIMIT 1", c, tx))
                         {
                             cmd.Parameters.AddWithValue("@k", def.Key); cmd.Parameters.AddWithValue("@st", scopeType);
-                            cmd.Parameters.AddWithValue("@sv", scopeValue); cmd.Parameters.AddWithValue("@y", acadYear);
+                            cmd.Parameters.AddWithValue("@sv", target); cmd.Parameters.AddWithValue("@y", acadYear);
                             cmd.Parameters.AddWithValue("@s", semester);
                             object o = cmd.ExecuteScalar();
                             if (o != null && o != DBNull.Value) before = o.ToString();
@@ -662,14 +768,14 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
                             "  value_type=VALUES(value_type), updated_by=VALUES(updated_by), updated_at=NOW(), is_active=1", c, tx))
                         {
                             cmd.Parameters.AddWithValue("@k", def.Key); cmd.Parameters.AddWithValue("@st", scopeType);
-                            cmd.Parameters.AddWithValue("@sv", scopeValue); cmd.Parameters.AddWithValue("@y", acadYear);
+                            cmd.Parameters.AddWithValue("@sv", target); cmd.Parameters.AddWithValue("@y", acadYear);
                             cmd.Parameters.AddWithValue("@s", semester); cmd.Parameters.AddWithValue("@vt", def.Type);
                             cmd.Parameters.AddWithValue("@v", value); cmd.Parameters.AddWithValue("@n", notes);
                             cmd.Parameters.AddWithValue("@by", Actor());
                             cmd.ExecuteNonQuery();
                         }
 
-                        LogTx(c, tx, def.Key, scopeType, scopeValue, acadYear, semester,
+                        LogTx(c, tx, def.Key, scopeType, target, acadYear, semester,
                               before, value, before == null ? "CREATE" : "SET");
                         written++;
                     }
@@ -683,12 +789,9 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
             }
         }
 
-        return js.Serialize(new
-        {
-            success = true,
-            written = written,
-            message = written == 1 ? "1 setting saved." : written + " settings saved."
-        });
+        string msg = pending.Count == 1 ? "1 setting saved" : pending.Count + " settings saved";
+        if (isAll) msg += " for all " + targets.Count + " " + Plural(scopeType);
+        return js.Serialize(new { success = true, written = written, message = msg + "." });
     }
 
     /// <summary>A stored yyyy-MM-dd HH:mm, or null for empty. Already normalised.</summary>
@@ -787,6 +890,88 @@ public partial class COOPERP_NewScreens_ExamConfiguration : System.Web.UI.Page
             Log(c, key, st, sv, yr, sem, val, null, "DELETE");
         }
         return js.Serialize(new { success = true, message = "Override removed. The wider rule now applies." });
+    }
+
+    /// <summary>
+    /// action=RemoveScoped — take one setting off the scope the form is editing.
+    ///
+    /// The form removes by scope rather than by row id because "all faculties" is not
+    /// one row, it is one row per faculty, and an id-based remove would silently clear
+    /// only the first of them.
+    /// </summary>
+    private string HandleRemoveScoped()
+    {
+        var js = new JavaScriptSerializer();
+        Func<string, string> F = k => (Request.Form[k] ?? "").Trim();
+
+        string key = F("key");
+        string scopeType = F("scopeType").ToUpperInvariant();
+        if (scopeType == "") scopeType = "GLOBAL";
+        string scopeValue = scopeType == "GLOBAL" ? "" : F("scopeValue");
+        string acadYear = F("acadYear");
+        int semester; if (!int.TryParse(F("semester"), out semester)) semester = 0;
+
+        Setting def = Catalogue.Find(x => x.Key == key);
+        if (def == null) return js.Serialize(new { success = false, message = "Unknown setting." });
+        if (scopeType != "GLOBAL" && scopeType != "CAMPUS" && scopeType != "FACULTY" && scopeType != "PROGRAMME")
+            return js.Serialize(new { success = false, message = "Choose a valid scope." });
+
+        // Same floor as HandleDelete: the university-wide row for every year and every
+        // semester is what everything else falls back to.
+        if (scopeType == "GLOBAL" && acadYear == "" && semester == 0)
+            return js.Serialize(new { success = false, message = "The university-wide value cannot be removed — change it instead." });
+
+        List<string> targets = TargetsFor(scopeType, scopeValue);
+        if (targets.Count == 0) return js.Serialize(new { success = false, message = "Nothing to remove." });
+
+        int removed = 0;
+        using (var c = new MySqlConnection(ConnStr))
+        {
+            c.Open();
+            using (MySqlTransaction tx = c.BeginTransaction())
+            {
+                try
+                {
+                    foreach (string t in targets)
+                    {
+                        string before = null;
+                        using (var cmd = new MySqlCommand(
+                            "SELECT config_value FROM acad_exam_config WHERE config_key=@k AND scope_type=@st " +
+                            "AND scope_value=@sv AND acad_year=@y AND semester=@s LIMIT 1", c, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@k", key); cmd.Parameters.AddWithValue("@st", scopeType);
+                            cmd.Parameters.AddWithValue("@sv", t); cmd.Parameters.AddWithValue("@y", acadYear);
+                            cmd.Parameters.AddWithValue("@s", semester);
+                            object o = cmd.ExecuteScalar();
+                            if (o != null && o != DBNull.Value) before = o.ToString();
+                        }
+                        if (before == null) continue;
+
+                        using (var cmd = new MySqlCommand(
+                            "DELETE FROM acad_exam_config WHERE config_key=@k AND scope_type=@st " +
+                            "AND scope_value=@sv AND acad_year=@y AND semester=@s", c, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@k", key); cmd.Parameters.AddWithValue("@st", scopeType);
+                            cmd.Parameters.AddWithValue("@sv", t); cmd.Parameters.AddWithValue("@y", acadYear);
+                            cmd.Parameters.AddWithValue("@s", semester);
+                            removed += cmd.ExecuteNonQuery();
+                        }
+                        LogTx(c, tx, key, scopeType, t, acadYear, semester, before, null, "DELETE");
+                    }
+                    tx.Commit();
+                }
+                catch (Exception ex)
+                {
+                    try { tx.Rollback(); } catch { }
+                    return js.Serialize(new { success = false, message = "Nothing was removed: " + ex.Message });
+                }
+            }
+        }
+
+        if (removed == 0) return js.Serialize(new { success = true, message = "There was nothing set here to remove." });
+        return js.Serialize(new { success = true, removed = removed, message =
+            removed == 1 ? "Rule removed. The wider setting applies again."
+                         : removed + " rules removed. The wider setting applies again." });
     }
 
     /// <summary>

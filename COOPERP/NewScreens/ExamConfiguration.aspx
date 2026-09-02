@@ -53,6 +53,7 @@
 .xc-tag{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:2px 6px;white-space:nowrap;}
 .xc-tag--inh{background:var(--surf);color:var(--muted);border:1px solid var(--bdr);}
 .xc-tag--own{background:#eef4ff;color:var(--brand);border:1px solid #c5d8f7;}
+.xc-tag--mix{background:#fff8e1;color:#8a6100;border:1px solid #f0dfa8;}
 .xc-link{background:none;border:0;padding:0;font-size:11px;color:var(--brand);cursor:pointer;font-family:inherit;text-decoration:underline;}
 .xc-link--d{color:#b42318;}
 
@@ -222,7 +223,7 @@
     var DIRTY = {};                 // key -> the value the operator has typed
     var BASELINE = {};              // key -> what was loaded, so Discard is exact
     var CURSCOPE = { scopeType: "GLOBAL", scopeValue: "", acadYear: "", semester: 0 };
-    var IS_BASE = true, LOADING = false;
+    var IS_BASE = true, IS_ALL = false, N_TARGETS = 1, LOADING = false;
 
     // ── small helpers ───────────────────────────────────────────────────────
     function $(id) { return document.getElementById(id); }
@@ -291,6 +292,7 @@
     }
     function scopeWords(st, sv) {
         if (st === "GLOBAL") return "The whole university";
+        if (sv === ALL) return "All " + pluralOf(st);
         var list = st === "CAMPUS" ? SCOPES.campuses : (st === "FACULTY" ? SCOPES.faculties : SCOPES.programmes);
         for (var i = 0; i < list.length; i++) if (String(list[i].v) === String(sv)) return list[i].t;
         return st.charAt(0) + st.substring(1).toLowerCase() + " " + sv;
@@ -335,6 +337,9 @@
         if (!sel.value) sel.value = "0";
     }
 
+    var ALL = "__ALL__";
+    function pluralOf(t) { return t === "CAMPUS" ? "campuses" : (t === "FACULTY" ? "faculties" : "programmes"); }
+
     function scopeTypeChanged() {
         var t = $("scScope").value, sel = $("scValue");
         clear(sel);
@@ -346,6 +351,12 @@
         sel.disabled = false;
         var list = t === "CAMPUS" ? SCOPES.campuses : (t === "FACULTY" ? SCOPES.faculties : SCOPES.programmes);
         sel.appendChild(opt("", "Choose one…", false));
+
+        /* Applying to every faculty is NOT the same as applying university-wide.
+           Faculty rules beat campus rules, so this is the only way to override a
+           campus-level rule everywhere at once. It writes one real row per target. */
+        sel.appendChild(opt(ALL, "All " + pluralOf(t) + " (" + (list || []).length + ")", false));
+
         (list || []).forEach(function (o) { sel.appendChild(opt(o.v, o.t, false)); });
     }
 
@@ -362,6 +373,14 @@
             }));
         else
             n.appendChild(E("span", { class: "xc-tag xc-tag--inh", text: "base values" }));
+
+        // Say plainly that a save here is a bulk write, before it happens rather than after.
+        if (IS_ALL)
+            n.appendChild(E("span", {
+                style: "font-size:11px;color:#8a6100;",
+                text: "Saving writes a separate rule for each of the " + N_TARGETS + " "
+                    + pluralOf(CURSCOPE.scopeType) + "."
+            }));
     }
 
     // ── loading a scope ─────────────────────────────────────────────────────
@@ -386,6 +405,8 @@
             SETTINGS = d.settings || [];
             WINDOWS = d.windows || [];
             IS_BASE = !!d.isBase;
+            IS_ALL = !!d.isAll;
+            N_TARGETS = Number(d.targets) || 1;
             SETTINGS.forEach(function (s) { BASELINE[s.key] = s.value; });
             describeScope();
             renderForm();
@@ -431,15 +452,22 @@
         }
     }
 
+    /* Three states, not two. Under "all …" the targets can disagree, and showing one of
+       their values as though it were the answer would tell the operator something untrue
+       about the rest. A mixed field is left alone unless it is deliberately changed. */
     function metaRow(s) {
         var meta = E("div", { class: "xc-f__meta" });
-        if (s.isOwn) {
+
+        if (s.mixed) {
+            meta.appendChild(E("span", { class: "xc-tag xc-tag--mix", text: "mixed" }));
+            meta.appendChild(E("span", {
+                style: "font-size:11px;color:#8a6100;",
+                text: "set on " + s.setOn + " of " + s.targets + " — change this field to give them all the same value"
+            }));
+        } else if (s.isOwn) {
             meta.appendChild(E("span", { class: "xc-tag xc-tag--own", text: "set here" }));
-            if (!IS_BASE)
-                meta.appendChild(E("button", {
-                    type: "button", class: "xc-link xc-link--d", text: "Remove this rule",
-                    onclick: function () { removeRule(s); }
-                }));
+            if (IS_ALL && s.targets > 1)
+                meta.appendChild(E("span", { style: "font-size:11px;color:#64748b;", text: "on all " + s.targets }));
         } else {
             meta.appendChild(E("span", { class: "xc-tag xc-tag--inh", text: "inherited" }));
             meta.appendChild(E("span", {
@@ -447,6 +475,12 @@
                 text: s.source ? "from " + s.source : "using the built-in default"
             }));
         }
+
+        if ((s.isOwn || s.mixed) && !IS_BASE)
+            meta.appendChild(E("button", {
+                type: "button", class: "xc-link xc-link--d", text: "Remove this rule",
+                onclick: function () { removeRule(s); }
+            }));
         return meta;
     }
 
@@ -519,14 +553,18 @@
             }
         });
 
+        // The pair is one row on screen, so its state is the state of both ends together.
         var meta = E("div", { class: "xc-f__meta" });
-        if (so.isOwn || sc.isOwn) {
+        if (so.mixed || sc.mixed) {
+            meta.appendChild(E("span", { class: "xc-tag xc-tag--mix", text: "mixed" }));
+            meta.appendChild(E("span", {
+                style: "font-size:11px;color:#8a6100;",
+                text: "the " + pluralOf(CURSCOPE.scopeType) + " do not all have the same dates — set both to give them one window"
+            }));
+        } else if (so.isOwn || sc.isOwn) {
             meta.appendChild(E("span", { class: "xc-tag xc-tag--own", text: "set here" }));
-            if (!IS_BASE)
-                meta.appendChild(E("button", {
-                    type: "button", class: "xc-link xc-link--d", text: "Remove this rule",
-                    onclick: function () { removeRule(so.isOwn ? so : sc, sc.isOwn && so.isOwn ? sc : null); }
-                }));
+            if (IS_ALL && so.targets > 1)
+                meta.appendChild(E("span", { style: "font-size:11px;color:#64748b;", text: "on all " + so.targets }));
         } else {
             meta.appendChild(E("span", { class: "xc-tag xc-tag--inh", text: "inherited" }));
             meta.appendChild(E("span", {
@@ -534,6 +572,11 @@
                 text: so.source ? "from " + so.source : "using the built-in default"
             }));
         }
+        if ((so.isOwn || sc.isOwn || so.mixed || sc.mixed) && !IS_BASE)
+            meta.appendChild(E("button", {
+                type: "button", class: "xc-link xc-link--d", text: "Remove this rule",
+                onclick: function () { removeRule(so, sc); }
+            }));
 
         var row = E("div", { class: "xc-f xc-f--wide", "data-keys": w.opens + "," + w.closes, "data-wide": "1" }, [
             E("div", {}, [
@@ -627,14 +670,28 @@
         });
     }
 
+    /* Removes by scope, not by row id: "all faculties" is one row PER faculty, and an
+       id-based remove would silently clear only the first of them. */
     function removeRule(s, also) {
-        if (!s || !s.id) return;
-        if (!confirm("Remove this rule?\n\n\"" + s.title + "\" will fall back to the wider setting.")) return;
-        post("Delete", form({ id: s.id }), function (d) {
-            if (!d || !d.success) { toast((d && d.message) || "Could not remove.", true); return; }
-            if (also && also.id) {
-                post("Delete", form({ id: also.id }), function () { toast("Rule removed."); loadScope(); loadRules(); });
-            } else { toast(d.message || "Rule removed."); loadScope(); loadRules(); }
+        if (!s) return;
+        var where = scopeWords(CURSCOPE.scopeType, CURSCOPE.scopeValue);
+        if (!confirm("Remove this rule?\n\n\"" + s.title + "\" will fall back to the wider setting for " + where + ".")) return;
+
+        var keys = [s.key];
+        if (also && also.key) keys.push(also.key);
+
+        var left = keys.length, failed = null;
+        keys.forEach(function (k) {
+            post("RemoveScoped", form({
+                key: k, scopeType: CURSCOPE.scopeType, scopeValue: CURSCOPE.scopeValue,
+                acadYear: CURSCOPE.acadYear, semester: CURSCOPE.semester
+            }), function (d) {
+                if (!d || !d.success) failed = (d && d.message) || "Could not remove.";
+                if (--left === 0) {
+                    if (failed) toast(failed, true); else toast("Rule removed. The wider setting applies again.");
+                    loadScope(); loadRules();
+                }
+            });
         });
     }
 
