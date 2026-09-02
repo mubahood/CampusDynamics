@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -78,6 +78,12 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         LoadProgrammes();
         LoadEntryYears();
         LoadQuickEditDropdowns();
+
+        // The Add Registration form's year list. Populated on every request for the same
+        // reason as the rest: the master page disables view state, so a dropdown that is
+        // not rebuilt comes back empty on postback. No "All" entry — a registration is
+        // made in one year, and the current one is the sensible default.
+        AcademicYearHelper.PopulateDropDown(ddlAddAcad, false, true);
         
         if (!IsPostBack)
         {
@@ -1323,9 +1329,57 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         get { return ConfigurationManager.ConnectionStrings["vacConnectionString"].ConnectionString; }
     }
 
-    [WebMethod]
+    // ===============================================================
+    //  WHO IS CALLING
+    //
+    //  The PAGE is behind forms authentication — an anonymous request for
+    //  CourseRegistration.aspx is redirected to the login screen. Its PageMethods were
+    //  not: every one of them answered an anonymous caller with real data, and the
+    //  write methods below can delete a registration, move a student's marks to a
+    //  different course code, or reassign a whole batch to another semester. A page
+    //  that is protected while its API is open is not protected.
+    //
+    //  Refusals are HTTP 200 with success:false, never 401. FormsAuthenticationModule
+    //  rewrites a 401 into a 302 to the login page, so the browser would receive an
+    //  HTML login form where the script expected JSON, and the screen would report
+    //  "could not reach the server" instead of "your session expired".
+    // ===============================================================
+
+    /// <summary>True when the request carries a signed-in staff session.</summary>
+    private static bool CallerAuthenticated()
+    {
+        try
+        {
+            HttpContext ctx = HttpContext.Current;
+            if (ctx == null) return false;
+
+            if (ctx.User != null && ctx.User.Identity != null && ctx.User.Identity.IsAuthenticated
+                && !string.IsNullOrEmpty(ctx.User.Identity.Name)) return true;
+
+            if (ctx.Session != null)
+            {
+                object u = ctx.Session["username"];
+                if (u != null && !string.IsNullOrEmpty(u.ToString().Trim())) return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    /// <summary>The refusal, in the shape every caller on this page already handles.</summary>
+    private static string NotSignedIn()
+    {
+        return new JavaScriptSerializer().Serialize(new
+        {
+            success = false,
+            message = "Your session has expired. Please sign in again, then retry."
+        });
+    }
+
+    [WebMethod(EnableSession = true)]
     public static string DeleteRegistration(string regno, string course, string acad, int sem)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -1352,9 +1406,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
     }
 
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string SetCourseStatus(string regno, string course, string acad, int sem, string status)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -1396,9 +1451,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// (academic year, semester) so the client can prevent a collision. Also used to fill the
     /// searchable course picker in the Add-Record modal.
     /// </summary>
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string GetStudentCourseOptions(string regno, string acad, int sem)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -1409,6 +1465,7 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
             string prog = null, studentName = null;
             var courses = new List<object>();
             var taken = new List<string>();
+            var enrolledYears = new List<int>();
 
             using (var conn = new MySqlConnection(ActionConn))
             {
@@ -1461,8 +1518,48 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
                         using (var rdr = cmd.ExecuteReader())
                             while (rdr.Read()) taken.Add(rdr["courseID"].ToString().Trim());
                     }
+
+                // The years of study this student is actually semester-registered for in the
+                // chosen academic year. AddCourseRegistration refuses a REGULAR record when the
+                // course's curriculum year is not among them; returning it here lets the form
+                // say so while the operator is still filling it in, instead of after they
+                // submit. Same query as the guard, so the two cannot disagree.
+                if (!string.IsNullOrWhiteSpace(acad))
+                    using (var cmd = new MySqlCommand(
+                        @"SELECT DISTINCT studyyear FROM acad_registration
+                          WHERE regno=@r AND acad_year=@a
+                            AND regstatus IN ('REGISTERED','CLEARED','LATE REGISTERED')
+                          ORDER BY studyyear", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@r", regno);
+                        cmd.Parameters.AddWithValue("@a", (acad ?? "").Trim());
+                        using (var rdr = cmd.ExecuteReader())
+                            while (rdr.Read())
+                            {
+                                int y; if (int.TryParse(Convert.ToString(rdr["studyyear"]), out y) && y > 0)
+                                    enrolledYears.Add(y);
+                            }
+                    }
             }
-            return js.Serialize(new { success = true, prog = prog, student = studentName, courses = courses, taken = taken });
+
+            // NOTE: IsSemesterActive tests the CURRENT academic year's flags, whatever year is
+            // being registered — it is a "is this semester open for registration right now"
+            // switch, not a per-year one. The form is worded to match, because promising
+            // "semester 2 is open for 2024/2025" would be a claim this does not make.
+            bool semesterOpen = sem >= 1 && sem <= 3 && AcademicYearHelper.IsSemesterActive(sem);
+
+            return js.Serialize(new
+            {
+                success = true,
+                prog = prog,
+                student = studentName,
+                courses = courses,
+                taken = taken,
+                enrolledYears = enrolledYears,
+                semesterOpen = semesterOpen,
+                semester = sem,
+                acad = (acad ?? "").Trim()
+            });
         }
         catch (Exception ex) { return js.Serialize(new { success = false, message = ex.Message }); }
     }
@@ -1482,9 +1579,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// student has ever been enrolled in (semester registrations + any sitting they already
     /// hold courses in), each labelled with its year of study.
     /// </summary>
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string GetRegistrationEdit(string regno, string course, string acad, int sem)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -1589,10 +1687,11 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// moves with the registration and is re-stamped with the destination's year of study.
     /// Refuses a move that would collide with a course the student already holds there.
     /// </summary>
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string SaveRegistrationEdit(string regno, string course, string acad, int sem,
                                               string toAcad, int toSem, string status, string note)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -1754,9 +1853,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// changing anything. Verdicts: MOVE / SAME (already there) / DUP (the student already holds
     /// that course there) / NOSIT (the student has never enrolled for that sitting) / GONE.
     /// </summary>
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string PreviewBatchMove(string keys, string toAcad, int toSem)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -1868,9 +1968,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// rather than forced through. The published result moves with its registration and is
     /// re-stamped with the destination's year of study. All or nothing, in one transaction.
     /// </summary>
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string ApplyBatchMove(string keys, string toAcad, int toSem, string note)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -1973,9 +2074,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// matches what the admin is typing. Code matches are ranked first (a code prefix first of all)
     /// so the exact paper being looked for tops the list.
     /// </summary>
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string SearchCourses(string term)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -2014,9 +2116,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// are registered for (portal acad_course_registration) with its mark stage / provisional marks —
     /// grouped by the client into academic-year + semester sittings.
     /// </summary>
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string GetStudentEnrolment(string regno)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -2120,9 +2223,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// code in every result summary. Refuses if the student already holds the target course that
     /// sitting (would duplicate). Everything runs in one transaction.
     /// </summary>
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string ChangeCourseCode(string regno, string oldCourse, string acad, int sem, string newCourse, string reason)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {
@@ -2229,9 +2333,10 @@ public partial class COOPERP_NewScreens_CourseRegistration : System.Web.UI.Page
     /// Add-Record popup is stable. Study-year is derived from the target course's curriculum
     /// position; keeps the semester-active + semester-registration guards.
     /// </summary>
-    [WebMethod]
+    [WebMethod(EnableSession = true)]
     public static string AddCourseRegistration(string regno, string course, string acad, int sem, string type)
     {
+        if (!CallerAuthenticated()) return NotSignedIn();
         var js = new JavaScriptSerializer();
         try
         {

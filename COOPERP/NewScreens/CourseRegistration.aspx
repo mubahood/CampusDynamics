@@ -442,6 +442,21 @@
         .cr-in:focus { outline: none; border-color: #174DA4; box-shadow: 0 0 0 2px rgba(23,77,164,.12); }
         .cr-in:disabled { background: #f1f3f7; color: #9aa3af; }
         .cr-hint { display: block; font-size: 10px; color: #94a3b8; margin-top: 4px; }
+
+        /* Pre-flight: what the record would mean, before it is created. */
+        .cr-precheck { margin: 0 0 12px; border: 1px solid #e0e5ed; background: #fbfcfe; }
+        .cr-precheck__r { display: flex; gap: 7px; align-items: flex-start; padding: 7px 10px;
+                          font-size: 11px; line-height: 1.45; border-bottom: 1px solid #eef1f6; }
+        .cr-precheck__r:last-child { border-bottom: none; }
+        .cr-precheck__r::before { flex: 0 0 auto; font-weight: 700; font-size: 10px; line-height: 1.6; }
+        .cr-precheck__r--ok   { color: #14532d; background: #f0fdf4; }
+        .cr-precheck__r--ok::before   { content: "OK"; color: #16a34a; }
+        .cr-precheck__r--warn { color: #713f12; background: #fffbeb; }
+        .cr-precheck__r--warn::before { content: "!"; color: #b45309; }
+        .cr-precheck__r--bad  { color: #7f1d1d; background: #fef2f2; }
+        .cr-precheck__r--bad::before  { content: "X"; color: #dc2626; }
+        .cr-precheck__r--info { color: #475569; }
+        .cr-precheck__r--info::before { content: "i"; color: #64748b; }
         .cr-inline-msg { display: none; padding: 8px 10px; border-radius: 0; font-size: 11px; margin-bottom: 10px; }
         .cr-inline-msg.show { display: block; }
         .cr-inline-msg--err { background: #fdecec; color: #a12622; border: 1px solid #f3c7c4; }
@@ -732,23 +747,17 @@
             </div>
             <div class="cr-modal__body">
                 <div id="addMsg" class="cr-inline-msg"></div>
-                <div class="cr-fld">
-                    <label>Registration Number</label>
-                    <input type="text" id="addRegNo" class="cr-in" placeholder="e.g. MRU2024001234" autocomplete="off" onblur="addLoadCourses()" />
-                    <span id="addStudent" class="cr-hint"></span>
-                </div>
-                <div class="cr-fld">
-                    <label>Course</label>
-                    <input type="text" id="addCourse" class="cr-in" list="addCourseList" placeholder="Enter the reg number first, then type a code or name&hellip;" autocomplete="off" disabled />
-                    <datalist id="addCourseList"></datalist>
-                </div>
+                <%-- The sitting comes first. Everything below depends on it: which courses
+                     the student may take, which they already hold, and whether a REGULAR
+                     record is even possible. Asking for it last is how the old form ended
+                     up validating against a sitting the operator had since changed. --%>
                 <div class="cr-fld2">
                     <div>
-                        <label>Academic Year</label>
-                        <input type="text" id="addAcad" class="cr-in" placeholder="2025/2026" autocomplete="off" />
+                        <label for="<%= ddlAddAcad.ClientID %>">Academic Year</label>
+                        <asp:DropDownList ID="ddlAddAcad" runat="server" CssClass="cr-in" />
                     </div>
                     <div>
-                        <label>Semester</label>
+                        <label for="addSem">Semester</label>
                         <select id="addSem" class="cr-in">
                             <option value="1">Semester 1</option>
                             <option value="2">Semester 2</option>
@@ -757,11 +766,29 @@
                     </div>
                 </div>
                 <div class="cr-fld">
-                    <label>Record Type</label>
+                    <label for="addRegNo">Registration Number</label>
+                    <input type="text" id="addRegNo" class="cr-in" placeholder="e.g. MRU2024001234" autocomplete="off" />
+                    <span id="addStudent" class="cr-hint"></span>
+                </div>
+
+                <%-- What the record would mean, before it is created: is the semester open,
+                     is the student enrolled for the year the course belongs to, and what do
+                     they already hold this sitting. --%>
+                <div id="addCheck" class="cr-precheck" style="display:none;"></div>
+
+                <div class="cr-fld">
+                    <label for="addCourse">Course</label>
+                    <input type="text" id="addCourse" class="cr-in" list="addCourseList" placeholder="Enter the reg number first, then type a code or name&hellip;" autocomplete="off" disabled />
+                    <datalist id="addCourseList"></datalist>
+                    <span id="addCourseHint" class="cr-hint"></span>
+                </div>
+                <div class="cr-fld">
+                    <label for="addType">Record Type</label>
                     <select id="addType" class="cr-in">
                         <option value="REGULAR">Regular Course Registration</option>
                         <option value="RETAKE">Retake Course Registration</option>
                     </select>
+                    <span id="addTypeHint" class="cr-hint"></span>
                 </div>
             </div>
             <div class="cr-modal__foot">
@@ -1573,44 +1600,174 @@
 
         // ===== ADD RECORD (self-contained) ========================================
         var addCourses = [], addTaken = [];
+        // ===== ADD COURSE REGISTRATION ==========================================
+        // The form loads its context — the student, the courses on their programme, what
+        // they already hold, and whether the record it would create is legal — whenever
+        // ANY of registration number, academic year or semester changes.
+        //
+        // Reloading on the reg number alone was wrong: the "already registered" list and
+        // the enrolment check are answers about ONE sitting, so changing the year or the
+        // semester afterwards left the form validating against a sitting the operator had
+        // moved away from. It would happily offer a course the student already held.
+        var addCtx = null;                       // last context the server returned
+        var addSeq = 0;                          // guards against out-of-order replies
+
+        function addAcadEl() { return qs('<%= ddlAddAcad.ClientID %>'); }
+        function addAcadVal() { var e = addAcadEl(); return e ? (e.value || '').trim() : ''; }
+
         window.openAddModal = function () {
             msg('addMsg', '');
             qs('addRegNo').value = '';
             qs('addStudent').textContent = '';
+            qs('addCourseHint').textContent = '';
+            qs('addTypeHint').textContent = '';
+            qs('addCheck').style.display = 'none';
             var c = qs('addCourse'); c.value = ''; c.disabled = true; qs('addCourseList').innerHTML = '';
-            addCourses = []; addTaken = [];
-            // Pre-fill sitting context from the page filters (editable).
-            var a = pageVal('<%= ddlAcadYear.ClientID %>'); if (a) qs('addAcad').value = a;
-            var s = pageVal('<%= ddlSemester.ClientID %>'); if (s && qs('addSem').querySelector('option[value="' + s + '"]')) qs('addSem').value = s;
-            // if a course filter is active (typed code wins), seed it after courses load
+            addCourses = []; addTaken = []; addCtx = null;
+
+            // Pre-fill the sitting from the page filters, where they name a real one.
+            var a = pageVal('<%= ddlAcadYear.ClientID %>'), ae = addAcadEl();
+            if (a && ae && ae.querySelector('option[value="' + cssq(a) + '"]')) ae.value = a;
+            var s = pageVal('<%= ddlSemester.ClientID %>');
+            if (s && qs('addSem').querySelector('option[value="' + cssq(s) + '"]')) qs('addSem').value = s;
+
             var t = (window.courseCodeValue ? courseCodeValue() : '') || pageVal('<%= ddlCourse.ClientID %>');
+            window._addSeedCourse = t || '';
             qs('addModalOverlay').classList.add('show');
             setTimeout(function () { qs('addRegNo').focus(); }, 60);
-            window._addSeedCourse = t || '';
         };
         window.closeAddModal = function () { var m = qs('addModalOverlay'); if (m) m.classList.remove('show'); };
+
+        // Values go into an attribute selector, so anything unexpected is escaped rather
+        // than allowed to change what the selector means.
+        function cssq(v) { return String(v).replace(/["\\]/g, '\\$&'); }
+
         window.addLoadCourses = function () {
             var reg = (qs('addRegNo').value || '').trim();
-            var c = qs('addCourse');
-            if (!reg) { c.disabled = true; qs('addStudent').textContent = ''; return; }
+            var c = qs('addCourse'), acad = addAcadVal(), sem = parseInt(qs('addSem').value, 10) || 0;
+
+            if (!reg) {
+                c.disabled = true; addCtx = null;
+                qs('addStudent').textContent = '';
+                qs('addCheck').style.display = 'none';
+                return;
+            }
+            var mySeq = ++addSeq;
             qs('addStudent').textContent = 'Loading student…';
-            callAjax('GetStudentCourseOptions', { regno: reg, acad: (qs('addAcad').value || '').trim(), sem: parseInt(qs('addSem').value, 10) || 0 }, function (r) {
-                if (!r || !r.success) { qs('addStudent').textContent = (r && r.message) || 'Student not found.'; c.disabled = true; return; }
+            callAjax('GetStudentCourseOptions', { regno: reg, acad: acad, sem: sem }, function (r) {
+                if (mySeq !== addSeq) return;               // a later change already won
+                if (!r || !r.success) {
+                    addCtx = null;
+                    qs('addStudent').textContent = (r && r.message) || 'Student not found.';
+                    qs('addCheck').style.display = 'none';
+                    c.disabled = true;
+                    return;
+                }
+                addCtx = r;
                 addCourses = r.courses || []; addTaken = r.taken || [];
                 qs('addStudent').textContent = (r.student || '') + (r.prog ? '  ·  ' + r.prog : '');
                 fillCourseList('addCourseList', addCourses, addTaken);
                 c.disabled = false;
-                if (window._addSeedCourse && codeInList(addCourses, window._addSeedCourse, addTaken)) c.value = window._addSeedCourse;
+                if (window._addSeedCourse && codeInList(addCourses, window._addSeedCourse, addTaken)) {
+                    c.value = window._addSeedCourse;
+                    window._addSeedCourse = '';
+                }
+                renderAddCheck();
             });
         };
+
+        function courseByCode(code) {
+            code = String(code || '').toUpperCase();
+            for (var i = 0; i < addCourses.length; i++)
+                if (String(addCourses[i].code || '').toUpperCase() === code) return addCourses[i];
+            return null;
+        }
+
+        /* What this record would mean, stated before it is created. Each line is a check
+           the server also makes, so nothing here can promise something the save refuses. */
+        function renderAddCheck() {
+            var box = qs('addCheck');
+            if (!addCtx) { box.style.display = 'none'; return; }
+
+            var sem = parseInt(qs('addSem').value, 10) || 0;
+            var years = addCtx.enrolledYears || [];
+            var course = resolveCode(addCourses, (qs('addCourse').value || '').trim());
+            var cObj = courseByCode(course);
+            var type = qs('addType').value || 'REGULAR';
+            var rows = [], blocking = false;
+
+            if (!addCtx.semesterOpen) {
+                rows.push(['bad', 'Semester ' + sem + ' is not open for registration. An administrator must set it active on the Academic Years page.']);
+                blocking = true;
+            }
+
+            if (years.length) {
+                rows.push(['ok', 'Semester-registered for ' + addCtx.acad + ' — year of study '
+                    + years.join(', ') + '.']);
+            } else {
+                rows.push(['warn', 'No semester registration found for ' + (addCtx.acad || 'this year')
+                    + '. A regular record will be refused; a retake is still allowed.']);
+            }
+
+            if (cObj) {
+                var sy = parseInt(cObj.sy, 10) || 0;
+                if (type === 'REGULAR' && sy > 0 && years.length && years.indexOf(sy) < 0) {
+                    rows.push(['bad', course + ' is a Year ' + sy + ' course, and the student is not registered for Year '
+                        + sy + ' in ' + addCtx.acad + '. Register that year first, or add this as a retake.']);
+                    blocking = true;
+                } else if (type === 'REGULAR' && sy > 0 && !years.length) {
+                    blocking = true;                       // already reported above
+                }
+                if (addTaken.indexOf(String(course).toUpperCase()) > -1) {
+                    rows.push(['bad', 'The student already has ' + course + ' in ' + addCtx.acad + ' semester ' + sem + '.']);
+                    blocking = true;
+                }
+            }
+
+            if (addTaken.length)
+                rows.push(['info', 'Already holds this sitting: ' + addTaken.join(', ')]);
+
+            var h = '';
+            for (var i = 0; i < rows.length; i++)
+                h += '<div class="cr-precheck__r cr-precheck__r--' + rows[i][0] + '">' + _e(rows[i][1]) + '</div>';
+            box.innerHTML = h;
+            box.style.display = rows.length ? 'block' : 'none';
+
+            var btn = qs('addSubmitBtn');
+            if (btn) {
+                btn.disabled = blocking;
+                btn.title = blocking ? 'Resolve the points above first' : '';
+            }
+            qs('addTypeHint').textContent = (type === 'RETAKE')
+                ? 'A retake is not checked against the year of study.'
+                : 'A regular record requires a semester registration for the course’s year of study.';
+        }
+        window.renderAddCheck = renderAddCheck;
+
+        // Any of the three that define the sitting reloads the context; the course and
+        // type only re-evaluate what is already loaded.
+        (function wireAdd() {
+            var reg = qs('addRegNo'), sem = qs('addSem'), acad = addAcadEl();
+            if (reg) {
+                reg.addEventListener('blur', addLoadCourses);
+                reg.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addLoadCourses(); } });
+            }
+            if (sem) sem.addEventListener('change', addLoadCourses);
+            if (acad) acad.addEventListener('change', addLoadCourses);
+            var c = qs('addCourse');
+            if (c) { c.addEventListener('change', renderAddCheck); c.addEventListener('input', renderAddCheck); }
+            var t = qs('addType');
+            if (t) t.addEventListener('change', renderAddCheck);
+        })();
+
         window.submitAdd = function (btn) {
             var reg = (qs('addRegNo').value || '').trim();
             var course = (qs('addCourse').value || '').trim();
-            var acad = (qs('addAcad').value || '').trim();
+            var acad = addAcadVal();
             var sem = parseInt(qs('addSem').value, 10) || 0;
             var type = qs('addType').value || 'REGULAR';
             if (!reg) { msg('addMsg', 'Please enter a registration number.'); return; }
-            if (!acad) { msg('addMsg', 'Please enter the academic year (e.g. 2025/2026).'); return; }
+            if (!acad) { msg('addMsg', 'Please choose the academic year.'); return; }
             if (!course) { msg('addMsg', 'Please choose a course.'); return; }
             course = resolveCode(addCourses, course);
             if (!codeInList(addCourses, course, addTaken)) {
